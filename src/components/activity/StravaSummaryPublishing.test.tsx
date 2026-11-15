@@ -119,10 +119,27 @@ describe("Strava summary publishing", () => {
     const previewHeading = screen.getByRole("heading", { name: "stravaSummary.previewLabel", level: 4 });
     const resultHeading = screen.getByRole("heading", { name: "stravaSummary.statusTitle", level: 4 });
     expect(previewHeading.parentElement).toContainElement(preview);
-    expect(resultHeading.parentElement).toContainElement(screen.getByRole("button", { name: "stravaSummary.publish" }));
+    expect(resultHeading.closest(".activity-strava-publishing-controls")).toContainElement(screen.getByRole("button", { name: "stravaSummary.publish" }));
     const targetEditor = screen.getByText("stravaSummary.targetHelp").closest("details");
     expect(previewHeading.parentElement).not.toContainElement(targetEditor);
-    expect(resultHeading.parentElement).not.toContainElement(targetEditor);
+    expect(resultHeading.closest(".activity-strava-publishing-controls")).not.toContainElement(targetEditor);
+  });
+
+  // 다시 확인 동작은 큰 글자 버튼이 아니라 각 제목 옆 아이콘 버튼이다.
+  it("renders status re-check as an icon button beside the status heading", async () => {
+    mocks.preview.mockResolvedValue({ data: readyPreview({ publishStatus: { status: "published", stravaActivityId: "12345" } }) });
+    await renderReady();
+    const refresh = screen.getByRole("button", { name: "stravaSummary.refreshStatus" });
+    expect(refresh).toHaveClass("ds-btn--icon-only"); expect(refresh).toHaveAttribute("title", "stravaSummary.refreshStatus"); expect(refresh).toHaveTextContent("");
+    expect(refresh.parentElement).toContainElement(screen.getByRole("heading", { name: "stravaSummary.statusTitle", level: 4 }));
+  });
+
+  it("renders preview retry as an icon button beside the card title", async () => {
+    mocks.preview.mockRejectedValueOnce(new Error("offline"));
+    render(<StravaSummaryPublishing activityId="own-ride" lang="ko" />);
+    const retry = await screen.findByRole("button", { name: "stravaSummary.retryPreview" });
+    expect(retry).toHaveClass("ds-btn--icon-only"); expect(retry).toHaveAttribute("title", "stravaSummary.retryPreview"); expect(retry).toHaveTextContent("");
+    expect(retry.parentElement).toContainElement(screen.getByRole("heading", { name: "stravaSummary.title", level: 3 }));
   });
 
   it("does not label a preview failure as a previous publication result", async () => {

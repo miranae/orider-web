@@ -41,9 +41,21 @@ describe("club invitation read permissions", () => {
     expect(screen.getByText("초대 링크를 불러오지 못했습니다.")).toBeInTheDocument();
     expect(screen.queryByTestId("C6-3-1")).not.toBeInTheDocument();
     expect(screen.queryByText("초대 코드를 불러오지 못했습니다.")).not.toBeInTheDocument();
-    expect(screen.getByTestId("C6-3-regenerate")).toBeInTheDocument();
+    // 불러오기 실패에도 재생성은 다시 시도 옆 아이콘으로 남는다.
+    const regenerate=screen.getByRole("button",{name:"초대 코드 재생성"});
+    expect(regenerate).toHaveClass("ds-btn--icon-only");
+    expect(regenerate.closest("[role=alert]")).not.toBeNull();
     await userEvent.click(screen.getByRole("button",{name:"다시 시도"}));
     expect(state.retry).toHaveBeenCalledTimes(1);
+  });
+  it("shows invite-code regeneration as an icon next to the copy button", async () => {
+    state.role="co-leader";
+    showPage();await userEvent.click(screen.getByRole("tab",{name:"초대"}));
+    const regenerate=screen.getByRole("button",{name:"초대 코드 재생성"});
+    expect(regenerate).toHaveClass("ds-btn--icon-only");
+    expect(regenerate).toHaveAttribute("title","초대 코드 재생성");
+    expect(regenerate.textContent).toBe("");
+    expect(regenerate.parentElement).toBe(screen.getByTestId("C6-3-1").parentElement);
   });
   it("does not grant invitation reads to inactive co-leaders", () => {
     state.role = "co-leader"; state.status = "inactive";

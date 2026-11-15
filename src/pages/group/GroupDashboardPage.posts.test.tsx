@@ -54,6 +54,23 @@ beforeEach(() => {
   Object.assign(auth, { currentUser: { uid: "owner" } });
 });
 describe("group post editing", () => {
+  it("puts post edit, delete, and report actions as icons in the post header", async () => {
+    const view = render(<Page />);
+    const header = screen.getByText("Original author").parentElement as HTMLElement;
+    for (const name of ["수정", "삭제"]) {
+      const button = within(header).getByRole("button", { name, exact: true });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button.textContent).toBe("");
+    }
+    // 남의 공지는 관리자가 아니면 신고 아이콘만 보인다.
+    state.uid = "member"; state.role = "member"; state.authorId = "owner"; Object.assign(auth, { currentUser: { uid: "member" } });
+    view.rerender(<Page />);
+    const memberHeader = screen.getByText("Original author").parentElement as HTMLElement;
+    expect(within(memberHeader).getByRole("button", { name: "신고" })).toHaveClass("ds-btn--icon-only");
+    expect(within(memberHeader).queryByRole("button", { name: "수정", exact: true })).toBeNull();
+    expect(within(memberHeader).queryByRole("button", { name: "삭제" })).toBeNull();
+  });
   it("keeps anonymous shared-link visitors on the public login path and resumes member access after real sign-in", async () => {
     state.isAnonymous = true;
     state.roleError = new Error("a guest must not reach the member error branch");
@@ -116,6 +133,14 @@ describe("group post editing", () => {
     expect(await screen.findByText("아침 모임")).toBeInTheDocument();
     await screen.findByText("남의 대회");
     expect(screen.getAllByTestId("club-dashboard-edit").map(link=>link.getAttribute("href"))).toEqual(["/ko/club/group-1/meetings/my-meeting/edit","/ko/event/my-race/host/edit"]);
+    // 수정은 글자 버튼이 아니라 연필 아이콘 링크이고, 접근 이름은 기존 문구다.
+    for(const [name,href] of [["모임 수정","/ko/club/group-1/meetings/my-meeting/edit"],["이벤트 정보 수정","/ko/event/my-race/host/edit"]]){
+      const link=screen.getByRole("link",{name});
+      expect(link).toHaveAttribute("href",href);
+      expect(link).toHaveClass("ds-btn--icon-only");
+      expect(link).toHaveAttribute("title",name);
+      expect(link.textContent).toBe("");
+    }
   });
   it("loads upcoming events through the screen services so the app embed is not left empty",async()=>{
     const embedded = { auth: { currentUser: { uid: "owner" } }, functions: { embedded: true }, ensureAppCheckReady: vi.fn(async()=>undefined), firestore: {}, getAppCheckToken: vi.fn() } as unknown as FirebaseServices;

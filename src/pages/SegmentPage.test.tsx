@@ -38,6 +38,16 @@ describe("SegmentPage", () => {
     expect(within(summary).getAllByText("—").length).toBeGreaterThanOrEqual(3);
     expect(summary).not.toHaveTextContent("NaN");
   });
+  it("shows share as an icon-only action beside the segment title", async () => {
+    setDocData("segments/seg-1", { name: "Share segment", distance: 1000, averageGrade: 3, maximumGrade: 5, elevationHigh: 50, elevationLow: 20 });
+    renderWithProviders(<SegmentPage />, { route: "/ko/segment/seg-1" });
+    await screen.findByText("Share segment");
+    const share = screen.getByRole("button", { name: "공유" });
+    expect(share).toHaveClass("ds-btn--icon-only");
+    expect(share).toHaveAttribute("title", "공유");
+    expect(share).toHaveTextContent("");
+    expect(share.parentElement).toContainElement(screen.getByRole("heading", { level: 1, name: "Share segment" }));
+  });
   it("keeps English gradient labels explainable and leaderboard counts singular/plural", () => {
     expect(splitGlossaryText(enSegment.averageGrade).some(part => part.termId === "grade")).toBe(true);
     expect(splitGlossaryText(enSegment.maxGrade).some(part => part.termId === "grade")).toBe(true);

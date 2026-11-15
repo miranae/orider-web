@@ -34,3 +34,14 @@ it("distinguishes equal-time results and marks the selected saved result",()=>{
 it("does not describe a loaded history list as an unfinished query",()=>{
  mocks.query.history={items:[{runId:"saved",asOf:1000,scanned:2}],nextCursor:null};mocks.query.data=null;mocks.query.status="ready";mount();expect(screen.queryByRole("status")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:/routeHistory.historyEntry/})).toBeEnabled();
 });
+// 첫 확인은 작은 글자 버튼, 결과가 생긴 뒤 새로 확인은 아이콘 버튼이다.
+it("keeps the first start compact and turns restart into an icon button once a result exists",()=>{
+ const view=mount();const first=screen.getByRole("button",{name:"routeHistory.start"});
+ expect(first).toHaveClass("ds-btn--sm");expect(first).not.toHaveClass("ds-btn--block","ds-btn--icon-only");
+ expect(screen.queryByRole("button",{name:"routeHistory.restart"})).not.toBeInTheDocument();
+ view.unmount();mocks.query.data={state:"scanning",scanned:2,candidateCount:1,excluded:0,unresolved:0,asOf:1000,expiresAt:3001000,best:null};mount();
+ const restart=screen.getByRole("button",{name:"routeHistory.restart"});
+ expect(restart).toHaveClass("ds-btn--icon-only");expect(restart).toHaveAttribute("title","routeHistory.restart");expect(restart).toHaveTextContent("");
+ expect(screen.queryByRole("button",{name:"routeHistory.start"})).not.toBeInTheDocument();
+ fireEvent.click(restart);expect(mocks.query.start).toHaveBeenCalledOnce();
+});

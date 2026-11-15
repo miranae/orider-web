@@ -2,7 +2,7 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useActivityNarrativeHistory } from "../../hooks/useActivityNarrativeHistory";
 import NarrativeComparisonGrounding from "./NarrativeComparisonGrounding";
 import { captureActivityNarrativeSession } from "../../services/activityNarrativeSession";
-import { ChartLine } from "lucide-react";
+import { ChartLine, RefreshCw } from "lucide-react";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 /**
  * AI 라이딩 분석 카드 (활동 개요).
@@ -14,7 +14,7 @@ import { getRuntimeConfig } from "../../services/runtimeConfig";
  */
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, Text, Button } from "../../theme/components";
+import { Card, Text, Button, IconButton } from "../../theme/components";
 
 /** 구간당 메달(🏅/🏆) 기본 노출 상한 — 한 구간이 수십 개 세그먼트에 매칭되면 메달 벽이 생겨 가독성 저하. */
 const MEDAL_LIMIT = 5;
@@ -330,18 +330,16 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         {historyControls}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
+            {/* 요약만 있는 상태의 상세 분석 다시 불러오기는 헤더 아이콘 버튼으로 둔다. */}
             {canGenerate ? (
-              <Button
-                size="sm"
-                variant="secondary"
+              <IconButton size="sm" variant="ghost" className="ml-auto"
+                aria-label={t("ai.refreshDetailBtn")} title={t("ai.refreshDetailBtn")} icon={<RefreshCw size={ICON_SIZE.sm} />}
                 onClick={() => {
                   if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
                   setForceRefresh(false);
                   setTriggerFull(true);
                 }}
-              >
-                {t("ai.refreshDetailBtn")}
-              </Button>
+              />
             ) : null}
           </div>
           <Text variant="body" tone="primary" as="p" className="mt-3">{previewSummary}</Text>
@@ -476,6 +474,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   // 서버 계약: null 은 "안내 없음". 필드 자체가 없는(구 서버) 응답만 stale 로 폴백한다.
   const reanalysis = data.reanalysisAvailable !== undefined ? data.reanalysisAvailable : (data.stale ? "inputs_changed" : null);
   const ownerReanalysis = isActivityOwner ? reanalysis : null;
+  const reanalyzeLabel = t(ownerReanalysis === "analyst_updated" ? "ai.reanalyzeWithNewAnalystBtn" : ownerReanalysis === "inputs_changed" ? "ai.refreshAnalysisBtn" : "ai.reanalyzeBtn");
   const analystVersion = data.narrativeVersion ? data.narrativeVersion.replace(/^rsn-/, "") : "";
   const coachedSegments = data.segments.filter((segment) => segment.narrative !== "");
   const tempBadge =
@@ -497,11 +496,16 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
         {canGenerate && !history.selected && (
-          <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
-            {t(ownerReanalysis === "analyst_updated" ? "ai.reanalyzeWithNewAnalystBtn" : ownerReanalysis === "inputs_changed" ? "ai.refreshAnalysisBtn" : "ai.reanalyzeBtn")}
-          </Button>
+          <IconButton size="sm" variant="ghost" className="ml-auto" onClick={retryFullAnalysis} disabled={full.loading}
+            aria-label={reanalyzeLabel} title={reanalyzeLabel} icon={<RefreshCw size={ICON_SIZE.sm} />} />
         )}
       </div>
+      {/* 다시 분석 사유는 버튼 문구 대신 헤더 아래 작은 안내로 둔다 — 사유가 있을 때만. */}
+      {canGenerate && !history.selected && ownerReanalysis && (
+        <Text variant="caption" tone="tertiary" as="p" className="mb-3">
+          {t(ownerReanalysis === "analyst_updated" ? "ai.reanalysisReason.analystUpdated" : "ai.reanalysisReason.inputsChanged")}
+        </Text>
+      )}
 
       {(generatedAt || analystVersion || ownerReanalysis) && (
         <div className="flex items-center flex-wrap gap-2 mb-3">

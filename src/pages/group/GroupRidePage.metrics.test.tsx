@@ -64,6 +64,14 @@ describe("club ride metric presentation", () => {
     renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
     expect(await screen.findByText("활동 기록 2개 · 참가자 1명")).toBeInTheDocument();
   });
+  it("puts activity refresh as an icon next to the page title", async () => {
+    setCollectionDocs("activities", [{ ...activity("known", null, null), nickname: "알려진 사람" }]);
+    renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
+    const refresh = await screen.findByRole("button", { name: "활동 새로 조회" });
+    expect(refresh).toHaveClass("ds-btn--icon-only");
+    expect(refresh).toHaveAttribute("title", "활동 새로 조회");
+    expect(refresh.parentElement).toBe(screen.getByTestId("C2R-0").parentElement);
+  });
   it("shows a fallback immediately and hydrates missing public names without cancelling pending streams", async () => {
     setCollectionDocs("activities", [{ ...activity("missing", null, null), nickname: " ", source: "strava", stravaActivityId: "missing" }]);
     let resolveProfiles!: (value: Map<string, { nickname: string }>) => void;

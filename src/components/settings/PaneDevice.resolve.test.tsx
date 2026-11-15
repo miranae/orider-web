@@ -128,4 +128,39 @@ describe("PaneDevice 경고·알림 → 해결", () => {
     fireEvent.click(message);
     expect(mocks.signIn).toHaveBeenCalledTimes(1);
   });
+
+  it("기기 머리의 이름 변경·삭제·새로고침은 글자 없는 아이콘 버튼이고 이름 변경은 기기 이름 옆에 있다", () => {
+    renderPane();
+    const header = screen.getByTestId("S6-0-1");
+    for (const name of ["디바이스 이름 변경", "디바이스 삭제", "새로고침"]) {
+      const button = within(header).getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button.textContent).toBe("");
+    }
+    expect(header.querySelector(".settings-device-header__selector")).toContainElement(
+      within(header).getByRole("button", { name: "디바이스 이름 변경" }),
+    );
+    fireEvent.click(within(header).getByRole("button", { name: "새로고침" }));
+    expect(mocks.reload).toHaveBeenCalled();
+  });
+
+  it("설정 카드의 편집은 글자 없는 연필 아이콘 버튼이다", () => {
+    renderPane();
+    const edit = within(screen.getByTestId("S6-2-1")).getByRole("button", { name: "편집" });
+    expect(edit).toHaveClass("ds-btn--icon-only");
+    expect(edit).toHaveAttribute("title", "편집");
+    expect(edit.textContent).toBe("");
+  });
+
+  it("옛 구성 카드의 자전거별 데이터 페이지 열기는 화살표 아이콘 링크이고 가져오기는 글자 버튼 그대로다", () => {
+    renderPane();
+    const link = screen.getByRole("link", { name: "자전거별 데이터 페이지 열기" });
+    expect(link).toHaveAttribute("href", "/ko/settings/device?panel=data-pages");
+    expect(link).toHaveAttribute("title", "자전거별 데이터 페이지 열기");
+    expect(link).toHaveClass("ds-btn--icon-only");
+    expect(link).not.toHaveClass("ds-btn--secondary");
+    expect(link.textContent).toBe("");
+    expect(screen.getByTestId("legacy-layout-import-open")).toHaveTextContent("이 구성을 자전거로 가져오기");
+  });
 });

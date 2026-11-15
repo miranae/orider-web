@@ -77,6 +77,18 @@ describe("bounded route group panel", () => {
     mocks.status = status; render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="head" />);
     expect(screen.getByText(ko.routeGroup.states[status as keyof typeof ko.routeGroup.states])).toBeInTheDocument(); expect(screen.getByRole("button", { name: ko.routeGroup.refresh })).toBeInTheDocument(); expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
+  // 첫 확인은 작은 글자 버튼, 이후 다시 확인은 상태 줄의 아이콘 버튼이다.
+  it("keeps the first find compact and turns re-check into a status-row icon button", () => {
+    const view = render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="head" />);
+    const first = screen.getByRole("button", { name: ko.routeGroup.find });
+    expect(first).toHaveClass("ds-btn--sm", "matched-route-group-start"); expect(first).not.toHaveClass("ds-btn--block", "ds-btn--icon-only");
+    mocks.pages = [page()]; mocks.status = "partial"; view.rerender(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="head" />);
+    const refresh = screen.getByRole("button", { name: ko.routeGroup.refresh });
+    expect(refresh).toHaveClass("ds-btn--icon-only"); expect(refresh).toHaveAttribute("title", ko.routeGroup.refresh); expect(refresh).toHaveTextContent("");
+    expect(refresh.parentElement).toHaveClass("matched-route-group-status"); expect(refresh.parentElement).toHaveTextContent(ko.routeGroup.states.partial);
+    expect(screen.queryByRole("button", { name: ko.routeGroup.find })).not.toBeInTheDocument();
+    fireEvent.click(refresh); expect(mocks.start).toHaveBeenCalledOnce();
+  });
 });
 
 it('requires native opt-in, suppresses comparison chart and fastest badges while keeping activity links', () => {

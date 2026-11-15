@@ -3,7 +3,9 @@ import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import type { NarrativeLang } from "../../hooks/useActivityNarrative";
-import { Button, Text } from "../../theme/components";
+import { RefreshCw } from "lucide-react";
+import { IconButton, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { InlineRow, Toggle } from "./_primitives";
 
 interface Settings { enabled: boolean; lang: NarrativeLang }
@@ -51,8 +53,11 @@ export default function StravaSummarySettings() {
   return (
     <InlineRow data-testid="S2-1-3" label={t("stravaSummary.automatic")} hint={t("stravaSummary.automaticHint")}>
       <div className="space-y-2">
-        <Toggle on={settings?.enabled ?? false} ariaLabel={t("stravaSummary.automatic")} disabled={loading || saving || !settings} onChange={(enabled) => { void save(enabled); }} />
-        {!settings && <Button variant="secondary" size="md" disabled={loading} onClick={() => { setMessage(null); setReloadKey((key) => key + 1); }}>{t("stravaSummary.loadSettings")}</Button>}
+        {/* 불러오기 실패 시 다시 불러오기는 토글 옆 아이콘으로 */}
+        <div className="flex items-center gap-1">
+          <Toggle on={settings?.enabled ?? false} ariaLabel={t("stravaSummary.automatic")} disabled={loading || saving || !settings} onChange={(enabled) => { void save(enabled); }} />
+          {!settings && <IconButton variant="ghost" icon={<RefreshCw size={ICON_SIZE.xs} />} disabled={loading} onClick={() => { setMessage(null); setReloadKey((key) => key + 1); }} aria-label={t("stravaSummary.loadSettings")} title={t("stravaSummary.loadSettings")} />}
+        </div>
         {message && <Text as="p" variant="caption" tone="tertiary" role="status">{t(`stravaSummary.${message}`)}</Text>}
       </div>
     </InlineRow>

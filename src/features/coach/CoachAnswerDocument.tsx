@@ -1,6 +1,8 @@
 import { Fragment, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { Button, Card, Chip, IconButton, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { Resolvable } from "../../components/redesign";
 import { FOCUS_TARGETS, thresholdSettingsHref } from "../../services/focusTarget";
 import type { CoachDiscipline } from "../../services/coachClient";
@@ -295,6 +297,14 @@ function TypedLoadTrendTable({ block, locale }: { block: Extract<CoachAnswerBloc
       {metrics.map((metric) => <td key={metric}><Display item={week[metric]} locale={locale} /></td>)}</tr>)}</tbody></table></div>;
 }
 
+/** 추세 제목 옆 차트와 표 펼침 아이콘 버튼 — 접근성 이름은 열림 상태에 따라 보기/접기 문구로 바뀐다. */
+function ChartToggle({ open, controls, onToggle }: { open: boolean; controls: string; onToggle: () => void }) {
+  const { t } = useTranslation("coach");
+  const label = t(open ? "answer.load.hideChart" : "answer.load.showChart");
+  return <IconButton type="button" size="sm" variant="ghost" aria-expanded={open} aria-controls={controls} aria-label={label} title={label}
+    icon={open ? <ChevronUp size={ICON_SIZE.md} /> : <ChevronDown size={ICON_SIZE.md} />} onClick={onToggle} />;
+}
+
 function TypedLoadAnalysisView({ block, responseFormat, showLocalFormatFallback = false, locale, onAction }: { block: Extract<CoachAnswerBlock, { kind: "load_analysis" }>;
   responseFormat: CoachResponseFormat; showLocalFormatFallback?: boolean; locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void }) {
@@ -323,10 +333,10 @@ function TypedLoadAnalysisView({ block, responseFormat, showLocalFormatFallback 
         <div><span>{t("answer.column.previous")}</span><Display item={value.weeklyTss.previousComparable} locale={locale} /></div>
         <div><span>{t("answer.column.current")}</span><Display item={value.weeklyTss.current} locale={locale} /></div>
         <div><span>{t("answer.column.delta")}</span><Display item={value.weeklyTss.delta} locale={locale} showPositiveSign /></div></div></section>
-    {value.weeklyTrend.length > 0 && <section className="coach-answer__load-trend"><h4>{t("answer.load.trendTitle")}</h4>
+    {/* 차트와 표 펼침은 추세 제목 옆 아이콘 버튼으로 둔다. */}
+    {value.weeklyTrend.length > 0 && <section className="coach-answer__load-trend"><div className="flex items-center gap-2"><h4>{t("answer.load.trendTitle")}</h4>
+      {responseFormat === "auto" && chartableTrend && <ChartToggle open={chartOpen} controls={`coach-load-${block.blockId}`} onToggle={() => setChartOpen((open) => !open)} />}</div>
       {showLocalFormatFallback && responseFormat === "chart" && !chartableTrend && <FormatFallbackNotice local />}
-      {responseFormat === "auto" && chartableTrend && <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls={`coach-load-${block.blockId}`}
-        onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>}
       {responseFormat === "table" || !chartableTrend
         ? <TypedLoadTrendTable block={block} locale={locale} />
         : responseFormat === "chart" || (responseFormat === "auto" && chartOpen)
@@ -375,7 +385,9 @@ function LoadAnalysisView({ group, responseFormat, showLocalFormatFallback, loca
         {columns.map((column) => <td key={column}><Display item={row.cells[column]} locale={locale} showPositiveSign={column === "delta"} /></td>)}</tr>)}</tbody>
     </table></div>}
     {group.trends.length > 0 && <section className="coach-answer__load-trend" aria-labelledby="coach-load-trend-title">
-      <h4 id="coach-load-trend-title">{t("answer.load.trendTitle")}</h4>
+      <div className="flex items-center gap-2"><h4 id="coach-load-trend-title">{t("answer.load.trendTitle")}</h4>
+        {responseFormat === "auto" && group.trends.some(isChartableTimeSeries)
+          && <ChartToggle open={chartOpen} controls="coach-load-charts" onToggle={() => setChartOpen((open) => !open)} />}</div>
       {responseFormat === "auto" && <ul className="coach-answer__load-sequences">{group.trends.flatMap((block) => block.series
         .filter((series) => LOAD_METRIC_IDS.has(series.metricId)).map((series) => <li key={`${block.blockId}-${series.seriesId}`}>
           <strong><MetricLabel metricId={series.metricId} /></strong>
@@ -385,8 +397,6 @@ function LoadAnalysisView({ group, responseFormat, showLocalFormatFallback, loca
             </Fragment>)}
           </span>
         </li>))}</ul>}
-      {responseFormat === "auto" && group.trends.some(isChartableTimeSeries) && <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls="coach-load-charts"
-        onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>}
       {(responseFormat !== "auto" || chartOpen) && <div id="coach-load-charts" className="coach-answer__load-charts" aria-label={t("answer.load.chartRegion")}>
         {group.trends.map((block) => <div key={block.blockId}>{showLocalFormatFallback && responseFormat === "chart"
           && !isChartableTimeSeries(block) && <FormatFallbackNotice local />}{responseFormat === "table" || !isChartableTimeSeries(block)

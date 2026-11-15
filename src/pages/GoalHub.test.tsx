@@ -21,6 +21,7 @@ describe("goal hub", () => {
     else vi.mocked(updateDoc).mockRejectedValueOnce(new Error("denied"));
     try {
       renderWithProviders(<GoalHub wizard={<div>wizard</div>} />, {route:"/ko/coach/goals?sport=bike"});
+      fireEvent.click(screen.getByRole("button", { name: "목표 관리" }));
       fireEvent.click(screen.getByTestId("K3-1-5"));
       await waitFor(() => expect(updateDoc).toHaveBeenCalled());
       if (success) await waitFor(() => expect(changed).toHaveBeenCalledOnce());
@@ -34,7 +35,20 @@ describe("goal hub", () => {
     expect(screen.getByTestId("K3-1-2")).toHaveTextContent("목표기간 훈련 부하");
     expect(screen.getByTestId("K3-1-2")).toHaveTextContent("목표기간을 확인할 수 없어");
     expect(screen.queryByRole("progressbar", { name: "목표 진행률" })).not.toBeInTheDocument();
+    // 목표 변경은 제목 옆 아이콘 전용 버튼, 목표 포기는 ⋯ 메뉴 안에 둔다(계획 보기 줄에는 없다).
+    const heading = screen.getByRole("heading", { name: "Winter course" });
+    const change = screen.getByRole("button", { name: "목표 변경" });
+    expect(change).toHaveClass("ds-btn--icon-only"); expect(change).toHaveAttribute("title", "목표 변경"); expect(change).toHaveTextContent("");
+    expect(change.parentElement).toContainElement(heading);
+    const more = screen.getByRole("button", { name: "목표 관리" });
+    expect(more).toHaveClass("ds-btn--icon-only"); expect(more).toHaveAttribute("title", "목표 관리");
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(heading.parentElement).toContainElement(more);
+    expect(screen.queryByRole("button", { name: "목표 포기" })).not.toBeInTheDocument();
+    fireEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "목표 포기" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "계획 보기 →" }).parentElement).not.toContainElement(change);
     expect(screen.getByRole("link", { name: "계획 보기 →" })).toHaveAttribute("href", "/ko/coach/plan?sport=bike");
     expect(screen.queryByText("event wizard")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "대회·코스 완주" }));
@@ -59,6 +73,7 @@ describe("goal hub", () => {
     state.goal = { id: "run", title: "30분 달리기", runProgram: { week: 1 } };
     renderWithProviders(<GoalHub wizard={<div>run wizard</div>} />);
     expect(screen.getAllByRole("link", { name: "계획 보기 →" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "목표 관리" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "30분 달리기 프로그램" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /수영/ })).not.toBeInTheDocument();
     expect(state.goal.runProgram).toEqual({ week: 1 });

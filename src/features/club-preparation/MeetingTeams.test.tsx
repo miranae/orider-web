@@ -150,6 +150,37 @@ describe("실제 조편성 편집", () => {
   });
 });
 
+describe("조 명단 복사·편집은 제목 옆 아이콘으로 둔다", () => {
+  const headingOf = (button: HTMLElement) =>
+    button.closest(".cp-section-heading")?.querySelector("h2")?.textContent;
+  it("조가 없으면 명단 복사와 조 나누기를 「함께 달릴 조」 제목 옆 아이콘 버튼으로 보여준다", () => {
+    renderWithProviders(wrap(initial, 1, vi.fn()));
+    for (const name of ["명단 복사", "조 나누기"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.className).toContain("ds-btn--icon-only");
+      expect(button.textContent).toBe("");
+      expect(button).toHaveAttribute("title", name);
+      expect(headingOf(button)).toContain("함께 달릴 조");
+    }
+  });
+  it("조가 있으면 연필 아이콘의 접근 이름이 조편성 편집이고, 편집을 열면 아이콘이 사라진다", () => {
+    const teams = createInitialTeamDraft(initial.registrations, 2);
+    renderWithProviders(wrap({ ...initial, teams }, 1, vi.fn()));
+    const edit = screen.getByRole("button", { name: "조편성 편집" });
+    expect(edit.className).toContain("ds-btn--icon-only");
+    expect(edit).toHaveAttribute("title", "조편성 편집");
+    expect(headingOf(edit)).toContain("함께 달릴 조");
+    expect(screen.queryByRole("button", { name: "조 나누기" })).toBeNull();
+    fireEvent.click(edit);
+    expect(screen.queryByRole("button", { name: "조편성 편집" })).toBeNull();
+  });
+  it("주최자가 아니면 복사·편집 아이콘을 보여주지 않는다", () => {
+    renderWithProviders(wrap(initial, 1, vi.fn(), undefined, false));
+    expect(screen.queryByRole("button", { name: "명단 복사" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "조 나누기" })).toBeNull();
+  });
+});
+
 describe("5명 조편성 조정", () => {
   it("2/2/1에서 만석 조 맞교환·되돌리기·여유조 이동·초과 거절·조장 지정을 저장 전 끝낸다", async () => {
     // 같은 실제 버튼을 찾되 모든 조의 접근성 이름을 매번 계산하지 않는다.
@@ -184,7 +215,8 @@ describe("5명 조편성 조정", () => {
         onReload={vi.fn().mockResolvedValue(undefined)}
       />,
     );
-    fireEvent.click(button("조편성 편집"));
+    // 조편성 편집은 아이콘 전용 버튼이라 글자 대신 접근 이름으로 찾는다.
+    fireEvent.click(screen.getByLabelText("조편성 편집", { selector: "button" }));
     expect(
       screen
         .getAllByText("조 설정")
@@ -264,7 +296,7 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
         onReload={vi.fn().mockResolvedValue(undefined)}
       />,
     );
-    const edit = screen.getByText("조편성 편집").closest<HTMLButtonElement>("button")!;
+    const edit = screen.getByLabelText<HTMLButtonElement>("조편성 편집", { selector: "button" });
     expect(edit).toHaveRole("button");
     expect(edit).toHaveAccessibleName("조편성 편집");
     expect(edit).toBeVisible();

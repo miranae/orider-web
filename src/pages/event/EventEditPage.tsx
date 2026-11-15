@@ -5,7 +5,7 @@ import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
 import Modal from "../../components/Modal";
-import { CalendarDays, CircleAlert, Clock3, LockKeyhole, Map, Users } from "lucide-react";
+import { CalendarDays, CircleAlert, Clock3, Eye, LockKeyhole, Map, Pencil, Users } from "lucide-react";
 import "../ExploreReview.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -22,7 +22,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField, TimeField } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
-import { Button, Chip, Text, Input, Textarea } from "../../theme/components";
+import { Button, Chip, IconButton, Text, Input, Textarea } from "../../theme/components";
 import { Field, PickerRow, Section, Toggle, fieldStyle } from "../../features/event/form/eventFormControls";
 import { joinDtLocal, joinStartTimeKst, newEditableCategory, splitDtLocal, splitStartTime, type EditableCategoryRow } from "../../features/event/form/eventFormUtils";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -556,23 +556,19 @@ export default function EventEditPage() {
               </Chip>
               <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-code)" }}>{event.id}</span>
             </div>
-            <h1 className="truncate" style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)" }}>
-              {data.name}
-            </h1>
+            {/* 미리보기·참가자 관리는 제목 옆 작은 아이콘으로 — 큰 글자 버튼을 두지 않는다. */}
+            <div data-testid="event-edit-title-actions" className="flex items-center min-w-0" style={{ gap: "var(--space-1)" }}>
+              <h1 className="truncate min-w-0" style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)" }}>
+                {data.name}
+              </h1>
+              <IconButton variant="ghost" size="sm" aria-label={t("preview")} title={t("preview")}
+                icon={<Eye size={ICON_SIZE.sm} />} onClick={() => navigate(`/event/${eventId}`)} />
+              <IconButton variant="ghost" size="sm" aria-label={t("action.manageParticipants")} title={t("action.manageParticipants")}
+                icon={<Users size={ICON_SIZE.sm} />} onClick={() => navigate(`/event/${eventId}/host/participants`)} />
+            </div>
             <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>
               {t(totalSlots === 0 ? "capacity.editUnlimitedSummary" : "edit.capacitySummary", { filled: totalFilled ?? "—", total: totalSlots === 0 ? t("capacity.unlimited") : totalSlots, date: data.date, time: data.startTime })}
             </div>
-          </div>
-          <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
-            <Button type="button" onClick={() => navigate(`/event/${eventId}`)} variant="secondary" size="sm">
-              {t("preview")}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
-            >
-              <Users size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.manageParticipants")}
-            </Button>
           </div>
         </div>
       </div>
@@ -729,12 +725,8 @@ export default function EventEditPage() {
                     </div>
                   )}
                 </div>
-                <Button
-                  type="button"
-                  onClick={() => setToast({ type: "warn", msg: t("edit.courseChangeSoon") })} variant="secondary" size="sm"
-                >
-                  {t("button.edit")}
-                </Button>
+                <IconButton variant="secondary" size="sm" aria-label={t("button.edit")} title={t("button.edit")} icon={<Pencil size={ICON_SIZE.sm} />}
+                  onClick={() => setToast({ type: "warn", msg: t("edit.courseChangeSoon") })} />
               </div>
             </Field>
 

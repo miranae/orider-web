@@ -1,20 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { History } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { createActivityReanalysisClient, type SavedActivityAnalysis, type ActivityAnalysisHistory, type ActivityReanalysisState } from "../../../services/activityReanalysis";
-import { Button, Stack, Text } from "../../../theme/components";
+import { Button, IconButton, Stack, Text } from "../../../theme/components";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 import { logClientError } from "../../../services/errorLogger";
 
+type ReanalysisProps = { canReanalyze?: boolean; onAccessRevoked?: () => void; activityId: string; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void;
+  /** 아이콘 버튼 하나로 접어 두고 누를 때만 패널을 연다(활동 상세 분석 머리글용). 이전 분석을 보는 중이면 열린 채로 시작한다. */
+  collapsible?: boolean };
+
 /** This control never edits or clears displayed metrics; publication remains server-owned. */
-export function ActivityReanalysisControl({ activityId, selectedRevision, onSelect, canReanalyze = true, onAccessRevoked }: { canReanalyze?: boolean; onAccessRevoked?: () => void; activityId: string; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void }) {
+export function ActivityReanalysisControl({ activityId, selectedRevision, onSelect, canReanalyze = true, onAccessRevoked, collapsible = false }: ReanalysisProps) {
   const services = useFirebaseServices(), viewer = services.auth.currentUser;
   const client = useMemo(() => createActivityReanalysisClient(services), [services, viewer]);
   const identity = useMemo(() => ({ client, activityId }), [client, activityId]);
   const scope = useRef({ identity, generation: 0 });
   if (scope.current.identity !== identity) scope.current = { identity, generation: scope.current.generation + 1 };
-  return <ReanalysisSession key={scope.current.generation} activityId={activityId} client={client} selectedRevision={selectedRevision} onSelect={onSelect} canReanalyze={canReanalyze && !!viewer && !viewer.isAnonymous} onAccessRevoked={onAccessRevoked} />;
+  return <ReanalysisSession key={scope.current.generation} activityId={activityId} client={client} selectedRevision={selectedRevision} onSelect={onSelect} canReanalyze={canReanalyze && !!viewer && !viewer.isAnonymous} onAccessRevoked={onAccessRevoked} collapsible={collapsible} />;
 }
-function ReanalysisSession({ activityId, client, selectedRevision, onSelect, canReanalyze, onAccessRevoked }: { canReanalyze: boolean; onAccessRevoked?: () => void; activityId: string; client: ReturnType<typeof createActivityReanalysisClient>; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void }) {
+function ReanalysisSession({ activityId, client, selectedRevision, onSelect, canReanalyze, onAccessRevoked, collapsible }: { canReanalyze: boolean; onAccessRevoked?: () => void; activityId: string; client: ReturnType<typeof createActivityReanalysisClient>; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void; collapsible: boolean }) {
   const [stored, setStored] = useState<{ client: typeof client; activityId: string; data: ActivityReanalysisState } | null>(null);
   const [history, setHistory] = useState<ActivityAnalysisHistory | null>(null);
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState<"request" | "history" | null>(null);
@@ -22,6 +28,10 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect, can
   const generation = useRef(0), pending = useRef(false);
   const request = useRef<{ id: string; revision: string | null } | null>(null);
   const { t } = useTranslation("activity");
+  // 접힘 상태 — 이전 분석을 보는 중이면 돌아가기 동작이 보이도록 펼친다.
+  const [open, setOpen] = useState(!!selectedRevision);
+  const panelId = useId();
+  useEffect(() => { if (selectedRevision) setOpen(true); }, [selectedRevision]);
   const state = stored?.client === client && stored.activityId === activityId ? stored.data : null;
   useEffect(() => {
     generation.current++; pending.current = false; request.current = null;
@@ -72,7 +82,7 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect, can
     }
     finally { if (token === generation.current) { pending.current = false; setBusy(false); } }
   };
-  return <section aria-label={t("reanalysis.title")}>
+  const panel = <section id={panelId} aria-label={t("reanalysis.title")} className={collapsible ? "activity-reanalysis__panel" : undefined}>
     <Stack gap="sm">
       <Text as="p" variant="bodySmall" tone="secondary">{t("reanalysis.keepSaved")}</Text>
       {state && <Text as="p" variant="bodySmall">{t("reanalysis.versions", { saved: state.calculatorVersion ?? "—", latest: state.latestCalculatorVersion })}</Text>}
@@ -90,4 +100,12 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect, can
       {history?.nextCursor && <Button variant="ghost" disabled={busy} onClick={() => { void readHistory(undefined, history.nextCursor!); }}>{t("reanalysis.more")}</Button>}
     </Stack>
   </section>;
+  if (!collapsible) return panel;
+  const title = t("reanalysis.title");
+  // 이전 분석을 보는 중이거나 실패가 남아 있으면 접어도 점으로 알린다.
+  return <div className="activity-reanalysis">
+    <IconButton className="activity-reanalysis__trigger" size="sm" icon={<History size={ICON_SIZE.sm} />} aria-label={title} title={title}
+      aria-expanded={open} aria-controls={open ? panelId : undefined} indicator={!!selectedRevision || !!failed} onClick={() => setOpen(value => !value)} />
+    {open && panel}
+  </div>;
 }

@@ -1,6 +1,7 @@
 import StravaSummarySettings from "./StravaSummarySettings";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronRight } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 import { useSearchParams } from "react-router-dom";
 import { stravaSignupGuidancePath, stravaSignupReturnTo } from "../../utils/stravaSignup";
@@ -134,6 +135,9 @@ export function PaneConnections() {
 
   const stravaConnected = profile?.stravaConnected ?? false;
   const autoUpload = profile?.autoUpload ?? false;
+  const importLabel = profile?.migration?.status === "DONE"
+    ? t("pane.connections.importBtnReport")
+    : t("pane.connections.importBtnImport");
 
   async function handleStravaDisconnect() {
     const operationId = crypto.randomUUID();
@@ -277,10 +281,8 @@ export function PaneConnections() {
             label={t("pane.connections.importPastLabel")}
             hint={t("pane.connections.importPastHint")}
           >
-            <Link data-testid="S2-1-4" to="/settings/data#migrate" className={buttonClass({ variant: "secondary" })}>
-                {profile?.migration?.status === "DONE"
-                  ? t("pane.connections.importBtnReport")
-                  : t("pane.connections.importBtnImport")}
+            <Link data-testid="S2-1-4" to="/settings/data#migrate" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={importLabel} title={importLabel}>
+              <span className="ds-btn__icon" aria-hidden><ChevronRight size={ICON_SIZE.xs} /></span>
             </Link>
           </InlineRow>
         </SettingsCard>

@@ -3,7 +3,9 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import RouteMap from "../../components/RouteMap";
 import { Resolvable } from "../../components/redesign/states/Resolvable";
-import { Button } from "../../theme/components";
+import { LocateFixed } from "lucide-react";
+import { IconButton } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import ElevationChart, {
   ELEVATION_PLOT_AXIS_WIDTH,
 } from "../../components/ElevationChart";
@@ -142,9 +144,13 @@ export default function ClubCourseMap({
     <section className="cp-course-visual" aria-label={mt("코스 지도와 고도표")}>
       <div className="cp-section-heading">
         <h3>{mt("코스맵")}</h3>
-        <Button
+        {/* 전체 경로 보기는 글자 버튼 대신 제목 옆 작은 아이콘으로 둔다(클럽 주행 지도의 맞춤 아이콘과 같은 모양). */}
+        <IconButton
           size="sm"
-          variant="outline"
+          variant="ghost"
+          aria-label={mt("전체 경로 보기")}
+          title={mt("전체 경로 보기")}
+          icon={<LocateFixed size={ICON_SIZE.sm} />}
           onClick={() => {
             setChosenPoint(null);
             setHover(null);
@@ -154,9 +160,7 @@ export default function ClubCourseMap({
                 routeParts.reduce((sum, part) => sum + part.length, 0) - 1,
             });
           }}
-        >
-          {mt("전체 경로 보기")}
-        </Button>
+        />
       </div>
       <div className="cp-real-map" aria-label={mt("실제 주행 경로 지도")}>
         <RouteMap
