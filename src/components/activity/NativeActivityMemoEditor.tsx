@@ -7,10 +7,17 @@ import { createPublicActivityClient } from "../../services/publicActivityDetail"
 import { Button, IconButton, Stack, Text, Textarea } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
 /**
  * Native authored memo stays separate from title and generated analysis text.
- * 제목처럼 메모 옆 연필 버튼으로 바로 고친다. 편집 초안은 화면에 보이는 메모(currentMemo)로 시작해
- * 보이는 것과 다른 메모를 고치는 일이 없게 한다. 충돌 뒤 "최신 메모로 교체"만 서버 값을 쓴다.
+ * 제목처럼 메모 옆 연필 버튼으로 바로 고친다.
+ * nativeMemoRevision 은 서버 작성 메모 본문의 sha256 이다. 그 revision 이 빈 메모(작성 메모 없음 —
+ * 화면엔 자동 요약이 보임) 또는 화면 메모와 같을 때만 화면 메모로 초안을 시작한다. 그 외(다른 기기에서
+ * 바뀐 경우 등)는 서버 메모로 시작해 보지 못한 수정을 덮어쓰지 않는다.
  */
 export default function NativeActivityMemoEditor({ activityId, currentMemo, onSaved, children }: {
   activityId: string; currentMemo?: string | null; onSaved: (memo: string) => void; children?: ReactNode;
@@ -49,7 +56,11 @@ export default function NativeActivityMemoEditor({ activityId, currentMemo, onSa
       if (request !== generation.current) return;
       if (!detail.nativeMemoRevision || detail.activity.userId !== user?.uid) throw new Error("memo_unavailable");
       const shown = currentMemo?.trim() ? currentMemo : null;
-      const initial = !fromServer && shown != null ? shown : detail.content.memo ?? "";
+      const revision = detail.nativeMemoRevision;
+      const shownIsSafe = !fromServer && shown != null
+        && (revision === await sha256Hex("") || revision === await sha256Hex(shown.trim()) || revision === await sha256Hex(shown));
+      if (request !== generation.current) return;
+      const initial = shownIsSafe ? shown : detail.content.memo ?? "";
       focusTarget.current = "editor"; setDraft(initial); setRevision(detail.nativeMemoRevision); setOpen(true);
     } catch { if (request === generation.current) setError("failed"); }
     finally { if (request === generation.current) { inFlight.current = false; setBusy(false); } }

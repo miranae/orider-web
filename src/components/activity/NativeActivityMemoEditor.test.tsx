@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import NativeActivityMemoEditor from "./NativeActivityMemoEditor";
+const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 const mocks = vi.hoisted(() => ({ load: vi.fn(), setNativeMemo: vi.fn() }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" } }) }));
 vi.mock("../../services/publicActivityDetail", () => ({ createPublicActivityClient: () => mocks }));
@@ -19,7 +21,8 @@ describe("native memo editing", () => {
     await waitFor(() => expect(saved).toHaveBeenCalledWith("새 본문"));
     expect(mocks.setNativeMemo).toHaveBeenCalledWith("ride", "새 본문", "revision1");
   });
-  it("starts the draft from the memo shown on screen, not a different stored memo", async () => {
+  it("starts the draft from the shown generated memo when no authored memo exists on the server", async () => {
+    mocks.load.mockResolvedValue({ activity: { id: "ride", userId: "owner" }, nativeMemoRevision: sha(""), content: { memo: "옛 판 메모" } });
     mocks.setNativeMemo.mockResolvedValue({ memoRevision: "revision2", status: "updated" });
     render(<NativeActivityMemoEditor activityId="ride" currentMemo={"▰ 라이딩 종합\n이동 00:04:07"} onSaved={vi.fn()}><p>보이는 메모</p></NativeActivityMemoEditor>);
     expect(screen.getByText("보이는 메모")).toBeInTheDocument();
@@ -27,7 +30,19 @@ describe("native memo editing", () => {
     expect(await screen.findByRole("textbox")).toHaveValue("▰ 라이딩 종합\n이동 00:04:07");
     expect(screen.queryByText("보이는 메모")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
-    await waitFor(() => expect(mocks.setNativeMemo).toHaveBeenCalledWith("ride", "▰ 라이딩 종합\n이동 00:04:07", "revision1"));
+    await waitFor(() => expect(mocks.setNativeMemo).toHaveBeenCalledWith("ride", "▰ 라이딩 종합\n이동 00:04:07", sha("")));
+  });
+  it("uses the server memo over a stale screen memo so another device's edit is not overwritten", async () => {
+    mocks.load.mockResolvedValue({ activity: { id: "ride", userId: "owner" }, nativeMemoRevision: sha("다른 기기 수정 B"), content: { memo: "다른 기기 수정 B" } });
+    render(<NativeActivityMemoEditor activityId="ride" currentMemo="화면의 옛 메모 A" onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
+    expect(await screen.findByRole("textbox")).toHaveValue("다른 기기 수정 B");
+  });
+  it("keeps the shown memo when it is exactly the server's authored memo", async () => {
+    mocks.load.mockResolvedValue({ activity: { id: "ride", userId: "owner" }, nativeMemoRevision: sha("내 메모"), content: { memo: "피드 옛 본문" } });
+    render(<NativeActivityMemoEditor activityId="ride" currentMemo="내 메모" onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
+    expect(await screen.findByRole("textbox")).toHaveValue("내 메모");
   });
   it("preserves an edited draft on conflict and requires a fresh revision", async () => {
     mocks.setNativeMemo.mockRejectedValue({ code: "functions/aborted" });
