@@ -1,17 +1,37 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { useInRouterContext } from "react-router-dom";
+import { LocalizedLink } from "../components/LocalizedLink";
 
 type ToastType = "success" | "error" | "info";
+
+/**
+ * 알림에서 바로 해결로 이어지는 행동 — 경고·오류는 보여 주고 끝내지 않는다.
+ * `to` 는 앱 안 경로(LocalizedLink), `onClick` 은 다시 시도 같은 제자리 동작. 누르면 알림을 닫는다.
+ */
+export interface ToastAction {
+  label: string;
+  to?: string;
+  onClick?: () => void;
+}
+
+export interface ToastOptions {
+  action?: ToastAction;
+}
+
+/** 행동이 달린 알림은 읽고 누를 시간을 더 준다. */
+export const TOAST_ACTION_MIN_DURATION_MS = 10000;
 
 interface Toast {
   id: number;
   message: string;
   type: ToastType;
+  action?: ToastAction;
   removing?: boolean;
 }
 
 interface ToastContextValue {
   toasts: Toast[];
-  showToast: (message: string, type?: ToastType) => void;
+  showToast: (message: string, type?: ToastType, options?: ToastOptions) => void;
   dismissToast: (id: number) => void;
 }
 
@@ -54,10 +74,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, 200);
   }, [schedule]);
 
-  const showToast = useCallback((message: string, type: ToastType = "success") => {
+  const showToast = useCallback((message: string, type: ToastType = "success", options?: ToastOptions) => {
     const id = ++nextId;
-    setToasts((prev) => [...prev, { id, message, type }]);
-    const duration = type === "error" ? 8000 : type === "info" ? 4000 : 2500;
+    const action = options?.action;
+    setToasts((prev) => [...prev, { id, message, type, ...(action ? { action } : {}) }]);
+    const base = type === "error" ? 8000 : type === "info" ? 4000 : 2500;
+    const duration = action ? Math.max(base, TOAST_ACTION_MIN_DURATION_MS) : base;
     schedule(() => {
       dismissToast(id);
     }, duration);
@@ -108,6 +130,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 </svg>
               )}
               <span className="flex-1">{toast.message}</span>
+              {toast.action && <ToastActionControl action={toast.action} onDone={() => dismissToast(toast.id)} />}
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
@@ -122,6 +145,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       )}
     </ToastContext.Provider>
   );
+}
+
+const ACTION_CLASS = "rounded-[var(--r-sm)] px-2 py-0.5 font-semibold underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-current";
+
+function ToastActionControl({ action, onDone }: { action: ToastAction; onDone: () => void }) {
+  // 임베드 부트스트랩·테스트처럼 라우터 밖에서 열린 알림은 링크 대신 onClick 만 쓴다.
+  const inRouter = useInRouterContext();
+  if (action.to && inRouter) {
+    return <LocalizedLink to={action.to} className={ACTION_CLASS} onClick={() => { action.onClick?.(); onDone(); }}>{action.label}</LocalizedLink>;
+  }
+  if (!action.onClick) return null;
+  return <button type="button" className={ACTION_CLASS} onClick={() => { action.onClick?.(); onDone(); }}>{action.label}</button>;
 }
 
 export function useToast() {

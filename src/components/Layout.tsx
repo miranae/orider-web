@@ -1,5 +1,6 @@
 import { useNotificationInbox } from "../hooks/useNotificationInbox";
 import { NotificationInboxMore, NotificationInboxStatus } from "./notifications/NotificationInboxStatus";
+import { useFocusTarget } from "../hooks/useFocusTarget";
 import { useMainScrollPosition } from "../hooks/useMainScrollPosition";
 import { Suspense, useState, useEffect, useRef } from "react";
 import GlossaryProvider from "./common/GlossaryProvider";
@@ -110,6 +111,7 @@ export default function Layout() {
   const mainRef = useRef<HTMLElement>(null);
   const outlet = useOutlet();
   useMainScrollPosition(mainRef, user);
+  useFocusTarget();
   useEffect(() => {
     rememberHubLocation(user?.uid ?? null, path, location.search, location.state);
   }, [user?.uid, path, location.search, location.state]);

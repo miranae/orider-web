@@ -3,7 +3,7 @@ import { useEmbeddedNavigation } from '../embedded/EmbeddedNavigationContext';
 import { embeddedInternalDestination } from '../embedded/hubNavigation';
 import { useNavigate, useParams, useLocation, type NavigateOptions } from 'react-router-dom';
 import { isDetailRoute, resolveDetailHub } from "../config/navHubs";
-import { stripLangPrefix, SUPPORTED_LANGS } from '../i18n/detector';
+import { detectLangFromPath, stripLangPrefix, SUPPORTED_LANGS } from '../i18n/detector';
 
 const langSet = new Set<string>([...SUPPORTED_LANGS]);
 
@@ -24,7 +24,8 @@ export function useLocalizedPath(to: string): string {
   if (isAbsolute(to)) return to;
   const norm = to.startsWith('/') ? to : '/' + to;
   if (hasLangPrefix(norm)) return norm;
-  return `/${lang ?? 'ko'}${norm}`;
+  // 언어 라우트(:lang) 밖에서 그려지는 링크(전역 알림 등)는 params 에 lang 이 없다 — 현재 주소의 언어를 따른다.
+  return `/${lang ?? detectLangFromPath(location.pathname) ?? 'ko'}${norm}`;
 }
 
 export function useLocalizedNavigate() {
