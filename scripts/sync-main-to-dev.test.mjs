@@ -141,3 +141,10 @@ test('snapshot ancestry is idempotent once main is linked', t => {
   git('update-ref', 'refs/remotes/origin/dev', p.head);
   assert.equal(prepareSnapshotAncestry(repo, production, snapshot).state, 'already-linked');
 });
+
+test('snapshot ancestry rebuilds the identical commit on retry', t => {
+  const { repo, snapshot, production } = snapshotFixture(t);
+  const first = prepareSnapshotAncestry(repo, production, snapshot);
+  const second = prepareSnapshotAncestry(repo, production, snapshot);
+  assert.equal(second.head, first.head);
+});

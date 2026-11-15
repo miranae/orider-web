@@ -89,7 +89,13 @@ export function prepareSnapshotAncestry(repo, production, snapshot) {
   const name = git('config', 'user.name'), email = git('config', 'user.email');
   if (!name || !email) throw new Error('git user.name/user.email required for the signed-off sync commit');
   const message = `chore: synchronize production promotion ancestry into dev\n\nProduction-Commit: ${production}\nSigned-off-by: ${name} <${email}>\n`;
-  const head = command(repo, 'git', ['commit-tree', `${base}^{tree}`, '-p', base, '-p', production], message).stdout.trim();
+  // Pin both dates to the production commit so a retry rebuilds the exact same SHA for the same dev.
+  const date = git('show', '-s', '--format=%cI', production);
+  const built = spawnSync('git', ['commit-tree', `${base}^{tree}`, '-p', base, '-p', production], {
+    cwd: repo, input: message, encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+  });
+  if (built.status !== 0) throw new Error(`git commit-tree failed: ${built.stderr?.trim() || built.status}`);
+  const head = built.stdout.trim();
   const branch = `sync/promotion-${production.slice(0, 12)}`;
   assertPromotionAncestry(repo, base, head, production, branch);
   return { state: 'prepared', base, head, branch };
@@ -100,7 +106,19 @@ function openSnapshotAncestry(production, snapshot) {
   command(repo, 'git', ['fetch', 'origin', '+refs/heads/main:refs/remotes/origin/main', '+refs/heads/dev:refs/remotes/origin/dev', '--quiet']);
   const prepared = prepareSnapshotAncestry(repo, production, snapshot);
   if (prepared.state === 'already-linked') { console.log('Production main is already an ancestor of dev; no sync PR needed.'); return; }
-  command(repo, 'git', ['push', 'origin', `${prepared.head}:refs/heads/${prepared.branch}`]);
+  // Retry-safe: an identical remote topic is reused; a stale one (dev advanced) is replaced only
+  // when it still holds the value we just observed.
+  const remote = command(repo, 'git', ['ls-remote', '--heads', 'origin', `refs/heads/${prepared.branch}`]).stdout.trim().split(/\s+/)[0] || '';
+  if (remote !== prepared.head) {
+    const lease = remote ? [`--force-with-lease=refs/heads/${prepared.branch}:${remote}`] : [];
+    command(repo, 'git', ['push', ...lease, 'origin', `${prepared.head}:refs/heads/${prepared.branch}`]);
+  }
+  const open = JSON.parse(command(repo, 'gh', ['pr', 'list', '--base', 'dev', '--head', prepared.branch, '--state', 'open', '--json', 'url']).stdout);
+  if (open.length) {
+    console.log(`Ancestry sync PR reused: ${open[0].url}`);
+    console.error(`Release synchronization PENDING: merge ${open[0].url} with scripts/merge-pr.sh.`);
+    process.exitCode = 3; return;
+  }
   const body = `스냅샷 승격의 main 결과 ${production} 를 dev 이력에 연결합니다. 트리는 현재 dev(${prepared.base.slice(0, 12)})와 같고 부모는 정확히 (dev, main) 입니다. 내용 변경은 없습니다.\n\n다음 승격 PR이 충돌(DIRTY)하지 않도록 scripts/merge-pr.sh 로 병합하세요.`;
   const url = command(repo, 'gh', ['pr', 'create', '--base', 'dev', '--head', prepared.branch, '--title', 'chore: sync production promotion ancestry into dev', '--body', body]).stdout.trim();
   console.log(`Ancestry sync PR created: ${url}`);
