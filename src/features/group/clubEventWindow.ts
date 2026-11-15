@@ -19,6 +19,15 @@ export function clubEventWindow(status: string, startMs: number | null | undefin
   return startMs + OPEN_START_GRACE_MS > nowMs ? "upcoming" : "past";
 }
 
+/**
+ * 목록에 보일 상태. 시작(또는 종료 시각)이 지났는데 OPEN 으로 남은 이벤트는 '일정 지남'(PAST_DATE)으로 보인다 —
+ * 지난 구간에 '모집 중'·신청 버튼이 남지 않게. 서버는 시작 24시간 뒤(모임 실행 시간창)에 종료로 옮기고,
+ * 그 전에는 늦은 출발이 가능하므로 여기서 '종료'라고 단정하지 않는다. 저장된 상태는 바꾸지 않는다.
+ */
+export function clubEventDisplayStatus(status: string, startMs: number | null | undefined, nowMs: number, endMs?: number | null): string {
+  return status === "OPEN" && clubEventWindow(status, startMs, nowMs, endMs) === "past" ? "PAST_DATE" : status;
+}
+
 /** 구간 안 정렬 — 다가오는 것은 진행 중 먼저, 그다음 시작이 가까운 순. 지난 것은 최근 순. */
 export function compareClubEvents(window: ClubEventWindow, a: { status: string; at: number; id: string }, b: { status: string; at: number; id: string }): number {
   if (window === "upcoming") {

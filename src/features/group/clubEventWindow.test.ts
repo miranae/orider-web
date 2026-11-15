@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clubEventQuery, clubEventWindow, compareClubEvents, OPEN_START_GRACE_MS } from "./clubEventWindow";
+import { clubEventDisplayStatus, clubEventQuery, clubEventWindow, compareClubEvents, OPEN_START_GRACE_MS } from "./clubEventWindow";
 
 const now = Date.UTC(2026, 10, 15, 3, 0);
 describe("클럽 이벤트 구간 (#1620)", () => {
@@ -24,6 +24,15 @@ describe("클럽 이벤트 구간 (#1620)", () => {
     expect([...rows].sort((a, b) => compareClubEvents("upcoming", a, b)).map(r => r.id)).toEqual(["live", "soon", "later"]);
     const past = [{ id: "old", status: "FINISHED", at: 1 }, { id: "recent", status: "OPEN", at: 3 }, { id: "mid", status: "CANCELLED", at: 2 }];
     expect([...past].sort((a, b) => compareClubEvents("past", a, b)).map(r => r.id)).toEqual(["recent", "mid", "old"]);
+  });
+  it("시작이 지난 OPEN 은 '일정 지남'으로 보이고(종료는 서버가 24시간 뒤 판정), 나머지 상태는 그대로다", () => {
+    expect(clubEventDisplayStatus("OPEN", now - OPEN_START_GRACE_MS - 1, now)).toBe("PAST_DATE");
+    expect(clubEventDisplayStatus("OPEN", now - 60_000, now, now - 1)).toBe("PAST_DATE");
+    expect(clubEventDisplayStatus("OPEN", now - 60_000, now)).toBe("OPEN");
+    expect(clubEventDisplayStatus("OPEN", now - 86_400_000, now, now + 1)).toBe("OPEN");
+    expect(clubEventDisplayStatus("OPEN", 0, now)).toBe("OPEN");
+    expect(clubEventDisplayStatus("FINISHED", now - 86_400_000, now)).toBe("FINISHED");
+    expect(clubEventDisplayStatus("LIVE", now - 86_400_000, now)).toBe("LIVE");
   });
   it("구간을 모르는 서버도 같은 상태·정렬로 읽는다", () => {
     expect(clubEventQuery("upcoming")).toEqual({ timeWindow: "upcoming", statuses: ["OPEN", "LIVE"], descending: false });
