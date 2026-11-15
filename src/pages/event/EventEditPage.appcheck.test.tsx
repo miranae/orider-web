@@ -70,6 +70,28 @@ describe("EventEditPage bundled App Check update admission", () => {
     expect(constructedUpdates()).toHaveLength(1);
   }, 15_000);
 
+  it("shows the linked-course change notice from an icon-only pencil", async () => {
+    await editor();
+    const button = screen.getByRole("button", { name: "수정" });
+    expect(button).toHaveClass("ds-btn--icon-only");
+    expect(button).toHaveAttribute("title", "수정");
+    expect(button).toHaveTextContent("");
+    fireEvent.click(button);
+    expect(await screen.findByText("코스 변경은 추후 지원됩니다. 운영팀에 문의해주세요.")).toBeInTheDocument();
+  });
+
+  it("puts preview and participant management as icon-only actions beside the title", async () => {
+    await editor();
+    const row = screen.getByTestId("event-edit-title-actions");
+    expect(row).toContainElement(screen.getByRole("heading", { level: 1, name: "QA 원본 이벤트" }));
+    for (const name of ["미리보기", "참가자 관리"]) {
+      const button = within(row).getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button).toHaveTextContent("");
+    }
+  });
+
   it("rejects an empty token without constructing a callable or writing", async () => {
     vi.mocked(getAppCheckToken).mockResolvedValueOnce(null);
     await changedEditor();

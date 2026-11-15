@@ -30,7 +30,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { localeTag } from "../../utils/localeDate";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
 import { isRegistrationTimeOpen, normalizeStartTime } from "../../utils/event-time";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { Button, Card, Chip, IconButton, Text } from "../../theme/components";
 import EventDetailNavigation from "../../features/event/EventDetailNavigation";
 import { eventPermissions, isEventHost } from "../../features/event/eventHost";
 import { parseGpxFull, type CourseData } from "../../features/event/detail/courseGpx";
@@ -730,7 +730,14 @@ export default function EventDetailPage() {
             {/* 제목 + 메타 + 액션 */}
             <div className="event-detail-header">
               <div className="flex-1 min-w-0">
-                <Text as="h1" variant="pageTitle" className="event-detail-title" style={{ marginBottom: "var(--space-2)" }}>{event.name}</Text>
+                {/* 이벤트 정보 수정은 제목 옆 연필 아이콘으로 — 큰 줄 버튼 대신 편집 대상 곁에 둔다. */}
+                <div className="flex items-start" style={{ gap: "var(--space-1)", marginBottom: "var(--space-2)" }}>
+                  <Text as="h1" variant="pageTitle" className="event-detail-title flex-1 min-w-0">{event.name}</Text>
+                  {isHost && (event.status === "DRAFT" || event.status === "OPEN") && (
+                    <IconButton variant="ghost" size="sm" aria-label={t("action.editEvent")} title={t("action.editEvent")}
+                      icon={<Pencil size={ICON_SIZE.sm} />} onClick={() => navigate(`/event/${eventId}/host/edit`)} />
+                  )}
+                </div>
                 <div className="flex flex-wrap items-center" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", gap: 'var(--space-4)' }}>
                   <span className="inline-flex items-center" style={{ gap: "var(--space-1)" }}>
                     <CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />
@@ -1244,28 +1251,18 @@ export default function EventDetailPage() {
                 <Settings size={ICON_SIZE.sm} aria-hidden="true" />
                 <Text variant="eyebrow" style={{ color: "var(--amber)" }}>{t("label.hostMenu")}</Text>
               </div>
-              <div className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
-                {(event.status === "DRAFT" || event.status === "OPEN") && (
-                  <Button
-                    type="button"
-                    onClick={() => navigate(`/event/${eventId}/host/edit`)} variant="secondary" size="sm"
-                    style={{ justifyContent: "flex-start", width: "100%" }}
-                  >
-                    <Pencil size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.editEvent")}
-                  </Button>
-                )}
+              {/* 호스트 작업은 보통 폭의 작은 버튼을 줄바꿈 행으로 — 전체 폭 블록으로 쌓지 않는다. */}
+              <div data-testid="event-host-actions" className="flex flex-wrap items-center" style={{ gap: "var(--space-1-5)" }}>
                 <Button
                   type="button"
                   onClick={() => linkedCourses[0] && handleSendCourseToParticipants(linkedCourses[0])}
                   disabled={sending || linkedCourses.length === 0} variant="secondary" size="sm" className="disabled:opacity-50"
-                  style={{ justifyContent: "flex-start", width: "100%" }}
                 >
                   <Send size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.sendCourse")}
                 </Button>
                 <Button
                   type="button"
                   onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
-                  style={{ justifyContent: "flex-start", width: "100%" }}
                 >
                   <Users size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.manageParticipants")}
                 </Button>
@@ -1274,7 +1271,6 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => setShowStartConfirm(true)}
                     disabled={starting} variant="primary" size="sm" className="disabled:opacity-50"
-                    style={{ justifyContent: "flex-start", width: "100%" }}
                   >
                     <Play size={ICON_SIZE.sm} aria-hidden="true" /> {starting ? t("detail.button.starting") : t("button.start")}
                   </Button>

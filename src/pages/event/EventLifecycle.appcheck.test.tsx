@@ -64,6 +64,25 @@ describe("event lifecycle cold App Check admission", () => {
     setCallableResult("finishEvent", { data: { success: true } });
   });
 
+  it("puts host event editing in a title pencil and keeps host actions as compact non-block buttons", async () => {
+    event("OPEN");
+    renderWithProviders(<Routes><Route path="/ko/event/:eventId" element={<EventDetailPage />} />
+      <Route path="/ko/event/:eventId/host/edit" element={<div>Edit destination</div>} /></Routes>,
+      { route: "/ko/event/qa-lifecycle", authenticated: true });
+    const edit = await screen.findByRole("button", { name: "이벤트 정보 수정" });
+    // 연필은 제목(h1)과 같은 줄에 놓이고, 호스트 메뉴 안에는 더 이상 없다.
+    expect(edit.parentElement).toContainElement(screen.getByRole("heading", { level: 1, name: "QA private lifecycle" }));
+    const actions = screen.getByTestId("event-host-actions");
+    expect(within(actions).queryByRole("button", { name: "이벤트 정보 수정" })).toBeNull();
+    const hostButtons = within(actions).getAllByRole("button");
+    expect(hostButtons.length).toBeGreaterThanOrEqual(3);
+    for (const button of hostButtons) expect(button.style.width).not.toBe("100%");
+    expect(actions).toHaveClass("flex-wrap");
+    expect(actions).not.toHaveClass("flex-col");
+    fireEvent.click(edit);
+    expect(await screen.findByText("Edit destination")).toBeInTheDocument();
+  });
+
   it("holds a confirmed first Start until App Check is ready and submits once", async () => {
     const token = deferred<string | null>();
     vi.mocked(getAppCheckToken).mockReturnValueOnce(token.promise);
