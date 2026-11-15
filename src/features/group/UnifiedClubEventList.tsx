@@ -2,7 +2,9 @@ import { useTranslation } from "react-i18next";
 import type { ClubMeetingListItem } from "../../services/clubMeetings";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { Pencil } from "lucide-react";
 import { Card, Stack, buttonClass } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { clubEventDisplayStatus, clubEventWindow, compareClubEvents, type ClubEventWindow } from "./clubEventWindow";
 export interface ClubEvent {
   id: string; name: string; status: string; startTime: number;
@@ -45,16 +47,29 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
       {rows.map(row => {
         if (row.kind === "meeting") {
           const item = row.item;
+          const editMeetingLabel = i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정";
           return (
             <Card key={`meeting:${item.eventId}`}>
-              <Link to={`/club/${groupId}/meetings/${item.eventId}`}>
-                <strong>{item.meeting.title}</strong>
-              </Link>
+              {/* 주최자 수정은 카드마다 큰 버튼 대신 제목 오른쪽 연필 아이콘 링크로 둔다. */}
+              <div className="flex items-center justify-between" style={{ gap: "var(--space-2)" }}>
+                <Link to={`/club/${groupId}/meetings/${item.eventId}`}>
+                  <strong>{item.meeting.title}</strong>
+                </Link>
+                {item.isHost && !["CANCELLED", "FINISHED"].includes(row.shown) && (
+                  <Link
+                    data-testid="club-meeting-edit"
+                    className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true, className: "shrink-0" })}
+                    aria-label={editMeetingLabel}
+                    title={editMeetingLabel}
+                    to={`/club/${groupId}/meetings/${item.eventId}/edit`}
+                  >
+                    <span className="ds-btn__icon" aria-hidden><Pencil size={ICON_SIZE.sm} /></span>
+                  </Link>
+                )}
+              </div>
               <p>{t("events.kind.meeting")} · {statusLabel(row.shown)}</p>
               {meetingEventStatus(item) === "LIVE" && <strong role="status">{i18n.language.startsWith("en") ? "Riding now" : "지금 주행 중"}</strong>}
-              {/* 동작은 버튼 모양으로 한 줄에 띄워 둔다 — 글자 링크를 붙여 두면 "모임 수정가상주행 관전" 처럼 읽혀 버튼을 못 찾는다. */}
               {!["CANCELLED", "FINISHED"].includes(row.shown) && <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}>
-                {item.isHost && <Link data-testid="club-meeting-edit" className={buttonClass({ variant: "primary", size: "sm" })} to={`/club/${groupId}/meetings/${item.eventId}/edit`}>{i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정"}</Link>}
                 <Link className={buttonClass({ variant: "secondary", size: "sm" })} to={`/club/${groupId}/meetings/${item.eventId}/live`}>{i18n.language.startsWith("en") ? "Watch virtual ride" : "가상주행 관전"}</Link>
               </div>}
               <p>

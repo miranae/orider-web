@@ -54,6 +54,23 @@ beforeEach(() => {
   Object.assign(auth, { currentUser: { uid: "owner" } });
 });
 describe("group post editing", () => {
+  it("puts post edit, delete, and report actions as icons in the post header", async () => {
+    const view = render(<Page />);
+    const header = screen.getByText("Original author").parentElement as HTMLElement;
+    for (const name of ["수정", "삭제"]) {
+      const button = within(header).getByRole("button", { name, exact: true });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button.textContent).toBe("");
+    }
+    // 남의 공지는 관리자가 아니면 신고 아이콘만 보인다.
+    state.uid = "member"; state.role = "member"; state.authorId = "owner"; Object.assign(auth, { currentUser: { uid: "member" } });
+    view.rerender(<Page />);
+    const memberHeader = screen.getByText("Original author").parentElement as HTMLElement;
+    expect(within(memberHeader).getByRole("button", { name: "신고" })).toHaveClass("ds-btn--icon-only");
+    expect(within(memberHeader).queryByRole("button", { name: "수정", exact: true })).toBeNull();
+    expect(within(memberHeader).queryByRole("button", { name: "삭제" })).toBeNull();
+  });
   it("keeps anonymous shared-link visitors on the public login path and resumes member access after real sign-in", async () => {
     state.isAnonymous = true;
     state.roleError = new Error("a guest must not reach the member error branch");

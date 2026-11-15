@@ -262,6 +262,11 @@ describe("클럽 모임 마무리와 개인 결과", () => {
     expect(screen.getByText(/내 기록 · 결과 확인 완료 · 2:05/)).toBeInTheDocument();
     expect(screen.queryByRole("button",{name:"모임 마무리"})).not.toBeInTheDocument();
     expect(screen.queryByRole("button",{name:"참석 신청"})).not.toBeInTheDocument();
+    // 결과 새로고침은 카드 하단 글자 버튼이 아니라 결과 제목 옆 아이콘이다.
+    const refresh=screen.getByRole("button",{name:"결과 새로고침"});
+    expect(refresh).toHaveClass("ds-btn--icon-only");
+    expect(refresh).toHaveAttribute("title","결과 새로고침");
+    expect(refresh.closest(".cp-heading-with-edit")?.querySelector("h2")?.textContent).toBe("모임 결과");
   });
   it.each(["REGISTERED", "CHECKED_IN", "PAID"])("미시작 참가 상태 %s는 기록 없음으로 표시한다", async status => {
     fixture(false,true);control.data!.completion={state:"ready",summary:null,own:{status,verified:false,durationMs:null}};show("detail");

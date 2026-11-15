@@ -1,7 +1,7 @@
 import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
 import { useGroupRideActivities } from "../../hooks/useGroupRideActivities";
-import { X, LocateFixed } from "lucide-react";
+import { X, LocateFixed, RefreshCw } from "lucide-react";
 import { groupRideMapRange } from "./groupRideMapRange";
 import SportIcon from "../../components/common/SportIcon";
 import { useState, useEffect, useMemo, useRef, useCallback, useId } from "react";
@@ -552,7 +552,20 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
     <div className="club-surface club-ride-detail">
       <Link to={`/club/${groupId}/rides`} className="text-[length:var(--ft-body-medium-size)] mb-4 inline-block" style={{ color: "var(--lime)" }}>{t("ridePage.back")}</Link>
       {group?.name && <p className="club-ride-context">{group.name}</p>}
-      <Text as="h1" variant="pageTitle" data-testid="C2R-0" className="mb-1">{dateStr} {t("rides.groupRides")}</Text>
+      {/* 활동 새로 조회는 제목 아래 한 줄 버튼 대신 제목 옆 작은 아이콘으로 둔다. */}
+      <div className="club-ride-title-row mb-1">
+        <Text as="h1" variant="pageTitle" data-testid="C2R-0">{dateStr} {t("rides.groupRides")}</Text>
+        <IconButton
+          size="sm"
+          variant="ghost"
+          loading={loading}
+          disabled={loadingMore}
+          aria-label={t("ridePage.discoveryRefresh")}
+          title={t("ridePage.discoveryRefresh")}
+          icon={<RefreshCw size={ICON_SIZE.sm} />}
+          onClick={refresh}
+        />
+      </div>
       <p className="text-[length:var(--ft-body-medium-size)] mb-2" style={{ color: "var(--ink-2)" }}>{t("ridePage.activityParticipants", { activities: activities.length, participants: riderActivityCounts.size })}</p>
       <p className="club-record-scope" data-testid="club-ride-detail-scope">{t("ridePage.detailScope")}</p>
 
@@ -560,7 +573,6 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
       {loadError && <p role="alert">{t("error.loadFailed")}</p>}
       {hasMore && <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>{t(loadingMore ? "ridePage.discoveryLoading" : "ridePage.discoveryMore")}</Button>}
       {limited && <p>{t("ridePage.discoveryLimited")}</p>}
-      <Button variant="ghost" disabled={loading || loadingMore} onClick={refresh}>{t("ridePage.discoveryRefresh")}</Button>
       {pendingStreams.size > 0 && <p role="status">{t("rides.streamLoading")}</p>}
       {streamErrors.size > 0 && <Card className="mb-4">
         <p role="alert">{t("rides.streamFailed")}</p>

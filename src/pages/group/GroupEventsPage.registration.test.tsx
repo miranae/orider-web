@@ -46,7 +46,7 @@ describe("club event registration actions", () => {
     showPage();
     fireEvent.click(await screen.findByRole("button",{name:"지난 이벤트",exact:true}));
     const race=(await screen.findByRole("link",{name:"지난 모집 대회"})).closest("[data-testid]") as HTMLElement;
-    const meetingCard=screen.getByRole("link",{name:"지난 모집 모임"}).parentElement as HTMLElement;
+    const meetingCard=screen.getByRole("link",{name:"지난 모집 모임"}).closest(".ds-card") as HTMLElement;
     expect(race).toHaveAttribute("data-testid","C3-2-1");
     expect(race).toHaveTextContent("일정 지남");
     expect(race).not.toHaveTextContent("모집 중");
@@ -100,6 +100,13 @@ describe("club event registration actions", () => {
     await screen.findByRole("link",{name:"내 대회"});
     expect(screen.getAllByTestId("club-event-edit").map(link=>link.getAttribute("href"))).toEqual(["/ko/event/mine/host/edit","/ko/event/cohost/host/edit"]);
     expect(screen.getAllByTestId("club-meeting-edit").map(link=>link.getAttribute("href"))).toEqual(["/ko/club/club/meetings/내 모임/edit"]);
+    // 모임 수정은 큰 버튼이 아니라 카드 제목 오른쪽 연필 아이콘 링크다. 관전은 글자 버튼으로 남는다.
+    const edit=screen.getByRole("link",{name:"모임 수정"});
+    expect(edit).toHaveClass("ds-btn--icon-only");
+    expect(edit).toHaveAttribute("title","모임 수정");
+    expect(edit.textContent).toBe("");
+    expect(edit.parentElement?.querySelector("a strong")?.textContent).toBe("내 모임");
+    expect(screen.getAllByRole("link",{name:"가상주행 관전"})[0]).not.toHaveClass("ds-btn--icon-only");
   });
   it("shows membership lookup failure and retries it instead of redirecting as a nonmember",()=>{
     roleState.error=new Error("membership unavailable");showPage();

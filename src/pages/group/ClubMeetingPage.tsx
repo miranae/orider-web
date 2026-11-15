@@ -631,7 +631,19 @@ function ServerMeetingDetail({
       </div>
       {completed && data.completion && (
         <Card id="meeting-results">
-          <h2>{text("모임 결과", "Meeting results")}</h2>
+          {/* 결과 새로고침은 카드 하단 버튼 대신 제목 옆 아이콘으로 두고, 다시 읽는 동안 스피너를 보여준다. */}
+          <div className="cp-heading-with-edit">
+            <h2>{text("모임 결과", "Meeting results")}</h2>
+            <IconButton
+              size="sm"
+              variant="ghost"
+              loading={busy}
+              aria-label={text("결과 새로고침", "Refresh results")}
+              title={text("결과 새로고침", "Refresh results")}
+              icon={<RefreshCw size={ICON_SIZE.sm} />}
+              onClick={() => void run(async () => {})}
+            />
+          </div>
           <div aria-live="polite">
             {data.completion.summary ? <p>{text(
               `완료 ${data.completion.summary.finishedCount}명 · 확인 대기 ${data.completion.summary.pendingCount}명 · 중도 종료 ${data.completion.summary.dnfCount}명 / 전체 ${data.completion.summary.totalParticipants}명`,
@@ -651,7 +663,6 @@ function ServerMeetingDetail({
               {rider.status === "FINISHED" && rider.durationMs != null && <> · {Math.floor(rider.durationMs / 60000)}:{String(Math.floor(rider.durationMs / 1000) % 60).padStart(2, "0")}</>}
             </li>)}
           </ul>}
-          <Button loading={busy} onClick={() => void run(async () => {})}>{text("결과 새로고침", "Refresh results")}</Button>
         </Card>
       )}
       {data.isHost && (
