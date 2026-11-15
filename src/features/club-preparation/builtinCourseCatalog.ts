@@ -25,7 +25,12 @@ export const BUILTIN_COURSES: readonly BuiltinCourse[] = [
 // 고른 코스의 GPX 만 따로 받는다 — 10개(약 470KB)를 작성 화면 청크에 싣지 않는다.
 const gpxFiles = import.meta.glob<string>('./builtinCourses/*.gpx', { query: '?raw', import: 'default' });
 
-/** GPX 업로드와 같은 파싱·간소화를 거치고 출처만 내장 코스로 바꾼다. */
+/**
+ * GPX 업로드와 같은 파싱·간소화를 거치고 출처만 내장 코스로 바꾼다.
+ * 새 계산 경로가 아니다 — 모임 코스 안내(거리·획고·생성 구간)는 원래 GPX 업로드(`gpx` 출처)에서 이 함수로
+ * 만들어 작성 내용으로 저장하고, 서버는 형식만 검사한다. 내장 코스는 그 GPX 를 사용자 파일 대신 번들에서 읽을 뿐이다.
+ * 활동 파생 지표(P6)가 아니라 주최자가 작성하는 코스 안내다.
+ */
 export async function loadBuiltinCoursePlan(course: BuiltinCourse): Promise<CoursePlan> {
   const load = gpxFiles[`./builtinCourses/${course.file}.gpx`];
   if (!load) throw new Error(`builtin_course_missing:${course.id}`);
