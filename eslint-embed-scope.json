@@ -683,6 +683,7 @@
   "src/pages/ExploreAthletesPage.tsx",
   "src/pages/ExplorePage.tsx",
   "src/pages/FitnessPage.tsx",
+  "src/pages/GoalActionsMenu.tsx",
   "src/pages/GoalHub.tsx",
   "src/pages/GoalSetupPage.tsx",
   "src/pages/LabPage.tsx",

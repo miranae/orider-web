@@ -708,7 +708,11 @@
       "more": "More previous analyses"
     },
     "analystVersion": "analyst {{version}}",
-    "reanalyzeWithNewAnalystBtn": "Reanalyze with new analyst"
+    "reanalyzeWithNewAnalystBtn": "Reanalyze with new analyst",
+    "reanalysisReason": {
+      "inputsChanged": "Activity data changed since this analysis.",
+      "analystUpdated": "A new analyst is available."
+    }
   },
   "card": {
     "noActivity": "Activity not found.",

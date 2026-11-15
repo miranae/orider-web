@@ -6,15 +6,15 @@ import type { Activity } from '@shared/types';
 import { routeInventoryPage } from '../../../__tests__/fixtures/routeInventory';
 import ActivityRouteInventoryPanel, { validRouteInventoryControls } from './ActivityRouteInventoryPanel';
 import RouteInventoryReturn from './RouteInventoryReturn';
-const mocks=vi.hoisted(()=>({uid:'owner',pages:[] as unknown[],start:vi.fn(),more:vi.fn(),hook:vi.fn()}));
+const mocks=vi.hoisted(()=>({uid:'owner',status:'idle',pages:[] as unknown[],start:vi.fn(),more:vi.fn(),hook:vi.fn()}));
 vi.mock('../../../contexts/AuthContext',()=>({useAuth:()=>({user:{uid:mocks.uid,isAnonymous:false}})}));
 vi.mock('../../../hooks/usePeriodControls',()=>({usePeriodControls:(_owner:string,_kind:string,initial:()=>unknown)=>useState(initial)}));
-vi.mock('../../../hooks/useActivityMatchedRouteInventory',()=>({useActivityMatchedRouteInventory:(...args:unknown[])=>{mocks.hook(...args);return{available:true,status:'idle',pages:mocks.pages,start:mocks.start,loadMore:mocks.more};}}));
+vi.mock('../../../hooks/useActivityMatchedRouteInventory',()=>({useActivityMatchedRouteInventory:(...args:unknown[])=>{mocks.hook(...args);return{available:true,status:mocks.status,pages:mocks.pages,start:mocks.start,loadMore:mocks.more};}}));
 vi.mock('../../../hooks/useLocalizedNavigate',()=>({useLocalizedPath:(path:string)=>path}));
 vi.mock('react-i18next',()=>({useTranslation:()=>({i18n:{language:'en'},t:(key:string)=>key})}));
 const activity={id:'anchor',userId:'owner',type:'Ride',source:'orider'} as Activity;
 function Position(){const location=useLocation();return <output>{JSON.stringify(location)}</output>;}
-beforeEach(()=>{mocks.uid='owner';mocks.pages=[];mocks.start.mockClear();mocks.more.mockClear();mocks.hook.mockClear();});
+beforeEach(()=>{mocks.uid='owner';mocks.status='idle';mocks.pages=[];mocks.start.mockClear();mocks.more.mockClear();mocks.hook.mockClear();});
 it('shows observed history readiness and its limits separately from page exhaustion',()=>{
  const page=routeInventoryPage();
  page.ownerHistoryReadiness={state:'traversed',asOf:Date.now(),scanned:12,indexed:9,missing:3,unknown:12,consistency:'current_owner_seek_pages',personalBest:'unavailable'};
@@ -54,4 +54,17 @@ it('restores only an authenticated owner internal activity destination',()=>{
  const view=render(<MemoryRouter initialEntries={[{pathname:'/ko/activity/ride',state:{routeInventoryReturn:target}}]}><RouteInventoryReturn ownerUid="owner"/></MemoryRouter>);
  expect(screen.getByRole('link')).toHaveAttribute('href','/ko/activity/anchor?tab=compare#routes');
  mocks.uid='other';view.rerender(<MemoryRouter><RouteInventoryReturn ownerUid="owner"/></MemoryRouter>);expect(screen.queryByRole('link')).toBeNull();
+});
+// 첫 탐색은 작은 글자 버튼, 이후 다시 확인은 상태 줄의 아이콘 버튼이다.
+it('keeps the first find compact and turns re-check into a status-row icon button',()=>{
+ const view=render(<MemoryRouter><ActivityRouteInventoryPanel activity={activity} observedMetricsIdentity="head"/></MemoryRouter>);
+ const first=screen.getByRole('button',{name:'routeInventory.find'});
+ expect(first).toHaveClass('ds-btn--sm','matched-route-group-start');expect(first).not.toHaveClass('ds-btn--block','ds-btn--icon-only');
+ mocks.status='complete';mocks.pages=[routeInventoryPage({ids:['ride']})];
+ view.rerender(<MemoryRouter><ActivityRouteInventoryPanel activity={activity} observedMetricsIdentity="head"/></MemoryRouter>);
+ const refresh=screen.getByRole('button',{name:'routeGroup.refresh'});
+ expect(refresh).toHaveClass('ds-btn--icon-only');expect(refresh).toHaveAttribute('title','routeGroup.refresh');expect(refresh).toHaveTextContent('');
+ expect(refresh.parentElement).toContainElement(screen.getByRole('status'));
+ expect(screen.queryByRole('button',{name:'routeInventory.find'})).not.toBeInTheDocument();
+ fireEvent.click(refresh);expect(mocks.start).toHaveBeenCalledOnce();
 });

@@ -4,7 +4,9 @@ import type { Activity } from "@shared/types";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { useActivityRouteHistorySnapshot } from "../../../hooks/useActivityRouteHistorySnapshot";
 import { getDiscipline } from "../../../utils/disciplineFilter";
-import { Button, Stack, Text } from "../../../theme";
+import { RefreshCw } from "lucide-react";
+import { Button, IconButton, Stack, Text } from "../../../theme";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 export default function ActivityRouteHistorySnapshotPanel({activity,observedMetricsIdentity}:{activity:Activity;observedMetricsIdentity:string}){
  const {t,i18n}=useTranslation("activity"),location=useLocation(),sport=getDiscipline(activity.type);
  const query=useActivityRouteHistorySnapshot(activity.userId,activity.id,activity.deletedAt==null&&(sport==="bike"||sport==="run")?sport:null,JSON.stringify([(activity as Activity & { activityRevision?: string }).activityRevision,(activity as Activity & { sourceRevision?: string }).sourceRevision,(activity as Activity & { sourceContentDigest?: string }).sourceContentDigest,activity.contentRevision,activity.deletedAt,activity.startTime,activity.type,observedMetricsIdentity]));
@@ -15,7 +17,9 @@ export default function ActivityRouteHistorySnapshotPanel({activity,observedMetr
  if(!query.available)return null;
  return <section aria-label={t("routeHistory.title")} className="matched-route-group"><details><summary><Text weight={600}>{t("routeHistory.title")}</Text></summary><Stack gap="var(--space-3)">
   <Text as="p">{t("routeHistory.scope")}</Text>
-  <Stack direction="row" wrap gap="var(--space-2)"><Button variant="outline" disabled={query.running} onClick={()=>void query.start()}>{t(data?"routeHistory.restart":"routeHistory.start")}</Button>
+  <Stack direction="row" wrap gap="var(--space-2)">{/* 첫 확인은 작은 글자 버튼, 결과가 생긴 뒤 새로 확인은 아이콘 버튼으로 둔다. */}
+   {data?<IconButton size="sm" variant="ghost" disabled={query.running} aria-label={t("routeHistory.restart")} title={t("routeHistory.restart")} icon={<RefreshCw size={ICON_SIZE.sm}/>} onClick={()=>void query.start()}/>
+    :<Button size="sm" variant="outline" disabled={query.running} onClick={()=>void query.start()}>{t("routeHistory.start")}</Button>}
    {query.canRecover&&<Button disabled={query.running} onClick={()=>void query.recover()}>{t("routeHistory.recover")}</Button>}
    {(query.canAdvance??(data&&(data.state!=="complete"||query.status==="error")))&&<Button disabled={query.running} loading={query.status==="loading"} onClick={()=>void query.advance()}>{t(query.status==="error"?"routeHistory.retry":"routeHistory.continue")}</Button>}
    {(data||query.status==="loading")&&<Button variant="ghost" onClick={query.stop}>{t(data?.state==="complete"&&!query.running?"routeHistory.close":query.running?"routeHistory.cancel":"routeHistory.stop")}</Button>}

@@ -33,3 +33,4 @@
   .activity-strava-publishing-body:has(> .activity-strava-publishing-preview) pre { min-height: 0; box-sizing: border-box; }
 }
 @media (max-width: 40rem) { .activity-strava-publishing-preview pre { max-height: 18rem; } }
+.activity-strava-publishing-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-width: 0; }

@@ -306,7 +306,14 @@ describe("CoachAnswerDocumentView", () => {
     expect(documentElement().querySelector(".coach-answer__block--metric_grid")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "현재 상태 비교" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "현재 상태 비교" }).closest(".coach-answer__table-scroll")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
+    // 차트와 표 펼침은 추세 제목 옆 아이콘 전용 버튼이고, 열림 상태에 따라 이름이 바뀐다.
+    const legacyToggle = screen.getByRole("button", { name: "차트와 표로 보기" });
+    expect(legacyToggle).toHaveClass("ds-btn--icon-only"); expect(legacyToggle).toHaveAttribute("title", "차트와 표로 보기");
+    expect(legacyToggle).toHaveTextContent(""); expect(legacyToggle).toHaveAttribute("aria-expanded", "false");
+    expect(legacyToggle.parentElement).toContainElement(screen.getByRole("heading", { name: "서버 정본 추세" }));
+    await userEvent.click(legacyToggle);
+    expect(legacyToggle).toHaveAccessibleName("차트와 표 접기"); expect(legacyToggle).toHaveAttribute("title", "차트와 표 접기");
+    expect(legacyToggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "추세 데이터 표" })).toBeInTheDocument();
     expect(screen.getAllByText("Solo Ride").length).toBeGreaterThan(0);
@@ -538,7 +545,10 @@ describe("CoachAnswerDocumentView", () => {
     expect(screen.getByText("생산적 부하")).toBeInTheDocument();
     expect(screen.getByText("현재 구간 생산적 부하:", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("productive_load · policy_2026").closest('details')).not.toHaveAttribute('open');
-    await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
+    const typedToggle = screen.getByRole("button", { name: "차트와 표로 보기" });
+    expect(typedToggle).toHaveClass("ds-btn--icon-only"); expect(typedToggle).toHaveTextContent("");
+    expect(typedToggle.parentElement).toContainElement(screen.getByRole("heading", { name: "서버 정본 추세" }));
+    await userEvent.click(typedToggle);
     expect(screen.getByRole("table", { name: "주간 정본 CTL·ATL·Form" })).toHaveTextContent("2026-07-06");
     expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "차트와 표 접기" })).toHaveAttribute("aria-expanded", "true");
