@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 
 import type { DataPageConfig, LayoutConfig } from "@shared/types/deviceSettings";
 
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
-import { parseCanonicalLayout, payloadHash } from "../features/bikeProfileLayout/canonical";
+import { parseCanonicalLayout } from "../features/bikeProfileLayout/canonical";
 import type { CanonicalLayout } from "../features/bikeProfileLayout/canonical";
-import { browserSaveDeps, withOwnerLock } from "../features/bikeProfileLayout/client";
-import { headKey, listIntents, putHead, readHead, removeIntent } from "../features/bikeProfileLayout/outbox";
+import { browserSaveDeps } from "../features/bikeProfileLayout/client";
+import { readHead } from "../features/bikeProfileLayout/outbox";
 import { defaultCanonicalLayout, toCanonical, toRenderable } from "../features/bikeProfileLayout/renderable";
 import { saveBikeProfileLayout } from "../features/bikeProfileLayout/saveLayout";
 import type { SaveLayoutResult } from "../features/bikeProfileLayout/saveLayout";
@@ -36,11 +36,6 @@ export type BikeProfileLayoutState = {
   /** 임시 표시본 위에서는 저장을 막는다 — 보존해야 할 원문을 정상 데이터로 덮어쓴다. */
   canSave: boolean;
   save: (pages: LayoutConfig[]) => Promise<SaveLayoutResult>;
-  /**
-   * 저장 충돌(다른 기기가 먼저 저장) 해소 (#1943 §6.1) — 이 자전거의 미전송 편집을 버리고
-   * 다른 기기가 저장한 최신 구성을 불러온다.
-   */
-  resolveConflict: (conflict: { remoteRevision: number; remotePayload: string }) => Promise<SaveLayoutResult>;
 };
 
 /**
@@ -79,14 +74,6 @@ export function useBikeProfileLayout(
 
   const { record, revision, source } = state;
   const loading = state.loading;
-  // 지금 화면이 보고 있는 대상(계정·자전거)과 충돌 해소 작업 세대 — 해소 중 계정이나 자전거가 바뀌면
-  // 늦게 끝난 해소 결과가 새 대상의 상태를 덮지 않게 한다.
-  const targetKey = ownerKey && profileId ? `${ownerKey}|${profileId}` : null;
-  const currentTarget = useRef(targetKey);
-  currentTarget.current = targetKey;
-  const resolveGeneration = useRef(0);
-  // 이 대상에서 구독으로 본 가장 최근 원격 구성 — 충돌 응답 뒤 더 새 revision 이 왔으면 그걸로 맞춘다.
-  const latestRemote = useRef<{ target: string; revision: number; payload: string } | null>(null);
 
   useEffect(() => {
     if (!uid || !profileId || !ownerKey) {
@@ -94,9 +81,6 @@ export function useBikeProfileLayout(
       return;
     }
     let cancelled = false;
-    // 대상이 바뀌면(A→B→A 포함) 진행 중이던 충돌 해소 결과는 이 화면에 반영하지 않는다.
-    resolveGeneration.current += 1;
-    latestRemote.current = null;
 
     const apply = (raw: string | null, nextRevision: number) => {
       if (cancelled) return;
@@ -123,7 +107,6 @@ export function useBikeProfileLayout(
           const data = snap.data();
           const remoteRevision = (data?.revision as number | undefined) ?? 0;
           const remotePayload = (data?.payload as string | undefined) ?? null;
-          if (!cancelled && remotePayload) latestRemote.current = { target: `${ownerKey}|${profileId}`, revision: remoteRevision, payload: remotePayload };
           if (local && local.revision >= remoteRevision) {
             apply(local.canonicalPayload, local.revision);
             return;
@@ -178,79 +161,6 @@ export function useBikeProfileLayout(
     [ownerKey, profileId, record, revision, state.profileId, state.loading],
   );
 
-  const resolveConflict = useCallback(
-    async (conflict: { remoteRevision: number; remotePayload: string }): Promise<SaveLayoutResult> => {
-      if (!ownerKey || !profileId) {
-        return { status: "localSaveFailed", cause: new Error("로그인 필요") };
-      }
-      const requestTarget = `${ownerKey}|${profileId}`;
-      const conflictLayout = parseCanonicalLayout(conflict.remotePayload, "CYCLING");
-      if (!conflictLayout.ok || conflictLayout.layout.profileId !== profileId) {
-        return { status: "invalidPayload", reasons: ["conflict remotePayload 를 읽지 못함"] };
-      }
-      // 충돌 응답과 구독으로 본 가장 새 원격 구성 중 새 쪽(읽을 수 있는 것만)으로 맞춘다 — 낡은 구성으로 되돌리지 않게.
-      // 잠금을 기다리거나 outbox 를 정리하는 동안에도 새 revision 이 올 수 있어, head 를 쓰기 직전에 다시 고른다.
-      const pickNewest = () => {
-        const seen = latestRemote.current;
-        // 다른 계정·자전거에서 받은 구성은 쓰지 않는다 — 이 해소는 요청 당시 대상의 head 에 쓴다.
-        if (seen && seen.target === requestTarget && seen.revision > conflict.remoteRevision) {
-          const parsed = parseCanonicalLayout(seen.payload, "CYCLING");
-          if (parsed.ok && parsed.layout.profileId === profileId) return { remoteRevision: seen.revision, remotePayload: seen.payload, layout: parsed.layout };
-        }
-        return { remoteRevision: conflict.remoteRevision, remotePayload: conflict.remotePayload, layout: conflictLayout.layout };
-      };
-      let target = pickNewest();
-      const deps = browserSaveDeps();
-      const generation = ++resolveGeneration.current;
-      try {
-        // 저장·drain 과 같은 owner 잠금 안에서 차단 intent 를 걷고 head 를 원격으로 맞춘다 —
-        // 잠금 밖에서 하면 진행 중인 drain 이 지운 intent 를 다시 보내거나 head 를 되돌린다.
-        await withOwnerLock(ownerKey, async () => {
-          const intents = (await listIntents(ownerKey)).filter((i) => i.profileId === profileId);
-          for (const intent of intents) await removeIntent(intent.mutationId);
-          target = pickNewest();
-          await putHead({
-            key: headKey(ownerKey, profileId),
-            ownerKey,
-            profileId,
-            revision: target.remoteRevision,
-            canonicalPayload: target.remotePayload,
-            payloadHash: await payloadHash(target.remotePayload),
-            updatedAtMs: Date.now(),
-            lastMutationId: `conflict-resolved:${target.remoteRevision}`,
-          });
-          deps.log("info", "충돌 해소 — 미전송 intent 정리, head 를 원격으로", {
-            ownerKey,
-            profileId,
-            removed: intents.length,
-            remoteRevision: target.remoteRevision,
-          });
-        });
-      } catch (cause) {
-        deps.log("error", "충돌 해소 실패 — 로컬 outbox 를 정리하지 못함", {
-          ownerKey,
-          profileId,
-          cause: String(cause),
-        });
-        return { status: "localSaveFailed", cause };
-      }
-      if (currentTarget.current !== requestTarget || resolveGeneration.current !== generation) {
-        deps.log("info", "충돌 해소 완료 — 대상이 바뀌어 화면 반영은 건너뜀", { ownerKey, profileId });
-        return { status: "synced", revision: target.remoteRevision };
-      }
-      // 해소 중 구독으로 더 새 revision 이 들어왔으면 그대로 둔다.
-      setState((prev) => prev.profileId === profileId && prev.revision > target.remoteRevision ? prev : {
-        profileId,
-        record: target.layout,
-        revision: target.remoteRevision,
-        source: "canonical",
-        loading: false,
-      });
-      return { status: "synced", revision: target.remoteRevision };
-    },
-    [ownerKey, profileId],
-  );
-
   return {
     config,
     source,
@@ -264,6 +174,5 @@ export function useBikeProfileLayout(
       !loading &&
       state.profileId === profileId,
     save,
-    resolveConflict,
   };
 }

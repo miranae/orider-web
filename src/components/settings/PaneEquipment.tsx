@@ -32,8 +32,7 @@ import { BikeMileage } from "./BikeMileage";
 import { GearShoeStatus } from "./GearShoeStatus";
 import { GearKitSection } from "./GearKitSection";
 import { LocalizedLink } from "../LocalizedLink";
-import { Alert, Button, DropdownSelect, Text } from "../../theme/components";
-import { Resolvable } from "../redesign";
+import { Button, DropdownSelect, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const CDA_PRESETS = [
@@ -714,16 +713,14 @@ function BikeDataPagesPanel({
 }) {
   const { t } = useTranslation("settings");
   const { showToast } = useToast();
-  const { config, source, loading, canSave, save, resolveConflict } = useBikeProfileLayout(
+  const { config, source, loading, canSave, save } = useBikeProfileLayout(
     uid,
     profile.id,
     DEFAULT_DATA_PAGE_CONFIG.pages,
   );
-  // 충돌 해소 대기 — 다른 기기가 먼저 저장한 최신 구성. 충돌 문구를 누르면 그 구성을 불러온다(내 편집은 버린다).
-  const [conflict, setConflict] = useState<{ remoteRevision: number; remotePayload: string } | null>(null);
-  const [resolving, setResolving] = useState(false);
 
-  function reportResult(result: Awaited<ReturnType<typeof save>>) {
+  async function handleSave(next: DataPageConfig) {
+    const result = await save(next.pages);
     // 결과마다 사용자가 할 일이 다르다 — "저장 실패" 하나로 뭉치면 다시 눌러야 하는지,
     // 다른 기기 편집을 받아야 하는지, 대상이 사라졌는지 구분할 수 없다(§6.1).
     switch (result.status) {
@@ -734,31 +731,13 @@ function BikeDataPagesPanel({
         showToast(t("equipment.dataPagesSyncing"));
         break;
       case "conflict":
-        // 충돌 문구는 사라지는 토스트 대신 편집기 위에 남긴다 — 누르기 전까지 이 자전거 저장이 막혀 있다.
-        setConflict({ remoteRevision: result.remoteRevision, remotePayload: result.remotePayload });
+        showToast(t("equipment.dataPagesConflict"));
         break;
       case "targetDeleted":
         showToast(t("equipment.dataPagesTargetDeleted"));
         break;
       default:
         showToast(t("equipment.dataPagesFailed"));
-    }
-  }
-
-  async function handleSave(next: DataPageConfig) {
-    reportResult(await save(next.pages));
-  }
-
-  async function loadLatest() {
-    if (!conflict || resolving) return;
-    setResolving(true);
-    try {
-      const result = await resolveConflict(conflict);
-      // 해소된 때만 안내·잠금을 걷는다 — 실패하면 미해결 intent 가 남아 있으니 문구를 다시 누를 수 있게 둔다.
-      if (result.status === "synced") setConflict(null);
-      else reportResult(result);
-    } finally {
-      setResolving(false);
     }
   }
 
@@ -784,16 +763,8 @@ function BikeDataPagesPanel({
           {source === "unsaved" && t("equipment.dataPagesUnsaved")}
         </div>
       )}
-      {conflict && (
-        <Alert
-          variant="warning"
-          title={<Resolvable resolve={resolving ? undefined : { onClick: () => void loadLatest() }}>{t("equipment.dataPagesConflict")}</Resolvable>}
-          data-testid="bike-data-pages-conflict"
-          style={{ marginBottom: "var(--space-3)" }}
-        />
-      )}
       {config && (
-        <LayoutEditorCard config={config} onSave={handleSave} readOnly={!canSave || !!conflict || resolving} />
+        <LayoutEditorCard config={config} onSave={handleSave} readOnly={!canSave} />
       )}
     </section>
   );

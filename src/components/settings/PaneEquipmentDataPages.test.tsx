@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   profiles: [] as Array<Record<string, unknown>>,
   save: vi.fn(),
-  resolveConflict: vi.fn(),
   layoutState: {} as Record<string, unknown>,
   toasts: [] as string[],
 }));
@@ -42,10 +41,8 @@ vi.mock("../../contexts/DialogContext", () => ({
   useDialog: () => ({ confirm: vi.fn().mockResolvedValue(true), alert: vi.fn() }),
 }));
 vi.mock("./LayoutEditorCard", () => ({
-  LayoutEditorCard: ({ readOnly, onSave }: { readOnly?: boolean; onSave?: (config: unknown) => void }) => (
-    <div data-testid="layout-editor" data-readonly={String(Boolean(readOnly))}>
-      <button type="button" onClick={() => onSave?.({ pages: [{ columns: 2, rows: 2, fields: [] }] })}>mock-save</button>
-    </div>
+  LayoutEditorCard: ({ readOnly }: { readOnly?: boolean }) => (
+    <div data-testid="layout-editor" data-readonly={String(Boolean(readOnly))} />
   ),
 }));
 
@@ -88,10 +85,7 @@ describe("PaneEquipment 데이터 페이지", () => {
       loading: false,
       canSave: true,
       save: mocks.save,
-      resolveConflict: mocks.resolveConflict,
     };
-    mocks.save.mockReset();
-    mocks.resolveConflict.mockReset();
   });
 
   it("프로필 장비에는 작동값 편집과 데이터 페이지가 없고 기기 링크를 보여준다", () => {
@@ -158,40 +152,6 @@ describe("PaneEquipment 데이터 페이지", () => {
 
     await waitFor(() => expect(screen.getByTestId("layout-editor").dataset.readonly).toBe("true"));
     expect(screen.getByTestId("bike-data-pages-status").textContent).toBeTruthy();
-  });
-
-  /** 충돌 문구 자체를 누르면 다른 기기가 저장한 최신 구성을 불러온다 — 따로 고르는 버튼은 없다. */
-  it("저장 충돌 문구를 누르면 최신 구성을 불러오고 편집기 잠금을 푼다", async () => {
-    mocks.save.mockResolvedValue({ status: "conflict", remoteRevision: 9, remotePayload: "{remote}" });
-    mocks.resolveConflict.mockResolvedValue({ status: "synced", revision: 9 });
-    renderPane("/settings/equipment?profileId=road&panel=data-pages");
-
-    await userEvent.click(await screen.findByRole("button", { name: "mock-save" }));
-    const panel = await screen.findByTestId("bike-data-pages-conflict");
-    // 누르기 전에는 편집기를 잠가 다른 기기 구성 위에 새 저장이 쌓이지 않게 한다.
-    expect(screen.getByTestId("layout-editor").dataset.readonly).toBe("true");
-    const buttons = within(panel).getAllByRole("button");
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0]).toHaveTextContent("다른 기기에서 먼저 저장했어요.");
-    await userEvent.click(buttons[0]!);
-
-    await waitFor(() => expect(mocks.resolveConflict).toHaveBeenCalledWith(
-      expect.objectContaining({ remoteRevision: 9, remotePayload: "{remote}" }),
-    ));
-    await waitFor(() => expect(screen.queryByTestId("bike-data-pages-conflict")).toBeNull());
-    expect(screen.getByTestId("layout-editor").dataset.readonly).toBe("false");
-  });
-
-  it("충돌 해소가 실패하면 안내와 잠금을 그대로 두어 다시 누를 수 있다", async () => {
-    mocks.save.mockResolvedValue({ status: "conflict", remoteRevision: 9, remotePayload: "{remote}" });
-    mocks.resolveConflict.mockResolvedValue({ status: "localSaveFailed", cause: new Error("idb") });
-    renderPane("/settings/equipment?profileId=road&panel=data-pages");
-    await userEvent.click(await screen.findByRole("button", { name: "mock-save" }));
-    const panel = await screen.findByTestId("bike-data-pages-conflict");
-    await userEvent.click(within(panel).getByRole("button"));
-    await waitFor(() => expect(mocks.resolveConflict).toHaveBeenCalledTimes(1));
-    expect(screen.getByTestId("bike-data-pages-conflict")).toBeInTheDocument();
-    expect(screen.getByTestId("layout-editor").dataset.readonly).toBe("true");
   });
 
   it("돌아가기는 목록으로 되돌린다", async () => {

@@ -695,7 +695,7 @@
     "dataPagesQuarantined": "Couldn't read the saved layout. Saving is paused so the original isn't overwritten.",
     "dataPagesSaved": "Data pages saved.",
     "dataPagesSyncing": "Saved. Syncing to the server.",
-    "dataPagesConflict": "Another device saved first.",
+    "dataPagesConflict": "Another device saved first. Choose which layout to keep.",
     "dataPagesTargetDeleted": "The bike you were saving to was deleted.",
     "dataPagesFailed": "Couldn't save. Please try again.",
     "dataPagesUnavailable": "Couldn't load the saved layout right now. Saving is paused so the existing layout isn't overwritten.",
