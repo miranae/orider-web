@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -100,10 +101,10 @@ export function ProfileBodyEditor() {
         </ToggleControls>
         <FieldGrid cols={2}>
           <Field label={t(unit === "metric" ? "training.fieldHeight" : "training.fieldHeightIn")} hint={unit === "metric" ? t("training.fieldHeightHint") : t("training.fieldHeightInHint")}>
-            <Input id={`${fieldId}-height`} aria-label={t(unit === "metric" ? "training.fieldHeight" : "training.fieldHeightIn")} value={formatBodyValue(height, unit, "height")} onChange={e => setHeight(parseBodyValue(e.target.value, unit, "height"))} />
+            <Input id={`${fieldId}-height`} {...focusTargetProps(FOCUS_TARGETS.height)} aria-label={t(unit === "metric" ? "training.fieldHeight" : "training.fieldHeightIn")} value={formatBodyValue(height, unit, "height")} onChange={e => setHeight(parseBodyValue(e.target.value, unit, "height"))} />
           </Field>
           <Field label={t(unit === "metric" ? "training.fieldWeight" : "training.fieldWeightLb")} hint={unit === "metric" ? t("training.fieldWeightHint") : t("training.fieldWeightLbHint")}>
-            <Input id={`${fieldId}-weight`} aria-label={t(unit === "metric" ? "training.fieldWeight" : "training.fieldWeightLb")} value={formatBodyValue(weight, unit, "weight")} onChange={e => setWeight(parseBodyValue(e.target.value, unit, "weight"))} />
+            <Input id={`${fieldId}-weight`} {...focusTargetProps(FOCUS_TARGETS.weight)} aria-label={t(unit === "metric" ? "training.fieldWeight" : "training.fieldWeightLb")} value={formatBodyValue(weight, unit, "weight")} onChange={e => setWeight(parseBodyValue(e.target.value, unit, "weight"))} />
             {!confirmed && Number(weight) === 70 && <Button variant="secondary" className="mt-2" onClick={() => void save(true)}>{t("training.confirmWeight")}</Button>}
           </Field>
         </FieldGrid>

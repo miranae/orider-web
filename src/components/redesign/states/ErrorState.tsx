@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Card } from "../../../theme/components";
+import { StateActions, type EmptyStateAction } from "./EmptyState";
 
 interface ErrorStateProps {
   title?: string;
   description?: ReactNode;
   onRetry?: () => void;
   retryLabel?: string;
+  /** 다시 시도로 풀리지 않는 오류의 해결 화면 링크(설정·연결 등). 다시 시도 버튼 아래에 놓인다. */
+  actions?: EmptyStateAction[];
   compact?: boolean;
 }
 
@@ -15,6 +18,7 @@ export default function ErrorState({
   description,
   onRetry,
   retryLabel,
+  actions,
   compact,
 }: ErrorStateProps) {
   const { t } = useTranslation("common");
@@ -57,6 +61,7 @@ export default function ErrorState({
           </Button>
         </div>
       )}
+      <StateActions actions={actions} />
     </Card>
   );
 }
