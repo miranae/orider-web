@@ -4,7 +4,8 @@ on:
     inputs:
       runner_labels:
         type: string
-        default: '["ubuntu-latest"]'
+        # ubuntu-latest 가 26.04 로 바뀌어 Playwright chromium 설치가 실패한다(2026-11-15). 지원 버전으로 고정.
+        default: '["ubuntu-24.04"]'
       source_repo:
         type: string
         default: ''

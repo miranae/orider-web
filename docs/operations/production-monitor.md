@@ -143,7 +143,8 @@ existing runner queue without cancelling another job; the five-minute check can
 therefore start late. Checkout goes into a unique monitor-only subdirectory and
 does not clean or replace the backend deployment checkout. A monitor job can
 occupy that runner slot for setup, the remaining deadline wait and browser checks.
-The public hourly/web caller retains ubuntu-latest. No paid capacity is enabled.
+The public hourly/web caller uses ubuntu-24.04 (pinned: ubuntu-latest moved to
+26.04, where Playwright cannot install chromium). No paid capacity is enabled.
 
 Firestore Listen `net::ERR_ABORTED` lifecycle cancellations remain in network
 evidence without becoming API errors. Real transport/HTTP failures still fail.
