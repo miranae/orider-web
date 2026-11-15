@@ -4,6 +4,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import type { DataPageConfig, LayoutConfig } from "@shared/types/deviceSettings";
 
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { logClientError } from "../services/errorLogger";
 import { parseCanonicalLayout } from "../features/bikeProfileLayout/canonical";
 import type { CanonicalLayout } from "../features/bikeProfileLayout/canonical";
 import { browserSaveDeps } from "../features/bikeProfileLayout/client";
@@ -36,6 +37,8 @@ export type BikeProfileLayoutState = {
   /** 임시 표시본 위에서는 저장을 막는다 — 보존해야 할 원문을 정상 데이터로 덮어쓴다. */
   canSave: boolean;
   save: (pages: LayoutConfig[]) => Promise<SaveLayoutResult>;
+  /** 원격을 읽지 못했을 때(unavailable) 다시 구독한다. 조회 중에는 아무것도 하지 않는다. */
+  reload: () => void;
 };
 
 /**
@@ -74,6 +77,8 @@ export function useBikeProfileLayout(
 
   const { record, revision, source } = state;
   const loading = state.loading;
+  // 다시 불러오기 세대 — 바뀌면 구독을 새로 연다. 앞선 구독의 늦은 응답은 cancelled 로 버린다.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!uid || !profileId || !ownerKey) {
@@ -114,7 +119,8 @@ export function useBikeProfileLayout(
           apply(remotePayload, remoteRevision);
         })();
       },
-      () => {
+      (error) => {
+        logClientError("useBikeProfileLayout.subscribe", error, { profileId, attempt });
         void (async () => {
           // 원격을 못 읽어도 로컬이 있으면 그걸 그린다.
           const local = await readHead(ownerKey, profileId).catch(() => null);
@@ -133,7 +139,13 @@ export function useBikeProfileLayout(
       cancelled = true;
       unsub();
     };
-  }, [firestore, uid, profileId, ownerKey]);
+  }, [firestore, uid, profileId, ownerKey, attempt]);
+
+  const reload = useCallback(() => {
+    if (state.loading || state.profileId !== profileId) return;
+    setState((prev) => (prev.profileId === profileId ? { ...prev, loading: true } : prev));
+    setAttempt((n) => n + 1);
+  }, [state.loading, state.profileId, profileId]);
 
   const config = useMemo(() => {
     if (record) return toRenderable(record);
@@ -174,5 +186,6 @@ export function useBikeProfileLayout(
       !loading &&
       state.profileId === profileId,
     save,
+    reload,
   };
 }

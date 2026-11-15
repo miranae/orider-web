@@ -50,3 +50,22 @@ it("hides the previous owner's runs on the first render after account switch", a
   expect(result.current.runs).toEqual([]);
   expect(result.current.available).toBe(false);
 });
+
+it("reload re-reads after a failure and ignores taps while reading", async () => {
+  const mockedGetDocs = vi.mocked(getDocs);
+  const original = mockedGetDocs.getMockImplementation();
+  simulateLogin({ uid: "owner" });
+  mockedGetDocs.mockReset();
+  mockedGetDocs.mockRejectedValueOnce(new Error("offline"));
+  mockedGetDocs.mockResolvedValueOnce({ docs: [{ id: "run", data: () => createMockActivity({ id: "run", userId: "owner", type: "Run" }) }], size: 1, metadata: { fromCache: false, hasPendingWrites: false } } as never);
+  const { result } = renderHook(() => useRunHistory(8), { wrapper });
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.available).toBe(false);
+  act(() => result.current.reload());
+  act(() => result.current.reload());
+  await waitFor(() => expect(result.current.available).toBe(true));
+  expect(result.current.runs.map((run) => run.id)).toEqual(["run"]);
+  expect(mockedGetDocs).toHaveBeenCalledTimes(2);
+  mockedGetDocs.mockReset();
+  if (original) mockedGetDocs.mockImplementation(original);
+});

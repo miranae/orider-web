@@ -1,16 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MaintenanceSnapshotState } from "../../hooks/useMaintenanceSnapshot";
-const mocks = vi.hoisted(() => ({ state: { envelope: null, display: null } as MaintenanceSnapshotState, read: vi.fn(), units: "metric" }));
+const mocks = vi.hoisted(() => ({ state: { envelope: null, display: null, reload: () => {} } as MaintenanceSnapshotState, read: vi.fn(), units: "metric", reload: vi.fn() }));
 vi.mock("../../hooks/useMaintenanceSnapshot", () => ({ useMaintenanceSnapshot: (uid: string, profile: string) => { mocks.read(uid, profile); return mocks.state; } }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" } }) }));
 vi.mock("../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units }) }));
 import { BikeMileage } from "./BikeMileage";
 import { CANONICAL_SCHEMA_VERSION } from "@shared/types/canonical";
 function value(status: "canonical" | "stale" | "failed") {
-  mocks.state = { envelope: { schemaVersion: CANONICAL_SCHEMA_VERSION, algorithmVersion: "maintenance@1", status, computedAt: 10, inputRevision: "r1", inputDigest: "d1", period: null, data: { odometerKm: 1234, movingTimeSec: 0, components: [], dueCount: 0, pendingActivityCount: 0 }, error: null }, display: status === "stale" ? "value_with_stale_hint" : status === "failed" ? "error" : "value" };
+  mocks.state = { envelope: { schemaVersion: CANONICAL_SCHEMA_VERSION, algorithmVersion: "maintenance@1", status, computedAt: 10, inputRevision: "r1", inputDigest: "d1", period: null, data: { odometerKm: 1234, movingTimeSec: 0, components: [], dueCount: 0, pendingActivityCount: 0 }, error: null }, display: status === "stale" ? "value_with_stale_hint" : status === "failed" ? "error" : "value", reload: mocks.reload };
 }
-beforeEach(() => { mocks.state = { envelope: null, display: null }; mocks.units = "metric"; mocks.read.mockClear(); });
+beforeEach(() => { mocks.reload.mockReset(); mocks.state = { envelope: null, display: null, reload: mocks.reload }; mocks.units = "metric"; mocks.read.mockClear(); });
 describe("canonical bike mileage", () => {
   it("binds the current owner's bike and shows canonical accumulated km", () => {
     value("canonical"); render(<BikeMileage profileId="road" />);
@@ -30,5 +30,17 @@ describe("canonical bike mileage", () => {
     value("failed"); render(<BikeMileage profileId="road" />);
     expect(screen.getByText("누적 거리를 불러오지 못했습니다.")).toBeInTheDocument();
     expect(screen.queryByText(/1234/)).toBeNull();
+  });
+  /** 경고·알림 → 해결: 읽기 실패 문구 자체를 누르면 다시 읽는다. 새 버튼은 만들지 않는다. */
+  it("tapping the load failure message re-reads the snapshot", () => {
+    value("failed"); render(<BikeMileage profileId="road" />);
+    const message = screen.getByRole("button", { name: "누적 거리를 불러오지 못했습니다." });
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(message);
+    expect(mocks.reload).toHaveBeenCalledTimes(1);
+  });
+  it("other states stay plain text", () => {
+    mocks.state.display = "loading"; render(<BikeMileage profileId="road" />);
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });

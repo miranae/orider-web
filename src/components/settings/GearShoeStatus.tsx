@@ -6,12 +6,13 @@ import { latestShoeStatus } from "../../utils/shoeStatus";
 import { formatDistance } from "../../utils/units";
 import { Chip, Text } from "../../theme/components";
 import { SettingsCard } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 /** Existing A013 owner reader: at most 200 activities within the last eight weeks. */
 export function GearShoeStatus() {
   const { t } = useTranslation("settings");
   const { units } = useLocale();
-  const { runs, loading, available } = useRunHistory(8);
+  const { runs, loading, available, reload } = useRunHistory(8);
   const validRuns = runs.filter(activity =>
     activity.gear?.type === "shoes" && Number.isFinite(activity.startTime) &&
     Number.isFinite(activity.gear.totalDistanceKm) && activity.gear.totalDistanceKm >= 0 &&
@@ -36,7 +37,7 @@ export function GearShoeStatus() {
   return <SettingsCard data-testid="P4-3" title={t("shoeSnapshot.title")}>
     <Text as="p" variant="caption" tone="secondary">{t("shoeSnapshot.coverage")}</Text>
     {loading ? <Text as="p" variant="body" data-testid="P4.loading" role="status">{t("shoeSnapshot.loading")}</Text>
-      : !available ? <Text as="p" variant="body" tone="danger" data-testid="P4.error" role="alert">{t("shoeSnapshot.unavailable")}</Text>
+      : !available ? <Text as="p" variant="body" tone="danger" data-testid="P4.error" role="alert"><Resolvable resolve={{ onClick: reload }}>{t("shoeSnapshot.unavailable")}</Resolvable></Text>
       : shoes.length === 0 ? <Text as="p" variant="body" tone="secondary" data-testid="P4.shoeEmpty">{t("shoeSnapshot.empty")}</Text>
       : shoes.map(({ id, shoe }) => shoe && <div key={id ? `identified:${id}` : "legacy"} data-testid="P4-3-1" className="space-y-2 mt-3">
         <Text as="p" variant="body" weight={600}>{shoe.name}</Text>
