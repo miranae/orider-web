@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { getDocs, onSnapshot, query, where } from "firebase/firestore";
+import { getDoc, getDocs, onSnapshot, query, where } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listPublicClubs } from "../services/publicClubs";
 import type { PublicUserProfile } from "../services/publicProfiles";
@@ -283,6 +283,11 @@ describe("useGroupMemberRole", () => {
 
 });
 
+/** 가입 목록은 정본 회원 문서가 active/approved 일 때만 확정된다(#1589). */
+function activeMember(groupId: string, userId: string, status = "active") {
+  setDocData(`groups/${groupId}/members/${userId}`, { status, role: "member" });
+}
+
 describe("group list hooks", () => {
   beforeEach(() => {
     vi.mocked(getDocs).mockClear();
@@ -306,6 +311,7 @@ describe("group list hooks", () => {
   });
 
   it("discovers a group creator when the user_groups lookup index is missing", async () => {
+    activeMember("creator-group", "user-1");
     vi.mocked(getDocs)
       .mockResolvedValueOnce({ docs: [] } as never)
       .mockResolvedValueOnce({
@@ -324,6 +330,7 @@ describe("group list hooks", () => {
   });
 
   it("discovers the current group when the user_groups lookup index is missing", async () => {
+    activeMember("current-group", "user-1");
     setDocData("users/user-1", { currentGroupId: "current-group" });
     vi.mocked(getDocs)
       .mockResolvedValueOnce({ docs: [] } as never)
@@ -343,6 +350,7 @@ describe("group list hooks", () => {
   });
 
   it("recovers a permission-denied indexed chunk through the canonical member projection", async () => {
+    activeMember("legacy-club", "user-1");
     const denied = Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" });
     vi.mocked(getDocs).mockResolvedValueOnce({ docs: [{ id: "legacy-club" }] } as never)
       .mockResolvedValueOnce({ docs: [] } as never).mockRejectedValueOnce(denied);
@@ -382,6 +390,7 @@ describe("group list hooks", () => {
   });
 
   it("keeps creator groups when the user_groups source fails", async () => {
+    activeMember("creator-group", "user-1");
     const indexError = new Error("index unavailable");
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
     vi.mocked(getDocs)
@@ -404,6 +413,7 @@ describe("group list hooks", () => {
   });
 
   it("keeps indexed groups when the creator source fails", async () => {
+    activeMember("indexed-group", "user-1");
     const creatorError = new Error("creator query unavailable");
     vi.mocked(getDocs)
       .mockResolvedValueOnce({ docs: [{ id: "indexed-group" }] } as never)
@@ -424,6 +434,7 @@ describe("group list hooks", () => {
   });
 
   it("logs a failed group chunk while keeping groups from successful chunks", async () => {
+    activeMember("group-1", "user-1");
     const chunkError = new Error("chunk unavailable");
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
     const indexedIds = Array.from({ length: 11 }, (_, index) => ({ id: `group-${index + 1}` }));
@@ -454,6 +465,8 @@ describe("group list hooks", () => {
   });
 
   it("ignores a late group response after the user changes", async () => {
+    activeMember("first-user-group", "user-1");
+    activeMember("second-user-group", "user-2");
     const firstIndex = deferred<{ docs: [] }>();
     const firstCreator = deferred<{ docs: Array<{ id: string; data: () => Record<string, unknown> }> }>();
     vi.mocked(getDocs)
@@ -486,6 +499,51 @@ describe("group list hooks", () => {
     });
 
     expect(result.current.groups.map((group) => group.id)).toEqual(["second-user-group"]);
+  });
+
+  it("lists only clubs whose canonical member document is active or approved", async () => {
+    // 색인·현재 클럽 포인터·생성자 모두 후보일 뿐이다(#1589).
+    setDocData("users/user-1", { currentGroupId: "left-current" });
+    activeMember("indexed-active", "user-1");
+    activeMember("indexed-approved", "user-1", "approved");
+    setDocData("groups/indexed-unusual-role/members/user-1", { status: "active", role: "custom-role" });
+    setDocData("groups/indexed-offline/members/user-1", { status: "offline", role: "member" });
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: ["indexed-active", "indexed-approved", "indexed-unusual-role", "indexed-offline", "kicked"].map(id => ({ id })) } as never)
+      .mockResolvedValueOnce({ docs: [{ id: "handed-over", data: () => ({ name: "Handed over", creatorId: "user-1", isActive: true }) }] } as never)
+      .mockResolvedValueOnce({ docs: ["indexed-active", "indexed-approved", "indexed-unusual-role", "indexed-offline", "kicked", "left-current"]
+        .map(id => ({ id, data: () => ({ name: id, isActive: true }) })) } as never);
+
+    const { result } = renderHook(() => useMyGroups("user-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups.map(group => group.id).sort()).toEqual(["indexed-active", "indexed-approved", "indexed-unusual-role"]);
+    expect(result.current.incomplete).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("keeps an unreadable membership unconfirmed instead of calling it a non-member", async () => {
+    activeMember("readable", "user-1");
+    const original = vi.mocked(getDoc).getMockImplementation()!;
+    const denied = new Error("membership read failed");
+    vi.mocked(getDoc).mockImplementation(async (ref: never) => {
+      if ((ref as { path: string }).path === "groups/unreadable/members/user-1") throw denied;
+      return original(ref);
+    });
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [{ id: "readable" }, { id: "unreadable" }] } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: ["readable", "unreadable"].map(id => ({ id, data: () => ({ name: id, isActive: true }) })) } as never);
+
+    try {
+      const { result } = renderHook(() => useMyGroups("user-1"));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.groups.map(group => group.id)).toEqual(["readable"]);
+      // 목록 밖 클럽을 미가입으로 확정하지 않는다 — 가입 버튼을 다시 열지 않게 incomplete.
+      expect(result.current.incomplete).toBe(true);
+    } finally {
+      vi.mocked(getDoc).mockImplementation(original);
+    }
   });
 
   it("keeps public group load failures distinct from no public groups", async () => {
@@ -533,6 +591,7 @@ describe("group list hooks", () => {
   });
 
   it("preserves known memberships on an empty cached retry and clears them for a different user", async () => {
+    activeMember("known", "known-user");
     vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: false } } as never)
       .mockResolvedValueOnce({ docs: [{ id: "known", data: () => ({ name: "Known club" }) }], metadata: { fromCache: false } } as never);
     const { result, rerender } = renderHook(({ uid }) => useMyGroups(uid), { initialProps: { uid: "known-user" } });
@@ -548,6 +607,7 @@ describe("group list hooks", () => {
   });
 
   it("keeps cached club rows usable while reporting their unconfirmed server state", async () => {
+    activeMember("cached", "cached-user");
     vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never)
       .mockResolvedValueOnce({ docs: [{ id: "cached", data: () => ({ name: "Cached club" }) }], metadata: { fromCache: true } } as never);
     const { result } = renderHook(() => useMyGroups("cached-user"));

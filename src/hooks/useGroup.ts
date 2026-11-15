@@ -193,7 +193,12 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
   return { members, loading, error, retry: () => setAttempt(value => value + 1) };
 }
 
-// 내 그룹 목록: 빠른 조회 인덱스, 사용자 현재 그룹, creator 관계를 함께 조회한다.
+/** 가입 회원으로 보는 회원 문서 상태 — 역할 문자열과 무관하게 이 상태면 회원이다. */
+function isActiveMembershipStatus(status: unknown): boolean {
+  return ["active", "approved"].includes(String(status ?? ""));
+}
+
+// 내 그룹 목록: 빠른 조회 인덱스, 사용자 현재 그룹, creator 관계로 후보를 찾고 정본 회원 문서로 확정한다.
 export function useMyGroups(userId: string | undefined) {
   const services = useFirebaseServices();
   const { firestore } = services;
@@ -284,6 +289,27 @@ export function useMyGroups(userId: string | undefined) {
           });
         });
       }
+
+      // 세 출처는 후보 발견에만 쓴다 — 가입 목록은 현재 정본 회원 문서가 active/approved 인 클럽만(#1589).
+      // 탈퇴·강퇴 뒤 남은 색인·현재 클럽 포인터나, 리더를 넘기고 나간 생성자는 여기서 빠진다.
+      // 회원 조회 실패는 비회원 확정이 아니다 — 목록에서는 빼되 incomplete 로 남겨 가입 버튼을 다시 열지 않는다.
+      const membershipResults = await Promise.all([...groupsById.keys()].map(async (groupId) => {
+        try {
+          return { groupId, result: { status: "fulfilled" as const, value: await getDoc(doc(firestore, "groups", groupId, "members", userId)) } };
+        } catch (reason) {
+          return { groupId, result: { status: "rejected" as const, reason } };
+        }
+      }));
+      if (cancelled) return;
+      membershipResults.forEach(({ groupId, result }) => {
+        if (result.status === "rejected") {
+          groupsById.delete(groupId);
+          partialFailures.push({ source: "membership", reason: result.reason });
+          return;
+        }
+        if (result.value.metadata?.fromCache === true) cacheError ??= new Error("Club list could not be confirmed with the server");
+        if (!isActiveMembershipStatus(result.value.exists() ? result.value.data()?.status : null)) groupsById.delete(groupId);
+      });
 
       if (cacheError && groupsById.size === 0) throw cacheError;
       if (!discoveredGroupsLoaded && groupsById.size === 0) {
