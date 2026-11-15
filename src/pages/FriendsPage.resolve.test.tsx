@@ -27,28 +27,12 @@ describe("친구 화면 경고 문구를 누르면 해결로", () => {
     logged.mockRestore();
   });
 
-  it("친구 코드 복사 실패 알림은 사실대로 말하고, 누르면 같은 계정에서만 다시 복사한다", async () => {
-    const writeText = vi.fn().mockRejectedValueOnce(new Error("denied")).mockResolvedValue(undefined);
+  it("친구 코드 복사 실패 알림은 사실대로 말한다(공유가 아니라 복사 실패도 포함)", async () => {
+    const writeText = vi.fn().mockRejectedValueOnce(new Error("denied"));
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     renderWithProviders(<FriendsPage />, { authenticated: true, profile: { friendCode: "ABC123" } });
     await screen.findByText("ABC123");
     fireEvent.click(screen.getByRole("button", { name: "복사" }));
-    const toast = await screen.findByRole("button", { name: "공유하거나 복사하지 못했어요" });
-    fireEvent.click(toast);
-    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
-    expect(writeText).toHaveBeenLastCalledWith("ABC123");
-  });
-
-  it("다른 계정으로 바뀐 뒤에는 남은 복사 실패 알림을 눌러도 이전 계정의 코드를 복사하지 않는다", async () => {
-    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    renderWithProviders(<FriendsPage />, { authenticated: true, profile: { friendCode: "ABC123" } });
-    await screen.findByText("ABC123");
-    fireEvent.click(screen.getByRole("button", { name: "복사" }));
-    const toast = await screen.findByRole("button", { name: "공유하거나 복사하지 못했어요" });
-    simulateLogin({ uid: "someone-else" });
-    fireEvent.click(toast);
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("공유하거나 복사하지 못했어요")).toBeInTheDocument();
   });
 });

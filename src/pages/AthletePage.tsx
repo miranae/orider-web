@@ -919,13 +919,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {profileForPage?.team && <Text as="p" variant="caption" tone="secondary">{profileForPage.team}</Text>}
           {isOwnProfile && <div className="flex flex-wrap gap-2 mt-3">
             <Link data-testid="P0-0-2" className={buttonClass({ variant: "secondary", size: "sm" })} to="/settings/account"><Pencil size={ICON_SIZE.md} aria-hidden="true" />{t("self.edit")}</Link>
-            <Button data-testid="P0-0-3" size="sm" leadingIcon={<Share2 size={ICON_SIZE.md} aria-hidden="true" />} variant="secondary" onClick={() => {
-              const url = `${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`;
-              // 복사 실패 알림을 누르면 같은 계정일 때만 같은 주소로 다시 복사한다(전역 알림은 계정이 바뀌어도 남는다).
-              const owner = services.auth.currentUser?.uid;
-              const copy = () => { void navigator.clipboard.writeText(url).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error", { resolve: { onClick: () => { if (owner && services.auth.currentUser?.uid === owner) copy(); } } })); };
-              copy();
-            }}>{t("self.share")}</Button>
+            <Button data-testid="P0-0-3" size="sm" leadingIcon={<Share2 size={ICON_SIZE.md} aria-hidden="true" />} variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
           </div>}
           {isOwnProfile && (
             <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={isOwnProfile ? [] : chartActivities} /></div>

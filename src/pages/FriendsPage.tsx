@@ -20,7 +20,6 @@ import i18n from "../i18n";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 import { ICON_SIZE } from "../theme/tokens/icon";
 import { Resolvable } from "../components/redesign/states/Resolvable";
-import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
 export default function FriendsPage() {
   const { user } = useAuth();
@@ -28,7 +27,6 @@ export default function FriendsPage() {
   const { t: commonT } = useTranslation("common");
   const { friends, requests, sentRequests = [], readError, retryRead, cancelRequest, friendCode, friendCodeLoading, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
   const { showToast } = useToast();
-  const { auth } = useFirebaseServices();
   const dialog = useDialog();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,24 +40,16 @@ export default function FriendsPage() {
   useEffect(() => { if (requestedTab === "requests" || requestedTab === "sent") setTab(requestedTab); }, [requestedTab]);
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(() => new Set());
 
-  // 공유·복사 실패 알림을 누르면 같은 계정일 때만 같은 내용으로 다시 시도한다(전역 알림은 계정이 바뀐 뒤에도 남는다).
-  const retryWhileSameAccount = (retry: () => void) => {
-    const owner = auth.currentUser?.uid;
-    return { resolve: { onClick: () => { if (owner && auth.currentUser?.uid === owner) retry(); } } };
-  };
   const handleShareInvite = async () => {
     if (!friendCode) return;
     const url = buildFriendInviteUrl(window.location.origin, i18n.language, friendCode);
-    const share = async () => {
-      const result = await shareFriendInvite({ title: t("onboarding.shareTitle"), text: t("onboarding.shareText"), url });
-      if (result === "copied") showToast(t("onboarding.copied"));
-      else if (result === "error") showToast(t("onboarding.shareFailed"), "error", retryWhileSameAccount(() => { void share(); }));
-    };
-    await share();
+    const result = await shareFriendInvite({ title: t("onboarding.shareTitle"), text: t("onboarding.shareText"), url });
+    if (result === "copied") showToast(t("onboarding.copied"));
+    else if (result === "error") showToast(t("onboarding.shareFailed"), "error");
   };
   const copyFriendCode = (code: string) => {
     void navigator.clipboard.writeText(code).then(() => showToast(t("copied")))
-      .catch(() => showToast(t("onboarding.shareFailed"), "error", retryWhileSameAccount(() => copyFriendCode(code))));
+      .catch(() => showToast(t("onboarding.shareFailed"), "error"));
   };
 
   if (!user) {

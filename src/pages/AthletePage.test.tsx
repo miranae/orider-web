@@ -762,12 +762,3 @@ it("re-reads my clubs when the clubs failure text is pressed", async () => {
   await waitFor(() => expect(screen.queryByText("클럽을 불러오지 못했습니다.")).not.toBeInTheDocument());
   vi.mocked(getDocs).mockImplementation(original);
 });
-it("retries the profile-link copy when its failure toast is pressed", async () => {
-  const writeText = vi.fn().mockRejectedValueOnce(new Error("denied")).mockResolvedValue(undefined);
-  Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
-  fireEvent.click(await screen.findByTestId("P0-0-3"));
-  fireEvent.click(await screen.findByRole("button", { name: "주소 복사에 실패했어요" }));
-  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
-  expect(writeText.mock.calls[1]![0]).toBe(writeText.mock.calls[0]![0]);
-});
