@@ -1,7 +1,7 @@
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import { useSignInResolve } from "../../hooks/useSignInResolve";
 import GlossaryText from "../../components/common/GlossaryText";
-import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -131,12 +131,18 @@ export default function ActivityEditPage() {
     return t("edit.gearPlaceholderBike");
   }
 
+  // 로그인 안내를 눌러 같은 화면에서 로그인하면(또는 계정이 바뀌면) 다시 읽는다 — 로그인 전 권한 거부가 남지 않게.
+  // 앞선 조회의 늦은 응답은 버린다.
+  const loadSeqRef = useRef(0);
+  const viewerUid = user?.uid ?? null;
   const loadActivity = useCallback(async () => {
     if (!activityId) return;
     setLoading(true);
+    const seq = ++loadSeqRef.current;
     setLoadError(null);
     try {
       const snap = await getDoc(doc(firestore, "activities", activityId));
+      if (seq !== loadSeqRef.current) return;
       if (!snap.exists()) {
         setData(null);
         return;
@@ -165,12 +171,13 @@ export default function ActivityEditPage() {
       setStartDate(tsToDateStr(parsed.startTime));
       setStartTimeOfDay(tsToTimeStr(parsed.startTime));
     } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       logClientError("ActivityEditPage.loadActivity", err, { activityId });
       setLoadError(err instanceof Error ? err.message : t("edit.loadErrorFallback"));
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [activityId, firestore, t]);
+  }, [activityId, firestore, t, viewerUid]);
 
   useEffect(() => {
     void loadActivity();

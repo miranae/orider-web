@@ -5,7 +5,9 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { mockUpdateDoc, setDocData } from "../../__tests__/mocks/firebase";
+import { mockUpdateDoc, setDocData, simulateLogin } from "../../__tests__/mocks/firebase";
+import { getDoc } from "firebase/firestore";
+import { act } from "@testing-library/react";
 import ActivityEditPage from "./ActivityEditPage";
 import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 
@@ -31,6 +33,15 @@ describe("activity edit login gate", () => {
     expect(screen.queryByRole("button", { name: "로그인" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByText("로그인이 필요합니다"));
     expect(await screen.findByRole("dialog", { name: "로그인" })).toBeInTheDocument();
+  });
+
+  it("로그인 전 권한 거부로 실패했어도, 같은 화면에서 로그인하면 다시 읽어 편집 화면을 연다", async () => {
+    setDocData("activities/edit-gear", { userId: "test-uid", type: "Ride", name: "Private Ride", description: "", visibility: "only_me", startTime: Date.UTC(2026, 9, 11, 0) });
+    vi.mocked(getDoc).mockRejectedValueOnce(Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" }));
+    renderWithProviders(<ActivityEditPage />, { route: "/ko/activity/edit-gear/edit" });
+    await screen.findByText("로그인이 필요합니다");
+    await act(async () => { simulateLogin({ uid: "test-uid" }); });
+    expect(await screen.findByDisplayValue("Private Ride")).toBeInTheDocument();
   });
 });
 

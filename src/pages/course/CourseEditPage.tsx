@@ -1,6 +1,6 @@
 import "../../features/courses/course-review.css";
 import { useSignInResolve } from "../../hooks/useSignInResolve";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -54,12 +54,18 @@ export default function CourseEditPage() {
   const [surface, setSurface] = useState<Surface>("");
   const [difficulty, setDifficulty] = useState<number | null>(null);
 
+  // 로그인 안내를 눌러 같은 화면에서 로그인하면(또는 계정이 바뀌면) 다시 읽는다 — 로그인 전 권한 거부가 남지 않게.
+  // 앞선 조회의 늦은 응답은 버린다.
+  const loadSeqRef = useRef(0);
+  const viewerUid = user?.uid ?? null;
   const loadCourse = useCallback(async () => {
     if (!courseId) return;
     setLoading(true);
+    const seq = ++loadSeqRef.current;
     setLoadError(null);
     try {
       const snap = await getDoc(doc(firestore, "courses", courseId));
+      if (seq !== loadSeqRef.current) return;
       if (!snap.exists()) {
         setData(null);
         return;
@@ -81,12 +87,13 @@ export default function CourseEditPage() {
       setSurface(parsed.surface);
       setDifficulty(parsed.difficulty);
     } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       logClientError("CourseEditPage.loadCourse", err, { courseId });
       setLoadError(err instanceof Error ? err.message : t("error.loadFailed"));
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [courseId, t]);
+  }, [courseId, t, viewerUid]);
 
   useEffect(() => {
     void loadCourse();
