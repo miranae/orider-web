@@ -43,10 +43,11 @@ it("opens the collapsed create form and focuses the name when a manager taps the
     renderWithProviders(<GroupChallengesPanel userId="test-uid" groups={mocks.groups as Group[]} />, { authenticated: true });
     const details = document.querySelector("details.challenge-create-details") as HTMLDetailsElement;
     expect(details.open).toBe(false);
-    const buttonsBefore = screen.getAllByRole("button").length;
+    // 접힌 <details> 안 버튼도 세도록 hidden 까지 포함해 전체 버튼 수를 비교한다(새 버튼이 생기지 않았는지).
+    const buttonsBefore = screen.getAllByRole("button", { hidden: true }).length;
     fireEvent.click(screen.getByText("이번 달에 열린 클럽 리그가 없습니다."));
     expect(details.open).toBe(true);
     expect(document.activeElement).toBe(details.querySelector("input"));
-    expect(screen.getAllByRole("button").length).toBe(buttonsBefore);
+    expect(screen.getAllByRole("button", { hidden: true }).length).toBe(buttonsBefore);
   } finally { mocks.empty = false; }
 });
