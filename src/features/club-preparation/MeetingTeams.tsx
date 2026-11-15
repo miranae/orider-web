@@ -5,10 +5,11 @@ import {
   ArrowDown,
   Copy,
   GripVertical,
+  Pencil,
   Plus,
   Users,
 } from "lucide-react";
-import { Button, Card, Chip } from "../../theme/components";
+import { Button, Card, Chip, IconButton } from "../../theme/components";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import type { Meeting, MeetingTeam, Member } from "./domain";
 import {
@@ -145,6 +146,9 @@ export default function MeetingTeams({
     isHost &&
     meeting.status !== "cancelled" &&
     Date.parse(`${meeting.date}T${meeting.time}:00+09:00`) > Date.now();
+  const editGroupsLabel = meeting.teams?.length
+    ? text("조편성 편집", "Edit groups")
+    : text("조 나누기", "Arrange groups");
   const issueText = (issue: TeamIssue) =>
     ({
       "team-limit": text(
@@ -557,11 +561,15 @@ export default function MeetingTeams({
               )}
             </p>
           </div>
+          {/* 명단 복사·조편성 편집은 제목 옆 작은 아이콘으로 둔다. 편집 중 저장·취소는 편집기 안에 그대로 있다. */}
           <div className="cp-actions">
             {isHost && (
-              <Button
+              <IconButton
                 size="sm"
-                leadingIcon={<Copy size={ICON_SIZE.md} />}
+                variant="ghost"
+                aria-label={text("명단 복사", "Copy roster")}
+                title={text("명단 복사", "Copy roster")}
+                icon={<Copy size={ICON_SIZE.sm} />}
                 disabled={saving}
                 onClick={async () => {
                   setError("");
@@ -589,14 +597,15 @@ export default function MeetingTeams({
                     );
                   }
                 }}
-              >
-                {text("명단 복사", "Copy roster")}
-              </Button>
+              />
             )}
             {canEdit && !editing && (
-              <Button
+              <IconButton
                 size="sm"
-                variant="outline"
+                variant="ghost"
+                aria-label={editGroupsLabel}
+                title={editGroupsLabel}
+                icon={<Pencil size={ICON_SIZE.sm} />}
                 disabled={disabled}
                 onClick={() => {
                   const current = structuredClone(meeting.teams ?? []);
@@ -612,11 +621,7 @@ export default function MeetingTeams({
                   setFeedback("");
                   setReviewRequired(false);
                 }}
-              >
-                {meeting.teams?.length
-                  ? text("조편성 편집", "Edit groups")
-                  : text("조 나누기", "Arrange groups")}
-              </Button>
+              />
             )}
           </div>
         </div>

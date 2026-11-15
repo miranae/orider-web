@@ -25,6 +25,7 @@
 .cp-example-note { display:flex; align-items:center; flex-wrap:wrap; gap:var(--space-2); color:var(--ink-2); font-size:var(--fs-xs); margin-bottom:var(--space-5); }
 .cp-example-note>span { flex:1; min-width:12rem; }
 .cp-page-heading,.cp-section-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); }
+.cp-heading-with-edit { display:flex; align-items:center; gap:var(--space-1); min-width:0; }
 .cp-page-heading { margin-block:var(--space-7) var(--space-6); }
 .cp-page-heading h1 { margin-bottom:var(--space-2); }
 .cp-muted { color:var(--ink-2); font-size:var(--fs-sm); }
@@ -60,6 +61,7 @@
 .cp-hero>*:not(.cp-hero-art) { position:relative; }
 .cp-hero-art { position:absolute; right:var(--space-2); bottom:var(--space-2); opacity:.12; color:var(--color-primary-dark); transform:rotate(-20deg) scale(2.4); }
 .cp-hero h1 { max-width:30rem; }
+.cp-hero-title { display:flex; align-items:center; gap:var(--space-2); }
 .cp-hero>p { max-width:32rem; color:var(--ink-2); font-size:var(--fs-sm); }
 .cp-hero-meta { display:flex; gap:var(--space-4); flex-wrap:wrap; font-size:var(--fs-sm); }
 .cp-my-prep,.cp-operations { display:grid; gap:var(--space-4); }
