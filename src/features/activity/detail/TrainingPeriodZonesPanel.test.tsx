@@ -124,6 +124,21 @@ describe("owner manual pace-period evidence", () => {
     expect(screen.getByText(/역치 없음 1건 · GAP 입력 없음 0건 · 프로필 읽기 실패 1건/)).toBeInTheDocument();
     expect(screen.queryByText(/Z1 ·/)).not.toBeInTheDocument();
   });
+  it("「역치 없음 N건」 문구를 누르면 러닝 역치 페이스 칸으로 간다 — 새 버튼은 없다", () => {
+    const response = runningPacePeriodFixture(), pace = response.periods[0]!.zones.pace;
+    if (!("groups" in pace)) throw new Error("fixture");
+    Object.assign(pace, { thresholdMissingActivityCount: 2 });
+    mocks.hook.mockReturnValue({ state: "ready", response });
+    renderWithProviders(<TrainingPeriodZonesPanel response={runningPeriodFixture()} ownerUid="test-uid" />, { authenticated: true });
+    const link = screen.getByRole("link", { name: /역치 없음 2건/, hidden: true });
+    expect(link).toHaveAttribute("href", expect.stringContaining("/settings/training?sport=run&focus=threshold-pace"));
+    expect(screen.queryByRole("button", { name: /역치|설정/, hidden: true })).not.toBeInTheDocument();
+  });
+  it("역치 없음이 0건이면 개수 문구는 글자 그대로다", () => {
+    mocks.hook.mockReturnValue({ state: "ready", response: runningPacePeriodFixture() });
+    renderWithProviders(<TrainingPeriodZonesPanel response={runningPeriodFixture()} ownerUid="test-uid" />, { authenticated: true });
+    expect(screen.queryByRole("link", { name: /역치 없음 0건/, hidden: true })).not.toBeInTheDocument();
+  });
   it("shows one empty hint while preserving per-period reasons and exact bounds in collapsed evidence", () => {
     const response = runningPacePeriodFixture();
     response.asOf = Date.UTC(2026, 9, 12, 6, 7, 8);

@@ -28,3 +28,20 @@ it("discards a late export authorization after leaving the detail", async () => 
   await act(async () => finish({ watts: [0] }));
   expect(mocks.csv).not.toHaveBeenCalled();
 });
+it("내보내기 실패 알림 문구를 누르면 같은 형식으로 다시 내보낸다 — 다른 활동으로 옮겼으면 하지 않는다", async () => {
+  const resolve = vi.fn().mockRejectedValueOnce(new Error("network")).mockResolvedValue({ watts: [1] });
+  const view = render(<ExportTab activity={activity} streams={{ watts: [999] }} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("CSV")));
+  expect(mocks.toast).toHaveBeenCalledWith(expect.any(String), "error", { resolve: { onClick: expect.any(Function) } });
+  const retry = mocks.toast.mock.calls.at(-1)![2].resolve.onClick as () => void;
+  await act(async () => retry());
+  expect(resolve).toHaveBeenCalledTimes(2);
+  expect(mocks.csv).toHaveBeenCalledWith({ watts: [1] });
+
+  resolve.mockRejectedValueOnce(new Error("network"));
+  await act(async () => fireEvent.click(screen.getByText("CSV")));
+  const stale = mocks.toast.mock.calls.at(-1)![2].resolve.onClick as () => void;
+  view.rerender(<ExportTab activity={{ ...activity, id: "b" }} streams={{ watts: [999] }} resolveCurrentStreams={resolve} />);
+  await act(async () => stale());
+  expect(resolve).toHaveBeenCalledTimes(3);
+});

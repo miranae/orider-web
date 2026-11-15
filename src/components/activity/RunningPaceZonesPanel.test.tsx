@@ -34,6 +34,18 @@ describe("recorded GAP pace-zone presentation", () => {
     expect(view.container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
     expect(screen.queryByText("제공된 관측 간격 · 0:00")).not.toBeInTheDocument();
   });
+  it("주인의 「역치가 없어」 문구를 누르면 러닝 역치 페이스 칸으로 간다 — 다른 사유는 글자 그대로", () => {
+    const analysis = runningPaceAnalysisFixture();
+    analysis.state = "unavailable"; analysis.reason = "threshold_missing"; analysis.zoneSeconds.fill(0); analysis.eligibleGapSeconds = 0; analysis.thresholdPaceSecPerKm = null; analysis.thresholdSource = null; analysis.intervalCoverage = null;
+    const view = renderWithProviders(<RunningPaceZonesPanel analysis={analysis} />);
+    const link = screen.getByRole("link", { name: "계산 기준 역치가 없어 페이스존을 표시할 수 없습니다." });
+    expect(link).toHaveAttribute("href", expect.stringContaining("/settings/training?sport=run&focus=threshold-pace"));
+    expect(screen.queryByRole("button", { name: /역치/ })).not.toBeInTheDocument();
+    view.unmount();
+    analysis.reason = "profile_read_failed";
+    renderWithProviders(<RunningPaceZonesPanel analysis={analysis} />);
+    expect(screen.queryByRole("link", { name: /프로필을 읽지 못해/ })).not.toBeInTheDocument();
+  });
   it("keeps fractional elapsed intervals readable and a positive tiny share distinct from zero", () => {
     const analysis = runningPaceAnalysisFixture(); analysis.zoneSeconds = [0.004, 5400.496, 0, 0, 0, 0]; analysis.eligibleGapSeconds = 5400.5;
     analysis.intervalCoverage = { ...analysis.intervalCoverage!, observedIntervalSeconds: 5480.5, eligibleGapSeconds: 5400.5 };

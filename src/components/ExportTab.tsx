@@ -45,7 +45,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
   const generation = useRef(0);
   useEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams]);
 
-  const handleExport = useCallback(async (format: string) => {
+  const handleExport = useCallback(async function exportFormat(format: string): Promise<void> {
     const request = generation.current;
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
@@ -78,7 +78,9 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
       }
     } catch (err) {
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
-      showToast(t("export.errorAlert"), "error");
+      if (request !== generation.current) return;
+      // 알림 문구를 누르면 같은 형식으로 다시 내보낸다. 그사이 다른 활동으로 옮겼거나 화면을 떠났으면 아무것도 하지 않는다.
+      showToast(t("export.errorAlert"), "error", { resolve: { onClick: () => { if (request === generation.current) void exportFormat(format); } } });
     }
   }, [activity, streams, resolveCurrentStreams, t, showToast]);
 

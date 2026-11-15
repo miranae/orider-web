@@ -7,6 +7,9 @@ import RunRecordBanner from "./RunRecordBanner";
 import type { RunPrTable } from "@shared/types/personal-records";
 
 vi.mock("../../services/analytics", () => ({ track: vi.fn() }));
+const toast = vi.hoisted(() => vi.fn());
+vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: toast }) }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 import { track } from "../../services/analytics";
 
 const e = (value: number, activityId: string) => ({ value, activityId, date: "2026-07-10", startTime: 0 });
@@ -90,6 +93,26 @@ describe("RunRecordBanner — 공유", () => {
     render(<RunRecordBanner run={run} activityId="today" />);
     fireEvent.click(screen.getByRole("button", { name: /공유/ }));
     expect(track).toHaveBeenCalledWith("or_run_record_share", { distance: "5km" });
+  });
+
+  it("공유 실패 알림 문구를 누르면 같은 공유를 다시 시도한다 — 다른 화면으로 옮겼으면 하지 않는다", async () => {
+    const shareSpy = vi.fn().mockRejectedValueOnce(new Error("blocked")).mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { value: shareSpy, configurable: true });
+    render(<RunRecordBanner run={run} activityId="today" />);
+    fireEvent.click(screen.getByRole("button", { name: /공유/ }));
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("기록을 공유하거나 복사하지 못했어요", undefined, { resolve: { onClick: expect.any(Function) } }));
+    const { resolve } = toast.mock.calls.at(-1)![2];
+    resolve.onClick();
+    await vi.waitFor(() => expect(shareSpy).toHaveBeenCalledTimes(2));
+    expect(shareSpy.mock.calls[1][0].url).toContain("/activity/today");
+
+    shareSpy.mockRejectedValueOnce(new Error("blocked"));
+    resolve.onClick();
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(2));
+    window.location.href = "https://orider.co.kr/ko/activity/other";
+    toast.mock.calls.at(-1)![2].resolve.onClick();
+    await Promise.resolve();
+    expect(shareSpy).toHaveBeenCalledTimes(3);
   });
 
   it("navigator.share 가 없으면 클립보드로 폴백", async () => {

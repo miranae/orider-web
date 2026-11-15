@@ -90,6 +90,26 @@ describe("EquipmentSignalCard", () => {
     expect(screen.queryByText(/확률|probability|confidence/i)).not.toBeInTheDocument();
   });
 
+  it("센서 점검 안내 문구를 누르면 기기·센서 설정으로 간다 — 다른 점검 안내는 글자 그대로", async () => {
+    setDocData("equipment_signal_exposures/ride-1", { ...projection, actionCode: "CHECK_SENSOR", guidanceKey: "coach.equipment.guidance.check_sensor" } as unknown as Record<string, unknown>);
+    const view = renderWithProviders(
+      <EquipmentSignalCard activityId="ride-1" ownerId="test-uid" viewerId="test-uid" />,
+      { authenticated: true },
+    );
+    const link = await screen.findByRole("link", { name: /센서/ });
+    expect(link).toHaveAttribute("href", expect.stringContaining("/settings/device"));
+    expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual(["확인했어요 · 숨기기"]);
+    view.unmount();
+
+    setDocData("equipment_signal_exposures/ride-1", projection as unknown as Record<string, unknown>);
+    renderWithProviders(
+      <EquipmentSignalCard activityId="ride-1" ownerId="test-uid" viewerId="test-uid" />,
+      { authenticated: true },
+    );
+    await screen.findByRole("region", { name: "브레이크 간섭을 점검해 보세요" });
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("does not subscribe or render for a non-owner viewer", () => {
     setDocData("equipment_signal_exposures/ride-1", projection as unknown as Record<string, unknown>);
     renderWithProviders(

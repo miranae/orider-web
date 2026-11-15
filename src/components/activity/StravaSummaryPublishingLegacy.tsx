@@ -5,6 +5,9 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useStrava } from "../../hooks/useStrava";
 import { Button, Text } from "../../theme/components";
 import type { NarrativeLang } from "../../hooks/useActivityNarrative";
+import { Resolvable, type Resolve } from "../redesign";
+import { revealFocusTarget } from "../../services/focusTarget";
+import { logClientError } from "../../services/errorLogger";
 
 interface PublishResult {
   status: "published" | "unchanged" | "queued" | "reauthorization-required" | "unavailable";
@@ -35,6 +38,7 @@ export default function StravaSummaryPublishing({ activityId, lang }: { activity
   const [message, setMessage] = useState<string | null>(null);
   const [result, setResult] = useState<PublishResult | null>(null);
   const [target, setTarget] = useState("");
+  const targetInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     active.current = true;
     return () => { active.current = false; };
@@ -76,9 +80,17 @@ export default function StravaSummaryPublishing({ activityId, lang }: { activity
         activityId, lang, ...(stravaActivityId ? { stravaActivityId } : {}),
       });
       if (active.current) { setResult(response.data); setMessage(response.data.status); }
-    } catch { if (active.current) setMessage("publishError"); }
+    } catch (error) {
+      logClientError("StravaSummaryPublishingLegacy.publish", error, { activityId, withTarget: !!stravaActivityId });
+      if (active.current) setMessage("publishError");
+    }
     finally { if (active.current) setBusy(false); }
   };
+  // 상태 문구를 누르면 해소로: 대상 없음·잘못된 링크 → 접힌 대상 링크 칸을 펼쳐 초점, 요청 실패 → 같은 게시를 다시.
+  const messageResolve: Resolve | undefined = busy ? undefined
+    : message === "unavailable" || message === "invalidTarget" ? { onClick: () => { if (targetInput.current) revealFocusTarget(targetInput.current); } }
+      : message === "publishError" ? { onClick: () => { void publish(); } }
+        : undefined;
   const publishedId = result?.stravaActivityId == null ? null : parseStravaSummaryTarget(String(result.stravaActivityId));
   return (
     <section className="space-y-3" aria-label={t("stravaSummary.legacy.title")}>
@@ -92,10 +104,10 @@ export default function StravaSummaryPublishing({ activityId, lang }: { activity
         <summary>{t("stravaSummary.legacy.targetHelp")}</summary>
         <label className="block space-y-2">
           <span>{t("stravaSummary.targetLabel")}</span>
-          <input className="w-full" type="url" value={target} onChange={(event) => setTarget(event.target.value)} disabled={busy} placeholder="https://www.strava.com/activities/…" />
+          <input ref={targetInput} className="w-full" type="url" value={target} onChange={(event) => setTarget(event.target.value)} disabled={busy} placeholder="https://www.strava.com/activities/…" />
         </label>
       </details>
-      <p role="status">{message ? t(`stravaSummary.${message}`) : ""}</p>
+      <p role="status">{message ? <Resolvable resolve={messageResolve}>{t(`stravaSummary.${message}`)}</Resolvable> : ""}</p>
       {publishedId && (result?.status === "published" || result?.status === "unchanged") && <a href={`https://www.strava.com/activities/${publishedId}`} target="_blank" rel="noreferrer">{t("stravaSummary.view")}</a>}
     </section>
   );

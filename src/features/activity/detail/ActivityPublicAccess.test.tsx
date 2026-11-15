@@ -4,13 +4,28 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ActivityPublicAccess } from "./ActivityPublicAccess";
 import type { PublicActivityDetail } from "../../../services/publicActivityDetail";
 import { PUBLIC_ACCESS_VERIFIED_TTL_MS } from "../../../hooks/usePublicActivitySession";
-const state = vi.hoisted(() => ({ user: { uid: "viewer" }, load: vi.fn() }));
-vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user }) }));
+const state = vi.hoisted(() => ({ user: { uid: "viewer" } as { uid: string } | null, load: vi.fn(), signIn: vi.fn() }));
+vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user, signIn: state.signIn }) }));
 vi.mock("../../../services/publicActivityDetail", () => ({ createPublicActivityClient: () => ({ load: state.load }), isPublicActivityAccessError: (error: {code?: string}) => ["functions/permission-denied", "functions/not-found"].includes(error.code ?? "") }));
 const detail = { activity: { id: "a", userId: "owner", source: "health_connect", groupId: "g", groupRideId: "ride", segmentEffortCount: 4, description: "기존 상세", summary: {}, activityRevision: "r1" }, viewerHasKudos: false, metrics: { schemaVersion: 3, status: "final", metrics: { version: 41, avgPower: 0 } }, content: { activityId: "a", status: "ready", comments: [] } } as unknown as PublicActivityDetail;
 const options = { activityId: "a", retryKey: 0, onReady: () => {}, onError: () => {} };
 function Probe() { return <MemoryRouter><ActivityPublicAccess {...options}>{({model}) => <output>{JSON.stringify({ source: model.activity?.source, group: model.activity?.groupRideId, count: model.activity?.segmentEffortCount, power: model.metrics.metrics?.avgPower })}</output>}</ActivityPublicAccess></MemoryRouter>; }
-beforeEach(() => { state.user = { uid: "viewer" }; state.load.mockReset().mockResolvedValue(detail); });
+beforeEach(() => { state.user = { uid: "viewer" }; state.signIn.mockReset(); state.load.mockReset().mockResolvedValue(detail); });
+it("로그인하지 않은 사람의 접근 거부 문구를 누르면 로그인 창을 연다 — 새 버튼은 없다", async () => {
+  state.user = null;
+  state.load.mockRejectedValue({ code: "functions/permission-denied" });
+  render(<Probe />);
+  const message = await screen.findByRole("button", { name: /활동을 볼 수 없습니다/ });
+  expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual([message.textContent, "다시 시도"]);
+  fireEvent.click(message);
+  expect(state.signIn).toHaveBeenCalledTimes(1);
+});
+it("로그인한 사람의 접근 거부 문구는 글자 그대로다", async () => {
+  state.load.mockRejectedValue({ code: "functions/permission-denied" });
+  render(<Probe />);
+  expect(await screen.findByText(/활동을 볼 수 없습니다/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /활동을 볼 수 없습니다/ })).not.toBeInTheDocument();
+});
 it("retains the server's source, group, segment count and measured zero in the shared model", async () => {
   render(<Probe />);
   expect(await screen.findByText('{"source":"health_connect","group":"ride","count":4,"power":0}')).toBeVisible();

@@ -34,6 +34,7 @@ import { GearKitSection } from "./GearKitSection";
 import { LocalizedLink } from "../LocalizedLink";
 import { Button, DropdownSelect, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 
 const CDA_PRESETS = [
   { label: "equipment.presetHoods", value: 0.32 },
@@ -626,11 +627,13 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
       {part === "device" && <><SettingsCard
         data-testid="S6-4-1" title={t("equipment.virtualPower")}
         action={
-          <Toggle
-            on={vpDraft?.enabled ?? true}
-            ariaLabel={t("equipment.virtualPower")}
-            onChange={(v) => patchVp({ enabled: v, userDisabled: !v })}
-          />
+          <span {...focusTargetProps(FOCUS_TARGETS.virtualPower)}>
+            <Toggle
+              on={vpDraft?.enabled ?? true}
+              ariaLabel={t("equipment.virtualPower")}
+              onChange={(v) => patchVp({ enabled: v, userDisabled: !v })}
+            />
+          </span>
         }
       >
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-3)", lineHeight: 1.5 }}>

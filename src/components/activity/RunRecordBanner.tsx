@@ -38,7 +38,9 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
     if (result === "copied") showToast(t("runRecord.share.copied"));
     else if (result === "failed") {
       logClientError("RunRecordBanner.share", new Error("Share unavailable or failed"), { distance: top.distance });
-      showToast(t("runRecord.share.failed"));
+      // 알림 문구를 누르면 같은 공유를 다시 시도한다(누름 자체가 공유 시트에 필요한 사용자 동작).
+      // 그사이 다른 화면으로 옮겼으면 다른 주소를 공유하게 되므로 아무것도 하지 않는다.
+      showToast(t("runRecord.share.failed"), undefined, { resolve: { onClick: () => { if (window.location.href === url) void handleShare(); } } });
     }
   };
 
