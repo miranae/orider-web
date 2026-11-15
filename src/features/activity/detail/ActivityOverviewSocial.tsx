@@ -127,10 +127,10 @@ export default function ActivityOverviewSocial(props: Props) {
           {photo?.uploadId && photo.ownerId === props.viewerId && <IconButton variant="danger" icon={<Trash2 size={ICON_SIZE.md} />} aria-label={t("page.delete")} onClick={() => props.onDelete(photo.uploadId!)} />}
           {props.owner && props.onHideProviderPhoto && photo && providerPhotoIdOf(photo) && <IconButton variant="ghost" icon={<EyeOff size={ICON_SIZE.md} />} disabled={props.providerPhotoBusy}
             aria-label={t("overviewSocial.hideProviderPhoto")} title={t("overviewSocial.hideProviderPhoto")} onClick={() => { props.onHideProviderPhoto!(providerPhotoIdOf(photo)!); setSelected(null); }} />}
+          {props.canChooseCover && props.owner && props.viewerId && photo?.nativePhoto && photo.ownerId === props.viewerId && <ActivityCoverPhotoControl
+            key={`${activityId}:${props.viewerId}`} activityId={activityId} photoId={photo.nativePhoto.photoId} />}
           {total > safePhotos.length && props.canLoadPhotos && <Button variant="ghost" size="sm" disabled={props.loadingPhotos} onClick={load}>{t(props.photoError ? "page.retry" : props.loadingPhotos ? "detail.loadingData" : "overviewSocial.loadPhotos")}</Button>}
         </div>
-        {props.canChooseCover && props.owner && props.viewerId && photo?.nativePhoto && photo.ownerId === props.viewerId && <ActivityCoverPhotoControl
-          key={`${activityId}:${props.viewerId}`} activityId={activityId} photoId={photo.nativePhoto.photoId} />}
         {props.loadingPhotos && <Text as="p" variant="bodySmall" role="status">{t("detail.loadingData")}</Text>}
         {props.photoError && <Text as="p" variant="bodySmall" role="alert">{t("overviewSocial.photoError")}</Text>}
       </>} />

@@ -32,6 +32,9 @@ vi.mock("react-router-dom", async importOriginal => ({ ...await importOriginal<t
       await screen.findByRole("tab", { name: "분석" });
       expect(screen.getByText("보존된 대체 조회 활동")).toBeInTheDocument();
       fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+      // 저장된 분석·새 분석은 분석 머리글의 아이콘 버튼으로 접혀 있다
+      expect(screen.queryByRole("button", { name: "분석 상태 확인" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "저장된 분석과 새 분석" }));
       expect(screen.getByRole("button", { name: "분석 상태 확인" })).toBeInTheDocument();
       expect(screen.getByText("saved watts 222")).toBeInTheDocument();
       const revisionId = "a".repeat(64);

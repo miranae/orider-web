@@ -19,6 +19,8 @@
 .activity-overview-achievements li { display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; overflow-wrap: anywhere; }
 .activity-overview-result-badge { color: var(--accent); font-size: var(--fs-sm); font-weight: 600; flex-shrink: 0; }
 .activity-overview-viewer-controls { justify-content: center; }
+/* 대표사진 저장·실패 문구는 아이콘 줄 아래 한 줄 전체로 */
+.activity-overview-viewer-controls .activity-cover-photo-message { flex-basis: 100%; text-align: center; }
 @media (min-width: 60rem) { .activity-overview-social[data-has-results="true"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-7); } }
 
 /* Keep pending media stable; confirmed failures need only their readable status. */

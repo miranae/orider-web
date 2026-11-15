@@ -180,6 +180,8 @@
 
 /* 분석은 도메인별 질문을 한 번씩 읽는 연속 본문이다. */
 .activity-analysis-domains { display: grid; gap: var(--space-8); min-width: 0; }
+/* 평가 근거 안내 문장 옆 작은 다시 불러오기 아이콘 */
+.activity-analysis-source-state { display: flex; align-items: center; gap: var(--space-2); }
 .activity-analysis-topic { min-width: 0; padding-top: var(--space-6); border-top: 1px solid var(--line-soft); scroll-margin-top: 10rem; }
 .activity-analysis-topic:first-child { border-top: 0; padding-top: 0; }
 .activity-analysis-topic__body { display: grid; gap: var(--space-4); min-width: 0; }
@@ -221,7 +223,7 @@
 .activity-management-visibility label > .ds-text { flex: 1; min-width: 0; }
 .activity-management-visibility input { accent-color: var(--lime); }
 .activity-management-danger { border-top: 1px solid var(--line-soft); padding-top: var(--space-4); }
-.activity-analysis-power-controls { display: grid; gap: var(--space-3); }
+.activity-analysis-power-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 
 .activity-management-dialog .activity-management-row--danger { color: var(--rose); }
 .activity-management-dialog .activity-management-row--danger:hover { background: color-mix(in srgb, var(--rose) 8%, transparent); }
@@ -239,8 +241,13 @@
 
 /* Reading layout: bounded measure, paired comparable data, supporting detail on demand. */
 .activity-detail-analysis-content { width: 100%; max-width: 68rem; margin-inline: auto; }
-.activity-analysis-intro { display: grid; align-items: start; gap: var(--space-4); flex-wrap: wrap; }
+.activity-analysis-intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-4); flex-wrap: wrap; }
 .activity-analysis-intro > div { display: grid; gap: var(--space-2); }
+.activity-analysis-intro > nav { grid-column: 1 / -1; }
+/* 저장된 분석 아이콘은 제목 줄 오른쪽, 펼친 패널은 제목 바로 아래 전체 폭(닫히면 자리 없음) */
+.activity-analysis-intro > .activity-reanalysis { display: contents; }
+.activity-analysis-intro .activity-reanalysis__trigger { grid-column: 2; grid-row: 1; }
+.activity-analysis-intro .activity-reanalysis__panel { grid-column: 1 / -1; grid-row: 2; padding: var(--space-3) var(--space-4); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-1); }
 .activity-analysis-navigation { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
 .activity-analysis-navigation a { color: var(--ink-2); font-size: var(--fs-sm); padding-block: var(--space-3); text-underline-offset: var(--space-1); }
 .activity-analysis-navigation a:hover { color: var(--ink-0); text-decoration: underline; }

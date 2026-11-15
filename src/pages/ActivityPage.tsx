@@ -22,7 +22,7 @@ import { canEditActivityMemo } from "../components/activity/activityMemoEditable
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
-import { ChevronDown, Menu, Trophy } from "lucide-react";
+import { ChevronDown, Menu, RefreshCw, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -1386,9 +1386,10 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
-      {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner || (!!publicAccess && !!user && !user.isAnonymous && user.uid === activity.userId)} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
       {activeTab === "analysis" && <header className="activity-analysis-intro">
         <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
+        {/* 저장된 분석·새 분석 — 제목 줄 오른쪽 아이콘, 누르면 제목 바로 아래 패널 */}
+        <ActivityReanalysisControl canReanalyze={isActivityOwner || (!!publicAccess && !!user && !user.isAnonymous && user.uid === activity.userId)} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} collapsible />
         <nav aria-label={t("analysisReading.navigation")} className="activity-analysis-navigation">
           <a href="#activity-tab-panel">{t("detail.analysisTopics.training")}</a>
           {sport === "ride" && overview.response?.status === "available" && <>
@@ -1618,11 +1619,10 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onLocate={selectedAnalysis ? undefined : locatePeak} locating={loadingStreams && selectedPeak != null}
         locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }        </>}
         powerControls={isActivityOwner && (canRecalculateVirtualPowerPreview || activePowerOverride) ? <div className="activity-analysis-power-controls">
+          {/* 제목 옆 작은 재계산 아이콘, 되돌리기는 미리보기가 적용됐을 때만 */}
           <Text as="h3" variant="bodyMedium" weight={600}>{t("page.vp.heading")}</Text>
-          <div className="flex flex-wrap gap-2">
-            {canRecalculateVirtualPowerPreview && <Button variant="outline" size="sm" onClick={recalculateVirtualPowerPreview}>{t("page.vp.recalcBtn")}</Button>}
-            {activePowerOverride && <Button variant="ghost" size="sm" onClick={revertVirtualPowerPreview}>{t("page.vp.revertBtn")}</Button>}
-          </div>
+          {canRecalculateVirtualPowerPreview && <IconButton variant="ghost" size="sm" icon={<RefreshCw size={ICON_SIZE.sm} />} aria-label={t("page.vp.recalcBtn")} title={t("page.vp.recalcBtn")} onClick={recalculateVirtualPowerPreview} />}
+          {activePowerOverride && <Button variant="ghost" size="sm" onClick={revertVirtualPowerPreview}>{t("page.vp.revertBtn")}</Button>}
         </div> : null}
         sensorFallback={<>
       {activeTab === "analysis" && summarySensorMetrics.length > 0 && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
