@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectiveHiddenProviderIds, hiddenProviderPhotoIds, providerPhotoIdOf, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos } from "./providerPhotoVisibility";
+import { hiddenProviderPhotoIds, providerPhotoIdOf, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos } from "./providerPhotoVisibility";
 
 describe("Strava 사진 숨김", () => {
   it("주인이 찍힌 v1 값만 인정한다", () => {
@@ -22,15 +22,6 @@ describe("Strava 사진 숨김", () => {
     expect(stravaOverviewPhotoTotal({ overviewCount: 1, streamPhotoIds: [], stravaPhotoCount: undefined, hiddenIds: [], uploadedCount: 0, publishedTotal: 9 })).toBe(9);
     // 올린 사진 목록을 못 읽은 공개 열람은 서버 합계를 쓴다
     expect(stravaOverviewPhotoTotal({ overviewCount: 2, streamPhotoIds: [], stravaPhotoCount: 4, hiddenIds: [], uploadedCount: null, publishedTotal: 6 })).toBe(6);
-  });
-  it("저장 직후 값은 문서가 그대로일 때만 쓰고, 문서가 바뀌면(다른 탭 복원 포함) 문서를 따른다", () => {
-    const override = { activityId: "a", uid: "me", base: "[]", ids: ["1"] };
-    expect(effectiveHiddenProviderIds([], override, "a", "me")).toEqual(["1"]);
-    expect(effectiveHiddenProviderIds(["1"], override, "a", "me")).toEqual(["1"]);
-    // 문서가 저장 당시와 달라지면 문서를 따른다(화면은 이때 임시 값을 지워 되돌아와도 다시 쓰지 않는다)
-    expect(effectiveHiddenProviderIds(["2"], override, "a", "me")).toEqual(["2"]);
-    expect(effectiveHiddenProviderIds([], override, "b", "me")).toEqual([]);
-    expect(effectiveHiddenProviderIds([], override, "a", "other")).toEqual([]);
   });
   it("저장 직후(서버 합계가 아직 옛 값)에는 합계를 하한으로 쓰지 않아 숨긴 사진 수가 바로 빠진다", () => {
     expect(stravaOverviewPhotoTotal({ overviewCount: 0, streamPhotoIds: ["1"], stravaPhotoCount: 1, hiddenIds: ["1"], uploadedCount: 0, publishedTotal: undefined })).toBe(0);

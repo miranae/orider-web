@@ -1,49 +1,82 @@
 import { useEffect, useRef, useState } from "react";
+import { doc, getDoc, type Firestore } from "firebase/firestore";
 import type { FirebaseServices } from "../../../contexts/FirebaseServicesContext";
+import { logClientError } from "../../../services/errorLogger";
 import { setProviderPhotosHidden } from "../../../services/nativeActivityPhoto";
-import { effectiveHiddenProviderIds, type ProviderHiddenOverride } from "./providerPhotoVisibility";
+import { hiddenProviderPhotoIds } from "./providerPhotoVisibility";
 
 /**
- * Strava 사진 숨기기·다시 보이기 상태. 저장 직후 서버 응답을 임시로 보여 주되
- * - 활동 문서의 숨김 목록이 저장 당시와 달라지면 임시 값을 버리고 문서를 따른다.
- * - 활동·계정·서비스가 바뀌면 임시 값을 버리고, 그 전에 보낸 요청의 늦은 응답은 적용하지 않는다.
+ * Strava 사진 숨기기·다시 보이기 상태.
+ *
+ * 숨김 목록은 세 곳에서 온다: 화면이 받은 활동 문서(documentHiddenIds), 저장 응답, 탭이 다시 보일 때
+ * 새로 읽은 활동 문서(refreshEnabled 일 때 — 활동 상세는 문서를 한 번만 읽어 다른 탭의 변경을 모른다).
+ * 셋 다 "그 시점의 서버 목록"이므로 따로 비교하지 않고, 갱신마다 시작 순번을 매겨 **가장 나중에 시작한
+ * 갱신의 결과**만 쓴다. 문서 목록이 바뀌면 그 순간 시작·완료된 갱신으로 본다. 그래서
+ * - 요청 중에 문서가 바뀌면(원래 값으로 돌아와도) 늦은 저장 응답은 쓰지 않는다.
+ * - 겹친 조회는 마지막으로 시작한 조회만 쓰고, 탭 복귀 조회 결과가 이 탭의 저장 응답보다 나중이면 그것을 따른다.
+ * 활동·계정·서비스·Firestore 가 바뀌면 모든 값을 버리고, 그 전에 시작한 요청의 응답은 적용하지 않는다.
  */
 export function useProviderPhotoHiding(input: {
   activityId: string | undefined; uid: string | undefined; services: FirebaseServices; documentHiddenIds: string[];
+  firestore?: Firestore; refreshEnabled?: boolean;
   onDone: (hidden: boolean) => void; onError: (error: unknown, context: { activityId: string; hidden: boolean; count: number }) => void;
 }) {
-  const { activityId, uid, services, documentHiddenIds } = input;
-  const [override, setOverride] = useState<ProviderHiddenOverride | null>(null);
-  const [busy, setBusy] = useState(false);
-  const scope = `${activityId ?? ""}|${uid ?? ""}`;
-  const generation = useRef({ scope, services, value: 0 });
-  if (generation.current.scope !== scope || generation.current.services !== services) {
-    generation.current = { scope, services, value: generation.current.value + 1 };
+  const { activityId, uid, services, documentHiddenIds, firestore, refreshEnabled = false } = input;
+  const scopeKey = `${activityId ?? ""}|${uid ?? ""}`;
+  const scope = useRef({ scopeKey, services, firestore, generation: 0 });
+  if (scope.current.scopeKey !== scopeKey || scope.current.services !== services || scope.current.firestore !== firestore) {
+    scope.current = { scopeKey, services, firestore, generation: scope.current.generation + 1 };
   }
-  const callbacks = useRef(input); callbacks.current = input;
-  useEffect(() => { setOverride(null); setBusy(false); }, [scope, services]);
+  const generation = scope.current.generation;
+  // 갱신 시작 순번. 문서 목록 변경도 한 번의 갱신으로 센다.
+  const sequence = useRef(0);
   const documentKey = JSON.stringify(documentHiddenIds);
-  // 문서 숨김 목록이 바뀔 때마다 올라가는 번호. 요청 중에 한 번이라도 바뀌었으면(원래 값으로 돌아왔더라도)
-  // 그 응답은 이미 문서가 더 새로운 상태이므로 임시 값으로 쓰지 않는다.
-  const documentVersion = useRef({ key: documentKey, value: 0 });
-  if (documentVersion.current.key !== documentKey) documentVersion.current = { key: documentKey, value: documentVersion.current.value + 1 };
-  useEffect(() => { if (override && override.base !== documentKey) setOverride(null); }, [override, documentKey]);
+  const documentStamp = useRef({ generation, key: documentKey, sequence: 0 });
+  if (documentStamp.current.generation !== generation || documentStamp.current.key !== documentKey) {
+    documentStamp.current = { generation, key: documentKey, sequence: ++sequence.current };
+  }
+  const [latest, setLatest] = useState<{ generation: number; sequence: number; ids: string[] } | null>(null);
+  const [busy, setBusy] = useState<{ generation: number } | null>(null);
+  const callbacks = useRef(input); callbacks.current = input;
 
+  /** 시작 순번이 지금까지 쓴 어떤 값보다 나중일 때만 결과를 쓴다. */
+  const apply = (requestGeneration: number, requestSequence: number, ids: string[]) => {
+    if (scope.current.generation !== requestGeneration || documentStamp.current.sequence > requestSequence) return;
+    setLatest(previous => previous && previous.generation === requestGeneration && previous.sequence > requestSequence
+      ? previous : { generation: requestGeneration, sequence: requestSequence, ids });
+  };
+
+  useEffect(() => {
+    if (!refreshEnabled || !firestore || !activityId || typeof document === "undefined") return;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      const requestGeneration = generation, requestSequence = ++sequence.current;
+      getDoc(doc(firestore, "activities", activityId)).then(snapshot => {
+        const data = snapshot.data();
+        if (data) apply(requestGeneration, requestSequence, hiddenProviderPhotoIds(data as { userId?: string; hiddenProviderPhotosV1?: unknown }));
+      }).catch(error => logClientError("useProviderPhotoHiding.refresh", error, { activityId }));
+    };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
+  }, [refreshEnabled, firestore, activityId, generation]);
+
+  const isBusy = busy?.generation === generation;
   const change = async (photoIds: string[], hidden: boolean) => {
-    if (!activityId || !photoIds.length || busy) return;
-    const target = activityId, requestUid = uid, requestGeneration = generation.current.value, base = documentKey;
-    const requestDocumentVersion = documentVersion.current.value;
-    const current = () => generation.current.value === requestGeneration;
-    setBusy(true);
+    if (!activityId || !photoIds.length || isBusy) return;
+    const target = activityId, requestGeneration = generation, requestSequence = ++sequence.current;
+    setBusy({ generation: requestGeneration });
     try {
       const ids = await setProviderPhotosHidden(services, target, photoIds, hidden);
-      if (!current()) return;
-      if (documentVersion.current.value === requestDocumentVersion) setOverride({ activityId: target, uid: requestUid, base, ids });
+      if (scope.current.generation !== requestGeneration) return;
+      apply(requestGeneration, requestSequence, ids);
       callbacks.current.onDone(hidden);
     } catch (error) {
       callbacks.current.onError(error, { activityId: target, hidden, count: photoIds.length });
-    } finally { if (current()) setBusy(false); }
+    } finally {
+      setBusy(previous => previous?.generation === requestGeneration ? null : previous);
+    }
   };
-  const hiddenIds = activityId ? effectiveHiddenProviderIds(documentHiddenIds, override, activityId, uid) : documentHiddenIds;
-  return { hiddenIds, overriding: hiddenIds !== documentHiddenIds, busy, change };
+  const current = latest && latest.generation === generation && latest.sequence > documentStamp.current.sequence ? latest : null;
+  const hiddenIds = current && JSON.stringify(current.ids) !== documentKey ? current.ids : documentHiddenIds;
+  return { hiddenIds, overriding: hiddenIds !== documentHiddenIds, busy: isBusy, change };
 }
