@@ -36,6 +36,13 @@ describe("PaneAiCoach", () => {
     expect(screen.queryByRole("button", { name: /다시 시도/ })).not.toBeInTheDocument();
   });
 
+  it("marks the consent button as the ai-coach-consent focus target for the decision card link", async () => {
+    mocks.get.mockResolvedValue({ ...current, consent: { ...current.consent, consented: false, active: false, state: "missing" } });
+    renderWithProviders(<DialogProvider><PaneAiCoach /></DialogProvider>, { authenticated: true });
+    const button = await screen.findByRole("button", { name: "안내 확인 및 동의" });
+    expect(button).toHaveAttribute("data-focus-target", "ai-coach-consent");
+  });
+
   it("tapping the load failure message re-reads the authoritative status", async () => {
     const user = userEvent.setup();
     mocks.get.mockReset().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(current);

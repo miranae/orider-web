@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { logClientError } from "../../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { SettingsCard, InlineRow } from "./_primitives";
+import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { Resolvable } from "../redesign/states/Resolvable";
 import { History } from "lucide-react";
 import { Button, buttonClass } from "../../theme/components";
@@ -106,7 +107,7 @@ export function PaneAiCoach() {
         {policy && <InlineRow label={t("coach.policyVersion")}><code>{policy.policyVersion}</code></InlineRow>}
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
           <LocalizedLink to="/coach/chat" className={`${buttonClass({ variant: "secondary" })} settings-ai-history`}><History size={ICON_SIZE.md} aria-hidden /><span>{t("coach.manageHistory")}</span></LocalizedLink>
-          {!valid && policy && error !== "load_failed" && <Button disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
+          {!valid && policy && error !== "load_failed" && <Button {...focusTargetProps(FOCUS_TARGETS.aiCoachConsent)} disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
           {valid && <Button variant="danger" disabled={loading || saving || error === "load_failed"} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>
         {error === "load_failed" && <div role="alert" className="settings-consent-error"><p><Resolvable resolve={{ onClick: () => void load() }}>{t("coach.loadFailed")}</Resolvable></p></div>}

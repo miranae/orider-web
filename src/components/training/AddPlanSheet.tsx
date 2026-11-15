@@ -6,6 +6,7 @@ import { doc, runTransaction } from "firebase/firestore";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
+import { alertPlanSaveFailure, StalePlanError } from "./stalePlan";
 import { useRetainedTrainingDialog } from "./useRetainedTrainingDialog";
 import { TrainingDialogPortal } from "./TrainingDialogPortal";
 import GlossaryText from "../common/GlossaryText";
@@ -111,8 +112,8 @@ export default function AddPlanSheet({
     label: DAY_NAMES[(planCalendarDate(d.date).getUTCDay() + 6) % 7] ?? "—",
   }));
 
-  function showSaveFailure() {
-    void dialog.alert(t('add.addFailedAlert'), { variant: "danger" });
+  function showSaveFailure(err: unknown) {
+    alertPlanSaveFailure(err, dialog, t, t('add.addFailedAlert'), onUpdate);
   }
 
   async function handleSelectTemplate(template: WorkoutTemplate) {
@@ -124,7 +125,7 @@ export default function AddPlanSheet({
         const snap = await tx.get(ref);
         if (!snap.exists()) throw new Error(t('add.weekDataMissing'));
         const weekData = snap.data() as PlanWeek;
-        if (weekData.days?.[selectedDay]?.date !== days[selectedDay]?.date) throw new Error(t('edit.staleDay'));
+        if (weekData.days?.[selectedDay]?.date !== days[selectedDay]?.date) throw new StalePlanError(t('edit.staleDay'));
         const updatedDays = [...weekData.days];
         updatedDays[selectedDay] = {
           ...updatedDays[selectedDay]!,
@@ -140,7 +141,7 @@ export default function AddPlanSheet({
       onClose();
     } catch (err) {
       logClientError("AddPlanSheet.handleAdd", err, { goalId, weekId, selectedDay, workout: template.kind });
-      showSaveFailure();
+      showSaveFailure(err);
     } finally {
       setLoading(false);
     }
@@ -155,7 +156,7 @@ export default function AddPlanSheet({
         const snap = await tx.get(ref);
         if (!snap.exists()) throw new Error(t('add.weekDataMissing'));
         const weekData = snap.data() as PlanWeek;
-        if (weekData.days?.[selectedDay]?.date !== days[selectedDay]?.date) throw new Error(t('edit.staleDay'));
+        if (weekData.days?.[selectedDay]?.date !== days[selectedDay]?.date) throw new StalePlanError(t('edit.staleDay'));
         const updatedDays = [...weekData.days];
         updatedDays[selectedDay] = {
           ...updatedDays[selectedDay]!,
@@ -171,7 +172,7 @@ export default function AddPlanSheet({
       onClose();
     } catch (err) {
       logClientError("AddPlanSheet.handleSetRest", err, { goalId, weekId, selectedDay });
-      showSaveFailure();
+      showSaveFailure(err);
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { getDoc, updateDoc } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanDay } from "@shared/types/goal";
@@ -8,7 +8,8 @@ import WorkoutEditModal from "./WorkoutEditModal";
 import { RetainedPageContext } from "../../contexts/RetainedPageContext";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ alert: vi.fn() }) }));
+const dialogMocks = vi.hoisted(() => ({ alert: vi.fn(), confirm: vi.fn() }));
+vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => dialogMocks }));
 const original: PlanDay = { date: 1000000, dayOfWeek: 1, workout: "vo2", plannedTSS: 95,
   plannedDurationMin: 60, completed: false, skipped: false,
   intervals: [{ label: "Z5", durationMin: 10 }], workoutName: "원본 고강도" };
@@ -218,6 +219,31 @@ describe("편집창 키보드와 최신 날짜 보호", () => {
     await waitFor(() => expect(getDoc).toHaveBeenCalledOnce());
     await waitFor(() => expect(screen.getByRole('button', { name: 'edit.markCompleted' })).toBeEnabled());
     expect(updateDoc).not.toHaveBeenCalled();
+  });
+  it("계획이 바뀌어 저장하지 못하면 진짜 원인 문구를 보여 주고, 그 문구를 누르면 다시 불러온다", async () => {
+    dialogMocks.alert.mockReset(); dialogMocks.confirm.mockReset();
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ days: [{ ...original, date: original.date + 86400000 }] }) } as never);
+    const onUpdate = vi.fn();
+    render(<WorkoutEditModal day={original} weekId="w" dayIndex={0} goalId="g" goalDiscipline="bike" onClose={vi.fn()} onUpdate={onUpdate} />);
+    fireEvent.click(screen.getByRole('button', { name: 'edit.markCompleted' }));
+    await waitFor(() => expect(dialogMocks.alert).toHaveBeenCalledOnce());
+    // 확인창·새 버튼 없이 기존 경고창의 원인 문구 자체가 눌린다.
+    expect(dialogMocks.confirm).not.toHaveBeenCalled();
+    const message = render(<>{dialogMocks.alert.mock.calls[0]![0]}</>);
+    expect(onUpdate).not.toHaveBeenCalled();
+    fireEvent.click(within(message.container).getByRole('button', { name: 'edit.staleDay' }));
+    expect(onUpdate).toHaveBeenCalledOnce();
+    expect(updateDoc).not.toHaveBeenCalled();
+  });
+  it("계획 변경이 아닌 저장 실패는 기존 다시 시도 안내를 쓰고 새로고침하지 않는다", async () => {
+    dialogMocks.alert.mockReset(); dialogMocks.confirm.mockReset();
+    vi.mocked(getDoc).mockRejectedValue(new Error("network"));
+    const onUpdate = vi.fn();
+    render(<WorkoutEditModal day={original} weekId="w" dayIndex={0} goalId="g" goalDiscipline="bike" onClose={vi.fn()} onUpdate={onUpdate} />);
+    fireEvent.click(screen.getByRole('button', { name: 'edit.markCompleted' }));
+    await waitFor(() => expect(dialogMocks.alert).toHaveBeenCalledWith('edit.saveFailedAlert', expect.anything()));
+    expect(dialogMocks.confirm).not.toHaveBeenCalled();
+    expect(onUpdate).not.toHaveBeenCalled();
   });
   it("저장 중 Escape와 배경으로 닫을 수 없다", async () => {
     vi.mocked(getDoc).mockReturnValue(new Promise(() => {}));
