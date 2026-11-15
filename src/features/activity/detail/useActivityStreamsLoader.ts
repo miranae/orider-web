@@ -154,7 +154,7 @@ export function useActivityStreamsLoader({
         if (!active || auth.currentUser !== sdkUser) return;
         if (result.activityId !== activityId || result.state !== "available" || !result.streams) throw Error("STREAMS_MISSING");
         setStreams(result.streams);
-      }).catch(error => { if (active) { if (isPublicActivityAccessError(error)) onAccessRevoked?.(); setStreamsError(t("page.streamsMissing")); } })
+      }).catch(error => { logClientError("ActivityStreams.public", error, { retryKey }); if (active) { if (isPublicActivityAccessError(error)) onAccessRevoked?.(); setStreamsError(t("page.streamsMissing")); } })
         .finally(() => { clearTimeout(timer); if (active) { setLoadingStreams(false); setShowStreamSpinner(false); } });
       return () => { active = false; clearTimeout(timer); };
     }
