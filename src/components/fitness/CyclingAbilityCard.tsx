@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { CyclingAbilityResult } from "../../features/fitness/multisportPerformance";
 import { Card, Text } from "../../theme/components";
 import AbilityScoreScale from "./AbilityScoreScale";
+import { Resolvable } from "../redesign/states/Resolvable";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 type CyclingAbilityCardProps = {
   cycling: CyclingAbilityResult | null;
@@ -26,10 +28,12 @@ function uniqueStrongestAxis(cycling: CyclingAbilityResult | null): CyclingAbili
 
 function CyclingAbilityContent({ cycling, compact }: Pick<CyclingAbilityCardProps, "cycling" | "compact">) {
   const { t } = useTranslation("dashboard");
+  // 실측 파워 근거가 없다는 문구를 누르면 파워 기록을 들여오는 연결 화면으로 간다(웹에서만).
+  const powerFix = useFirebaseServices().scope !== "embedded" ? { to: "/settings/connections" } : undefined;
   const strongestAxis = uniqueStrongestAxis(cycling);
   if (compact && !cycling?.axes.some(axis => axis.score != null || axis.evidence.some(item => item.watts != null || item.wPerKg != null))) return <>
     <Text variant="eyebrow"><GlossaryText>{t("mobileFitness.sport.bike.title")}</GlossaryText></Text>
-    <Text as="p" variant="bodySmall" tone="secondary">{t("mobileFitness.sport.noMeasuredEvidence")}</Text>
+    <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={powerFix}>{t("mobileFitness.sport.noMeasuredEvidence")}</Resolvable></Text>
     <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--accent)" }}>{t("mobileFitness.sport.bike.manualLink")}</a>
   </>;
   return (

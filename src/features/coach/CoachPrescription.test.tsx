@@ -1,6 +1,6 @@
 import i18n from "i18next";
 import enCoach from "../../i18n/resources/en/coach.json";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -113,6 +113,18 @@ describe("CoachPrescription", () => {
     await vi.waitFor(() => expect(capabilities).toHaveBeenCalledOnce());
     expect(screen.queryByRole("heading", { name: "계획 변경안 검토" })).not.toBeInTheDocument();
     expect(capabilities).toHaveBeenCalledOnce();
+  });
+
+  it("reloads the planner capability when the unavailable notice on a ready prescription is tapped", async () => {
+    const error = new Error("capability unavailable");
+    capabilities.mockRejectedValueOnce(error).mockResolvedValueOnce(enabledCapabilities);
+    render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const notice = await screen.findByRole("button", { name: "계획 기능 상태를 확인할 수 없습니다" });
+    fireEvent.click(notice);
+    await vi.waitFor(() => expect(capabilities).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(screen.queryByText("계획 기능 상태를 확인할 수 없습니다")).not.toBeInTheDocument());
+    expect(errorLog).toHaveBeenCalledWith("CoachPrescription.capabilities", error, expect.objectContaining({ stale: false }));
   });
 
   it("keeps safety UI available when the progress planner flag is off", () => {

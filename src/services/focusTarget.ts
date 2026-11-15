@@ -48,6 +48,12 @@ export function thresholdSettingsHref(sport: ThresholdSport, key: FocusTargetKey
   return withFocus(`/settings/training?sport=${sport}`, key);
 }
 
+/** 종목의 부하(TSS) 계산 기준값 칸 — 사이클 FTP, 러닝 역치 페이스, 수영 CSS. 부하 미확인 경고가 쓴다. */
+export function loadThresholdHref(sport: "bike" | "run" | "swim"): string {
+  const key = sport === "bike" ? FOCUS_TARGETS.ftp : sport === "run" ? FOCUS_TARGETS.thresholdPace : FOCUS_TARGETS.css;
+  return thresholdSettingsHref(sport, key);
+}
+
 /** 체중·키 입력칸으로 가는 링크. */
 export function bodyInfoHref(key: typeof FOCUS_TARGETS.weight | typeof FOCUS_TARGETS.height = FOCUS_TARGETS.weight): string {
   return withFocus("/settings/account", key);

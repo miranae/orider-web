@@ -94,6 +94,8 @@ it("explains withheld totals when a complete query contains activities with unkn
   fixture.result = { ...fixture.result, summary: { ...fixture.result.summary, actualTss: null, ratioPct: null, deltaTss: null, unknownCount: 2 } };
   mount();
   expect(screen.getByRole("status")).toHaveTextContent("TSS가 미확인인 활동 2건");
+  // 미확인 문구를 누르면 그 종목의 부하 기준값(FTP) 칸으로 간다.
+  expect(screen.getByRole("link", { name: /TSS가 미확인인 활동 2건/ })).toHaveAttribute("href", expect.stringContaining("/settings/training?sport=bike&focus=ftp"));
   expect(screen.getByRole("group", { name: "실제 TSS" })).toHaveTextContent("—");
   expect(screen.getByRole("group", { name: "달성률" })).toHaveTextContent("—");
 });

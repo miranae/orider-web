@@ -13,6 +13,9 @@ import { useTranslation } from "react-i18next";
 import type { SufficiencyBlock, SufficiencyRequirement, SufficiencySet, SufficiencyState } from "@shared/types/sufficiency";
 import { Card, Chip, Text, buttonClass } from "../../theme/components";
 import { LocalizedLink } from "../../components/LocalizedLink";
+import { Resolvable } from "../../components/redesign/states/Resolvable";
+import { bodyInfoHref } from "../../services/focusTarget";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { displayedSufficiencyState } from "../../services/sufficiencyContract";
 import "./SufficiencyBlock.css";
 import { trackSufficiencyView } from "./sufficiencyAnalytics";
@@ -37,17 +40,35 @@ function onlySufficientRemains(block: SufficiencyBlock): boolean {
   return block.remainingRequirementCount === 1 && unmet.length === 1 && unmet[0]!.guarantee === "sufficient";
 }
 
+/**
+ * 못 채운 요건 문구를 누르면 그 요건을 채우는 곳으로 간다 — 체중 칸, 기록을 들여오는 연결 화면.
+ * 운동 방식(최대 노력·장거리 등)이나 기간처럼 화면에서 채울 수 없는 요건은 글자 그대로 둔다.
+ */
+const REQUIREMENT_TARGETS: Partial<Record<string, string>> = {
+  weight: bodyInfoHref(),
+  vo2max_plausible: bodyInfoHref(),
+  measured_power_activities: "/settings/connections",
+  power_curve_points: "/settings/connections",
+  load_days: "/settings/connections",
+};
+
 function RequirementLine({ row }: { row: SufficiencyRequirement }) {
   const { t } = useTranslation("fitness");
+  // 설정 화면은 웹에만 있다 — 앱 임베드에서는 글자 그대로 둔다.
+  const webResolve = useFirebaseServices().scope !== "embedded";
   const excluded = (row.excluded ?? []).map(item => t(`sufficiency.excluded.${item.reason}`, { n: item.count })).join(", ");
   const text = t(`sufficiency.req.${row.requirementId}.${row.satisfaction}`, {
     target: row.target?.value, current: row.current?.value,
   });
   return <li data-testid={`sufficiency-req-${row.requirementId}`}>
     <Text as="span" variant="bodySmall" tone={row.satisfaction === "met" ? "tertiary" : "secondary"}>
-      {row.satisfaction === "met" ? "✓ " : "· "}{text}{excluded ? ` (${t("sufficiency.excludedPrefix")} ${excluded})` : ""}
+      {row.satisfaction === "met" ? "✓ " : "· "}<Resolvable resolve={row.satisfaction === "met" || !webResolve ? undefined : resolveTarget(REQUIREMENT_TARGETS[row.requirementId])}>{text}</Resolvable>{excluded ? ` (${t("sufficiency.excludedPrefix")} ${excluded})` : ""}
     </Text>
   </li>;
+}
+
+function resolveTarget(to: string | undefined) {
+  return to ? { to } : undefined;
 }
 
 function ActionLine({ block, testId }: { block: SufficiencyBlock; testId: string }) {
@@ -119,21 +140,24 @@ export function SufficiencyCard({ set, block, testId, compact = false, hideTimin
  */
 export function SufficiencyInline({ set, block, testId }: { set: SufficiencySet; block: SufficiencyBlock; testId: string }) {
   const { t, i18n } = useTranslation("fitness");
+  const webResolve = useFirebaseServices().scope !== "embedded";
   const state = displayedSufficiencyState(set, block, Date.now());
   const visible = state === "low_evidence" || state === "delayed" || state === "processing";
   useEffect(() => { if (visible) trackSufficiencyView(set, block, state, "inline"); }, [set, block, state, visible]);
   if (!visible) return null;
   const assumed = block.source.assumedInputs.length > 0;
+  const assumedResolve = webResolve && assumed && block.source.assumedInputs.every(input => input === "weightKg") ? { to: bodyInfoHref() } : undefined;
   const showRequirements = state === "low_evidence";
   const quality = showRequirements && block.featureId === "load_history" && block.requirements.some(row => row.requirementId === "load_quality" && row.satisfaction !== "met");
   const missingExplanation = showRequirements && block.remainingRequirementCount > block.requirements.filter(row => row.satisfaction !== "met").length;
   return <div data-testid={testId} className="flex flex-wrap items-center gap-2 mt-1">
     {(state === "delayed" || state === "processing") && <Text as="span" variant="caption">{t(`sufficiency.state.${state}`)}</Text>}
     {block.featureId === "load_history" && <Text as="p" variant="caption" tone="secondary">{t("sufficiency.loadQuality.asOf", { date: new Date(set.asOf).toLocaleString(i18n.resolvedLanguage ?? i18n.language, { timeZoneName: "short" }) })}</Text>}
-    {(assumed || state === "low_evidence") && <Chip variant="warning">{t(assumed ? "sufficiency.chip.assumed" : "sufficiency.chip.lowEvidence")}</Chip>}
-    {assumed && <Text as="span" variant="caption" tone="tertiary">
+    {/* 가정값(체중 기본값) 칩·문구를 누르면 체중 칸으로 간다. */}
+    {(assumed || state === "low_evidence") && <Chip variant="warning"><Resolvable resolve={assumedResolve}>{t(assumed ? "sufficiency.chip.assumed" : "sufficiency.chip.lowEvidence")}</Resolvable></Chip>}
+    {assumed && <Text as="span" variant="caption" tone="tertiary"><Resolvable resolve={assumedResolve}>
       {block.source.assumedInputs.map(input => t(`sufficiency.assumedInput.${input}`)).join(", ")}
-    </Text>}
+    </Resolvable></Text>}
     {showRequirements && !quality && block.remainingRequirementCount > 0 && <Text data-testid={`${testId}-remaining`} as="span" variant="caption" tone="tertiary">{t(quality ? "sufficiency.evidenceRemaining" : "sufficiency.remaining", { n: block.remainingRequirementCount })}</Text>}
     {showRequirements && <div className="sufficiency-inline-requirements" data-testid={`${testId}-requirement`}>
       {quality && <>

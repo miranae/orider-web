@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -160,6 +160,20 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByText("확인하지 못한 정보가 있어요")).toBeInTheDocument();
     expect(screen.getByText("훈련 이력이 아직 짧아요")).toBeInTheDocument();
     expect(screen.getByText("이번 주 기록이 아직 없어요")).toBeInTheDocument();
+  });
+
+  it("tapping a low-confidence reason opens its fix: missing records → connections, unreadable load → reload", () => {
+    const base = trainingDecisionEnvelope();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      prescription: { ...base.data.prescription, confidence: "low",
+        missingSignals: ["current_week_activities_missing", "load_data_unavailable"] },
+    }));
+    const refresh = vi.fn();
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "이번 주 기록이 아직 없어요" })).toHaveAttribute("href", expect.stringContaining("/settings/connections"));
+    fireEvent.click(screen.getByRole("button", { name: "부하 데이터를 불러오지 못했어요" }));
+    expect(refresh).toHaveBeenCalledOnce();
   });
 
   it("hides signals that have no user copy instead of printing raw codes", () => {

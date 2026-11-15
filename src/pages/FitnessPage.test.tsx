@@ -479,6 +479,10 @@ describe("FitnessPage", () => {
 
       expect(await screen.findByTestId("today-training-decision")).toHaveTextContent("fitness workout");
       expect(screen.getByText("피트니스 데이터를 불러오지 못했습니다")).toBeInTheDocument();
+      // 실패 문구를 누르면 다시 구독한다 — 새 버튼 없이 문구가 다시 불러오기다.
+      const subscriptions = snapshotMock.mock.calls.filter(([ref]) => (ref as { path?: string }).path === "activities").length;
+      fireEvent.click(screen.getByRole("button", { name: /피트니스 데이터를 불러오지 못했습니다/ }));
+      await waitFor(() => expect(snapshotMock.mock.calls.filter(([ref]) => (ref as { path?: string }).path === "activities").length).toBeGreaterThan(subscriptions));
     } finally {
       snapshotMock.mockImplementation(originalImplementation);
     }

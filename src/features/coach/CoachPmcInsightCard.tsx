@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { User } from "firebase/auth";
 import { Activity, MessageCircle } from "lucide-react";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { Resolvable } from "../../components/redesign";
 import { useCoachPmcInsight } from "../../hooks/useCoachPmcInsight";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type { CoachDiscipline } from "../../services/coachClient";
 import type { CoachPmcExampleQuestionCode, CoachPmcInsight } from "../../services/coachPmcInsightContract";
@@ -51,6 +53,7 @@ export function CoachPmcInsightCard({ user, discipline, onQuestionSelect }: Prop
   const { t, i18n } = useTranslation("coach");
   const titleId = useId();
   const enabled = isCoachPmcInsightFeatureEnabled();
+  const webResolve = useFirebaseServices().scope !== "embedded";
   const { insight, loading, unavailable } = useCoachPmcInsight(user.uid, discipline, enabled);
   if (!enabled) return null;
   if (loading) return <Card data-testid="K6-S-9" className="coach-pmc-card" role="status" aria-live="polite">
@@ -68,6 +71,8 @@ export function CoachPmcInsightCard({ user, discipline, onQuestionSelect }: Prop
   const qualityLabel = t(`pmc.quality.${insight.sourceQuality.level}`);
   const freshnessLabel = t(`pmc.freshness.${insight.freshness.status}`);
   const rows = metricRows(insight, i18n.language, t);
+  // 「데이터 부족」 칩·문구를 누르면 운동 기록을 들여오는 연결 화면으로 간다.
+  const missingFix = webResolve && insight.status === "missing" ? { to: "/settings/connections" } : undefined;
   return <Card data-testid="K6-S-9" className="coach-pmc-card" role="region" aria-labelledby={titleId}>
     <header className="coach-pmc-card__header">
       <div className="coach-pmc-card__heading">
@@ -75,7 +80,7 @@ export function CoachPmcInsightCard({ user, discipline, onQuestionSelect }: Prop
         <div><Text id={titleId} as="h2" variant="subtitle">{t("pmc.title")}</Text>
           <Text as="p" variant="caption" tone="secondary">{t("pmc.subtitle", { discipline: t(`discipline.${discipline}`) })}</Text></div>
       </div>
-      <Chip variant={trusted ? "success" : insight.status === "stale" ? "warning" : "default"}>{statusLabel}</Chip>
+      <Chip variant={trusted ? "success" : insight.status === "stale" ? "warning" : "default"}><Resolvable resolve={missingFix}>{statusLabel}</Resolvable></Chip>
     </header>
 
     <Text className="sr-only" as="p" role="status" aria-live="polite">
@@ -95,7 +100,7 @@ export function CoachPmcInsightCard({ user, discipline, onQuestionSelect }: Prop
     </div>
     {trusted
       ? <Text className="coach-pmc-card__interpretation" as="p" variant="bodySmall">{t(`pmc.interpretation.${insight.interpretationCode}`)}</Text>
-      : <Text className="coach-pmc-card__interpretation" as="p" variant="bodySmall" tone="secondary">{t(`pmc.safe.${insight.status}`)}</Text>}
+      : <Text className="coach-pmc-card__interpretation" as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={missingFix}>{t(`pmc.safe.${insight.status}`)}</Resolvable></Text>}
 
     <div className="coach-pmc-card__questions" aria-label={t("pmc.questionsLabel")}>
       {insight.exampleQuestionCodes.map((code: CoachPmcExampleQuestionCode) => {

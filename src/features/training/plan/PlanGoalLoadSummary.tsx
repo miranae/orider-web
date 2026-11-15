@@ -4,8 +4,12 @@ import { Button, Stat, Text } from "../../../theme/components";
 import type { goalLoadScope } from "./planScope";
 import type { usePlanLoadComparison } from "./usePlanLoadComparison";
 import "./PlanGoalLoadSummary.css";
+import { Resolvable } from "../../../components/redesign";
+import { loadThresholdHref } from "../../../services/focusTarget";
 
-export default function PlanGoalLoadSummary({ scope, load, compactEntry }: { compactEntry?: ReactNode; scope: ReturnType<typeof goalLoadScope>; load: ReturnType<typeof usePlanLoadComparison> }) {
+export default function PlanGoalLoadSummary({ scope, load, compactEntry, discipline }: { compactEntry?: ReactNode; scope: ReturnType<typeof goalLoadScope>; load: ReturnType<typeof usePlanLoadComparison>;
+  /** 부하 미확인 문구를 눌러 갈 기준값 칸의 종목. 없으면 글자 그대로. */
+  discipline?: "bike" | "run" | "swim" }) {
   const { t, i18n } = useTranslation("training");
   const summary = load.summary;
   const number = (value: number | null | undefined, signed = false) => scope.valid && value != null ? `${signed && value > 0 ? "+" : ""}${value.toLocaleString(i18n.language, { maximumFractionDigits: 1 })}` : "—";
@@ -20,7 +24,7 @@ export default function PlanGoalLoadSummary({ scope, load, compactEntry }: { com
     </div></>}
     <Text as="p" variant="caption" tone="secondary">{scope.expired ? t("goalLoad.expired") : scope.remainingWeeks != null ? t("goalLoad.remaining", { count: scope.remainingWeeks }) : t("goalLoad.invalid")}</Text>
     {scope.valid && load.state === "loading" && <Text as="p" variant="caption" role="status">{t("loadComparison.loading")}</Text>}
-    {scope.valid && summary.unknownCount > 0 && <Text as="p" variant="caption" tone="warning">{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Text>}
+    {scope.valid && summary.unknownCount > 0 && <Text as="p" variant="caption" tone="warning"><Resolvable resolve={discipline ? { to: loadThresholdHref(discipline) } : undefined}>{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Resolvable></Text>}
     {scope.valid && summary.estimated && <Text as="p" variant="caption" tone="secondary">{t("loadComparison.estimated")}</Text>}
     {scope.valid && ["error", "incomplete"].includes(load.state) && <div role="status"><Text as="p" variant="caption" tone="warning">{t("loadComparison.incomplete")}</Text><Button size="sm" variant="secondary" onClick={load.retry}>{t("loadComparison.retry")}</Button></div>}
   </section>;

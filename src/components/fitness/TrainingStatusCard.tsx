@@ -19,6 +19,8 @@ import { MetricExplainerTrigger } from "../common/MetricExplainer";
 import { canonicalDisplayShowsValue, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
 import { FORM_BAND_KEYS, knownFormBandKey, type FormBandKey } from "@shared/training/formBand";
 import type { TrainingDecisionEnvelope } from "../../services/trainingDecisionCanonicalContract";
+import { Resolvable, type Resolve } from "../redesign/states/Resolvable";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import {
   trainingStatusLabel,
   type TrainingStatusTone,
@@ -43,6 +45,16 @@ export interface TrainingStatusCardProps {
    * 밝힌다 — 로컬 밴드로 내려가면 kill switch 를 내린 의미가 없다 (#2442).
    */
   decisionPaused?: boolean;
+  /** 불러오기 실패 문구를 누르면 다시 불러온다. 없으면 글자 그대로. */
+  onRetry?: () => void;
+}
+
+/** 훈련 상태 문구를 누르면 해소하는 곳 — 불러오기 실패는 다시 불러오기, 활동 없음은 기록을 들여오는 연결 화면. */
+export function trainingStatusResolve(display: CanonicalDisplay | null | undefined, onRetry: (() => void) | undefined, web: boolean): Resolve | undefined {
+  if (display === "error") return onRetry ? { onClick: onRetry } : undefined;
+  // 연결 화면은 웹에만 있다.
+  if (display === "empty") return web ? { to: "/settings/connections" } : undefined;
+  return undefined;
 }
 
 const TONE_VAR: Record<TrainingStatusTone, string> = {
@@ -93,10 +105,12 @@ export default function TrainingStatusCard({
   decision,
   decisionDisplay,
   decisionPaused = false,
+  onRetry,
   embedded = false,
   presentation = "compact",
 }: TrainingStatusCardProps) {
   const { t } = useTranslation("fitness");
+  const webResolve = useFirebaseServices().scope !== "embedded";
   const Surface = embedded ? "div" : Card;
 
   // kill switch 가 먼저다. 값이 손에 있어도 그리지 않는다.
@@ -121,7 +135,7 @@ export default function TrainingStatusCard({
     return (
       <Surface data-testid="K1-4-4" className={`fitness-current-status${presentation === "story" ? " fitness-current-status--story" : ""}`}>
         <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: 0 }}>
-          {t(messageKey)}
+          <Resolvable resolve={trainingStatusResolve(messageKey === STATE_MESSAGE_KEY.error ? "error" : display, onRetry, webResolve)}>{t(messageKey)}</Resolvable>
         </Text>
       </Surface>
     );

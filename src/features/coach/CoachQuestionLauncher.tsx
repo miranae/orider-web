@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { History, Sparkles, X } from "lucide-react";
 import { Alert, Button, Card, Chip, Text, Textarea } from "../../theme/components";
+import { Resolvable } from "../../components/redesign";
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 import {
@@ -788,12 +789,17 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
   onManualCheckIn?: () => void;
 }) {
   const { t } = useTranslation("coach");
+  // 연결 화면은 웹에만 있다 — 앱 임베드에서는 문구를 글자 그대로 둔다.
+  const connectionsFix = useFirebaseServices().scope !== "embedded" ? { to: "/settings/connections" } : undefined;
   if (response.capabilityVersion === "p2") {
     return <div data-testid="K6-S-7" className="coach-result">
       {response.outcome === "answer" && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} discipline={discipline}
         onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn} />}
       {response.outcome === "unavailable" && <Alert className="coach-result__state" variant="warning"
-        title={t("p2Unavailable.title")}>{t(`p2Unavailable.${response.retry.reasonCode}`)}</Alert>}
+        title={t("p2Unavailable.title")}>
+        {/* 최근 운동 기록이 없다는 문구를 누르면 기록을 들여오는 연결 화면으로 간다. */}
+        <Resolvable resolve={response.retry.reasonCode === "latest_activity_missing" ? connectionsFix : undefined}>
+          {t(`p2Unavailable.${response.retry.reasonCode}`)}</Resolvable></Alert>}
     </div>;
   }
   const spec = response.clarification;
@@ -837,6 +843,7 @@ function CoachResult({ response, evidenceOpen, locale, onEvidence, onAction }: {
   onEvidence: () => void; onAction: (code: CoachActionCode) => void;
 }) {
   const { t } = useTranslation("coach");
+  const connectionsFix = useFirebaseServices().scope !== "embedded" ? { to: "/settings/connections" } : undefined;
   return <div data-testid="K6-S-7" className="coach-result">
     {response.context && <div className="coach-sheet__chips"><Chip>{t(`discipline.${response.context.discipline}`)}</Chip><Chip>{t(`period.${response.context.period}`)}</Chip><Chip>{t(response.context.goalIncluded ? "goal.included" : "goal.notIncluded")}</Chip></div>}
     <div className="coach-result__answer coach-result__answer--hero">
@@ -846,7 +853,10 @@ function CoachResult({ response, evidenceOpen, locale, onEvidence, onAction }: {
     </div>
     {response.status !== "ok" && (["fallback", "quota_exceeded", "budget_blocked"].includes(response.status)
       ? <Alert className="coach-result__state" variant="warning">{t(`states.${response.status}.body`)}</Alert>
-      : <Card className="coach-result__state" padding="compact" role="status"><Text as="p" variant="bodySmall">{t(`states.${response.status}.body`)}</Text></Card>)}
+      : <Card className="coach-result__state" padding="compact" role="status"><Text as="p" variant="bodySmall">
+        {/* 운동 기록이 부족하다는 문구를 누르면 기록을 들여오는 연결 화면으로 간다. */}
+        <Resolvable resolve={response.status === "insufficient_data" ? connectionsFix : undefined}>{t(`states.${response.status}.body`)}</Resolvable>
+      </Text></Card>)}
     {response.answer.actionCode && <Button variant="outline" onClick={() => onAction(response.answer.actionCode!)}>{t(`actions.${response.answer.actionCode}`)}</Button>}
     <button type="button" className="coach-result__evidence-toggle" aria-expanded={evidenceOpen} aria-controls="coach-evidence" onClick={onEvidence}>
       {t("evidence.toggle", { count: response.evidence.length })}

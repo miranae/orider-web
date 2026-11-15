@@ -22,6 +22,10 @@ describe("home today strip", () => {
     expect(screen.getByRole("link", { name: "목표 보기 →" })).toHaveAttribute("href", "/ko/coach/goals?sport=run");
     expect(screen.queryByRole("link", { name: "목표 만들기 →" })).not.toBeInTheDocument();
   });
+  it("「데이터 부족」 문구를 누르면 기록을 들여오는 연결 화면으로 간다", () => {
+    render(<MemoryRouter><HomeTodayStrip {...props} fitness={{ ctl: 0, atl: 0, tsb: 0 }} /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "데이터 부족" })).toHaveAttribute("href", "/ko/settings/connections");
+  });
   it("distinguishes an unavailable decision from an empty successful day", () => {
     mocks.decisionFailed = true;
     render(<MemoryRouter><HomeTodayStrip {...props} /></MemoryRouter>);

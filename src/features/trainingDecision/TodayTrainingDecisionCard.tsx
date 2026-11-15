@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import type { ReactNode } from "react";
 import type { User } from "firebase/auth";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
@@ -28,6 +29,22 @@ function fallbackResolve(reasonCode: string, discipline: "bike" | "run" | "swim"
       return { to: withFocus("/settings/account", FOCUS_TARGETS.aiCoachConsent) };
     case "canonical_load_unavailable":
     case "dependency_unavailable":
+      return { onClick: refresh };
+    default:
+      return undefined;
+  }
+}
+
+/** 낮은 확신 사유 문구를 누르면 해소하는 곳 — 기록이 모자라면 연결 화면, 부하를 못 읽었으면 다시 불러오기. */
+function confidenceSignalResolve(signal: string, refresh: () => void, web: boolean): Resolve | undefined {
+  switch (signal) {
+    case "current_week_activities_missing":
+    case "load_history_short":
+    case "load_history_gaps":
+      // 연결 화면은 웹에만 있다.
+      return web ? { to: "/settings/connections" } : undefined;
+    case "load_data_unavailable":
+    case "load_data_stale":
       return { onClick: refresh };
     default:
       return undefined;
@@ -109,6 +126,7 @@ export default function TodayTrainingDecisionCard(props: TodayTrainingDecisionCa
 function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness", suppressExecution = false, onSignIn = () => undefined, decisionState }: TodayTrainingDecisionCardProps & { decisionState: TodayTrainingDecisionState }) {
   const { t, i18n } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailableReason, refresh } = decisionState;
+  const webResolve = useFirebaseServices().scope !== "embedded";
   if (!user) return null;
   if (loading) return surface === "plan" ? null
     : <Card data-testid={surface === "today" ? "K2-2" : undefined} className="training-decision-card" aria-busy="true"><Text variant="body" tone="secondary">{t("decision.loading")}</Text></Card>;
@@ -218,7 +236,7 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
       <Text as="p" variant="body">{t("decision.confidence.lowBody")}</Text>
       <ul className="training-decision-card__confidence-signals">
         {lowConfidenceSignals.map((signal) => <li key={signal}>
-          {t(`decision.confidence.signal.${signal}`)}</li>)}
+          <Resolvable resolve={confidenceSignalResolve(signal, refresh, webResolve)}>{t(`decision.confidence.signal.${signal}`)}</Resolvable></li>)}
       </ul>
     </Alert>}
     {surface === "today" && <ProposalPanel decision={decision} recommendationVisible={recommendationVisible} refresh={refresh} />}

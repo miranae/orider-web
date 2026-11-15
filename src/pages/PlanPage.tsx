@@ -62,7 +62,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
   const { t: tActivity } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const { user, profile } = useAuth();
-  const { firestore, functions } = useFirebaseServices();
+  const { auth, firestore, functions } = useFirebaseServices();
   const { showToast } = useToast();
   const dialog = useDialog();
   const navigate = useNavigate();
@@ -323,7 +323,11 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
             } else {
               void model.refreshPlanWeeks().catch((error: unknown) => {
                 logClientError("PlanPage.refreshAfterEdit", error, { goalId: selectedDay.goalId });
-                showToast(t("errors.planRefreshAfterSave"), "error");
+                // 알림 문구를 누르면 계획을 다시 불러온다 — 그사이 계정이 바뀌었으면 아무것도 하지 않는다.
+                const requestUid = user?.uid;
+                showToast(t("errors.planRefreshAfterSave"), "error", { resolve: { onClick: () => {
+                  if (requestUid && auth.currentUser?.uid === requestUid) model.retryLoad();
+                } } });
                 model.retryLoad();
               });
             }

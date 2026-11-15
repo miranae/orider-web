@@ -76,3 +76,14 @@ describe("CoachRiderInsightCard", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });
+
+describe("CoachRiderInsightCard — 기록 부족 문구", () => {
+  it("「활동 부족」 칩·문구를 누르면 파워 기록을 들여오는 연결 화면으로 간다", () => {
+    mocks.enabled = true;
+    mocks.state = { insight: insight("insufficient_activity"), loading: false, unavailable: false };
+    render(<CoachRiderInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} />);
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual(["활동 부족", "정본 활동이 4개입니다. 5개 이상 쌓일 때까지 라이더 유형을 확정하지 않습니다."]);
+    links.forEach((link) => expect(link).toHaveAttribute("href", expect.stringContaining("/settings/connections")));
+  });
+});

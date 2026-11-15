@@ -249,6 +249,17 @@ describe("MobileFitnessPage tri", () => {
     }
   });
 
+  it("makes the today state text itself resolve: unavailable reloads, no workout opens the plan", () => {
+    const unavailable = decisionState({ decision: null });
+    const view = renderWithProviders(<MobileFitnessPage data={previewData} todayDecisionState={unavailable} />);
+    fireEvent.click(screen.getByRole("button", { name: "오늘 계획을 확인할 수 없습니다" }));
+    expect(unavailable.refresh).toHaveBeenCalledOnce();
+    view.unmount();
+    const empty = decisionState({ decision: { ...baseDecision, scheduledSessions: [], effectiveSessions: [], representativeSessionId: null } });
+    renderWithProviders(<MobileFitnessPage data={previewData} todayDecisionState={empty} />);
+    expect(screen.getByRole("link", { name: "오늘 예정된 워크아웃이 없어요." })).toHaveAttribute("href", expect.stringContaining(`/coach/plan?sport=${baseDecision.targetDiscipline}`));
+  });
+
   it("keeps the original plan clearly separate when a recommendation is not ready", () => {
     const decision = { ...baseDecision, mode: "scheduled-only" as const, recommendedAdjustments: [],
       fallback: { active: true, reasonCode: "prescription_not_ready" } };

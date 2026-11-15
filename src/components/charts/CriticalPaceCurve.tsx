@@ -2,6 +2,7 @@ import { useId, useState, type KeyboardEvent, type PointerEvent, type MouseEvent
 import { useTranslation } from "react-i18next";
 import type { RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
 import ChartEmptyState from "./ChartEmptyState";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { Card, ChartFrame, ChartLegend, ChartGridLine, ChartAxisLine, ChartValue, DataTable, Text } from "../../theme/components";
 import "./CriticalPaceCurve.css";
 
@@ -21,6 +22,8 @@ const REF_MARKER_BASE = [
 
 export default function CriticalPaceCurve({ color = "var(--amber)", stableSelection = false, recentPoints = [], prevPoints = [] }: CriticalPaceCurveProps) {
   const { t } = useTranslation("dashboard");
+  // 빈 곡선 문구를 누르면 기록을 들여오는 연결 화면으로 간다(웹에서만).
+  const emptyFix = useFirebaseServices().scope !== "embedded" ? { to: "/settings/connections" } : undefined;
   const { t: fitnessT } = useTranslation("fitness");
   const chartId = useId();
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
@@ -31,7 +34,7 @@ export default function CriticalPaceCurve({ color = "var(--amber)", stableSelect
   const current = recentPoints.map(({ durationSec, paceSecPerKm }) => ({ dur: durationSec / 60, pace: paceSecPerKm }));
   const previous = prevPoints.map(({ durationSec, paceSecPerKm }) => ({ dur: durationSec / 60, pace: paceSecPerKm }));
   if (current.length === 0 && previous.length === 0) {
-    return <ChartEmptyState title={t("charts.fitness.noData")} description="" />;
+    return <ChartEmptyState title={t("charts.fitness.noData")} description="" resolve={emptyFix} />;
   }
 
   const w = 1080, h = 160;

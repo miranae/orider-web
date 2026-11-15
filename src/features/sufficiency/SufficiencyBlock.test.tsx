@@ -6,6 +6,7 @@ import i18n from "../../i18n";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup } from "./SufficiencyBlock";
 import { resetSufficiencyViewDedupeForTest } from "./sufficiencyAnalytics";
 import { sufficiencyBlock, sufficiencySet } from "./__fixtures__";
+import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 const track = vi.hoisted(() => vi.fn());
 vi.mock("../../services/analytics", () => ({ track }));
@@ -226,5 +227,45 @@ describe("load quality evidence without activity-count claims", () => {
     const block=load({requirements:[],nextAction:null});
     renderUi(<SufficiencyInline set={sufficiencySet([block])} block={block} testId="unknown" />);
     expect(screen.getByTestId("unknown")).toHaveTextContent("일부 항목의 설명을 확인할 수 없어요");
+  });
+});
+
+describe("경고 문구를 누르면 해결 칸으로", () => {
+  beforeEach(async () => { track.mockClear(); resetSufficiencyViewDedupeForTest(); await i18n.changeLanguage("ko"); });
+
+  it("못 채운 요건 문구는 채우는 곳으로 가고, 채운 요건·화면에서 못 채우는 요건은 글자 그대로", () => {
+    const block = sufficiencyBlock({ featureId: "power_model", viewId: "cp_w_prime", remainingRequirementCount: 3,
+      nextAction: null, requirements: [
+        { requirementId: "weight", kind: "input", satisfaction: "not_met", guarantee: "minimum" },
+        { requirementId: "measured_power_activities", kind: "count", satisfaction: "not_met", guarantee: "minimum",
+          target: { value: 1, unit: "activity" }, current: { value: 0, unit: "activity" } },
+        { requirementId: "effort_3_20min_points", kind: "count", satisfaction: "not_met", guarantee: "minimum",
+          target: { value: 2, unit: "point" }, current: { value: 0, unit: "point" } },
+        { requirementId: "power_5min_or_cp", kind: "count", satisfaction: "met", guarantee: "minimum",
+          target: { value: 1, unit: "point" }, current: { value: 1, unit: "point" } },
+      ] });
+    const before = document.querySelectorAll("button").length;
+    renderUi(<SufficiencyCard set={sufficiencySet([block])} block={block} testId="R" />);
+    const link = (id: string) => screen.getByTestId(`sufficiency-req-${id}`).querySelector("a");
+    expect(link("weight")?.getAttribute("href")).toContain("/settings/account?focus=weight");
+    expect(link("measured_power_activities")?.getAttribute("href")).toContain("/settings/connections");
+    expect(link("effort_3_20min_points")).toBeNull();
+    expect(link("power_5min_or_cp")).toBeNull();
+    expect(document.querySelectorAll("button").length).toBe(before);
+  });
+
+  it("체중 기본값 칩·문구를 누르면 체중 칸으로 간다", () => {
+    const block = sufficiencyBlock({ state: "low_evidence", nextAction: { code: "confirm_weight" },
+      source: { basis: "measured", assumedInputs: ["weightKg"] } });
+    renderUi(<SufficiencyInline set={sufficiencySet([block])} block={block} testId="A" />);
+    const assumed = screen.getAllByRole("link").filter(link => link.getAttribute("href")?.includes("focus=weight"));
+    expect(assumed.map(link => link.textContent)).toEqual(["가정값", "체중을 기본값으로 계산했어요", "체중을 직접 입력하거나 확인해 주세요"]);
+  });
+
+  it("앱 임베드에서는 웹 설정으로 보내지 않는다", () => {
+    const block = sufficiencyBlock({ remainingRequirementCount: 2, nextAction: null });
+    const services = { scope: "embedded" } as unknown as FirebaseServices;
+    renderUi(<FirebaseServicesProvider services={services}><SufficiencyCard set={sufficiencySet([block])} block={block} testId="E" /></FirebaseServicesProvider>);
+    expect(screen.getByTestId("sufficiency-req-weight").querySelector("a")).toBeNull();
   });
 });
