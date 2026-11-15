@@ -1,5 +1,5 @@
 import type { Meeting } from "./domain";
-/** 복사할 때 소유자·참가자·개최일 확정을 이어받지 않는다. */
+/** 새 모임 초안 — 소유자·참가자·개최일을 미리 정하지 않는다. 기존 모임 복사는 옛 코스 경로가 따라와 없앴다(2026-11-15). */
 export function newClubMeeting(): Meeting {
   return {
     id: "new",
@@ -17,22 +17,6 @@ export function newClubMeeting(): Meeting {
     parking: "",
     weather: "",
     status: "open",
-    registrations: [],
-    notices: [],
-  };
-}
-export function copyClubMeeting(meeting: Meeting): Meeting {
-  return {
-    ...structuredClone(meeting),
-    id: "new",
-    hostId: undefined,
-    teams: [],
-    date: "",
-    time: meeting.time,
-    courseReady: false,
-    weather: "",
-    status: "open",
-    recruitment: undefined,
     registrations: [],
     notices: [],
   };
