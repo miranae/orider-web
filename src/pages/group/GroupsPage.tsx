@@ -412,7 +412,7 @@ export default function GroupsPage() {
       {error && <p role="alert" className="text-[length:var(--ft-body-size)] text-red-500 mb-4">{error}</p>}
 
 
-      {user && !myLoading && !myGroupsError && myGroups.length === 0 && <GroupRequestHistory userId={user?.uid} sectionId="C0-1" />}
+      {user && !myLoading && !myGroupsError && myGroups.length === 0 && <GroupRequestHistory userId={user?.uid} sectionId="C0-1" focusRequest={pendingFocus} />}
       <Card padding="card" className="club-league-card"><Text as="h2" variant="subtitle">{t("challenges.title")}</Text><Text as="p" variant="body" tone="secondary">{t("challenges.desc")}</Text><Link data-testid="C0-4" to="/explore/challenges">{t("list.viewLeague")}</Link></Card>
 
       <CreateGroupModal

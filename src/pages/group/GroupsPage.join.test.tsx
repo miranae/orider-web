@@ -132,6 +132,16 @@ describe("GroupsPage join results", () => {
     const cancels = screen.getAllByTestId("C0-1-3-cancel");
     expect(document.activeElement).toBe(cancels[1]);
   });
+  it("가입한 클럽이 없어도 「승인 대기」를 누르면 아래 가입 신청 기록의 신청 취소에 초점을 둔다", async () => {
+    publicGroups.push({ id: "Pending-Club", name: "Pending club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.pending = new Set(["Pending-Club"]);
+    setCollectionDocs("users/test-uid/group_requests", [{ id: "request-1", groupId: "Pending-Club", groupName: "Pending club", status: "pending", requestedAt: 123 }]);
+    renderPage();
+    const history = await screen.findByTestId("C0-1-3");
+    fireEvent.click(screen.getByRole("button", { name: "승인 대기" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByTestId("C0-1-3-cancel")[0]));
+    expect(history.querySelector("details")).toHaveAttribute("open");
+  });
   it("최신 기록 10개 밖의 승인 대기 신청도 그 클럽 신청을 구독해 붙인 뒤 신청 취소에 초점을 두고, 대기가 끝나면 뺀다", async () => {
     myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
     publicGroups.push({ id: "Old-Pending", name: "Old pending club", discipline: "bike", memberCount: 3, visibility: "public" });

@@ -171,8 +171,9 @@ export default function ActivityEditPage() {
       setStartDate(tsToDateStr(parsed.startTime));
       setStartTimeOfDay(tsToTimeStr(parsed.startTime));
     } catch (err) {
-      if (seq !== loadSeqRef.current) return;
+      // 기록은 늦은 응답이어도 남기고, 화면 반영만 최신 조회로 제한한다.
       logClientError("ActivityEditPage.loadActivity", err, { activityId });
+      if (seq !== loadSeqRef.current) return;
       setLoadError(err instanceof Error ? err.message : t("edit.loadErrorFallback"));
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);

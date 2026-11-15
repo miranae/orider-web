@@ -87,8 +87,9 @@ export default function CourseEditPage() {
       setSurface(parsed.surface);
       setDifficulty(parsed.difficulty);
     } catch (err) {
-      if (seq !== loadSeqRef.current) return;
+      // 기록은 늦은 응답이어도 남기고, 화면 반영만 최신 조회로 제한한다.
       logClientError("CourseEditPage.loadCourse", err, { courseId });
+      if (seq !== loadSeqRef.current) return;
       setLoadError(err instanceof Error ? err.message : t("error.loadFailed"));
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);
