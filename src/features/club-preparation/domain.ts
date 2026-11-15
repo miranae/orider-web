@@ -1,5 +1,6 @@
 import { elevationProfileSchema, meetingSegmentsSchema, type MeetingSegment } from './segmentCatalog';
 import { z } from 'zod';
+import { haversineMeters } from '../courseEngine/geo';
 export const STORAGE_KEY = 'orider.club-preparation.v1';
 export const BASE_TIME = Date.parse('2026-10-18T09:00:00+09:00');
 export type Kind = { id: string; name: string; active: boolean };
@@ -96,7 +97,21 @@ export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack'>): st
   if (m.venue !== 'indoor') return null;
   if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.';
   if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 끊어진 구간이 없는 코스나 GPX로 다시 준비해주세요.';
+  if (isSparseCourseTrack(m.courseTrack.points)) return '코스 경로가 너무 성겨 실내 주행에서 도로를 벗어난 직선으로 보여요. 원본 GPX를 올리거나 앱 실내 코스를 골라주세요.';
   return null;
+}
+/** 성긴 경로로 보는 점 간격 중앙값(m). 도로를 따라 만든 GPX 는 20m 안팎이다. */
+export const SPARSE_COURSE_SPACING_M = 100;
+/** 이보다 점이 많으면 성기다고 보지 않는다 — 긴 GPX 는 화면이 1,800점으로 줄여 간격이 100m 를 넘을 수 있다. */
+export const SPARSE_COURSE_MAX_POINTS = 1000;
+/**
+ * 점 간격이 너무 넓은 경로인지 — 정상 데이터에서는 걸리지 않는 안전장치다. 2026-06 이전 코스는 200점으로 줄여 저장돼
+ * (멧돼지 73.6km 에 370m 간격) 실내 주행이 점 사이 직선으로 도로·건물을 가로질렀다(2026-11-15, orider-g1-web#3704).
+ */
+export function isSparseCourseTrack(points: readonly CoursePoint[]): boolean {
+  if (points.length < 2 || points.length >= SPARSE_COURSE_MAX_POINTS) return false;
+  const gaps = points.slice(1).map((point, index) => haversineMeters(points[index]!.lat, points[index]!.lon, point.lat, point.lon)).sort((a, b) => a - b);
+  return gaps[Math.floor(gaps.length / 2)]! > SPARSE_COURSE_SPACING_M;
 }
 export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (!s.members.some(member => member.id === actor)) throw new Error('등록된 회원만 모임을 만들 수 있습니다.');

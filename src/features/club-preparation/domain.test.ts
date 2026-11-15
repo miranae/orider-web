@@ -62,9 +62,13 @@ describe('동호회 모임 준비', () => {
   it('실내 모임은 하나로 이어진 코스 경로가 있어야 저장된다', () => {
     // 경로가 없거나 끊어진 실내 모임은 출발 시각에 서버가 코스를 거부해 시작하지 못했다(2026-11-14).
     const s = createSeed(); const m = s.meetings[2];
-    const track = { fileName: '코스', points: [{ lat: 37.5, lon: 127 }, { lat: 37.51, lon: 127.01 }, { lat: 37.52, lon: 127.02 }], distanceKm: 2.5, elevationGainM: 0 };
+    // 도로를 따라 만든 GPX 처럼 약 20m 간격.
+    const track = { fileName: '코스', points: Array.from({ length: 60 }, (_, i) => ({ lat: 37.5 + i * 0.00018, lon: 127 })), distanceKm: 1.2, elevationGainM: 0 };
     expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: undefined })).toThrow('실내 모임은 코스 경로가 필요해요');
     expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: { ...track, segmentStarts: [0, 2] } })).toThrow('하나로 이어진 코스');
+    // 2026-06 이전 200점 코스처럼 점 간격이 넓으면(약 370m) 실내 주행이 도로를 벗어난 직선이 된다 — 저장하지 않는다.
+    const sparse = { ...track, segmentStarts: [0], points: Array.from({ length: 200 }, (_, i) => ({ lat: 37.5 + i * 0.0033, lon: 127 })) };
+    expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: sparse })).toThrow('코스 경로가 너무 성겨');
     expect(saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: { ...track, segmentStarts: [0] } }).meetings[2].venue).toBe('indoor');
     // 야외 모임은 지금처럼 경로 없이도 저장된다.
     expect(saveMeeting(s, 'host', { ...m, venue: 'outdoor', courseTrack: undefined }).meetings[2].venue).toBe('outdoor');
