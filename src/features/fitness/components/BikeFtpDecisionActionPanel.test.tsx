@@ -77,4 +77,20 @@ describe("BikeFtpDecisionActionPanel", () => {
     expect(screen.getByText(message)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "이 FTP로 변경" })).not.toBeInTheDocument();
   });
+
+  it.each(["failed", "partial"] as const)("links a %s device sync to device settings", (status) => {
+    renderWithProviders(
+      <BikeFtpDecisionActionPanel
+        decision={{ ...pendingDecision, status: "accepted", ftpMutationId: "mutation-1" }}
+        receipt={{
+          schemaVersion: 1, mutationId: "mutation-1", ftpRevision: "ftp-r2", ftpGeneration: 2,
+          targetedDeviceCount: 2, pendingCount: 0, receivedCount: 0, deferredCount: 0,
+          appliedCount: status === "partial" ? 1 : 0, failedCount: status === "partial" ? 1 : 2, supersededCount: 0,
+          status, createdAt: 1, updatedAt: 2,
+        }}
+        onAccept={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "기기 반영 상태 보기" })).toHaveAttribute("href", "/ko/settings/device");
+  });
 });

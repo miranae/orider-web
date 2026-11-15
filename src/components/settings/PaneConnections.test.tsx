@@ -102,6 +102,8 @@ describe("PaneConnections Strava disconnect observability", () => {
 
     expect(mocks.showToast).toHaveBeenCalledWith(
       "Strava가 마지막 로그인 방법입니다. 설정 > 계정에서 다른 로그인 방법을 먼저 연결하세요.", "error",
+      // 알림에서 바로 로그인 방법 카드의 연결 버튼으로 간다.
+      { action: { label: "다른 로그인 방법 연결하기", to: "/settings/account?focus=social-links" } },
     );
     expect(mocks.showToast).not.toHaveBeenCalledWith("연동이 해제되었습니다");
   });

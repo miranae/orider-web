@@ -21,6 +21,8 @@ export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWo
   const [devices, setDevices] = useState<RiderWorkoutDeviceRegistration[]>([]);
   const [devicesLoading, setDevicesLoading] = useState(Boolean(uid));
   const [devicesError, setDevicesError] = useState<Error | null>(null);
+  // 기기 목록 구독이 실패하면 사용자가 다시 확인을 눌러 구독을 새로 연다.
+  const [devicesAttempt, setDevicesAttempt] = useState(0);
   const [targetDeviceId, setTargetDeviceIdState] = useState("");
   const [pointer, setPointer] = useState<RiderWorkoutDeviceState | null>(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
@@ -49,7 +51,8 @@ export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWo
       if (deviceScopeRef.current !== operation) return;
       setDevicesError(error); setDevicesLoading(false);
     });
-  }, [uid]);
+  }, [uid, devicesAttempt]);
+  const retryDevices = useCallback(() => setDevicesAttempt((attempt) => attempt + 1), []);
 
   useEffect(() => {
     const operation = ++operationRef.current;
@@ -149,7 +152,7 @@ export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWo
   }, [submitErrorKind, submitState]);
 
   return {
-    devices, devicesLoading, devicesError, targetDeviceId, setTargetDeviceId,
+    devices, devicesLoading, devicesError, retryDevices, targetDeviceId, setTargetDeviceId,
     delivery, deliveryState: presentationState, restoreLoading, canCreate,
     submitState, submitError, submitErrorKind, submit, prepareNewRequest,
     canSafelyReplay: submitState === "error" && submitErrorKind === "uncertain_network"

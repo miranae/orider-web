@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import RiderWorkoutDeliveryPanel from "./RiderWorkoutDeliveryPanel";
 
-const mocks = vi.hoisted(() => ({ controller: {} as Record<string, unknown>, submit: vi.fn(), prepare: vi.fn(), enabled: true }));
+const mocks = vi.hoisted(() => ({ controller: {} as Record<string, unknown>, submit: vi.fn(), prepare: vi.fn(), retryDevices: vi.fn(), login: vi.fn(), enabled: true }));
+vi.mock("../../../hooks/useInPlaceSignIn", () => ({ useInPlaceSignIn: () => ({ login: mocks.login, pending: false, failed: false }) }));
 vi.mock("../useRiderWorkoutDelivery", () => ({ useRiderWorkoutDelivery: () => mocks.controller }));
 vi.mock("../../../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ riderWorkoutDeliveryEnabled: mocks.enabled }) }));
 
@@ -11,10 +12,12 @@ describe("RiderWorkoutDeliveryPanel", () => {
   beforeEach(() => {
     mocks.submit.mockReset();
     mocks.prepare.mockReset();
+    mocks.retryDevices.mockReset();
+    mocks.login.mockReset();
     mocks.enabled = true;
     mocks.controller = {
       devices: [{ deviceId: "g1-recent", deviceName: "내 G1", appVersion: "2.0", lastSeenAtMillis: 20 }],
-      devicesLoading: false, devicesError: null, targetDeviceId: "g1-recent", setTargetDeviceId: vi.fn(),
+      devicesLoading: false, devicesError: null, retryDevices: mocks.retryDevices, targetDeviceId: "g1-recent", setTargetDeviceId: vi.fn(),
       delivery: null, deliveryState: null, submitState: "idle", submitError: null, submit: mocks.submit,
       submitErrorKind: null, restoreLoading: false, canCreate: true, canSafelyReplay: false, prepareNewRequest: mocks.prepare,
     };
@@ -36,6 +39,37 @@ describe("RiderWorkoutDeliveryPanel", () => {
     mocks.controller = { ...mocks.controller, devices: [] };
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} explicitWorkoutLabel />);
     expect(screen.getByRole("link", { name: /기기가 없어요/ })).toHaveAttribute("href", "/ko/settings/device");
+  });
+  it("links no-device users to device settings outside today too", () => {
+    mocks.controller = { ...mocks.controller, devices: [] };
+    renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
+    expect(screen.getByRole("link", { name: /기기가 없어요/ })).toHaveAttribute("href", "/ko/settings/device");
+  });
+  it("offers sign-in when signed out", () => {
+    renderWithProviders(<RiderWorkoutDeliveryPanel uid={null} workoutType="endurance" targetTss={45} />);
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    expect(mocks.login).toHaveBeenCalledTimes(1);
+  });
+  it("retries the device lookup after it fails", () => {
+    mocks.controller = { ...mocks.controller, devicesError: new Error("offline") };
+    renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
+    fireEvent.click(screen.getByRole("button", { name: "기기 다시 확인" }));
+    expect(mocks.retryDevices).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    ["ftp_required", "FTP 설정 열기", "/ko/settings/training?sport=bike&focus=ftp"],
+    ["device_reconnect", "기기 설정 열기", "/ko/settings/device"],
+  ])("links the %s failure to the screen that resolves it", (kind, name, href) => {
+    mocks.controller = { ...mocks.controller, submitState: "error", submitError: new Error(kind), submitErrorKind: kind, canSafelyReplay: false };
+    renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
+    expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
+    expect(screen.getByRole("button", { name: "문제 해결 후 새 요청 준비" })).toBeInTheDocument();
+  });
+  it("offers sign-in for an expired session failure", () => {
+    mocks.controller = { ...mocks.controller, submitState: "error", submitError: new Error("auth"), submitErrorKind: "auth", canSafelyReplay: false };
+    renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    expect(mocks.login).toHaveBeenCalledTimes(1);
   });
   it("calls pending queued rather than sent and renders only the authoritative bundle", () => {
     mocks.controller = {

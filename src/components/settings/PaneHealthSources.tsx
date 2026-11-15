@@ -13,7 +13,9 @@ import type {
   HealthSport,
   ProviderId,
 } from "@shared/types";
-import { DropdownSelect, Card, Chip } from "../../theme/components";
+import { DropdownSelect, Card, Chip, Button } from "../../theme/components";
+import { useStrava } from "../../hooks/useStrava";
+import AppInstallLinks from "../AppInstallLinks";
 import { Toggle } from "./_primitives";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
@@ -67,6 +69,10 @@ function ProviderCard({
   const { t, i18n } = useTranslation("settings");
   const meta = PROVIDER_META[providerId];
   const status: ConnectionStatus | "not_connected" = conn?.status ?? "not_connected";
+  const { connectStrava } = useStrava();
+  const { showToast } = useToast();
+  // 재인증 필요·해제됨·오류는 다시 연결해야 풀린다 — 보여 주고 끝내지 않고 연결 경로로 잇는다.
+  const needsReconnect = status === "reauth_required" || status === "revoked" || status === "error";
 
   function statusBadge(s: ConnectionStatus | "not_connected") {
     switch (s) {
@@ -112,6 +118,23 @@ function ProviderCard({
         >
           <Smartphone size={ICON_SIZE.sm} />
           {t("healthSources.appPermissionRequired")}
+        </div>
+      )}
+      {needsReconnect && meta.webConnectable && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button variant="secondary" size="sm" onClick={() => {
+            // Strava 연결 카드(PaneConnections)와 같은 경로로 OAuth 를 다시 시작하고 이 화면으로 돌아온다.
+            try { connectStrava("/settings/connections"); }
+            catch { showToast(t("healthSources.reconnectFailed"), "error"); }
+          }}>
+            {t("healthSources.reconnect")}
+          </Button>
+        </div>
+      )}
+      {needsReconnect && !meta.webConnectable && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
+          <span>{t("healthSources.reconnectInApp")}</span>
+          <AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" />
         </div>
       )}
       {conn?.scopes && conn.scopes.length > 0 && status === "active" && (

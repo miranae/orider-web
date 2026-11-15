@@ -33,6 +33,7 @@ import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
+import { useToast } from "../contexts/ToastContext";
 import RouteMap from "../components/RouteMap";
 import { ELEVATION_PLOT_AXIS_WIDTH } from "../components/ElevationChart";
 import { CourseStageProfile } from "../features/courses/CourseStageProfile";
@@ -565,6 +566,8 @@ function CoursePageContent() {
     setTimeout(() => setToast(null), 3000);
   };
   const dialog = useDialog();
+  // 해결 행동이 달린 알림은 전역 알림으로 띄운다(이 화면의 자체 알림은 글만 보여 준다).
+  const { showToast: showActionToast } = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -795,12 +798,12 @@ function CoursePageContent() {
     } catch (err) {
       logClientError("CoursePage.sendCourseToApp", err, { courseId });
       const code = callableCode(err);
-      // failed-precondition = 서버가 판정한 사용자 행동 필요 사유(기기 없음/알림 권한) — 그대로 표시
-      const serverMessage = (err as { message?: string } | null)?.message;
-      if ((code === "functions/failed-precondition" || code === "failed-precondition") && serverMessage) {
-        showToast(serverMessage);
+      // failed-precondition = 서버가 판정한 사용자 행동 필요 사유(기기 없음/알림 권한).
+      // 서버 원문은 한국어 전용이라 쉬운 안내로 바꾸고, 기기 설정 화면으로 바로 잇는다.
+      if (code === "functions/failed-precondition" || code === "failed-precondition") {
+        showActionToast(t("link.sendNoDevice"), "error", { action: { label: t("link.openDeviceSettings"), to: "/settings/device" } });
       } else {
-        showToast(t("link.sendFailed"));
+        showActionToast(t("link.sendFailed"), "error", { action: { label: t("link.retrySend"), onClick: () => { void handleSendToApp(); } } });
       }
     }
   };

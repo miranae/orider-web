@@ -5,7 +5,8 @@ import type {
   FtpDeviceReceipt,
   FtpMutationReceipt,
 } from "@shared/types/threshold";
-import { Button, Chip, Text } from "../../../theme/components";
+import { Button, Chip, Text, buttonClass } from "../../../theme/components";
+import { LocalizedLink } from "../../../components/LocalizedLink";
 
 interface Props {
   decision: BikeThresholdDecisionV2 | null;
@@ -99,6 +100,12 @@ function ReceiptPanel({ receipt, deviceReceipts }: { receipt: FtpMutationReceipt
             })
           : t("ftpDecision.receipt.waiting")}
       </Text>
+      {/* 기기 동기화 실패는 기기 설정 화면에서 기기별 FTP·마지막 동기화를 확인하게 잇는다. */}
+      {(receipt?.status === "failed" || receipt?.status === "partial") && (
+        <LocalizedLink className={buttonClass({ variant: "secondary", size: "sm" })} style={{ marginTop: "var(--space-2)" }} to="/settings/device">
+          {t("ftpDecision.receipt.openDevices")}
+        </LocalizedLink>
+      )}
       {deviceReceipts.length > 0 && (
         <div style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
           {deviceReceipts.map((item) => (

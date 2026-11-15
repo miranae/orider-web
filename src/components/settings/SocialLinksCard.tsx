@@ -11,6 +11,7 @@ import { Button } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
 import { GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
 import { InlineRow, SettingsCard } from "./_primitives";
+import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 
 const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo, discord: DiscordLogo };
 const GOOGLE_CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-popup-request", "auth/user-cancelled"]);
@@ -137,19 +138,30 @@ export function SocialLinksCard() {
       if (ownerRef.current !== ownerUid) return;
       logClientError("SocialLinksCard.unlink", err, { provider });
       const error = err as { code?: string; details?: { reason?: string } };
-      const key = error.details?.reason === "strava-sync-active" ? "pane.account.stravaSyncActive"
-        : error.code === "functions/failed-precondition" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed";
-      showToast(t(key), "error");
+      if (error.details?.reason === "strava-sync-active") {
+        // 활동 동기화를 먼저 끊어야 풀린다 — 설정 > 연결된 앱의 Strava 카드로 잇는다.
+        showToast(t("pane.account.stravaSyncActive"), "error", {
+          action: { label: t("pane.account.stravaSyncSettings"), to: "/settings/connections" },
+        });
+        return;
+      }
+      showToast(t(error.code === "functions/failed-precondition" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed"), "error");
     } finally {
       if (ownerRef.current === ownerUid) setPending(null);
     }
   };
 
+  const googleLinked = googleUnlinkedUid !== ownerUid && (hasGoogleLogin(user) || googleLinkedUid === ownerUid);
+  // ?focus=social-links 로 들어오면 아직 연결하지 않은 첫 로그인 방법의 연결 버튼에 초점을 둔다.
+  // Strava 는 "마지막 로그인 방법" 안내에서 오므로 대상에서 뺀다. 목록을 불러온 뒤에 정한다.
+  const focusProvider: SocialProvider | "google" | null = !googleLinked ? "google"
+    : linked && linked.uid === ownerUid ? SOCIAL_PROVIDERS.find((provider) => provider !== "strava" && !linked.providers.has(provider)) ?? null : null;
+  const focusProps = (provider: SocialProvider | "google") => provider === focusProvider ? focusTargetProps(FOCUS_TARGETS.socialLinks) : {};
+
   return (
     <SettingsCard data-testid="S1-4-1" title={t("pane.account.cardSocial")} dense>
       {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}>{t("pane.account.socialLoadFailed")}</p>}
       {(() => {
-        const googleLinked = googleUnlinkedUid !== ownerUid && (hasGoogleLogin(user) || googleLinkedUid === ownerUid);
         return (
           <InlineRow data-testid="S1-4-1-google"
             label={<span className="inline-flex items-center gap-2"><GoogleLogo />{t("pane.account.social.google")}</span>}
@@ -159,7 +171,7 @@ export function SocialLinksCard() {
                 {t("pane.account.socialUnlinkBtn")}
               </Button>
             ) : (
-              <Button variant="secondary" loading={pending === "google"} disabled={pending !== null} onClick={() => { void handleGoogleLink(); }}>
+              <Button {...focusProps("google")} variant="secondary" loading={pending === "google"} disabled={pending !== null} onClick={() => { void handleGoogleLink(); }}>
                 {t("pane.account.socialLinkBtn")}
               </Button>
             )}
@@ -178,7 +190,7 @@ export function SocialLinksCard() {
                 {t("pane.account.socialUnlinkBtn")}
               </Button>
             ) : (
-              <Button variant="secondary" loading={pending === provider} disabled={pending !== null || linked?.uid !== ownerUid} onClick={() => { void handleLink(provider); }}>
+              <Button {...focusProps(provider)} variant="secondary" loading={pending === provider} disabled={pending !== null || linked?.uid !== ownerUid} onClick={() => { void handleLink(provider); }}>
                 {t("pane.account.socialLinkBtn")}
               </Button>
             )}

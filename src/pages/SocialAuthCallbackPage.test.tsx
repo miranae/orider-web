@@ -3,19 +3,19 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mocks = vi.hoisted(() => ({
   loading: false, params: new URLSearchParams(), complete: vi.fn(), signIn: vi.fn(),
-  ownerUid: "target", start: vi.fn(), navigate: vi.fn(), toast: vi.fn(), track: vi.fn(), consumeState: vi.fn(),
+  ownerUid: "target" as string | null, appSignIn: vi.fn(), start: vi.fn(), navigate: vi.fn(), toast: vi.fn(), track: vi.fn(), consumeState: vi.fn(),
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("react-router-dom", () => ({ useSearchParams: () => [mocks.params] }));
 vi.mock("../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => mocks.navigate }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ loading: mocks.loading }) }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ loading: mocks.loading, signIn: mocks.appSignIn }) }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.toast }) }));
 vi.mock("firebase/auth", () => ({ signInWithCustomToken: mocks.signIn }));
-vi.mock("../services/firebase", () => ({ auth: { name: "auth", get currentUser() { return { uid: mocks.ownerUid }; } } }));
+vi.mock("../services/firebase", () => ({ auth: { name: "auth", get currentUser() { return mocks.ownerUid ? { uid: mocks.ownerUid } : null; } } }));
 vi.mock("../services/socialAuth", () => ({ startSocialAuth: mocks.start, completeSocialAuth: mocks.complete, consumeSocialAuthState: mocks.consumeState }));
 vi.mock("../services/analytics", () => ({ track: mocks.track }));
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
-import SocialAuthCallbackPage, { socialAuthErrorKey } from "./SocialAuthCallbackPage";
+import SocialAuthCallbackPage, { socialAuthErrorKey, socialAuthErrorResolution } from "./SocialAuthCallbackPage";
 
 describe("socialAuthErrorKey", () => {
   it("maps server error codes to localized keys", () => {
@@ -103,7 +103,9 @@ describe("SocialAuthCallbackPage", () => {
     render(<SocialAuthCallbackPage />);
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/", { replace: true }));
     expect(mocks.signIn).toHaveBeenCalledWith(expect.objectContaining({ name: "auth" }), "custom-token");
-    expect(mocks.toast).toHaveBeenCalledWith("socialCallback.stravaSyncReauth", "info");
+    // 원래 화면으로 돌아가도 알림에서 바로 Strava 연결 화면으로 간다.
+    expect(mocks.toast).toHaveBeenCalledWith("socialCallback.stravaSyncReauth", "info",
+      { action: { label: "socialCallback.resolve.reconnectStrava", to: "/settings/connections" } });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -221,4 +223,45 @@ it("does not move a login method if the active account changes on the confirmati
   mocks.ownerUid = "other"; fireEvent.click(button);
   expect(await screen.findByRole("alert")).toHaveTextContent("socialCallback.error.denied");
   expect(mocks.start).not.toHaveBeenCalled(); mocks.ownerUid = "target";
+});
+
+describe("social sign-in failure resolutions", () => {
+  beforeEach(() => {
+    mocks.loading = false; mocks.ownerUid = "target"; mocks.params = new URLSearchParams("code=code&state=state");
+    mocks.consumeState.mockReset().mockReturnValue(true); mocks.navigate.mockReset(); mocks.appSignIn.mockReset().mockResolvedValue(undefined);
+  });
+  it("maps every shown failure to a resolution", () => {
+    expect(socialAuthErrorResolution("socialCallback.error.existingStravaAccount")).toEqual({ labelKey: "socialCallback.resolve.openAccount", to: "/settings/account?focus=social-links" });
+    expect(socialAuthErrorResolution("socialCallback.error.providerInUse")).toEqual({ labelKey: "socialCallback.resolve.openAccount", to: "/settings/account?focus=social-links" });
+    expect(socialAuthErrorResolution("socialCallback.error.stravaSyncReauth")).toEqual({ labelKey: "socialCallback.resolve.reconnectStrava", to: "/settings/connections" });
+    expect(socialAuthErrorResolution("socialCallback.error.accountRecovery")).toEqual({ labelKey: "socialCallback.resolve.contactSupport", to: "/community/board?type=inquiry" });
+    expect(socialAuthErrorResolution("socialCallback.error.accountDataConflict")).toEqual({ labelKey: "socialCallback.resolve.contactSupport", to: "/community/board?type=inquiry" });
+    for (const key of ["expired", "denied", "cancelled", "generic"]) expect(socialAuthErrorResolution(`socialCallback.error.${key}`)).toBe("retry");
+  });
+  it.each([
+    [{ code: "functions/failed-precondition", details: { reason: "strava-existing-account-link-required" } }, "socialCallback.resolve.openAccount", "/settings/account?focus=social-links"],
+    [{ code: "functions/failed-precondition" }, "socialCallback.resolve.openAccount", "/settings/account?focus=social-links"],
+    [{ code: "functions/failed-precondition", details: { reason: "social-account-recovery-required" } }, "socialCallback.resolve.contactSupport", "/community/board?type=inquiry"],
+    [{ code: "functions/failed-precondition", details: { reason: "social-account-data-conflict" } }, "socialCallback.resolve.contactSupport", "/community/board?type=inquiry"],
+  ])("sends the failure screen to the place that resolves it", async (error, label, path) => {
+    mocks.complete.mockRejectedValue(error);
+    render(<SocialAuthCallbackPage />);
+    fireEvent.click(await screen.findByRole("button", { name: label }));
+    expect(mocks.navigate).toHaveBeenCalledWith(path, { replace: true });
+  });
+  it("retries an expired link from the signed-in sign-in methods card", async () => {
+    mocks.complete.mockRejectedValue({ code: "functions/not-found" });
+    render(<SocialAuthCallbackPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "socialCallback.resolve.retry" }));
+    expect(mocks.navigate).toHaveBeenCalledWith("/settings/account?focus=social-links", { replace: true });
+    expect(mocks.appSignIn).not.toHaveBeenCalled();
+  });
+  it("reopens sign-in for a signed-out visitor whose request expired", async () => {
+    mocks.ownerUid = null;
+    mocks.complete.mockRejectedValue({ code: "functions/deadline-exceeded" });
+    render(<SocialAuthCallbackPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "socialCallback.resolve.retry" }));
+    await waitFor(() => expect(mocks.appSignIn).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/", { replace: true }));
+  });
 });

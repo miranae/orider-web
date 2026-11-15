@@ -5,12 +5,13 @@ import { useRiderWorkoutDelivery } from "./useRiderWorkoutDelivery";
 const mocks = vi.hoisted(() => ({
   create: vi.fn(), classify: vi.fn(() => "uncertain_network"),
   deviceSubscriptions: [] as Array<(devices: unknown[]) => void>,
+  deviceErrorSubscriptions: [] as Array<(error: Error) => void>,
   pointerSubscriptions: [] as Array<(pointer: unknown) => void>,
   deliverySubscriptions: [] as Array<(delivery: unknown) => void>,
 }));
 vi.mock("../../services/riderWorkoutDeliveryClient", () => ({
   createRiderWorkoutDelivery: mocks.create, classifyRiderWorkoutDeliveryError: mocks.classify,
-  subscribeRiderWorkoutDevices: vi.fn((_uid, next) => { mocks.deviceSubscriptions.push(next); return vi.fn(); }),
+  subscribeRiderWorkoutDevices: vi.fn((_uid, next, onError) => { mocks.deviceSubscriptions.push(next); mocks.deviceErrorSubscriptions.push(onError); return vi.fn(); }),
   subscribeRiderWorkoutDeviceState: vi.fn((_uid, _device, next) => { mocks.pointerSubscriptions.push(next); return vi.fn(); }),
   subscribeRiderWorkoutDelivery: vi.fn((_uid, _deliveryId, next) => { mocks.deliverySubscriptions.push(next); return vi.fn(); }),
 }));
@@ -43,7 +44,19 @@ async function selectDevice(result: { current: ReturnType<typeof useRiderWorkout
 describe("useRiderWorkoutDelivery", () => {
   beforeEach(() => {
     mocks.create.mockReset(); mocks.classify.mockReturnValue("uncertain_network");
-    mocks.deviceSubscriptions.length = 0; mocks.pointerSubscriptions.length = 0; mocks.deliverySubscriptions.length = 0;
+    mocks.deviceSubscriptions.length = 0; mocks.deviceErrorSubscriptions.length = 0; mocks.pointerSubscriptions.length = 0; mocks.deliverySubscriptions.length = 0;
+  });
+
+  it("resubscribes to devices when the user retries a failed device lookup", async () => {
+    const { result } = renderHook(() => useRiderWorkoutDelivery("uid-1", "recovery"));
+    act(() => mocks.deviceErrorSubscriptions[0]?.(new Error("offline")));
+    expect(result.current.devicesError).toBeInstanceOf(Error);
+    act(() => result.current.retryDevices());
+    await waitFor(() => expect(mocks.deviceSubscriptions).toHaveLength(2));
+    expect(result.current.devicesError).toBeNull();
+    expect(result.current.devicesLoading).toBe(true);
+    act(() => mocks.deviceSubscriptions[1]?.([device("recent")]));
+    expect(result.current.devices).toHaveLength(1);
   });
 
   it("restores the latest pointer and blocks replacement while G1 is executing it", async () => {

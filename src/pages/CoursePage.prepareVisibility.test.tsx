@@ -20,6 +20,7 @@ vi.mock("./LabPage", () => ({ default: () => <div>Preparation calculator</div> }
 vi.mock("../features/courses/CourseRidePlanSection", () => ({ CourseRidePlanSection: () => null }));
 vi.mock("@shared/sim/climbPrediction", () => ({ predictClimb: () => ({ totalSec: 744, sustainablePowerW: 280, wattsPerKg: 4.12, source: "pdc" }), formatClimbDuration: () => "12:24" }));
 import CoursePage from "./CoursePage";
+import { ToastProvider } from "../contexts/ToastContext";
 import i18n from "i18next";
 import enCourse from "../i18n/resources/en/course.json";
 import enGlossary from "../i18n/resources/en/termGlossary.json";
@@ -125,6 +126,25 @@ describe("course preparation climb predictions", () => {
     expect(screen.getAllByRole("tooltip").some(tip => tip.textContent?.includes(language === "ko" ? "기능적 역치 파워" : "Functional threshold power"))).toBe(true);
     expect(preparation.querySelector("button button")).toBeNull();
     expect(within(preparation).getByRole("button", { name: language === "ko" ? /파워 지속곡선/ : /power-duration curve/ })).toBeInTheDocument();
+  });
+
+  it("turns a no-device send failure into an error toast that opens device settings", async () => {
+    setCallableImplementation("sendCourseToApp", () => Promise.reject({ code: "functions/failed-precondition", message: "연결된 앱 기기가 없습니다. 모바일 앱에 로그인해 주세요." }));
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
+    expect(await screen.findByText(/휴대폰 O-Rider 앱에 로그인하고 알림을 허용했는지/)).toBeInTheDocument();
+    expect(screen.queryByText(/연결된 앱 기기가 없습니다/)).toBeNull();
+    expect(screen.getByRole("link", { name: "기기 설정" })).toHaveAttribute("href", "/ko/settings/device");
+  });
+  it("offers to send again after an unexpected send failure", async () => {
+    let calls = 0;
+    setCallableImplementation("sendCourseToApp", () => { calls += 1; return Promise.reject({ code: "functions/unavailable" }); });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "다시 보내기" }));
+    await waitFor(() => expect(calls).toBe(2));
   });
 
 });
