@@ -67,6 +67,25 @@ describe("PaneDevice 경고·알림 → 해결", () => {
     await waitFor(() => expect(within(screen.getByTestId("S6-0-1")).getByText("폰 B")).toBeTruthy());
   });
 
+  it("A 편집 중 알림을 누르면 B 로 바뀌고 편집이 풀린다 — A 초안이 B 에 저장되지 않는다", async () => {
+    renderPane();
+    const rider = screen.getByTestId("S6-2-1");
+    fireEvent.click(within(rider).getByRole("button", { name: /편집|edit/i }));
+    fireEvent.click(within(rider).getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(mocks.toastCalls.some(([, type]) => type === "error")).toBe(true));
+    const [, , options] = mocks.toastCalls.find(([, type]) => type === "error")!;
+
+    // 기기 A 에서 다시 편집을 시작한 상태.
+    fireEvent.click(within(screen.getByTestId("S6-2-1")).getByRole("button", { name: /편집|edit/i }));
+    expect(within(screen.getByTestId("S6-2-1")).getByRole("button", { name: "저장" })).toBeTruthy();
+
+    act(() => options!.resolve!.onClick!());
+    await waitFor(() => expect(within(screen.getByTestId("S6-0-1")).getByText("폰 B")).toBeTruthy());
+    const riderAfter = screen.getByTestId("S6-2-1");
+    expect(within(riderAfter).queryByRole("button", { name: "저장" })).toBeNull();
+    expect(within(riderAfter).getByRole("button", { name: /편집|edit/i })).toBeTruthy();
+  });
+
   it("계정이 바뀐 뒤 누른 알림은 선택을 바꾸지 않는다", async () => {
     const view = renderPane();
     const rider = screen.getByTestId("S6-2-1");

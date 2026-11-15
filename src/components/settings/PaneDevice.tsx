@@ -814,7 +814,8 @@ export function PaneDevice() {
           showToast(parts.join(" · "), "error", {
             resolve: {
               to: "/settings/device",
-              onClick: () => { if (uidRef.current === requestedUid) setSelectedDeviceId(failedDeviceId); },
+              // 기기 선택기와 같은 경로 — 편집 중이던 카드·초안을 버린 뒤 바꾼다(앞 기기 초안이 다른 기기에 저장되지 않게).
+              onClick: () => { if (uidRef.current === requestedUid) { cancelEdit(); setSelectedDeviceId(failedDeviceId); } },
             },
           });
         } else if (totalApplied > 1) {
