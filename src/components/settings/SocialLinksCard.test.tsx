@@ -24,6 +24,9 @@ vi.mock("../../services/socialAuth", () => ({
 }));
 import { SocialLinksCard } from "./SocialLinksCard";
 
+/** 「마지막 로그인 수단」 알림 문구를 누르면 다른 로그인 수단의 연결 버튼으로 간다. */
+const LAST_LOGIN_RESOLVE = { resolve: { to: "/settings/account?focus=social-links" } };
+
 describe("SocialLinksCard", () => {
   beforeEach(() => {
     mocks.user = { uid: "u1", isAnonymous: false, providerData: [] };
@@ -76,7 +79,7 @@ describe("SocialLinksCard", () => {
     mocks.unlink.mockRejectedValue({ code: "functions/failed-precondition" });
     render(<SocialLinksCard />, { wrapper: MemoryRouter });
     fireEvent.click(await screen.findByRole("button", { name: "pane.account.socialUnlinkBtn" }));
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error", LAST_LOGIN_RESOLVE));
   });
 
   it("discards old-account results after the signed-in owner changes", async () => {
@@ -112,7 +115,7 @@ describe("SocialLinksCard", () => {
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("pane.account.stravaUnlinkConfirm", { destructive: true }));
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.stravaSyncActive", "error",
       { resolve: { to: "/settings/connections" } }));
-    expect(mocks.showToast).not.toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error");
+    expect(mocks.showToast.mock.calls.some(([message]) => message === "pane.account.socialUnlinkLast")).toBe(false);
   });
 
   it("marks the first unlinked sign-in method as the social-links focus target", async () => {
@@ -163,7 +166,7 @@ describe("SocialLinksCard", () => {
     await waitFor(() => expect(mocks.list).toHaveBeenCalled());
     await waitFor(() => expect(within(screen.getByTestId("S1-4-1-naver")).getByRole("button", { name: "pane.account.socialLinkBtn" })).toBeInTheDocument());
     fireEvent.click(within(screen.getByTestId("S1-4-1-google")).getByRole("button", { name: "pane.account.socialUnlinkBtn" }));
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error", LAST_LOGIN_RESOLVE));
     expect(mocks.confirm).not.toHaveBeenCalled();
     expect(mocks.unlinkGoogle).not.toHaveBeenCalled();
   });
@@ -174,7 +177,7 @@ describe("SocialLinksCard", () => {
     render(<SocialLinksCard />, { wrapper: MemoryRouter });
     await waitFor(() => expect(within(screen.getByTestId("S1-4-1-naver")).getByRole("button", { name: "pane.account.socialUnlinkBtn" })).toBeInTheDocument());
     fireEvent.click(within(screen.getByTestId("S1-4-1-google")).getByRole("button", { name: "pane.account.socialUnlinkBtn" }));
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error", LAST_LOGIN_RESOLVE));
   });
 
   it("logs and reports a failed Google unlink", async () => {

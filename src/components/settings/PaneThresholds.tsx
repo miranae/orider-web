@@ -266,7 +266,8 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
       if (syncErrors.length === 0) {
         showToast(t("training.saved"));
       } else {
-        showToast(t("training.syncPartialFail", { errors: syncErrors.join(" / ") }));
+        // 저장은 됐고 기기·자전거 반영만 일부 실패했다 — 알림 문구를 누르면 기기 설정 화면으로 간다.
+        showToast(t("training.syncPartialFail", { errors: syncErrors.join(" / ") }), "error", { resolve: { to: "/settings/device" } });
       }
       baseline.current = { ...baseline.current, ...values };
       if (updates.ftp === null) {
