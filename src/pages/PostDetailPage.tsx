@@ -1,4 +1,5 @@
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { useSignInResolve } from "../hooks/useSignInResolve";
 import React, { useState } from 'react';
 import { EyeOff, FileText, Trash2, MapPin, Heart, MessageCircle, Flag, Ban } from 'lucide-react';
 import { useLocation, useParams } from "react-router-dom";
@@ -53,7 +54,8 @@ const PostDetailPage: React.FC = () => {
   const boardReturnTo = resolveBoardReturnTo(location.state);
   const { t, i18n } = useTranslation("board");
   const [commentText, setCommentText] = useState('');
-  const { user, signIn } = useAuth();
+  const { user } = useAuth();
+  const signInResolve = useSignInResolve();
   const firebaseServices = useFirebaseServices();
   const { showToast } = useToast();
   const dialog = useDialog();
@@ -75,7 +77,7 @@ const PostDetailPage: React.FC = () => {
   useBoardPostView(postId, location.key, post);
 
   // 로그인이 필요한 동작을 막은 알림 문구를 누르면 바로 로그인 창을 연다.
-  const loginToastOptions = { resolve: { onClick: () => { void signIn(); } } };
+  const loginToastOptions = { resolve: signInResolve };
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,4 +1,5 @@
 import "../../features/courses/course-review.css";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -30,7 +31,8 @@ export default function CourseEditPage() {
   const { t } = useTranslation("course");
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading, signIn } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const signInResolve = useSignInResolve();
   const { showToast } = useToast();
   const dialog = useDialog();
 
@@ -149,7 +151,7 @@ export default function CourseEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("error.loginRequired")} description={t("edit.ownerOnly")} resolve={{ onClick: () => { void signIn(); } }} />
+        <PermissionGate title={t("error.loginRequired")} description={t("edit.ownerOnly")} resolve={signInResolve} />
       </div>
     );
   }

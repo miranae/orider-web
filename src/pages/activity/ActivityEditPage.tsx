@@ -1,4 +1,5 @@
 import GlossaryProvider from "../../components/common/GlossaryProvider";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
 import GlossaryText from "../../components/common/GlossaryText";
 import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { useParams } from "react-router-dom";
@@ -81,7 +82,8 @@ export default function ActivityEditPage() {
   const navigate = useNavigate();
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
-  const { user, loading: authLoading, signIn } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const signInResolve = useSignInResolve();
   const services = useFirebaseServices();
   const { firestore } = services;
   const { showToast } = useToast();
@@ -244,7 +246,7 @@ export default function ActivityEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("edit.loginRequired")} description={t("edit.loginRequiredDesc")} resolve={{ onClick: () => { void signIn(); } }} />
+        <PermissionGate title={t("edit.loginRequired")} description={t("edit.loginRequiredDesc")} resolve={signInResolve} />
       </div>
     );
   }

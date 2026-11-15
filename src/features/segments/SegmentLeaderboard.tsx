@@ -1,4 +1,5 @@
 import { onAuthStateChanged } from "firebase/auth";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -16,7 +17,8 @@ const date = (value: number) => new Date(value + 9 * 3600000).toISOString().slic
 const REVALIDATE_AFTER_MS = 5 * 60_000;
 export default function SegmentLeaderboard({ segmentId }: { segmentId: string }) {
   const { t } = useTranslation("segment");
-  const { user, signIn } = useAuth();
+  const { user } = useAuth();
+  const signInResolve = useSignInResolve();
   const services = useFirebaseServices();
   const { groups, error: groupError, retry } = useMyGroups(user?.uid);
   const [scope, setScope] = useState<SegmentLeaderboardRequest["scope"]>("all");
@@ -94,7 +96,7 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
       <label>{t("nativeBoard.from")}<Input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
       <label>{t("nativeBoard.to")}<Input type="date" value={to} min={from} max={date(Date.now())} onChange={e => setTo(e.target.value)} /></label>
     </Stack></fieldset>
-    {!user || user.isAnonymous ? <Text role="status"><Resolvable resolve={{ onClick: () => { void signIn(); } }}>{t("empty.loginRequired")}</Resolvable></Text> : <Button disabled={!valid || view?.loading} loading={view?.loading} onClick={() => void load()}>{t("nativeBoard.load")}</Button>}
+    {!user || user.isAnonymous ? <Text role="status"><Resolvable resolve={signInResolve}>{t("empty.loginRequired")}</Resolvable></Text> : <Button disabled={!valid || view?.loading} loading={view?.loading} onClick={() => void load()}>{t("nativeBoard.load")}</Button>}
     {view?.error && <Text role="alert">{t("nativeBoard.error")}</Text>}
     {view?.result && <>
       <Text role="status">{t("nativeBoard.coverage", { count: view.result.entries.length })}{view.result.scopeMemberCount !== null && <> · {t("nativeBoard.members", { count: view.result.scopeMemberCount })}</>}</Text>

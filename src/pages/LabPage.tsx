@@ -11,6 +11,7 @@
  *
  * 베타: 바람/드래프팅/가감속 미반영 — 정확도 미보장 (배너 고지).
  */
+import { useSignInResolve } from "../hooks/useSignInResolve";
 import GlossaryProvider from "../components/common/GlossaryProvider";
 import InfoTip from "../components/InfoTip";
 import GlossaryText from "../components/common/GlossaryText";
@@ -106,7 +107,8 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
   const fieldPrefix = useId();
   const { t } = useTranslation("lab");
   const { t: courseT } = useTranslation("course");
-  const { user, profile, signIn } = useAuth();
+  const { user, profile } = useAuth();
+  const signInResolve = useSignInResolve();
   const uid = user?.uid ?? null;
   const [searchParams] = useSearchParams();
   // 코스 상세 임베드(#3235)에서도 그려진다 — 싱글턴 대신 주입된 인스턴스(#847).
@@ -287,7 +289,7 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
     return (
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "var(--space-4)" }}>
         <Alert variant="info" title={t("loginRequired.title")}>
-          <Resolvable resolve={{ onClick: () => { void signIn(); } }}>{t("loginRequired.body")}</Resolvable>
+          <Resolvable resolve={signInResolve}>{t("loginRequired.body")}</Resolvable>
         </Alert>
       </div>
     );
