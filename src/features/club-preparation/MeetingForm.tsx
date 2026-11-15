@@ -136,7 +136,7 @@ export default function MeetingForm({
       return;
     }
     // 실내 모임은 이어진 코스 경로가 있어야 출발 시각에 시작할 수 있다 — 저장 전에 막는다(2026-11-14).
-    const indoorIssue = indoorCourseIssue(draft);
+    const indoorIssue = indoorCourseIssue(draft, state.meetings.find((meeting) => meeting.id === initial.id));
     if (indoorIssue) {
       setSaveError(mt(indoorIssue));
       return;

@@ -93,24 +93,27 @@ export function duplicateMeeting(m: Meeting, id: string): Meeting { return { ...
  * 경로가 없거나 끊어진(구간이 둘 이상) 트랙이면 서버가 거부해 출발 시각에 시작하지 못한다(2026-11-14 COURSE_INVALID).
  * 문제가 없으면 null, 있으면 사용자에게 보일 문구(번역 키)를 돌려준다.
  */
-export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack'>): string | null {
+export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack' | 'courseSource'>, previous?: Pick<Meeting, 'courseTrack'>): string | null {
   if (m.venue !== 'indoor') return null;
   if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.';
   if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 끊어진 구간이 없는 코스나 GPX로 다시 준비해주세요.';
-  if (isSparseCourseTrack(m.courseTrack.points)) return '코스 경로가 너무 성겨 실내 주행에서 도로를 벗어난 직선으로 보여요. 원본 GPX를 올리거나 앱 실내 코스를 골라주세요.';
+  // 경로를 새로 고를 때만 본다 — 이미 저장된 모임의 제목·설명 수정은 막지 않는다.
+  const trackChanged = !previous || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
+  if (trackChanged && m.courseSource?.kind === 'saved-course' && isLegacySparseCourseTrack(m.courseTrack.points)) return '이 기존 코스는 예전 방식으로 저장돼 경로가 성겨, 실내 주행에서 도로를 벗어난 직선으로 보여요. GPX를 올리거나 앱 실내 코스를 골라주세요.';
   return null;
 }
-/** 성긴 경로로 보는 점 간격 중앙값(m). 도로를 따라 만든 GPX 는 20m 안팎이다. */
+/** 2026-06 이전 서버가 기존 코스를 줄여 저장한 점 수(orider-g1-web #250 이전 상한). */
+export const LEGACY_COURSE_MAX_POINTS = 200;
+/** 성긴 경로로 보는 점 간격 중앙값(m). 도로를 따라 만든 경로는 20m 안팎이다. */
 export const SPARSE_COURSE_SPACING_M = 100;
-/** 이보다 점이 많으면 성기다고 보지 않는다 — 긴 GPX 는 화면이 1,800점으로 줄여 간격이 100m 를 넘을 수 있다. */
-export const SPARSE_COURSE_MAX_POINTS = 1000;
 /**
- * 점 간격이 너무 넓은 경로인지 — 정상 데이터에서는 걸리지 않는 안전장치다. 2026-06 이전 코스는 200점으로 줄여 저장돼
- * (멧돼지 73.6km 에 370m 간격) 실내 주행이 점 사이 직선으로 도로·건물을 가로질렀다(2026-11-15, orider-g1-web#3704).
+ * 예전 방식으로 줄여 저장된 기존 코스인지 — 정상 데이터에서는 걸리지 않는 안전장치다. 2026-06 이전 기존 코스는 200점으로
+ * 저장돼(멧돼지 73.6km 에 약 370m 간격) 실내 주행이 점 사이 직선으로 도로·건물을 가로질렀다(2026-11-15, orider-g1-web#3704).
+ * 사용자가 올린 GPX·앱 실내 코스는 원본이라 더 나은 데이터가 없으므로 보지 않는다(호출부가 `saved-course` 만 넘긴다).
  */
-export function isSparseCourseTrack(points: readonly CoursePoint[]): boolean {
-  if (points.length < 2 || points.length >= SPARSE_COURSE_MAX_POINTS) return false;
-  const gaps = points.slice(1).map((point, index) => haversineMeters(points[index]!.lat, points[index]!.lon, point.lat, point.lon)).sort((a, b) => a - b);
+export function isLegacySparseCourseTrack(points: readonly CoursePoint[]): boolean {
+  if (points.length < 2 || points.length > LEGACY_COURSE_MAX_POINTS) return false;
+  const gaps = points.slice(1).map((point, index) => haversineMeters(points[index]!.lat, points[index]!.lon, point.lat, point.lon)).sort((x, y) => x - y);
   return gaps[Math.floor(gaps.length / 2)]! > SPARSE_COURSE_SPACING_M;
 }
 export function saveMeeting(s: State, actor: string, m: Meeting): State {
@@ -132,7 +135,7 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (m.courseTrack !== undefined) m = {...m, courseTrack: courseTrackSchema.parse(m.courseTrack)};
   // 실내 모임은 앱이 출발 때 이 경로 하나로 가상 코스를 만든다 — 경로가 없거나 끊어져 있으면 서버가 거부해 출발 시각에
   // 시작하지 못한다(2026-11-14 실내 모임 COURSE_INVALID). 저장할 때 막아 출발 전에 고치게 한다.
-  const indoorIssue = indoorCourseIssue(m);
+  const indoorIssue = indoorCourseIssue(m, current);
   if (indoorIssue) throw new Error(indoorIssue);
   if (m.courseSource) courseSourceSchema.parse(m.courseSource);
   if (m.courseCheckpoints) z.array(courseCheckpointSchema).max(100).parse(m.courseCheckpoints);

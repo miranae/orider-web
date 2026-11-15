@@ -252,7 +252,7 @@
   "집결 시각이 이미 지났어요. 미래의 날짜와 시각을 선택해주세요.": "The meeting time has already passed. Choose a future date and time.",
   "실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.": "Indoor meetings need a course route. Prepare one from an existing course or a GPX file.",
   "실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 끊어진 구간이 없는 코스나 GPX로 다시 준비해주세요.": "Indoor meetings can only use one continuous course. Prepare a course or GPX without separate pieces.",
-  "코스 경로가 너무 성겨 실내 주행에서 도로를 벗어난 직선으로 보여요. 원본 GPX를 올리거나 앱 실내 코스를 골라주세요.": "This course's path is too sparse, so the indoor ride would cut straight across roads. Upload the original GPX or pick an app indoor course.",
+  "이 기존 코스는 예전 방식으로 저장돼 경로가 성겨, 실내 주행에서 도로를 벗어난 직선으로 보여요. GPX를 올리거나 앱 실내 코스를 골라주세요.": "This saved course was stored the old way and its path is sparse, so the indoor ride would cut straight across roads. Upload a GPX or pick an app indoor course.",
   "앱 실내 코스": "App indoor course",
   "앱에 들어 있는 실내 코스예요. 실내 모임은 참석자 모두 이 코스 위를 함께 달립니다.": "Indoor courses built into the app. Everyone in an indoor meeting rides this course together.",
   "한강 자전거길": "Han River bike path",
