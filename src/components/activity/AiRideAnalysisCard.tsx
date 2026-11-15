@@ -330,18 +330,16 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         {historyControls}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
+            {/* 요약만 있는 상태의 상세 분석 다시 불러오기는 헤더 아이콘 버튼으로 둔다. */}
             {canGenerate ? (
-              <Button
-                size="sm"
-                variant="secondary"
+              <IconButton size="sm" variant="ghost" className="ml-auto"
+                aria-label={t("ai.refreshDetailBtn")} title={t("ai.refreshDetailBtn")} icon={<RefreshCw size={ICON_SIZE.sm} />}
                 onClick={() => {
                   if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
                   setForceRefresh(false);
                   setTriggerFull(true);
                 }}
-              >
-                {t("ai.refreshDetailBtn")}
-              </Button>
+              />
             ) : null}
           </div>
           <Text variant="body" tone="primary" as="p" className="mt-3">{previewSummary}</Text>

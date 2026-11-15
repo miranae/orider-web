@@ -2,7 +2,7 @@
 .matched-route-group summary { min-height: calc(var(--dim-button-height) + var(--space-1)); display: list-item; align-content: center; cursor: pointer; }
 .matched-route-group-body { display: grid; gap: var(--space-3); min-inline-size: 0; padding-top: var(--space-3); }
 .matched-route-group label { display: grid; gap: var(--space-2); }
-.matched-route-group select, .matched-route-group .ds-btn:not(.ds-btn--icon-only) { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.matched-route-group select { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 .matched-route-group .ds-btn--outline { color: var(--ink-0); }
 .matched-route-group-chart { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); column-gap: var(--space-2); max-inline-size: 28rem; inline-size: 100%; min-inline-size: 0; }
 .matched-route-group-chart svg { grid-column: 2; inline-size: 100%; display: block; overflow: visible; }

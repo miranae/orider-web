@@ -33,13 +33,15 @@ describe("GoalHub cached plan read failures with the real model", () => {
     expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Saved goal");
     expect(screen.getByText("저장된 이전 정보를 표시하고 있습니다.")).toBeVisible();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "목표 포기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "목표 관리" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "목표 변경" })).toBeDisabled();
     expect(screen.getByTestId("K3-1-2")).toHaveTextContent("—");
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     await waitFor(() => expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Confirmed goal"));
     expect(screen.queryByText("저장된 이전 정보를 표시하고 있습니다.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "목표 관리" }));
     expect(screen.getByRole("button", { name: "목표 포기" })).toBeEnabled();
     expect(screen.getByTestId("K3-1-2")).toHaveTextContent("목표기간을 확인할 수 없어");
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();

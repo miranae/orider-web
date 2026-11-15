@@ -2,7 +2,9 @@ import { useCoachApi } from "../../hooks/useCoachApi";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Button, Chip, Text } from "../../theme/components";
+import { RefreshCw } from "lucide-react";
+import { Alert, Button, Chip, IconButton, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { Resolvable } from "../../components/redesign";
 import {
   isCoachClientError, } from "../../services/coachClient";
@@ -239,7 +241,12 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
 
   return <section data-testid="K6-2-7" className="coach-progress-review" aria-labelledby={`proposal-review-${prescription.prescriptionId}`}>
     <div className="coach-progress-review__heading"><div>
-      <Text id={`proposal-review-${prescription.prescriptionId}`} as="h4" variant="subtitle">{t("progress.review.title")}</Text>
+      {/* 변경안이 있을 때 현재 상태 새로고침은 제목 옆 아이콘 버튼으로 둔다. */}
+      <div className="flex items-center gap-2">
+        <Text id={`proposal-review-${prescription.prescriptionId}`} as="h4" variant="subtitle">{t("progress.review.title")}</Text>
+        {proposal && <IconButton size="sm" variant="ghost" disabled={recovering} aria-label={t("progress.review.refresh")}
+          title={t("progress.review.refresh")} icon={<RefreshCw size={ICON_SIZE.sm} />} onClick={() => void refreshProposal()} />}
+      </div>
       <Text as="p" variant="bodySmall" tone="secondary">{t("progress.review.body")}</Text>
     </div><Chip variant="accent">{t("progress.origin.aiCoach")}</Chip></div>
     <Text as="p" variant="caption" tone="secondary">{t("progress.origin.separate")}</Text>
@@ -273,8 +280,6 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
             ? displayEvidence(evidenceById.get(evidenceId)!, locale) : evidenceId}</li>)}</ul></details>
       </article>)}
       <div className="coach-progress-review__actions">
-        <Button type="button" variant="outline" disabled={recovering}
-          onClick={() => void refreshProposal()}>{t("progress.review.refresh")}</Button>
         {state === "review" && <Button type="button" variant={confirmArmed ? "primary" : "secondary"}
           disabled={!capabilities.progressPlanner.confirm.enabled || !nonce} onClick={() => void confirmProposal()}>
           {confirmArmed ? t("progress.confirm.final") : t("progress.confirm.review")}</Button>}

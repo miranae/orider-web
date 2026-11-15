@@ -263,7 +263,13 @@ describe("AiRideAnalysisCard", () => {
       expect(screen.getByText("저장된 요약은 계속 보여야 합니다.")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "상세 분석 다시 불러오기" }));
+    // 상세 분석 다시 불러오기는 헤더(h2 옆)의 아이콘 전용 버튼이다.
+    const reloadButton = screen.getByRole("button", { name: "상세 분석 다시 불러오기" });
+    expect(reloadButton).toHaveClass("ds-btn--icon-only");
+    expect(reloadButton).toHaveAttribute("title", "상세 분석 다시 불러오기");
+    expect(reloadButton).toHaveTextContent("");
+    expect(reloadButton.parentElement).toContainElement(screen.getByRole("heading", { level: 2 }));
+    fireEvent.click(reloadButton);
 
     await waitFor(() => {
       expect(screen.getByText("저장된 요약은 계속 보여야 합니다.")).toBeInTheDocument();
