@@ -90,8 +90,22 @@ describe("SocialLinksCard", () => {
     const row = screen.getByTestId("S1-4-1-strava");
     fireEvent.click(await within(row).findByRole("button", { name: "pane.account.socialUnlinkBtn" }));
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("pane.account.stravaUnlinkConfirm", { destructive: true }));
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.stravaSyncActive", "error"));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.stravaSyncActive", "error",
+      { resolve: { to: "/settings/connections" } }));
     expect(mocks.showToast).not.toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error");
+  });
+
+  it("marks the first unlinked sign-in method as the social-links focus target", async () => {
+    mocks.user = { uid: "u1", isAnonymous: false, providerData: [{ providerId: "google.com" }] };
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    const kakao = within(screen.getByTestId("S1-4-1-kakao")).getByRole("button", { name: "pane.account.socialLinkBtn" });
+    await waitFor(() => expect(kakao).toHaveAttribute("data-focus-target", "social-links"));
+    expect(document.querySelectorAll('[data-focus-target="social-links"]')).toHaveLength(1);
+  });
+
+  it("focuses the Google connect button first when Google is not linked", () => {
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    expect(within(screen.getByTestId("S1-4-1-google")).getByRole("button")).toHaveAttribute("data-focus-target", "social-links");
   });
 
   it("renders nothing for anonymous users and does not call the server", () => {

@@ -651,6 +651,7 @@
   "src/hooks/useSavedActivityAnalysisSelection.ts",
   "src/hooks/useSegmentDistanceTimeGap.ts",
   "src/hooks/useSegmentMetadata.ts",
+  "src/hooks/useSignInResolve.ts",
   "src/hooks/useStageActivityPowerDuration.ts",
   "src/hooks/useStageCyclingDistanceCoveredRankings.ts",
   "src/hooks/useStageCyclingDistanceEffortPreference.ts",

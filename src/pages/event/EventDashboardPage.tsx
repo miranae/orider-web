@@ -224,7 +224,7 @@ export default function EventDashboardPage() {
   if (!user) return <PermissionGate title={t("participantsView.loginRequired")} actionLabel={t("common:button.loginGoogle")} onAction={() => { void signIn(); }} />;
   if (error) return <ErrorState title={t("dashboard.errorTitle")} description={error} onRetry={() => window.location.reload()} />;
   if (!info || loadedIdentity !== identity || !roleLoaded) return <LoadingSkeleton kind="chart" />;
-  if (!permissions.canEnter) return <PermissionGate title={t("host.permissionDenied")} />;
+  if (!permissions.canEnter) return <PermissionGate title={t("host.permissionDenied")} resolve={{ to: `/event/${eventId}` }} />;
   const operationFeedback = operationError && <div role="alert" className="site-shell py-3">
     <Text as="p" variant="body">{t("dashboard.errorTitle")}</Text>
     <Button disabled={busy} onClick={() => void operate(operationError)}>{t("common:button.retry")}</Button>

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -59,4 +59,15 @@ it("renders GFM content through the real Markdown renderer without executing uns
   expect(within(screen.getByRole("table")).getByRole("cell", { name: "20:00" })).toBeInTheDocument();
   expect(screen.getByText("Old note").tagName).toBe("DEL");
   expect(screen.getByText("Unsafe")).not.toHaveAttribute("href", expect.stringContaining("javascript:"));
+});
+
+it("로그인 전 좋아요를 누르면 뜨는 알림 문구를 눌러 로그인 창을 연다", async () => {
+  renderWithProviders(<Routes><Route path="/ko/community/board/:postId" element={<PostDetailPage />} /></Routes>, { route: "/ko/community/board/post" });
+  const reactions = within(screen.getByTestId("M2-P-1").querySelector(".board-post-reactions")!);
+  fireEvent.click(reactions.getByRole("button", { name: /좋아요 3/ }));
+  // 알림(닫기 버튼이 있는 줄)의 문구 자체 — 본문의 같은 문구와 구분한다.
+  const toast = (await screen.findByRole("button", { name: "닫기" })).parentElement!;
+  fireEvent.click(within(toast).getByRole("button", { name: "로그인이 필요합니다." }));
+  expect(await screen.findByRole("dialog", { name: "로그인" })).toBeInTheDocument();
+  expect(mutations.like).not.toHaveBeenCalled();
 });

@@ -6,6 +6,11 @@ import { DropdownSelect, Button, Chip, Text } from "../../../theme/components";
 import type { RiderWorkoutType } from "../../../services/riderWorkoutDeliveryContract";
 import { useRiderWorkoutDelivery } from "../useRiderWorkoutDelivery";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../../services/focusTarget";
+import { useInPlaceSignIn } from "../../../hooks/useInPlaceSignIn";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
+import { Resolvable, type Resolve } from "../../../components/redesign/states/Resolvable";
+import type { RiderWorkoutDeliveryErrorKind } from "../../../services/riderWorkoutDeliveryClient";
 
 interface RiderWorkoutDeliveryPanelProps {
   uid: string | null;
@@ -25,15 +30,24 @@ function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyC
   const selectedDevice = controller.devices.find((device) => device.deviceId === controller.targetDeviceId);
   const state = controller.deliveryState;
   const busy = controller.submitState === "submitting";
+  const { login } = useInPlaceSignIn();
+  // 앱 안 임베드 화면은 앱이 로그인을 맡으므로 문구를 눌러 웹 로그인을 열지 않는다.
+  const signInResolve: Resolve | undefined = useFirebaseServices().scope !== "embedded" ? { onClick: () => void login() } : undefined;
+  // 실패 문구 자체를 누르면 그 실패를 푸는 곳으로 간다. 제자리 버튼(새 요청 준비)은 그대로 둔다.
+  const errorResolve: Partial<Record<RiderWorkoutDeliveryErrorKind, Resolve | undefined>> = {
+    ftp_required: { to: thresholdSettingsHref("bike", FOCUS_TARGETS.ftp) },
+    device_reconnect: { to: "/settings/device" },
+    auth: signInResolve,
+  };
   useEffect(() => {
     onBusyChange?.(busy);
     return () => onBusyChange?.(false);
   }, [busy, onBusyChange]);
 
-  if (!uid) return <Text as="p" variant="caption" tone="warning">{t("coach.delivery.login")}</Text>;
+  if (!uid) return <Text as="p" variant="caption" tone="warning"><Resolvable resolve={signInResolve}>{t("coach.delivery.login")}</Resolvable></Text>;
   if (controller.devicesLoading) return <Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.devicesLoading")}</Text>;
-  if (controller.devicesError) return <Text as="p" variant="caption" tone="warning">{t("coach.delivery.devicesError")}</Text>;
-  if (controller.devices.length === 0) return <><Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.noDevices")}</Text>{explicitWorkoutLabel && <LocalizedLink data-testid="K2-3-6" to="/settings/device">{t("today.noDeviceLink")}</LocalizedLink>}</>;
+  if (controller.devicesError) return <Text as="p" variant="caption" tone="warning"><Resolvable resolve={{ onClick: controller.retryDevices }}>{t("coach.delivery.devicesError")}</Resolvable></Text>;
+  if (controller.devices.length === 0) return <><Text as="p" variant="caption" tone="tertiary"><Resolvable resolve={{ to: "/settings/device" }}>{t("coach.delivery.noDevices")}</Resolvable></Text>{explicitWorkoutLabel && <LocalizedLink data-testid="K2-3-6" to="/settings/device">{t("today.noDeviceLink")}</LocalizedLink>}</>;
 
   return (
     <div className="fitness-analysis-controls fitness-coach__handoff">
@@ -85,7 +99,9 @@ function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyC
       )}
       {controller.submitError && (
         <div className="fitness-coach__delivery-error" role="alert">
-          <Text as="p" variant="caption" tone="warning">{t(`coach.delivery.error.${controller.submitErrorKind ?? "unknown"}`)}</Text>
+          <Text as="p" variant="caption" tone="warning">
+            <Resolvable resolve={controller.submitErrorKind ? errorResolve[controller.submitErrorKind] : undefined}>{t(`coach.delivery.error.${controller.submitErrorKind ?? "unknown"}`)}</Resolvable>
+          </Text>
           {controller.canSafelyReplay && (
             <Button variant="outline" block disabled={busy} onClick={() => void controller.submit()}>
               {t("coach.delivery.retry")}

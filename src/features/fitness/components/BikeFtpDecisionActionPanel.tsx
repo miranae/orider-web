@@ -6,6 +6,7 @@ import type {
   FtpMutationReceipt,
 } from "@shared/types/threshold";
 import { Button, Chip, Text } from "../../../theme/components";
+import { Resolvable } from "../../../components/redesign/states/Resolvable";
 
 interface Props {
   decision: BikeThresholdDecisionV2 | null;
@@ -91,13 +92,16 @@ function ReceiptPanel({ receipt, deviceReceipts }: { receipt: FtpMutationReceipt
     <div data-ftp-receipt style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--line-soft)" }}>
       <Text as="div" variant="eyebrow">{t("ftpDecision.receipt.title")}</Text>
       <Text as="p" variant="caption" tone="secondary" style={{ margin: "var(--space-1) 0 0" }}>
-        {receipt
-          ? t(`ftpDecision.receipt.status.${receipt.status}`, {
+        {receipt ? (
+          // 기기 동기화 실패·일부 실패 문구를 누르면 기기별 FTP·마지막 동기화를 보는 기기 설정으로 간다.
+          <Resolvable resolve={receipt.status === "failed" || receipt.status === "partial" ? { to: "/settings/device" } : undefined}>
+            {t(`ftpDecision.receipt.status.${receipt.status}`, {
               applied: receipt.appliedCount,
               targeted: receipt.targetedDeviceCount,
               pending: receipt.pendingCount,
-            })
-          : t("ftpDecision.receipt.waiting")}
+            })}
+          </Resolvable>
+        ) : t("ftpDecision.receipt.waiting")}
       </Text>
       {deviceReceipts.length > 0 && (
         <div style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>

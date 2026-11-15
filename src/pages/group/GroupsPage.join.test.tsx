@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, setCallableImplementation, setCallableResult, setCollectionDocs, simulateLogin } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { httpsCallable } from "firebase/functions";
+import { onSnapshot, query } from "firebase/firestore";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
 import GroupsPage from "./GroupsPage";
 
@@ -37,6 +38,16 @@ function renderPage(authenticated = true) {
   return renderWithProviders(pageRoutes(), { route: "/ko/groups", authenticated });
 }
 
+/** 승인 대기 카드는 다시 가입 신청을 보내지 않고, 눌러도 내 가입 신청 기록으로만 데려간다. */
+async function expectPendingNotJoinable() {
+  const pending = await screen.findByRole("button", { name: "승인 대기" });
+  const joinCalls = () => mockCallableInvocations.filter((call) => call.name === "joinGroupPublic").length;
+  const before = joinCalls();
+  fireEvent.click(pending);
+  expect(joinCalls()).toBe(before);
+  expect(screen.queryByRole("button", { name: "가입 신청" })).not.toBeInTheDocument();
+}
+
 describe("GroupsPage join results", () => {
   beforeEach(() => {
     vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
@@ -63,8 +74,19 @@ describe("GroupsPage join results", () => {
     publicGroups.push({ id: "led-club", name: "Led club", discipline: "bike", memberCount: 3, visibility: "public" });
     membershipState.incomplete = true;
     renderPage();
-    const join = screen.getByRole("button", { name: "가입 확인 필요" });
-    expect(join).toBeDisabled();
+    // 가입 신청은 막고, 이 클럽 하나의 회원 여부를 읽는 클럽 화면으로 보낸다.
+    expect(screen.queryByRole("button", { name: "가입 신청" })).not.toBeInTheDocument();
+    const open = screen.getByRole("link", { name: "가입 확인 필요" });
+    expect(open).toHaveAttribute("href", "/ko/club/led-club");
+    fireEvent.click(open);
+    expect(screen.getByText("group destination")).toBeInTheDocument();
+    expect(mockCallableInvocations.filter((call) => call.name === "joinGroupPublic")).toHaveLength(0);
+  });
+  it("explains unconfirmed membership with the same notice", () => {
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    publicGroups.push({ id: "led-club", name: "Led club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.incomplete = true;
+    renderPage();
     expect(screen.getByTestId("C0-2-5")).toHaveTextContent("새로고침하면 다시 확인해요");
     expect(screen.queryByRole("button", { name: /다시/ })).not.toBeInTheDocument();
     expect(membershipState.retry).not.toHaveBeenCalled();
@@ -89,6 +111,78 @@ describe("GroupsPage join results", () => {
     expect((hasClub ? ownRegion : finder).compareDocumentPosition(hasClub ? finder : ownRegion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(finder.compareDocumentPosition(challenge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByTestId("C0.noClub") !== null).toBe(!hasClub);
+  });
+  it("초대 코드 입력칸은 비공개 클럽 안내의 ?focus=club-invite-code 대상이다", () => {
+    renderPage();
+    expect(screen.getByTestId("C0-3-1")).toHaveAttribute("data-focus-target", "club-invite-code");
+  });
+  it("「승인 대기」 문구를 누르면 내 가입 신청 기록의 그 클럽 행을 펼쳐 신청 취소 버튼에 초점을 둔다", async () => {
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    publicGroups.push({ id: "Pending-Club", name: "Pending club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.pending = new Set(["Pending-Club"]);
+    setCollectionDocs("users/test-uid/group_requests", [
+      { id: "request-0", groupId: "Other-Club", groupName: "Other club", status: "pending", requestedAt: 456 },
+      { id: "request-1", groupId: "Pending-Club", groupName: "Pending club", status: "pending", requestedAt: 123 },
+    ]);
+    renderPage();
+    const history = await screen.findByTestId("C0-1-3");
+    expect(history.querySelector("details")).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: "승인 대기" }));
+    expect(history.querySelector("details")).toHaveAttribute("open");
+    const cancels = screen.getAllByTestId("C0-1-3-cancel");
+    expect(document.activeElement).toBe(cancels[1]);
+  });
+  it("가입한 클럽이 없어도 「승인 대기」를 누르면 아래 가입 신청 기록의 신청 취소에 초점을 둔다", async () => {
+    publicGroups.push({ id: "Pending-Club", name: "Pending club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.pending = new Set(["Pending-Club"]);
+    setCollectionDocs("users/test-uid/group_requests", [{ id: "request-1", groupId: "Pending-Club", groupName: "Pending club", status: "pending", requestedAt: 123 }]);
+    renderPage();
+    const history = await screen.findByTestId("C0-1-3");
+    fireEvent.click(screen.getByRole("button", { name: "승인 대기" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByTestId("C0-1-3-cancel")[0]));
+    expect(history.querySelector("details")).toHaveAttribute("open");
+  });
+  it("최신 기록 10개 밖의 승인 대기 신청도 그 클럽 신청을 구독해 붙인 뒤 신청 취소에 초점을 두고, 대기가 끝나면 뺀다", async () => {
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    publicGroups.push({ id: "Old-Pending", name: "Old pending club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.pending = new Set(["Old-Pending"]);
+    type Row = { id: string; groupId: string; groupName: string; status: string; requestedAt: number };
+    let requests: Row[] = [
+      ...Array.from({ length: 10 }, (_, i) => ({ id: `recent-${i}`, groupId: `Club-${i}`, groupName: `Club ${i}`, status: "approved", requestedAt: 1000 + i })),
+      { id: "old-request", groupId: "Old-Pending", groupName: "Old pending club", status: "pending", requestedAt: 1 },
+    ];
+    // 이 경로만 where·limit 을 실제처럼 적용하는 구독(공용 mock 은 조건을 무시한다).
+    const listeners: Array<() => void> = [];
+    const realQuery = vi.mocked(query).getMockImplementation()!;
+    const realOnSnapshot = vi.mocked(onSnapshot).getMockImplementation()!;
+    vi.mocked(query).mockImplementation(((ref: { path: string }, ...constraints: unknown[]) => ({ ...(realQuery as (r: unknown) => object)(ref), _constraints: constraints })) as never);
+    vi.mocked(onSnapshot).mockImplementation(((ref: { path?: string; _constraints?: Array<{ type: string; args: unknown[] }> }, next: unknown, ...rest: unknown[]) => {
+      if (ref.path !== "users/test-uid/group_requests") return (realOnSnapshot as (...a: unknown[]) => () => void)(ref, next, ...rest);
+      const emit = () => {
+        const wheres = (ref._constraints ?? []).filter(c => c.type === "where");
+        let docs = requests.filter(row => wheres.every(w => (row as Record<string, unknown>)[String(w.args[0])] === w.args[2]));
+        docs = [...docs].sort((a, b) => b.requestedAt - a.requestedAt).slice(0, wheres.length ? 1 : 10);
+        (next as (snap: unknown) => void)({ docs: docs.map(d => ({ id: d.id, data: () => d })) });
+      };
+      listeners.push(emit); emit();
+      return () => {};
+    }) as never);
+    try {
+    renderPage();
+    await screen.findByTestId("C0-1-3");
+    expect(screen.queryByTestId("C0-1-3-cancel")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "승인 대기" }));
+    const cancel = await screen.findByTestId("C0-1-3-cancel");
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+    expect(screen.getByTestId("C0-1-3").querySelector("details")).toHaveAttribute("open");
+    // 운영진이 승인하면(대기 끝) 붙였던 행이 빠진다.
+    requests = requests.map(row => row.id === "old-request" ? { ...row, status: "approved" } : row);
+    act(() => { listeners.forEach(emit => emit()); });
+    await waitFor(() => expect(screen.queryByTestId("C0-1-3-cancel")).toBeNull());
+    } finally {
+      vi.mocked(query).mockImplementation(realQuery);
+      vi.mocked(onSnapshot).mockImplementation(realOnSnapshot);
+    }
   });
   it.each(["success", "reject", "unmount", "account"] as const)("gates code-input joining: %s", async (outcome) => {
     let resolveReady!: () => void;
@@ -373,7 +467,7 @@ describe("GroupsPage join results", () => {
     setCallableResult("joinGroupPublic", { data: { success: true, status: "pending" } });
     const view = renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
-    expect(await screen.findByRole("button", { name: "승인 대기" })).toBeDisabled();
+    await expectPendingNotJoinable();
     if (ack === "request") membershipState.pending = new Set(["group-1"]);
     else membershipState.snapshot = [...publicGroups];
     view.rerender(pageRoutes());
@@ -390,14 +484,14 @@ describe("GroupsPage join results", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
 
-    expect(await screen.findByRole("button", { name: "승인 대기" })).toBeDisabled();
+    await expectPendingNotJoinable();
   }, 15_000);
 
-  it("marks clubs with a pending request and locks join buttons while my clubs reload", () => {
+  it("marks clubs with a pending request and locks join buttons while my clubs reload", async () => {
     addManualPublicGroup();
     membershipState.pending = new Set(["group-1"]);
     const view = renderPage();
-    expect(screen.getByRole("button", { name: "승인 대기" })).toBeDisabled();
+    await expectPendingNotJoinable();
     view.unmount();
     membershipState.pending = new Set();
     membershipState.loading = true;

@@ -12,6 +12,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import { useStrava } from "../../hooks/useStrava";
 import { functions } from "../../services/firebase";
 import { track } from "../../services/analytics";
+import { FOCUS_TARGETS, withFocus } from "../../services/focusTarget";
 
 import { SettingsCard, InlineRow, Toggle } from "./_primitives";
 import { Button, Text, buttonClass } from "../../theme/components";
@@ -150,7 +151,12 @@ export function PaneConnections() {
       showToast(t("strava.disconnected"));
     } catch (error) {
       const reason = (error as { details?: { reason?: string } }).details?.reason;
-      showToast(t(reason === "last-login-method" ? "strava.disconnectLastLogin" : "strava.disconnectFailed"), "error");
+      if (reason === "last-login-method") {
+        // 다른 로그인 방법을 먼저 연결해야 풀린다 — 알림 문구를 누르면 로그인 방법 카드의 연결 버튼으로 간다.
+        showToast(t("strava.disconnectLastLogin"), "error", { resolve: { to: withFocus("/settings/account", FOCUS_TARGETS.socialLinks) } });
+      } else {
+        showToast(t("strava.disconnectFailed"), "error");
+      }
     }
   }
 
