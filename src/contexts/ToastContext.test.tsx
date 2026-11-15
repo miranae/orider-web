@@ -92,6 +92,13 @@ describe("ToastContext 해결 행동", () => {
     expect(screen.queryByText("기기 설정이 필요해요")).toBeNull();
   });
 
+  it("언어 라우트 밖에 있어도 현재 주소의 언어(/en)를 지킨다", async () => {
+    const { MemoryRouter } = await import("react-router-dom");
+    render(<MemoryRouter initialEntries={["/en/activity/a1"]}><ToastProvider><ActionConsumer to="/settings/device" /></ToastProvider></MemoryRouter>);
+    fireEvent.click(screen.getByText("열기"));
+    expect(screen.getByRole("link", { name: "기기 설정" }).getAttribute("href")).toBe("/en/settings/device");
+  });
+
   it("onClick 행동은 버튼으로 실행되고 행동 있는 알림은 10초까지 남는다", () => {
     vi.useFakeTimers();
     const retry = vi.fn();
