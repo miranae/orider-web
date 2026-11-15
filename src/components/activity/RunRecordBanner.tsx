@@ -1,5 +1,7 @@
 /** 현재 저장된 러닝 최고 기록의 근거 활동을 표시한다. 성과의 시간 순서는 추정하지 않는다. */
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { Trophy, Share2 } from "lucide-react";
 import { Card, Text } from "../../theme/components";
@@ -20,6 +22,10 @@ export interface RunRecordBannerProps {
 export default function RunRecordBanner({ run, activityId }: RunRecordBannerProps) {
   const { t, i18n } = useTranslation("activity");
   const { showToast } = useToast();
+  const { auth } = useFirebaseServices();
+  // 전역 토스트의 재시도는 배너가 내려간 뒤에도 남는다 — 마운트 중일 때만 실행한다.
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const news = storedBestRecordsForActivity(run, activityId);
   if (news.length === 0) return null;
 
@@ -39,8 +45,12 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
     else if (result === "failed") {
       logClientError("RunRecordBanner.share", new Error("Share unavailable or failed"), { distance: top.distance });
       // 알림 문구를 누르면 같은 공유를 다시 시도한다(누름 자체가 공유 시트에 필요한 사용자 동작).
-      // 그사이 다른 화면으로 옮겼으면 다른 주소를 공유하게 되므로 아무것도 하지 않는다.
-      showToast(t("runRecord.share.failed"), undefined, { resolve: { onClick: () => { if (window.location.href === url) void handleShare(); } } });
+      // 그사이 다른 화면으로 옮겼거나, 배너가 내려갔거나, 인증 주체가 바뀌었으면(로그아웃·계정 전환) 이전 계정의
+      // 기록 문구를 공유하게 되므로 아무것도 하지 않는다.
+      const uid = auth.currentUser?.uid ?? null;
+      showToast(t("runRecord.share.failed"), undefined, { resolve: { onClick: () => {
+        if (mounted.current && window.location.href === url && (auth.currentUser?.uid ?? null) === uid) void handleShare();
+      } } });
     }
   };
 

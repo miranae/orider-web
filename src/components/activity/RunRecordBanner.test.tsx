@@ -10,6 +10,8 @@ vi.mock("../../services/analytics", () => ({ track: vi.fn() }));
 const toast = vi.hoisted(() => vi.fn());
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: toast }) }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
+const auth = vi.hoisted(() => ({ currentUser: { uid: "runner-a" } as { uid: string } | null }));
+vi.mock("../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ auth }) }));
 import { track } from "../../services/analytics";
 
 const e = (value: number, activityId: string) => ({ value, activityId, date: "2026-07-10", startTime: 0 });
@@ -113,6 +115,28 @@ describe("RunRecordBanner — 공유", () => {
     toast.mock.calls.at(-1)![2].resolve.onClick();
     await Promise.resolve();
     expect(shareSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("공유 실패 뒤 로그아웃·계정 전환이나 배너가 내려가면 알림 문구를 눌러도 이전 기록을 공유하지 않는다", async () => {
+    auth.currentUser = { uid: "runner-a" };
+    const shareSpy = vi.fn().mockRejectedValue(new Error("blocked"));
+    Object.defineProperty(navigator, "share", { value: shareSpy, configurable: true });
+    const view = render(<RunRecordBanner run={run} activityId="today" />);
+    fireEvent.click(screen.getByRole("button", { name: /공유/ }));
+    await vi.waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    const retry = toast.mock.calls.at(-1)![2].resolve.onClick as () => void;
+    auth.currentUser = { uid: "runner-b" };
+    retry();
+    auth.currentUser = null;
+    retry();
+    await Promise.resolve();
+    expect(shareSpy).toHaveBeenCalledTimes(1);
+
+    auth.currentUser = { uid: "runner-a" };
+    view.unmount();
+    retry();
+    await Promise.resolve();
+    expect(shareSpy).toHaveBeenCalledTimes(1);
   });
 
   it("navigator.share 가 없으면 클립보드로 폴백", async () => {

@@ -6,6 +6,7 @@ import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
 import { useToast } from "../contexts/ToastContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
@@ -42,11 +43,13 @@ const FORMATS = [
 export default function ExportTab({ activity, streams, resolveCurrentStreams }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
+  const { auth } = useFirebaseServices();
   const generation = useRef(0);
   useEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams]);
 
   const handleExport = useCallback(async function exportFormat(format: string): Promise<void> {
     const request = generation.current;
+    const uid = auth.currentUser?.uid ?? null;
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
       if (request !== generation.current) return;
@@ -79,10 +82,13 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
     } catch (err) {
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       if (request !== generation.current) return;
-      // 알림 문구를 누르면 같은 형식으로 다시 내보낸다. 그사이 다른 활동으로 옮겼거나 화면을 떠났으면 아무것도 하지 않는다.
-      showToast(t("export.errorAlert"), "error", { resolve: { onClick: () => { if (request === generation.current) void exportFormat(format); } } });
+      // 알림 문구를 누르면 같은 형식으로 다시 내보낸다. 그사이 다른 활동으로 옮겼거나 화면을 떠났거나(세대),
+      // 인증 주체가 바뀌었으면(로그아웃·계정 전환) 아무것도 하지 않는다.
+      showToast(t("export.errorAlert"), "error", { resolve: { onClick: () => {
+        if (request === generation.current && (auth.currentUser?.uid ?? null) === uid) void exportFormat(format);
+      } } });
     }
-  }, [activity, streams, resolveCurrentStreams, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, t, showToast, auth]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;
