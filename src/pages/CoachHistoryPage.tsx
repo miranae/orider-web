@@ -444,7 +444,7 @@ export default function CoachHistoryPage() {
                 <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><ChartLine size={ICON_SIZE.md} /></span>
                   <Text as="h4" variant="label">{t("history.coachName")}</Text></div>
                 <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !hasStoredAnswer(turn.response) ? " coach-thread-turn__answer--terminal" : ""}`}>{turn.response.schemaVersion !== "coach-history-failure-v1" && <CoachAnswerDocumentView response={turn.response}
-                  locale={i18n.language} onAction={answerAction} historical />}
+                  locale={i18n.language} onAction={answerAction} historical discipline={thread.discipline} />}
                   <CoachStoredTurnResult response={turn.response} />
                 </div>
               </section>

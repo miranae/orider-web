@@ -45,6 +45,8 @@ import TabNav from "../TabNav";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Button, Chip, Text, ToggleControls, ToggleButton } from "../../theme/components";
+import { Resolvable } from "../redesign";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../services/focusTarget";
 import type { SufficiencySet } from "@shared/types/sufficiency";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../../features/sufficiency/SufficiencyBlock";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
@@ -904,7 +906,10 @@ export default function MobileFitnessPage({
   const thresholdMissingCard = (<>
           {sectionState.derived === "ready" && !runReadiness && !data.threshold && (data.discipline === "run" || data.discipline === "swim") && (
             <SectionCard>
-              <Text variant="body">{t(data.discipline === "run" ? "mobileFitness.thresholdMissingRun" : "mobileFitness.thresholdMissingSwim")}</Text>
+              {/* 내 체력 화면 — 기준값 없음 문구를 누르면 비어 있는 칸으로 간다. */}
+              <Text variant="body"><Resolvable resolve={{ to: data.discipline === "run" ? thresholdSettingsHref("run", FOCUS_TARGETS.thresholdPace) : thresholdSettingsHref("swim", FOCUS_TARGETS.css) }}>
+                {t(data.discipline === "run" ? "mobileFitness.thresholdMissingRun" : "mobileFitness.thresholdMissingSwim")}
+              </Resolvable></Text>
             </SectionCard>
           )}
   </>);

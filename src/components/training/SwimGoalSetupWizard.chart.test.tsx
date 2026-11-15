@@ -3,6 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import SwimGoalSetupWizard from "./SwimGoalSetupWizard";
 
+// 기준값이 없어 가정 CSS 를 쓰는 상태를 고정한다.
+const fitnessInputs = vi.hoisted(() => ({ assumed: false }));
+vi.mock("../../hooks/useGoalFitnessInputs", async (original) => {
+  const actual = await original<typeof import("../../hooks/useGoalFitnessInputs")>();
+  return { ...actual, useGoalFitnessInputs: () => {
+    const inputs = actual.useGoalFitnessInputs();
+    return fitnessInputs.assumed ? { ...inputs, cssSource: "assumed" } : inputs;
+  } };
+});
 vi.mock("../redesign", () => ({ DateField: ({ onChange }: { onChange: (value: string) => void }) => <button type="button" onClick={() => onChange("2027-12-01")}>날짜 선택</button> }));
 
 describe("SwimGoalSetupWizard chart palette", () => {
@@ -21,5 +30,13 @@ describe("SwimGoalSetupWizard chart palette", () => {
     const endpoint = container.querySelector('svg circle[cx="800"]');
     expect(endpoint).toHaveAttribute("fill", "var(--color-info)");
     expect(endpoint).toHaveAttribute("stroke", "var(--bg-1)");
+  });
+
+  it("sends an assumed CSS to the swim CSS field", () => {
+    fitnessInputs.assumed = true;
+    renderWithProviders(<SwimGoalSetupWizard Stepper={() => null} />);
+    fireEvent.click(screen.getByRole("button", { name: "다음 →" }));
+    const notice = screen.getByTestId("goal-input-source");
+    expect(notice.querySelector("a")).toHaveAttribute("href", expect.stringContaining("/settings/training?sport=swim&focus=css"));
   });
 });

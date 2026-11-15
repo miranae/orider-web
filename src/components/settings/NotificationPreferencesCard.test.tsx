@@ -41,3 +41,22 @@ it("clears settings on permission denial", async () => {
   await waitFor(() => expect(screen.queryByRole("switch")).not.toBeInTheDocument());
   expect(screen.getByRole("alert")).toBeInTheDocument();
 });
+
+it("tapping the load failure message reloads without adding a button", async () => {
+  mock.get.mockRejectedValueOnce(new Error("offline")); render(<NotificationPreferencesCard />);
+  const message = await screen.findByRole("button", { name: "알림 설정을 불러오지 못했습니다." });
+  expect(screen.getAllByRole("button")).toHaveLength(1);
+  fireEvent.click(message);
+  expect(await screen.findByRole("switch", { name: "일반 푸시 알림" })).toBeChecked();
+  expect(mock.get).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+it("tapping the message after a permission denial reloads the settings", async () => {
+  render(<NotificationPreferencesCard />);
+  const push = await screen.findByRole("switch", { name: "일반 푸시 알림" });
+  mock.set.mockRejectedValueOnce({ code: "functions/permission-denied" }); fireEvent.click(push);
+  await waitFor(() => expect(screen.queryByRole("switch")).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button", { name: "알림 설정을 불러오지 못했습니다." }));
+  expect(await screen.findByRole("switch", { name: "일반 푸시 알림" })).toBeInTheDocument();
+  expect(mock.get).toHaveBeenCalledTimes(2);
+});

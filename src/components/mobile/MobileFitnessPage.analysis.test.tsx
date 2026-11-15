@@ -280,3 +280,15 @@ it("keeps model, FTP and evidence sections out of analysis unless an FTP decisio
   renderWithProviders(<MobileFitnessPage data={{ ...data, pdcSufficiency }} part="analysis" />, { route: "/ko/coach/analysis?sport=bike#ftp-decision" });
   expect(screen.getAllByText(/훈련 기준 — FTP 판단/).length).toBeGreaterThan(0);
 });
+
+// 러닝 역치 페이스·수영 CSS 가 없다는 문구를 누르면 그 칸으로 간다.
+describe("missing run/swim threshold resolution", () => {
+  it.each([
+    ["run", "러닝 역치 페이스가 설정되지 않았어요. 설정한 페이스가 있을 때 표시합니다.", "/settings/training?sport=run&focus=threshold-pace"],
+    ["swim", "수영 임계 속도(CSS)가 설정되지 않았어요. 설정한 속도가 있을 때 표시합니다.", "/settings/training?sport=swim&focus=css"],
+  ] as const)("makes the %s missing-threshold notice itself open its field", (discipline, label, href) => {
+    // 웹 러닝 분석은 준비 카드가 대신하므로, 카드가 그려지는 임베드 분석 표면에서 본다.
+    renderWithProviders(<MobileFitnessPage data={{ ...data, discipline, threshold: null }} part="analysis" embedded />);
+    expect(screen.getByRole("link", { name: label })).toHaveAttribute("href", expect.stringContaining(href));
+  });
+});

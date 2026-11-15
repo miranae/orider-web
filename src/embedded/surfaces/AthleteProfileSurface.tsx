@@ -20,7 +20,7 @@ function AthleteProfileIndex() {
   const { user } = useAuth();
   const { t } = useTranslation("common");
   // 예약 경로(`me`)·잘못된 ID 는 열지 않는다 — 앱은 남의 uid 만 넘긴다.
-  if (!isEmbeddableAthleteId(userId)) return <EmbeddedSurfaceState title={t("nav.profile")} message={t("embeddedStatus.unavailable")} />;
+  if (!isEmbeddableAthleteId(userId)) return <EmbeddedSurfaceState title={t("nav.profile")} message={t("embeddedStatus.profileNotFound")} />;
   const own = !!user && !user.isAnonymous && user.uid === userId;
   return <AthletePage meUserId={own ? userId : undefined} />;
 }

@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { logClientError } from "../../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { SettingsCard, InlineRow } from "./_primitives";
 import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { History } from "lucide-react";
 import { Button, buttonClass } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
@@ -28,12 +30,26 @@ export function PaneAiCoach() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 정책 조회 세대 — 다시 불러오기·동의·철회가 새로 시작되면 앞선 조회의 늦은 응답은 버린다
+  // (철회 뒤 늦게 도착한 이전 조회가 '동의함'으로 되돌리지 않게). 조회 중 거듭 누르면 새로 조회하지 않는다.
+  const policyGeneration = useRef(0);
+  const loadingRef = useRef(false);
   const load = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    const generation = ++policyGeneration.current;
     setLoading(true);
     setError(null);
-    try { setPolicy(await getCoachConsentPolicy()); }
-    catch { setError("load_failed"); }
-    finally { setLoading(false); }
+    try {
+      const next = await getCoachConsentPolicy();
+      if (policyGeneration.current === generation) setPolicy(next);
+    } catch (reason) {
+      logClientError("PaneAiCoach.loadPolicy", reason);
+      if (policyGeneration.current === generation) setError("load_failed");
+    } finally {
+      loadingRef.current = false;
+      if (policyGeneration.current === generation) setLoading(false);
+    }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -42,6 +58,7 @@ export function PaneAiCoach() {
     if (!policy || saving) return;
     setSaving(true);
     setError(null);
+    policyGeneration.current += 1;
     try {
       const saved = await acceptCoachConsent(policy.policyVersion);
       if (!saved.consent.active || !saved.consent.current || saved.consent.revoked) {
@@ -63,6 +80,7 @@ export function PaneAiCoach() {
       title: t("coach.revokeTitle"), confirmLabel: t("coach.revoke"), destructive: true,
     })) return;
     setSaving(true);
+    policyGeneration.current += 1;
     try {
       const saved = await revokeCoachConsent();
       if (saved.consent.active || !saved.consent.revoked) throw new Error("CONSENT_STILL_ACTIVE");
@@ -92,7 +110,7 @@ export function PaneAiCoach() {
           {!valid && policy && error !== "load_failed" && <Button {...focusTargetProps(FOCUS_TARGETS.aiCoachConsent)} disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
           {valid && <Button variant="danger" disabled={loading || saving || error === "load_failed"} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>
-        {error === "load_failed" && <div role="alert" className="settings-consent-error"><p>{t("coach.loadFailed")}</p></div>}
+        {error === "load_failed" && <div role="alert" className="settings-consent-error"><p><Resolvable resolve={{ onClick: () => void load() }}>{t("coach.loadFailed")}</Resolvable></p></div>}
       </SettingsCard>
       {policy && <CoachConsentSheet
         open={sheetOpen}

@@ -702,7 +702,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   title={t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.title" : `states.${submitFailure ?? "terminal"}.title`)}>
                   <Text as="p" variant="bodySmall">{t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.body" : `states.${submitFailure ?? "terminal"}.body`)}</Text></Alert>}
                 {response && phase !== "submitting" && ("outcome" in response
-                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={submissionBlocked}
+                  ? <CoachV2Result response={response} locale={i18n.language} discipline={discipline} selectedOption={clarificationOption} exhausted={submissionBlocked}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action}
                     onReanalyze={startAnother}
                     manualCheckIn={manualCheckIn}
@@ -778,8 +778,8 @@ function CoachFeedback({ feedback, onFeedback }: { feedback: boolean | null; onF
 }
 
 function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOption, onClarification, onAction, onSuggested, onReanalyze,
-  manualCheckIn = false, onManualCheckIn }: {
-  response: CoachResponseEnvelope; locale: string; selectedOption: string | null; exhausted: boolean;
+  manualCheckIn = false, onManualCheckIn, discipline }: {
+  response: CoachResponseEnvelope; locale: string; discipline: CoachDiscipline; selectedOption: string | null; exhausted: boolean;
   onSelectOption: (option: string) => void; onClarification: () => void;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
   onSuggested: (query: string, prescriptionId?: string, sourceRequestId?: string) => void;
@@ -790,7 +790,7 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
   const { t } = useTranslation("coach");
   if (response.capabilityVersion === "p2") {
     return <div data-testid="K6-S-7" className="coach-result">
-      {response.outcome === "answer" && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
+      {response.outcome === "answer" && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} discipline={discipline}
         onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn} />}
       {response.outcome === "unavailable" && <Alert className="coach-result__state" variant="warning"
         title={t("p2Unavailable.title")}>{t(`p2Unavailable.${response.retry.reasonCode}`)}</Alert>}
@@ -800,7 +800,7 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
   const expired = spec ? Date.parse(spec.expiresAt) <= Date.now() : false;
   const providerUnavailable = response.error?.code === "provider_kill_switch";
   return <div data-testid="K6-S-7" className="coach-result">
-    {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
+    {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} discipline={discipline}
       onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn}
       onPlannerQuestion={(question, prescriptionId, sourceRequestId) => onSuggested(question, prescriptionId, sourceRequestId)} />}
     {response.outcome === "clarification_required" && spec && <form data-testid="K6-S-6" className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>

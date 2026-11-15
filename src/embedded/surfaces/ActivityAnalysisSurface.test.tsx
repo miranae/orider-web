@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityAnalysisModel } from "../../hooks/useActivityAnalysisModel";
 import ActivityAnalysisSurface from "./ActivityAnalysisSurface";
@@ -11,7 +11,7 @@ beforeEach(() => {
   state.model = {
     activity: { id: "a" }, loadingActivity: false, activityProcessing: false, loadingStreams: false,
     showStreamSpinner: false, streamsError: "offline", analysisTabProps: null,
-    retryActivity: vi.fn(), retryStreams: vi.fn(), overview: { enabled: true, loading: true, response: null, error: false, retry: vi.fn() },
+    retryActivity: vi.fn(), retryStreams: vi.fn(), requestStreams: vi.fn(), overview: { enabled: true, loading: true, response: null, error: false, retry: vi.fn() },
   } as unknown as ActivityAnalysisModel;
 });
 
@@ -74,5 +74,33 @@ describe("embedded activity independent overview readiness", () => {
     const onError = vi.fn();
     render(<ActivityAnalysisSurface activityId="a" retryKey={0} onError={onError} onReady={vi.fn()} />);
     expect(onError).toHaveBeenCalledWith("activity_load_failed");
+  });
+});
+
+describe("embedded activity analysis missing vs connection failure", () => {
+  it("says analysis data is missing (not a connection problem) and tapping it requests streams", () => {
+    state.model.streamsError = null;
+    state.model.overview = { ...state.model.overview, loading: false, error: false, response: { status: "unavailable", activityId: "a", reason: "metrics_unavailable" } };
+    render(<ActivityAnalysisSurface activityId="a" retryKey={0} onError={vi.fn()} onReady={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("이 활동에는 보여 줄 분석 데이터가 없어요.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("연결 상태를 확인");
+    fireEvent.click(screen.getByRole("button", { name: "이 활동에는 보여 줄 분석 데이터가 없어요." }));
+    expect(state.model.requestStreams).toHaveBeenCalledTimes(1);
+    expect(state.model.overview.retry).not.toHaveBeenCalled();
+  });
+  it("keeps the connection message for overview failures and tapping it re-reads overview and streams", () => {
+    state.model.overview = { ...state.model.overview, loading: false, error: true };
+    render(<ActivityAnalysisSurface activityId="a" retryKey={0} onError={vi.fn()} onReady={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /잠시 연결할 수 없어요/ }));
+    expect(state.model.overview.retry).toHaveBeenCalledTimes(1);
+    expect(state.model.retryStreams).toHaveBeenCalledTimes(1);
+  });
+  it("leaves the message untappable when loaded streams hold nothing to analyse", () => {
+    state.model.streamsError = null;
+    state.model.streams = { userId: "u", time: [], distance: [] } as unknown as ActivityAnalysisModel["streams"];
+    state.model.overview = { ...state.model.overview, loading: false, error: false, response: { status: "unavailable", activityId: "a", reason: "metrics_unavailable" } };
+    render(<ActivityAnalysisSurface activityId="a" retryKey={0} onError={vi.fn()} onReady={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("보여 줄 분석 데이터가 없어요");
+    expect(screen.queryByRole("button", { name: /분석 데이터가 없어요/ })).not.toBeInTheDocument();
   });
 });

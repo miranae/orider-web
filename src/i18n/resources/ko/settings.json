@@ -33,6 +33,7 @@
   },
   "profile": {
     "bodyInfo": "신체 정보",
+    "bodyInfoLoadFailed": "신체 정보를 불러오지 못했습니다.",
     "photo": "프로필 사진",
     "photoDesc": "피드·리더보드·댓글 등 모든 프로필 표시 영역에 반영됩니다.",
     "uploadImage": "이미지 업로드",
@@ -246,6 +247,7 @@
       "max_hr": "유효한 LTHR가 없어 최대 심박 비율을 적용했습니다. LTHR를 입력하면 표시된 종목의 존이 자동 조정됩니다."
     },
     "cardMedical": "의료 정보",
+    "medicalLoadFailed": "의료 정보를 불러오지 못했습니다.",
     "cardMedicalAction": "응급 시 구조대에 공유될 수 있음",
     "fieldBloodType": "혈액형",
     "bloodTypeNone": "미선택",
@@ -1127,7 +1129,8 @@
     "emailHint": "직접 켠 경우에만 계정 이메일로 주간 요약을 보냅니다. 기본값은 꺼짐이며 푸시 설정과 별개입니다.",
     "loading": "알림 설정을 불러오는 중입니다.",
     "saving": "저장 중입니다.",
-    "failed": "설정을 저장하거나 불러오지 못했습니다. 현재 표시된 설정을 확인하고 다시 시도해 주세요."
+    "failed": "설정을 저장하거나 불러오지 못했습니다. 현재 표시된 설정을 확인하고 다시 시도해 주세요.",
+    "loadFailed": "알림 설정을 불러오지 못했습니다."
   },
   "publicData": {
     "title": "공개 데이터",

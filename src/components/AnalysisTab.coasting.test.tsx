@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { OriderThemeProvider } from "../theme";
@@ -25,6 +25,10 @@ vi.mock("../contexts/LocaleContext", () => ({ useLocale: () => ({ locale: "ko", 
 afterEach(() => { cleanup(); state.units = "metric"; state.language = null; });
 
 import AnalysisTab from "./AnalysisTab";
+import { MemoryRouter } from "react-router-dom";
+
+// 경고의 해결 링크(LocalizedLink)가 라우터 안에서 그려진다.
+const render: typeof rtlRender = ((ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) => rtlRender(ui, { wrapper: MemoryRouter, ...options })) as typeof rtlRender;
 
 /** 파워계 없이 심박·케이던스 센서만 있는 라이딩 — 코스팅(#3221)은 케이던스만으로 보인다. */
 function cadenceOnlyRide(coasting: boolean): UseActivityMetricsState {
