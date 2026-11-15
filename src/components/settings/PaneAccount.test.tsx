@@ -242,6 +242,11 @@ describe("PaneAccount nickname save", () => {
     expect(copy.textContent).toBe("");
     expect(screen.getByText("ABC123").parentElement).toContainElement(copy);
     expect(container.querySelector(".settings-profile-actions")).toBeNull();
+    // 닉네임 변경도 「변경」 글자 없이 연필 아이콘만
+    const nickname = screen.getByRole("button", { name: "profile.editNickname" });
+    expect(nickname).toHaveClass("ds-btn--icon-only");
+    expect(nickname).toHaveAttribute("title", "profile.editNickname");
+    expect(nickname.textContent).toBe("");
     vi.mocked(getDoc).mockResolvedValue({ exists: () => false, data: () => ({}) } as never);
   });
 

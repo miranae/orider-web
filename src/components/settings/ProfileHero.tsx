@@ -1,7 +1,7 @@
 import { Pencil } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Card, Text } from "../../theme/components";
+import { Card, IconButton, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface ProfileHeroProps {
@@ -89,12 +89,13 @@ export function ProfileHero({
             {nickname || t("profile.noName")}
           </h2>
           {onEditNickname && (
-            <Button variant="ghost"
+            <IconButton
+              variant="ghost"
+              icon={<Pencil size={ICON_SIZE.xs} />}
               onClick={onEditNickname}
               aria-label={t("profile.editNickname")}
-            >
-              <Pencil size={ICON_SIZE.xs} /> {t("profile.change")}
-            </Button>
+              title={t("profile.editNickname")}
+            />
           )}
         </div>
         <div
