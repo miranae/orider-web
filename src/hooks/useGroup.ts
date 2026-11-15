@@ -318,6 +318,9 @@ export function useMyGroups(userId: string | undefined) {
           if (!fromCache) confirmedNonMembers.add(groupId);
         }
       });
+      // 서버가 비회원으로 확인한 클럽은 아래에서 오류로 끝나더라도(캐시·조회 실패) 기존 목록에서 먼저 뺀다 —
+      // 마지막 클럽에서 탈퇴하면 목록이 비어 오류 경로로 가고, 그때 이전 목록이 그대로 남았다.
+      if (confirmedNonMembers.size > 0) setGroups(previous => previous.filter(group => !confirmedNonMembers.has(group.id)));
       // 확정된 클럽이 하나도 없는데 회원 조회가 실패했다면 '가입 클럽 없음'이 아니라 조회 오류다.
       if (groupsById.size === 0 && membershipError) throw membershipError;
 

@@ -590,6 +590,25 @@ describe("group list hooks", () => {
     expect(result.current.groups.map(group => group.id)).toEqual(["stay"]);
   });
 
+  it("removes the last club confirmed as left even when a cached source turns the refresh into an error", async () => {
+    activeMember("only", "user-1");
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [{ id: "only" }] } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: [{ id: "only", data: () => ({ name: "only", isActive: true }) }] } as never);
+    const { result } = renderHook(() => useMyGroups("user-1"));
+    await waitFor(() => expect(result.current.groups.map(group => group.id)).toEqual(["only"]));
+
+    setDocData("groups/only/members/user-1", { status: "left", role: "member" });
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [{ id: "only" }], metadata: { fromCache: true } } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: [{ id: "only", data: () => ({ name: "only", isActive: true }) }] } as never);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    expect(result.current.groups).toEqual([]);
+  });
+
   it("keeps public group load failures distinct from no public groups", async () => {
     const err = new Error("permission denied");
     vi.mocked(listPublicClubs).mockRejectedValueOnce(err);
