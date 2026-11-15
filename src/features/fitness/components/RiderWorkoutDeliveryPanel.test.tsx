@@ -95,7 +95,13 @@ describe("RiderWorkoutDeliveryPanel", () => {
   it("offers replay only for an uncertain create failure", () => {
     mocks.controller = { ...mocks.controller, submitState: "error", submitError: new Error("network"), submitErrorKind: "uncertain_network", canSafelyReplay: true };
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
-    fireEvent.click(screen.getByRole("button", { name: "같은 요청 다시 확인" }));
+    const retry = screen.getByRole("button", { name: "같은 요청 다시 확인" });
+    // 오류 문구 옆 아이콘 — 전체 폭(block) 버튼이 아니다.
+    expect(retry).toHaveClass("ds-btn--icon-only");
+    expect(retry).not.toHaveClass("ds-btn--block");
+    expect(retry).toHaveAttribute("title", "같은 요청 다시 확인");
+    expect(screen.getByText("전송 요청 결과를 확인하지 못했습니다. 상태를 다시 확인해 주세요.").closest(".fitness-coach__delivery-error-message")).toContainElement(retry);
+    fireEvent.click(retry);
     expect(mocks.submit).toHaveBeenCalledTimes(1);
   });
 
@@ -103,7 +109,10 @@ describe("RiderWorkoutDeliveryPanel", () => {
     mocks.controller = { ...mocks.controller, submitState: "error", submitError: new Error("ftp"), submitErrorKind: "ftp_required", canSafelyReplay: false };
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
     expect(screen.getByRole("alert")).toHaveTextContent("유효한 FTP가 필요합니다");
-    fireEvent.click(screen.getByRole("button", { name: "문제 해결 후 새 요청 준비" }));
+    const prepare = screen.getByRole("button", { name: "문제 해결 후 새 요청 준비" });
+    expect(prepare).toHaveClass("ds-btn--sm");
+    expect(prepare).not.toHaveClass("ds-btn--block");
+    fireEvent.click(prepare);
     expect(mocks.prepare).toHaveBeenCalledTimes(1);
     expect(mocks.submit).not.toHaveBeenCalled();
   });

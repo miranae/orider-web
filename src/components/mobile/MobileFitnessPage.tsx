@@ -581,7 +581,7 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
     {stateKey === "scheduled" && decision?.prescription.status !== "ready" && !decision?.fallback.active && <Text as="div" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>
       {t("decision.fallback.reason.prescription_not_ready")}
     </Text>}
-    {stateKey === "error" && state && <Button variant="secondary" onClick={state.refresh}>{t("decision.refresh")}</Button>}
+    {stateKey === "error" && state && <Button variant="secondary" size="sm" onClick={state.refresh}>{t("decision.refresh")}</Button>}
     {canOpenDetails && <Button variant="secondary" data-mobile-fitness-today-link
       onClick={() => document.getElementById("fitness-coach-today")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
       {t(stateKey === "health-stop" ? "dashboard:mobileFitness.decision.viewSafetyDetails" : "dashboard:mobileFitness.decision.viewDetails")} ↓
@@ -1084,7 +1084,7 @@ export default function MobileFitnessPage({
               <>
                 <p role="alert">{t("mobileFitness.trendError")}</p>
                 {sectionState.onRetryTrend && (
-                  <Button variant="secondary" onClick={sectionState.onRetryTrend}>
+                  <Button variant="secondary" size="sm" onClick={sectionState.onRetryTrend}>
                     {sectionState.retryLabel ?? t("common:button.retry")}
                   </Button>
                 )}

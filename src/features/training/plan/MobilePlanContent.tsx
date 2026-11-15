@@ -2,7 +2,7 @@ import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresenta
 import CoachDetailSection from "../../fitness/components/CoachDetailSection";
 import { goalCountdown } from "../../../utils/goalCountdown";
 import { isSportUiEnabled } from "../../../config/sportFeatures";
-import { ChevronLeft, ChevronRight, Moon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Moon, Pencil } from "lucide-react";
 import InfoTip from "../../../components/InfoTip";
 import GlossaryText from "../../../components/common/GlossaryText";
 import SportIcon from "../../../components/common/SportIcon";
@@ -196,7 +196,7 @@ export default function MobilePlanContent({
               <strong><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
               <span>{kstDateString(nextWorkout.date) !== todayStr && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
             </div>
-            {onEditWorkout && <Button type="button" size="sm" onClick={() => { if (actionable) onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex); }}>{t("mobile.edit")}</Button>}
+            {onEditWorkout && <IconButton size="sm" icon={<Pencil size={ICON_SIZE.sm} />} aria-label={t("mobile.edit")} title={t("mobile.edit")} onClick={() => { if (actionable) onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex); }} />}
           </div>
         </Card>
       )}
@@ -292,7 +292,7 @@ export default function MobilePlanContent({
       <div className="mobile-plan-week-header flex items-center justify-between">
         <Text variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklyPlan')}</Text>
         {onEditWorkout && editTargetIdx >= 0 && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</Button>
+          <IconButton size="sm" icon={<Pencil size={ICON_SIZE.sm} />} aria-label={t('mobile.edit')} title={t('mobile.edit')} onClick={() => openEditFor(editTargetIdx)} />
         )}
       </div>
       {embedded && todayIdx > 0 && (

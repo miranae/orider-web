@@ -80,8 +80,8 @@
 }
 
 @media (max-width: 24rem) {
-  .course-ride-plan__header,
-  .course-ride-plan__notice {
+  /* 안내 문구의 다시 불러오기는 아이콘이라 좁은 화면에서도 문구 옆에 둔다. */
+  .course-ride-plan__header {
     align-items: flex-start;
     flex-direction: column;
   }

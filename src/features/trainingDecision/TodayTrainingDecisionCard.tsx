@@ -4,7 +4,9 @@ import type { ReactNode } from "react";
 import type { User } from "firebase/auth";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
-import { Alert, Button, Card, Chip, Text } from "../../theme/components";
+import { Alert, Button, Card, Chip, IconButton, Text } from "../../theme/components";
+import { RefreshCw } from "lucide-react";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { Resolvable, type Resolve } from "../../components/redesign";
 import { FOCUS_TARGETS, withFocus } from "../../services/focusTarget";
 import {
@@ -137,11 +139,10 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
     <div data-testid={surface === "today" ? "K2-2-2" : undefined} className="training-decision-card__header">
       <div><Text as="span" variant="bodyMedium">{t("decision.eyebrow")}</Text>
         <Text as="h2" variant="title">{t("decision.fallback.unavailableTitle")}</Text></div>
+      {/* 다시 확인은 제목 옆 아이콘 — 좁은 화면에서 줄 전체 버튼으로 늘리지 않는다. */}
+      <IconButton size="sm" icon={<RefreshCw size={ICON_SIZE.sm} />} aria-label={t("decision.refresh")} title={t("decision.refresh")} onClick={() => refresh()} />
     </div>
     <Text as="p" variant="body" tone="secondary">{t("decision.fallback.unavailableBody")}</Text>
-    <footer className="training-decision-card__actions">
-      <Button size="sm" variant="outline" onClick={() => refresh()}>{t("decision.refresh")}</Button>
-    </footer>
   </Card>;
 
   const recommendationVisible = decision.healthGate.state === "clear" && canShowRecommendation(decision);

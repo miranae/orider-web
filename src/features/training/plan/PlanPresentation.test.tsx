@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanModel } from "../../../hooks/usePlanModel";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
-import PlanPresentation from "./PlanPresentation";
+import PlanPresentation, { PhaseBar } from "./PlanPresentation";
 import MobilePlanPage from "../../../components/mobile/MobilePlanPage";
 
 const model = {
@@ -340,4 +340,44 @@ it.each([false, true].flatMap(mobile => [0, 1].flatMap(offset =>
   expect(edit).toHaveBeenCalledExactlyOnceWith(pending, "outcome-week", 1);
   expect(closed.completed).toBe(false);
   expect(closed.executionStatus).toBe(status);
+});
+
+describe("계획 카드 ⋯ 관리 메뉴", () => {
+  const phaseWeeks = [{ id: "w1", weekNumber: 1, phase: "build", startDate: Date.now(), plannedTSS: 100, days: [] }] as unknown as Parameters<typeof PhaseBar>[0]["weeks"];
+  const goal = model.goal as unknown as Parameters<typeof PhaseBar>[0]["goal"];
+
+  it("줄 전체 버튼 대신 아이콘 하나로 접고, 펼치면 네 동작이 목표 포기를 마지막으로 들어 있다", () => {
+    const actions = { onIcsExport: vi.fn(), onReroll: vi.fn(), onGoalReset: vi.fn(), onAbandon: vi.fn() };
+    const view = renderWithProviders(<PhaseBar weeks={phaseWeeks} goal={goal} {...actions} />);
+    expect(view.container.querySelector(".plan-phase-actions")).toBeNull();
+    const trigger = screen.getByRole("button", { name: "계획 관리" });
+    expect(trigger).toHaveClass("ds-btn--icon-only");
+    expect(trigger).toHaveAttribute("title", "계획 관리");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    const panel = document.getElementById(trigger.getAttribute("aria-controls")!)!;
+    // 닫혀 있으면 자리를 차지하지 않고 동작도 접근 트리에 없다.
+    expect(panel).not.toBeVisible();
+    expect(screen.queryByRole("button", { name: "재생성" })).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(panel).toBeVisible();
+    const items = within(panel).getAllByRole("button");
+    expect(items.map(item => item.textContent)).toEqual(["캘린더 내보내기", "재생성", "목표 재설정", "목표 포기"]);
+    expect(items[3]).toHaveClass("plan-actions-menu__item--danger");
+
+    fireEvent.click(within(panel).getByRole("button", { name: "목표 포기" }));
+    expect(actions.onAbandon).toHaveBeenCalledOnce();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(trigger);
+    fireEvent.keyDown(panel, { key: "Escape" });
+    expect(panel).not.toBeVisible();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("관리 동작이 없으면 ⋯ 버튼도 그리지 않는다", () => {
+    renderWithProviders(<PhaseBar weeks={phaseWeeks} goal={goal} />);
+    expect(screen.queryByRole("button", { name: "계획 관리" })).not.toBeInTheDocument();
+  });
 });

@@ -237,3 +237,18 @@ it.each(["completed", "skipped", "postponed", "partial"])("uses saved %s before 
   fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
   expect(edit).toHaveBeenCalledExactlyOnceWith(pending, week.id, 1);
 });
+
+it("다음 운동 카드와 주간 계획 머리의 편집은 이름이 같은 연필 아이콘 버튼이다", () => {
+  const edit = vi.fn();
+  renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="이번 주" onEditWorkout={edit} />);
+  const buttons = screen.getAllByRole("button", { name: "편집" });
+  expect(buttons).toHaveLength(2);
+  for (const button of buttons) {
+    expect(button).toHaveClass("ds-btn--icon-only");
+    expect(button).toHaveAttribute("title", "편집");
+    expect(button).not.toHaveTextContent("편집");
+  }
+  expect(screen.getByTestId("K4-5m-2")).toContainElement(buttons[0]);
+  fireEvent.click(buttons[1]);
+  expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
+});

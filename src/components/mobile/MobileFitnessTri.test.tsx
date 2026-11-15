@@ -244,6 +244,7 @@ describe("MobileFitnessPage tri", () => {
     if (stateKey === "error") {
       const retry = screen.getByRole("button", { name: "새로 확인" });
       expect(retry).toBeEnabled();
+      expect(retry).toHaveClass("ds-btn--sm");
       fireEvent.click(retry);
       expect(state.refresh).toHaveBeenCalledOnce();
     }
