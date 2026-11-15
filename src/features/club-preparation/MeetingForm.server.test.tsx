@@ -239,7 +239,7 @@ describe("실내 / 실외 선택", () => {
     const save = vi.fn().mockResolvedValue(undefined);
     // 실내 모임은 이어진 코스 경로가 있어야 저장된다 — 경로를 준비한 모임으로 본다.
     const fresh = { ...newClubMeeting(), title: "새 모임", date: "2030-10-25", place: "집결지",
-      courseTrack: { fileName: "코스", points: [{ lat: 37.5, lon: 127 }, { lat: 37.51, lon: 127.01 }], segmentStarts: [0], distanceKm: 1.4, elevationGainM: 0 } };
+      courseTrack: { fileName: "코스", points: Array.from({ length: 60 }, (_, i) => ({ lat: 37.5 + i * 0.00018, lon: 127 })), segmentStarts: [0], distanceKm: 1.2, elevationGainM: 0 } };
     render(
       <MeetingForm
         state={{ ...state, meetings: [] }}
