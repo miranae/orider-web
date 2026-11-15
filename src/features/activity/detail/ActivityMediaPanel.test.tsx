@@ -193,3 +193,19 @@ it.each([true,false])("only declares imported GPS absence when the loaded indepe
   expect(screen.queryByText("경로 정보") !== null).toBe(!valid);
   expect(screen.queryByText("실내 라이딩")).not.toBeInTheDocument();
 });
+
+describe("owner map actions without a map", () => {
+  it("keeps the owner entry point inline when no route map or image is shown", () => {
+    const activity = createMockActivity({ mapImageUrl: undefined, thumbnailTrack: undefined, type: "Ride" });
+    const t = i18n.getFixedT("ko", "activity") as TFunction<"activity">;
+    const placements: string[] = [];
+    render(<ActivityMediaPanel activity={activity} streams={null} sport={getSportCategory(activity.type)} hasTrack={false}
+      summary={activity.summary} markerPosition={null} hoveredSegment={null} photos={[]} uploadedPhotos={[]} flyToPosition={null} t={t}
+      mapOverlay={placement => { placements.push(placement); return <button type="button">공개 지도 보호 설정</button>; }}
+      mapPanel={<div data-testid="owner-map-panel" />} />);
+    expect(screen.getByRole("button", { name: "공개 지도 보호 설정" })).toBeInTheDocument();
+    expect(screen.getByTestId("owner-map-panel")).toBeInTheDocument();
+    expect(placements).toContain("inline");
+    expect(placements).not.toContain("overlay");
+  });
+});

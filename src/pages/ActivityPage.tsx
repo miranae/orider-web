@@ -1425,7 +1425,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}
-        mapOverlay={isActivityOwner && activeTab === "overview" ? <ActivityMapPrivacyTrigger control={mapPrivacy} className="ds-map-resize ds-map-resize--bottom-left" /> : undefined}
+        mapOverlay={isActivityOwner && activeTab === "overview" ? placement => <ActivityMapPrivacyTrigger control={mapPrivacy} className={placement === "overlay" ? "ds-map-resize ds-map-resize--bottom-left" : undefined} /> : undefined}
         mapPanel={isActivityOwner && activeTab === "overview" ? <ActivityMapPrivacyPanel control={mapPrivacy}
           thumbnail={activity.thumbnailTrack ? { polyline: activity.thumbnailTrack, contentRevision: activity.contentRevision, contentSelectedRevision: activity.contentSelectedRevision } : undefined} /> : undefined}
       />}

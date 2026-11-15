@@ -34,8 +34,8 @@ type ActivityMediaPanelProps = {
   uploadedPhotos: UploadedPhoto[];
   flyToPosition: [number, number] | null;
   t: TFunction<"activity">;
-  /** 지도 위에 얹는 주인 전용 버튼(왼쪽 아래 모서리). */
-  mapOverlay?: ReactNode;
+  /** 주인 전용 버튼. 지도가 있으면 왼쪽 아래 모서리("overlay"), 지도가 없으면 안내 아래("inline")에 둔다. */
+  mapOverlay?: (placement: "overlay" | "inline") => ReactNode;
   /** 지도 바로 아래에 펼치는 주인 전용 패널(닫혀 있으면 null). */
   mapPanel?: ReactNode;
 };
@@ -95,7 +95,7 @@ export function ActivityMediaPanel({
           <MapResizeControls expanded={mapExpanded} controlsId={mapId}
             expandLabel={t("page.mapView.expand")} collapseLabel={t("page.mapView.collapse")}
             onToggle={() => setMapExpanded(expanded => !expanded)} />
-          {mapOverlay}
+          {mapOverlay?.("overlay")}
         </div>
         {mapPanel}
         {!hasTrack && routeLookup && <Card><Stack gap="var(--space-3)">
@@ -108,6 +108,11 @@ export function ActivityMediaPanel({
     );
   }
 
+  // 지도를 그리지 않는 활동에서도 주인용 진입점(공개 지도 보호 등)이 사라지지 않게 내용 아래에 붙인다.
+  const withOwnerActions = (content: ReactNode) => mapOverlay || mapPanel
+    ? <div className="activity-detail-route-frame">{content}{mapOverlay && <div>{mapOverlay("inline")}</div>}{mapPanel}</div>
+    : content;
+
   if (sport === "swim") {
     const laps = streams?.laps ?? [];
     const setBars = laps
@@ -119,7 +124,7 @@ export function ActivityMediaPanel({
       .filter((lap) => lap.duration > 0 || lap.distance > 0);
     const maxDuration = Math.max(...setBars.map((lap) => lap.duration), 1);
 
-    return (
+    return withOwnerActions(
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>
           {t("page.swim.setTimeline")}
@@ -209,13 +214,13 @@ export function ActivityMediaPanel({
   // A missing preview is not evidence that the original activity has no GPS.
   // Explicit lookup reuses the ACL-bound loader without auto-reading full streams.
   if (routeLookup && !indoor && !confirmedNoGps) {
-    return <Card><Stack gap="var(--space-3)">
+    return withOwnerActions(<Card><Stack gap="var(--space-3)">
       <Text as="h3" variant="subtitle">{t("page.routePreviewUnavailable")}</Text>
       <Text as="p" role="status" tone="secondary">{t(`page.routeLookup.${routeLookup.state}`)}</Text>
       <Button variant="outline" loading={routeLookup.state === "loading"} disabled={routeLookup.state === "loading"} onClick={routeLookup.onLoad}>
         {t(routeLookup.state === "error" ? "page.retry" : "page.routeLookup.load")}
       </Button>
-    </Stack></Card>;
+    </Stack></Card>);
   }
   const nativePreviewAvailable = allowOwnerPreview && !confirmedNoGps && !indoor && activity.source === "orider" && observedRouteAvailable();
   const lowerType = activity.type?.toLowerCase() ?? "";
@@ -223,7 +228,7 @@ export function ActivityMediaPanel({
     ? t("page.indoorRide")
     : sport === "run" && lowerType.includes("run") ? t("page.indoorRun") : t("page.indoorActivity");
 
-  return (
+  return withOwnerActions(
     <Card padding="none" className="px-6 py-8 flex items-center gap-4">
       <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "color-mix(in srgb, var(--lime) 12%, transparent)" }}>
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--lime)" }}>
