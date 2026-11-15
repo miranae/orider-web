@@ -28,6 +28,7 @@
   "status.open": "Open",
   "status.live": "Live",
   "status.finished": "Finished",
+  "status.autoFinished": "Auto-ended",
   "status.pastDate": "Date passed",
   "status.registered": "Registered",
   "status.ongoing": "Ongoing",

@@ -127,6 +127,8 @@ export default function GroupEventsPage() {
               id: eventDoc.id,
               name: String(info.name ?? ""),
               status: String(info.status ?? ""),
+              // 출발하지 않고 시간이 지나 서버가 닫은 이벤트 — '자동 종료'로 보이고 결과 링크를 숨긴다.
+              autoFinished: info.autoFinishReason === "start_window_expired",
               startTime: normalizeStartTime(info.startTime),
               endTime: info.endTime == null ? null : normalizeStartTime(info.endTime) || null,
               registered:

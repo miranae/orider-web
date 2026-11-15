@@ -39,6 +39,41 @@ describe("club event registration actions", () => {
     expect(upcoming()).toEqual(["대회 CANCELLED","취소한 모임","대회 FINISHED","끝난 모임","지난 모집 모임","대회 STALE"]);
     expect(screen.queryByRole("link",{name:"모집 모임"})).not.toBeInTheDocument();
   });
+  it("shows stale OPEN races and meetings as date-passed without a join action but keeps host fixes",async()=>{
+    const day=86400000;
+    vi.mocked(listClubMeetings).mockResolvedValue({meetings:[{eventId:"지난 모집 모임",isHost:true,rideStatus:"OPEN",meeting:{title:"지난 모집 모임",...kst(-3*day),place:"집결지",status:"open",capacity:10},participantCount:2,waitingCount:0} as ClubMeetingListItem],nextCursor:null});
+    setCollectionDocs("events",[{id:"stale",info:{name:"지난 모집 대회",groupId:"club",status:"OPEN",creatorId:"test-uid",startTime:Date.now()-4*day}}]);
+    showPage();
+    fireEvent.click(await screen.findByRole("button",{name:"지난 이벤트",exact:true}));
+    const race=(await screen.findByRole("link",{name:"지난 모집 대회"})).closest("[data-testid]") as HTMLElement;
+    const meetingCard=screen.getByRole("link",{name:"지난 모집 모임"}).parentElement as HTMLElement;
+    expect(race).toHaveAttribute("data-testid","C3-2-1");
+    expect(race).toHaveTextContent("일정 지남");
+    expect(race).not.toHaveTextContent("모집 중");
+    expect(race).not.toHaveTextContent("자동 종료");
+    expect(meetingCard).toHaveTextContent("모임 · 일정 지남");
+    expect(screen.queryByTestId("C3-1-2")).not.toBeInTheDocument();
+    // 서버가 닫기 전(시작 24시간)에는 주최자가 일정을 고치거나 늦게 출발할 수 있다.
+    expect(screen.getByTestId("club-event-edit")).toBeInTheDocument();
+    expect(screen.getByTestId("club-meeting-edit")).toBeInTheDocument();
+    expect(screen.queryByRole("link",{name:/결과/})).not.toBeInTheDocument();
+  });
+  it("shows races the server closed for never starting as auto-ended without a results link",async()=>{
+    const day=86400000;
+    setCollectionDocs("events",[
+      {id:"expired",info:{name:"자동 종료 대회",groupId:"club",status:"FINISHED",autoFinishReason:"start_window_expired",startTime:Date.now()-2*day}},
+      {id:"held",info:{name:"끝난 대회",groupId:"club",status:"FINISHED",startTime:Date.now()-3*day}},
+    ]);
+    showPage();
+    fireEvent.click(await screen.findByRole("button",{name:"지난 이벤트",exact:true}));
+    const expired=(await screen.findByRole("link",{name:"자동 종료 대회"})).closest("[data-testid]") as HTMLElement;
+    const held=screen.getByRole("link",{name:"끝난 대회"}).closest("[data-testid]") as HTMLElement;
+    expect(expired).toHaveTextContent("자동 종료");
+    expect(expired.querySelector('a[href$="/event/expired/results"]')).toBeNull();
+    expect(held).toHaveTextContent("종료");
+    expect(held).not.toHaveTextContent("자동 종료");
+    expect(held.querySelector('a[href$="/event/held/results"]')).not.toBeNull();
+  });
   it("keeps a long OPEN race that started over 3 hours ago but has not ended in the upcoming tab",async()=>{
     const hour=3600000;
     setCollectionDocs("events",[

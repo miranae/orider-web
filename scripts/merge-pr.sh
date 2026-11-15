@@ -6,7 +6,8 @@
 # local lint/test/build, optional local AI review, GitHub check status, and review
 # decision inspection. Use it instead of calling `gh pr merge` directly.
 # Feature PR은 dev로 통합하고 로컬 게이트를 실행한다. GitHub의 무거운 CI는 dev→main
-# 승격 PR에서만 실행하며, main으로는 head=dev(승격) 또는 hotfix/*(긴급 단건) PR만 허용한다.
+# 승격 PR에서만 실행하며, main으로는 head=dev(승격), promote/snapshot-*(고정 dev 스냅샷 승격,
+# scripts/start-promotion-snapshot.sh) 또는 hotfix/*(긴급 단건) PR만 허용한다.
 # hotfix→main 도 승격과 동일하게 full 게이트를 타고, 머지 후 main→dev 동기화로 유실을 막는다.
 #
 # Usage:
@@ -276,8 +277,20 @@ PR_URL="$(json_field "$META" url)"
 
 # dev 통합 브랜치 규칙. GitHub free-plan 저장소에서도 main 직접 머지를 이 래퍼가 차단한다.
 # main-promote-guard.yml은 잘못 열린 PR에 즉시 빨간 신호를 주는 서버측 보조 안전망이다.
-if [[ "$BASE" == "main" && "$HEADREF" != "dev" && "$HEADREF" != hotfix/* ]]; then
-  die "main 으로의 머지는 dev 승격 또는 hotfix/* 만 허용됩니다 (현재 head=${HEADREF:-<unknown>}). feature는 'gh pr create --base dev'로 PR 하세요."
+if [[ "$BASE" == "main" && "$HEADREF" != "dev" && "$HEADREF" != promote/snapshot-* && "$HEADREF" != hotfix/* ]]; then
+  die "main 으로의 머지는 dev 승격, promote/snapshot-* 스냅샷 승격 또는 hotfix/* 만 허용됩니다 (현재 head=${HEADREF:-<unknown>}). feature는 'gh pr create --base dev'로 PR 하세요."
+fi
+
+# 스냅샷 승격은 시작 시점의 dev 커밋 하나로 고정된다. 이름의 SHA 와 다른 커밋이 올라왔거나
+# dev 에 없는 커밋이면 리뷰하지 않은 내용이 섞인 것이므로 멈춘다.
+if [[ "$BASE" == "main" && "$HEADREF" == promote/snapshot-* ]]; then
+  [[ "$HEADREF" =~ ^promote/snapshot-[0-9]{8}t[0-9]{6}z-([0-9a-f]{8})$ ]] \
+    || die "스냅샷 승격 브랜치 이름 형식이 아닙니다: $HEADREF (scripts/start-promotion-snapshot.sh 로 만드세요)"
+  [[ "${HEAD_OID:0:8}" == "${BASH_REMATCH[1]}" ]] \
+    || die "스냅샷 브랜치 head(${HEAD_OID:0:12})가 고정한 커밋(${BASH_REMATCH[1]})과 다릅니다 — 스냅샷을 새로 만드세요."
+  git fetch origin refs/heads/dev:refs/remotes/origin/dev --quiet
+  git merge-base --is-ancestor "$HEAD_OID" origin/dev \
+    || die "스냅샷 커밋 ${HEAD_OID:0:12} 이 현재 dev 에 없습니다."
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
@@ -292,7 +305,7 @@ assert_local_head_matches_pr "게이트 시작"
 if [[ "$MERGE_STATE" == "BEHIND" ]]; then
   # A promotion head is a long-lived branch: update it only through a reviewed PR.
   case "$HEADREF" in
-    main|dev) die "보호 통합 브랜치는 자동 push하지 않습니다. 정상 동기화 PR 또는 main 기반 hotfix PR을 사용하세요." ;;
+    main|dev|promote/snapshot-*) die "보호 통합 브랜치·고정 스냅샷은 자동 push하지 않습니다. 정상 동기화 PR, 새 스냅샷 또는 main 기반 hotfix PR을 사용하세요." ;;
   esac
   log "base 전진 감지(BEHIND) — origin/$BASE 자동 머지 후 푸시"
   git fetch origin "$BASE" --quiet || true
@@ -677,7 +690,20 @@ sync_main_back_to_dev() {
     || die "main 병합은 완료됐습니다. 위 backport PR을 공식 게이트로 병합한 뒤 출력된 sync 재개 명령을 실행하세요."
 }
 
-if [[ "$BASE" == "main" ]]; then
+# 스냅샷 승격은 main 트리 == 스냅샷이고 dev 가 스냅샷을 포함하므로 내용 backport 가 필요 없다.
+# 대신 다음 승격이 충돌하지 않도록 트리 동일 (dev, main) 이력 동기화 PR 을 연다.
+sync_snapshot_ancestry() {
+  local production_commit status=0
+  production_commit="$(gh pr view "$PR_NUM" --json mergeCommit -q '.mergeCommit.oid')"
+  [[ "$production_commit" =~ ^[0-9a-f]{40}$ ]] || die "production squash SHA 확인 실패"
+  node scripts/sync-main-to-dev.mjs --snapshot-ancestry "$production_commit" "$HEAD_OID" || status=$?
+  [[ "$status" == 0 || "$status" == 3 ]] \
+    || die "main 병합은 완료됐습니다. 이력 동기화 PR 생성 실패 — node scripts/sync-main-to-dev.mjs --snapshot-ancestry $production_commit $HEAD_OID 를 다시 실행하세요."
+}
+
+if [[ "$BASE" == "main" && "$HEADREF" == promote/snapshot-* ]]; then
+  sync_snapshot_ancestry
+elif [[ "$BASE" == "main" ]]; then
   sync_main_back_to_dev
 fi
 
@@ -711,7 +737,7 @@ if [[ -x "$CLAIM_SH" ]]; then
     "$CLAIM_SH" release "$BRANCH_ISSUE" 2>&1 | sed 's/^/  /' || true
   fi
 fi
-if [[ "$KEEP_WORKTREE" == 0 && "$HEADREF" != "dev" ]]; then
+if [[ "$KEEP_WORKTREE" == 0 && "$HEADREF" != "dev" && "$HEADREF" != promote/snapshot-* ]]; then
   log "워크트리/브랜치 정리"
   # awk 의 조기 exit 는 SIGPIPE(141) + pipefail 로 스크립트를 죽인다(start-work.sh 와 동일).
   MAIN_WT="$(git worktree list --porcelain | awk '/^worktree / && main == "" { main = $2 } END { print main }')"
@@ -729,7 +755,7 @@ if [[ "$KEEP_WORKTREE" == 0 && "$HEADREF" != "dev" ]]; then
     git switch "$BASE" --quiet 2>/dev/null || warn "$BASE 브랜치 전환 실패"
     git branch -D "$BRANCH" 2>/dev/null || warn "로컬 브랜치 삭제 실패/스킵: $BRANCH"
   fi
-elif [[ "$HEADREF" == "dev" ]]; then
+elif [[ "$HEADREF" == "dev" || "$HEADREF" == promote/snapshot-* ]]; then
   log "dev→main 승격 완료 — 통합 브랜치와 worktree 유지"
 fi
 

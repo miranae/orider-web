@@ -71,3 +71,49 @@ describe("ToastContext", () => {
     expect(screen.getByText("에러 메시지")).toBeInTheDocument();
   });
 });
+
+describe("ToastContext 해결 행동", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  function ActionConsumer({ to, onClick }: { to?: string; onClick?: () => void }) {
+    const { showToast } = useToast();
+    return <button onClick={() => showToast("기기 설정이 필요해요", "error", { action: { label: "기기 설정", to, onClick } })}>열기</button>;
+  }
+
+  it("라우터 안에서는 행동이 해결 화면 링크가 되고, 누르면 알림이 닫힌다", async () => {
+    const { MemoryRouter } = await import("react-router-dom");
+    render(<MemoryRouter><ToastProvider><ActionConsumer to="/settings/device" /></ToastProvider></MemoryRouter>);
+    fireEvent.click(screen.getByText("열기"));
+    const link = screen.getByRole("link", { name: "기기 설정" });
+    expect(link.getAttribute("href")).toContain("/settings/device");
+    vi.useFakeTimers();
+    fireEvent.click(link);
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(screen.queryByText("기기 설정이 필요해요")).toBeNull();
+  });
+
+  it("언어 라우트 밖에 있어도 현재 주소의 언어(/en)를 지킨다", async () => {
+    const { MemoryRouter } = await import("react-router-dom");
+    render(<MemoryRouter initialEntries={["/en/activity/a1"]}><ToastProvider><ActionConsumer to="/settings/device" /></ToastProvider></MemoryRouter>);
+    fireEvent.click(screen.getByText("열기"));
+    expect(screen.getByRole("link", { name: "기기 설정" }).getAttribute("href")).toBe("/en/settings/device");
+  });
+
+  it("onClick 행동은 버튼으로 실행되고 행동 있는 알림은 10초까지 남는다", () => {
+    vi.useFakeTimers();
+    const retry = vi.fn();
+    render(<ToastProvider><ActionConsumer onClick={retry} /></ToastProvider>);
+    act(() => { fireEvent.click(screen.getByText("열기")); });
+    act(() => { vi.advanceTimersByTime(9000); });
+    expect(screen.getByText("기기 설정이 필요해요")).toBeInTheDocument();
+    act(() => { fireEvent.click(screen.getByRole("button", { name: "기기 설정" })); });
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("라우터 밖에서 경로만 받은 행동은 그리지 않는다", () => {
+    render(<ToastProvider><ActionConsumer to="/settings/device" /></ToastProvider>);
+    fireEvent.click(screen.getByText("열기"));
+    expect(screen.getByText("기기 설정이 필요해요")).toBeInTheDocument();
+    expect(screen.queryByText("기기 설정")).toBeNull();
+  });
+});

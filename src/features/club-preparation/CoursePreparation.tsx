@@ -19,6 +19,7 @@ import {
   readSegmentCoursePlan,
   type CoursePlan,
 } from "./meetingCoursePlan";
+import { BUILTIN_COURSES, loadBuiltinCoursePlan, type BuiltinCourse } from "./builtinCourseCatalog";
 import MeetingSegmentPicker from "./MeetingSegments";
 import type { MeetingSegment } from "./segmentCatalog";
 import "./coursePreparation.css";
@@ -27,7 +28,7 @@ import {
   checkpointTypeLabel,
 } from "./checkpointPresentation";
 type ImportPlan = CoursePlan & { courseHighlights?: string };
-type Mode = "saved-course" | "gpx" | "segments";
+type Mode = "saved-course" | "gpx" | "segments" | "builtin";
 const metric = (value: number | undefined, unit: string) =>
   value === undefined
     ? mt("미정")
@@ -215,6 +216,27 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
       }
     }
   };
+  // 앱 내장 실내 코스 — 고른 코스의 GPX 만 받아 GPX 업로드와 같은 경로로 만든다(orider-g1-web#3677).
+  const importBuiltin = async (course: BuiltinCourse) => {
+    const version = ++readVersion.current;
+    setError("");
+    setImportingCourse(course.id);
+    onBusyChange(true);
+    try {
+      const plan = await loadBuiltinCoursePlan(course);
+      if (version !== readVersion.current) return;
+      request(plan);
+    } catch (failure) {
+      logClientError("CoursePreparation.builtinCourseImport", failure, { courseId: course.id }, firebaseServices);
+      if (version === readVersion.current)
+        setError(mt("코스 경로를 불러오지 못했어요. 다시 시도해주세요."));
+    } finally {
+      if (version === readVersion.current) {
+        setImportingCourse(null);
+        onBusyChange(false);
+      }
+    }
+  };
   const upload = async (file?: File) => {
     const version = ++readVersion.current;
     if (!file) return;
@@ -301,6 +323,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
             ["saved-course", mt("기존 코스 가져오기")],
             ["gpx", mt("GPX로 준비하기")],
             ["segments", mt("세그먼트로 준비하기")],
+            ["builtin", mt("앱 실내 코스")],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -445,6 +468,31 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
           />
         </>
       )}
+      {mode === "builtin" && (
+        <div className="cp-stack">
+          <p className="cp-muted">
+            {mt("앱에 들어 있는 실내 코스예요. 실내 모임은 참석자 모두 이 코스 위를 함께 달립니다.")}
+          </p>
+          <ul className="cp-saved-courses">
+            {BUILTIN_COURSES.map((course) => (
+              <li key={course.id}>
+                <div>
+                  <strong>{mt(course.name)}</strong>
+                  <p className="cp-muted">{mt(course.description)}</p>
+                </div>
+                <Button
+                  size="sm"
+                  loading={importingCourse === course.id}
+                  disabled={importingCourse !== null}
+                  onClick={() => void importBuiltin(course)}
+                >
+                  {mt("이 코스 가져오기")}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {error && !pending && (
         <div className="cp-error" role="alert">
           {error}
@@ -462,6 +510,8 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
             <Chip>
               {meeting.courseSource.kind === "gpx"
                 ? mt("GPX에서 준비")
+                : meeting.courseSource.kind === "builtin"
+                ? mt("앱 실내 코스")
                 : meeting.courseSource.kind === "saved-course"
                   ? mt("기존 코스")
                   : mt("구간으로 준비")}
@@ -719,7 +769,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
               </dd>
             </div>
           </dl>
-          {pending.source.kind === "gpx" && (
+          {(pending.source.kind === "gpx" || pending.source.kind === "builtin") && (
             <p>
               {mt("생성할 구간 · 주행")}
               {

@@ -44,8 +44,16 @@ export default function EmptyState({ icon, title, description, actions, compact 
       {description && (
         <div style={{ fontSize: "var(--fs-base)", color: "var(--ink-3)", lineHeight: 1.5 }}>{description}</div>
       )}
-      {actions && actions.length > 0 && (
-        <div
+      <StateActions actions={actions} />
+    </Card>
+  );
+}
+
+/** 상태 상자(빈 화면·오류·권한) 아래 행동 줄 — 해결 화면 링크나 제자리 동작. ErrorState 도 같은 줄을 쓴다. */
+export function StateActions({ actions }: { actions?: EmptyStateAction[] }) {
+  if (!actions || actions.length === 0) return null;
+  return (
+    <div
           className="flex items-center justify-center flex-wrap"
           style={{ gap: "var(--space-2)", marginTop: "var(--space-4)" }}
         >
@@ -69,7 +77,5 @@ export default function EmptyState({ icon, title, description, actions, compact 
             );
           })}
         </div>
-      )}
-    </Card>
   );
 }

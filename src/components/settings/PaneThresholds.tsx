@@ -1,4 +1,5 @@
 import { isSportUiEnabled } from "../../config/sportFeatures";
+import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { useEffect, useId, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -288,7 +289,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
 
   const ftpField = (
           <Field explain label="FTP" hint={t("training.fieldFtpHint")}>
-            <Input mono id={`${fieldId}-ftp`} aria-label={"FTP"}
+            <Input mono id={`${fieldId}-ftp`} {...focusTargetProps(FOCUS_TARGETS.ftp)} aria-label={"FTP"}
               value={ftp}
               onChange={(e) => {
                 setFtp(e.target.value.replace(/[^0-9]/g, ""));
@@ -303,7 +304,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
   );
   const maxHrField = (
           <Field label={t("training.maxHr")} hint={t("training.fieldMaxHrHint")}>
-            <Input mono id={`${fieldId}-max-hr`} aria-label={t("training.maxHr")}
+            <Input mono id={`${fieldId}-max-hr`} {...focusTargetProps(FOCUS_TARGETS.maxHr)} aria-label={t("training.maxHr")}
               value={maxHr}
               onChange={(e) => setMaxHr(e.target.value.replace(/[^0-9]/g, ""))}
 
@@ -312,7 +313,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
   );
   const lthrField = (
           <Field explain label="LTHR" hint={t("training.fieldLthrHint")}>
-            <Input mono id={`${fieldId}-lthr`} aria-label={"LTHR"}
+            <Input mono id={`${fieldId}-lthr`} {...focusTargetProps(FOCUS_TARGETS.lthr)} aria-label={"LTHR"}
               value={lthr}
               onChange={(e) => setLthr(e.target.value.replace(/[^0-9]/g, ""))}
 
@@ -321,7 +322,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
   );
   const paceField = (
           <Field label={t("training.fieldThresholdPace")} hint={t("training.fieldThresholdPaceHint")}>
-            <Input mono id={`${fieldId}-threshold-pace`} aria-label={t("training.fieldThresholdPace")}
+            <Input mono id={`${fieldId}-threshold-pace`} {...focusTargetProps(FOCUS_TARGETS.thresholdPace)} aria-label={t("training.fieldThresholdPace")}
               value={thresholdPace}
               onChange={(e) => setThresholdPace(e.target.value)}
               placeholder="4:35"
@@ -334,7 +335,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
   );
   const cssField = (
           <Field explain label="CSS" hint={t("training.fieldCssHint")}>
-            <Input mono id={`${fieldId}-css`} aria-label={"CSS"}
+            <Input mono id={`${fieldId}-css`} {...focusTargetProps(FOCUS_TARGETS.css)} aria-label={"CSS"}
               value={css}
               onChange={(e) => setCss(e.target.value)}
               placeholder="1:45"
@@ -369,7 +370,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
         </ToggleControls>
         <FieldGrid cols={2}>
           <Field explain label={t(`training.ftpTest.input.${ftpTestProtocol}`)} hint={t("training.ftpTest.inputHint")}>
-            <Input mono id={`${fieldId}-ftp-test`} aria-label={t(`training.ftpTest.input.${ftpTestProtocol}`)}
+            <Input mono id={`${fieldId}-ftp-test`} {...focusTargetProps(FOCUS_TARGETS.ftpTest)} aria-label={t(`training.ftpTest.input.${ftpTestProtocol}`)}
               value={ftpTestInput}
               onChange={(e) => setFtpTestInput(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder="300"

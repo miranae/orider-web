@@ -1,5 +1,6 @@
 import { elevationProfileSchema, meetingSegmentsSchema, type MeetingSegment } from './segmentCatalog';
 import { z } from 'zod';
+import { haversineMeters } from '../courseEngine/geo';
 export const STORAGE_KEY = 'orider.club-preparation.v1';
 export const BASE_TIME = Date.parse('2026-10-18T09:00:00+09:00');
 export type Kind = { id: string; name: string; active: boolean };
@@ -9,7 +10,7 @@ export type Registration = { attendanceGeneration?: string; memberId: string; st
 export type Notice = { id: string; title: string; body: string; targets: string[]; confirmed: string[]; at: number };
 export type CoursePoint = { lat: number; lon: number; ele?: number };
 export type CourseTrack = { fileName: string; points: CoursePoint[]; segmentStarts?: number[]; elevationProfile?: {distance: number; elevation: number}[]; distanceKm: number; elevationGainM?: number };
-export type CourseSource = { kind: 'saved-course' | 'gpx' | 'segments'; id?: string; name: string; importedAt?: number };
+export type CourseSource = { kind: 'saved-course' | 'gpx' | 'segments' | 'builtin'; id?: string; name: string; importedAt?: number };
 export type CourseCheckpoint = { name: string; type?: string; note?: string; lat?: number; lon?: number; distanceKm?: number; source: 'course' | 'gpx' | 'segments' | 'manual'; segmentId?: string; segmentEndpoint?: 'start' | 'end'; offTrackM?: number };
 export type Recruitment = 'open' | 'waitlist' | 'closed';
 export type MeetingTeam = { id: string; name: string; capacity?: number; leaderId?: string; memberIds: string[] };
@@ -92,11 +93,28 @@ export function duplicateMeeting(m: Meeting, id: string): Meeting { return { ...
  * 경로가 없거나 끊어진(구간이 둘 이상) 트랙이면 서버가 거부해 출발 시각에 시작하지 못한다(2026-11-14 COURSE_INVALID).
  * 문제가 없으면 null, 있으면 사용자에게 보일 문구(번역 키)를 돌려준다.
  */
-export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack'>): string | null {
+export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack' | 'courseSource'>, previous?: Pick<Meeting, 'venue' | 'courseTrack'>): string | null {
   if (m.venue !== 'indoor') return null;
   if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.';
   if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 끊어진 구간이 없는 코스나 GPX로 다시 준비해주세요.';
+  // 경로를 새로 고르거나 실내로 바꿀 때만 본다 — 이미 저장된 실내 모임의 제목·설명 수정은 막지 않는다.
+  const trackChanged = !previous || previous.venue !== 'indoor' || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
+  if (trackChanged && m.courseSource?.kind === 'saved-course' && isLegacySparseCourseTrack(m.courseTrack.points)) return '이 기존 코스는 예전 방식으로 저장돼 경로가 성겨, 실내 주행에서 도로를 벗어난 직선으로 보여요. GPX를 올리거나 앱 실내 코스를 골라주세요.';
   return null;
+}
+/** 2026-06 이전 서버가 기존 코스를 줄여 저장한 점 수(orider-g1-web #250 이전 상한). */
+export const LEGACY_COURSE_MAX_POINTS = 200;
+/** 성긴 경로로 보는 점 간격 중앙값(m). 도로를 따라 만든 경로는 20m 안팎이다. */
+export const SPARSE_COURSE_SPACING_M = 100;
+/**
+ * 예전 방식으로 줄여 저장된 기존 코스인지 — 정상 데이터에서는 걸리지 않는 안전장치다. 2026-06 이전 기존 코스는 200점으로
+ * 저장돼(멧돼지 73.6km 에 약 370m 간격) 실내 주행이 점 사이 직선으로 도로·건물을 가로질렀다(2026-11-15, orider-g1-web#3704).
+ * 사용자가 올린 GPX·앱 실내 코스는 원본이라 더 나은 데이터가 없으므로 보지 않는다(호출부가 `saved-course` 만 넘긴다).
+ */
+export function isLegacySparseCourseTrack(points: readonly CoursePoint[]): boolean {
+  if (points.length < 2 || points.length > LEGACY_COURSE_MAX_POINTS) return false;
+  const gaps = points.slice(1).map((point, index) => haversineMeters(points[index]!.lat, points[index]!.lon, point.lat, point.lon)).sort((x, y) => x - y);
+  return gaps[Math.floor(gaps.length / 2)]! > SPARSE_COURSE_SPACING_M;
 }
 export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (!s.members.some(member => member.id === actor)) throw new Error('등록된 회원만 모임을 만들 수 있습니다.');
@@ -117,7 +135,7 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (m.courseTrack !== undefined) m = {...m, courseTrack: courseTrackSchema.parse(m.courseTrack)};
   // 실내 모임은 앱이 출발 때 이 경로 하나로 가상 코스를 만든다 — 경로가 없거나 끊어져 있으면 서버가 거부해 출발 시각에
   // 시작하지 못한다(2026-11-14 실내 모임 COURSE_INVALID). 저장할 때 막아 출발 전에 고치게 한다.
-  const indoorIssue = indoorCourseIssue(m);
+  const indoorIssue = indoorCourseIssue(m, current);
   if (indoorIssue) throw new Error(indoorIssue);
   if (m.courseSource) courseSourceSchema.parse(m.courseSource);
   if (m.courseCheckpoints) z.array(courseCheckpointSchema).max(100).parse(m.courseCheckpoints);
@@ -143,7 +161,7 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
     const segments = (meeting: Meeting) => meeting.segments?.map(segment => `${segment.name} (${segment.mode}${segment.instruction ? ` · ${segment.instruction}` : ''})`).join(' → ') || '없음';
     if (JSON.stringify(current.segments) !== JSON.stringify(m.segments)) changes.push(`주요 구간: ${segments(current)} → ${segments(m)}.`);
     change('경유지', current.courseStops?.join(' → '), m.courseStops?.join(' → '));
-    const sourceLabel = (source: CourseSource | undefined) => source ? `${({ 'saved-course': '기존 코스', gpx: 'GPX', segments: '세그먼트 조합' })[source.kind]} · ${source.name}` : '미정';
+    const sourceLabel = (source: CourseSource | undefined) => source ? `${({ 'saved-course': '기존 코스', gpx: 'GPX', segments: '세그먼트 조합', builtin: '앱 실내 코스' })[source.kind]} · ${source.name}` : '미정';
     change('코스 출처', sourceLabel(current.courseSource), sourceLabel(m.courseSource));
     if (sourceLabel(current.courseSource) === sourceLabel(m.courseSource) && current.courseSource?.id !== m.courseSource?.id) changes.push('코스 출처: 이름이 같은 다른 코스로 연결이 변경되었습니다.');
     const checkpoints = (meeting: Meeting) => meeting.courseCheckpoints?.map(point => `${point.name}${point.distanceKm === undefined ? '' : ` (${point.distanceKm}km)`}${point.note ? ` · ${point.note}` : ''}`).join(' / ');
@@ -184,7 +202,7 @@ const courseTrackSchema = z.object({fileName: z.string(), points: z.array(z.obje
   const starts = track.segmentStarts;
   if (starts !== undefined && (starts[0] !== 0 || starts.some((start, index) => start >= track.points.length || (index > 0 && start <= starts[index - 1]!)))) context.addIssue({code: 'custom', path: ['segmentStarts'], message: '트랙 구간은 0부터 시작하며 경로 지점 범위 안에서 순서대로 증가해야 합니다.'});
 });
-const courseSourceSchema = z.object({kind: z.enum(['saved-course', 'gpx', 'segments']), id: z.string().optional(), name: z.string().min(1).max(300), importedAt: z.number().finite().optional()});
+const courseSourceSchema = z.object({kind: z.enum(['saved-course', 'gpx', 'segments', 'builtin']), id: z.string().optional(), name: z.string().min(1).max(300), importedAt: z.number().finite().optional()});
 const courseCheckpointSchema = z.object({name: z.string().trim().min(1).max(300), type: z.string().optional(), note: z.string().optional(), lat: z.number().min(-90).max(90).optional(), lon: z.number().min(-180).max(180).optional(), distanceKm: z.number().finite().nonnegative().optional(), source: z.enum(['course', 'gpx', 'segments', 'manual']), segmentId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional(), segmentEndpoint: z.enum(['start', 'end']).optional(), offTrackM: z.number().finite().nonnegative().optional()});
 const stateSchema = z.object({ version: z.literal(1), clubManagerIds: z.array(z.string()).optional(), now: z.number().finite(), kinds: z.array(z.object({ id: z.string(), name: z.string(), active: z.boolean() })), members: z.array(z.object({ id: z.string(), name: z.string() })), meetings: z.array(z.object({ id: z.string(), kindName: z.string().max(80).optional(), venue: z.enum(['indoor', 'outdoor']).optional(), hostId: z.string().min(1).optional(), courseSource: courseSourceSchema.optional(), courseCheckpoints: z.array(courseCheckpointSchema).max(100).optional(), kindId: z.string(), title: z.string(), date: z.string(), time: z.string(), place: z.string(), capacity: z.number().int().positive(), pace: z.string(), description: z.string(), courseInfoVersion: z.literal(1).optional(), segments: meetingSegmentsSchema.optional(), distanceKm: z.number().finite().nonnegative().optional(), elevationGainM: z.number().finite().nonnegative().optional(), courseHighlights: z.string().optional(), courseStops: z.array(z.string()).optional(), courseTrack: courseTrackSchema.optional(), courseReady: z.boolean(), fee: z.number().nonnegative(), joins: z.array(z.object({ id: z.string(), place: z.string(), time: z.string() })), parking: z.string(), weather: z.string(), status: z.enum(['open', 'cancelled']), recruitment: z.enum(['open', 'waitlist', 'closed']).optional(), registrations: z.array(registrationSchema), notices: z.array(z.object({ id: z.string(), title: z.string(), body: z.string(), targets: z.array(z.string()), confirmed: z.array(z.string()), at: z.number() })) })) });
 export function parseMeetingDraft(value: unknown): Meeting { return stateSchema.shape.meetings.element.parse(value); }
