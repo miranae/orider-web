@@ -49,20 +49,22 @@ export function useProviderPhotoHiding(input: {
   const refreshAfterSave = useRef(false);
   const refreshNow = useRef<(() => void) | null>(null);
 
-  /** 시작 순번이 지금까지 쓴 어떤 값보다 나중일 때만 결과를 쓴다. */
-  const apply = (next: Latest) => {
-    if (scope.current.generation !== next.generation || documentStamp.current.sequence > next.sequence) return;
+  /** 요청을 시작한 인증 사용자 객체. 같은 UID 라도 다시 로그인해 객체가 바뀌면 그 전 응답은 쓰지 않는다. */
+  const currentUser = () => scope.current.services.auth.currentUser;
+  /** 시작 순번이 지금까지 쓴 어떤 값보다 나중이고, 시작 때와 같은 인증 사용자일 때만 결과를 쓴다. */
+  const apply = (next: Latest, requestUser: unknown) => {
+    if (scope.current.generation !== next.generation || documentStamp.current.sequence > next.sequence || currentUser() !== requestUser) return;
     setLatest(previous => previous && previous.generation === next.generation && previous.sequence > next.sequence ? previous : next);
   };
 
   useEffect(() => {
     if (!refreshEnabled || !firestore || !activityId || typeof document === "undefined") return;
     const read = () => {
-      const requestGeneration = generation, requestSequence = ++sequence.current;
+      const requestGeneration = generation, requestSequence = ++sequence.current, requestUser = currentUser();
       // 캐시의 옛 문서가 방금 받은 저장 응답을 덮지 않도록 서버에서 확인한 문서만 쓴다(오프라인이면 실패로 기록).
       getDocFromServer(doc(firestore, "activities", activityId)).then(snapshot => {
         const data = snapshot.data() as { userId?: string; hiddenProviderPhotosV1?: unknown; feedContentV1?: unknown } | undefined;
-        if (data) apply({ generation: requestGeneration, sequence: requestSequence, ids: hiddenProviderPhotoIds(data), fromDocument: true, feedContentV1: data.feedContentV1 });
+        if (data) apply({ generation: requestGeneration, sequence: requestSequence, ids: hiddenProviderPhotoIds(data), fromDocument: true, feedContentV1: data.feedContentV1 }, requestUser);
       }).catch(error => logClientError("useProviderPhotoHiding.refresh", error, { activityId }));
     };
     const refresh = () => {
@@ -74,20 +76,20 @@ export function useProviderPhotoHiding(input: {
     document.addEventListener("visibilitychange", refresh);
     return () => {
       document.removeEventListener("visibilitychange", refresh);
-      if (refreshNow.current === refresh) refreshNow.current = null;
+      if (refreshNow.current === read) refreshNow.current = null;
     };
   }, [refreshEnabled, firestore, activityId, generation]);
 
   const isBusy = busy?.generation === generation;
   const change = async (photoIds: string[], hidden: boolean) => {
     if (!activityId || !photoIds.length || isBusy) return;
-    const target = activityId, requestGeneration = generation, requestSequence = ++sequence.current;
+    const target = activityId, requestGeneration = generation, requestSequence = ++sequence.current, requestUser = currentUser();
     setBusy({ generation: requestGeneration });
     saving.current = requestGeneration; refreshAfterSave.current = false;
     try {
       const ids = await setProviderPhotosHidden(services, target, photoIds, hidden);
       if (scope.current.generation !== requestGeneration) return;
-      apply({ generation: requestGeneration, sequence: requestSequence, ids, fromDocument: false });
+      apply({ generation: requestGeneration, sequence: requestSequence, ids, fromDocument: false }, requestUser);
       // 서버는 숨김과 함께 피드 본문을 다시 만든다. 화면의 활동 문서는 옛 본문이라 복원한 사진이
       // 거기 없으면 나타나지 않으므로, 저장 뒤 문서를 다시 읽어 새 본문을 받는다.
       refreshAfterSave.current = true;

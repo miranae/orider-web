@@ -11,11 +11,12 @@ const getDoc = vi.hoisted(() => vi.fn());
 vi.mock("firebase/firestore", () => ({ doc: (_db: unknown, ...path: string[]) => path.join("/"), getDocFromServer: getDoc }));
 vi.mock("../../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
-const services = {} as FirebaseServices;
+const auth: { currentUser: unknown } = { currentUser: { uid: "me" } };
+const services = { auth } as unknown as FirebaseServices;
 type Props = { activityId: string; uid: string; documentHiddenIds: string[] };
 const setup = (initial: Props) => renderHook((props: Props) => useProviderPhotoHiding({ ...props, services, onDone: vi.fn(), onError: vi.fn() }), { initialProps: initial });
 
-beforeEach(() => hide.mockReset());
+beforeEach(() => { hide.mockReset(); auth.currentUser = { uid: "me" }; });
 
 const firestore = {} as Firestore;
 type LiveProps = Props & { firestore?: Firestore; refreshEnabled?: boolean; documentFeedRevision?: string | null };
@@ -133,6 +134,22 @@ describe("탭 복귀 때 숨김 목록 새로 읽기(다른 탭 변경 반영)",
     await waitFor(() => expect(getDoc).toHaveBeenCalled());
     expect(view.result.current.hiddenIds).toEqual(["1"]);
     expect(view.result.current.overriding).toBe(true);
+  });
+  it("조회·저장 중 같은 UID 로 다시 로그인해 인증 객체가 바뀌면 그 전 응답을 쓰지 않는다", async () => {
+    let resolveRead!: (value: unknown) => void;
+    getDoc.mockReturnValueOnce(new Promise(r => { resolveRead = r; }));
+    const view = live({ activityId: "a", uid: "me", documentHiddenIds: [] });
+    await showTab();
+    auth.currentUser = { uid: "me" };
+    await act(async () => { resolveRead(stored(["1"])); });
+    expect(view.result.current.hiddenIds).toEqual([]);
+    let resolveSave!: (ids: string[]) => void;
+    hide.mockReturnValue(new Promise<string[]>(r => { resolveSave = r; }));
+    let pending!: Promise<void>;
+    act(() => { pending = view.result.current.change(["2"], true); });
+    auth.currentUser = { uid: "me" };
+    await act(async () => { resolveSave(["2"]); await pending; });
+    expect(view.result.current.hiddenIds).toEqual([]);
   });
   it("저장 요청보다 먼저 시작한 조회의 늦은 응답은 저장 결과를 덮지 않는다", async () => {
     let resolveRead!: (value: unknown) => void;
