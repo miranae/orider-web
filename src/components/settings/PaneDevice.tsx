@@ -1,5 +1,5 @@
 import GlossaryText from "../common/GlossaryText";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./device-gear.css";
 import { LegacyLayoutImportWizard } from "./LegacyLayoutImportWizard";
 import type { DataPageConfig } from "@shared/types/deviceSettings";
@@ -40,6 +40,7 @@ import {
   monoInputStyle,
 } from "./_primitives";
 import { Resolvable } from "../redesign/states/Resolvable";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { LayoutEditorCard } from "./LayoutEditorCard";
 import { Button, Card, DropdownSelect, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -585,6 +586,10 @@ export function PaneDevice() {
   const { showToast } = useToast();
   const dialog = useDialog();
   const uid = user?.uid ?? null;
+  // 전역 알림의 onClick 은 계정이 바뀐 뒤에도 남는다 — 누른 시점의 계정이 알림을 띄운 계정일 때만 반영한다.
+  const uidRef = useRef(uid);
+  uidRef.current = uid;
+  const signInResolve = useSignInResolve();
   const { records, loading, error, reload, update, broadcastUserScoped } =
     useAllDeviceSettings(uid);
 
@@ -730,7 +735,7 @@ export function PaneDevice() {
     return (
       <SettingsCard data-testid="S6.guest" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
-          {t("device.loginRequired")}
+          <Resolvable resolve={signInResolve}>{t("device.loginRequired")}</Resolvable>
         </div>
       </SettingsCard>
     );
@@ -803,7 +808,15 @@ export function PaneDevice() {
           const parts: string[] = [t("device.broadcastApplied_other", { count: totalApplied })];
           if (validationFailed > 0) parts.push(t("device.broadcastValidationFailed", { count: validationFailed }));
           if (networkFailed > 0) parts.push(t("device.broadcastNetworkFailed", { count: networkFailed }));
-          showToast(parts.join(" · "));
+          // 알림 문구를 누르면 처음 실패한 기기를 골라 그 기기 설정을 바로 고칠 수 있게 한다.
+          const failedDeviceId = result.failures[0]!.deviceId;
+          const requestedUid = uid;
+          showToast(parts.join(" · "), "error", {
+            resolve: {
+              to: "/settings/device",
+              onClick: () => { if (uidRef.current === requestedUid) setSelectedDeviceId(failedDeviceId); },
+            },
+          });
         } else if (totalApplied > 1) {
           showToast(t("device.broadcastApplied_other", { count: totalApplied }));
         } else {

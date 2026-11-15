@@ -1,15 +1,15 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import { createMockActivity } from "../../__tests__/fixtures/mockData";
-const mocks = vi.hoisted(() => ({ runs: [] as Activity[], loading: false, available: true, units: "metric" }));
+const mocks = vi.hoisted(() => ({ runs: [] as Activity[], loading: false, available: true, units: "metric", reload: vi.fn() }));
 vi.mock("../../hooks/useRunHistory", () => ({ useRunHistory: (weeks: number) => { expect(weeks).toBe(8); return mocks; } }));
 vi.mock("../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units }) }));
 import { GearShoeStatus } from "./GearShoeStatus";
 function shoe(startTime: number, name: string, total: number, max = 1000) {
   return createMockActivity({ type: "Run", startTime, gear: { type: "shoes", name, totalDistanceKm: total, maxDistanceKm: max } });
 }
-beforeEach(() => { mocks.runs = []; mocks.loading = false; mocks.available = true; mocks.units = "metric"; });
+beforeEach(() => { mocks.runs = []; mocks.loading = false; mocks.available = true; mocks.units = "metric"; mocks.reload.mockReset(); });
 describe("recent shoe snapshot", () => {
   it("shows the latest matching snapshot, canonical distance and less-than-15% warning", () => {
     mocks.runs = [shoe(20, "Latest", 900), shoe(10, "Older", 200)];
@@ -76,5 +76,14 @@ describe("recent shoe snapshot", () => {
     expect(screen.queryByTestId("P4-3-1")).toBeNull();
     expect(screen.queryByText(/누적 이동거리 0/)).toBeNull();
     if (state === "unavailable") expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+  /** 경고·알림 → 해결: 확인 불가 문구를 누르면 다시 조회한다(새 버튼 없음). */
+  it("tapping the unavailable message re-reads recent runs", () => {
+    mocks.available = false;
+    render(<GearShoeStatus />);
+    const message = within(screen.getByTestId("P4.error")).getByRole("button");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(message);
+    expect(mocks.reload).toHaveBeenCalledTimes(1);
   });
 });

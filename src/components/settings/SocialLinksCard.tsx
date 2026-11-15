@@ -12,7 +12,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
 import { InlineRow, SettingsCard } from "./_primitives";
 import { Resolvable } from "../redesign/states/Resolvable";
-import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
+import { FOCUS_TARGETS, focusTargetProps, withFocus } from "../../services/focusTarget";
 
 const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo, discord: DiscordLogo };
 const GOOGLE_CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-popup-request", "auth/user-cancelled"]);
@@ -21,6 +21,9 @@ const GOOGLE_CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-p
  * 네이버·카카오·Strava 계정 연결 (S1-4-1). 서비스마다 회원번호가 달라 같은 사람인지 자동으로 알 수 없으므로,
  * 로그인한 상태에서 사용자가 직접 연결해야 다음부터 그 서비스로 같은 계정에 로그인된다.
  */
+/** 「마지막 로그인 수단」 알림 문구를 누르면 아직 연결하지 않은 다른 로그인 수단의 연결 버튼으로 간다. */
+const LINK_ANOTHER_LOGIN = { resolve: { to: withFocus("/settings/account", FOCUS_TARGETS.socialLinks) } };
+
 export function SocialLinksCard() {
   const { t } = useTranslation("settings");
   const { user } = useAuth();
@@ -113,7 +116,8 @@ export function SocialLinksCard() {
     if (!user) return;
     const linkedCount = linked?.uid === ownerUid ? linked.providers.size : null;
     if (!canUnlinkGoogle(user, linkedCount)) {
-      showToast(t(linkedCount === null ? "pane.account.socialUnlinkFailed" : "pane.account.socialUnlinkLast"), "error");
+      if (linkedCount === null) showToast(t("pane.account.socialUnlinkFailed"), "error");
+      else showToast(t("pane.account.socialUnlinkLast"), "error", LINK_ANOTHER_LOGIN);
       return;
     }
     if (!(await dialog.confirm(t("pane.account.socialUnlinkConfirm", { provider: t("pane.account.social.google") }), { destructive: true }))) return;
@@ -133,7 +137,8 @@ export function SocialLinksCard() {
       logClientError("SocialLinksCard.googleUnlink", err, { code: error.code ?? null, accountChanged });
       if (accountChanged) return;
       const reason = (err as { details?: { reason?: string } }).details?.reason;
-      showToast(t(reason === "last-login-method" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed"), "error");
+      if (reason === "last-login-method") showToast(t("pane.account.socialUnlinkLast"), "error", LINK_ANOTHER_LOGIN);
+      else showToast(t("pane.account.socialUnlinkFailed"), "error");
     } finally {
       if (ownerRef.current === ownerUid) setPending(null);
     }
@@ -156,7 +161,8 @@ export function SocialLinksCard() {
         showToast(t("pane.account.stravaSyncActive"), "error", { resolve: { to: "/settings/connections" } });
         return;
       }
-      showToast(t(error.code === "functions/failed-precondition" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed"), "error");
+      if (error.code === "functions/failed-precondition") showToast(t("pane.account.socialUnlinkLast"), "error", LINK_ANOTHER_LOGIN);
+      else showToast(t("pane.account.socialUnlinkFailed"), "error");
     } finally {
       if (ownerRef.current === ownerUid) setPending(null);
     }
