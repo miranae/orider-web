@@ -15,6 +15,7 @@ import type {
 } from "@shared/types";
 import { DropdownSelect, Card, Chip, Button } from "../../theme/components";
 import { useStrava } from "../../hooks/useStrava";
+import { logClientError } from "../../services/errorLogger";
 import AppInstallLinks from "../AppInstallLinks";
 import { Toggle } from "./_primitives";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -125,7 +126,10 @@ function ProviderCard({
           <Button variant="secondary" size="sm" onClick={() => {
             // Strava 연결 카드(PaneConnections)와 같은 경로로 OAuth 를 다시 시작하고 이 화면으로 돌아온다.
             try { connectStrava("/settings/connections"); }
-            catch { showToast(t("healthSources.reconnectFailed"), "error"); }
+            catch (error) {
+              logClientError("PaneHealthSources.reconnectStrava", error, { providerId });
+              showToast(t("healthSources.reconnectFailed"), "error");
+            }
           }}>
             {t("healthSources.reconnect")}
           </Button>
