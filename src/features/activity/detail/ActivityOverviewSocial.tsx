@@ -89,7 +89,7 @@ export default function ActivityOverviewSocial(props: Props) {
         {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
         {props.memoTruncated && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoPartial")}</Text>}
       </div> : <Text as="p" variant="bodyMedium" tone="tertiary" role={props.memoLoading ? "status" : undefined}>{t(props.memoLoading ? "detail.loadingData" : props.memoError ? "overviewSocial.memoUnavailable" : "overviewSocial.noMemo")}</Text>)}
-      <div className="activity-overview-photos" style={{ gridTemplateColumns: `repeat(${Math.max(1, previews.length + Number(addTile))}, minmax(0, 1fr))` }} aria-label={t("page.photos")}>
+      <div className="activity-overview-photos" style={{ gridTemplateColumns: `repeat(${previews.length === 0 ? 5 : previews.length + Number(addTile)}, minmax(0, 1fr))` }} aria-label={t("page.photos")}>
         {previews.map((item, position) => <div className="activity-overview-photo" key={item.id}>
           <button type="button" className="activity-overview-photo-open"
             aria-label={t("overviewSocial.openPhoto", { index: position + 1, count: total })}
