@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ status: "FINISHED", metadataError: false }));
@@ -77,6 +77,23 @@ describe("confirmed ended public live events", () => {
     expect(subscribe).not.toHaveBeenCalledWith("events/event-1/viewers", expect.any(Function), expect.any(Function));
     expect(read).toHaveBeenCalledWith("events/event-1/snapshots/public_latest");
     expect(screen.queryByText("dashboard.trackingEnded")).toBeNull();
+  });
+
+  it("renders share and host view as icon-only header actions with their labels", async () => {
+    state.status = "LIVE";
+    read.mockImplementation(async (path: string) => {
+      if (path === "events/event-1") return { exists: () => true, data: () => ({ info: { name: "Live fixture", status: "LIVE" } }) };
+      if (path.includes("/snapshots/")) return { exists: () => true, data: () => ({ timestamp: Date.now(), checkpoints: [], locations: [] }) };
+      return { exists: () => false };
+    });
+    render(<EventLivePage />);
+    const actions = await screen.findByTestId("event-live-header-actions");
+    for (const name of ["button.share", "label.hostView"]) {
+      const button = within(actions).getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button).toHaveTextContent("");
+    }
   });
 
   it("waits for metadata before opening any live data path", async () => {

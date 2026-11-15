@@ -19,7 +19,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
-import { Button, Card, Chip, Text, Input, DropdownSelect } from "../../theme/components";
+import { Button, Card, Chip, IconButton, Text, Input, DropdownSelect } from "../../theme/components";
 import { isVerifiedEventFinisher } from "../../features/event/resultVerification";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
@@ -506,28 +506,20 @@ export default function EventParticipantsPage() {
               )}
               {fmtStart && <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("participantsView.startSuffix", { time: fmtStart })}</span>}
             </div>
-            <h1 style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)", margin: 0 }}>
-              {t("participantsTitle")}
-            </h1>
-          </div>
-          <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
-            <Button type="button" onClick={() => navigate(`/event/${eventId}/host/edit`)} variant="secondary" size="sm">
-              <PencilLine size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.editEvent")}
-            </Button>
-            <Button
-              type="button"
-              disabled
-              title={t("participantsView.csvSoon")} variant="secondary" size="sm"
-            >
-              <Download size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.exportCSV")} · {t("participantsView.comingSoon")}
-            </Button>
-            <Button
-              type="button"
-              disabled
-              title={t("participantsView.noticeSoon")} variant="secondary" size="sm"
-            >
-              <Megaphone size={ICON_SIZE.sm} aria-hidden="true" /> {t("participantsView.broadcastBtn")} · {t("participantsView.comingSoon")}
-            </Button>
+            {/* 보조 동작은 제목 옆 작은 아이콘으로 — 큰 글자 버튼 줄을 두지 않는다. 준비중 동작은 비활성 아이콘으로 남긴다. */}
+            <div data-testid="event-participants-title-actions" className="flex items-center flex-wrap" style={{ gap: "var(--space-1)" }}>
+              <h1 style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)", margin: 0 }}>
+                {t("participantsTitle")}
+              </h1>
+              <IconButton variant="ghost" size="sm" aria-label={t("action.editEvent")} title={t("action.editEvent")}
+                icon={<PencilLine size={ICON_SIZE.sm} />} onClick={() => navigate(`/event/${eventId}/host/edit`)} />
+              <IconButton variant="ghost" size="sm" disabled
+                aria-label={`${t("action.exportCSV")} · ${t("participantsView.comingSoon")}`} title={`${t("action.exportCSV")} · ${t("participantsView.comingSoon")}`}
+                icon={<Download size={ICON_SIZE.sm} />} />
+              <IconButton variant="ghost" size="sm" disabled
+                aria-label={`${t("participantsView.broadcastBtn")} · ${t("participantsView.comingSoon")}`} title={`${t("participantsView.broadcastBtn")} · ${t("participantsView.comingSoon")}`}
+                icon={<Megaphone size={ICON_SIZE.sm} />} />
+            </div>
           </div>
         </div>
 

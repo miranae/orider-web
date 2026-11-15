@@ -1,7 +1,7 @@
 import FirebaseSessionBoundary from "../contexts/FirebaseSessionBoundary";
 import { loadSegmentMetadata } from "../services/segmentMetadata";
 import { useDefaultSport } from "../hooks/useDefaultSport";
-import { Banana, Flag, MapPinned, Mountain, Pencil, Timer } from "lucide-react";
+import { Banana, Download, Flag, FlaskConical, MapPinned, Mountain, Pencil, Share2, Timer } from "lucide-react";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
@@ -1436,40 +1436,22 @@ function CoursePageContent() {
             </Button>
           )}
 
+          {/* 보조 동작(시뮬레이터·GPX·공유·신고)은 작은 아이콘으로 — 좋아요와 앱으로 보내기만 글자 버튼으로 둔다. */}
           {/* 계산기는 준비 탭에 있다. 옛 /lab 주소는 계속 지원한다. */}
-          {detailTab !== "prepare" && <Button variant="secondary" disabled={!canPrepare} onClick={() => setDetailTab("prepare")}>
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 3v6l-5 9a1 1 0 00.9 1.5h14.2A1 1 0 0020 18l-5-9V3" />
-              <path d="M7 3h10M8.5 13h7" />
-            </svg>
-            {t("button.simulate")}
-          </Button>}
+          {detailTab !== "prepare" && <IconButton variant="secondary" disabled={!canPrepare} onClick={() => setDetailTab("prepare")}
+            aria-label={t("button.simulate")} title={t("button.simulate")} icon={<FlaskConical size={ICON_SIZE.md} />} />}
 
           {/* GPX Export */}
-          <Button onClick={handleExportGpx} variant="secondary">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            {t("button.export")}
-          </Button>
+          <IconButton onClick={handleExportGpx} variant="secondary" aria-label={t("button.export")} title={t("button.export")}
+            icon={<Download size={ICON_SIZE.md} />} />
 
           {/* Share */}
-          <Button onClick={handleShare} variant="secondary">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            {t("button.share")}
-          </Button>
+          <IconButton onClick={handleShare} variant="secondary" aria-label={t("button.share")} title={t("button.share")}
+            icon={<Share2 size={ICON_SIZE.md} />} />
 
           {user && (
-            <Button onClick={() => setReportOpen(true)} variant="secondary">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-                <path d="M4 22V15" />
-              </svg>
-              {t("report.button")}
-            </Button>
+            <IconButton onClick={() => setReportOpen(true)} variant="secondary" aria-label={t("report.button")} title={t("report.button")}
+              icon={<Flag size={ICON_SIZE.md} />} />
           )}
 
           {/* 앱으로 보내기 */}

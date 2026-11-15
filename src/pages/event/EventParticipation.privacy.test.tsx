@@ -542,6 +542,30 @@ describe("event participant privacy boundaries", () => {
     expect(document.querySelector("button button")).toBeNull();
   });
 
+  it("renders host participant header actions as icon-only buttons beside the title", async () => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), creatorId: "actor", status: "OPEN" } });
+    mockCollectionData.set("events/ev/participants", [{ id: "actor", realName: "Header rider", status: "REGISTERED" }]);
+    vi.mocked(getDocs).mockImplementation((q, ...args) => realGetDocs({ _collectionPath: collectionPath(q) } as unknown as typeof q, ...args));
+    show(<EventParticipantsPage />);
+    await screen.findByText("Header rider");
+    const row = screen.getByTestId("event-participants-title-actions");
+    expect(row).toContainElement(screen.getByRole("heading", { level: 1, name: eventStrings.participantsTitle }));
+    const soon = eventStrings["participantsView.comingSoon"];
+    const expected = [
+      { name: eventStrings["action.editEvent"], disabled: false },
+      { name: `${eventStrings["action.exportCSV"]} · ${soon}`, disabled: true },
+      { name: `${eventStrings["participantsView.broadcastBtn"]} · ${soon}`, disabled: true },
+    ];
+    for (const { name, disabled } of expected) {
+      const button = within(row).getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button).toHaveTextContent("");
+      if (disabled) expect(button).toBeDisabled(); else expect(button).toBeEnabled();
+    }
+  });
+
   it("uses the same pending-aware v2 denominator for host participant stats", async () => {
     const event = mockDocData.get("events/ev")!;
     const startTime = Date.now() - 120_000;

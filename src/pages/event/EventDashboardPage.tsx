@@ -78,7 +78,7 @@ function parseGpxString(xml: string, idPrefix: string): { latlngs: Array<[number
 }
 
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, Resolvable } from "../../components/redesign";
-import { Button, Chip, Text } from "../../theme/components";
+import { Button, Chip, IconButton, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface EventInfo {
@@ -231,8 +231,13 @@ export default function EventDashboardPage() {
   </div>;
   if (permissions.canReadData) return <>{operationFeedback}<PrivateEventDashboard key={identity} permissions={permissions} onStart={() => void operate("startEvent")} operatorBusy={busy} /></>;
   return <div className="event-controls-surface explore-editor-surface site-shell py-6" data-testid="O1-role-only">
-    <Text as="h1" variant="pageTitle">{info.name}</Text><Chip>{info.status}</Chip>
-    <Button data-testid="O1-0" onClick={() => navigate(`/event/${eventId}`)}>{t("action.participantView")}</Button>
+    {/* 참가자 화면은 제목 옆 작은 아이콘으로 — 시작·종료·전체 공지만 실제 버튼으로 남긴다. */}
+    <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
+      <Text as="h1" variant="pageTitle">{info.name}</Text>
+      <IconButton data-testid="O1-0" variant="ghost" size="sm" aria-label={t("action.participantView")} title={t("action.participantView")}
+        icon={<Eye size={ICON_SIZE.sm} />} onClick={() => navigate(`/event/${eventId}`)} />
+    </div>
+    <Chip>{info.status}</Chip>
     {permissions.canStartFinish && info.status === "OPEN" && <Button disabled={busy} onClick={() => void operate("startEvent")}>{t("button.start")}</Button>}
     {permissions.canStartFinish && info.status === "LIVE" && <Button disabled={busy} onClick={() => void operate("finishEvent")}>{t("button.finish")}</Button>}
     {permissions.canAnnounce && <Button disabled={busy} onClick={() => void operate("sendEventAlert")}>{t("action.sendNotice")}</Button>}
@@ -753,12 +758,9 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         </div>
         <div data-testid="O1-0" className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
           {!trackingEnded && <Chip aria-live="polite"><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</Chip>}
-          {!trackingEnded && <Button
-            type="button"
-            onClick={() => eventId && window.open(`/live/${eventId}`, "_blank", "noopener")} variant="secondary" size="sm"
-          >
-            <Telescope size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.spectatorView")}
-          </Button>}
+          {/* 관전자 뷰는 보조 동작이라 작은 아이콘으로 둔다. */}
+          {!trackingEnded && <IconButton variant="ghost" size="sm" aria-label={t("action.spectatorView")} title={t("action.spectatorView")}
+            icon={<Telescope size={ICON_SIZE.sm} />} onClick={() => eventId && window.open(`/live/${eventId}`, "_blank", "noopener")} />}
           <Button
             type="button"
             onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"

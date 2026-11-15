@@ -1,7 +1,7 @@
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
-import { Eye, Flag, Link2, TrafficCone } from "lucide-react";
+import { Eye, Flag, LayoutDashboard, Link2, TrafficCone } from "lucide-react";
 import "../ExploreReview.css";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,7 +15,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
-import { Button, Card, Switch, Text, Input } from "../../theme/components";
+import { Button, Card, IconButton, Switch, Text, Input } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { activeViewerCountFromSummary, createViewerSessionId } from "../../features/event/viewerPresence";
 import { createViewerHeartbeatRunner } from "../../features/event/liveViewerRecovery";
@@ -813,16 +813,13 @@ export default function EventLivePage() {
               </div>
             </div>
           )}
-          <Button type="button" onClick={handleShare} variant="secondary" size="sm">
-            <Link2 size={ICON_SIZE.sm} aria-hidden="true" /> {t("button.share")}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => navigate(`/event/${eventId}/host`)} variant="secondary" size="sm"
-            style={{ color: "var(--ink-2)" }}
-          >
-            {t("label.hostView")}
-          </Button>
+          {/* 공유·호스트 뷰는 작은 아이콘으로 — 큰 글자 버튼을 두지 않는다. */}
+          <div data-testid="event-live-header-actions" className="flex items-center" style={{ gap: "var(--space-1)" }}>
+            <IconButton variant="ghost" size="sm" aria-label={t("button.share")} title={t("button.share")}
+              icon={<Link2 size={ICON_SIZE.sm} />} onClick={handleShare} />
+            <IconButton variant="ghost" size="sm" aria-label={t("label.hostView")} title={t("label.hostView")}
+              icon={<LayoutDashboard size={ICON_SIZE.sm} />} onClick={() => navigate(`/event/${eventId}/host`)} />
+          </div>
         </div>
       </div>
       {isSnapshotStale && (

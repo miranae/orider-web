@@ -365,6 +365,12 @@ describe("AthletePage", () => {
     // 아이콘 전용 링크 — 보이는 글자 없이 닉네임과 같은 줄에 놓인다.
     expect(edit).toHaveTextContent("");
     expect(edit.parentElement).toContainElement(screen.getByTestId("P0-0-1"));
+    // 공유도 연필 옆 아이콘 전용 버튼이다.
+    const share = screen.getByRole("button", { name: "공유" });
+    expect(share).toHaveClass("ds-btn--icon-only");
+    expect(share).toHaveAttribute("title", "공유");
+    expect(share).toHaveTextContent("");
+    expect(share.parentElement).toBe(edit.parentElement);
   });
 
   it("does not show friend action for own profile", async () => {

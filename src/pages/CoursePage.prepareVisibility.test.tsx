@@ -47,6 +47,18 @@ describe("course preparation climb predictions", () => {
     expect(screen.getByRole("button", { name: "좋아요 0" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getAllByRole("button", { name: "공유" })).toHaveLength(1);
   });
+  it("renders simulator, GPX, share and report as icon-only actions while like and send-to-app keep text", async () => {
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    for (const name of ["시뮬레이터", "GPX", "공유", "신고"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button).toHaveTextContent("");
+    }
+    expect(screen.getByRole("button", { name: "좋아요 0" })).not.toHaveClass("ds-btn--icon-only");
+    expect(screen.getByRole("button", { name: /앱으로 보내기/ })).not.toHaveClass("ds-btn--icon-only");
+  });
   it("keeps report choices above the dialog and changes a reason without submitting", async () => {
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
     await screen.findByText("Climbing course");

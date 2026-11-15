@@ -23,7 +23,7 @@ import { LocalizedLink as Link } from '../components/LocalizedLink';
 import { EmptyState, LoadingSkeleton, Resolvable } from '../components/redesign';
 import SafeImage from '../components/SafeImage';
 import type { BoardPost, BoardComment } from '@shared/types';
-import { Button, Card, Chip } from "../theme/components";
+import { Button, Card, Chip, IconButton } from "../theme/components";
 import { normalizeUserContentUrl } from "../utils/userContentUrl";
 import { ReportContentModal } from "../features/board/ReportContentModal";
 import { buildBoardReportPayload, type BoardReportReason } from "../features/board/reportPayload";
@@ -235,7 +235,9 @@ const PostDetailPage: React.FC = () => {
               {t('label.views')} {post.viewCount}
               {user?.uid !== post.userId && (
                 <>
-                  <Button variant="ghost" size="md" leadingIcon={<Flag size={ICON_SIZE.md} />} data-testid="M2-P-3"
+                  {/* 신고·차단은 보조 동작이라 작은 아이콘으로 — 글자 버튼을 두지 않는다. */}
+                  <IconButton variant="ghost" size="sm" icon={<Flag size={ICON_SIZE.sm} />} data-testid="M2-P-3"
+                    aria-label={t("report.action")} title={t("report.action")}
                     onClick={() => openReport({
                       targetType: "post",
                       postId: post.id,
@@ -244,16 +246,13 @@ const PostDetailPage: React.FC = () => {
                       createdAt: post.createdAt,
                     })}
                     className="text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
-                  >
-                    {t("report.action")}
-                  </Button>
+                  />
                   {user && (
-                    <Button variant="ghost" size="md" leadingIcon={<Ban size={ICON_SIZE.md} />}
+                    <IconButton variant="ghost" size="sm" icon={<Ban size={ICON_SIZE.sm} />}
+                      aria-label={t("block.action")} title={t("block.action")}
                       onClick={handleBlockAuthor}
                       className="text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
-                    >
-                      {t("block.action")}
-                    </Button>
+                    />
                   )}
                 </>
               )}
@@ -434,16 +433,17 @@ const PostDetailPage: React.FC = () => {
                 )}
                 <span className="font-bold text-[length:var(--fs-sm)] text-[var(--ink-1)]">{comment.nickname}</span>
                 <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(comment.createdAt).toLocaleString(i18n.language)}</span>
+                {/* 댓글 삭제·신고는 작은 아이콘으로 — 삭제 확인·권한 조건은 그대로 둔다. */}
                 {user && user.uid === comment.userId && (
-                  <Button variant="ghost" size="md" leadingIcon={<Trash2 size={ICON_SIZE.md} />}
+                  <IconButton variant="ghost" size="sm" icon={<Trash2 size={ICON_SIZE.sm} />}
+                    aria-label={t('button.delete')} title={t('button.delete')}
                     onClick={() => handleDeleteComment(comment.id)}
-                    className="ml-auto text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
-                  >
-                    {t('button.delete')}
-                  </Button>
+                    className="ml-auto text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
+                  />
                 )}
                 {user?.uid !== comment.userId && (
-                  <Button variant="ghost" size="md" leadingIcon={<Flag size={ICON_SIZE.md} />}
+                  <IconButton variant="ghost" size="sm" icon={<Flag size={ICON_SIZE.sm} />}
+                    aria-label={t("report.action")} title={t("report.action")}
                     onClick={() => openReport({
                       targetType: "comment",
                       postId: post.id,
@@ -452,10 +452,8 @@ const PostDetailPage: React.FC = () => {
                       authorNickname: comment.nickname,
                       createdAt: comment.createdAt,
                     })}
-                    className={`${user && user.uid === comment.userId ? "" : "ml-auto"} text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors`}
-                  >
-                    {t("report.action")}
-                  </Button>
+                    className={`${user && user.uid === comment.userId ? "" : "ml-auto"} text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors`}
+                  />
                 )}
               </div>
               <BoardCommentText>{comment.text}</BoardCommentText>
