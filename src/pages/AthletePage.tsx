@@ -47,7 +47,7 @@ import type { Activity } from "@shared/types";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import type { PdcDoc } from "@shared/types/pdc";
 import { usePdc } from "../hooks/usePdc";
-import { Button, Card, Chip, Text, Input, buttonClass } from "../theme/components";
+import { Button, Card, Chip, IconButton, Text, Input, buttonClass } from "../theme/components";
 import SafeImage from "../components/SafeImage";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 import { ICON_SIZE } from "../theme/tokens/icon";
@@ -911,16 +911,25 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {photoURL ? <SafeImage src={photoURL} alt={nickname} fallbackLabel={nickname} className="athlete-identity__photo" referrerPolicy="no-referrer" /> : <Avatar name={nickname} size="lg" className="athlete-identity__photo athlete-identity__fallback" />}
         </div>
         <div>
-          <h1 data-testid="P0-0-1" className="athlete-identity__name">
-            {nickname}
-          </h1>
+          {/* 프로필 편집은 닉네임 옆 연필 아이콘 링크로 — 이름 아래 큰 버튼 대신 편집 대상 곁에 둔다. */}
+          <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
+            <h1 data-testid="P0-0-1" className="athlete-identity__name min-w-0">
+              {nickname}
+            </h1>
+            {isOwnProfile && (
+              <Link data-testid="P0-0-2" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} to="/settings/account" aria-label={t("self.edit")} title={t("self.edit")}>
+                <Pencil size={ICON_SIZE.sm} aria-hidden="true" />
+              </Link>
+            )}
+            {/* 프로필 공유도 연필 옆 작은 아이콘으로 — 이름 아래 글자 버튼 줄을 두지 않는다. */}
+            {isOwnProfile && (
+              <IconButton data-testid="P0-0-3" variant="ghost" size="sm" icon={<Share2 size={ICON_SIZE.sm} />} aria-label={t("self.share")} title={t("self.share")}
+                onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }} />
+            )}
+          </div>
           {profileForPage?.bio && <Text as="p" variant="body" tone="secondary">{profileForPage.bio}</Text>}
           {isOwnProfile && currentProfile?.stravaConnected && <Chip>Strava</Chip>}
           {profileForPage?.team && <Text as="p" variant="caption" tone="secondary">{profileForPage.team}</Text>}
-          {isOwnProfile && <div className="flex flex-wrap gap-2 mt-3">
-            <Link data-testid="P0-0-2" className={buttonClass({ variant: "secondary", size: "sm" })} to="/settings/account"><Pencil size={ICON_SIZE.md} aria-hidden="true" />{t("self.edit")}</Link>
-            <Button data-testid="P0-0-3" size="sm" leadingIcon={<Share2 size={ICON_SIZE.md} aria-hidden="true" />} variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
-          </div>}
           {isOwnProfile && (
             <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={isOwnProfile ? [] : chartActivities} /></div>
           )}

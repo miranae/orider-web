@@ -17,7 +17,12 @@ describe("클럽 가상 관전", () => {
     expect(screen.getByRole("button", {name: "나래", exact: true})).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name: "지도 팝업 닫기"}));
     expect(screen.getByRole("button", {name: "나래", exact: true})).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", {name: "코스 전체 보기"}));
+    const fitCourse = screen.getByRole("button", {name: "코스 전체 보기"});
+    // 코스 전체 보기는 코스 이름 옆 아이콘 전용 버튼이다.
+    expect(fitCourse.className).toContain("ds-btn--icon-only");
+    expect(fitCourse).toHaveAttribute("title", "코스 전체 보기");
+    expect(fitCourse.closest(".club-live-title-action")?.querySelector("h2")).toBeInTheDocument();
+    fireEvent.click(fitCourse);
     expect(screen.getByRole("button", {name: "나래", exact: true})).toHaveAttribute("aria-pressed", "true");
   });
   it("종료 후 실시간 위치 대신 모임 결과와 기록 비교 진입을 제공한다", () => {

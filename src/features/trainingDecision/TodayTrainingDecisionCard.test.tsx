@@ -283,7 +283,13 @@ describe("TodayTrainingDecisionCard", () => {
     const card = document.querySelector("[data-training-decision-fallback]");
     expect(card).toHaveAttribute("data-training-decision-fallback", "unavailable");
     expect(screen.getByText("오늘 계획을 불러오지 못했습니다")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "새로 확인" }));
+    const retry = screen.getByRole("button", { name: "새로 확인" });
+    // 새로 확인은 제목 옆 머리의 아이콘 버튼이다 — 카드 아래 전체 폭 버튼 줄이 없다.
+    expect(retry).toHaveClass("ds-btn--icon-only");
+    expect(retry).toHaveAttribute("title", "새로 확인");
+    expect(card!.querySelector(".training-decision-card__header")).toContainElement(retry);
+    expect(card!.querySelector(".training-decision-card__actions")).toBeNull();
+    await userEvent.click(retry);
     expect(refresh).toHaveBeenCalled();
   });
 

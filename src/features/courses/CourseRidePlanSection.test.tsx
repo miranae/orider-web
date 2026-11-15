@@ -200,7 +200,11 @@ describe("CourseRidePlanSection", () => {
   it("maps stale token and missing elevation to bounded recovery states", async () => {
     load.mockRejectedValueOnce(new CoachClientError("http", "aborted")).mockResolvedValueOnce(plan);
     renderSection();
-    await userEvent.setup().click(await screen.findByRole("button", { name: "새 계획 다시 불러오기" }));
+    const retry = await screen.findByRole("button", { name: "새 계획 다시 불러오기" });
+    // 안내 문구 옆 아이콘 — 글자 버튼으로 늘리지 않는다.
+    expect(retry).toHaveClass("ds-btn--icon-only");
+    expect(retry).toHaveAttribute("title", "새 계획 다시 불러오기");
+    await userEvent.setup().click(retry);
     expect(await screen.findByText("1시간 1분")).toBeInTheDocument();
     expect(load).toHaveBeenCalledTimes(2);
   });

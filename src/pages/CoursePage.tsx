@@ -1,7 +1,7 @@
 import FirebaseSessionBoundary from "../contexts/FirebaseSessionBoundary";
 import { loadSegmentMetadata } from "../services/segmentMetadata";
 import { useDefaultSport } from "../hooks/useDefaultSport";
-import { Banana, Flag, MapPinned, Mountain, Timer } from "lucide-react";
+import { Banana, Download, Eye, EyeOff, Flag, FlaskConical, MapPinned, Mountain, Pencil, Share2, Timer, Trash2 } from "lucide-react";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
@@ -55,7 +55,7 @@ import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton, Resolvable } from "../components/redesign";
 import { useSignInResolve } from "../hooks/useSignInResolve";
 import { revealFocusTarget } from "../services/focusTarget";
-import { Button, Card, Chip, Text, buttonClass, Input, Textarea, DropdownSelect } from "../theme/components";
+import { Button, Card, Chip, IconButton, Text, buttonClass, Input, Textarea, DropdownSelect } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
 import { CourseRidePlanSection } from "../features/courses/CourseRidePlanSection";
 import { canonicalDisplayShowsValue } from "@shared/types/canonicalDisplay";
@@ -179,13 +179,19 @@ const COURSE_INLINE_WRAP_STYLE: React.CSSProperties = {
   gap: "var(--space-2)",
 };
 
-const COURSE_ACTION_ROW_STYLE: React.CSSProperties = {
+const COURSE_ACTION_STACK_STYLE: React.CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  flexWrap: "wrap",
-  gap: "var(--space-2)",
+  flexDirection: "column",
+  gap: "var(--space-3)",
   paddingTop: "var(--space-4)",
   borderTop: "1px solid var(--line-soft)",
+};
+
+const COURSE_ACTION_FOOTER_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "var(--space-2)",
 };
 
 const COURSE_PAGE_STACK_STYLE: React.CSSProperties = {
@@ -1058,7 +1064,14 @@ function CoursePageContent() {
         <div className="course-hero-overlay" aria-hidden="true" />
         <div className="course-hero-content">
           <span className="course-kind-slot">{t("kind.course")}</span>
-          <h1 data-testid="D2-0" className="course-hero-title">{course.name}</h1>
+          {/* 코스 편집은 제목 옆 연필 아이콘으로 — 통계 줄의 큰 버튼 대신 편집 대상 곁에 둔다. */}
+          <div className="flex items-start" style={{ gap: "var(--space-1)" }}>
+            <h1 data-testid="D2-0" className="course-hero-title flex-1 min-w-0">{course.name}</h1>
+            {isOwner && !editing && (
+              <IconButton variant="ghost" size="sm" aria-label={t("button.edit")} title={t("button.edit")}
+                icon={<Pencil size={ICON_SIZE.sm} />} onClick={startEditing} />
+            )}
+          </div>
           <div className="course-hero-chips">
             {officialCourse && <Chip variant="accent">{t("badge.official")}</Chip>}
             {isAdmin && course.hidden === true && <Chip variant="accent"><Resolvable resolve={{ onClick: () => { if (unhideButtonRef.current) revealFocusTarget(unhideButtonRef.current); } }}>{t("admin.hiddenBadge")}</Resolvable></Chip>}
@@ -1412,61 +1425,12 @@ function CoursePageContent() {
           </div>
         )}
 
-        {/* Actions */}
-        <div style={{ ...COURSE_ACTION_ROW_STYLE, marginTop: "var(--space-4)" }}>
-          {/* Like */}
-          {user && (
-            <Button
-              onClick={handleToggleLike}
-              disabled={likeLoading} variant="secondary"
-              aria-pressed={liked} aria-label={t("button.likeCount", { count: course.likeCount })}
-              style={liked ? { color: "var(--lime)", borderColor: "var(--lime)" } : undefined}
-            >
-              <svg className="w-4 h-4" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              {t("button.likeCount", { count: course.likeCount })}
-            </Button>
-          )}
-
-          {/* 계산기는 준비 탭에 있다. 옛 /lab 주소는 계속 지원한다. */}
-          {detailTab !== "prepare" && <Button variant="secondary" disabled={!canPrepare} onClick={() => setDetailTab("prepare")}>
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 3v6l-5 9a1 1 0 00.9 1.5h14.2A1 1 0 0020 18l-5-9V3" />
-              <path d="M7 3h10M8.5 13h7" />
-            </svg>
-            {t("button.simulate")}
-          </Button>}
-
-          {/* GPX Export */}
-          <Button onClick={handleExportGpx} variant="secondary">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            {t("button.export")}
-          </Button>
-
-          {/* Share */}
-          <Button onClick={handleShare} variant="secondary">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            {t("button.share")}
-          </Button>
-
-          {user && (
-            <Button onClick={() => setReportOpen(true)} variant="secondary">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-                <path d="M4 22V15" />
-              </svg>
-              {t("report.button")}
-            </Button>
-          )}
-
+        {/* Actions — 좁은 오른쪽 칸에서도 깔끔하게: 1줄 앱으로 보내기(주 동작, 칸 전체 폭),
+            2줄 좋아요·시뮬레이터·GPX·공유·신고 아이콘, 3줄 조회수와 관리(삭제·숨기기) 아이콘을 한 줄 양끝에 둔다.
+            관리 아이콘이 혼자 한 줄을 차지하지 않도록 조회수 줄 끝에 붙인다. */}
+        <div data-testid="course-actions" style={{ ...COURSE_ACTION_STACK_STYLE, marginTop: "var(--space-4)" }}>
           {/* 앱으로 보내기 */}
-          <Button onClick={handleSendToApp} variant="primary">
+          <Button onClick={handleSendToApp} variant="primary" block>
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 18V6M12 6l-5 5M12 6l5 5"/>
               <rect x="3" y="14" width="18" height="7" rx="2"/>
@@ -1474,44 +1438,67 @@ function CoursePageContent() {
             {t("button.sendToApp")}
           </Button>
 
-          {/* View count */}
-          <span className="text-[length:var(--fs-xs)] flex items-center" style={{ color: "var(--ink-4)", gap: "var(--space-1)" }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            {course.viewCount}
-          </span>
-
-          {/* Owner actions */}
-          {isOwner && (
-            <div className="ml-auto flex items-center" style={{ gap: "var(--space-2)" }}>
-              {!editing && <Button onClick={startEditing} variant="secondary" size="sm">{t("button.edit")}</Button>}
+          <div data-testid="course-action-icons" style={COURSE_INLINE_WRAP_STYLE}>
+            {/* Like */}
+            {user && (
               <Button
-                onClick={handleDelete}
-                disabled={deleting} variant="secondary" size="sm" className="disabled:opacity-50"
-                style={{ color: "var(--rose)", borderColor: "var(--rose)" }}
+                onClick={handleToggleLike}
+                disabled={likeLoading} variant="secondary"
+                aria-pressed={liked} aria-label={t("button.likeCount", { count: course.likeCount })}
+                style={liked ? { color: "var(--lime)", borderColor: "var(--lime)" } : undefined}
               >
-                {deleting ? t("error.deleteDeleting") : t("button.delete")}
+                <svg className="w-4 h-4" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                {t("button.likeCount", { count: course.likeCount })}
               </Button>
-            </div>
-          )}
-          {isAdmin && (
-            <div className={isOwner ? "flex items-center" : "ml-auto flex items-center"} style={{ gap: "var(--space-2)" }}>
-              <Button data-testid="O2-1" ref={unhideButtonRef}
-                onClick={() => handleToggleHidden(course.hidden !== true)}
-                disabled={moderating}
-                variant="secondary"
-                size="sm"
-                className="disabled:opacity-50"
-                style={{ color: course.hidden === true ? "var(--lime)" : "var(--rose)", borderColor: course.hidden === true ? "var(--lime)" : "var(--rose)" }}
-              >
-                {course.hidden === true
-                  ? (moderating ? t("admin.unhiding") : t("admin.unhide"))
-                  : (moderating ? t("admin.hiding") : t("admin.hide"))}
-              </Button>
-            </div>
-          )}
+            )}
+
+            {/* 보조 동작(시뮬레이터·GPX·공유·신고)은 작은 아이콘으로 — 좋아요와 앱으로 보내기만 글자 버튼으로 둔다. */}
+            {/* 계산기는 준비 탭에 있다. 옛 /lab 주소는 계속 지원한다. */}
+            {detailTab !== "prepare" && <IconButton variant="secondary" disabled={!canPrepare} onClick={() => setDetailTab("prepare")}
+              aria-label={t("button.simulate")} title={t("button.simulate")} icon={<FlaskConical size={ICON_SIZE.md} />} />}
+
+            {/* GPX Export */}
+            <IconButton onClick={handleExportGpx} variant="secondary" aria-label={t("button.export")} title={t("button.export")}
+              icon={<Download size={ICON_SIZE.md} />} />
+
+            {/* Share */}
+            <IconButton onClick={handleShare} variant="secondary" aria-label={t("button.share")} title={t("button.share")}
+              icon={<Share2 size={ICON_SIZE.md} />} />
+          </div>
+
+          {/* 조회수(작은 글씨) + 신고·관리 아이콘(작성자 삭제·관리자 숨기기)을 같은 줄 양끝에. 좁은 칸에서 신고가 혼자 줄바꿈되지 않게 여기 둔다. */}
+          <div data-testid="course-action-footer" style={COURSE_ACTION_FOOTER_STYLE}>
+            <span data-testid="course-view-count" className="text-[length:var(--fs-xs)] flex items-center" style={{ color: "var(--ink-4)", gap: "var(--space-1)" }}>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              {course.viewCount}
+            </span>
+
+            {(user || isOwner || isAdmin) && (
+              <div data-testid="course-action-manage" className="flex items-center" style={{ gap: "var(--space-2)" }}>
+                {user && (
+                  <IconButton onClick={() => setReportOpen(true)} variant="ghost" size="sm" aria-label={t("report.button")} title={t("report.button")}
+                    icon={<Flag size={ICON_SIZE.sm} />} />
+                )}
+                {isOwner && (
+                  <IconButton onClick={handleDelete} loading={deleting} variant="danger" size="sm"
+                    aria-label={t("button.delete")} title={t("button.delete")} icon={<Trash2 size={ICON_SIZE.sm} />} />
+                )}
+                {isAdmin && (
+                  <IconButton data-testid="O2-1" ref={unhideButtonRef}
+                    onClick={() => handleToggleHidden(course.hidden !== true)}
+                    loading={moderating} variant="secondary" size="sm"
+                    style={{ color: course.hidden === true ? "var(--lime)" : "var(--rose)", borderColor: course.hidden === true ? "var(--lime)" : "var(--rose)" }}
+                    aria-label={course.hidden === true ? t("admin.unhide") : t("admin.hide")} title={course.hidden === true ? t("admin.unhide") : t("admin.hide")}
+                    icon={course.hidden === true ? <Eye size={ICON_SIZE.sm} /> : <EyeOff size={ICON_SIZE.sm} />} />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </Card>
         </aside>

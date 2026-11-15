@@ -4,7 +4,9 @@ import type { Activity } from "@shared/types";
 import { RUN_DISTANCE_TARGETS_V2, type ExpandedRunDistanceKey } from "@shared/types/personal-records";
 import { useActivityRunDistanceEvidence } from "../../../hooks/useActivityRunDistanceEvidence";
 import { useLocale } from "../../../contexts/LocaleContext";
-import { Button, Select, Text } from "../../../theme";
+import { RefreshCw } from "lucide-react";
+import { Button, IconButton, Select, Text } from "../../../theme";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 import type { MetricsLike } from "./metricsPresentation";
 import "./activity-run-distance-evidence.css";
@@ -19,9 +21,13 @@ export default function ActivityRunDistanceEvidencePanel({ activity, metrics }: 
   const fact = evidence?.facts.find(value => value.distance === distance);
   const date = new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(activity.startTime);
   return <section className="manual-run-evidence" aria-label={t("manualRunEvidence.title")}>
-    <Text as="h3" variant="subtitle">{t("manualRunEvidence.title")}</Text>
+    {/* 첫 확인은 작은 글자 버튼, 이후 다시 확인은 제목 줄의 아이콘 버튼으로 둔다. */}
+    <div className="manual-run-evidence-head">
+      <Text as="h3" variant="subtitle">{t("manualRunEvidence.title")}</Text>
+      {query.state !== "idle" && <IconButton size="sm" variant="ghost" loading={query.state === "loading"} aria-label={t("manualRunEvidence.refresh")} title={t("manualRunEvidence.refresh")} icon={<RefreshCw size={ICON_SIZE.sm} />} onClick={() => void query.inspect()} />}
+    </div>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("manualRunEvidence.scope")}</Text>
-    <Button size="sm" variant="outline" loading={query.state === "loading"} disabled={query.state === "loading"} onClick={() => void query.inspect()}>{t(query.state === "idle" ? "manualRunEvidence.inspect" : "manualRunEvidence.refresh")}</Button>
+    {query.state === "idle" && <Button size="sm" variant="outline" className="manual-run-evidence-start" onClick={() => void query.inspect()}>{t("manualRunEvidence.inspect")}</Button>}
     {query.state !== "idle" && query.state !== "available" && <Text as="p" variant="bodyMedium" tone="secondary">{t(`manualRunEvidence.states.${query.state}`)}</Text>}
     {query.response?.state === "unavailable" && <Text as="p" variant="bodyMedium" tone="secondary">{t(`manualRunEvidence.reasons.${query.response.reason}`)}</Text>}
     {evidence && <>

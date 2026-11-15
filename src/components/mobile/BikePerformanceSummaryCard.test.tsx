@@ -145,3 +145,21 @@ it("turns the missing FTP and missing weight notices themselves into links to th
   view.rerender(<BikePerformanceSummaryCard decision={completeDecision} weightKg={70} />);
   expect(screen.queryByRole("link")).not.toBeInTheDocument();
 });
+
+it("산출 근거는 제목 옆 아이콘으로 펼치고, 닫혀 있으면 근거 칸이 자리를 차지하지 않는다", () => {
+  const { container } = renderWithProviders(<BikePerformanceSummaryCard decision={completeDecision} weightKg={70} />);
+  const toggle = screen.getByRole("button", { name: "산출 근거 보기" });
+  expect(toggle).toHaveClass("ds-btn--icon-only");
+  expect(toggle).toHaveAttribute("title", "산출 근거 보기");
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(toggle.style.width).toBe("");
+  expect(container.querySelector(".ds-section__header")).toContainElement(toggle);
+  const panel = document.getElementById(toggle.getAttribute("aria-controls")!)!;
+  expect(panel).not.toBeVisible();
+  fireEvent.click(toggle);
+  expect(panel).toBeVisible();
+  const close = screen.getByRole("button", { name: "산출 근거 닫기" });
+  expect(close).toBe(toggle);
+  expect(close).toHaveAttribute("aria-expanded", "true");
+  expect(close).toHaveAttribute("title", "산출 근거 닫기");
+});

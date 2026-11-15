@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
-import { Sparkles } from "lucide-react";
+import { RefreshCw, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, IconButton, Text } from "../../theme/components";
 import { Resolvable } from "../../components/redesign";
 import { bodyInfoHref } from "../../services/focusTarget";
 import { getCoachRidePlanAiContext, isCoachClientError, loadCoachRidePlan } from "../../services/coachClient";
@@ -172,7 +172,7 @@ function RidePlanContent({ state, plan, aiEnabled, questionState, onRetry, onQue
       : state === "unavailable" ? "unavailable" : "error";
     return <div className="course-ride-plan__notice" role="status">
       <Text as="p" variant="bodySmall">{t(`ridePlan.state.${key}`)}</Text>
-      {(state === "stale" || state === "error") && <Button size="sm" variant="outline" onClick={onRetry}>{t("ridePlan.retry")}</Button>}
+      {(state === "stale" || state === "error") && <IconButton size="sm" variant="outline" icon={<RefreshCw size={ICON_SIZE.sm} />} aria-label={t("ridePlan.retry")} title={t("ridePlan.retry")} onClick={onRetry} />}
     </div>;
   }
   if (plan.status !== "ok" || !plan.estimate) {

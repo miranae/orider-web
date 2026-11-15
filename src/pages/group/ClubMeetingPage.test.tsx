@@ -5,6 +5,7 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import ClubMeetingPage from "./ClubMeetingPage";
 import { newClubMeeting } from "../../features/club-preparation/meetingCopy";
 import {
+  cancelClubMeeting,
   clubMeetingAttendance,
   finishClubMeeting,
   createClubMeeting,
@@ -111,7 +112,15 @@ describe("실제 인증 회원의 클럽 모임 동선", () => {
     control.data = {eventId: "event", groupId: "club", revision: 1, isHost: true,
       noticeNextCursor: "n480", noticePageCursor: "n500", meeting: newClubMeeting(), members: []};
     show("detail");
-    fireEvent.click(await screen.findByRole("button", {name: "이전 공지 보기"}));
+    const older = await screen.findByRole("button", {name: "이전 공지 보기"});
+    // 이전·최신 공지 이동은 공지 카드 제목 옆 아이콘 전용 버튼이다.
+    for (const button of [older, screen.getByRole("button", {name: "최신 공지 보기"})]) {
+      expect(button.className).toContain("ds-btn--icon-only");
+      expect(button.textContent).toBe("");
+      expect(button).toHaveAttribute("title", button.getAttribute("aria-label"));
+      expect(button.closest(".cp-heading-with-edit")?.querySelector("h2")?.textContent).toBe("공지와 변경");
+    }
+    fireEvent.click(older);
     await waitFor(() => expect(control.loadOlderNotices).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByRole("button", {name: "최신 공지 보기"})).not.toBeDisabled());
     expect(control.reload).not.toHaveBeenCalled();
@@ -171,9 +180,26 @@ describe("실제 인증 회원의 클럽 모임 동선", () => {
     await waitFor(() =>
       expect(clubMeetingAttendance).toHaveBeenCalledWith("event", "cancel"),
     );
-    expect(
-      screen.getByRole("button", { name: "모임 수정" }),
-    ).toBeInTheDocument();
+    // 모임 수정은 운영 바로가기 줄이 아니라 제목 옆 연필 아이콘이다.
+    const edit = screen.getByRole("button", { name: "모임 수정" });
+    expect(edit.className).toContain("ds-btn--icon-only");
+    expect(edit.closest(".cp-hero-title")?.querySelector("h1")?.textContent).toBe("실제 모임");
+    expect(edit.closest(".cp-hero-tools")).toBeNull();
+    expect(screen.getByRole("link", { name: "명단 바로가기" }).closest(".cp-hero-tools")).not.toBeNull();
+  });
+  it("새로고침은 아이콘 버튼이고 다시 읽는 동안 로딩 상태를 보여준다", async () => {
+    let finish: () => void = () => {};
+    control.reload.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+    control.data = { eventId: "event", groupId: "club", revision: 1, isHost: false,
+      meeting: { ...newClubMeeting(), id: "event", title: "실제 모임" }, members: [] };
+    show("detail");
+    const refresh = await screen.findByRole("button", { name: "새로고침" });
+    expect(refresh.className).toContain("ds-btn--icon-only");
+    fireEvent.click(refresh);
+    expect(control.reload).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(refresh).toHaveAttribute("aria-busy", "true"));
+    finish();
+    await waitFor(() => expect(refresh).not.toHaveAttribute("aria-busy"));
   });
   it("모임 상세에 실내 실외 구분을 보여주고 실외 모임에는 실내 함께 타기 안내를 숨긴다", async () => {
     const meeting = {
@@ -238,6 +264,29 @@ describe("클럽 모임 마무리와 개인 결과", () => {
     expect(finishClubMeeting).toHaveBeenCalledTimes(1);expect(finishClubMeeting).toHaveBeenCalledWith("event",7);release();
     await waitFor(()=>expect(control.reload).toHaveBeenCalled());
   });
+  it("모임 전체 취소는 운영 카드의 작은 글자 버튼이고 사유 입력과 확정 뒤에만 취소한다", async () => {
+    fixture(true);show("detail");
+    const trigger=await screen.findByRole("button",{name:"모임 전체 취소"});
+    // 공지 카드가 아니라 「모임 운영」 카드 안의 작은 위험 동작이며, 파괴적 동작이라 글자를 유지한다.
+    const hostCard=trigger.closest("#meeting-host-tools");
+    expect(hostCard?.querySelector("h2")?.textContent).toBe("모임 운영");
+    expect(trigger).toHaveClass("ds-btn--danger","ds-btn--sm");
+    expect(trigger).not.toHaveClass("ds-btn--icon-only");
+    expect(trigger.textContent).toBe("모임 전체 취소");
+    fireEvent.click(trigger);
+    expect(cancelClubMeeting).not.toHaveBeenCalled();
+    const confirm=screen.getByRole("button",{name:"전체 취소 확정"});
+    expect(hostCard).toContainElement(confirm);
+    expect(confirm).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("취소 사유"),{target:{value:"우천"}});
+    fireEvent.click(confirm);
+    await waitFor(()=>expect(cancelClubMeeting).toHaveBeenCalledWith("event","우천"));
+  });
+  it("참가자에게는 모임 전체 취소를 제공하지 않는다", async () => {
+    fixture(false);show("detail");
+    await screen.findByRole("button",{name:"참석 취소"});
+    expect(screen.queryByRole("button",{name:"모임 전체 취소"})).not.toBeInTheDocument();
+  });
   it("참가자에게 마무리 조작을 제공하지 않고 자기 결과와 대기 수를 구분한다", async () => {
     fixture(false,true);show("detail");
     expect(await screen.findByText("모임 결과")).toBeInTheDocument();
@@ -245,6 +294,11 @@ describe("클럽 모임 마무리와 개인 결과", () => {
     expect(screen.getByText(/내 기록 · 결과 확인 완료 · 2:05/)).toBeInTheDocument();
     expect(screen.queryByRole("button",{name:"모임 마무리"})).not.toBeInTheDocument();
     expect(screen.queryByRole("button",{name:"참석 신청"})).not.toBeInTheDocument();
+    // 결과 새로고침은 카드 하단 글자 버튼이 아니라 결과 제목 옆 아이콘이다.
+    const refresh=screen.getByRole("button",{name:"결과 새로고침"});
+    expect(refresh).toHaveClass("ds-btn--icon-only");
+    expect(refresh).toHaveAttribute("title","결과 새로고침");
+    expect(refresh.closest(".cp-heading-with-edit")?.querySelector("h2")?.textContent).toBe("모임 결과");
   });
   it.each(["REGISTERED", "CHECKED_IN", "PAID"])("미시작 참가 상태 %s는 기록 없음으로 표시한다", async status => {
     fixture(false,true);control.data!.completion={state:"ready",summary:null,own:{status,verified:false,durationMs:null}};show("detail");

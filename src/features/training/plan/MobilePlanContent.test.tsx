@@ -85,10 +85,9 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByText("D−25")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar", { name: "진행률" })).not.toBeInTheDocument();
     expect(screen.getByText("목표기간 부하 비교")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "계획 관리 →" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "계획 관리 →" }));
-    expect(screen.getByRole("button", { name: "ICS" })).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    // 관리 동작 슬롯은 별도 "계획 관리" 줄·시트 없이 목표 카드 머리에 바로 놓인다.
+    expect(screen.queryByRole("button", { name: "계획 관리 →" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("K4-2").querySelector(".mobile-plan-goal-top")).toContainElement(screen.getByRole("button", { name: "ICS" }));
     const expand = screen.getByRole("button", { name: "원문 보기" });
     fireEvent.click(expand);
     expect(screen.getByRole("tooltip")).toHaveTextContent("2026_비앙키그란폰도춘천");
@@ -236,4 +235,19 @@ it.each(["completed", "skipped", "postponed", "partial"])("uses saved %s before 
   renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [closed, pending] }} weekLabel="이번 주" onEditWorkout={edit} />);
   fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
   expect(edit).toHaveBeenCalledExactlyOnceWith(pending, week.id, 1);
+});
+
+it("다음 운동 카드와 주간 계획 머리의 편집은 이름이 같은 연필 아이콘 버튼이다", () => {
+  const edit = vi.fn();
+  renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="이번 주" onEditWorkout={edit} />);
+  const buttons = screen.getAllByRole("button", { name: "편집" });
+  expect(buttons).toHaveLength(2);
+  for (const button of buttons) {
+    expect(button).toHaveClass("ds-btn--icon-only");
+    expect(button).toHaveAttribute("title", "편집");
+    expect(button).not.toHaveTextContent("편집");
+  }
+  expect(screen.getByTestId("K4-5m-2")).toContainElement(buttons[0]);
+  fireEvent.click(buttons[1]);
+  expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
 });

@@ -217,7 +217,7 @@
     select,
     textarea,
     summary
-  ):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed]) {
+  ):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action) {
     min-height: 44px;
   }
 }
@@ -230,13 +230,28 @@
 .settings-inline-copy { flex: 1 1 12rem; }
 .settings-inline-control { max-width: 100%; }
 .settings-inline-control > * { max-width: 100%; }
-.settings-main :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed]),
-.mobile-settings-detail :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed]) { min-height: var(--dim-button-height); }
+/* 아바타 위 겹침 아이콘(.settings-profile-avatar__action)은 compact 36 정사각 그대로 둔다 — 히트 영역은 버튼 ::after 가 44 로 보장 */
+.settings-main :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action),
+.mobile-settings-detail :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action) { min-height: var(--dim-button-height); }
 .settings-main :is(button, input, select, textarea, summary):focus-visible,
 .mobile-settings-detail :is(button, input, select, textarea, summary):focus-visible,
 .settings-toggle:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
 .settings-segmented { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: var(--space-0-5); border-radius: var(--r-md); background: var(--bg-2); }
-.settings-profile-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* 프로필 사진 관리 — 사진 변경은 아바타 오른쪽 아래 모서리에 걸친 작은 원형 카메라 배지 하나,
+ * 사진 삭제는 아바타를 가리지 않도록 아바타 옆에 둔다. */
+.settings-profile-avatar-group { display: flex; align-items: flex-end; gap: var(--space-3); width: fit-content; }
+.settings-profile-avatar { position: relative; width: fit-content; }
+.settings-profile-avatar > img { display: block; }
+.settings-profile-avatar__badge { position: absolute; right: calc(-1 * var(--space-1)); bottom: calc(-1 * var(--space-1)); display: flex; }
+/* 배지는 28 원형 + 카드 배경색 테두리로 사진과 분리 — 히트 영역은 버튼 ::after 가 44 로 보장 */
+.settings-profile-avatar__badge .settings-profile-avatar__camera {
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
+  min-width: calc(var(--space-6) + var(--space-1));
+  min-height: calc(var(--space-6) + var(--space-1));
+  border-radius: 50%;
+  border: var(--space-0-5) solid var(--bg-1);
+}
 .settings-profile-name h2 { overflow-wrap: anywhere; }
 .settings-visibility-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .settings-disclosure { margin-bottom: var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--r-lg); padding: var(--space-4); background: var(--bg-1); }
@@ -276,10 +291,16 @@
 .settings-future-connections > summary { min-height: var(--dim-button-height); align-content: center; cursor: pointer; }
 .settings-service-copy { min-width: 0; }
 .settings-service-description { overflow-wrap: anywhere; }
-.settings-ai-history.ds-btn { display: grid; grid-template-columns: auto minmax(0, 1fr); height: auto; min-height: var(--dim-button-height); min-width: 0; max-width: 100%; padding: var(--space-2) var(--space-3); line-height: 1.4; white-space: normal; overflow-wrap: anywhere; text-align: center; }
 @media (max-width: 600px) {
   .settings-service-card { --settings-service-columns: auto minmax(0, 1fr); }
   .settings-service-copy { display: contents; }
   .settings-service-description, .settings-service-card > :last-child { grid-column: 1 / -1; }
-  .settings-ai-history { width: 100%; }
 }
+
+/* 개발자 — 바로 실행해보기: 복사 아이콘을 코드 블록 오른쪽 위에 겹친다. 오른쪽 여백은 아이콘 자리. */
+.settings-dev-example { position: relative; }
+.settings-dev-example__code {
+  display: block;
+  padding: var(--space-2) calc(var(--space-7) + var(--space-3)) var(--space-2) var(--space-3);
+}
+.settings-dev-example__copy { position: absolute; top: var(--space-1); right: var(--space-1); }

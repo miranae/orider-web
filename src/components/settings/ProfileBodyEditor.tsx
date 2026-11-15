@@ -11,7 +11,9 @@ import { useDialog } from "../../contexts/DialogContext";
 import { useBikeProfiles } from "../../hooks/useBikeProfiles";
 import { firestore, functions } from "../../services/firebase";
 import { syncRiderMetricsToDevices, syncRiderWeightToBikeProfiles } from "../../services/syncRiderMetrics";
-import { Button, Input, ToggleControls, ToggleButton } from "../../theme/components";
+import { Check } from "lucide-react";
+import { Button, IconButton, Input, ToggleControls, ToggleButton } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { SettingsCard, Field, FieldGrid } from "./_primitives";
 import { Resolvable } from "../redesign/states/Resolvable";
 import { formatBodyValue, parseBodyValue, type BodyUnit } from "./bodyMeasurements";
@@ -108,8 +110,10 @@ export function ProfileBodyEditor() {
             <Input id={`${fieldId}-height`} {...focusTargetProps(FOCUS_TARGETS.height)} aria-label={t(unit === "metric" ? "training.fieldHeight" : "training.fieldHeightIn")} value={formatBodyValue(height, unit, "height")} onChange={e => setHeight(parseBodyValue(e.target.value, unit, "height"))} />
           </Field>
           <Field label={t(unit === "metric" ? "training.fieldWeight" : "training.fieldWeightLb")} hint={unit === "metric" ? t("training.fieldWeightHint") : t("training.fieldWeightLbHint")}>
-            <Input id={`${fieldId}-weight`} {...focusTargetProps(FOCUS_TARGETS.weight)} aria-label={t(unit === "metric" ? "training.fieldWeight" : "training.fieldWeightLb")} value={formatBodyValue(weight, unit, "weight")} onChange={e => setWeight(parseBodyValue(e.target.value, unit, "weight"))} />
-            {!confirmed && Number(weight) === 70 && <Button variant="secondary" className="mt-2" onClick={() => void save(true)}>{t("training.confirmWeight")}</Button>}
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+              <Input id={`${fieldId}-weight`} style={{ minWidth: 0 }} {...focusTargetProps(FOCUS_TARGETS.weight)} aria-label={t(unit === "metric" ? "training.fieldWeight" : "training.fieldWeightLb")} value={formatBodyValue(weight, unit, "weight")} onChange={e => setWeight(parseBodyValue(e.target.value, unit, "weight"))} />
+              {!confirmed && Number(weight) === 70 && <IconButton variant="ghost" icon={<Check size={ICON_SIZE.xs} />} onClick={() => void save(true)} aria-label={t("training.confirmWeight")} title={t("training.confirmWeight")} />}
+            </div>
           </Field>
         </FieldGrid>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>

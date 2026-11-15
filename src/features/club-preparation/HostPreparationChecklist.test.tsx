@@ -33,7 +33,12 @@ it('클립보드 사용이 거부되면 현재 미확인 명단을 직접 복사
   meeting.notices = [{id: 'notice', title: '출발 변경', body: '새 장소', targets: ['current', 'cancelled'], confirmed: [], at: 1}];
   const members = [{id: 'current', name: '현재회원'}, {id: 'cancelled', name: '취소회원'}];
   const view = renderWithProviders(<HostPreparationChecklist meeting={meeting} members={members} />);
-  fireEvent.click(screen.getByRole('button', {name: '공지 미확인 명단 복사'}));
+  const copyButton = screen.getByRole('button', {name: '공지 미확인 명단 복사'});
+  // 복사는 「공지 확인 필요」 줄 옆 아이콘 전용 버튼이다.
+  expect(copyButton.className).toContain('ds-btn--icon-only');
+  expect(copyButton).toHaveAttribute('title', '공지 미확인 명단 복사');
+  expect(copyButton.closest('.cp-heading-with-edit')?.querySelector('p')?.textContent).toContain('공지 확인 필요');
+  fireEvent.click(copyButton);
   const fallback = await screen.findByRole('textbox', {name: '복사용 공지 미확인 명단'});
   expect(fallback).toHaveValue('가을 라이딩\n출발 변경: 현재회원');
   meeting.registrations[0]!.status = 'cancelled';

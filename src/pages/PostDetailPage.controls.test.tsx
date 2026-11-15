@@ -21,7 +21,7 @@ vi.mock("../features/board/useBoardBlocks", () => ({ setBoardAuthorBlocked: muta
 
 describe("post detail action presentation", () => {
   beforeEach(() => { mutations.content = "Post body"; mutations.commentOwner = "commenter"; mutations.deleteComment.mockClear(); });
-  it("renders report, block and like as standard DS buttons without invoking mutations", () => {
+  it("renders report and block as icon-only DS buttons and like as a standard button without invoking mutations", () => {
     renderWithProviders(<Routes><Route path="/ko/community/board/:postId" element={<PostDetailPage />} /></Routes>, { authenticated: true, route: "/ko/community/board/post" });
     const post = screen.getByTestId("M2-P-1");
     const postActions = within(post.querySelector(".board-post-actions")!);
@@ -29,11 +29,18 @@ describe("post detail action presentation", () => {
     const commentActions = within(screen.getByTestId("M2-C").querySelector(".board-comment-meta")!);
     const reports = [...postActions.getAllByRole("button", { name: "신고" }), ...commentActions.getAllByRole("button", { name: "신고" })];
     expect(reports).toHaveLength(2);
-    for (const button of [...reports, postActions.getByRole("button", { name: "차단" }), reactions.getByRole("button", { name: /좋아요 3/ })]) {
-      expect(button).toHaveClass("ds-btn", "ds-btn--md");
+    // 신고·차단은 글자 없이 아이콘만 — 접근 이름과 툴팁은 기존 라벨 그대로.
+    const block = postActions.getByRole("button", { name: "차단" });
+    for (const button of [...reports, block]) {
+      expect(button).toHaveClass("ds-btn", "ds-btn--sm", "ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", button.getAttribute("aria-label"));
+      expect(button).toHaveTextContent("");
       expect(button.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
       expect(within(button).queryByRole("img")).toBeNull();
     }
+    const like = reactions.getByRole("button", { name: /좋아요 3/ });
+    expect(like).toHaveClass("ds-btn", "ds-btn--md");
+    expect(like).not.toHaveClass("ds-btn--icon-only");
     expect(mutations.like).not.toHaveBeenCalled();
     expect(mutations.report).not.toHaveBeenCalled();
     expect(mutations.block).not.toHaveBeenCalled();
@@ -46,7 +53,9 @@ it("renders own-comment deletion as a standard icon action without deleting anyt
   renderWithProviders(<Routes><Route path="/ko/community/board/:postId" element={<PostDetailPage />} /></Routes>, { authenticated: true, route: "/ko/community/board/post" });
   const commentActions = within(screen.getByTestId("M2-C").querySelector(".board-comment-meta")!);
   const remove = commentActions.getByRole("button", { name: "삭제" });
-  expect(remove).toHaveClass("ds-btn", "ds-btn--md");
+  expect(remove).toHaveClass("ds-btn", "ds-btn--sm", "ds-btn--icon-only");
+  expect(remove).toHaveAttribute("title", "삭제");
+  expect(remove).toHaveTextContent("");
   expect(remove.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
   expect(mutations.deleteComment).not.toHaveBeenCalled();
 });

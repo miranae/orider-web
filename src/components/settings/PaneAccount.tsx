@@ -2,7 +2,7 @@ import { PublicDataSettingsCard } from "./PublicDataSettingsCard";
 import { NotificationPreferencesCard } from "./NotificationPreferencesCard";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, Globe, User } from "lucide-react";
+import { Camera, ChevronRight, Copy, Eye, Globe, Trash2, User } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 import {
   doc,
@@ -32,7 +32,7 @@ import { ProfileHero } from "./ProfileHero";
 import { LocalizedLink } from "../LocalizedLink";
 import { PaneAiCoach } from "./PaneAiCoach";
 import { SocialLinksCard } from "./SocialLinksCard";
-import { Button, Textarea, buttonClass } from "../../theme/components";
+import { Button, IconButton, Textarea, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type VisOpt = { value: Visibility; labelKey: string; icon: typeof User };
@@ -188,6 +188,8 @@ export function PaneAccount() {
 
   async function handleRemovePhoto() {
     if (!user) return;
+    // 아바타 위 작은 아이콘이라 잘못 누르기 쉬워 한 번 더 묻는다
+    if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { destructive: true }))) return;
     try {
       await updateDoc(doc(firestore, "users", user.uid), { photoURL: null });
       showToast(t("profile.photoRemoved"));
@@ -270,30 +272,44 @@ export function PaneAccount() {
         friendCode={friendCode}
         stravaConnected={profile?.stravaConnected}
         onEditNickname={nicknameSaving ? undefined : handleSaveNickname}
-        actions={
+        friendCodeAction={
+          <IconButton
+            variant="ghost"
+            icon={<Copy size={ICON_SIZE.xs} />}
+            onClick={() => {
+              if (friendCode) {
+                void navigator.clipboard?.writeText(friendCode);
+                showToast(t("profile.codeCopied"));
+              }
+            }}
+            aria-label={t("profile.copyCode")}
+            title={t("profile.copyCode")}
+          />
+        }
+        avatarAside={profile?.photoURL ? (
+          <IconButton
+            variant="ghost"
+            size="compact"
+            className="settings-profile-avatar__action"
+            icon={<Trash2 size={ICON_SIZE.xs} />}
+            onClick={handleRemovePhoto}
+            aria-label={t("profile.photoDelete")}
+            title={t("profile.photoDelete")}
+            style={{ color: "var(--rose)" }}
+          />
+        ) : undefined}
+        avatarBadge={
           <>
-            <Button variant="secondary"
-              onClick={() => {
-                if (friendCode) {
-                  void navigator.clipboard?.writeText(friendCode);
-                  showToast(t("profile.codeCopied"));
-                }
-              }}
-              disabled={!friendCode}
-            >
-              {t("profile.copyCode")}
-            </Button>
-            <Button variant="ghost"
+            <IconButton
+              variant="ghost"
+              size="compact"
+              className="settings-profile-avatar__action settings-profile-avatar__camera"
+              icon={<Camera size={ICON_SIZE.xs} />}
               onClick={() => fileInputRef.current?.click()}
-              disabled={photoUploading}
-            >
-              {photoUploading ? t("profile.photoUploading") : t("profile.photoChange")}
-            </Button>
-            {profile?.photoURL && (
-              <Button variant="ghost" onClick={handleRemovePhoto}>
-                {t("profile.photoDelete")}
-              </Button>
-            )}
+              loading={photoUploading}
+              aria-label={photoUploading ? t("profile.photoUploading") : t("profile.photoChange")}
+              title={photoUploading ? t("profile.photoUploading") : t("profile.photoChange")}
+            />
             <input
               type="file"
               accept="image/*"
@@ -420,8 +436,8 @@ export function PaneAccount() {
           label={t("pane.account.dataLabel")}
           hint={t("pane.account.dataHint")}
         >
-          <LocalizedLink to="/settings/data" className={buttonClass({ variant: "secondary" })}>
-            {t("pane.account.manageData")}
+          <LocalizedLink to="/settings/data" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("pane.account.manageData")} title={t("pane.account.manageData")}>
+            <span className="ds-btn__icon" aria-hidden><ChevronRight size={ICON_SIZE.xs} /></span>
           </LocalizedLink>
         </InlineRow>
         <InlineRow

@@ -2,6 +2,7 @@ import { isSportUiEnabled } from "../../config/sportFeatures";
 import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { useEffect, useId, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { Check, Pencil } from "lucide-react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 
@@ -29,7 +30,8 @@ import "./PaneThresholds.css";
 import { LocalizedLink } from "../LocalizedLink";
 import { formatBodyValue } from "./bodyMeasurements";
 import { ThresholdSuggestionBanner } from "./ThresholdSuggestionBanner";
-import { ToggleControls, ToggleButton, Stat, buttonClass, Button, Input, Text } from "../../theme/components";
+import { ToggleControls, ToggleButton, Stat, buttonClass, Button, IconButton, Input, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { estimateFtpFromTest, isConservativeDrop, type FtpTestProtocol } from "@shared/training/ftpTest";
 import {
   ftpHistorySourceForChange,
@@ -290,17 +292,17 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
 
   const ftpField = (
           <Field explain label="FTP" hint={t("training.fieldFtpHint")}>
-            <Input mono id={`${fieldId}-ftp`} {...focusTargetProps(FOCUS_TARGETS.ftp)} aria-label={"FTP"}
-              value={ftp}
-              onChange={(e) => {
-                setFtp(e.target.value.replace(/[^0-9]/g, ""));
-                setFtpChangeSource("manual");
-              }}
-
-            />
-            {!confirmedThresholds.ftp && Number(ftp) === 200 && <Button size="md" variant="secondary" onClick={() => { void handleSave("ftp"); }} disabled={saving}>
-              {t("training.confirmThreshold")}
-            </Button>}
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+              <Input mono id={`${fieldId}-ftp`} style={{ minWidth: 0 }} {...focusTargetProps(FOCUS_TARGETS.ftp)} aria-label={"FTP"}
+                value={ftp}
+                onChange={(e) => {
+                  setFtp(e.target.value.replace(/[^0-9]/g, ""));
+                  setFtpChangeSource("manual");
+                }}
+              />
+              {!confirmedThresholds.ftp && Number(ftp) === 200 && <IconButton variant="ghost" icon={<Check size={ICON_SIZE.xs} />} onClick={() => { void handleSave("ftp"); }} disabled={saving}
+                aria-label={t("training.confirmThreshold")} title={t("training.confirmThreshold")} />}
+            </div>
           </Field>
   );
   const maxHrField = (
@@ -323,28 +325,28 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
   );
   const paceField = (
           <Field label={t("training.fieldThresholdPace")} hint={t("training.fieldThresholdPaceHint")}>
-            <Input mono id={`${fieldId}-threshold-pace`} {...focusTargetProps(FOCUS_TARGETS.thresholdPace)} aria-label={t("training.fieldThresholdPace")}
-              value={thresholdPace}
-              onChange={(e) => setThresholdPace(e.target.value)}
-              placeholder="4:35"
-
-            />
-            {!confirmedThresholds.thresholdPace && mmssToSecs(thresholdPace) === 275 && <Button size="md" variant="secondary" onClick={() => { void handleSave("thresholdPace"); }} disabled={saving}>
-              {t("training.confirmThreshold")}
-            </Button>}
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+              <Input mono id={`${fieldId}-threshold-pace`} style={{ minWidth: 0 }} {...focusTargetProps(FOCUS_TARGETS.thresholdPace)} aria-label={t("training.fieldThresholdPace")}
+                value={thresholdPace}
+                onChange={(e) => setThresholdPace(e.target.value)}
+                placeholder="4:35"
+              />
+              {!confirmedThresholds.thresholdPace && mmssToSecs(thresholdPace) === 275 && <IconButton variant="ghost" icon={<Check size={ICON_SIZE.xs} />} onClick={() => { void handleSave("thresholdPace"); }} disabled={saving}
+                aria-label={t("training.confirmThreshold")} title={t("training.confirmThreshold")} />}
+            </div>
           </Field>
   );
   const cssField = (
           <Field explain label="CSS" hint={t("training.fieldCssHint")}>
-            <Input mono id={`${fieldId}-css`} {...focusTargetProps(FOCUS_TARGETS.css)} aria-label={"CSS"}
-              value={css}
-              onChange={(e) => setCss(e.target.value)}
-              placeholder="1:45"
-
-            />
-            {!confirmedThresholds.css && mmssToSecs(css) === 108 && <Button size="md" variant="secondary" onClick={() => { void handleSave("css"); }} disabled={saving}>
-              {t("training.confirmThreshold")}
-            </Button>}
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+              <Input mono id={`${fieldId}-css`} style={{ minWidth: 0 }} {...focusTargetProps(FOCUS_TARGETS.css)} aria-label={"CSS"}
+                value={css}
+                onChange={(e) => setCss(e.target.value)}
+                placeholder="1:45"
+              />
+              {!confirmedThresholds.css && mmssToSecs(css) === 108 && <IconButton variant="ghost" icon={<Check size={ICON_SIZE.xs} />} onClick={() => { void handleSave("css"); }} disabled={saving}
+                aria-label={t("training.confirmThreshold")} title={t("training.confirmThreshold")} />}
+            </div>
           </Field>
   );
 
@@ -357,7 +359,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
               weightUnit: bodyUnit === "imperial" ? "lb" : "kg",
             })}</span>
             <span className="threshold-body-reference__basis">{t("training.bodyWeightBasis")}</span>
-            <LocalizedLink to="/settings/account#body-info" className={buttonClass({ variant: "ghost", size: "sm" })}>{t("training.editBody")}</LocalizedLink>
+            <LocalizedLink to="/settings/account#body-info" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("training.editBody")} title={t("training.editBody")}><span className="ds-btn__icon" aria-hidden><Pencil size={ICON_SIZE.xs} /></span></LocalizedLink>
         </div>
   );
   const ftpGroup = <div>{ftpField}{bodyReference}</div>;

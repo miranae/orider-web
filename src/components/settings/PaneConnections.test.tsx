@@ -53,6 +53,29 @@ describe("PaneConnections Strava disconnect observability", () => {
     expect(screen.getByTestId("S2-1-4").querySelector("button")).toBeNull();
   });
 
+  it("shows past-data import as a chevron icon-only link keeping its label and destination", () => {
+    render(<MemoryRouter><PaneConnections /></MemoryRouter>);
+    const link = screen.getByRole("link", { name: "가져오기" });
+    expect(link).toHaveAttribute("href", "/ko/settings/data#migrate");
+    expect(link).toHaveAttribute("title", "가져오기");
+    expect(link).toHaveClass("ds-btn--icon-only");
+    expect(link).not.toHaveClass("ds-btn--secondary");
+    expect(link).not.toHaveTextContent("가져오기");
+  });
+
+  it("labels the import icon link as the report once migration is done", () => {
+    const original = mocks.profile;
+    mocks.profile = { ...original, migration: { status: "DONE" } } as typeof original;
+    try {
+      render(<MemoryRouter><PaneConnections /></MemoryRouter>);
+      const link = screen.getByRole("link", { name: "리포트 보기" });
+      expect(link).toHaveAttribute("title", "리포트 보기");
+      expect(link).toHaveClass("ds-btn--icon-only");
+    } finally {
+      mocks.profile = original;
+    }
+  });
+
   it("records intent and cancel without calling the backend", async () => {
     mocks.confirm.mockResolvedValue(false);
     const user = userEvent.setup();

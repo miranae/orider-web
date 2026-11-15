@@ -18,7 +18,11 @@ describe("meeting public Discord voice",()=>{
  it("lets a host open the room and confirm closing before ending calls",async()=>{
   show();fireEvent.click(await screen.findByRole("button",{name:"음성 채널 열기"}));
   expect((await screen.findByRole("link",{name:"디스코드에서 함께하기"})).getAttribute("href")).toBe("https://discord.gg/meeting");
-  fireEvent.click(screen.getByRole("button",{name:"음성 채널 닫기"}));expect(api.closeClubMeetingDiscord).not.toHaveBeenCalled();
+  const close=screen.getByRole("button",{name:"음성 채널 닫기"});
+  // 음성 채널 닫기는 카드 제목 옆 아이콘 전용 버튼이다.
+  expect(close.className).toContain("ds-btn--icon-only");expect(close.textContent).toBe("");expect(close).toHaveAttribute("title","음성 채널 닫기");
+  expect(close.closest(".cp-heading-with-edit")?.querySelector("h2")?.textContent).toBe("디스코드 음성 모임");
+  fireEvent.click(close);expect(api.closeClubMeetingDiscord).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button",{name:"채널 닫기 확정"}));await waitFor(()=>expect(api.closeClubMeetingDiscord).toHaveBeenCalledWith("meeting"));
   await waitFor(()=>expect(screen.queryByRole("link",{name:"디스코드에서 함께하기"})).toBeNull());
  });

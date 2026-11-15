@@ -1,7 +1,7 @@
 import MeetingInviteShare from "../../features/club-preparation/MeetingInviteShare";
 import MeetingDiscord from "../../features/club-preparation/MeetingDiscord";
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, MapPin, Users } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Pencil, RefreshCw, Users } from "lucide-react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -13,7 +13,7 @@ import {
   ErrorState,
   LoadingSkeleton,
 } from "../../components/redesign";
-import { Button, Card, Chip, buttonClass } from "../../theme/components";
+import { Button, Card, Chip, IconButton, buttonClass } from "../../theme/components";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import { canManageGroup } from "../../features/group/groupPermissions";
@@ -76,6 +76,7 @@ export default function ClubMeetingPage({
       mounted.current = false;
     };
   }, []);
+  const [refreshing, setRefreshing] = useState(false);
   const snapshot = useClubMeeting(
     sourceId,
     role ? user?.uid : undefined,
@@ -168,13 +169,22 @@ export default function ClubMeetingPage({
           ← {text("모임 목록", "Meetings")}
         </Link>
         {mode === "detail" && (
-          <Button
+          // 새로고침은 화면 상단 작은 아이콘으로 두고, 다시 읽는 동안 스피너를 보여준다.
+          <IconButton
             size="sm"
-            variant="outline"
-            onClick={() => void snapshot.reload().catch(() => {})}
-          >
-            {text("새로고침", "Refresh")}
-          </Button>
+            variant="ghost"
+            loading={refreshing}
+            aria-label={text("새로고침", "Refresh")}
+            title={text("새로고침", "Refresh")}
+            icon={<RefreshCw size={ICON_SIZE.sm} />}
+            onClick={() => {
+              setRefreshing(true);
+              void snapshot
+                .reload()
+                .catch(() => {})
+                .finally(() => setRefreshing(false));
+            }}
+          />
         )}
       </div>
       {mode === "detail" && data ? (
@@ -377,7 +387,21 @@ function ServerMeetingDetail({
                   : text("모집 중", "Registration open")}
           </Chip>
         </div>
-        <h1>{meeting.title}</h1>
+        <div className="cp-hero-title">
+          <h1>{meeting.title}</h1>
+          {/* 주최자 수정은 큰 행 버튼 대신 제목 옆 연필 아이콘으로 둔다. */}
+          {data.isHost && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              disabled={busy || !live}
+              aria-label={text("모임 수정", "Edit meeting")}
+              title={text("모임 수정", "Edit meeting")}
+              icon={<Pencil size={ICON_SIZE.sm} />}
+              onClick={onEdit}
+            />
+          )}
+        </div>
         {longIntroduction ? (
           <div className="cp-hero-introduction">
             <p>
@@ -429,14 +453,6 @@ function ServerMeetingDetail({
             className="cp-hero-tools"
             aria-label={text("모임 운영", "Manage meeting")}
           >
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || !live}
-              onClick={onEdit}
-            >
-              {text("모임 수정", "Edit meeting")}
-            </Button>
             <a href="#meeting-people">
               {text("명단 바로가기", "Jump to roster")}
             </a>
@@ -615,7 +631,19 @@ function ServerMeetingDetail({
       </div>
       {completed && data.completion && (
         <Card id="meeting-results">
-          <h2>{text("모임 결과", "Meeting results")}</h2>
+          {/* 결과 새로고침은 카드 하단 버튼 대신 제목 옆 아이콘으로 두고, 다시 읽는 동안 스피너를 보여준다. */}
+          <div className="cp-heading-with-edit">
+            <h2>{text("모임 결과", "Meeting results")}</h2>
+            <IconButton
+              size="sm"
+              variant="ghost"
+              loading={busy}
+              aria-label={text("결과 새로고침", "Refresh results")}
+              title={text("결과 새로고침", "Refresh results")}
+              icon={<RefreshCw size={ICON_SIZE.sm} />}
+              onClick={() => void run(async () => {})}
+            />
+          </div>
           <div aria-live="polite">
             {data.completion.summary ? <p>{text(
               `완료 ${data.completion.summary.finishedCount}명 · 확인 대기 ${data.completion.summary.pendingCount}명 · 중도 종료 ${data.completion.summary.dnfCount}명 / 전체 ${data.completion.summary.totalParticipants}명`,
@@ -635,7 +663,6 @@ function ServerMeetingDetail({
               {rider.status === "FINISHED" && rider.durationMs != null && <> · {Math.floor(rider.durationMs / 60000)}:{String(Math.floor(rider.durationMs / 1000) % 60).padStart(2, "0")}</>}
             </li>)}
           </ul>}
-          <Button loading={busy} onClick={() => void run(async () => {})}>{text("결과 새로고침", "Refresh results")}</Button>
         </Card>
       )}
       {data.isHost && (
@@ -646,12 +673,50 @@ function ServerMeetingDetail({
           <h2>{text("모임 운영", "Manage meeting")}</h2>
           <div className="cp-actions">
             {live && <Button disabled={busy} onClick={() => setConfirmingFinish(true)}>{text("모임 마무리", "Finish meeting")}</Button>}
+            {/* 모임 전체 취소는 공지 카드에서 떼어 운영 카드 끝의 작은 위험 동작으로 둔다(파괴적 동작이라 글자 버튼 유지, 확정 단계 그대로). */}
+            {live && <Button variant="danger" size="sm" disabled={busy} onClick={() => setCancelling(true)}>{text("모임 전체 취소", "Cancel the meeting")}</Button>}
           </div>
           {live && confirmingFinish && <div role="group" aria-label={text("모임 마무리 확인", "Confirm meeting completion")}>
             <p>{text("모임을 마무리하면 신규 참가와 위치·심박 공유가 끝납니다. 각자의 기록은 삭제되지 않으며 업로드가 남은 기록은 확인 대기로 표시됩니다.", "Finishing closes new participation and location/heart-rate sharing. Individual recordings are preserved; outstanding uploads remain pending.")}</p>
             <Button loading={busy} onClick={() => void run(() => finishClubMeeting(data.eventId, data.revision))}>{text("마무리 확정", "Confirm finish")}</Button>
             <Button disabled={busy} onClick={() => setConfirmingFinish(false)}>{text("돌아가기", "Go back")}</Button>
           </div>}
+          {live && cancelling && (
+            <div className="cp-notice">
+              <p>
+                {text(
+                  "참석자와 대기자 모두에게 취소 안내가 남습니다.",
+                  "A cancellation notice will be recorded for participants and the waitlist.",
+                )}
+              </p>
+              <Field
+                label={text("취소 사유", "Cancellation reason")}
+                htmlFor="cancel-reason"
+              >
+                <Textarea
+                  id="cancel-reason"
+                  maxLength={3000}
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                />
+              </Field>
+              <Button
+                variant="danger"
+                disabled={busy || !cancelReason.trim()}
+                onClick={() =>
+                  void run(async () => {
+                    await cancelClubMeeting(data.eventId, cancelReason);
+                    setCancelling(false);
+                  })
+                }
+              >
+                {text("전체 취소 확정", "Confirm cancellation")}
+              </Button>
+              <Button disabled={pending} onClick={() => setCancelling(false)}>
+                {text("돌아가기", "Go back")}
+              </Button>
+            </div>
+          )}
           {live && (
             <Field
               label={text("모집 상태", "Registration")}
@@ -790,7 +855,32 @@ function ServerMeetingDetail({
         )}
       </Card>
       <Card id="meeting-notices">
-        <h2>{text("공지와 변경", "Notices and changes")}</h2>
+        {/* 이전·최신 공지 이동은 카드 제목 옆 작은 화살표 아이콘으로 둔다. */}
+        <div className="cp-heading-with-edit">
+          <h2>{text("공지와 변경", "Notices and changes")}</h2>
+          {data.noticeNextCursor && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              aria-label={text("이전 공지 보기", "Older notices")}
+              title={text("이전 공지 보기", "Older notices")}
+              icon={<ChevronLeft size={ICON_SIZE.sm} />}
+              disabled={busy}
+              onClick={() => void run(loadOlderNotices, false)}
+            />
+          )}
+          {data.noticePageCursor && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              aria-label={text("최신 공지 보기", "Latest notices")}
+              title={text("최신 공지 보기", "Latest notices")}
+              icon={<ChevronRight size={ICON_SIZE.sm} />}
+              disabled={busy}
+              onClick={() => void run(reload, false)}
+            />
+          )}
+        </div>
         {(data.noticeNextCursor || data.noticePageCursor) && <p className="cp-muted">
           {text("공지와 미확인 명단은 현재 표시된 공지 기준입니다.", "Notices and follow-ups reflect the notices on this page.")}
         </p>}
@@ -846,12 +936,6 @@ function ServerMeetingDetail({
             )}
           </article>
         ))}
-        {data.noticeNextCursor && <Button disabled={busy} onClick={() => void run(loadOlderNotices, false)}>
-          {text("이전 공지 보기", "Older notices")}
-        </Button>}
-        {data.noticePageCursor && <Button disabled={busy} onClick={() => void run(reload, false)}>
-          {text("최신 공지 보기", "Latest notices")}
-        </Button>}
       </Card>
       {data.isHost && live && (
         <Card>
@@ -896,49 +980,6 @@ function ServerMeetingDetail({
               {text("공지 등록", "Publish notice")}
             </Button>
           </details>
-          <Button
-            variant="danger"
-            disabled={busy}
-            onClick={() => setCancelling(true)}
-          >
-            {text("모임 전체 취소", "Cancel the meeting")}
-          </Button>
-          {cancelling && (
-            <div className="cp-notice">
-              <p>
-                {text(
-                  "참석자와 대기자 모두에게 취소 안내가 남습니다.",
-                  "A cancellation notice will be recorded for participants and the waitlist.",
-                )}
-              </p>
-              <Field
-                label={text("취소 사유", "Cancellation reason")}
-                htmlFor="cancel-reason"
-              >
-                <Textarea
-                  id="cancel-reason"
-                  maxLength={3000}
-                  value={cancelReason}
-                  onChange={(event) => setCancelReason(event.target.value)}
-                />
-              </Field>
-              <Button
-                variant="danger"
-                disabled={busy || !cancelReason.trim()}
-                onClick={() =>
-                  void run(async () => {
-                    await cancelClubMeeting(data.eventId, cancelReason);
-                    setCancelling(false);
-                  })
-                }
-              >
-                {text("전체 취소 확정", "Confirm cancellation")}
-              </Button>
-              <Button disabled={pending} onClick={() => setCancelling(false)}>
-                {text("돌아가기", "Go back")}
-              </Button>
-            </div>
-          )}
         </Card>
       )}
     </div>

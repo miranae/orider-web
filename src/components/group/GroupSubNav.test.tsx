@@ -51,7 +51,11 @@ describe("GroupSubNav", () => {
     expect(screen.getByRole("heading", {level:1})).toHaveTextContent(group.name);
     expect(screen.getByText(group.description!)).toBeInTheDocument();
     expect(screen.getByText("멤버 3명")).toBeInTheDocument();
-    expect(screen.getByRole("button", {name:"공유"})).toBeInTheDocument();
+    // 공유는 글자 없는 아이콘 버튼 — 이름은 aria-label·title 로만 준다
+    const share = screen.getByRole("button", {name:"공유"});
+    expect(share).toHaveClass("ds-btn--icon-only");
+    expect(share).toHaveAttribute("title", "공유");
+    expect(share).toHaveTextContent("");
   });
   it("keeps the embedded news and meetings navigation inside the same club session", () => {
     renderWithProviders(<Routes><Route path="/:lang/embed/clubs/:groupId/*" element={<GroupSubNav group={group} isCreator={false} compact />} /></Routes>, { route: "/ko/embed/clubs/group-1/news" });

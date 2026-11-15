@@ -355,6 +355,24 @@ describe("AthletePage", () => {
     expect(screen.queryByRole("button", { name: "친구 요청" })).not.toBeInTheDocument();
   });
 
+  it("shows the own-profile edit pencil link next to the nickname", async () => {
+    renderWithProviders(<AthletePage />, {
+      authenticated: true,
+      user: { uid: "athlete-1", displayName: "한강 라이더" },
+    });
+    const edit = await screen.findByRole("link", { name: "프로필 편집" });
+    expect(edit).toHaveAttribute("href", expect.stringMatching(/\/settings\/account$/));
+    // 아이콘 전용 링크 — 보이는 글자 없이 닉네임과 같은 줄에 놓인다.
+    expect(edit).toHaveTextContent("");
+    expect(edit.parentElement).toContainElement(screen.getByTestId("P0-0-1"));
+    // 공유도 연필 옆 아이콘 전용 버튼이다.
+    const share = screen.getByRole("button", { name: "공유" });
+    expect(share).toHaveClass("ds-btn--icon-only");
+    expect(share).toHaveAttribute("title", "공유");
+    expect(share).toHaveTextContent("");
+    expect(share.parentElement).toBe(edit.parentElement);
+  });
+
   it("does not show friend action for own profile", async () => {
     renderWithProviders(<AthletePage />, {
       authenticated: true,

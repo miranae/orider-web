@@ -7,7 +7,7 @@ import { DEFAULT_DATA_PAGE_CONFIG } from "@shared/types/deviceSettings";
 import { useSearchParams } from "react-router-dom";
 import type { DataPageConfig } from "@shared/types/deviceSettings";
 import { useTranslation } from "react-i18next";
-import { Bike as BikeIcon, Check, Pencil, Trash2, X } from "lucide-react";
+import { Bike as BikeIcon, Check, Pencil, Star, Trash2, X } from "lucide-react";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -35,7 +35,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { Resolvable } from "../redesign/states/Resolvable";
 import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { bodyInfoHref } from "../../services/focusTarget";
-import { Button, DropdownSelect, Text } from "../../theme/components";
+import { Button, DropdownSelect, IconButton, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 
@@ -352,9 +352,15 @@ function ProfileCard({
         {!editing && (
           <div className="settings-bike-actions" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1)" }}>
             {deviceControls && !isActive && (
-              <Button variant="secondary" size="md" onClick={handleSetActive} disabled={busy}>
-                {t("equipment.bikeSetActive")}
-              </Button>
+              <IconButton
+                variant="ghost"
+                icon={<Star size={ICON_SIZE.xs} />}
+                onClick={handleSetActive}
+                disabled={busy}
+                aria-pressed={false}
+                aria-label={t("equipment.bikeSetActive")}
+                title={t("equipment.bikeSetActive")}
+              />
             )}
             {deviceControls && <Button
               variant="secondary"

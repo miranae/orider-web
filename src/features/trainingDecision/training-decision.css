@@ -11,6 +11,8 @@
 :where(:root[data-type-scale="legacy"]) .training-decision-card .ds-alert { font-size: .8125rem; }
 .training-decision-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .training-decision-card__header > div { display: grid; gap: var(--space-1); }
+/* 폴백 카드의 새로 확인 아이콘은 좁은 화면에서도 제목 옆에 둔다(세로 쌓기·전체 폭 규칙 제외). */
+.training-decision-card.training-decision-card--fallback .training-decision-card__header { flex-direction: row; align-items: flex-start; }
 .training-decision-card__sessions { display: grid; gap: var(--space-2); }
 .training-decision-card__sessions--compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .training-decision-card__sessions--single { grid-template-columns: minmax(0, 1fr); }

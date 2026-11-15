@@ -38,6 +38,8 @@
 .fitness-coach__bundle p,
 .fitness-coach__delivery-status p,
 .fitness-coach__delivery-error p { margin: 0; }
+.fitness-coach__delivery-error-message { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.fitness-coach__delivery-error-action { justify-self: start; }
 .fitness-coach__recent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-2); }
 .fitness-coach__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 

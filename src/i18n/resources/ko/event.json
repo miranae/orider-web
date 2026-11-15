@@ -492,8 +492,6 @@
   "participantsView.noPermissionDesc": "호스트만 참가자 명단을 확인할 수 있어요.",
   "participantsView.eventDetailLink": "이벤트 상세",
   "participantsView.startSuffix": "{{time}} 출발",
-  "participantsView.csvSoon": "CSV 내보내기는 추후 지원됩니다.",
-  "participantsView.noticeSoon": "전체 공지는 호스트 대시보드에서 가능합니다.",
   "participantsView.comingSoon": "준비중",
   "participantsView.broadcastBtn": "전체 공지",
   "participantsView.paidSub": "결제완료 {{count}}",

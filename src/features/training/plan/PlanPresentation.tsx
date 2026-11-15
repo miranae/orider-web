@@ -22,6 +22,7 @@ import { EmptyState, ErrorState, Resolvable } from "../../../components/redesign
 import { Button, Card, Text } from "../../../theme/components";
 import { PlanAdjustmentNarrative } from "../../trainingHub/TrainingHubOpportunityPanel";
 import MobilePlanContent, { type MobilePlanContentProps } from "./MobilePlanContent";
+import PlanActionsMenu from "./PlanActionsMenu";
 import {
   buildDayNames,
   buildWorkoutMeta,
@@ -479,33 +480,14 @@ export function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAb
           </div>
         ))}
       </div>
-      {/* Action buttons inline with phase bar */}
+      {/* 목표·계획 관리 동작은 줄 전체 버튼 대신 ⋯ 하나로 접는다(2026-11-15 사용자 지적). */}
       {(onIcsExport || onReroll || onGoalReset || onAbandon) && (
-        <div className="plan-phase-actions">
-        {goal && onIcsExport && (
-          <Button variant="secondary" size="sm" data-testid="K4-3-2" onClick={onIcsExport}>
-            {t('buttons.ics')}
-          </Button>
-        )}
-        {onReroll && (
-          <Button variant="secondary" size="sm" leadingIcon={<RefreshCw size={ICON_SIZE.md} aria-hidden="true" />} data-testid="K4-3-3" onClick={() => { void onReroll(); }}>
-            {t('buttons.reroll')}
-          </Button>
-        )}
-        {onGoalReset && (
-          <Button variant="secondary" size="sm" leadingIcon={<Target size={ICON_SIZE.md} aria-hidden="true" />} data-testid="K4-3-4" onClick={onGoalReset}>
-            {t('buttons.goalReset')}
-          </Button>
-        )}
-        {onAbandon && (
-          <Button variant="secondary" size="sm"
-            style={{ color: 'var(--rose)' }}
-            data-testid="K4-3-5" onClick={() => { void onAbandon(); }}
-          >
-            {t('buttons.abandonGoal')}
-          </Button>
-        )}
-        </div>
+        <PlanActionsMenu testId="K4-3-6" label={t('mobile.managePlan')} items={[
+          ...(goal && onIcsExport ? [{ id: 'K4-3-2', label: t('buttons.ics'), onSelect: onIcsExport }] : []),
+          ...(onReroll ? [{ id: 'K4-3-3', label: t('buttons.reroll'), icon: <RefreshCw size={ICON_SIZE.sm} aria-hidden="true" />, onSelect: onReroll }] : []),
+          ...(onGoalReset ? [{ id: 'K4-3-4', label: t('buttons.goalReset'), icon: <Target size={ICON_SIZE.sm} aria-hidden="true" />, onSelect: onGoalReset }] : []),
+          ...(onAbandon ? [{ id: 'K4-3-5', label: t('buttons.abandonGoal'), danger: true, onSelect: onAbandon }] : []),
+        ]} />
       )}
     </Card>
   );

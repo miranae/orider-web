@@ -8,7 +8,9 @@ import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecisi
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
 import type { BikeThresholdDecisionV2, FtpDeviceReceipt, FtpMutationReceipt } from "@shared/types/threshold";
-import { Button, Chip, Section, Stat, Text } from "../../theme/components";
+import { Chip, IconButton, Section, Stat, Text } from "../../theme/components";
+import { ChevronUp, Info } from "lucide-react";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { Resolvable } from "../redesign";
 import { FOCUS_TARGETS, bodyInfoHref, thresholdSettingsHref } from "../../services/focusTarget";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
@@ -89,8 +91,15 @@ export default function BikePerformanceSummaryCard({ part = "all", compact = fal
   ];
   const displayedMetrics = metrics.filter(metric => metric.key !== "vo2max" || part !== "analysis" && (part !== "condition" || pdc?.vo2maxEst == null));
   const missingMetrics = displayedMetrics.filter(metric => metric.value == null);
+  const evidenceLabel = t(evidenceOpen ? "mobileFitness.performance.evidenceClose" : "mobileFitness.performance.evidenceOpen");
   return (
-    <Section className="mobile-fitness-performance" title={<GlossaryText>{t("mobileFitness.performance.title")}</GlossaryText>} aria-label={t("mobileFitness.performance.ariaLabel")}>
+    <Section className="mobile-fitness-performance" title={<GlossaryText>{t("mobileFitness.performance.title")}</GlossaryText>} aria-label={t("mobileFitness.performance.ariaLabel")}
+      actions={part !== "condition" ? (
+        // 산출 근거는 제목 옆 아이콘으로 펼친다 — 카드 아래 전체 폭 버튼을 두지 않는다.
+        <IconButton size="sm" icon={evidenceOpen ? <ChevronUp size={ICON_SIZE.sm} /> : <Info size={ICON_SIZE.sm} />}
+          aria-label={evidenceLabel} title={evidenceLabel} aria-expanded={evidenceOpen} aria-controls={evidenceId}
+          onClick={() => setEvidenceOpen((open) => !open)} />
+      ) : undefined}>
       {part !== "analysis" && <>
       <Text as="div" variant="eyebrow" tone="secondary" style={{ marginTop: "var(--space-3)" }}><GlossaryText>{t("fitness:thresholdDecision.activeLabel")}</GlossaryText></Text>
       <div className="mobile-fitness-performance__ftp">
@@ -149,9 +158,6 @@ export default function BikePerformanceSummaryCard({ part = "all", compact = fal
       />
 
       </>}
-      {part !== "condition" && <Button variant="secondary" size="sm" aria-expanded={evidenceOpen} aria-controls={evidenceId} onClick={() => setEvidenceOpen((open) => !open)} style={{ width: "100%", marginTop: "var(--space-4)" }}>
-        {t(evidenceOpen ? "mobileFitness.performance.evidenceClose" : "mobileFitness.performance.evidenceOpen")}
-      </Button>}
       <div id={evidenceId} hidden={part !== "condition" && !evidenceOpen} style={{ marginTop: "var(--space-3)", display: evidenceOpen || part === "condition" ? "grid" : undefined, gap: "var(--space-2)" }}>
         {evidenceRows.length > 0
           ? evidenceRows.map((row) => <EvidenceRow key={row.label} label={row.label} value={row.value} />)

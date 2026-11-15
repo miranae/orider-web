@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KeyRound, Copy, Trash2 } from "lucide-react";
+import { KeyRound, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button, Chip, Text, Input } from "../../theme/components";
+import { Button, Chip, IconButton, Text, Input } from "../../theme/components";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { logClientError } from "../../services/errorLogger";
@@ -196,7 +196,7 @@ export function PaneDeveloper() {
         </SettingsCard>
       )}
 
-      <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardKeys")} action={<Button size="md" variant="secondary" onClick={() => void loadKeys()}>{t("pane.developer.refresh")}</Button>}>
+      <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardKeys")} action={<IconButton variant="ghost" icon={<RefreshCw size={ICON_SIZE.xs} />} onClick={() => void loadKeys()} aria-label={t("pane.developer.refresh")} title={t("pane.developer.refresh")} />}>
         {loading ? (
           <Text variant="bodySmall" style={{ color: "var(--ink-2)" }}>{t("pane.developer.loading")}</Text>
         ) : loadFailed && keys.length === 0 ? (
@@ -214,10 +214,14 @@ export function PaneDeveloper() {
                       {key.prefix} · {t("pane.developer.createdAt")}: {formatDate(key.createdAt)} · {t("pane.developer.lastUsedAt")}: {formatDate(key.lastUsedAt)}
                     </div>
                   </div>
-                  <Button size="md" variant="ghost" loading={revokingId === key.id} onClick={() => void handleRevoke(key)}>
-                    <Trash2 size={ICON_SIZE.sm} />
-                    {t("pane.developer.revoke")}
-                  </Button>
+                  <IconButton
+                    variant="ghost"
+                    icon={<Trash2 size={ICON_SIZE.xs} />}
+                    loading={revokingId === key.id}
+                    onClick={() => void handleRevoke(key)}
+                    aria-label={t("pane.developer.revoke")}
+                    title={t("pane.developer.revoke")}
+                  />
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {key.scopes.map((scope) => <Chip key={scope}>{scope}</Chip>)}
@@ -232,14 +236,20 @@ export function PaneDeveloper() {
         <Text as="p" variant="bodySmall" style={{ color: "var(--ink-2)" }}>
           {t("pane.developer.exampleHint")}
         </Text>
-        <div className="mt-3 flex gap-2">
-          <code className="min-w-0 flex-1 rounded-[var(--r-md)] px-3 py-2 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-2)", color: "var(--ink-0)", overflowWrap: "anywhere" }}>
+        {/* 복사는 코드 블록 오른쪽 위 모서리에 겹친 작은 아이콘 */}
+        <div className="settings-dev-example mt-3">
+          <code className="settings-dev-example__code rounded-[var(--r-md)] text-[length:var(--fs-xs)]" style={{ background: "var(--bg-2)", color: "var(--ink-0)", overflowWrap: "anywhere" }}>
             {curlExample}
           </code>
-          <Button size="md" variant="secondary" onClick={() => void copyText(curlExample)}>
-            <Copy size={ICON_SIZE.sm} />
-            {t("pane.developer.copy")}
-          </Button>
+          <IconButton
+            variant="ghost"
+            size="compact"
+            className="settings-dev-example__copy"
+            icon={<Copy size={ICON_SIZE.xs} />}
+            onClick={() => void copyText(curlExample)}
+            aria-label={t("pane.developer.copy")}
+            title={t("pane.developer.copy")}
+          />
         </div>
       </SettingsCard>
       <SettingsCard data-testid="S5-2-1" title={t("pane.developer.docsTitle")}>

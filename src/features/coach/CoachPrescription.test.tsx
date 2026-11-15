@@ -295,7 +295,13 @@ describe("CoachPrescription", () => {
     const user = userEvent.setup(); await user.click(await screen.findByRole("button", { name: "변경안 미리보기" }));
     expect(await screen.findByText("현재 적용 기능이 꺼져 있어 계획은 변경되지 않습니다.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "적용 검토" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "현재 상태 새로고침" }));
+    // 현재 상태 새로고침은 "계획 변경 검토" 제목 옆 아이콘 전용 버튼이고, 동작 줄에는 없다.
+    const refresh = screen.getByRole("button", { name: "현재 상태 새로고침" });
+    expect(refresh).toHaveClass("ds-btn--icon-only"); expect(refresh).toHaveAttribute("title", "현재 상태 새로고침");
+    expect(refresh).toHaveTextContent("");
+    expect(refresh.parentElement).toContainElement(screen.getByRole("heading", { name: "계획 변경 검토" }));
+    expect(screen.getByRole("button", { name: "적용 검토" }).parentElement).not.toContainElement(refresh);
+    await user.click(refresh);
     expect(recoverProposal).toHaveBeenLastCalledWith(ready.prescriptionId, "018f47a2-3c4d-7abc-8def-000000000201");
     expect(getProposal).not.toHaveBeenCalled(); expect(confirmProposal).not.toHaveBeenCalled();
   });

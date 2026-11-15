@@ -68,3 +68,17 @@ it("keeps stopped elapsed/source bounds unchanged in imperial settings and selec
   expect(screen.getByText(/이번에 확인한 관측 입력에서 이 거리의 기록이 없습니다/)).toBeInTheDocument();
   expect(mocks.inspect).not.toHaveBeenCalled();
 });
+// 첫 확인은 작은 글자 버튼, 이후 다시 확인은 제목 줄의 아이콘 버튼이다.
+it("keeps the first inspect compact and turns re-check into a heading icon button", () => {
+  const view = renderWithProviders(<ActivityRunDistanceEvidencePanel activity={activity} metrics={null} />);
+  const first = screen.getByRole("button", { name: "거리 원본 확인" });
+  expect(first).toHaveClass("ds-btn--sm", "manual-run-evidence-start"); expect(first).not.toHaveClass("ds-btn--block", "ds-btn--icon-only");
+  expect(screen.queryByRole("button", { name: "거리 원본 다시 확인" })).not.toBeInTheDocument();
+  mocks.state = "available"; mocks.response = manualDistanceFixture();
+  view.rerender(<ActivityRunDistanceEvidencePanel activity={activity} metrics={null} />);
+  const refresh = screen.getByRole("button", { name: "거리 원본 다시 확인" });
+  expect(refresh).toHaveClass("ds-btn--icon-only"); expect(refresh).toHaveAttribute("title", "거리 원본 다시 확인"); expect(refresh).toHaveTextContent("");
+  expect(refresh.parentElement).toContainElement(screen.getByRole("heading", { name: "이 활동의 거리 관측 근거" }));
+  expect(screen.queryByRole("button", { name: "거리 원본 확인" })).not.toBeInTheDocument();
+  fireEvent.click(refresh); expect(mocks.inspect).toHaveBeenCalledOnce();
+});

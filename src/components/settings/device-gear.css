@@ -25,8 +25,11 @@
 }
 .settings-device-header__icon { grid-area: icon; }
 .settings-device-header__selector { grid-area: selector; }
+/* 기기 이름(또는 기기 선택) 옆에 이름 변경 아이콘을 붙인다 */
+.settings-device-header__name { display: flex; align-items: flex-end; gap: var(--space-1); min-width: 0; }
+.settings-device-header__name > :first-child { flex: 1 1 auto; min-width: 0; }
 .settings-device-header__meta { grid-area: meta; min-width: 0; }
-.settings-device-header__actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.settings-device-header__actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
 
 /* Keep native keyboard range behavior while matching the settings control tokens. */
 .settings-sound-volume {

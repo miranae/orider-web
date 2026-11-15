@@ -125,7 +125,13 @@ describe("canonical elapsed range reading", () => {
     const fresh = { ...next, rawSource: { time: [0, 1, 2] } } as ActivityRangeSelectionModel;
     rerender(<Panel activityId="a" selection={fresh} sport="bike" callableEnabled />);
     expect(mocks.hook.mock.lastCall?.[0].selection).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "활동 원본 새로고침" }));
+    // 원본 새로고침은 상태 문구와 같은 줄의 아이콘 전용 버튼이다.
+    const reload = screen.getByRole("button", { name: "활동 원본 새로고침" });
+    expect(reload).toHaveClass("ds-btn--icon-only");
+    expect(reload).toHaveAttribute("title", "활동 원본 새로고침");
+    expect(reload).toHaveTextContent("");
+    expect(reload.parentElement?.textContent).toMatch(/입력이 변경/);
+    fireEvent.click(reload);
     expect(selection.reloadSource).toHaveBeenCalled();
     mocks.hook.mockImplementation(options => options.selection ? { ...unavailable, state: "available", metrics, response: { inputRevision: revision, state: "available" } } : unavailable);
     rerender(<Panel activityId="a" selection={{ ...fresh, sourceLocked: false, rawSource: { time: [0, 1, 2, 3] } }} sport="bike" callableEnabled />);

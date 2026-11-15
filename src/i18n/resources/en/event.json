@@ -492,8 +492,6 @@
   "participantsView.noPermissionDesc": "Only the host can view the participant list.",
   "participantsView.eventDetailLink": "Event details",
   "participantsView.startSuffix": "{{time}} start",
-  "participantsView.csvSoon": "CSV export is coming soon.",
-  "participantsView.noticeSoon": "Broadcast notices are available in the host dashboard.",
   "participantsView.comingSoon": "Coming soon",
   "participantsView.broadcastBtn": "Broadcast",
   "participantsView.paidSub": "Paid {{count}}",
