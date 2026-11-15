@@ -39,6 +39,24 @@ describe("club event registration actions", () => {
     expect(upcoming()).toEqual(["대회 CANCELLED","취소한 모임","대회 FINISHED","끝난 모임","지난 모집 모임","대회 STALE"]);
     expect(screen.queryByRole("link",{name:"모집 모임"})).not.toBeInTheDocument();
   });
+  it("shows stale OPEN races and meetings as auto-ended without join, edit or watch actions",async()=>{
+    const day=86400000;
+    vi.mocked(listClubMeetings).mockResolvedValue({meetings:[{eventId:"지난 모집 모임",isHost:true,rideStatus:"OPEN",meeting:{title:"지난 모집 모임",...kst(-3*day),place:"집결지",status:"open",capacity:10},participantCount:2,waitingCount:0} as ClubMeetingListItem],nextCursor:null});
+    setCollectionDocs("events",[{id:"stale",info:{name:"지난 모집 대회",groupId:"club",status:"OPEN",creatorId:"test-uid",startTime:Date.now()-4*day}}]);
+    showPage();
+    fireEvent.click(await screen.findByRole("button",{name:"지난 이벤트",exact:true}));
+    const race=(await screen.findByRole("link",{name:"지난 모집 대회"})).closest("[data-testid]") as HTMLElement;
+    const meetingCard=screen.getByRole("link",{name:"지난 모집 모임"}).parentElement as HTMLElement;
+    expect(race).toHaveAttribute("data-testid","C3-2-1");
+    expect(race).toHaveTextContent("자동 종료");
+    expect(race).not.toHaveTextContent("모집 중");
+    expect(meetingCard).toHaveTextContent("모임 · 자동 종료");
+    expect(screen.queryByTestId("C3-1-2")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("club-event-edit")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("club-meeting-edit")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link",{name:"가상주행 관전"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("link",{name:/결과/})).not.toBeInTheDocument();
+  });
   it("keeps a long OPEN race that started over 3 hours ago but has not ended in the upcoming tab",async()=>{
     const hour=3600000;
     setCollectionDocs("events",[

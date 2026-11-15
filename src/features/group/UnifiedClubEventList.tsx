@@ -3,7 +3,7 @@ import type { ClubMeetingListItem } from "../../services/clubMeetings";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Card, Stack, buttonClass } from "../../theme/components";
-import { clubEventWindow, compareClubEvents, type ClubEventWindow } from "./clubEventWindow";
+import { clubEventDisplayStatus, clubEventWindow, compareClubEvents, type ClubEventWindow } from "./clubEventWindow";
 export interface ClubEvent {
   id: string; name: string; status: string; startTime: number;
   /** 종료 시각(있으면) — 시작 후 3시간이 지나도 종료 전 OPEN 은 예정이다(서버 timeWindow 와 같은 규칙). */
@@ -29,7 +29,10 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
     ...meetings.map(item => ({kind:"meeting" as const, id:item.eventId, status:meetingEventStatus(item), at:meetingStartMs(item), end:null, item})),
     ...events.map(event => ({kind:"event" as const, id:event.id, status:event.status, at:event.startTime, end:event.endTime, event})),
   ].filter(row => clubEventWindow(row.status, row.at, nowMs, row.end) === timeWindow)
-    .sort((a,b) => compareClubEvents(timeWindow, a, b));
+    .sort((a,b) => compareClubEvents(timeWindow, a, b))
+    // 시작이 지났는데 OPEN 으로 남은 것은 '자동 종료' — 정렬·구간은 저장 상태로, 보이는 상태와 동작은 이것으로.
+    .map(row => ({...row, shown: clubEventDisplayStatus(row.status, row.at, nowMs, row.end)}));
+  const statusLabel = (status: string) => t(status === "AUTO_FINISHED" ? "event:status.autoFinished" : `event:status.${status.toLowerCase()}`);
   return <section aria-label={t("events.listLabel")} data-testid={timeWindow === "past" ? "C3-2" : "C3-1"} >
     <Stack gap="var(--dim-section-gap)">
     {loading ? <LoadingSkeleton kind="list" count={3} /> : <>
@@ -45,10 +48,10 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
               <Link to={`/club/${groupId}/meetings/${item.eventId}`}>
                 <strong>{item.meeting.title}</strong>
               </Link>
-              <p>{t("events.kind.meeting")} · {t(`event:status.${meetingEventStatus(item).toLowerCase()}`)}</p>
+              <p>{t("events.kind.meeting")} · {statusLabel(row.shown)}</p>
               {meetingEventStatus(item) === "LIVE" && <strong role="status">{i18n.language.startsWith("en") ? "Riding now" : "지금 주행 중"}</strong>}
               {/* 동작은 버튼 모양으로 한 줄에 띄워 둔다 — 글자 링크를 붙여 두면 "모임 수정가상주행 관전" 처럼 읽혀 버튼을 못 찾는다. */}
-              {!["CANCELLED", "FINISHED"].includes(meetingEventStatus(item)) && <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}>
+              {!["CANCELLED", "FINISHED", "AUTO_FINISHED"].includes(row.shown) && <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}>
                 {item.isHost && <Link data-testid="club-meeting-edit" className={buttonClass({ variant: "primary", size: "sm" })} to={`/club/${groupId}/meetings/${item.eventId}/edit`}>{i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정"}</Link>}
                 <Link className={buttonClass({ variant: "secondary", size: "sm" })} to={`/club/${groupId}/meetings/${item.eventId}/live`}>{i18n.language.startsWith("en") ? "Watch virtual ride" : "가상주행 관전"}</Link>
               </div>}
@@ -64,7 +67,7 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
         const event = row.event;
         return (
             <Card
-              data-testid={event.status === "FINISHED" ? "C3-2-1" : "C3-1-1"}
+              data-testid={row.shown === "FINISHED" || row.shown === "AUTO_FINISHED" ? "C3-2-1" : "C3-1-1"}
               key={`event:${event.id}`}
             >
               <p>{t("events.kind.race")}</p>
@@ -73,13 +76,13 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
                 {event.startTime
                   ? new Date(event.startTime).toLocaleString(i18n.language)
                   : "–"}{" "}
-                · {t(`event:status.${event.status.toLowerCase()}`)}
+                · {statusLabel(row.shown)}
                 {event.registered !== null
                   ? ` · ${t("dashboard.eventParticipants", { count: event.registered })}`
                   : ""}
               </p>
               <div className="flex flex-wrap items-center" style={{ gap: "var(--space-2)" }}>
-                {event.status === "OPEN" && (
+                {row.shown === "OPEN" && (
                   <Link
                     data-testid="C3-1-2"
                     to={
@@ -97,7 +100,7 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
                     )}
                   </Link>
                 )}
-                {event.isHost && event.status === "OPEN" && (
+                {event.isHost && row.shown === "OPEN" && (
                   <Link data-testid="club-event-edit" className={buttonClass({ variant: "primary", size: "sm" })} to={`/event/${event.id}/host/edit`}>
                     {t("event:action.editEvent")}
                   </Link>

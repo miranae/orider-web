@@ -28,6 +28,7 @@
   "status.open": "모집 중",
   "status.live": "진행 중",
   "status.finished": "종료",
+  "status.autoFinished": "자동 종료",
   "status.pastDate": "일정 지남",
   "status.registered": "참가 신청 완료",
   "status.ongoing": "진행 중",
