@@ -214,4 +214,29 @@ describe("useBikeProfileLayout 충돌 해소", () => {
     await act(async () => { finishHead(); await pending; });
     expect(result.current.revision).toBe(3);
   });
+
+  it("해소 중 다른 자전거로 갔다가 돌아와도 늦게 끝난 해소가 최신 화면을 덮지 않는다(A→B→A)", async () => {
+    let finishHead: () => void = () => {};
+    mocks.putHead.mockReset().mockImplementation(() => new Promise<void>(resolve => { finishHead = resolve; }));
+    const { result, rerender } = renderHook(({ id }) => useBikeProfileLayout("uid-a", id, [page]), { initialProps: { id: "road" } });
+    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 5)));
+    await waitFor(() => expect(result.current.revision).toBe(5));
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.resolveConflict({ remoteRevision: 7, remotePayload }); });
+    rerender({ id: "gravel" });
+    rerender({ id: "road" });
+    act(() => mocks.subscriptions[mocks.subscriptions.length - 1]!.next(remoteSnap("road", 9)));
+    await waitFor(() => expect(result.current.revision).toBe(9));
+    await act(async () => { finishHead(); await pending; });
+    expect(result.current.revision).toBe(9);
+  });
+
+  it("충돌 응답 뒤 더 새 revision 을 이미 받았으면 그 구성으로 맞추고 낡은 revision 을 쓰지 않는다", async () => {
+    const { result } = renderHook(() => useBikeProfileLayout("uid-a", "road", [page]));
+    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 8)));
+    await waitFor(() => expect(result.current.revision).toBe(8));
+    await act(async () => { await result.current.resolveConflict({ remoteRevision: 7, remotePayload }); });
+    expect(mocks.putHead).toHaveBeenCalledWith(expect.objectContaining({ profileId: "road", revision: 8 }));
+    expect(result.current.revision).toBe(8);
+  });
 });

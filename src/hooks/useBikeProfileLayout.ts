@@ -85,6 +85,8 @@ export function useBikeProfileLayout(
   const currentTarget = useRef(targetKey);
   currentTarget.current = targetKey;
   const resolveGeneration = useRef(0);
+  // 이 대상에서 구독으로 본 가장 최근 원격 구성 — 충돌 응답 뒤 더 새 revision 이 왔으면 그걸로 맞춘다.
+  const latestRemote = useRef<{ revision: number; payload: string } | null>(null);
 
   useEffect(() => {
     if (!uid || !profileId || !ownerKey) {
@@ -92,6 +94,9 @@ export function useBikeProfileLayout(
       return;
     }
     let cancelled = false;
+    // 대상이 바뀌면(A→B→A 포함) 진행 중이던 충돌 해소 결과는 이 화면에 반영하지 않는다.
+    resolveGeneration.current += 1;
+    latestRemote.current = null;
 
     const apply = (raw: string | null, nextRevision: number) => {
       if (cancelled) return;
@@ -118,6 +123,7 @@ export function useBikeProfileLayout(
           const data = snap.data();
           const remoteRevision = (data?.revision as number | undefined) ?? 0;
           const remotePayload = (data?.payload as string | undefined) ?? null;
+          if (!cancelled && remotePayload) latestRemote.current = { revision: remoteRevision, payload: remotePayload };
           if (local && local.revision >= remoteRevision) {
             apply(local.canonicalPayload, local.revision);
             return;
@@ -177,7 +183,10 @@ export function useBikeProfileLayout(
       if (!ownerKey || !profileId) {
         return { status: "localSaveFailed", cause: new Error("로그인 필요") };
       }
-      const remote = parseCanonicalLayout(conflict.remotePayload, "CYCLING");
+      // 충돌 응답보다 구독으로 더 새 revision 을 이미 받았으면 그 구성으로 맞춘다(낡은 구성으로 되돌리지 않게).
+      const seen = latestRemote.current;
+      const target = seen && seen.revision > conflict.remoteRevision ? { remoteRevision: seen.revision, remotePayload: seen.payload } : conflict;
+      const remote = parseCanonicalLayout(target.remotePayload, "CYCLING");
       if (!remote.ok || remote.layout.profileId !== profileId) {
         return { status: "invalidPayload", reasons: ["conflict remotePayload 를 읽지 못함"] };
       }
@@ -194,17 +203,17 @@ export function useBikeProfileLayout(
             key: headKey(ownerKey, profileId),
             ownerKey,
             profileId,
-            revision: conflict.remoteRevision,
-            canonicalPayload: conflict.remotePayload,
-            payloadHash: await payloadHash(conflict.remotePayload),
+            revision: target.remoteRevision,
+            canonicalPayload: target.remotePayload,
+            payloadHash: await payloadHash(target.remotePayload),
             updatedAtMs: Date.now(),
-            lastMutationId: `conflict-resolved:${conflict.remoteRevision}`,
+            lastMutationId: `conflict-resolved:${target.remoteRevision}`,
           });
           deps.log("info", "충돌 해소 — 미전송 intent 정리, head 를 원격으로", {
             ownerKey,
             profileId,
             removed: intents.length,
-            remoteRevision: conflict.remoteRevision,
+            remoteRevision: target.remoteRevision,
           });
         });
       } catch (cause) {
@@ -217,16 +226,17 @@ export function useBikeProfileLayout(
       }
       if (currentTarget.current !== requestTarget || resolveGeneration.current !== generation) {
         deps.log("info", "충돌 해소 완료 — 대상이 바뀌어 화면 반영은 건너뜀", { ownerKey, profileId });
-        return { status: "synced", revision: conflict.remoteRevision };
+        return { status: "synced", revision: target.remoteRevision };
       }
-      setState({
+      // 해소 중 구독으로 더 새 revision 이 들어왔으면 그대로 둔다.
+      setState((prev) => prev.profileId === profileId && prev.revision > target.remoteRevision ? prev : {
         profileId,
         record: remote.layout,
-        revision: conflict.remoteRevision,
+        revision: target.remoteRevision,
         source: "canonical",
         loading: false,
       });
-      return { status: "synced", revision: conflict.remoteRevision };
+      return { status: "synced", revision: target.remoteRevision };
     },
     [ownerKey, profileId],
   );
