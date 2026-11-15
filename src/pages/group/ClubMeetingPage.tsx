@@ -1,7 +1,7 @@
 import MeetingInviteShare from "../../features/club-preparation/MeetingInviteShare";
 import MeetingDiscord from "../../features/club-preparation/MeetingDiscord";
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, MapPin, Pencil, RefreshCw, Users } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Pencil, RefreshCw, Users } from "lucide-react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -817,7 +817,32 @@ function ServerMeetingDetail({
         )}
       </Card>
       <Card id="meeting-notices">
-        <h2>{text("공지와 변경", "Notices and changes")}</h2>
+        {/* 이전·최신 공지 이동은 카드 제목 옆 작은 화살표 아이콘으로 둔다. */}
+        <div className="cp-heading-with-edit">
+          <h2>{text("공지와 변경", "Notices and changes")}</h2>
+          {data.noticeNextCursor && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              aria-label={text("이전 공지 보기", "Older notices")}
+              title={text("이전 공지 보기", "Older notices")}
+              icon={<ChevronLeft size={ICON_SIZE.sm} />}
+              disabled={busy}
+              onClick={() => void run(loadOlderNotices, false)}
+            />
+          )}
+          {data.noticePageCursor && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              aria-label={text("최신 공지 보기", "Latest notices")}
+              title={text("최신 공지 보기", "Latest notices")}
+              icon={<ChevronRight size={ICON_SIZE.sm} />}
+              disabled={busy}
+              onClick={() => void run(reload, false)}
+            />
+          )}
+        </div>
         {(data.noticeNextCursor || data.noticePageCursor) && <p className="cp-muted">
           {text("공지와 미확인 명단은 현재 표시된 공지 기준입니다.", "Notices and follow-ups reflect the notices on this page.")}
         </p>}
@@ -873,12 +898,6 @@ function ServerMeetingDetail({
             )}
           </article>
         ))}
-        {data.noticeNextCursor && <Button disabled={busy} onClick={() => void run(loadOlderNotices, false)}>
-          {text("이전 공지 보기", "Older notices")}
-        </Button>}
-        {data.noticePageCursor && <Button disabled={busy} onClick={() => void run(reload, false)}>
-          {text("최신 공지 보기", "Latest notices")}
-        </Button>}
       </Card>
       {data.isHost && live && (
         <Card>

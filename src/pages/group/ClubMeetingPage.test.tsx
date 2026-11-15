@@ -111,7 +111,15 @@ describe("실제 인증 회원의 클럽 모임 동선", () => {
     control.data = {eventId: "event", groupId: "club", revision: 1, isHost: true,
       noticeNextCursor: "n480", noticePageCursor: "n500", meeting: newClubMeeting(), members: []};
     show("detail");
-    fireEvent.click(await screen.findByRole("button", {name: "이전 공지 보기"}));
+    const older = await screen.findByRole("button", {name: "이전 공지 보기"});
+    // 이전·최신 공지 이동은 공지 카드 제목 옆 아이콘 전용 버튼이다.
+    for (const button of [older, screen.getByRole("button", {name: "최신 공지 보기"})]) {
+      expect(button.className).toContain("ds-btn--icon-only");
+      expect(button.textContent).toBe("");
+      expect(button).toHaveAttribute("title", button.getAttribute("aria-label"));
+      expect(button.closest(".cp-heading-with-edit")?.querySelector("h2")?.textContent).toBe("공지와 변경");
+    }
+    fireEvent.click(older);
     await waitFor(() => expect(control.loadOlderNotices).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByRole("button", {name: "최신 공지 보기"})).not.toBeDisabled());
     expect(control.reload).not.toHaveBeenCalled();

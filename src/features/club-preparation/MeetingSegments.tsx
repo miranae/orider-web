@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { mt } from "./meetingText";
 import { useEffect, useRef, useState } from "react";
 import { Button, Chip, IconButton } from "../../theme/components";
-import { Pencil } from "lucide-react";
+import { Pencil, RefreshCw } from "lucide-react";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import {
@@ -348,9 +348,26 @@ function MeetingSegmentPickerContent({ selected, onChange, onBusyChange }: Meeti
       {selected.map((s, index) => (
         <article className="cp-segment-card" key={s.id}>
           <div className="cp-section-heading">
-            <strong>
-              {index + 1}. {s.name}
-            </strong>
+            {/* 공개 구간 정보 다시 가져오기는 구간 이름 옆 새로고침 아이콘으로 두고, 가져오는 동안 스피너를 보여준다. */}
+            <div className="cp-heading-with-edit">
+              <strong>
+                {index + 1}. {s.name}
+              </strong>
+              {s.source === "public-catalog" && (
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  aria-label={mt("구간 정보 다시 가져오기")}
+                  title={mt("구간 정보 다시 가져오기")}
+                  icon={<RefreshCw size={ICON_SIZE.sm} />}
+                  loading={selecting === s.id}
+                  disabled={Boolean(selecting)}
+                  onClick={() => {
+                    void refresh(s);
+                  }}
+                />
+              )}
+            </div>
             <div className="cp-actions">
               <Button
                 size="sm"
@@ -381,20 +398,6 @@ function MeetingSegmentPickerContent({ selected, onChange, onBusyChange }: Meeti
             </div>
           </div>
           <SegmentMetrics segment={s} />
-          {s.source === "public-catalog" && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={Boolean(selecting)}
-              onClick={() => {
-                void refresh(s);
-              }}
-            >
-              {selecting === s.id
-                ? mt("정보 가져오는 중")
-                : mt("구간 정보 다시 가져오기")}
-            </Button>
-          )}
           <Field label={mt("구간 진행 방식")} htmlFor={`segment-mode-${s.id}`}>
             <Select
               id={`segment-mode-${s.id}`}
