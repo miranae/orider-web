@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { KeyRound, Copy, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button, Chip, Text, Input } from "../../theme/components";
@@ -14,6 +14,7 @@ import {
   type PersonalApiScope,
 } from "../../services/personalDataApi";
 import { LocalizedLink } from "../LocalizedLink";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { Field, SettingsCard, fieldInputStyle } from "./_primitives";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -40,6 +41,9 @@ export function PaneDeveloper() {
   const [name, setName] = useState(() => t("pane.developer.defaultName"));
   const [scopes, setScopes] = useState<PersonalApiScope[]>(["profile:read", "activities:read", "fitness:read"]);
   const [loading, setLoading] = useState(true);
+  // 목록을 못 불러왔으면 「키 없음」 대신 실패 문구를 보이고, 그 문구를 누르면 다시 불러온다.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const loadGeneration = useRef(0);
   const [creating, setCreating] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
@@ -49,13 +53,21 @@ export function PaneDeveloper() {
   }, [createdKey?.key]);
 
   async function loadKeys() {
+    // 늦게 도착한 앞선 조회 결과는 버린다 — 최신 조회만 화면에 반영한다(실패 기록은 남긴다).
+    const generation = ++loadGeneration.current;
     setLoading(true);
     try {
-      setKeys(await listPersonalApiKeys());
+      const next = await listPersonalApiKeys();
+      if (generation !== loadGeneration.current) return;
+      setKeys(next);
+      setLoadFailed(false);
     } catch (err) {
+      logClientError("PaneDeveloper.listKeys", err, { generation });
+      if (generation !== loadGeneration.current) return;
+      setLoadFailed(true);
       showToast(`${t("pane.developer.loadFailed")}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      setLoading(false);
+      if (generation === loadGeneration.current) setLoading(false);
     }
   }
 
@@ -187,6 +199,8 @@ export function PaneDeveloper() {
       <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardKeys")} action={<Button size="md" variant="secondary" onClick={() => void loadKeys()}>{t("pane.developer.refresh")}</Button>}>
         {loading ? (
           <Text variant="bodySmall" style={{ color: "var(--ink-2)" }}>{t("pane.developer.loading")}</Text>
+        ) : loadFailed && keys.length === 0 ? (
+          <Text variant="bodySmall" role="alert" style={{ color: "var(--rose)" }}><Resolvable resolve={{ onClick: () => void loadKeys() }}>{t("pane.developer.loadFailed")}</Resolvable></Text>
         ) : keys.length === 0 ? (
           <Text variant="bodySmall" style={{ color: "var(--ink-2)" }}>{t("pane.developer.empty")}</Text>
         ) : (

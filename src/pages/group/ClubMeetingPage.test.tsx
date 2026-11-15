@@ -52,7 +52,8 @@ vi.mock("../../features/club-preparation/MeetingForm", () => ({
   },
 }));
 vi.mock("../../features/club-preparation/CoursePreview", () => ({
-  default: () => null,
+  default: (props: { onPrepareCourse?: () => void }) =>
+    props.onPrepareCourse ? <button onClick={props.onPrepareCourse}>주행 경로를 준비해주세요</button> : null,
   CourseSummary: () => null,
 }));
 vi.mock("../../components/group/GroupSubNav", () => ({ default: () => null }));
@@ -209,6 +210,24 @@ describe("클럽 모임 마무리와 개인 결과", () => {
     const notice = await screen.findByText("이 모임의 주최자만 수정할 수 있어요.");
     expect(notice.closest("a")).toHaveAttribute("href", "/ko/club/club/meetings/event");
     expect(screen.queryByRole("link", { name: "모임 보기" })).not.toBeInTheDocument();
+  });
+  it("주최자가 「주행 경로를 준비해주세요」를 누르면 수정 화면의 코스 준비 칸으로 간다", async () => {
+    fixture(true);
+    renderWithProviders(
+      <Routes>
+        <Route path="/:lang/club/:groupId/meetings/:meetingId" element={<ClubMeetingPage mode="detail" />} />
+        <Route path="/:lang/club/:groupId/meetings/:meetingId/edit" element={<ClubMeetingPage mode="edit" />} />
+      </Routes>,
+      { route: "/ko/club/club/meetings/event", authenticated: true },
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "주행 경로를 준비해주세요" }));
+    await waitFor(() => expect((control.form as { focusCoursePreparation?: boolean } | null)?.focusCoursePreparation).toBe(true));
+  });
+  it("참가자에게는 코스 준비로 가는 경로를 주지 않는다", async () => {
+    fixture(false);
+    show("detail");
+    await screen.findByRole("button", { name: "참석 취소" });
+    expect(screen.queryByRole("button", { name: "주행 경로를 준비해주세요" })).not.toBeInTheDocument();
   });
   it("주최자의 확인 뒤만 최신 revision으로 마무리하며 중복 클릭을 막는다", async () => {
     fixture(true);let release!:()=>void;

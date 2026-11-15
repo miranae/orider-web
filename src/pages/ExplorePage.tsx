@@ -22,7 +22,7 @@ import { isImplausibleSegmentElevation } from "../utils/activitySanity";
 import { fetchStaticJson } from "../utils/staticJson";
 import { segmentTileUrl } from "../utils/segmentTiles";
 import { formatSegmentRegion } from "../utils/regionName";
-import { ErrorState } from "../components/redesign";
+import { ErrorState, Resolvable } from "../components/redesign";
 import { Button, Card, Chip, Text, buttonClass, Input } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 import { useAuth } from "../contexts/AuthContext";
@@ -799,7 +799,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
                   {personalHeatmap.loading
                     ? t("heat.mineLoading")
                     : personalHeatmap.error
-                      ? t("heat.mineError")
+                      ? <Resolvable resolve={{ onClick: personalHeatmap.retry }}>{t("heat.mineError")}</Resolvable>
                       : t("heat.mineSummary", { count: personalHeatmap.points.length })}
                   <div className="text-[var(--ink-2)]">{t("heat.minePrivacy")}</div>
                 </div>
@@ -819,7 +819,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
                   {explorationGrid.loading
                     ? t("exploration.loading")
                     : explorationGrid.error
-                      ? t("exploration.error")
+                      ? <Resolvable resolve={{ onClick: explorationGrid.retry }}>{t("exploration.error")}</Resolvable>
                       : (
                         <>
                           <div><InfoTip title={t("exploration.tileTitle")} content={t("exploration.tileExplanation")} label={t("exploration.tileCount", { count: explorationGrid.result.tileCount })}>{t("exploration.tileCount", { count: explorationGrid.result.tileCount })}</InfoTip></div>

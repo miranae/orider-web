@@ -133,3 +133,17 @@ it("distinguishes a read limit from email quota when sending an already-previewe
   expect(alert).not.toHaveTextContent("email limit");
   expect(screen.getByRole("button", { name: "Email to myself" })).toBeDisabled();
 });
+
+it("sends the 'contact support' activity-cap text to the inquiry board", async () => {
+  setCallableImplementation("previewCreatorRecipe", () => { throw Object.assign(new Error("PRIVATE_TOKEN"), { details: { reason: "recipe-activity-limit", limit: 2000, retryable: false, retryAt: null } }); });
+  renderWithProviders(<RecipePreviewDialog request={{ recipeId: "weekly-load" }} language="ko" ownerId="test-uid" onClose={vi.fn()} onSent={vi.fn()} />);
+  const link = await screen.findByRole("link", { name: /지원팀에 문의해 주세요/ });
+  expect(link.getAttribute("href")).toBe("/ko/community/board?type=inquiry");
+});
+
+it("keeps other failure text plain", async () => {
+  setCallableImplementation("previewCreatorRecipe", () => { throw Object.assign(new Error("PRIVATE"), { details: { reason: "recipe-read-daily-limit" } }); });
+  renderWithProviders(<RecipePreviewDialog request={{ recipeId: "weekly-load" }} language="ko" ownerId="test-uid" onClose={vi.fn()} onSent={vi.fn()} />);
+  const alert = await screen.findByRole("alert");
+  expect(alert.querySelector("a")).toBeNull();
+});

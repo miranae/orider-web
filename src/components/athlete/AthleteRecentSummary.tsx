@@ -7,6 +7,7 @@ import { ChartTooltip } from "../../theme/components/Chart";
 import type { Activity } from "@shared/types";
 import { resolveDuration } from "../../utils/activityTime";
 import { getDiscipline } from "../../utils/disciplineFilter";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 export function recentAthleteDays(activities: Activity[], now = new Date()) {
   const end = planDayStartMs(now.getTime());
@@ -18,7 +19,7 @@ export function recentAthleteDays(activities: Activity[], now = new Date()) {
   });
 }
 
-export default function AthleteRecentSummary({ activities, loading, error }: { activities: Activity[]; loading: boolean; error: boolean }) {
+export default function AthleteRecentSummary({ activities, loading, error, onRetry }: { activities: Activity[]; loading: boolean; error: boolean; onRetry?: () => void }) {
   const { t, i18n } = useTranslation("athlete");
   const [activeDay, setActiveDay] = useState<number | null>(null);
   const dayTooltipId = useId();
@@ -37,7 +38,7 @@ export default function AthleteRecentSummary({ activities, loading, error }: { a
   const prefix = seoulWeekday(days[0]!.date.getTime());
   return <section className="athlete-recent-summary" aria-label={t("profile.last28Days")}>
     <h2>{t("profile.last28Days")}</h2>
-    {loading || error ? <p role="status">{t(error ? "monthly.error" : "monthly.loading")}</p> : <>
+    {loading || error ? <p role="status">{error ? <Resolvable resolve={onRetry ? { onClick: onRetry } : undefined}>{t("monthly.error")}</Resolvable> : t("monthly.loading")}</p> : <>
       <p className="athlete-recent-summary-count"><strong>{items.length}</strong> {t("profile.activities")}</p>
       <div className="athlete-recent-visuals">
         <div className="athlete-calendar" style={{ position: "relative" }} aria-label={t("profile.activityCalendar")}>

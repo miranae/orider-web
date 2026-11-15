@@ -36,6 +36,15 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   const { showToast } = useToast();
 
   const services = useFirebaseServices();
+  // 실패 알림 문구 자체가 해결이다: 로그인 만료 → 로그인, 앱 보안 확인 실패 → 새로고침(앱 임베드는 웹 새로고침을 주지 않는다).
+  const showSocialError = (err: unknown) => {
+    const key = activitySocialErrorMessageKey(err);
+    const resolve = key === "socialErrors.auth" ? signInResolve
+      : key === "socialErrors.app_check" && services.scope !== "embedded" ? { onClick: () => window.location.reload() }
+        : undefined;
+    if (resolve) showToast(t(key), "error", { resolve });
+    else showToast(t(key), "error");
+  };
   const sdkUser = services.auth.currentUser;
   const initialRecent = activity.recentKudos ?? [];
   const canonicalLiked = activity.viewerHasKudos ?? (!!user && initialRecent.some((k) => k.userId === user.uid));
@@ -114,7 +123,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
         activityId: activity.id,
         action: wasLiked ? "off" : "on",
       });
-      showToast(t(activitySocialErrorMessageKey(err)), "error");
+      showSocialError(err);
     } finally { if (current()) { pendingKudos.current = false; setKudosBusy(false); } }
   };
 
@@ -147,7 +156,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
     } catch (err) {
       setLocalComments((c) => Math.max(0, c - 1)); // 롤백
       logClientError("ActivitySocialFooter.commentSubmit", err, { activityId: activity.id });
-      showToast(t(activitySocialErrorMessageKey(err)), "error");
+      showSocialError(err);
     } finally {
       setCommentSubmitting(false);
     }

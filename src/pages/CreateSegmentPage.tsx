@@ -17,6 +17,7 @@ import { useSegmentCreator } from "../hooks/useSegmentCreator";
 import RouteMap from "../components/RouteMap";
 import SegmentElevationInspector from "../features/segments/SegmentElevationInspector";
 import PermissionGate from "../components/redesign/states/PermissionGate";
+import { Resolvable } from "../components/redesign/states/Resolvable";
 import { Alert, Card, buttonClass, Input, Textarea } from "../theme/components";
 import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
@@ -162,11 +163,16 @@ function CreateSegmentContent() {
   const [activityChoices, setActivityChoices] = useState<ActivityItem[]>([]);
   const [loadingActivityChoices, setLoadingActivityChoices] = useState(false);
   const [activityChoiceError, setActivityChoiceError] = useState<string | null>(null);
+  // 활동 목록 불러오기 실패 문구를 누르면 다시 읽는다.
+  const [activityChoiceAttempt, setActivityChoiceAttempt] = useState(0);
 
   // Streams
   const [streams, setStreams] = useState<StreamData | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+  // 불러오기 실패(GPS 없음이 아님)일 때만 오류 문구를 눌러 다시 불러온다. 늦은 응답은 최신 요청만 반영한다.
+  const [streamRetryable, setStreamRetryable] = useState(false);
+  const streamLoadGenRef = useRef(0);
 
   // Range selection (start > end means reversed direction)
   const [rangeStart, setRangeStart] = useState(0);
@@ -208,13 +214,17 @@ function CreateSegmentContent() {
 
   // ── Load activity and streams ──
   const loadActivityStreams = useCallback(async (aid: string) => {
+    const gen = ++streamLoadGenRef.current;
+    const isCurrent = () => gen === streamLoadGenRef.current;
     setLoadingStreams(true);
     setStreams(null);
     setStreamError(null);
+    setStreamRetryable(false);
     categoryTouchedRef.current = false;
 
     try {
       const actDoc = await getDoc(doc(firestore, "activities", aid));
+      if (!isCurrent()) return;
       if (actDoc.exists()) {
         const d = actDoc.data();
         setSelectedActivity({
@@ -241,6 +251,7 @@ function CreateSegmentContent() {
         data = result.data as StreamData;
       }
 
+      if (!isCurrent()) return;
       if (!data?.latlng || data.latlng.length === 0) {
         setStreamError(t("error.noStreamData"));
         return;
@@ -256,14 +267,19 @@ function CreateSegmentContent() {
       setCategory("climb");
     } catch (err: unknown) {
       logClientError("CreateSegmentPage.loadStreams", err, { activityId: aid });
+      if (!isCurrent()) return;
       const fbErr = err as { code?: string; message?: string; details?: unknown };
       const code = fbErr.code ?? "unknown";
       const msg = fbErr.message ?? String(err);
       setStreamError(t("error.streamLoadFailed", { code, message: msg }));
+      setStreamRetryable(true);
     } finally {
-      setLoadingStreams(false);
+      if (isCurrent()) setLoadingStreams(false);
     }
   }, [climbPromotionRange, isClimbPromotion, t]);
+
+  // 계정이 바뀌면 이전 계정으로 나간 불러오기 결과를 버린다.
+  useEffect(() => { streamLoadGenRef.current += 1; }, [user?.uid]);
 
   useEffect(() => {
     if (!user || !activityId) return;
@@ -305,7 +321,7 @@ function CreateSegmentContent() {
       }
     })();
     return () => { cancelled = true; };
-  }, [activityId, t, user]);
+  }, [activityId, t, user, activityChoiceAttempt]);
 
   // ── Computed ──
   const lowIdx = Math.min(rangeStart, rangeEnd);
@@ -453,7 +469,7 @@ function CreateSegmentContent() {
 
         {!loadingActivityChoices && activityChoiceError && (
           <Card padding="none" style={{ padding: "var(--space-5)", textAlign: "center" }}>
-            <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--rose)" }}>{activityChoiceError}</p>
+            <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--rose)" }}><Resolvable resolve={{ onClick: () => setActivityChoiceAttempt((n) => n + 1) }}>{activityChoiceError}</Resolvable></p>
           </Card>
         )}
 
@@ -565,7 +581,7 @@ function CreateSegmentContent() {
       {/* Error */}
       {!loadingStreams && streamError && (
         <div className="space-y-4">
-          <Alert variant="danger">{streamError}</Alert>
+          <Alert variant="danger"><Resolvable resolve={streamRetryable && activityId ? { onClick: () => { void loadActivityStreams(activityId); } } : undefined}>{streamError}</Resolvable></Alert>
           <button
             onClick={leavePage}
             className={buttonClass({ variant: "ghost", className: "px-4 py-2 text-[length:var(--ft-body-size)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors" })}

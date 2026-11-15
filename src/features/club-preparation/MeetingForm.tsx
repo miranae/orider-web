@@ -42,6 +42,7 @@ export default function MeetingForm({
   initialRevision,
   english = false,
   focusCourseReady = false,
+  focusCoursePreparation = false,
 }: {
   state: State;
   initial: Meeting;
@@ -52,6 +53,8 @@ export default function MeetingForm({
   english?: boolean;
   /** 「최종 코스 준비 중」 칩에서 들어왔을 때 접힌 코스 섹션을 펼치고 확정 칸에 초점을 둔다. */
   focusCourseReady?: boolean;
+  /** 「주행 경로를 준비해주세요」에서 들어왔을 때 코스 준비 칸(가져오기 방식)에 초점을 둔다. */
+  focusCoursePreparation?: boolean;
 }) {
   const existing = state.meetings.some((meeting) => meeting.id === initial.id);
   const scope = draftNamespace
@@ -93,7 +96,9 @@ export default function MeetingForm({
   };
   // 저장 검증 오류 → 고칠 칸. 문구가 바뀌면(다른 오류·초안 저장 실패 등) 버튼은 사라진다.
   const [saveFix, setSaveFix] = useState<{ target: FixTarget; message: string } | null>(null);
-  const [fixRequest, setFixRequest] = useState<{ target: FixTarget; n: number } | null>(null);
+  const [fixRequest, setFixRequest] = useState<{ target: FixTarget; n: number } | null>(
+    focusCoursePreparation ? { target: "course", n: 1 } : null,
+  );
   const failWithFix = (message: string, target: FixTarget) => {
     setSaveError(message);
     setSaveFix({ target, message });
@@ -296,6 +301,7 @@ export default function MeetingForm({
           <CoursePreview
             meeting={completeDraft()}
             onConfirmCourse={saving ? undefined : requestCourseReadyFocus}
+            onPrepareCourse={saving ? undefined : () => goFix("course")}
           />
           {!existing && (
             <label className="cp-date-check">

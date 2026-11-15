@@ -32,8 +32,12 @@ import { BikeMileage } from "./BikeMileage";
 import { GearShoeStatus } from "./GearShoeStatus";
 import { GearKitSection } from "./GearKitSection";
 import { LocalizedLink } from "../LocalizedLink";
+import { Resolvable } from "../redesign/states/Resolvable";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
+import { bodyInfoHref } from "../../services/focusTarget";
 import { Button, DropdownSelect, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 
 const CDA_PRESETS = [
   { label: "equipment.presetHoods", value: 0.32 },
@@ -455,12 +459,16 @@ function ProfileCard({
   );
 }
 
+/** 설명 문장 안의 체중 자리 — 번역 문장을 그대로 두고 그 자리만 누를 수 있게 갈라 낸다. */
+const VP_WEIGHT_SLOT = "\u0000weight\u0000";
+
 export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
   const { t } = useTranslation("settings");
   const { user, profile } = useAuth();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const uid = user?.uid ?? null;
+  const signInResolve = useSignInResolve();
   const {
     active,
     profiles,
@@ -511,7 +519,7 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
     setSearchParams(next);
   }
 
-  if (!uid) return <p data-testid="P4.guest">{t("device.loginRequired")}</p>;
+  if (!uid) return <p data-testid="P4.guest"><Resolvable resolve={signInResolve}>{t("device.loginRequired")}</Resolvable></p>;
   if (loading) {
     return (
       <SettingsCard data-testid="P4.loading" title={t("equipment.bikeProfile")}>
@@ -556,9 +564,13 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
     }
   }
 
-  const weightDisplay = userWeightKg && userWeightKg > 0
+  const weightSet = !!userWeightKg && userWeightKg > 0;
+  const weightDisplay = weightSet
     ? t("equipment.virtualPowerWeightKg", { weight: userWeightKg })
     : t("equipment.virtualPowerWeightNotSet");
+  // 체중 미설정이면 설명 안의 「미설정」 자체를 누르면 신체 정보의 체중 칸으로 간다(가상 파워는 체중을 쓴다).
+  const vpDescParts = weightSet ? null
+    : t("equipment.virtualPowerDesc", { name: active.name, weight: VP_WEIGHT_SLOT }).split(VP_WEIGHT_SLOT);
 
   // 편집기는 **자전거 하나**에 대한 화면이다. 목록 위에 겹쳐 띄우지 않고 자리를 바꾼다 —
   // 어느 자전거를 고치는 중인지가 화면의 유일한 주제여야 잘못된 자전거에 저장하지 않는다.
@@ -626,16 +638,20 @@ export function PaneEquipment({ part = "gear" }: { part?: "gear" | "device" }) {
       {part === "device" && <><SettingsCard
         data-testid="S6-4-1" title={t("equipment.virtualPower")}
         action={
-          <Toggle
-            on={vpDraft?.enabled ?? true}
-            ariaLabel={t("equipment.virtualPower")}
-            onChange={(v) => patchVp({ enabled: v, userDisabled: !v })}
-          />
+          <span {...focusTargetProps(FOCUS_TARGETS.virtualPower)}>
+            <Toggle
+              on={vpDraft?.enabled ?? true}
+              ariaLabel={t("equipment.virtualPower")}
+              onChange={(v) => patchVp({ enabled: v, userDisabled: !v })}
+            />
+          </span>
         }
       >
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-3)", lineHeight: 1.5 }}>
           <Text as="p" variant="caption" tone="quaternary" weight={700}>{t("equipment.bikeActive")}: {active.name}</Text>
-          {t("equipment.virtualPowerDesc", { name: active.name, weight: weightDisplay })}
+          {vpDescParts && vpDescParts.length === 2
+            ? <>{vpDescParts[0]}<Resolvable resolve={{ to: bodyInfoHref() }}>{weightDisplay}</Resolvable>{vpDescParts[1]}</>
+            : t("equipment.virtualPowerDesc", { name: active.name, weight: weightDisplay })}
         </div>
         <FieldGrid cols={2}>
           <Field label={t("equipment.vpBikeWeight")} hint="kg">
@@ -713,7 +729,7 @@ function BikeDataPagesPanel({
 }) {
   const { t } = useTranslation("settings");
   const { showToast } = useToast();
-  const { config, source, loading, canSave, save } = useBikeProfileLayout(
+  const { config, source, loading, canSave, save, reload } = useBikeProfileLayout(
     uid,
     profile.id,
     DEFAULT_DATA_PAGE_CONFIG.pages,
@@ -734,7 +750,8 @@ function BikeDataPagesPanel({
         showToast(t("equipment.dataPagesConflict"));
         break;
       case "targetDeleted":
-        showToast(t("equipment.dataPagesTargetDeleted"));
+        // 고치던 자전거가 사라졌다 — 알림 문구를 누르면 자전거 목록(기기 설정)으로 돌아간다.
+        showToast(t("equipment.dataPagesTargetDeleted"), "error", { resolve: { to: "/settings/device" } });
         break;
       default:
         showToast(t("equipment.dataPagesFailed"));
@@ -759,7 +776,8 @@ function BikeDataPagesPanel({
           data-testid="bike-data-pages-status"
         >
           {source === "quarantined" && t("equipment.dataPagesQuarantined")}
-          {source === "unavailable" && t("equipment.dataPagesUnavailable")}
+          {/* 읽기 실패는 문구를 누르면 다시 불러온다(불러오는 동안은 문구가 사라져 거듭 누를 수 없다). */}
+          {source === "unavailable" && <Resolvable resolve={{ onClick: reload }}>{t("equipment.dataPagesUnavailable")}</Resolvable>}
           {source === "unsaved" && t("equipment.dataPagesUnsaved")}
         </div>
       )}

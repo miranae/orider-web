@@ -52,7 +52,9 @@ import {
 } from "../features/courses/courseWaypoints";
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
-import { EmptyState, LoadingSkeleton } from "../components/redesign";
+import { EmptyState, LoadingSkeleton, Resolvable } from "../components/redesign";
+import { useSignInResolve } from "../hooks/useSignInResolve";
+import { revealFocusTarget } from "../services/focusTarget";
 import { Button, Card, Chip, Text, buttonClass, Input, Textarea, DropdownSelect } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
 import { CourseRidePlanSection } from "../features/courses/CourseRidePlanSection";
@@ -568,6 +570,8 @@ function CoursePageContent() {
   const dialog = useDialog();
   // 누르면 해결로 가는 알림은 전역 알림으로 띄운다(이 화면의 자체 알림은 누를 수 없다).
   const { showToast: showActionToast } = useToast();
+  const signInResolve = useSignInResolve();
+  const unhideButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -640,7 +644,8 @@ function CoursePageContent() {
       // Extract GPS from EXIF
       const gps = await extractGpsFromFile(file);
       if (!gps) {
-        showToast(t("error.noGps"));
+        // 문구를 누르면 사진 선택 창을 다시 연다.
+        showActionToast(t("error.noGps"), "error", { resolve: { onClick: () => photoInputRef.current?.click() } });
         setUploading(false);
         return;
       }
@@ -788,7 +793,8 @@ function CoursePageContent() {
 
   const handleSendToApp = async () => {
     if (!courseId || !user) {
-      showToast(t("error.loginRequired"));
+      // 「로그인이 필요합니다」를 누르면 로그인 창을 연다(임베드는 글자 그대로).
+      if (!user) showActionToast(t("error.loginRequired"), "info", signInResolve ? { resolve: signInResolve } : undefined);
       return;
     }
     // 실패 알림은 전역이라 계정을 바꾼 뒤(화면이 다시 마운트돼도) 남는다. callable 은 그 순간의 Firebase 인증으로
@@ -879,11 +885,12 @@ function CoursePageContent() {
     const trimDesc = editDesc.trim();
 
     if (trimName.length < 2 || trimName.length > 50) {
-      void dialog.alert(t("error.nameLength"), { variant: "warning" });
+      // 확인을 누르면 고칠 이름 칸에 초점을 둔다.
+      void dialog.alert(t("error.nameLength"), { variant: "warning" }).then(() => nameInputRef.current?.focus());
       return;
     }
     if (trimDesc.length > 200) {
-      void dialog.alert(t("error.descriptionLength"), { variant: "warning" });
+      void dialog.alert(t("error.descriptionLength"), { variant: "warning" }).then(() => document.getElementById("course-inline-description")?.focus());
       return;
     }
 
@@ -1054,7 +1061,7 @@ function CoursePageContent() {
           <h1 data-testid="D2-0" className="course-hero-title">{course.name}</h1>
           <div className="course-hero-chips">
             {officialCourse && <Chip variant="accent">{t("badge.official")}</Chip>}
-            {isAdmin && course.hidden === true && <Chip variant="accent">{t("admin.hiddenBadge")}</Chip>}
+            {isAdmin && course.hidden === true && <Chip variant="accent"><Resolvable resolve={{ onClick: () => { if (unhideButtonRef.current) revealFocusTarget(unhideButtonRef.current); } }}>{t("admin.hiddenBadge")}</Resolvable></Chip>}
             {course.regions.map((r) => (
               <Chip key={r} variant="accent">{r}</Chip>
             ))}
@@ -1491,7 +1498,7 @@ function CoursePageContent() {
           )}
           {isAdmin && (
             <div className={isOwner ? "flex items-center" : "ml-auto flex items-center"} style={{ gap: "var(--space-2)" }}>
-              <Button data-testid="O2-1"
+              <Button data-testid="O2-1" ref={unhideButtonRef}
                 onClick={() => handleToggleHidden(course.hidden !== true)}
                 disabled={moderating}
                 variant="secondary"

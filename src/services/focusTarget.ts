@@ -23,6 +23,8 @@ export const FOCUS_TARGETS = {
   clubInviteCode: "club-invite-code",
   /** 설정 > 계정의 로그인 방법 카드(S1-4-1) — 아직 연결하지 않은 첫 로그인 방법의 연결 버튼. */
   socialLinks: "social-links",
+  /** 설정 > 기기의 가상 파워 카드(S6-4-1) 켜기 스위치. */
+  virtualPower: "virtual-power",
 } as const;
 
 export type FocusTargetKey = (typeof FOCUS_TARGETS)[keyof typeof FOCUS_TARGETS];

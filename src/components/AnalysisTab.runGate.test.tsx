@@ -480,6 +480,34 @@ it("makes the missing heart-rate reference notice open the max-HR field only for
   expect(screen.getAllByText("overviewEvidence.hrContextMissing").every((node) => !node.closest("a"))).toBe(true);
 });
 
+// 분석 스트림 없음 빈 상태 문구를 주인이 누르면 연동(가져오기) 화면으로. 남에게는 글자 그대로, 새 버튼 없음.
+it("makes the no-stream empty state open connections only for the owner", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", runMetrics: null, splits: [] });
+  const props = { sport: "ride" as const, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+  const { rerender } = render(<AnalysisTab {...props} isOwner />);
+  for (const key of ["analysis.empty.noStreamsTitle", "analysis.noData"]) {
+    expect(screen.getByRole("link", { name: key })).toHaveAttribute("href", expect.stringContaining("/settings/connections"));
+  }
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  rerender(<AnalysisTab {...props} isOwner={false} />);
+  expect(screen.getByText("analysis.empty.noStreamsTitle")).toBeInTheDocument();
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+});
+
+// 가상 파워 칩을 주인이 누르면 기기 설정의 가상 파워 칸으로. 남에게는 칩 그대로.
+it("makes the virtual-power chip open the device virtual-power field only for the owner", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgPower: 200, np: 220, runMetrics: null, splits: [] });
+  const props = { sport: "ride" as const, isVirtualPower: true, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+  const themed = (owner: boolean) => <ThemeProvider><OriderThemeProvider><AnalysisTab {...props} isOwner={owner} /></OriderThemeProvider></ThemeProvider>;
+  const { rerender } = render(themed(true));
+  expect(screen.getByRole("link", { name: "vp.badge" })).toHaveAttribute("href", expect.stringContaining("/settings/device?focus=virtual-power"));
+  rerender(themed(false));
+  expect(screen.getByText("vp.badge")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "vp.badge" })).not.toBeInTheDocument();
+});
+
 it("keeps a stale saved running curve and record in the real analysis panel", () => {
  state.language = "ko";
  state.metrics = gpsOnlyRunMetrics(); state.metrics.status = "stale";

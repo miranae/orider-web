@@ -10,6 +10,7 @@ import { usePublicActivitySession, type PublicActivitySessionOptions } from "../
 import type { PublicActivityModelInput } from "../../../hooks/useActivityAnalysisModel";
 import type { ActivityMetricsDoc, UseActivityMetricsState } from "../../../hooks/useActivityMetrics";
 import EmbeddedSurfaceState from "../../../embedded/surfaces/EmbeddedSurfaceState";
+import { useSignInResolve } from "../../../hooks/useSignInResolve";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { Text } from "../../../theme/components";
 import { activityFeedSourceRevision } from "../../../services/activityFeedContent";
@@ -54,6 +55,9 @@ function RevalidationBoundary({ fresh, children, fallback }: { fresh: boolean; c
 function ActivityPublicAccessSession({ children, ...options }: PublicActivitySessionOptions & { children: (access: ActivityPublicAccessState) => ReactNode }) {
  const session = usePublicActivitySession(options);
  const { t } = useTranslation("activity");
+ // 접근 거부는 로그인하지 않은 사람에게만 해결 경로(로그인)가 있다 — 팔로워 공개 활동 등. 로그인한 사람에겐 글자 그대로.
+ const signInResolve = useSignInResolve();
+ const accessDeniedResolve = session.accessDenied && (!session.user || session.user.isAnonymous) ? signInResolve : undefined;
  const { detail, mapFresh, verifiedMap, client } = session;
  const model = useMemo<PublicActivityModelInput>(() => {
    if (!detail) return { activity: null, metrics: { status: "missing", metrics: null } };
@@ -68,6 +72,6 @@ function ActivityPublicAccessSession({ children, ...options }: PublicActivitySes
    return { activity: withActivityPresentation(activity), metrics: metricsState(detail.metrics), accessRevision: JSON.stringify([a.id, a.activityRevision, detail.metrics?.revisionId, detail.metrics?.etag]), onAccessRevoked: session.revokeAccess };
  }, [detail, mapFresh, verifiedMap, client]);
  if (session.removed?.scope === session.safetyScope) return <div className="site-shell"><Text role="status" tabIndex={-1} ref={node => node?.focus()}>{t(`publicSafety.${session.removed.action}Done`)}</Text><LocalizedLink to="/">{t("publicSafety.home")}</LocalizedLink></div>;
- if (session.loading || session.failed || !detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={session.loading} message={session.accessDenied ? t("publicDetail.accessDenied") : undefined} onRetry={session.retry} />;
+ if (session.loading || session.failed || !detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={session.loading} message={session.accessDenied ? t("publicDetail.accessDenied") : undefined} resolve={accessDeniedResolve} onRetry={session.retry} />;
  return <RevalidationBoundary fresh={session.mapFresh} fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} message={t("publicDetail.mapLoading")} onRetry={session.retry} />}>{children({ session, model })}{session.user && !session.user.isAnonymous && session.user.uid !== detail.activity.userId && <section className="site-shell" aria-label={t("publicSafety.actions")}><PublicActivitySafety activityId={detail.activity.id} authorId={detail.activity.userId} client={session.client} onRemoved={session.remove} onAccessRevoked={session.revokeAccess} /></section>}</RevalidationBoundary>;
 }

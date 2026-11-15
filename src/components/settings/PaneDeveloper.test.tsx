@@ -8,13 +8,15 @@ import enSettings from "../../i18n/resources/en/settings.json";
 
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: vi.fn() }) }));
+const listKeys = vi.hoisted(() => vi.fn());
 vi.mock("../../services/personalDataApi", () => ({
-  listPersonalApiKeys: vi.fn().mockResolvedValue([]),
+  listPersonalApiKeys: listKeys,
   createPersonalApiKey: vi.fn(),
   revokePersonalApiKey: vi.fn(),
 }));
 
 beforeEach(async () => {
+  listKeys.mockReset().mockResolvedValue([]);
   i18n.addResourceBundle("en", "settings", enSettings, true, true);
   await i18n.changeLanguage("ko");
 });
@@ -42,5 +44,24 @@ describe("PaneDeveloper locale", () => {
     await userEvent.type(input, "My reporting key");
     await act(async () => { await i18n.changeLanguage("ko"); });
     expect(screen.getByRole("textbox", { name: /키 이름/ })).toHaveValue("My reporting key");
+  });
+});
+
+describe("PaneDeveloper load failure", () => {
+  /** 경고·알림 → 해결: 목록을 못 불러왔을 때 「키 없음」으로 속이지 않고, 실패 문구를 누르면 다시 불러온다. */
+  it("shows the failure instead of the empty state and reloads when the message is tapped", async () => {
+    listKeys.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce([
+      { id: "k1", name: "My key", prefix: "orid_ab", scopes: ["profile:read"], createdAt: 1, lastUsedAt: 0 },
+    ]);
+    render(<MemoryRouter><PaneDeveloper /></MemoryRouter>);
+    const message = await screen.findByRole("button", { name: "API 키를 불러오지 못했습니다" });
+    expect(screen.queryByText(/아직 생성된 API 키가 없어요/)).toBeNull();
+    const buttonsBefore = screen.getAllByRole("button").length;
+    await userEvent.click(message);
+    expect(await screen.findByText("My key")).toBeInTheDocument();
+    expect(listKeys).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("button", { name: "API 키를 불러오지 못했습니다" })).toBeNull();
+    // 실패 문구 자리를 빼면 버튼 수는 키 행의 폐기 버튼만큼만 늘었다(새 버튼 없음).
+    expect(screen.getAllByRole("button").length).toBe(buttonsBefore);
   });
 });

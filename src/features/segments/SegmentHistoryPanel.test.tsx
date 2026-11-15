@@ -82,4 +82,13 @@ describe("segment history source states", () => {
     expect(mocks.gap.mock.lastCall?.[0]).toMatchObject({ pair: [{ activityId: "a", effortId: "ea" }, { activityId: "b", effortId: "eb" }] });
   });
 
+  it("re-reads my seed records when the failed message itself is tapped, without adding a button", () => {
+    mocks.value.response = null; mocks.value.rows = []; mocks.value.error = false;
+    const onSeedRetry = vi.fn();
+    render(<SegmentHistoryPanel segmentId="s" seeds={[]} seedLoading={false} seedError onSeedRetry={onSeedRetry} />);
+    const alert = screen.getByRole("alert");
+    expect(within(alert).getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(within(alert).getByText("history.error"));
+    expect(onSeedRetry).toHaveBeenCalledOnce();
+  });
 });

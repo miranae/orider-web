@@ -109,6 +109,27 @@ describe("CourseRidePlanSection", () => {
     expect(JSON.stringify(mocks.log.mock.calls)).not.toContain("private-course");
   });
 
+  it("reloads the plan when the mismatch message itself is tapped, without adding a button", async () => {
+    loadAiContext.mockResolvedValue({ schemaVersion: plan.schemaVersion, inputRevision,
+      questionCode: "HARDEST_SECTION", course: plan.course,
+      estimate: { ...plan.estimate!, totalTimeSec: plan.estimate!.totalTimeSec + 1 },
+      segments: plan.segments, assumptions: plan.assumptions });
+    renderSection();
+    const ue = userEvent.setup();
+    const question = await screen.findByRole("button", { name: "이 코스에서 가장 힘든 구간은 어디인가요?" });
+    const buttonsBefore = screen.getAllByRole("button").length;
+    await ue.click(question);
+    const message = await screen.findByText(/질문 컨텍스트가 카드와 일치하지 않아/u);
+    // 문구 자체만 눌린다 — 옆에 다시 불러오기 버튼을 따로 두지 않는다.
+    expect(message.closest("button")).not.toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(buttonsBefore + 1);
+    expect(load).toHaveBeenCalledTimes(1);
+    await ue.click(message);
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("button", { name: "이 코스에서 가장 힘든 구간은 어디인가요?" })).toBeInTheDocument();
+    expect(screen.queryByText(/질문 컨텍스트가 카드와 일치하지 않아/u)).not.toBeInTheDocument();
+  });
+
   it.each(["failure", "projection mismatch"] as const)(
     "clears an old selection before a new AI-context %s and never restores its context", async (outcome) => {
       loadAiContext.mockResolvedValueOnce({ schemaVersion: plan.schemaVersion, inputRevision,

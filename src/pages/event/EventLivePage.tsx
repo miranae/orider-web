@@ -14,7 +14,7 @@ import { ensureAppCheckReady, firestore, functions } from "../../services/fireba
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
-import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
 import { Button, Card, Switch, Text, Input } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { activeViewerCountFromSummary, createViewerSessionId } from "../../features/event/viewerPresence";
@@ -326,6 +326,8 @@ export default function EventLivePage() {
   const [now, setNow] = useState(() => Date.now());
   const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
   const snapshotRef = useRef<SnapshotData | null>(null);
+  // 「갱신 지연」 문구를 눌러 다시 읽는 중이면 거듭 누름은 무시한다.
+  const staleRefreshRef = useRef(false);
   const [searchBib, setSearchBib] = useState(highlightBib?.toString() || "");
   const [followError, setFollowError] = useState<string | null>(null);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
@@ -840,7 +842,11 @@ export default function EventLivePage() {
               fontSize: "var(--ft-body-size)",
             }}
           >
-            {t("liveView.staleWarning")}
+            <Resolvable resolve={{ onClick: () => {
+              if (staleRefreshRef.current) return;
+              staleRefreshRef.current = true;
+              void fetchSnapshot().finally(() => { staleRefreshRef.current = false; });
+            } }}>{t("liveView.staleWarning")}</Resolvable>
           </div>
         </div>
       )}

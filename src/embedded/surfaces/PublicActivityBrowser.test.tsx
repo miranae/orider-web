@@ -125,3 +125,20 @@ it("does not reload the athlete activity list while it stays open", async () => 
     expect(screen.getByText("Public Rider")).toBeInTheDocument();
   } finally { vi.useRealTimers(); }
 });
+
+// 실패 문구 자체를 누르면 다시 읽는다 — 「다시 시도」 버튼을 새로 두지 않는다.
+it("re-reads the embedded profile when its failure text is pressed and logs the failure", async () => {
+  const errorLogger = await import("../../services/errorLogger");
+  const logged = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+  mocks.load.mockRejectedValueOnce(new Error("offline"));
+  render(<PublicActivityBrowser {...props} />);
+  fireEvent.click(screen.getByRole("link", { name: "author" }));
+  const failure = await screen.findByRole("button", { name: "현재 프로필 활동을 확인할 수 없습니다." });
+  expect(logged).toHaveBeenCalledWith("PublicActivityBrowser.profile", expect.any(Error), { targetUid: "author" }, mocks.services);
+  expect(screen.queryByRole("button", { name: "다시 시도" })).toBeNull();
+  fireEvent.click(failure);
+  expect(await screen.findByText("Public Rider")).toBeInTheDocument();
+  expect(mocks.load).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText("현재 프로필 활동을 확인할 수 없습니다.")).toBeNull();
+  logged.mockRestore();
+});

@@ -8,6 +8,8 @@ import { loadActivityDiscovery, type DiscoveryActivity } from "../../services/ac
 import { Button, Section, Stack, Text } from "../../theme/components";
 import Avatar from "../../components/Avatar";
 import PublicActivitySurface from "./PublicActivitySurface";
+import { Resolvable } from "../../components/redesign/states/Resolvable";
+import { logClientError } from "../../services/errorLogger";
 
 type Props = React.ComponentProps<typeof PublicActivitySurface> & { commentId?: string | null };
 
@@ -82,7 +84,9 @@ function PublicProfile({ userId, onActivity }: { userId: string; onActivity: (id
       if (request !== epoch.current || services.auth.currentUser !== viewer || document.hidden) return;
       setRows(previous => next ? [...new Map([...previous, ...page.items].map(row => [row.id, row])).values()] : page.items);
       setCursor(page.nextCursor);
-    } catch {
+    } catch (error) {
+      // 늦은 응답이어도 실패 기록은 남기고 화면 반영만 막는다.
+      logClientError("PublicActivityBrowser.profile", error, { targetUid: userId }, services);
       if (request !== epoch.current) return;
       setRows([]); setCursor(null); setFailed(true);
     } finally { if (request === epoch.current) setBusy(false); }
@@ -107,7 +111,8 @@ function PublicProfile({ userId, onActivity }: { userId: string; onActivity: (id
     <Text>{t("embeddedProfile.scope")}</Text>
     <ActivitySubscriptionButton targetUid={userId} services={services} />
     {busy && <Text role="status">{t("embeddedProfile.loading")}</Text>}
-    {failed && <Text role="alert">{t("embeddedProfile.unavailable")}</Text>}
+    {/* 실패 문구를 누르면 처음부터 다시 읽는다(읽는 동안 문구가 내려가 거듭 누를 수 없다). */}
+    {failed && <Text role="alert"><Resolvable resolve={{ onClick: () => { void loadRef.current(); } }}>{t("embeddedProfile.unavailable")}</Resolvable></Text>}
     {!busy && !failed && !visible.length && <Text>{t("embeddedProfile.empty")}</Text>}
     {visible.map(row => <Button key={row.id} variant="secondary" onClick={() => onActivity(row.id)}>{row.description || t("publicDetail.title")}</Button>)}
     {cursor && <Button disabled={busy} onClick={() => void loadRef.current(cursor)}>{t("embeddedProfile.more")}</Button>}

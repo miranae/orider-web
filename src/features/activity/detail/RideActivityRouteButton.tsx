@@ -11,6 +11,7 @@ import { track } from "../../../services/analytics";
 import { logClientError } from "../../../services/errorLogger";
 import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { Button } from "../../../theme/components";
+import { Resolvable } from "../../../components/redesign";
 
 type RideRouteStatus = "idle" | "creating" | "sending" | "sent";
 type CourseLookup = { kind: "found"; courseId: string } | { kind: "missing" } | { kind: "error" };
@@ -305,7 +306,8 @@ export function RideActivityRouteButton({
       >
         {label}
       </Button>
-      {flowAlert && <p role="alert" className="mt-2 text-[length:var(--fs-sm)] text-[var(--color-error)]">{flowAlert}</p>}
+      {/* 실패·확인 중 문구는 모두 "다시 시도"가 해결이다 — 문구를 누르면 버튼과 같은 흐름(조회·생성 또는 전송만)을 다시 돈다. */}
+      {flowAlert && <p role="alert" className="mt-2 text-[length:var(--fs-sm)] text-[var(--color-error)]"><Resolvable resolve={status === "idle" ? { onClick: () => { void handleClick(); } } : undefined}>{flowAlert}</Resolvable></p>}
     </>
   );
 }
