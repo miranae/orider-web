@@ -33,7 +33,6 @@ import { LocalizedLink } from "../LocalizedLink";
 import { PaneAiCoach } from "./PaneAiCoach";
 import { SocialLinksCard } from "./SocialLinksCard";
 import { Button, Textarea, buttonClass } from "../../theme/components";
-import { Resolvable } from "../redesign/states/Resolvable";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type VisOpt = { value: Visibility; labelKey: string; icon: typeof User };
@@ -60,7 +59,7 @@ export function PaneAccount() {
   );
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [bulkVisibilitySaving, setBulkVisibilitySaving] = useState(false);
-  const [visibilityAvailability, setVisibilityAvailability] = useState<"ready" | "error" | "checking">("ready");
+  const [visibilityAvailability, setVisibilityAvailability] = useState<"ready" | "error">("ready");
   const [existingActivityCount, setExistingActivityCount] = useState<number | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -87,13 +86,9 @@ export function PaneAccount() {
     });
   }, [user]);
 
-  // 잠김 다시 확인 요청의 세대 — 계정이 바뀌거나 화면을 떠나면 앞선 응답을 버린다.
-  const recheckGeneration = useRef(0);
   useEffect(() => {
     setVisibilityAvailability("ready");
     setExistingActivityCount(null);
-    recheckGeneration.current += 1;
-    return () => { recheckGeneration.current += 1; };
   }, [user?.uid]);
 
   if (!user) return null;
@@ -219,29 +214,6 @@ export function PaneAccount() {
       showToast(t("privacy.changeFailed"));
     } finally {
       setVisibilitySaving(false);
-    }
-  }
-
-  // 잠김 안내 문구를 누르면 다시 확인: 기존 활동 미리보기(dryRun, 읽기 전용)가 정상 응답하면 공개 범위 분리 서버
-  // (같은 auth 진입점으로 함께 배포)로 보고 잠금을 푼다. 기본값 저장을 다시 보내지는 않는다.
-  async function handleRecheckVisibility() {
-    if (!user || visibilityAvailability !== "error") return;
-    const generation = ++recheckGeneration.current;
-    const requestUid = user.uid;
-    // 응답을 반영해도 되는지: 같은 세대(계정 전환·이탈 없음)이고 실제 인증 주체도 그대로일 때만.
-    const current = () => recheckGeneration.current === generation && auth.currentUser?.uid === requestUid;
-    setVisibilityAvailability("checking");
-    try {
-      const preview = httpsCallable<{ visibility: Visibility; dryRun: true }, { count: number }>(functions, "applyVisibilityToExistingActivities");
-      const result = await preview({ visibility: currentVisibility, dryRun: true });
-      const count = result.data.count;
-      if (!Number.isSafeInteger(count) || count < 0) throw new Error("Invalid visibility preview");
-      if (!current()) return;
-      setExistingActivityCount(count);
-      setVisibilityAvailability("ready");
-    } catch (error) {
-      logClientError("PaneAccount.recheckVisibility", error, {});
-      if (current()) setVisibilityAvailability("error");
     }
   }
 
@@ -395,7 +367,7 @@ export function PaneAccount() {
           })}
         </div>
         {visibilityAvailability !== "ready" && <div role="status">
-          <Resolvable resolve={{ onClick: () => void handleRecheckVisibility() }}>{t("privacy.defaultSafetyUnavailable")}</Resolvable>
+          {t("privacy.defaultSafetyUnavailable")}
         </div>}
         <InlineRow label={t("privacy.existingTitle")} hint={existingActivityCount === null ? t("privacy.existingCountOnDemand") : t("privacy.existingCount", { count: existingActivityCount })}>
           <Button data-testid="S1-2-1b" variant="secondary" onClick={() => void handleApplyExistingVisibility()}
