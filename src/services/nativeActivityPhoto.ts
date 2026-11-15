@@ -1,6 +1,7 @@
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { announceActivityContentChange } from "./activityContentChanged";
 
 export interface NativePhotoReference { activityId: string; photoId: string }
 const id = /^[A-Za-z0-9_-]{1,160}$/;
@@ -97,4 +98,18 @@ export async function setNativeActivityCover(services: FirebaseServices, activit
   if (!services.auth.currentUser || services.auth.currentUser.isAnonymous) throw new Error("sign_in_required");
   if (!id.test(activityId) || (photoId !== null && !id.test(photoId)) || !expectedCoverRevision) throw new Error("invalid_cover_request");
   return coverResult(await call<NativeActivityCover>(services, "setActivityCoverPhoto", { activityId, photoId, expectedCoverRevision }));
+}
+
+/**
+ * Strava 에서 가져온 사진을 O-Rider 화면(상세·피드)에서 숨기거나 다시 보인다. 주인만, Strava 원본은 그대로.
+ * 반환값은 서버가 저장한 현재 숨김 목록 전체다. 성공하면 활동 내용 변경을 알린다.
+ */
+export async function setProviderPhotosHidden(services: FirebaseServices, activityId: string, photoIds: string[], hidden: boolean): Promise<string[]> {
+  if (!services.auth.currentUser || services.auth.currentUser.isAnonymous) throw new Error("sign_in_required");
+  if (!id.test(activityId) || !photoIds.length || photoIds.length > 50 || !photoIds.every(photoId => id.test(photoId))) throw new Error("invalid_photo");
+  const result = await call<{ hiddenIds: unknown }>(services, "setActivityProviderPhotosHidden", { activityId, photoIds, hidden });
+  if (!Array.isArray(result.hiddenIds) || !result.hiddenIds.every(value => typeof value === "string")) throw new Error("invalid_hidden_response");
+  // 피드·다른 상세 화면이 기존 조회를 다시 하도록 알린다(서버가 피드 본문을 함께 다시 만들었다).
+  announceActivityContentChange(activityId);
+  return result.hiddenIds as string[];
 }

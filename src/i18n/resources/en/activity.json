@@ -852,6 +852,9 @@
     "addPhoto": "Add Photo",
     "uploading": "Uploading…",
     "photoToast": {
+      "providerHidden": "Strava photo hidden. It stays on Strava.",
+      "providerRestored": "Hidden Strava photos are visible again.",
+      "providerHideFailed": "Could not change the Strava photo. Please try again.",
       "imageOnly": "Only image files can be uploaded",
       "maxLimit": "You can upload up to {{count}} photos",
       "maxLimit_one": "You can upload up to {{count}} photo",
@@ -2854,6 +2857,8 @@
     "canonicalAverage": "Analysis average"
   },
   "overviewSocial": {
+    "hideProviderPhoto": "Hide this Strava photo (kept on Strava)",
+    "restoreProviderPhotos": "Show {{count}} hidden Strava photos",
     "title": "Activity story",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",

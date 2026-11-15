@@ -163,3 +163,20 @@ it("never starts an unsafe provider video URL and retains its poster", () => {
   expect(play).not.toHaveBeenCalled();
   vi.restoreAllMocks();
 });
+it("주인은 Strava 사진을 숨기고, 숨긴 사진을 다시 보이게 할 수 있다(다른 사람·올린 사진엔 숨기기 없음)", () => {
+  const onHide = vi.fn(), onRestore = vi.fn();
+  const uploaded = { ...photo(9), id: "upload-one", uploadId: "one", ownerId: "owner", nativePhoto: { activityId: "strava_1", photoId: "one" } };
+  const view = renderWithProviders(<ActivityOverviewSocial {...base} photos={[photo(1)]} totalPhotos={1} viewerId="viewer" onHideProviderPhoto={onHide} />);
+  fireEvent.click(screen.getByRole("button", { name: "사진 1 / 1 보기" }));
+  expect(screen.queryByRole("button", { name: /Strava 사진 숨기기/ })).not.toBeInTheDocument();
+  view.rerender(<ActivityOverviewSocial {...base} photos={[photo(1), uploaded]} totalPhotos={2} viewerId="owner" owner onHideProviderPhoto={onHide}
+    hiddenProviderCount={2} onRestoreProviderPhotos={onRestore} />);
+  fireEvent.click(screen.getByRole("button", { name: "사진 1 / 2 보기" }));
+  fireEvent.click(screen.getByRole("button", { name: /Strava 사진 숨기기/ }));
+  expect(onHide).toHaveBeenCalledWith("1");
+  fireEvent.click(screen.getByRole("button", { name: "사진 2 / 2 보기" }));
+  expect(screen.queryByRole("button", { name: /Strava 사진 숨기기/ })).not.toBeInTheDocument();
+  fireEvent.keyDown(document, { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "숨긴 Strava 사진 2장 다시 보이기" }));
+  expect(onRestore).toHaveBeenCalledTimes(1);
+});
