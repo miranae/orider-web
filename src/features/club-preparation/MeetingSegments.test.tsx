@@ -387,10 +387,21 @@ describe("주요 구간 선택 화면", () => {
     const view = render(
       <MeetingSegmentPicker selected={selected} onChange={onChange} />,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "구간 정보 다시 가져오기" }),
-    );
+    const refreshButton = screen.getByRole("button", {
+      name: "구간 정보 다시 가져오기",
+    });
+    // 다시 가져오기는 구간 이름 옆 아이콘 전용 버튼이다.
+    expect(refreshButton.className).toContain("ds-btn--icon-only");
+    expect(refreshButton).toHaveAttribute("title", "구간 정보 다시 가져오기");
+    expect(
+      refreshButton.closest(".cp-heading-with-edit")?.querySelector("strong")
+        ?.textContent,
+    ).toContain("정선 고개");
+    fireEvent.click(refreshButton);
     await waitFor(() => expect(loadSegmentDetail).toHaveBeenCalled());
+    // 가져오는 동안 같은 아이콘 자리에 스피너를 보여주고 다시 누를 수 없다.
+    expect(refreshButton).toHaveAttribute("aria-busy", "true");
+    expect(refreshButton).toBeDisabled();
     view.rerender(<MeetingSegmentPicker selected={[]} onChange={onChange} />);
     resolve(sample);
     await Promise.resolve();

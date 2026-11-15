@@ -1,7 +1,7 @@
 import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { handleGroupChoiceKey } from "../../features/group/groupControlKeys";
 import GroupRequestHistory from "../../components/group/GroupRequestHistory";
-import { Inbox, Search, Users } from "lucide-react";
+import { Inbox, RefreshCw, Search, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -20,7 +20,7 @@ import GroupSubNav from "../../components/group/GroupSubNav";
 import Avatar from "../../components/Avatar";
 import InviteMemberModal from "../../components/group/InviteMemberModal";
 import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
-import { Button, Card, Chip, Text, DropdownSelect, Input } from "../../theme/components";
+import { Button, Card, Chip, Text, DropdownSelect, IconButton, Input } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import { useGroupInviteCode } from "../../hooks/useGroupInviteCode";
 import { localeTag } from "../../utils/localeDate";
@@ -191,6 +191,21 @@ function GroupMembersContent({ management = false }: { management?: boolean }) {
       showToast(t("settings.regenerateCodeFailed"), "error");
     } finally { if (current()) setRegeneratingCode(false); }
   };
+
+  // 초대 코드 재생성은 별도 행 버튼 대신 초대 링크 복사 버튼 옆 작은 아이콘으로 둔다. 확인 대화상자는 그대로.
+  const regenerateCodeButton = (
+    <IconButton
+      data-testid="C6-3-regenerate"
+      variant="secondary"
+      size="sm"
+      loading={regeneratingCode}
+      disabled={invite.status === "loading"}
+      aria-label={t("button.regenerateCode")}
+      title={t("button.regenerateCode")}
+      icon={<RefreshCw size={ICON_SIZE.sm} />}
+      onClick={() => void handleRegenerateCode()}
+    />
+  );
 
   const filteredMembers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -734,7 +749,7 @@ function GroupMembersContent({ management = false }: { management?: boolean }) {
       {tab === "invite" && canManage && (
         <Card role="tabpanel" id={`club-${groupId}-panel-invite`} aria-labelledby={`club-${groupId}-tab-invite`} data-testid="C6-3" padding="none" style={{ padding: 'var(--space-4)' }}>
           <h2 className="text-[length:var(--ft-title-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("members.inviteLink")}</h2>
-          {invite.status === "failed" ? <div className="club-invite-load-error mb-4" role="alert"><Text as="p" variant="body">{t("invite.linkLoadFailed")}</Text><Button variant="secondary" size="sm" onClick={()=>{ invite.retry(); setInvitationsAttempt(value=>value+1); }}>{t("invite.retry")}</Button></div> : invite.code ? <>
+          {invite.status === "failed" ? <div className="club-invite-load-error mb-4" role="alert"><Text as="p" variant="body">{t("invite.linkLoadFailed")}</Text><div className="flex items-center" style={{ gap: 'var(--space-2)' }}><Button variant="secondary" size="sm" onClick={()=>{ invite.retry(); setInvitationsAttempt(value=>value+1); }}>{t("invite.retry")}</Button>{regenerateCodeButton}</div></div> : invite.code ? <>
           <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
             <code style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", fontFamily: "var(--font-code)", color: "var(--lime)", flex: 1, minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>
               {invite.code ? buildGroupInviteUrl(invite.code, i18n.language) : ""}
@@ -756,15 +771,15 @@ function GroupMembersContent({ management = false }: { management?: boolean }) {
             >
               {inviteLinkCopied ? t("invite.copied") : t("button.copy")}
             </Button>
+            {regenerateCodeButton}
           </div>
-          </> : <p role="status" className="mb-4">{t(`invite.${invite.status}`)}</p>}
+          </> : <div className="flex items-center mb-4" style={{ gap: 'var(--space-2)' }}><p role="status">{t(`invite.${invite.status}`)}</p>{regenerateCodeButton}</div>}
           <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
             {t("members.inviteCodeDesc")}
           </p>
 
           {invite.details && <p className="mb-4" data-testid="C6-3-lifecycle">{t("settings.inviteLifecycle", {date: new Date(invite.details.expiresAt).toLocaleDateString(localeTag()),used:invite.details.useCount,limit:invite.details.useLimit})}</p>}
-          <div className="flex flex-wrap gap-2 mb-4"><Button data-testid="C6-3-regenerate" onClick={handleRegenerateCode} disabled={regeneratingCode || invite.status === "loading"} variant="secondary" size="sm">{regeneratingCode ? t("button.saving") : t("button.regenerateCode")}</Button>
-          <Button onClick={() => setShowInvite(true)} variant="secondary" size="sm">{t("invite.directLabel")}</Button></div>
+          <div className="flex flex-wrap gap-2 mb-4"><Button onClick={() => setShowInvite(true)} variant="secondary" size="sm">{t("invite.directLabel")}</Button></div>
           {invitationsError && invite.status !== "failed" && <div role="alert" className="club-invite-load-error mb-4"><Text as="p" variant="body">{t("invite.historyLoadFailed")}</Text><Button variant="secondary" size="sm" onClick={()=>setInvitationsAttempt(value=>value+1)}>{t("invite.retry")}</Button></div>}
           {invitations.length > 0 && (
             <div data-testid="C6-3-2">

@@ -169,6 +169,24 @@ describe("EventDashboardPage read failures", () => {
     expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
     expect(listeners.privateSubscriptions).toBe(0);
   });
+  it("role-only operators get the participant view as an icon beside the title, keeping real CTAs as text", async () => {
+    listeners.creatorId = "creator-elsewhere"; listeners.role = "STAFF"; listeners.status = "OPEN";
+    render(<EventDashboardPage />);
+    const participantView = await screen.findByRole("button", { name: "action.participantView" });
+    expect(participantView).toHaveClass("ds-btn--icon-only");
+    expect(participantView).toHaveAttribute("title", "action.participantView");
+    expect(participantView).toHaveTextContent("");
+    expect(participantView.parentElement).toContainElement(screen.getByRole("heading", { level: 1, name: "QA event" }));
+    // 전체 공지는 실제 동작이라 글자 버튼으로 남는다.
+    expect(screen.getByRole("button", { name: "action.sendNotice" })).not.toHaveClass("ds-btn--icon-only");
+  });
+  it("shows the spectator view as an icon-only header action on the private dashboard", async () => {
+    render(<EventDashboardPage />);
+    const spectator = await screen.findByRole("button", { name: "action.spectatorView" });
+    expect(spectator).toHaveClass("ds-btn--icon-only");
+    expect(spectator).toHaveAttribute("title", "action.spectatorView");
+    expect(spectator).toHaveTextContent("");
+  });
   it("an unrelated RIDER cannot enter or read private map data", async () => {
     listeners.creatorId = "creator-elsewhere"; listeners.role = "RIDER";
     render(<MemoryRouter initialEntries={["/ko/event/event-1/host"]}><EventDashboardPage /></MemoryRouter>);

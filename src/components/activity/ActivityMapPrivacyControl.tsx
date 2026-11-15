@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createActivityMapPrivacyClient, type ActivityMapPrivacy } from "../../services/activityMapPrivacy";
-import { Button, Card, Field, Input, Stack, Text } from "../../theme/components";
+import { Button, Card, Field, IconButton, Input, Stack, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import RouteMap from "../RouteMap";
 import ActivityMapThumbnailReplaceControl from "./ActivityMapThumbnailReplaceControl";
 
-export default function ActivityMapPrivacyControl({ activityId, thumbnail }: { activityId: string; thumbnail?: { polyline: string; contentRevision?: unknown; contentSelectedRevision?: unknown } }) {
-  const { user } = useAuth(); const services = useFirebaseServices(); const { t } = useTranslation("activity");
+type Thumbnail = { polyline: string; contentRevision?: unknown; contentSelectedRevision?: unknown };
+
+/**
+ * 공개 지도 보호 설정 상태. 여는 버튼(지도 왼쪽 아래 연필)과 설정 패널(지도 아래)이 화면의 다른 자리에 있어
+ * 상태는 hook 으로 두고 두 조각이 함께 쓴다.
+ */
+export function useActivityMapPrivacy(activityId: string) {
+  const { user } = useAuth(); const services = useFirebaseServices();
   const client = useMemo(() => createActivityMapPrivacyClient(services), [services, user]);
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [state, setState] = useState<{ client: typeof client; activityId: string; current: ActivityMapPrivacy; preview: ActivityMapPrivacy | null } | null>(null);
@@ -38,10 +46,27 @@ export default function ActivityMapPrivacyControl({ activityId, thumbnail }: { a
     } finally { if (request === generation.current) { pending.current = false; setBusy(false); } }
   }
   function edit(value: string, field: "start" | "end") { (field === "start" ? setStart : setEnd)(value); setSaved(false); if (current) setState({ ...current, preview: null }); }
+  const close = () => { setOpen(false); setState(null); trigger.current?.focus(); };
+  return { activityId, open, busy, current, start, end, valid, error, saved, input, trigger, run, edit, close };
+}
+export type ActivityMapPrivacyState = ReturnType<typeof useActivityMapPrivacy>;
+
+/** 지도 왼쪽 아래 모서리에 얹는 연필 버튼(지도 크기 조절 버튼과 같은 모양). */
+export function ActivityMapPrivacyTrigger({ control, className }: { control: ActivityMapPrivacyState; className?: string }) {
+  const { t } = useTranslation("activity");
+  return <IconButton ref={control.trigger} variant="ghost" size="sm" className={className} loading={control.busy} aria-expanded={control.open}
+    aria-label={t("mapPrivacy.title")} title={t("mapPrivacy.title")} icon={<Pencil size={ICON_SIZE.sm} />} onClick={() => void control.run("load")} />;
+}
+
+/** 연필을 눌렀을 때만 펼쳐지는 설정 패널. 닫혀 있으면 자리를 차지하지 않는다. */
+export function ActivityMapPrivacyPanel({ control, thumbnail }: { control: ActivityMapPrivacyState; thumbnail?: Thumbnail }) {
+  const { t } = useTranslation("activity");
+  const { activityId, open, busy, current, start, end, valid, error, saved, input, run, edit, close } = control;
+  if (!(open && current) && !error && !saved) return null;
   const displayed = current?.preview ?? current?.current;
   return <Card><Stack gap="var(--space-3)">
-    <Button ref={trigger} variant="outline" loading={busy} aria-expanded={open} onClick={() => void run("load")}>{t("mapPrivacy.title")}</Button>
     {open && current && <>
+      <Text as="h2" variant="bodyMedium" weight={600}>{t("mapPrivacy.title")}</Text>
       <Text>{t("mapPrivacy.current", { ...current.current.settings })}</Text>
       <Text variant="bodySmall">{t(`mapPrivacy.visibility.${current.current.visibility}`)}</Text>
       <Text variant="bodySmall">{t("mapPrivacy.explanation")}</Text>
@@ -56,7 +81,7 @@ export default function ActivityMapPrivacyControl({ activityId, thumbnail }: { a
       <Stack direction="row" wrap gap="var(--space-2)">
         <Button variant="secondary" disabled={!valid || busy} loading={busy} onClick={() => void run("preview")}>{t("mapPrivacy.preview")}</Button>
         <Button disabled={!current.preview || busy || !valid || current.preview.state === "changed_source"} loading={busy} onClick={() => void run("save")}>{t("mapPrivacy.save")}</Button>
-        <Button variant="ghost" disabled={busy} onClick={() => { setOpen(false); setState(null); trigger.current?.focus(); }}>{t("kudosCard.cancel")}</Button>
+        <Button variant="ghost" disabled={busy} onClick={close}>{t("kudosCard.cancel")}</Button>
       </Stack>
       <Text variant="caption">{t("mapPrivacy.limit")}</Text>
       {/* 보호가 켜진 활동은 썸네일이 없어(imageUrl=null) 다시 만들기 버튼도 숨는다. */}
@@ -65,4 +90,9 @@ export default function ActivityMapPrivacyControl({ activityId, thumbnail }: { a
     {error && <><Text role="alert">{t(`mapPrivacy.${error}`)}</Text><Button variant="secondary" onClick={() => void run("load")} disabled={busy}>{t("page.retry")}</Button></>}
     {saved && <Text role="status">{t("mapPrivacy.saved")}</Text>}
   </Stack></Card>;
+}
+
+export default function ActivityMapPrivacyControl({ activityId, thumbnail }: { activityId: string; thumbnail?: Thumbnail }) {
+  const control = useActivityMapPrivacy(activityId);
+  return <Stack gap="var(--space-3)"><div><ActivityMapPrivacyTrigger control={control} /></div><ActivityMapPrivacyPanel control={control} thumbnail={thumbnail} /></Stack>;
 }

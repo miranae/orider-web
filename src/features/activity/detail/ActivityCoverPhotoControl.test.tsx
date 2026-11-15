@@ -8,11 +8,15 @@ it("selects and clears the current photo using the acknowledged revision", async
   api.save.mockResolvedValueOnce({ photoId: "p2", coverRevision: "r1" }).mockResolvedValueOnce({ photoId: null, coverRevision: "r2" });
   renderWithProviders(<ActivityCoverPhotoControl activityId="ride" photoId="p2" />);
   await waitFor(() => expect(screen.getByRole("button", { name: "대표사진으로 선택" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "대표사진으로 선택" }));
-  expect(await screen.findByText("현재 대표사진")).toBeInTheDocument();
+  const star = screen.getByRole("button", { name: "대표사진으로 선택" });
+  // 사진 보기 아이콘 줄의 별 버튼 — 선택 상태는 aria-pressed 와 title 로
+  expect(star).toHaveClass("ds-btn--icon-only"); expect(star).toHaveAttribute("aria-pressed", "false");
+  fireEvent.click(star);
+  expect(await screen.findByRole("button", { name: "대표사진 선택 해제" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByTitle("현재 대표사진")).toBeInTheDocument();
   expect(api.save).toHaveBeenLastCalledWith(expect.anything(), "ride", "p2", "r0");
   fireEvent.click(screen.getByRole("button", { name: "대표사진 선택 해제" }));
-  await waitFor(() => expect(screen.queryByText("현재 대표사진")).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByTitle("현재 대표사진")).not.toBeInTheDocument());
   expect(api.save).toHaveBeenLastCalledWith(expect.anything(), "ride", null, "r1");
 });
 it("does not overwrite after a conflict or network failure and reloads before retry", async () => {
@@ -26,7 +30,7 @@ it("does not overwrite after a conflict or network failure and reloads before re
   await waitFor(() => expect(screen.getByRole("button", { name: "대표사진으로 선택" })).toBeEnabled());
   api.save.mockResolvedValue({ photoId: "p2", coverRevision: "r3" });
   fireEvent.click(screen.getByRole("button", { name: "대표사진으로 선택" }));
-  await screen.findByText("현재 대표사진"); expect(api.save).toHaveBeenLastCalledWith(expect.anything(), "ride", "p2", "newer");
+  await screen.findByTitle("현재 대표사진"); expect(api.save).toHaveBeenLastCalledWith(expect.anything(), "ride", "p2", "newer");
 });
 it("ignores pending selection after an account-keyed remount", async () => {
   let resolve!: (v: unknown) => void; api.save.mockReturnValue(new Promise(r => { resolve = r; }));
@@ -35,5 +39,5 @@ it("ignores pending selection after an account-keyed remount", async () => {
   fireEvent.click(screen.getByRole("button", { name: "대표사진으로 선택" }));
   view.rerender(<ActivityCoverPhotoControl key="next" activityId="ride" photoId="p2" />);
   await act(async () => resolve({ photoId: "p2", coverRevision: "old" }));
-  expect(screen.queryByText("현재 대표사진")).not.toBeInTheDocument();
+  expect(screen.queryByTitle("현재 대표사진")).not.toBeInTheDocument();
 });

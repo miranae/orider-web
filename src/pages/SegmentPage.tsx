@@ -26,7 +26,9 @@ import { decodePolyline } from "../utils/polyline";
 import RouteMap from "../components/RouteMap";
 import SegmentHistoryPanel from "../features/segments/SegmentHistoryPanel";
 import { segmentHistoryContext } from "../features/segments/segmentHistoryNavigation";
-import { Button, Card, Text, buttonClass } from "../theme/components";
+import { Button, Card, IconButton, Text, buttonClass } from "../theme/components";
+import { ICON_SIZE } from "../theme/tokens/icon";
+import { Share2 } from "lucide-react";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { isImplausibleAvgSpeed } from "../utils/activitySanity";
 
@@ -460,13 +462,15 @@ function SegmentDetailContent() {
         <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
           <SegmentClimbCategory category={segment.climbCategory} />
           <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{segment.name}</h1>
-          <Button data-testid="D3-0-share" variant="secondary" size="sm" onClick={async () => {
+          {/* 공유는 제목 옆 작은 아이콘으로 — 글자 버튼을 두지 않는다. */}
+          <IconButton data-testid="D3-0-share" variant="ghost" size="sm" icon={<Share2 size={ICON_SIZE.sm} />}
+            aria-label={t("detail.share")} title={t("detail.share")} onClick={async () => {
             const url = window.location.origin + window.location.pathname;
             try {
               if (navigator.share) await navigator.share({ title: segment.name, url });
               else { await navigator.clipboard.writeText(url); showToast(t("detail.shareCopied")); }
             } catch (error) { if (!(error instanceof DOMException && error.name === "AbortError")) { logClientError("SegmentPage.share", error, { segmentId }); showToast(t("detail.shareFailed")); } }
-          }}>{t("detail.share")}</Button>
+          }} />
           {(() => {
             const badgeStyle = segment.status ? STATUS_BADGE_STYLES[segment.status] : null;
             const badgeLabel = segment.status && (segment.status === "pending" || segment.status === "rejected" || segment.status === "hidden")
