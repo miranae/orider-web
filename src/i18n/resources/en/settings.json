@@ -72,6 +72,7 @@
     "photoUploading": "Uploading…",
     "photoChange": "Change photo",
     "photoDelete": "Remove photo",
+    "photoDeleteConfirm": "Delete your profile photo?",
     "friendCodeLabel": "Friend code",
     "stravaConnected": "Strava connected",
     "noName": "No name",

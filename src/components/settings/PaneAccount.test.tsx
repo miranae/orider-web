@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
+import { getDoc } from "firebase/firestore";
 import { PaneAccount } from "./PaneAccount";
 
 const mocks = vi.hoisted(() => ({
@@ -220,6 +221,42 @@ describe("PaneAccount nickname save", () => {
     await waitFor(() => expect(everyone).not.toBeDisabled()); fireEvent.click(everyone);
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("privacy.changeFailed"));
     expect(everyone).toBeDisabled(); expect(mocks.showToast).not.toHaveBeenCalledWith("privacy.visibilityChanged");
+  });
+
+  it("사진 변경·삭제는 아바타 위 아이콘, 코드 복사는 친구 코드 옆 아이콘이고 따로 떨어진 버튼 줄은 없다", async () => {
+    mocks.profile = { nickname: "Old Name", photoURL: "https://example.test/me.webp" };
+    // 다른 읽기와 섞여도 친구 코드가 들어오도록 이 테스트 동안만 모든 사용자 문서 읽기가 코드를 돌려준다
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ friendCode: "ABC123" }) } as never);
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const copy = await screen.findByRole("button", { name: "profile.copyCode" });
+    const avatar = container.querySelector(".settings-profile-avatar");
+    for (const name of ["profile.photoChange", "profile.photoDelete"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button.textContent).toBe("");
+      expect(avatar).toContainElement(button);
+    }
+    expect(copy).toHaveClass("ds-btn--icon-only");
+    expect(copy).toHaveAttribute("title", "profile.copyCode");
+    expect(copy.textContent).toBe("");
+    expect(screen.getByText("ABC123").parentElement).toContainElement(copy);
+    expect(container.querySelector(".settings-profile-actions")).toBeNull();
+    vi.mocked(getDoc).mockResolvedValue({ exists: () => false, data: () => ({}) } as never);
+  });
+
+  it("사진이 없으면 삭제 아이콘을 숨기고, 있으면 확인 뒤에만 지운다", async () => {
+    const view = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    expect(screen.queryByRole("button", { name: "profile.photoDelete" })).toBeNull();
+    view.unmount();
+    mocks.profile = { nickname: "Old Name", photoURL: "https://example.test/me.webp" };
+    mocks.confirm.mockResolvedValueOnce(false);
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("profile.photoDeleteConfirm", { destructive: true }));
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
+    await waitFor(() => expect(mocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { photoURL: null }));
   });
 
 });

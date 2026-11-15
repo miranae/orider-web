@@ -204,6 +204,10 @@ describe("compact body reference beside FTP settings", () => {
     expect(screen.getByTestId("K1-5-3")).toContainElement(reference);
     expect(reference.querySelector("input")).toBeNull();
     expect(screen.getByRole("link", { name: "training.editBody" })).toHaveAttribute("href", "/settings/account#body-info");
+    // 신체 정보 수정은 글자 없는 연필 아이콘 링크
+    expect(screen.getByRole("link", { name: "training.editBody" })).toHaveClass("ds-btn--icon-only");
+    expect(screen.getByRole("link", { name: "training.editBody" })).toHaveAttribute("title", "training.editBody");
+    expect(screen.getByRole("link", { name: "training.editBody" }).textContent).toBe("");
     expect(mocks.persist).not.toHaveBeenCalled();
     expect(mocks.metricCommand).not.toHaveBeenCalled();
     expect(mocks.updateDoc).not.toHaveBeenCalled();

@@ -48,3 +48,14 @@ it("discards a late save response after the connected account changes", async ()
   expect(screen.getByRole("switch")).toBeChecked();
   expect(screen.queryByText("stravaSummary.autoDisabled")).not.toBeInTheDocument();
 });
+
+it("shows the reload action as an icon-only button beside the toggle", async () => {
+  mocks.settings.mockRejectedValueOnce(new Error("offline"));
+  render(<StravaSummarySettings />);
+  await screen.findByText("stravaSummary.settingsError");
+  const reload = screen.getByRole("button", { name: "stravaSummary.loadSettings" });
+  expect(reload).toHaveClass("ds-btn--icon-only");
+  expect(reload).toHaveAttribute("title", "stravaSummary.loadSettings");
+  expect(reload.textContent).toBe("");
+  expect(reload.parentElement).toContainElement(screen.getByRole("switch"));
+});

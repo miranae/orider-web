@@ -128,4 +128,20 @@ describe("PaneDevice 경고·알림 → 해결", () => {
     fireEvent.click(message);
     expect(mocks.signIn).toHaveBeenCalledTimes(1);
   });
+
+  it("기기 머리의 이름 변경·삭제·새로고침은 글자 없는 아이콘 버튼이고 이름 변경은 기기 이름 옆에 있다", () => {
+    renderPane();
+    const header = screen.getByTestId("S6-0-1");
+    for (const name of ["디바이스 이름 변경", "디바이스 삭제", "새로고침"]) {
+      const button = within(header).getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button.textContent).toBe("");
+    }
+    expect(header.querySelector(".settings-device-header__selector")).toContainElement(
+      within(header).getByRole("button", { name: "디바이스 이름 변경" }),
+    );
+    fireEvent.click(within(header).getByRole("button", { name: "새로고침" }));
+    expect(mocks.reload).toHaveBeenCalled();
+  });
 });

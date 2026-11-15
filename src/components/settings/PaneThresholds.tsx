@@ -2,6 +2,7 @@ import { isSportUiEnabled } from "../../config/sportFeatures";
 import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { useEffect, useId, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { Pencil } from "lucide-react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 
@@ -30,6 +31,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { formatBodyValue } from "./bodyMeasurements";
 import { ThresholdSuggestionBanner } from "./ThresholdSuggestionBanner";
 import { ToggleControls, ToggleButton, Stat, buttonClass, Button, Input, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { estimateFtpFromTest, isConservativeDrop, type FtpTestProtocol } from "@shared/training/ftpTest";
 import {
   ftpHistorySourceForChange,
@@ -357,7 +359,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
               weightUnit: bodyUnit === "imperial" ? "lb" : "kg",
             })}</span>
             <span className="threshold-body-reference__basis">{t("training.bodyWeightBasis")}</span>
-            <LocalizedLink to="/settings/account#body-info" className={buttonClass({ variant: "ghost", size: "sm" })}>{t("training.editBody")}</LocalizedLink>
+            <LocalizedLink to="/settings/account#body-info" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("training.editBody")} title={t("training.editBody")}><span className="ds-btn__icon" aria-hidden><Pencil size={ICON_SIZE.xs} /></span></LocalizedLink>
         </div>
   );
   const ftpGroup = <div>{ftpField}{bodyReference}</div>;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KeyRound, Copy, Trash2 } from "lucide-react";
+import { KeyRound, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button, Chip, Text, Input } from "../../theme/components";
+import { Button, Chip, IconButton, Text, Input } from "../../theme/components";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { logClientError } from "../../services/errorLogger";
@@ -196,7 +196,7 @@ export function PaneDeveloper() {
         </SettingsCard>
       )}
 
-      <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardKeys")} action={<Button size="md" variant="secondary" onClick={() => void loadKeys()}>{t("pane.developer.refresh")}</Button>}>
+      <SettingsCard data-testid="S5-1-2" title={t("pane.developer.cardKeys")} action={<IconButton variant="ghost" icon={<RefreshCw size={ICON_SIZE.xs} />} onClick={() => void loadKeys()} aria-label={t("pane.developer.refresh")} title={t("pane.developer.refresh")} />}>
         {loading ? (
           <Text variant="bodySmall" style={{ color: "var(--ink-2)" }}>{t("pane.developer.loading")}</Text>
         ) : loadFailed && keys.length === 0 ? (

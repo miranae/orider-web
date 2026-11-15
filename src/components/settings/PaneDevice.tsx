@@ -8,7 +8,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { useLayoutAuthority } from "../../hooks/useLayoutAuthority";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Pencil, Smartphone, Trash2, Users, Smartphone as PhoneIcon } from "lucide-react";
+import { Pencil, RefreshCw, Smartphone, Trash2, Users, Smartphone as PhoneIcon } from "lucide-react";
 
 import {
   deleteDevice,
@@ -43,7 +43,7 @@ import {
 import { Resolvable } from "../redesign/states/Resolvable";
 import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { LayoutEditorCard } from "./LayoutEditorCard";
-import { Button, Card, DropdownSelect, buttonClass } from "../../theme/components";
+import { Button, Card, DropdownSelect, IconButton, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 function formatDateTime(ms: number, locale: string): string {
@@ -879,15 +879,37 @@ export function PaneDevice() {
           <Smartphone size={ICON_SIZE.lg} />
         </div>
         <div className="settings-device-header__selector" style={{ minWidth: 0 }}>
-          {records.length > 1 ? (
-            <DropdownSelect label={t("device.selectDevice")} value={record.deviceId}
-              onChange={(value) => { cancelEdit(); setSelectedDeviceId(value); }}
-              options={records.map((r) => ({ value: r.deviceId, label: r.deviceName || r.deviceId }))} />
-          ) : (
-            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>
-              {record.deviceName || record.deviceId}
-            </div>
-          )}
+          {/* 기기 이름 옆 연필 — 이름 변경은 큰 글자 버튼 대신 아이콘으로 */}
+          <div className="settings-device-header__name">
+            {records.length > 1 ? (
+              <DropdownSelect label={t("device.selectDevice")} value={record.deviceId}
+                onChange={(value) => { cancelEdit(); setSelectedDeviceId(value); }}
+                options={records.map((r) => ({ value: r.deviceId, label: r.deviceName || r.deviceId }))} />
+            ) : (
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>
+                {record.deviceName || record.deviceId}
+              </div>
+            )}
+            <IconButton
+              variant="ghost"
+              icon={<Pencil size={ICON_SIZE.xs} />}
+              onClick={async () => {
+                if (!uid || !record) return;
+                const next = await dialog.prompt(t("device.renamePrompt"), { defaultValue: record.deviceName || "" });
+                if (next == null) return;
+                void (async () => {
+                  try {
+                    await renameDevice(uid, record.deviceId, next);
+                    showToast(t("device.renameSuccess"));
+                  } catch (e) {
+                    showToast(t("device.renameFailed", { message: e instanceof Error ? e.message : String(e) }));
+                  }
+                })();
+              }}
+              aria-label={t("device.renameDeviceAriaLabel")}
+              title={t("device.renameDeviceAriaLabel")}
+            />
+          </div>
         </div>
           <div className="settings-device-header__meta"
             style={{
@@ -917,27 +939,9 @@ export function PaneDevice() {
             )}
           </div>
         <div className="settings-device-header__actions">
-        <Button
-          variant="secondary"
-          onClick={async () => {
-            if (!uid || !record) return;
-            const next = await dialog.prompt(t("device.renamePrompt"), { defaultValue: record.deviceName || "" });
-            if (next == null) return;
-            void (async () => {
-              try {
-                await renameDevice(uid, record.deviceId, next);
-                showToast(t("device.renameSuccess"));
-              } catch (e) {
-                showToast(t("device.renameFailed", { message: e instanceof Error ? e.message : String(e) }));
-              }
-            })();
-          }}
-          aria-label={t("device.renameDeviceAriaLabel")}
-        >
-          {t("device.renameDevice")}
-        </Button>
-        <Button
-          variant="secondary"
+        <IconButton
+          variant="ghost"
+          icon={<Trash2 size={ICON_SIZE.xs} />}
           onClick={async () => {
             if (!uid || !record) return;
             const ok = await dialog.confirm(
@@ -956,12 +960,16 @@ export function PaneDevice() {
             })();
           }}
           aria-label={t("device.deleteDeviceAriaLabel")}
-        >
-          <Trash2 size={ICON_SIZE.sm} />
-        </Button>
-        <Button variant="secondary" onClick={() => void reload()}>
-          {t("device.reload")}
-        </Button>
+          title={t("device.deleteDeviceAriaLabel")}
+          style={{ color: "var(--rose)" }}
+        />
+        <IconButton
+          variant="ghost"
+          icon={<RefreshCw size={ICON_SIZE.xs} />}
+          onClick={() => void reload()}
+          aria-label={t("device.reload")}
+          title={t("device.reload")}
+        />
         </div>
       </Card>
 

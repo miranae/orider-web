@@ -11,7 +11,10 @@ interface ProfileHeroProps {
   friendCode?: string | null;
   stravaConnected?: boolean;
   onEditNickname?: () => void;
-  actions?: ReactNode;
+  /** 아바타 오른쪽 아래에 겹쳐 놓는 아이콘 버튼(사진 변경·삭제) */
+  avatarActions?: ReactNode;
+  /** 친구 코드 바로 옆에 붙는 아이콘 버튼(코드 복사) */
+  friendCodeAction?: ReactNode;
 }
 
 export function ProfileHero({
@@ -21,7 +24,8 @@ export function ProfileHero({
   friendCode,
   stravaConnected,
   onEditNickname,
-  actions,
+  avatarActions,
+  friendCodeAction,
 }: ProfileHeroProps) {
   const { t } = useTranslation("settings");
   const initial = (nickname || "?").slice(0, 1).toUpperCase();
@@ -37,36 +41,39 @@ export function ProfileHero({
         alignItems: "center",
       }}
     >
-      {photoURL ? (
-        <img
-          src={photoURL}
-          alt={nickname}
-          style={{
-            width: size,
-            height: size,
-            borderRadius: "50%",
-            objectFit: "cover",
-            border: "1px solid var(--line-soft)",
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            width: size,
-            height: size,
-            borderRadius: "50%",
-            display: "grid",
-            placeItems: "center",
-            background: "color-mix(in oklch, var(--lime) 18%, var(--bg-2))",
-            color: "var(--ink-0)",
-            fontSize: size * 0.42,
-            fontWeight: 600,
-            border: "1px solid var(--line-soft)",
-          }}
-        >
-          {initial}
-        </div>
-      )}
+      <div className="settings-profile-avatar">
+        {photoURL ? (
+          <img
+            src={photoURL}
+            alt={nickname}
+            style={{
+              width: size,
+              height: size,
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "1px solid var(--line-soft)",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: size,
+              height: size,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              background: "color-mix(in oklch, var(--lime) 18%, var(--bg-2))",
+              color: "var(--ink-0)",
+              fontSize: size * 0.42,
+              fontWeight: 600,
+              border: "1px solid var(--line-soft)",
+            }}
+          >
+            {initial}
+          </div>
+        )}
+        {avatarActions && <div className="settings-profile-avatar__actions">{avatarActions}</div>}
+      </div>
 
       <div style={{ minWidth: 0 }}>
         <div className="settings-profile-name" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
@@ -117,6 +124,7 @@ export function ProfileHero({
               >
                 {friendCode}
               </Text>
+              {friendCodeAction}
               {t("profile.friendCodeLabel")}
             </span>
           )}
@@ -144,8 +152,6 @@ export function ProfileHero({
           )}
         </div>
       </div>
-
-      {actions && <div className="settings-profile-actions">{actions}</div>}
     </Card>
   );
 }

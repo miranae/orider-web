@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -63,5 +63,18 @@ describe("PaneDeveloper load failure", () => {
     expect(screen.queryByRole("button", { name: "API 키를 불러오지 못했습니다" })).toBeNull();
     // 실패 문구 자리를 빼면 버튼 수는 키 행의 폐기 버튼만큼만 늘었다(새 버튼 없음).
     expect(screen.getAllByRole("button").length).toBe(buttonsBefore);
+  });
+});
+
+describe("PaneDeveloper key list refresh", () => {
+  it("키 목록 새로고침은 카드 머리의 글자 없는 아이콘 버튼이다", async () => {
+    render(<MemoryRouter><PaneDeveloper /></MemoryRouter>);
+    const refresh = screen.getByRole("button", { name: "새로고침" });
+    expect(refresh).toHaveClass("ds-btn--icon-only");
+    expect(refresh).toHaveAttribute("title", "새로고침");
+    expect(refresh.textContent).toBe("");
+    await screen.findByText(/아직 생성된 API 키가 없어요/);
+    await userEvent.click(refresh);
+    await waitFor(() => expect(listKeys).toHaveBeenCalledTimes(2));
   });
 });
