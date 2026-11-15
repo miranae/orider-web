@@ -139,6 +139,22 @@ describe("RunRecordBanner — 공유", () => {
     expect(shareSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("공유 도중 계정이 바뀐 뒤 늦게 실패하면 새 계정에 재시도 알림을 만들지 않는다", async () => {
+    auth.currentUser = { uid: "runner-a" };
+    let fail: (error: Error) => void = () => {};
+    const shareSpy = vi.fn(() => new Promise<void>((_resolve, reject) => { fail = reject; }));
+    Object.defineProperty(navigator, "share", { value: shareSpy, configurable: true });
+    render(<RunRecordBanner run={run} activityId="today" />);
+    const before = toast.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: /공유/ }));
+    await vi.waitFor(() => expect(shareSpy).toHaveBeenCalledTimes(1));
+    auth.currentUser = { uid: "runner-b" };
+    fail(new Error("blocked"));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(toast.mock.calls.length).toBe(before);
+    auth.currentUser = { uid: "runner-a" };
+  });
+
   it("navigator.share 가 없으면 클립보드로 폴백", async () => {
     // @ts-expect-error 폴백 경로 테스트를 위해 navigator.share 제거
     delete navigator.share;

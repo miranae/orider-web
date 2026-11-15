@@ -81,7 +81,8 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
       }
     } catch (err) {
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
-      if (request !== generation.current) return;
+      // 내보내는 도중 계정이 바뀌었으면 늦은 실패로 새 계정에 재시도 알림을 만들지 않는다.
+      if (request !== generation.current || (auth.currentUser?.uid ?? null) !== uid) return;
       // 알림 문구를 누르면 같은 형식으로 다시 내보낸다. 그사이 다른 활동으로 옮겼거나 화면을 떠났거나(세대),
       // 인증 주체가 바뀌었으면(로그아웃·계정 전환) 아무것도 하지 않는다.
       showToast(t("export.errorAlert"), "error", { resolve: { onClick: () => {

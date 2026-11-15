@@ -35,6 +35,9 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
   // 기록 공유 — aha 를 획득 루프로 (§3.4a R4). navigator.share(카카오톡 포함 네이티브 시트)
   // + 클립보드 폴백. 이 저장소 관례(CoursePage.handleShare)와 동일.
   const handleShare = async () => {
+    // 인증 주체는 공유를 시작할 때 잡는다 — 공유 도중 계정이 바뀌고 늦게 실패하면 새 계정 기준으로 재시도가 생기지 않게.
+    const uid = auth.currentUser?.uid ?? null;
+    const sameSession = () => mounted.current && (auth.currentUser?.uid ?? null) === uid;
     const distanceLabel = t(`runRecord.dist.${top.distance}`);
     const text = t("runRecord.share.stored", { dist: distanceLabel, time: formatRecordDuration(top.timeSec) });
     const url = window.location.href;
@@ -47,9 +50,9 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
       // 알림 문구를 누르면 같은 공유를 다시 시도한다(누름 자체가 공유 시트에 필요한 사용자 동작).
       // 그사이 다른 화면으로 옮겼거나, 배너가 내려갔거나, 인증 주체가 바뀌었으면(로그아웃·계정 전환) 이전 계정의
       // 기록 문구를 공유하게 되므로 아무것도 하지 않는다.
-      const uid = auth.currentUser?.uid ?? null;
+      if (!sameSession()) return;
       showToast(t("runRecord.share.failed"), undefined, { resolve: { onClick: () => {
-        if (mounted.current && window.location.href === url && (auth.currentUser?.uid ?? null) === uid) void handleShare();
+        if (sameSession() && window.location.href === url) void handleShare();
       } } });
     }
   };
