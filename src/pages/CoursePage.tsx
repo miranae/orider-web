@@ -1,7 +1,7 @@
 import FirebaseSessionBoundary from "../contexts/FirebaseSessionBoundary";
 import { loadSegmentMetadata } from "../services/segmentMetadata";
 import { useDefaultSport } from "../hooks/useDefaultSport";
-import { Banana, Download, Flag, FlaskConical, MapPinned, Mountain, Pencil, Share2, Timer } from "lucide-react";
+import { Banana, Download, Eye, EyeOff, Flag, FlaskConical, MapPinned, Mountain, Pencil, Share2, Timer, Trash2 } from "lucide-react";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
@@ -1475,29 +1475,18 @@ function CoursePageContent() {
           {/* Owner actions */}
           {isOwner && (
             <div className="ml-auto flex items-center" style={{ gap: "var(--space-2)" }}>
-              <Button
-                onClick={handleDelete}
-                disabled={deleting} variant="secondary" size="sm" className="disabled:opacity-50"
-                style={{ color: "var(--rose)", borderColor: "var(--rose)" }}
-              >
-                {deleting ? t("error.deleteDeleting") : t("button.delete")}
-              </Button>
+              <IconButton onClick={handleDelete} loading={deleting} variant="danger" size="sm"
+                aria-label={t("button.delete")} title={t("button.delete")} icon={<Trash2 size={ICON_SIZE.sm} />} />
             </div>
           )}
           {isAdmin && (
             <div className={isOwner ? "flex items-center" : "ml-auto flex items-center"} style={{ gap: "var(--space-2)" }}>
-              <Button data-testid="O2-1" ref={unhideButtonRef}
+              <IconButton data-testid="O2-1" ref={unhideButtonRef}
                 onClick={() => handleToggleHidden(course.hidden !== true)}
-                disabled={moderating}
-                variant="secondary"
-                size="sm"
-                className="disabled:opacity-50"
+                loading={moderating} variant="secondary" size="sm"
                 style={{ color: course.hidden === true ? "var(--lime)" : "var(--rose)", borderColor: course.hidden === true ? "var(--lime)" : "var(--rose)" }}
-              >
-                {course.hidden === true
-                  ? (moderating ? t("admin.unhiding") : t("admin.unhide"))
-                  : (moderating ? t("admin.hiding") : t("admin.hide"))}
-              </Button>
+                aria-label={course.hidden === true ? t("admin.unhide") : t("admin.hide")} title={course.hidden === true ? t("admin.unhide") : t("admin.hide")}
+                icon={course.hidden === true ? <Eye size={ICON_SIZE.sm} /> : <EyeOff size={ICON_SIZE.sm} />} />
             </div>
           )}
         </div>

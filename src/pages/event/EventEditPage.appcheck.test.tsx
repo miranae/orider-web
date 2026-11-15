@@ -70,6 +70,16 @@ describe("EventEditPage bundled App Check update admission", () => {
     expect(constructedUpdates()).toHaveLength(1);
   }, 15_000);
 
+  it("shows the linked-course change notice from an icon-only pencil", async () => {
+    await editor();
+    const button = screen.getByRole("button", { name: "수정" });
+    expect(button).toHaveClass("ds-btn--icon-only");
+    expect(button).toHaveAttribute("title", "수정");
+    expect(button).toHaveTextContent("");
+    fireEvent.click(button);
+    expect(await screen.findByText("코스 변경은 추후 지원됩니다. 운영팀에 문의해주세요.")).toBeInTheDocument();
+  });
+
   it("puts preview and participant management as icon-only actions beside the title", async () => {
     await editor();
     const row = screen.getByTestId("event-edit-title-actions");

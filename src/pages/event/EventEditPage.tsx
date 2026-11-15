@@ -5,7 +5,7 @@ import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
 import Modal from "../../components/Modal";
-import { CalendarDays, CircleAlert, Clock3, Eye, LockKeyhole, Map, Users } from "lucide-react";
+import { CalendarDays, CircleAlert, Clock3, Eye, LockKeyhole, Map, Pencil, Users } from "lucide-react";
 import "../ExploreReview.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -725,12 +725,8 @@ export default function EventEditPage() {
                     </div>
                   )}
                 </div>
-                <Button
-                  type="button"
-                  onClick={() => setToast({ type: "warn", msg: t("edit.courseChangeSoon") })} variant="secondary" size="sm"
-                >
-                  {t("button.edit")}
-                </Button>
+                <IconButton variant="secondary" size="sm" aria-label={t("button.edit")} title={t("button.edit")} icon={<Pencil size={ICON_SIZE.sm} />}
+                  onClick={() => setToast({ type: "warn", msg: t("edit.courseChangeSoon") })} />
               </div>
             </Field>
 

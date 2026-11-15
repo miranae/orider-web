@@ -1,7 +1,7 @@
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
-import { Eye, Flag, LayoutDashboard, Link2, TrafficCone } from "lucide-react";
+import { Eye, Flag, LayoutDashboard, Link2, TrafficCone, X } from "lucide-react";
 import "../ExploreReview.css";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -207,14 +207,8 @@ function RiderCard({
             {loc.status === "FINISHED" ? "—" : loc.overallRank ?? "—"}
           </div>
         </div>
-        <Button
-          type="button"
-          onClick={onUnfollow}
-          aria-label={t("action.unfollowAthlete")} variant="secondary" size="sm"
-          style={{ padding: "var(--space-1) var(--space-2)", fontSize: "var(--ft-body-size)" }}
-        >
-          ×
-        </Button>
+        <IconButton onClick={onUnfollow} variant="secondary" size="sm" icon={<X size={ICON_SIZE.sm} />}
+          aria-label={t("action.unfollowAthlete")} title={t("action.unfollowAthlete")} />
       </div>
 
       <div style={{ marginBottom: "var(--space-3)" }}>
