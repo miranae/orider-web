@@ -636,6 +636,8 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 /* ===== Map controls: area size is separate from camera zoom ===== */
 .ds-btn.ds-map-resize { position: absolute; top: 0; left: 0; z-index: 1; width: calc(var(--space-7) + var(--space-3)); min-width: calc(var(--space-7) + var(--space-3)); height: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); border: 0; box-shadow: none; padding: 0; color: var(--ink-2); border-radius: var(--r-lg) 0 var(--r-lg) 0; background: linear-gradient(315deg, transparent, var(--bg-1)); }
 .ds-btn.ds-map-resize--bottom-right { top: auto; left: auto; bottom: 0; right: 0; background: linear-gradient(135deg, transparent, var(--bg-1)); }
+/* 지도 위 주인용 동작(예: 공개 지도 보호 연필) — 크기 조절 버튼이 쓰지 않는 왼쪽 아래 모서리 */
+.ds-btn.ds-map-resize--bottom-left { top: auto; bottom: 0; left: 0; border-radius: 0 var(--r-lg) 0 var(--r-lg); background: linear-gradient(225deg, transparent, var(--bg-1)); }
 .ds-map-resize svg { width: calc(var(--dim-icon-s) + var(--space-0-5)); height: calc(var(--dim-icon-s) + var(--space-0-5)); }
 .ds-btn.ds-map-resize:hover:not(:disabled), .ds-btn.ds-map-resize:focus-visible { color: var(--ink-1); background: var(--bg-1); }
 .ds-btn.ds-map-resize:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: calc(var(--space-1) * -1); }

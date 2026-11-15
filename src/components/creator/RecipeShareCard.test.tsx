@@ -18,7 +18,10 @@ it("edits and copies public copy, then passes only the reviewed public card to t
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
   renderWithProviders(<Routes><Route path="/" element={<RecipeShareCard card={card} language="ko" ready onError={vi.fn()} />} /><Route path="/ko/community/board/write" element={<Destination />} /></Routes>);
-  fireEvent.click(screen.getByRole("button", { name: "문구 편집" }));
+  const editCopy = screen.getByRole("button", { name: "문구 편집" });
+  expect(editCopy).toHaveClass("ds-btn--icon-only");
+  expect(editCopy).toHaveAttribute("title", "문구 편집");
+  fireEvent.click(editCopy);
   fireEvent.change(screen.getByLabelText("공개 문구 (160자)"), { target: { value: "다음 라이딩도 즐겁게!" } });
   fireEvent.click(screen.getByRole("button", { name: "공유 문구 복사" }));
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining("다음 라이딩도 즐겁게!")));
@@ -71,7 +74,7 @@ it("embeds only raster data imagery into the same SVG used for story PNG export"
   const imageDataUrl = "data:image/jpeg;base64,/9j/2Q==";
   const { container } = renderWithProviders(<RecipeShareCard card={{ ...card, imageDataUrl, imageAlt: "선택한 사진" }} language="ko" ready onError={vi.fn()} />);
   expect(container.querySelector("svg image")).toHaveAttribute("href", imageDataUrl);
-  expect(container.querySelector("svg[viewBox]")).toHaveAttribute("viewBox", "0 0 720 1280");
+  expect(container.querySelector("svg[role='img']")).toHaveAttribute("viewBox", "0 0 720 1280");
 });
 
 it("fits long English secondary values into separate readable KPI columns", () => {
