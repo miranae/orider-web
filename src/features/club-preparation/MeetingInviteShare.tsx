@@ -1,3 +1,4 @@
+import InfoTip from "../../components/InfoTip";
 import { useState } from "react";
 import { Copy, Share2 } from "lucide-react";
 import { Button } from "../../theme/components";
@@ -71,12 +72,12 @@ export default function MeetingInviteShare({ groupId, eventId, title, date, time
           onClick={() => void share()}>
           {text("공유", "Share")}
         </Button>
+        <InfoTip label={text("초대 안내", "Invitation help")} title={text("모임 초대", "Invite to meeting")} content={text("카카오톡·메시지로 공유하세요. 참여하려면 로그인과 클럽 가입이 필요해요.", "Share via KakaoTalk or Messages. Sign-in and club membership are required.")}>{text("초대 안내", "Invitation help")}</InfoTip>
       </div>
       <details>
         <summary>{text("간편 초대 링크", "Invitation link")}</summary>
         <a href={url}>{url}</a>
       </details>
-      <p>{text("카카오톡·메시지로 공유하세요. 참여하려면 로그인과 클럽 가입이 필요해요.", "Share via KakaoTalk or Messages. Sign-in and club membership are required.")}</p>
       <p role="status">{status}</p>
     </section>
   );

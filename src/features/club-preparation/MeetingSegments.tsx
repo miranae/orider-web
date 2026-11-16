@@ -1,3 +1,4 @@
+import InfoTip from "../../components/InfoTip";
 import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useTranslation } from "react-i18next";
@@ -55,7 +56,11 @@ export function MeetingSegmentCards({
   return (
     <section className="cp-segments" aria-label={mt("주요 구간")}>
       <div className="cp-heading-with-edit">
-        <h3>{mt("주요 구간")}</h3>
+        <h3>{segments?.length ? <InfoTip label={mt("주요 구간")} title={mt("주요 구간")} content={[
+          ...(segments.some(segment => segment.source === "gpx") ? [mt("GPX에서 이 모임용으로 생성한 주행·오르막 구간입니다. 공식 세그먼트로 게시되지 않습니다. ")] : []),
+          i18n.language.startsWith("en") ? "Segment distances are separate from the full course distance." : "구간 거리는 전체 코스 거리와 별개입니다.",
+          ...(segments.some(segment => segment.source === "public-catalog") ? [i18n.language.startsWith("en") ? "Public segments are not verified as part of this course. Check each detail page for the latest information." : "공개 목록에서 선택한 구간은 코스 포함 여부가 검증되지 않았으며 최신 상태는 해당 상세에서 확인하세요."] : []),
+        ].join(" ")}>{mt("주요 구간")}</InfoTip> : mt("주요 구간")}</h3>
         {/* 구간 수정도 코스 수정과 같이 제목 옆 연필 아이콘으로 둔다. */}
         {onEdit && (
           <IconButton
@@ -68,22 +73,9 @@ export function MeetingSegmentCards({
           />
         )}
       </div>
-      <p className="cp-muted">
-        {segments?.some((segment) => segment.source === "gpx")
-          ? mt(
-              "GPX에서 이 모임용으로 생성한 주행·오르막 구간입니다. 공식 세그먼트로 게시되지 않습니다. ",
-            )
-          : ""}
-        {mt(
-          "구간 거리는 전체 코스 거리와 별개입니다. 공개 목록에서 선택한 구간은 코스 포함 여부가 검증되지 않았으며 최신 상태는 해당 상세에서 확인하세요.",
-        )}
-      </p>
       {!segments?.length ? (
         <p className="cp-muted">
           {mt("아직 연결한 구간이 없어요.")}
-          {onEdit
-            ? mt(" 기존 세그먼트를 찾아 라이딩의 주요 구간을 소개해보세요.")
-            : mt(" 주최자가 구간을 선택하면 여기에서 확인할 수 있어요.")}
         </p>
       ) : (
         segments.map((s) => (

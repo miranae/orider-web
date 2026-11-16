@@ -15,6 +15,7 @@ import { auth } from "../services/firebase";
 import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 import { stravaSignupGuidancePath } from "../utils/stravaSignup";
+import { stravaMobileCallbackUrl } from "../services/stravaMobileCallback";
 
 type Step = "verifying" | "exchanging" | "done" | "error" | "confirm-link";
 
@@ -118,14 +119,10 @@ export default function StravaCallbackPage() {
     const storedState = sessionStorage.getItem("strava_state");
     const errorParam = searchParams.get("error");
 
-    // Mobile app redirect: state=mobile → redirect to app deep link
-    if (state === "mobile") {
-      if (code) {
-        const scope = searchParams.get("scope") || "";
-        window.location.href = `orider://strava/callback?code=${encodeURIComponent(code)}&scope=${encodeURIComponent(scope)}`;
-      } else {
-        window.location.href = `orider://strava/callback?error=${encodeURIComponent(errorParam || "denied")}`;
-      }
+    // 요청 식별자를 보존해야 앱에서 계정 전환과 중첩 인증 응답을 구별할 수 있다.
+    const mobileCallback = stravaMobileCallbackUrl(searchParams);
+    if (mobileCallback) {
+      window.location.href = mobileCallback;
       return;
     }
 

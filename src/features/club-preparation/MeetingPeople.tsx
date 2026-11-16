@@ -2,8 +2,9 @@ import { Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../../theme/components/Card';
 import { Chip } from '../../theme/components/Chip';
-import { meetingHostId, memberName, occupied, type Meeting, type State } from './domain';
+import { meetingHostId, memberName, type Meeting, type State } from './domain';
 import { ICON_SIZE } from '../../theme/tokens/icon';
+import InfoTip from '../../components/InfoTip';
 
 export default function MeetingPeople({ state, meeting, actor }: {
   state: State;
@@ -50,8 +51,11 @@ export default function MeetingPeople({ state, meeting, actor }: {
           {!joined.length && <p className="cp-muted">{text('아직 참석한 회원이 없어요.', 'No attendees yet.')}</p>}
         </section>
         <section aria-label={text('대기 명단', 'Waitlist')}>
-          <h3>{text('대기', 'Waitlist')} <Chip>{text(`${waiting.length}명`, `${waiting.length}`)}</Chip></h3>
-          {reserved > 0 && <p className="cp-muted">{text(`대기 중 ${waiting.length - reserved}명 · 자리 제안 중 ${reserved}명`, `${waiting.length - reserved} waiting · ${reserved} offered a place`)}</p>}
+          <h3><InfoTip
+            title={text('대기', 'Waitlist')}
+            label={text('대기', 'Waitlist')}
+            content={text('빈자리는 대기 순서대로 제안하며, 제안 중인 자리는 수락 기한까지 예약됩니다. 제안을 수락하면 참석이 확정됩니다.', 'Available places are offered in waitlist order and reserved until the acceptance deadline. Attendance is confirmed after acceptance.')}
+          >{text('대기', 'Waitlist')}</InfoTip> <Chip>{text(`${waiting.length}명`, `${waiting.length}`)}</Chip></h3>
           <ol className="cp-roster cp-roster--waiting">
             {waiting.map((person, index) => (
               <li key={person.memberId}>
@@ -65,10 +69,6 @@ export default function MeetingPeople({ state, meeting, actor }: {
           {!waiting.length && <p className="cp-muted">{text('기다리는 회원이 없어요.', 'No one is waiting.')}</p>}
         </section>
       </div>
-      {reserved > 0 && <p className="cp-muted">{text(
-        `확보된 자리 ${occupied(meeting)}/${meeting.capacity}석 = 참석 ${joined.length}명 + 자리 제안 ${reserved}명`,
-        `${occupied(meeting)}/${meeting.capacity} places occupied: ${joined.length} attending + ${reserved} reserved offers`,
-      )}</p>}
       {cancelled.length > 0 && (
         <details className="cp-divider">
           <summary>{text(`참석 취소 ${cancelled.length}명`, `${cancelled.length} cancelled`)}</summary>

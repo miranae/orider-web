@@ -1,3 +1,4 @@
+import InfoTip from "../../components/InfoTip";
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../../theme/components/Card';
@@ -44,8 +45,7 @@ export default function HostPreparationChecklist({ meeting, members, unassignedC
   };
   return (
     <Card className="cp-followups" id="meeting-followups">
-      <div className="cp-section-heading"><h2>{text('준비할 일 한눈에', 'Preparation at a glance')}</h2></div>
-      <p className="cp-muted">{text('현재 명단에서 챙길 인원을 모았어요. 회원이 신청·취소하거나 내용을 확인하면 갱신됩니다.', 'See who still needs attention. This updates as members register, cancel, or confirm notices.')}</p>
+      <div className="cp-section-heading"><h2><InfoTip label={text('준비할 일 한눈에', 'Preparation at a glance')} title={text('준비할 일 한눈에', 'Preparation at a glance')} content={text('현재 명단에서 챙길 인원입니다. 신청·취소·공지 확인에 따라 갱신됩니다.', 'Follow-ups reflect the current roster and update with registration, cancellation and notice confirmation.')}>{text('준비할 일 한눈에', 'Preparation at a glance')}</InfoTip></h2></div>
       {noticePageLimited && <p className="cp-muted">{text('공지 미확인 명단은 현재 표시된 공지 기준입니다. 이전 공지도 확인해주세요.', 'Notice follow-ups cover this page. Check older notices as well.')}</p>}
       <div className="cp-followup-links">
         {unassignedCount !== undefined && <a href="#meeting-teams"><strong>{unassignedCount}</strong><span>{text('조 미배정', 'Unassigned')}</span></a>}
@@ -55,7 +55,7 @@ export default function HostPreparationChecklist({ meeting, members, unassignedC
       {unsetTravel.length > 0 && <p>{text('합류 확인 필요', 'Check meeting points')}: {unsetTravel.map(name).join(', ')}</p>}
       {/* 미확인 명단 복사는 해당 줄 옆 작은 복사 아이콘으로 둔다. */}
       {unconfirmed.length > 0 && <div className="cp-heading-with-edit">
-        <p>{text('공지 확인 필요', 'Check notices')}: {unconfirmed.map(name).join(', ')}</p>
+        <p><InfoTip label={text('공지 확인 필요', 'Check notices')} title={text('공지 확인 필요', 'Check notices')} content={text('공지는 모임 화면에서 확인합니다. 명단 복사는 메시지를 발송하지 않습니다.', 'Notices are available on this meeting page. Copying the list does not send a message.')}>{text('공지 확인 필요', 'Check notices')}</InfoTip>: {unconfirmed.map(name).join(', ')}</p>
         <IconButton
           size="sm"
           variant="ghost"
@@ -65,7 +65,6 @@ export default function HostPreparationChecklist({ meeting, members, unassignedC
           onClick={() => void copy()}
         />
       </div>}
-      <p className="cp-muted">{text('공지는 모임 화면에서 확인합니다. 명단 복사는 메시지를 발송하지 않습니다.', 'Notices are available on this meeting page. Copying the list does not send a message.')}</p>
       <span role="status">{copyState === 'copied' && lastCopiedText === reminderText ? text('명단을 복사했어요.', 'List copied.') : copyState === 'failed' ? text('복사할 수 없어 아래에 명단을 열었어요. 직접 선택해 복사해주세요.', 'Copy is unavailable. Select and copy the text below.') : ''}</span>
       {copyState === 'failed' && <textarea readOnly aria-label={text('복사용 공지 미확인 명단', 'Notice follow-up text to copy')} value={reminderText} />}
     </Card>
