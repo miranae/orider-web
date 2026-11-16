@@ -1,3 +1,4 @@
+import InfoTip from "../../components/InfoTip";
 import { mt } from "./meetingText";
 import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -143,7 +144,7 @@ export default function ClubCourseMap({
   return (
     <section className="cp-course-visual" aria-label={mt("코스 지도와 고도표")}>
       <div className="cp-section-heading">
-        <h3>{mt("코스맵")}</h3>
+        <h3>{parts.length > 1 ? <InfoTip label={mt("코스맵")} title={mt("코스맵")} content={`${mt("경로")}${parts.length}${mt("개를 각각 표시합니다. 경로 사이 이동은 연결하지 않습니다.")}`}>{mt("코스맵")}</InfoTip> : mt("코스맵")}</h3>
         {/* 전체 경로 보기는 글자 버튼 대신 제목 옆 작은 아이콘으로 둔다(클럽 주행 지도의 맞춤 아이콘과 같은 모양). */}
         <IconButton
           size="sm"
@@ -178,11 +179,6 @@ export default function ClubCourseMap({
       </div>
       {parts.length > 1 && (
         <>
-          <p className="cp-muted">
-            {mt("경로")}
-            {parts.length}
-            {mt("개를 각각 표시합니다. 경로 사이 이동은 연결하지 않습니다.")}
-          </p>
           <div className="cp-profile-tabs" aria-label={mt("고도표 구간 선택")}>
             {parts.map((part) => (
               <button
@@ -202,7 +198,7 @@ export default function ClubCourseMap({
       )}
       <div className="cp-elevation-profile">
         <div className="cp-section-heading">
-          <h3>{mt("고도표")}</h3>
+          <h3><InfoTip label={mt("고도표")} title={mt("고도표")} content={mt("프로필의 거리 위치를 가리키면 지도에서도 확인할 수 있어요.")}>{mt("고도표")}</InfoTip></h3>
           <span className="cp-muted">{active.name}</span>
         </div>
         {active.profile.length >= 2 ? (
@@ -269,9 +265,6 @@ export default function ClubCourseMap({
                 )}
               </div>
             )}
-            <p className="cp-muted">
-              {mt("프로필의 거리 위치를 가리키면 지도에서도 확인할 수 있어요.")}
-            </p>
           </>
         ) : (
           <p className="cp-muted">

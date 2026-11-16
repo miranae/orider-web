@@ -15,6 +15,20 @@ const ready=view({state:"ready",inviteUrl:"https://discord.gg/meeting"});
 const show=(extra={})=>render(<MemoryRouter><MeetingDiscord eventId="meeting" groupId="club" uid="host" en={false} {...extra}/></MemoryRouter>);
 beforeEach(()=>{vi.resetAllMocks();api.signals=[];api.getClubMeetingDiscord.mockResolvedValue(view());api.openClubMeetingDiscord.mockResolvedValue(ready);api.closeClubMeetingDiscord.mockResolvedValue(view({state:"closed"}));});
 describe("meeting public Discord voice",()=>{
+ it("keeps public-room guidance available on demand without replacing close confirmation",async()=>{
+  api.getClubMeetingDiscord.mockResolvedValue(ready);show();
+  const close=await screen.findByRole("button",{name:"음성 채널 닫기"});
+  const help=screen.getByRole("button",{name:"디스코드 음성 모임"});
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.click(help);
+  expect(screen.getByRole("tooltip")).toHaveTextContent("공개 음성 채널");
+  expect(help).toHaveAttribute("aria-describedby",screen.getByRole("tooltip").id);
+  fireEvent.keyDown(document,{key:"Escape"});
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.click(close);
+  expect(screen.getByRole("group",{name:"음성 채널 닫기 확인"})).toHaveTextContent("연결 중인 사람들의 통화도 끝납니다");
+  expect(api.closeClubMeetingDiscord).not.toHaveBeenCalled();
+ });
  it("lets a host open the room and confirm closing before ending calls",async()=>{
   show();fireEvent.click(await screen.findByRole("button",{name:"음성 채널 열기"}));
   expect((await screen.findByRole("link",{name:"디스코드에서 함께하기"})).getAttribute("href")).toBe("https://discord.gg/meeting");

@@ -16,6 +16,7 @@ import {
 import { Button, Card, Chip, IconButton, buttonClass } from "../../theme/components";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import GroupSubNav from "../../components/group/GroupSubNav";
+import InfoTip from "../../components/InfoTip";
 import { canManageGroup } from "../../features/group/groupPermissions";
 import MeetingForm from "../../features/club-preparation/MeetingForm";
 import MeetingPeople from "../../features/club-preparation/MeetingPeople";
@@ -295,6 +296,7 @@ function ServerMeetingDetail({
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [confirmingFinish, setConfirmingFinish] = useState(false);
+  const [introductionExpanded, setIntroductionExpanded] = useState(false);
   useEffect(() => setConfirmingFinish(false), [uid, data.eventId]);
   const [travel, setTravel] = useState({
     joinId: current?.joinId ?? "",
@@ -404,11 +406,11 @@ function ServerMeetingDetail({
         </div>
         {longIntroduction ? (
           <div className="cp-hero-introduction">
-            <p>
+            {!introductionExpanded && <p>
               {introductionLead}
               {introduction.length > introductionLead.length ? "…" : ""}
-            </p>
-            <details>
+            </p>}
+            <details onToggle={(event) => setIntroductionExpanded(event.currentTarget.open)}>
               <summary>
                 {text("모집 소개 전체보기", "Read full introduction")}
               </summary>
@@ -438,14 +440,15 @@ function ServerMeetingDetail({
         <MeetingInviteShare key={`${data.groupId}/${data.eventId}`} groupId={data.groupId} eventId={data.eventId} title={meeting.title} date={meeting.date} time={meeting.time} place={meeting.place} en={en} />
         <CourseSummary meeting={meeting} />
         {live && meeting.venue !== "outdoor" && current?.status === "joined" && (meeting.courseTrack?.points.length ?? 0) >= 2 && (meeting.courseTrack?.segmentStarts?.length ?? 0) <= 1 && (
-          <Card>
-            <h2>{text("실내에서 함께 타기", "Ride together indoors")}</h2>
-            <ol>
-              <li>{text("앱의 주행 준비 화면에서 이 모임을 선택하세요.", "Select this meeting on the app’s ride preparation screen.")}</li>
-              <li>{text("실내 자전거와 트레이너를 연결하고 약속한 시간에 시작하세요. 모임 코스가 자동으로 적용됩니다.", "Connect your indoor bike and trainer, then start at the agreed time. The meeting course is applied automatically.")}</li>
-              <li>{text("모임 지도에서 서로의 진행을 확인하며 달리세요. 실내 참가자는 ‘실내’로 표시됩니다.", "Follow each other’s progress on the meeting map. Indoor riders are labelled ‘Indoor’.")}</li>
-            </ol>
-          </Card>
+          <p>
+            <InfoTip
+              title={text("실내에서 함께 타기", "Ride together indoors")}
+              label={text("실내에서 함께 타기", "Ride together indoors")}
+              content={text("앱의 주행 준비 화면에서 이 모임을 선택하세요. 실내 자전거와 트레이너를 연결하고 약속한 시간에 시작하면 모임 코스가 자동으로 적용됩니다. 모임 지도에서 서로의 진행을 확인할 수 있으며, 실내 참가자는 ‘실내’로 표시됩니다.", "Select this meeting on the app’s ride preparation screen. Connect your indoor bike and trainer, then start at the agreed time; the meeting course is applied automatically. Follow each other’s progress on the meeting map, where indoor riders are labelled ‘Indoor’.")}
+            >
+              {text("실내에서 함께 타기", "Ride together indoors")}
+            </InfoTip>
+          </p>
         )}
         {meeting.status !== "cancelled" && <Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : meeting.courseTrack ? "가상주행 관전" : "가상주행 관전 대기실", completed ? "Spectator & results" : meeting.courseTrack ? "Watch virtual ride" : "Virtual ride spectator lobby")}</Link>}
         {data.isHost && (
@@ -747,12 +750,6 @@ function ServerMeetingDetail({
               </Select>
             </Field>
           )}
-          <p className="cp-muted">
-            {text(
-              "빈자리는 서버에서 대기 순서대로 제안합니다. 제안 수락 후 참석이 확정됩니다.",
-              "Available places are offered in waitlist order. Attendance is confirmed after acceptance.",
-            )}
-          </p>
         </Card>
       )}
       {data.isHost && live && (
@@ -832,7 +829,7 @@ function ServerMeetingDetail({
         </Card>
       )}
       <MeetingDiscord key={`${uid}/${data.eventId}`} eventId={data.eventId} groupId={data.groupId} uid={uid} en={en} ended={!live} />
-      <Card className="cp-preparation-panel">
+      {(meeting.joins.length > 0 || meeting.parking || meeting.weather || meeting.fee > 0) && <Card className="cp-preparation-panel">
         <h2>{text("집결과 준비", "Meeting and preparation")}</h2>
         {meeting.joins.map((join) => (
           <p key={join.id}>
@@ -842,18 +839,16 @@ function ServerMeetingDetail({
         {meeting.parking && <p>{meeting.parking}</p>}
         {meeting.weather && <p className="cp-notice">☁ {meeting.weather}</p>}
         {meeting.fee > 0 && (
-          <details>
-            <summary>{text("예상 비용 안내", "Estimated cost")}</summary>
-            <p>
-              {meeting.fee.toLocaleString(en ? "en-US" : "ko-KR")}{" "}
-              {text(
-                "원 · 참고용 안내이며 입금·결제 상태는 처리하지 않습니다.",
-                "KRW · Information only; payment status is not managed here.",
-              )}
-            </p>
-          </details>
+          <p>
+            <InfoTip
+              title={text("예상 비용", "Estimated cost")}
+              label={text("예상 비용", "Estimated cost")}
+              content={text("참고용 안내이며 입금·결제 상태는 처리하지 않습니다.", "Information only; payment status is not managed here.")}
+            >{text("예상 비용", "Estimated cost")}</InfoTip>{" · "}
+            {meeting.fee.toLocaleString(en ? "en-US" : "ko-KR")} {text("원", "KRW")}
+          </p>
         )}
-      </Card>
+      </Card>}
       <Card id="meeting-notices">
         {/* 이전·최신 공지 이동은 카드 제목 옆 작은 화살표 아이콘으로 둔다. */}
         <div className="cp-heading-with-edit">
