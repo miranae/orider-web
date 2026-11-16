@@ -2,7 +2,7 @@
 .route-index-history summary { min-height: calc(var(--dim-button-height) + var(--space-1)); display: flex; align-items: center; cursor: pointer; }
 .route-index-history-body { display: grid; gap: var(--space-3); min-inline-size: 0; padding-top: var(--space-3); }
 .route-index-history label { display: grid; gap: var(--space-2); }
-.route-index-history select, .route-index-history .ds-btn { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.route-index-history select { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 .route-index-history .ds-btn--outline { color: var(--ink-0); }
 .route-index-history-chart { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); column-gap: var(--space-2); max-inline-size: 28rem; inline-size: 100%; min-inline-size: 0; }
 .route-index-history-chart svg { grid-column: 2; inline-size: 100%; display: block; overflow: visible; }

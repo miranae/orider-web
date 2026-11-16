@@ -271,6 +271,7 @@ function ControlsCatalog() {
             <Button variant="discord" leadingIcon={<DiscordLogo />} loading>디스코드로 계속하기</Button>
           </div>
           <div className="catalog-size-row"><Text variant="label">크기</Text><Button size="sm" onClick={() => setMessage('작은 크기 · 콘텐츠 옆 도구입니다.')}>작게</Button><Button size="md" onClick={() => setMessage('기본 크기 · 일반 동작입니다.')}>기본</Button><Button size="lg" onClick={() => setMessage('큰 크기 · 넉넉한 조작 영역을 제공합니다.')}>크게</Button><Text variant="bodySmall" tone="tertiary">인접한 대안은 같은 크기 · 위계는 variant로 구분</Text></div>
+          <div className="catalog-size-row"><Text variant="label">긴 동작 문구</Text><Button wrap size="sm" onClick={() => setMessage('줄바꿈하는 작은 동작 버튼입니다.')}>Publish this summary to Strava</Button><Button wrap onClick={() => setMessage('내용 너비를 유지하는 기본 동작 버튼입니다.')}>Connect Strava write access</Button><Text variant="bodySmall" tone="tertiary">wrap · 내용 너비 유지 · 좁은 영역에서 줄바꿈 · 크기별 최소 높이 유지</Text></div>
           <div className="catalog-size-row"><Text variant="label">보조 필터 도구</Text><IconButton size="compact" icon={<SlidersHorizontal />} aria-label="필터 예시" onClick={() => setMessage('필터 예시를 열었습니다.')} /><IconButton size="compact" indicator icon={<SlidersHorizontal />} aria-label="필터 예시: 러닝 적용됨" onClick={() => setMessage('러닝 필터가 적용된 예시입니다.')} /><Text variant="bodySmall" tone="tertiary">36px 표면 · 18px 아이콘 · 44px 터치 영역 · 적용 상태 점</Text></div>
           <p className="catalog-feedback" role="status">{message}</p>
         </section>

@@ -2,7 +2,7 @@
 .cycling-distance-periods summary { display: list-item; min-height: calc(var(--dim-button-height) + var(--space-1)); cursor: pointer; font-weight: 600; }
 .cycling-distance-periods-body, .cycling-distance-periods-period { display: grid; gap: var(--space-3); min-inline-size: 0; }
 .cycling-distance-periods label { display: grid; gap: var(--space-2); }
-.cycling-distance-periods select, .cycling-distance-periods .ds-btn { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.cycling-distance-periods select { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 .cycling-distance-periods .ds-btn--outline { color: var(--ink-0); }
 .cycling-distance-periods-scroll { min-inline-size: 0; max-inline-size: 100%; overflow-x: auto; }
 .cycling-distance-periods table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }

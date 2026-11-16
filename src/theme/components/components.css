@@ -73,6 +73,11 @@
 }
 
 .ds-btn--align-start { justify-content: flex-start; text-align: start; }
+.ds-btn--wrap { width: fit-content; max-width: 100%; min-width: 0; height: auto; min-height: var(--dim-button-height); padding-block: var(--space-1); white-space: normal; overflow-wrap: anywhere; }
+.ds-btn--wrap.ds-btn--sm { min-height: var(--space-7); padding-block: var(--space-0-5); }
+.ds-btn--wrap.ds-btn--lg { min-height: var(--space-8); }
+.ds-btn--wrap .ds-btn__label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.ds-btn--wrap .ds-btn__icon { flex-shrink: 0; }
 .ds-btn--block { width: 100%; height: auto; min-height: var(--dim-button-height); padding-block: var(--space-3); white-space: normal; }
 .ds-btn--block .ds-btn__label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .ds-btn--icon-only { flex-shrink: 0; padding: 0; aspect-ratio: 1; min-width: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); width: max(var(--dim-button-height), calc(var(--space-7) + var(--space-3))); }

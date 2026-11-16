@@ -582,7 +582,7 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
       {t("decision.fallback.reason.prescription_not_ready")}
     </Text>}
     {stateKey === "error" && state && <Button variant="secondary" size="sm" onClick={state.refresh}>{t("decision.refresh")}</Button>}
-    {canOpenDetails && <Button variant="secondary" data-mobile-fitness-today-link
+    {canOpenDetails && <Button size="sm" variant="secondary" data-mobile-fitness-today-link
       onClick={() => document.getElementById("fitness-coach-today")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
       {t(stateKey === "health-stop" ? "dashboard:mobileFitness.decision.viewSafetyDetails" : "dashboard:mobileFitness.decision.viewDetails")} ↓
     </Button>}

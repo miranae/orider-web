@@ -122,7 +122,7 @@ export default function ActivityOverviewSocial(props: Props) {
     </div>
     {!props.prioritizeResults && results}
     {photo?.nativePhoto && !previewUrl && <Text as="p" role="status">{t(nativePreview.error ? "publicDetail.photosFailed" : "detail.loadingData")}</Text>}
-    {photo?.nativePhoto && nativePreview.error != null && <Button onClick={nativePreview.retry}>{t("page.retry")}</Button>}
+    {photo?.nativePhoto && nativePreview.error != null && <Button size="sm" onClick={nativePreview.retry}>{t("page.retry")}</Button>}
     <MediaViewer media={photo && playable(photo) ? <div className="activity-overview-video-viewer"><ActivityFeedVideo key={`${activityId}:${props.viewerId ?? "guest"}:${photo.id}:${photo.videoUrl}`} media={{ ...photo, caption: photo.caption ?? null }} expanded startPlaying /></div> : undefined} open={!!photo} item={photo && previewUrl ? { id: photo.id, url: previewUrl, alt: photo.caption ?? t("page.photoPreview"), caption: photo.caption } : undefined}
       label={t("page.photos")} position={`${index + 1} / ${total}`} onClose={() => setSelected(null)}
       labels={{ previous: t("overviewSocial.previousPhoto"), next: t("overviewSocial.nextPhoto"), zoomIn: t("overviewSocial.zoomIn"), zoomOut: t("overviewSocial.zoomOut"), close: t("overviewSocial.closeViewer") }}

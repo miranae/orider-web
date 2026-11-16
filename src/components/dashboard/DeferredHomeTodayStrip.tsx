@@ -12,7 +12,7 @@ export default function DeferredHomeTodayStrip(props: ComponentProps<typeof Home
   const Strip = useMemo(() => lazyWithRetry(() => import("./HomeTodayStrip")), [attempt]);
   return <ErrorBoundary key={attempt} fallback={() => <Card>
     <Text role="alert">{t("todayStrip.unavailable")}</Text>
-    <Button variant="outline" onClick={() => setAttempt(value => value + 1)}>{t("feed.error.retry")}</Button>
+    <Button size="sm" variant="outline" onClick={() => setAttempt(value => value + 1)}>{t("feed.error.retry")}</Button>
   </Card>}>
     <Suspense fallback={<Card role="status"><Text tone="secondary">{t("todayStrip.loading")}</Text></Card>}>
       <Strip {...props} />

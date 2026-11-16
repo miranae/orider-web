@@ -121,7 +121,7 @@ export default function PublicActivityComments({ activityId, userId, initialComm
     </div>)}
     {reported && <Text role="status">{t("kudosCard.reported")}</Text>}
     {pageError && <Text role="alert">{t("publicDetail.commentsFailed")}</Text>}
-    {(cursor || (!expanded && count > initialComments.length) || pageError) && <Button variant="outline" loading={busy} disabled={busy} onClick={() => void loadPage(pageError)}>{t(pageError ? "publicDetail.commentsRestart" : "publicDetail.moreComments")}</Button>}
+    {(cursor || (!expanded && count > initialComments.length) || pageError) && <Stack direction="row" wrap><Button size="sm" variant="outline" loading={busy} disabled={busy} onClick={() => void loadPage(pageError)}>{t(pageError ? "publicDetail.commentsRestart" : "publicDetail.moreComments")}</Button></Stack>}
     {expanded && !cursor && !pageError && <Text variant="caption">{t("publicDetail.commentsComplete")}</Text>}
   </Stack></div>;
 }

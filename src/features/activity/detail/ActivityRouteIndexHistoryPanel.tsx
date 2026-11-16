@@ -9,7 +9,7 @@ import type { Activity } from "@shared/types";
 import { useActivityRouteIndexHistory } from "../../../hooks/useActivityRouteIndexHistory";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { getDiscipline } from "../../../utils/disciplineFilter";
-import { Button, Select, Text } from "../../../theme";
+import { Button, Select, Text , Stack } from "../../../theme";
 import { routeIndexHistory } from "./activityRouteIndexHistory";
 import "./activity-route-index-history.css";
 import ActivityMatchedRouteGroupPanel from "./ActivityMatchedRouteGroupPanel";
@@ -34,8 +34,8 @@ export default function ActivityRouteIndexHistoryPanel({ activity, observedMetri
       <summary><Text variant="bodyMedium" weight={600}>{t("routeIndexHistory.title")}</Text></summary>
       <div className="route-index-history-body">
         <Text as="p" variant="bodyMedium" tone="secondary">{t("routeIndexHistory.scope")}</Text>
-        <Button size="sm" variant="outline" disabled={query.status === "loading"} loading={query.status === "loading"}
-          onClick={() => { setShown(5); void query.start(); }}>{t(query.status === "idle" ? "routeIndexHistory.find" : "routeIndexHistory.restart")}</Button>
+        <Stack direction="row" wrap gap="var(--space-2)"><Button size="sm" variant="outline" disabled={query.status === "loading"} loading={query.status === "loading"}
+          onClick={() => { setShown(5); void query.start(); }}>{t(query.status === "idle" ? "routeIndexHistory.find" : "routeIndexHistory.restart")}</Button></Stack>
         {query.status !== "idle" && <Text as="p" variant="bodyMedium" tone="secondary">{t(`routeIndexHistory.states.${query.status}`)}</Text>}
         {query.pages.length > 0 && <>
           <Text as="p" variant="bodyMedium" tone="secondary">{t("routeIndexHistory.counts", { scanned: data.scanned, count: data.allCount })}</Text>
@@ -53,9 +53,9 @@ export default function ActivityRouteIndexHistoryPanel({ activity, observedMetri
               <LocalizedLink to={`/activity/${encodeURIComponent(point.row.activityId)}`} state={{ routeInventoryReturn: { uid: activity.userId, pathname: location.pathname, search: location.search, hash: location.hash } }}><time dateTime={new Date(point.row.startTime).toISOString()}>{date(point.row.startTime)}</time><span>{point.formatted}</span></LocalizedLink>
               <Text as="p" variant="bodyMedium" tone="secondary">{point.row.canonicalAverage.state === "available" ? t("routeIndexHistory.computed", { date: date(point.row.canonicalAverage.computedAt) }) : t("routeIndexHistory.averageMissing")}{point.row.canonicalAverage.state === "available" && point.row.canonicalAverage.inputCoverage === "partial_terminal" ? ` · ${t("routeIndexHistory.partialAverage")}` : ""}</Text>
             </li>)}</ul>
-            {shown < data.rows.length && <Button size="sm" variant="ghost" onClick={() => setShown(value => value + 5)}>{t("routeIndexHistory.showSources", { shown: Math.min(shown, data.rows.length), count: data.rows.length })}</Button>}
+            {shown < data.rows.length && <Stack direction="row" wrap gap="var(--space-2)"><Button size="sm" variant="ghost" onClick={() => setShown(value => value + 5)}>{t("routeIndexHistory.showSources", { shown: Math.min(shown, data.rows.length), count: data.rows.length })}</Button></Stack>}
           </> : <Text as="p" variant="bodyMedium" tone="secondary">{t("routeIndexHistory.emptyPage")}</Text>}
-          {latest?.nextCursor && query.status !== "loading" && <Button size="sm" variant="outline" onClick={() => void query.loadMore()}>{t("routeIndexHistory.more")}</Button>}
+          {latest?.nextCursor && query.status !== "loading" && <Stack direction="row" wrap gap="var(--space-2)"><Button size="sm" variant="outline" onClick={() => void query.loadMore()}>{t("routeIndexHistory.more")}</Button></Stack>}
           <Text as="p" variant="bodyMedium" tone="secondary">{t("routeIndexHistory.quality")}</Text>
         </>}
       </div>

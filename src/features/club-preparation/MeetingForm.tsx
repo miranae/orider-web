@@ -1,6 +1,7 @@
 import { mt } from "./meetingText";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
+import { Stack } from "../../theme/components/Stack";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import type { Meeting, MeetingVenue, State } from "./domain";
 import { indoorCourseIssue } from "./domain";
@@ -287,7 +288,7 @@ export default function MeetingForm({
             </span>
             <h2>{draft.title}</h2>
           </div>
-          <Button disabled={saving} onClick={() => setPreview(false)}>
+          <Button size="sm" disabled={saving} onClick={() => setPreview(false)}>
             {mt("작성으로 돌아가기")}
           </Button>
         </div>
@@ -388,7 +389,7 @@ export default function MeetingForm({
           <span className="cp-eyebrow">{mt("함께할 다음 라이딩")}</span>
           <h2>{mt("모임 준비하기")}</h2>
         </div>
-        <Button variant="ghost" disabled={saving} onClick={onClose}>
+        <Button size="sm" variant="ghost" disabled={saving} onClick={onClose}>
           {mt("닫기")}
         </Button>
       </div>
@@ -720,7 +721,7 @@ export default function MeetingForm({
                     }
                   />
                 </Field>
-                <Button
+                <Stack direction="row" wrap><Button size="sm"
                   variant="ghost"
                   onClick={() =>
                     patch({
@@ -729,10 +730,10 @@ export default function MeetingForm({
                   }
                 >
                   {mt("지점 삭제")}
-                </Button>
+                </Button></Stack>
               </div>
             ))}
-            <Button
+            <Stack direction="row" wrap><Button size="sm"
               variant="outline"
               onClick={() =>
                 patch({
@@ -744,7 +745,7 @@ export default function MeetingForm({
               }
             >
               {mt("＋ 합류 지점 추가")}
-            </Button>
+            </Button></Stack>
           </div>
         </details>
         <details className="cp-divider">

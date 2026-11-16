@@ -20,7 +20,7 @@ export function ObservedRouteComparisonPanel({ current, previous }: { current: A
   return <section className="observed-route-comparison" aria-label={t("observedRoute.title")}>
     <Text as="h4" variant="bodyMedium" weight={600}>{t("observedRoute.title")}</Text>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("observedRoute.actionNote")}</Text>
-    <Button size="sm" loading={comparison.state === "loading"} disabled={comparison.state === "loading"} onClick={() => void comparison.compare()}>{t("observedRoute.compare")}</Button>
+    <Stack direction="row" wrap gap="var(--space-2)"><Button size="sm" loading={comparison.state === "loading"} disabled={comparison.state === "loading"} onClick={() => void comparison.compare()}>{t("observedRoute.compare")}</Button></Stack>
     {comparison.state !== "idle" && comparison.state !== "available" && <Text as="p" variant="bodyMedium" tone="secondary" role="status">{t(`observedRoute.states.${comparison.state}`)}</Text>}
     {result && result.state !== "unavailable" && <>
       <Text as="p" variant="bodyMedium" weight={600}>{t(`observedRoute.guidance.${result.shapeGuidance}`)}</Text>

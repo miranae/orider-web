@@ -66,7 +66,7 @@ export function NotificationCommentTarget({ activityId: explicitActivityId, comm
   return <div ref={heading} tabIndex={-1}><Section title={t("notif.commentDestination")}><Stack gap="var(--space-3)">
     {!validTarget ? <Text role="status">{t("notif.targetUnavailable")}</Text> : !uid && !authLoading ? <><Text>{t("notif.loginDestination")}</Text>{!embedded && <Button onClick={() => void signIn()}>{t("notif.signIn")}</Button>}</>
       : !current ? <Text role="status">{t("notif.loading")}</Text>
-      : current.failed && !current.denied ? <><Text role="alert">{t("notif.failed")}</Text><Button onClick={() => setAttempt(value => value + 1)}>{t("notif.retry")}</Button></>
+      : current.failed && !current.denied ? <><Text role="alert">{t("notif.failed")}</Text><Stack direction="row" wrap><Button size="sm" onClick={() => setAttempt(value => value + 1)}>{t("notif.retry")}</Button></Stack></>
       : current.comment ? <><Text weight={600}>{current.comment.nickname}</Text><Text as="p">{current.comment.text}</Text></>
       : <Text role="status">{t("notif.targetUnavailable")}</Text>}
   </Stack></Section></div>;

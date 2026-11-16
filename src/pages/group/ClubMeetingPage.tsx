@@ -13,7 +13,7 @@ import {
   ErrorState,
   LoadingSkeleton,
 } from "../../components/redesign";
-import { Button, Card, Chip, IconButton, buttonClass } from "../../theme/components";
+import { Button, Card, Chip, IconButton, buttonClass, Stack } from "../../theme/components";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import InfoTip from "../../components/InfoTip";
@@ -450,7 +450,7 @@ function ServerMeetingDetail({
             </InfoTip>
           </p>
         )}
-        {meeting.status !== "cancelled" && <Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : meeting.courseTrack ? "가상주행 관전" : "가상주행 관전 대기실", completed ? "Spectator & results" : meeting.courseTrack ? "Watch virtual ride" : "Virtual ride spectator lobby")}</Link>}
+        {meeting.status !== "cancelled" && <div className="cp-actions"><Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : meeting.courseTrack ? "가상주행 관전" : "가상주행 관전 대기실", completed ? "Spectator & results" : meeting.courseTrack ? "Watch virtual ride" : "Virtual ride spectator lobby")}</Link></div>}
         {data.isHost && (
           <nav
             className="cp-hero-tools"
@@ -606,7 +606,7 @@ function ServerMeetingDetail({
                       />
                     </Field>
                   ))}
-                  <Button
+                  <Stack direction="row" wrap><Button size="sm"
                     disabled={busy}
                     onClick={() =>
                       void run(() =>
@@ -615,7 +615,7 @@ function ServerMeetingDetail({
                     }
                   >
                     {text("이동 계획 저장", "Save travel plan")}
-                  </Button>
+                  </Button></Stack>
                 </div>
               </details>
             )}
@@ -675,7 +675,7 @@ function ServerMeetingDetail({
         >
           <h2>{text("모임 운영", "Manage meeting")}</h2>
           <div className="cp-actions">
-            {live && <Button disabled={busy} onClick={() => setConfirmingFinish(true)}>{text("모임 마무리", "Finish meeting")}</Button>}
+            {live && <Button size="sm" disabled={busy} onClick={() => setConfirmingFinish(true)}>{text("모임 마무리", "Finish meeting")}</Button>}
             {/* 모임 전체 취소는 공지 카드에서 떼어 운영 카드 끝의 작은 위험 동작으로 둔다(파괴적 동작이라 글자 버튼 유지, 확정 단계 그대로). */}
             {live && <Button variant="danger" size="sm" disabled={busy} onClick={() => setCancelling(true)}>{text("모임 전체 취소", "Cancel the meeting")}</Button>}
           </div>
@@ -703,6 +703,7 @@ function ServerMeetingDetail({
                   onChange={(event) => setCancelReason(event.target.value)}
                 />
               </Field>
+              <Stack direction="row" wrap>
               <Button
                 variant="danger"
                 disabled={busy || !cancelReason.trim()}
@@ -718,6 +719,7 @@ function ServerMeetingDetail({
               <Button disabled={pending} onClick={() => setCancelling(false)}>
                 {text("돌아가기", "Go back")}
               </Button>
+              </Stack>
             </div>
           )}
           {live && (
@@ -912,7 +914,7 @@ function ServerMeetingDetail({
                 </details>
               </>
             ) : item.targets.includes(uid) && !item.confirmed.includes(uid) ? (
-              <Button
+              <Stack direction="row" wrap><Button size="sm"
                 disabled={busy}
                 onClick={() =>
                   void run(() =>
@@ -921,7 +923,7 @@ function ServerMeetingDetail({
                 }
               >
                 {text("내용 확인했어요", "I have read this")}
-              </Button>
+              </Button></Stack>
             ) : (
               <span>
                 {item.confirmed.includes(uid)

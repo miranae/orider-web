@@ -22,6 +22,8 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   loading?: boolean;
   /** 전체 폭 점유. */
   block?: boolean;
+  /** 내용 너비를 유지하며 좁은 영역에서 긴 레이블을 줄바꿈. */
+  wrap?: boolean;
   /** 긴 레이블의 정렬 — block과 함께 쓰면 줄바꿈도 유지한다. */
   align?: 'center' | 'start';
   /** 아이콘 only — 정사각 padding. */
@@ -43,14 +45,15 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
  * @example
  * <Link to="/x" className={buttonClass({ variant: 'primary', size: 'sm' })}>이동</Link>
  */
-export function buttonClass(opts: { variant?: ButtonVariant; size?: ButtonSize; iconOnly?: boolean; block?: boolean; align?: 'center' | 'start'; className?: string } = {}): string {
-  const { variant = 'secondary', size = 'md', iconOnly, block, align, className } = opts;
+export function buttonClass(opts: { variant?: ButtonVariant; size?: ButtonSize; iconOnly?: boolean; block?: boolean; wrap?: boolean; align?: 'center' | 'start'; className?: string } = {}): string {
+  const { variant = 'secondary', size = 'md', iconOnly, block, wrap, align, className } = opts;
   return [
     'ds-btn',
     `ds-btn--${variant}`,
     `ds-btn--${size}`,
     iconOnly && 'ds-btn--icon-only',
     block && 'ds-btn--block',
+    wrap && 'ds-btn--wrap',
     align === 'start' && 'ds-btn--align-start',
     className,
   ].filter(Boolean).join(' ');
@@ -62,6 +65,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     size = 'md',
     loading,
     block,
+    wrap,
     align,
     iconOnly,
     dense,
@@ -87,6 +91,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         `ds-btn--${variant}`,
         `ds-btn--${size}`,
         block && 'ds-btn--block',
+        wrap && 'ds-btn--wrap',
         align === 'start' && 'ds-btn--align-start',
         iconOnly && 'ds-btn--icon-only',
         dense && 'ds-btn--dense',

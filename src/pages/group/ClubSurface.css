@@ -140,8 +140,6 @@
   font-size: var(--ft-body-size);
   line-height: var(--ft-body-line-height);
 }
-.club-surface .ds-btn { min-height: var(--dim-button-height); height: auto; }
-.club-surface .ds-btn__label { min-width: 0; white-space: normal; }
 .club-surface button:focus-visible,
 .club-surface summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .club-surface .ds-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

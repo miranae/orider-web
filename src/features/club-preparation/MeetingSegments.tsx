@@ -4,7 +4,7 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useTranslation } from "react-i18next";
 import { mt } from "./meetingText";
 import { useEffect, useRef, useState } from "react";
-import { Button, Chip, IconButton } from "../../theme/components";
+import { Button, Chip, IconButton, Stack } from "../../theme/components";
 import { Pencil, RefreshCw } from "lucide-react";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
@@ -264,9 +264,9 @@ function MeetingSegmentPickerContent({ selected, onChange, onBusyChange }: Meeti
         )}
       </p>
       {!enabled ? (
-        <Button variant="outline" onClick={() => setEnabled(true)}>
+        <Stack direction="row" wrap><Button size="sm" variant="outline" onClick={() => setEnabled(true)}>
           {mt("기존 세그먼트 찾기")}
-        </Button>
+        </Button></Stack>
       ) : (
         <>
           <Field label={mt("세그먼트 이름·지역 검색")} htmlFor="segment-search">
@@ -283,9 +283,9 @@ function MeetingSegmentPickerContent({ selected, onChange, onBusyChange }: Meeti
           {loadError && (
             <div role="alert" className="cp-notice">
               <p>{loadError}</p>
-              <Button size="sm" onClick={() => setRetry((n) => n + 1)}>
+              <Stack direction="row" wrap><Button size="sm" onClick={() => setRetry((n) => n + 1)}>
                 {mt("다시 불러오기")}
-              </Button>
+              </Button></Stack>
             </div>
           )}
           {catalog?.length === 0 && (

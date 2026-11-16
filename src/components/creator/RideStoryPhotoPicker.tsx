@@ -311,9 +311,9 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
         </div>
 
         <div className="ride-story-picker-footer flex flex-wrap justify-end gap-2 border-t pt-4" style={{ borderColor: "var(--line-soft)" }}>
-          <Button size="md" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
-          {onPreview && <Button size="md" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{i18n.language.startsWith("ko") ? "선택 결과 미리보기" : "Preview selected output"}</Button>}
-          <Button size="md" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} leadingIcon={<Send size={ICON_SIZE.md} />} onClick={() => void send()}>
+          <Button wrap size="md" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
+          {onPreview && <Button wrap size="md" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{i18n.language.startsWith("ko") ? "선택 결과 미리보기" : "Preview selected output"}</Button>}
+          <Button wrap size="md" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} leadingIcon={<Send size={ICON_SIZE.md} />} onClick={() => void send()}>
             {copy.send}
           </Button>
         </div>

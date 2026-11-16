@@ -610,8 +610,8 @@ export default function EventsPage() {
 
       {(nextCursor || pageCursor) && !pageError && <div>
         <p role="status">{t("discovery.partial")}</p>
-        {pageCursor && <Button variant="secondary" onClick={() => setPageCursor(undefined)}>{t("discovery.first")}</Button>}
-        {nextCursor && <Button variant="secondary" onClick={() => setPageCursor(nextCursor)}>{t("message.next")}</Button>}
+        {pageCursor && <Button size="sm" variant="secondary" onClick={() => setPageCursor(undefined)}>{t("discovery.first")}</Button>}
+        {nextCursor && <Button size="sm" variant="secondary" onClick={() => setPageCursor(nextCursor)}>{t("message.next")}</Button>}
       </div>}
 
       {/* 리스트 — 2컬럼 그리드 */}
