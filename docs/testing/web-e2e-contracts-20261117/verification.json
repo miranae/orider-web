@@ -1,0 +1,40 @@
+{
+  "runtimeSource": "21602ced581c704fd06127ee84322df304c318b5",
+  "serverSource": "0c05f797ffd32068c49c2aefd98dc11e4568ce4d",
+  "labRun": "followup-web-1687-20261117-r11",
+  "baseConfig": "playwright.config.ts",
+  "default": {
+    "total": 198,
+    "pass": 164,
+    "fail": 0,
+    "blocked": 0,
+    "NA": 34
+  },
+  "visual": {
+    "pass": 38,
+    "fail": 0,
+    "original28Pass": 28
+  },
+  "bottomNavigationScenarios": 12,
+  "dedicatedRunning": {
+    "pass": 6,
+    "fail": 0,
+    "skip": 0,
+    "project": "demo-orider-running-parity",
+    "config": "e2e/running-parity.config.ts"
+  },
+  "dedicatedClubSpectator": {
+    "pass": 3,
+    "fail": 0,
+    "skip": 0,
+    "config": "e2e/club-spectator.config.ts"
+  },
+  "sharedChip": {
+    "api": "wrap",
+    "unitPass": 65,
+    "cataloguePass": 4,
+    "featureOverrideRemoved": true
+  },
+  "runtimeEnvironment": "local demo emulators and loopback-only browser",
+  "deployment": false
+}

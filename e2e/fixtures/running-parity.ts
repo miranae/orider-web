@@ -23,7 +23,7 @@ export const runningSummary = {
 };
 
 export const runningPublicMetrics = {
-  version: 34, discipline: "run", activityType: "Run", algorithmVersion: "activity-metrics@34",
+  version: 34, isVirtualPower: false, provenance: { power: "measured" }, discipline: "run", activityType: "Run", algorithmVersion: "activity-metrics@34",
   distanceKm: 21.02, distanceSource: "stream_counter", durationSec: 7082, movingTimeSec: 7082,
   pauseTimeSec: 0, elevationGainM: 47.9, elevationLossM: 52.9,
   avgSpeedKph: 10.6848, maxSpeedKph: 17.784,
@@ -75,6 +75,7 @@ export async function seedRunningParity(): Promise<void> {
   const activity = {
     userId: "running-parity-author", nickname: "러닝 테스트", profileImage: null,
     type: "Run", source: "orider", description: RUNNING_PARITY_TITLE,
+    nativeFeedMemoV1: { version: 1, userId: "running-parity-author", memo: RUNNING_PARITY_TITLE },
     createdAt: now, startTime: now - 7_082_000, endTime: now,
     visibility: "everyone", deletedAt: null, thumbnailTrack: "", groupId: null,
     photoCount: 0, kudosCount: 0, commentCount: 0, segmentEffortCount: 0,
@@ -82,11 +83,11 @@ export async function seedRunningParity(): Promise<void> {
   };
   const docs: Record<string, Record<string, unknown>> = {
     [`activities/${RUNNING_PARITY_ID}`]: activity,
-    [`activity_metrics_public/${RUNNING_PARITY_ID}`]: { ...runningPublicMetrics, startTime: activity.startTime, computedAt: now },
+    [`activity_metrics/${RUNNING_PARITY_ID}`]: { ...runningPublicMetrics, userId: "running-parity-author", startTime: activity.startTime, computedAt: now },
     "users_public/running-parity-author": { nickname: "러닝 테스트", photoURL: null },
     [`users/${owner.localId}`]: { nickname: "러닝 계획 테스트", email: RUNNING_OWNER_EMAIL, units: "metric", createdAt: now },
-    [`activities/${RUNNING_OWNER_ID}`]: { ...activity, userId: owner.localId, description: RUNNING_OWNER_TITLE, visibility: "private" },
-    [`activity_metrics/${RUNNING_OWNER_ID}`]: { ...runningPublicMetrics, startTime: activity.startTime, computedAt: now },
+    [`activities/${RUNNING_OWNER_ID}`]: { ...activity, userId: owner.localId, description: RUNNING_OWNER_TITLE, visibility: "private", nativeFeedMemoV1: { version: 1, userId: owner.localId, memo: RUNNING_OWNER_TITLE } },
+    [`activity_metrics/${RUNNING_OWNER_ID}`]: { ...runningPublicMetrics, userId: owner.localId, startTime: activity.startTime, computedAt: now },
     [`goals/${RUNNING_PLAN_GOAL}`]: { userId: owner.localId, discipline: "run", status: "active", courseName: "합성 러닝 목표", courseId: null, courseDist: 10, courseElev: 0, eventType: "10k", eventDate: tomorrow + 28 * 86400000, weeklySessions: 3, createdAt: now, updatedAt: now, snapshot: { ftp: 0, weightKg: 70, ctl: 10 }, feasibility: { label: "easy" } },
     [`goals/${RUNNING_PLAN_GOAL}/plan/${RUNNING_PLAN_WEEK}`]: { weekNumber: 1, phase: "base", startDate: tomorrow, plannedTSS: 30, days: [{ date: tomorrow, dayOfWeek: new Date(tomorrow + 9 * 3600000).getUTCDay(), workout: "easyRun", workoutName: RUNNING_PLAN_TITLE, plannedDurationMin: 30, plannedTSS: 30, completed: false, skipped: false, intervals: [{ label: "WU", durationMin: 5 }, { label: "Z2", durationMin: 20 }, { label: "CD", durationMin: 5 }] }] },
   };

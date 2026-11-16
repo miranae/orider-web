@@ -4,6 +4,7 @@ import { posix as path } from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { packReviewSourceGroups } from "./lib/review-source-batches.mjs";
 
 const runtime = /\.(?:[cm]?[jt]sx?)$/;
 const testFile = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
@@ -187,22 +188,7 @@ export function buildReviewContext({ repo, head, from, maxBytes = 800000, depth 
   const bytes = included => fixedBytes + [...included].reduce((sum, file) => sum + cost(file), 0);
   const fits = included => bytes(included) <= maxBytes;
   if (!fits(core)) throw new Error("Review bootstrap exceeds a batch input budget; split the PR");
-  // Keep each caller's dependencies adjacent, then reuse the bin with the greatest source overlap.
-  const chunks = [];
-  groups.sort((a, b) => ([...a][0] ?? "").localeCompare([...b][0] ?? "") || bytes(b) - bytes(a) || [...a].join().localeCompare([...b].join()));
-  for (const group of groups) {
-    if (chunks.some(chunk => [...group].every(file => chunk.has(file)))) continue;
-    const candidates = chunks.map((chunk, index) => ({ index, next: new Set([...chunk, ...group]), added: [...group].filter(file => !chunk.has(file)).reduce((sum, file) => sum + cost(file), 0) }))
-      .filter(candidate => fits(candidate.next)).sort((a, b) => a.added - b.added || a.index - b.index);
-    if (candidates.length) chunks[candidates[0].index] = candidates[0].next;
-    else {
-      const next = new Set([...core, ...group]);
-      if (!fits(next)) throw new Error("A dependency caller/callee pair exceeds one input budget; split the PR");
-      chunks.push(next);
-    }
-  }
-  if (!chunks.length) chunks.push(core);
-  if (chunks.length > 24) throw new Error("Review requires more than 24 batches; split the PR");
+  const chunks = packReviewSourceGroups({ groups, core, cost, bytes, maxBytes });
   // Assert coverage for every source and every caller/callee pair before starting any reviewer.
   for (const group of groups) if (!chunks.some(chunk => [...group].every(file => chunk.has(file)))) throw new Error("Incomplete review batch coverage");
   const contexts = chunks.map((chunk, index) => render(chunk, { index: index + 1, total: chunks.length }));

@@ -980,7 +980,7 @@ export function PaneDevice() {
         <ScopeBadge scope="device" />
       </div>
 
-      <LocalizedLink to="/coach/condition#thresholds">{t("device.thresholdSource")}</LocalizedLink>
+      <LocalizedLink to="/coach/condition#thresholds" className="ds-tap-target">{t("device.thresholdSource")}</LocalizedLink>
       <div
         style={{
           display: "grid",

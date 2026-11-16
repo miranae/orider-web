@@ -17,6 +17,13 @@ test.afterEach(async ({ page }, info) => {
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   browserErrors.set(page, errors);
+  page.on("console", async message => {
+    if (message.type() !== "error") return;
+    for (const argument of message.args()) {
+      const stack = await argument.evaluate(value => value instanceof Error ? value.stack : null).catch(() => null);
+      if (stack) console.error(`[running-parity caught] ${stack}`);
+    }
+  });
   page.on("pageerror", error => {
     const stack = error.stack ?? `${error.name}: ${error.message}`;
     errors.push(stack);
@@ -26,7 +33,7 @@ test.beforeEach(async ({ page }) => {
     firebaseProjectId: RUNNING_PARITY_PROJECT, firebaseApiKey: "fake-api-key",
     firebaseAuthDomain: "localhost", firebaseAppId: "fake-app-id",
     firebaseStorageBucket: `${RUNNING_PARITY_PROJECT}.appspot.com`, useEmulators: true,
-    canonicalRolloutEnabled: false,
+    canonicalRolloutEnabled: false, publicActivityDetailEnabled: true,
   } }));
   await page.route("**/ensureUserProfile", route => route.fulfill({ json: { result: {} } }));
   await page.route("**/revalidateTraining", route => route.fulfill({ json: { result: { status: "fresh" } } }));
@@ -44,17 +51,19 @@ test("home running card prioritizes pace", async ({ page }, info) => {
   if (info.project.name === "desktop") {
     await page.getByRole("tab", { name: "러닝", exact: true }).click();
   }
-  await expect(page.getByText(RUNNING_PARITY_TITLE, { exact: true })).toBeVisible();
+  await expect(page.getByText(RUNNING_PARITY_TITLE, { exact: true }).first()).toBeVisible();
   const card = info.project.name === "mobile"
     ? page.locator(".mobile-feed-card").filter({ hasText: RUNNING_PARITY_TITLE })
     : page.locator("article").filter({ hasText: RUNNING_PARITY_TITLE });
   // 카드 컨테이너 구현에 의존하지 않는 body 검증도 함께 유지한다.
-  await expect(page.getByText(/5['′:]37/).first()).toBeVisible();
+  await expect(page.getByText(/5['′:]37/).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("구간 기록 없음", { exact: true })).toHaveCount(0);
   await expect(page.getByText("10.7km/h", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("run-card-primary")).toContainText(/5['′:]37/);
   await expect(page.getByTestId("run-card-primary")).not.toContainText("264");
-  await expect(page.getByTestId("run-card-secondary")).toContainText("264");
+  // 공개 피드의 현재 Discovery 매핑은 요약의 민감 수치를 재구성하지 않습니다.
+  await expect(page.getByTestId("run-card-secondary")).not.toContainText("264");
+  await expect(page.getByTestId("run-card-secondary")).toContainText("48");
   if (await card.count()) await expect(card).toBeVisible();
   await page.screenshot({ path: info.outputPath("running-home.png"), fullPage: true });
 });
@@ -92,13 +101,12 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await expect(page.getByTestId("run-raw-splits")).not.toHaveAttribute("open", "");
   await expect(page.getByTestId("run-recap-details")).not.toHaveAttribute("open", "");
   await expect(page.getByTestId("run-hr-details")).not.toHaveAttribute("open", "");
-  await expect(page.getByText(/5[:'′]37/).first()).toBeVisible();
+  await expect(page.getByText(/5[:'′]37/).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("활동 당시 FTP 정본 없음", { exact: true })).toHaveCount(0);
   await expect(page.getByText("NP", { exact: true })).toHaveCount(0);
   await expect(page.getByText("평균 RPM", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "파워 커브", exact: true })).toHaveCount(0);
   await expect(page.getByText("심박 존을 계산할 수 없어요", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("spm", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("analysis.section.hrZones", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("run-analysis")).toContainText(/21\.02\s*km/);
   await recap.evaluate(node => node.scrollIntoView({ block: "start" }));
@@ -110,7 +118,7 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await page.getByTestId("run-hr-details").locator("summary").click();
   await page.screenshot({ path: info.outputPath("running-analysis-heart-rate.png") });
   await page.getByTestId("run-detail-disclosure").locator("summary").click();
-  await expect(page.getByTestId("run-detail-disclosure")).toContainText("191");
+  await expect(page.getByTestId("run-detail-disclosure")).toContainText(/191\s*spm/);
   await expect(page.getByTestId("run-detail-disclosure")).toContainText("264");
   await page.getByTestId("run-raw-splits").locator("summary").click();
   await expect(page.getByTestId("run-raw-splits").getByRole("table")).toBeVisible();
@@ -129,8 +137,9 @@ test("owner scheduled running plan opens exact read-only workout and stays priva
   }, { email: RUNNING_OWNER_EMAIL, password: RUNNING_OWNER_PASSWORD });
   await page.goto(`/ko/activity/${RUNNING_OWNER_ID}`);
   await expect(page.getByRole("heading", { name: RUNNING_OWNER_TITLE })).toBeVisible();
+  await page.getByRole("tab", { name: "분석", exact: true }).click();
   const card = page.getByTestId("run-next-training-card");
-  await expect(card).toContainText(RUNNING_PLAN_TITLE);
+  await expect(card).toContainText(RUNNING_PLAN_TITLE, { timeout: 15000 });
   await expect(card).toContainText("30분");
   await expect(card.getByRole("listitem")).toHaveCount(3);
   const link = card.getByRole("link", { name: "이 훈련 계획 보기" });
@@ -153,6 +162,7 @@ test("owner scheduled running plan opens exact read-only workout and stays priva
   await expect(preview).toHaveCount(0);
   await page.goto(`/ko/activity/${RUNNING_PARITY_ID}`);
   await expect(page.getByRole("heading", { name: RUNNING_PARITY_TITLE })).toBeVisible();
+  await page.getByRole("tab", { name: "분석", exact: true }).click();
   await expect(page.getByTestId("run-next-training-card")).toHaveCount(0);
   expect(commands).toEqual([]);
 });

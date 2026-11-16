@@ -3,8 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e/tests',
   // Synthetic hooks are wired only by each suite's dedicated Vite config.
-  // Run these through e2e/club-week-resilience.config.ts or e2e/club-meeting-entry.config.ts.
-  testIgnore: ['**/club-week-resilience.spec.ts', '**/club-meeting-entry.spec.ts'],
+  // 전용 fixture/포트/브라우저 설정: e2e/{club-week-resilience,club-meeting-entry,running-parity,club-spectator}.config.ts.
+  testIgnore: ['**/club-week-resilience.spec.ts', '**/club-meeting-entry.spec.ts', '**/running-parity.spec.ts', '**/club-spectator-continuity.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

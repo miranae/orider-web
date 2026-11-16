@@ -228,7 +228,7 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
       aria-label={t(recommendedAdjustment ? "decision.reasonTitle" : "decision.reasonTitlePlain")}>
       <Text as="span" variant="caption" tone="secondary">
         {t(recommendedAdjustment ? "decision.reasonTitle" : "decision.reasonTitlePlain")}</Text>
-      <div>{reasonCodes.map((code) => <Chip key={code} variant="default">
+      <div>{reasonCodes.map((code) => <Chip key={code} variant="default" wrap>
         {t(`decision.reason.${code}`, { defaultValue: t("decision.reasonFallback") })}
       </Chip>)}</div>
     </section>}
