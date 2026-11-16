@@ -128,7 +128,6 @@
   "src/components/event/EventMap.tsx",
   "src/components/event/ParticipantTable.tsx",
   "src/components/explore/ExplorationGridLayer.tsx",
-  "src/components/explore/HeatmapLayer.tsx",
   "src/components/explore/PersonalHeatmapLayer.tsx",
   "src/components/fitness/AbilityScoreScale.tsx",
   "src/components/fitness/CyclingAbilityCard.tsx",

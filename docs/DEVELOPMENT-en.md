@@ -162,7 +162,6 @@ Required Actions variables:
 | `VITE_FIREBASE_FUNCTIONS_REGION` | Functions region |
 | `VITE_STRAVA_REDIRECT_URI` | Strava OAuth callback URI |
 | `VITE_SEGMENT_TILES_BASE` | Static segment tile base URL |
-| `VITE_HEATMAP_BASE` | Static heatmap data base URL |
 
 Deployment auth uses Workload Identity Federation in `.github/workflows/deploy.yml`, not a long-lived service-account JSON. Public browser config and infrastructure resource names are managed as Actions variables so they are not repeated inline in the workflow.
 
