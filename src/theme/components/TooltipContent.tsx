@@ -16,17 +16,14 @@ export const TooltipContent = forwardRef<HTMLSpanElement, TooltipContentProps>(f
   { title, children, headerAction, descriptionId, className, ...props }, ref,
 ) {
   if (headerAction) {
-    const titleId = title && descriptionId ? `${descriptionId}-title` : undefined;
     return (
-      <span ref={ref} className={cn("ds-tooltip-content", "ds-tooltip-content--help", !title && "ds-tooltip-content--untitled", className)} {...props}>
-        {title ? (
-          <span className="ds-tooltip-content__header">
-            <Text as="strong" id={titleId} variant="bodyMedium" weight={600} tone="primary" className="ds-tooltip-content__title">{title}</Text>
-            {headerAction}
+      <span ref={ref} className={cn("ds-help-panel", className)} {...props}>
+        <span className="ds-help-panel__action">{headerAction}</span>
+        <span className="ds-help-panel__scroll" tabIndex={0} aria-describedby={descriptionId}>
+          <span id={descriptionId} role="tooltip" className={cn("ds-tooltip-content", "ds-tooltip-content--help-text", !title && "ds-tooltip-content--untitled")}>
+            {title && <Text as="strong" variant="bodyMedium" weight={600} tone="primary" className="ds-tooltip-content__title">{title}</Text>}
+            <Text variant="bodySmall" tone="secondary" className="ds-tooltip-content__body">{children}</Text>
           </span>
-        ) : <span className="ds-tooltip-content__action">{headerAction}</span>}
-        <span className="ds-tooltip-content__scroll" tabIndex={0} aria-describedby={descriptionId}>
-          <Text id={descriptionId} role="tooltip" aria-labelledby={titleId} variant="bodySmall" tone="secondary" className="ds-tooltip-content__body">{children}</Text>
         </span>
       </span>
     );

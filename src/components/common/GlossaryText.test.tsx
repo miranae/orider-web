@@ -71,7 +71,7 @@ describe("GlossaryText", () => {
     for (const term of ["GPX", "HH:MM", "DNF", "SOS", "LIVE"]) {
       const trigger = screen.getByRole("button", { name: `${term} 설명` });
       fireEvent.click(trigger);
-      expect(trigger).toHaveAttribute("aria-describedby", (await screen.findByRole("tooltip")).id);
+      expect(await screen.findByRole("tooltip")).toHaveClass("ds-tooltip-content");
       fireEvent.blur(trigger);
     }
   });
@@ -195,19 +195,21 @@ describe("InfoTip interactions", () => {
     fireEvent.click(button);
     const tooltip = screen.getByRole("tooltip");
     expect(button).toHaveAttribute("aria-describedby", tooltip.id);
-    expect(button).toHaveAccessibleDescription("시간과 상대 강도로 계산합니다.");
+    expect(button).toHaveAccessibleDescription(/^훈련 부하 점수\s*시간과 상대 강도로 계산합니다\.$/);
     const panel = screen.getByRole("group", { name: "훈련 부하 점수" });
     const title = panel.querySelector("strong");
     const close = screen.getByRole("button", { name: "닫기" });
-    expect(title?.parentElement).toContainElement(close);
+    expect(tooltip.parentElement?.parentElement).toContainElement(close);
     expect(panel).toContainElement(tooltip);
     expect(tooltip).not.toContainElement(close);
     expect(title?.tagName).toBe("STRONG");
     expect(title).toHaveClass("ds-text--body-medium");
     expect(title).toHaveStyle({ fontWeight: 600 });
     expect(title).toHaveTextContent("훈련 부하 점수");
-    expect(tooltip).toHaveClass("ds-text--body-small", "ds-text--tone-1");
-    expect(tooltip).toHaveTextContent("시간과 상대 강도로 계산합니다.");
+    expect(tooltip).toHaveClass("ds-tooltip-content");
+    const body = tooltip.querySelector(".ds-tooltip-content__body");
+    expect(body).toHaveClass("ds-text--body-small", "ds-text--tone-1");
+    expect(body).toHaveTextContent("시간과 상대 강도로 계산합니다.");
     expect(tooltip).not.toHaveTextContent("—");
   });
 
