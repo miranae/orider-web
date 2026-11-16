@@ -5,9 +5,8 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.training-decision-card > * { min-width: 0; }
 /* 태그(T4): 공용 <Chip> 15·모서리 6 그대로 — 줄바꿈 규칙만 지정 */
-.training-decision-card .ds-chip { overflow-wrap: normal; word-break: keep-all; }
+.training-decision-card .ds-chip { max-width: 100%; white-space: normal; overflow-wrap: normal; word-break: keep-all; }
 .training-decision-card .ds-alert { font-size: var(--fs-xs); }
 :where(:root[data-type-scale="legacy"]) .training-decision-card .ds-alert { font-size: .8125rem; }
 .training-decision-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
@@ -23,8 +22,7 @@
 .training-decision-card__reasons { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 .training-decision-card__reasons > div { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 /* 세션 subcard(T3): 모서리 10, eyebrow 13, 제목 20 Bold, 메타 15 비례폭 */
-.training-decision-session { min-width: 0; display: grid; grid-template-columns: minmax(6.5rem, 0.34fr) minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
-.training-decision-session__label { white-space: normal; overflow-wrap: anywhere; }
+.training-decision-session { display: grid; grid-template-columns: minmax(6.5rem, 0.34fr) minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
 .training-decision-session__title { font-size: var(--fs-lg); font-weight: 700; }
 .training-decision-session--recommended { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 8%, transparent); }
 .training-decision-session--effective { border-color: var(--lime); background: color-mix(in srgb, var(--lime) 7%, transparent); }
