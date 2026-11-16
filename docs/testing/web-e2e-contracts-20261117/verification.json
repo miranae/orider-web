@@ -1,7 +1,7 @@
 {
-  "runtimeSource": "22768c90b976ed543c37afda802b9540c92c865a",
+  "runtimeSource": "21602ced581c704fd06127ee84322df304c318b5",
   "serverSource": "0c05f797ffd32068c49c2aefd98dc11e4568ce4d",
-  "labRun": "followup-web-1687-20261117-r10",
+  "labRun": "followup-web-1687-20261117-r11",
   "baseConfig": "playwright.config.ts",
   "default": {
     "total": 198,
@@ -28,6 +28,12 @@
     "fail": 0,
     "skip": 0,
     "config": "e2e/club-spectator.config.ts"
+  },
+  "sharedChip": {
+    "api": "wrap",
+    "unitPass": 65,
+    "cataloguePass": 4,
+    "featureOverrideRemoved": true
   },
   "runtimeEnvironment": "local demo emulators and loopback-only browser",
   "deployment": false

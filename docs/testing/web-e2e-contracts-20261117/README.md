@@ -13,6 +13,8 @@
 
 현재 홈은 활동 피드이며 옛 실행 카드를 표시하지 않는다. 컨디션은 진단 화면이다. 계획의 훈련 결정 카드는 현재 실행안과 권고 및 적용된 읽기 모델을 보여주며, 옛 `surface="today"` 전용 적용·실행 버튼을 요구하지 않는다. 계획 카드는 실제 활성 목표를 전제로 검증하고, px 기반 글자 토큰을 두 배로 키운 뒤 실제 확대와 재배치를 확인한다. 기존 실행/제안 상태 계약의 단위 검증은 `TrainingExecutionPanel.test.tsx`, `useTrainingProposalController.test.tsx`, `TodayTrainingDecisionCard.test.tsx` 등에 남는다.
 
+코치·훈련 결정의 AI HTTP 응답은 버전 계약 fixture로 고정한다. Auth·공개 활동·댓글·권한 거부는 실제 로컬 Functions·Firestore 에뮬레이터를 사용한다.
+
 기본 목록은 탐색 검색·필터의 중복 한 건과 색상 두 검사의 중복을 합치고 전용 설정 12개 인스턴스를 분리하여 198개다. N/A는 다른 프로젝트에서 같은 검사가 실제 실행된 경우에만 인정하며 PASS에 합산하지 않는다. 러닝은 전용 두 프로젝트 6개, 클럽 관전은 세 프로젝트 3개를 별도 보고한다.
 
 코치 긴 답변은 테스트 변경 외에 실제 제품 오류도 있었다. 보존 허브 래퍼가 높이를 전달하지 않아 입력기가 푸터 밖으로 넘쳤다. 데스크톱에서 높이를 전달하고 보조 탐색 아래 남은 공간을 대화에 배정하여 기존 경계 검사를 유지했다.
@@ -38,24 +40,29 @@ python3 tools/e2e-lab/lab.py run --app-ref dev --server-ref dev \
 
 전용 러닝은 같은 백엔드 dev의 Functions·Auth·Firestore·Storage를 `demo-orider-running-parity`로 실행한다. 검증용 폐기 체크아웃에서만 fixture의 loopback 포트, 보고서와 App Check 헤더를 주입하고 기존 전용 설정의 Chrome·두 화면 크기를 유지한다. 클럽 관전은 기존 SwiftShader 설정과 세 화면 크기를 유지한다. 테스트 본문을 임시로 바꿔 통과시키지 않는다.
 
-모든 실행의 제품·테스트 소스는 `22768c90b976ed543c37afda802b9540c92c865a`, 서버는 `0c05f797ffd32068c49c2aefd98dc11e4568ce4d`다. 아래 표는 1차 완료 근거다. 리뷰에 따라 줄바꿈을 공통 `Chip wrap` 옵션과 실물 카탈로그로 옮겼으며 동일 소스로 재검증 중이다. 운영 계정·데이터·배포는 검증 대상이 아니다.
+모든 실행의 제품·테스트 소스는 `21602ced581c704fd06127ee84322df304c318b5`, 서버는 `0c05f797ffd32068c49c2aefd98dc11e4568ce4d`다. 아래 결과를 고정한 후 문서·스크린샷만 추가했다. 운영 계정·데이터·배포는 검증 대상이 아니다.
 
 | 실행 | 결과 |
 | --- | --- |
-| `followup-web-1687-20261117-r10` 기본 목록 | 164 PASS · 0 FAIL/BLOCKED · 34 N/A (전체 198) |
+| `followup-web-1687-20261117-r11` 기본 목록 | 164 PASS · 0 FAIL/BLOCKED · 34 N/A (전체 198) |
 | 동일 소스 전용 러닝 | 6 PASS · 0 FAIL/SKIP |
 | 동일 소스 전용 클럽 관전 | 3 PASS · 0 FAIL/SKIP |
 | 기존 visual guard | 38 PASS · 0 FAIL, 최초 #1688의 28개 인스턴스 모두 포함 |
 | 하단 탐색 확대 전 기본 글자/터치 검증 | 12개 크기·언어·테마 조합 PASS |
+| 공통 Chip wrap | 관련 단위 65 PASS · 실물 카탈로그 100%/200%, 밝음/어두움 4 PASS |
 | Node 22 정적 검사 | lint:budget, quality:budget, E2E 모드 build 통과 |
 
 러닝 레인에서 드러난 별도의 제품 예외도 수정했다. 선택적 피트니스 문맥 응답에 points가 아직 없을 때 소유자 활동 상세가 `.slice()`에서 실패했으며, 그 상태를 없는 문맥으로 처리한다. 같은 실제 에뮬레이터의 소유자 예정 훈련·읽기 전용 미리보기와 비소유자 비노출 검사로 확인했다.
 
 공개 피드의 Discovery 매핑은 원본 요약의 민감한 수치를 복원하지 않는다. 러닝 테스트는 공개 카드의 정본 페이스·획득고도와 원본 파워 폴백 부재를 검사한다. 허가된 공개 상세에서는 펼친 지표의 `191 spm`·`264 W`, 21개 스플릿·키보드 이동·러닝 전용 분석을 별도로 검사한다.
 
+자동 리뷰의 공통 컨트롤 소유권 지적은 `Chip wrap` 옵션, 공통 CSS, 컴포넌트 문서와 실물 카탈로그로 반영했다. 기능의 `.ds-chip` 재정의는 제거했다. 기본 한 줄·선택 상태·키보드 동작은 유지되며 긴 정보 태그만 옵션으로 줄바꿈한다.
+
+![공통 칩 320px 어두운 테마 200% 확대](chip-wrap-320-dark-200.png)
+
 ![320px 한국어 밝은 테마](bottom-navigation-320-ko-light.png)
 ![320px 영어 어두운 테마](bottom-navigation-320-en-dark.png)
 ![768px 한국어 밝은 테마](bottom-navigation-768-ko-light.png)
 ![768px 영어 어두운 테마](bottom-navigation-768-en-dark.png)
 
-정규화된 수치와 소스는 [verification.json](verification.json)에 기록했다. 원본 JSON·JUnit·스크린샷은 `~/.orider/e2e-lab/runs/followup-web-1687-20261117-r10/`, 전용 실행 로그와 러너는 로컬 `artifacts/followup-five-20261117/`에 있다.
+정규화된 수치와 소스는 [verification.json](verification.json)에 기록했다. 원본 JSON·JUnit·스크린샷은 `~/.orider/e2e-lab/runs/followup-web-1687-20261117-r11/`, 전용 실행 로그와 러너는 로컬 `artifacts/followup-five-20261117/`에 있다.
