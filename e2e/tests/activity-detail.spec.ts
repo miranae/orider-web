@@ -4,10 +4,9 @@ import { ACTIVITY_IDS } from '../fixtures/seed';
 test.describe('Activity Detail', () => {
   test.beforeEach(async ({ page }) => {
     // 공개 상세 callable을 사용하고 소유자 전용 구 화면과 구분합니다.
-    await page.route('**/runtime-config.json*', async route => {
-      const response = await route.fetch();
-      await route.fulfill({ json: { ...await response.json(), publicActivityDetailEnabled: true } });
-    });
+    await page.route('**/runtime-config.json*', route => route.fulfill({
+      json: { useEmulators: true, publicActivityDetailEnabled: true },
+    }));
   });
   test('shows activity description and author', async ({ authenticatedPage: page }) => {
     await page.goto(`/activity/${ACTIVITY_IDS.publicRide}`, { waitUntil: 'domcontentloaded' });

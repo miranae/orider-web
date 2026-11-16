@@ -131,6 +131,7 @@ export async function seedTestData(primaryUserId?: string) {
     profileImage: null,
     type: 'ride',
     source: 'orider',
+    deletedAt: null,
     createdAt: NOW - 2 * HOUR,
     startTime: NOW - 4 * HOUR,
     endTime: NOW - 2.5 * HOUR,
@@ -153,6 +154,7 @@ export async function seedTestData(primaryUserId?: string) {
     profileImage: null,
     type: 'ride',
     source: 'orider',
+    deletedAt: null,
     createdAt: NOW - 5 * HOUR,
     startTime: NOW - 8 * HOUR,
     endTime: NOW - 5.5 * HOUR,
@@ -175,6 +177,7 @@ export async function seedTestData(primaryUserId?: string) {
     profileImage: null,
     type: 'ride',
     source: 'orider',
+    deletedAt: null,
     createdAt: NOW - 24 * HOUR,
     startTime: NOW - 26 * HOUR,
     endTime: NOW - 24.5 * HOUR,
@@ -197,6 +200,7 @@ export async function seedTestData(primaryUserId?: string) {
     profileImage: null,
     type: 'ride',
     source: 'orider',
+    deletedAt: null,
     createdAt: NOW - 48 * HOUR,
     startTime: NOW - 50 * HOUR,
     endTime: NOW - 48.5 * HOUR,
@@ -219,6 +223,7 @@ export async function seedTestData(primaryUserId?: string) {
     profileImage: null,
     type: 'ride',
     source: 'orider',
+    deletedAt: null,
     createdAt: NOW - 3 * HOUR,
     startTime: NOW - 6 * HOUR,
     endTime: NOW - 3.5 * HOUR,
@@ -390,10 +395,11 @@ export async function clearEmulatorData() {
 
 /** 계획 변경 카드의 전제인 활성 목표를 실제 에뮬레이터에 만듭니다. */
 export async function seedTrainingGoal(userId: string) {
-  await putDoc(`users/${userId}/goals`, 'e2e-training-decision', {
+  await putDoc('goals', 'e2e-training-decision', {
     id: 'e2e-training-decision', userId, discipline: 'bike', goalType: 'fitness',
     title: 'E2E 훈련 목표', status: 'active', courseId: null, courseName: 'E2E',
     courseDist: 100, courseElev: 500, eventType: 'completion', eventDate: NOW + 30 * 24 * HOUR,
     weeklySessions: 3, createdAt: NOW, updatedAt: NOW,
+    snapshot: { ftp: 200, weightKg: 70, ctl: 10 }, feasibility: { label: 'easy' },
   });
 }

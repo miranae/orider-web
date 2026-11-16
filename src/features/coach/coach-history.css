@@ -1,3 +1,12 @@
+/* 보존된 허브 래퍼에도 높이를 전달하고 보조 탐색 아래의 남은 공간만 대화에 배정합니다. */
+@media (min-width: 64rem) {
+  [data-hub-page]:has(> .site-shell > .coach-history-page) { height: 100%; min-height: 0; }
+  .site-shell[data-page-shell="content"]:has(> .coach-history-page) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
 .site-shell[data-page-shell="content"]:has(> .coach-history-page) {
   box-sizing: border-box;
   height: 100%;
