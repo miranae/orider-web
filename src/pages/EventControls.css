@@ -6,7 +6,6 @@
   padding: var(--space-2) var(--space-3) !important;
   font-size: var(--ft-body-size) !important;
 }
-.event-controls-surface .ds-btn:not(:where([role="dialog"] *)) { min-height: var(--dim-button-height); }
 .event-controls-surface .ds-btn__label { min-width: 0; white-space: normal; }
 .event-controls-surface .ds-btn[role="radio"] .ds-btn__label { display: block; width: 100%; }
 .event-controls-surface input:is([type="checkbox"], [type="radio"]) {

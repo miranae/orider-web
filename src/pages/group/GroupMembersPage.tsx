@@ -456,7 +456,7 @@ function GroupMembersContent({ management = false }: { management?: boolean }) {
     <div className="club-surface club-members">
       {!management && <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, members.find(member => member.id === user?.uid && ["active", "approved"].includes(member.status))?.role ?? null)} />}
 
-      {!management && !isOwner && user && members.some(member => member.id === user.uid) && <details data-testid="C6-0-3"><summary aria-label={t("members.menu")}>⋯</summary><Button variant="danger" disabled={leaving} onClick={async () => {
+      {!management && !isOwner && user && members.some(member => member.id === user.uid) && <details data-testid="C6-0-3"><summary aria-label={t("members.menu")}>⋯</summary><Button size="sm" variant="danger" disabled={leaving} onClick={async () => {
         if (!groupId || !user || leaving) return;
         const uid = user.uid;
         const intent = leaveIntent.current;

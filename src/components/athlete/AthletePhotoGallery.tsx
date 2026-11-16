@@ -42,13 +42,13 @@ export default function AthletePhotoGallery({ photos: inputPhotos, cover = false
     <Modal open={!!photo} onClose={() => setSelected(null)} title={t("profile.recentPhotos")} maxWidth="max-w-4xl">
       {photo && <div className="athlete-photo-viewer">
         {previewUrl ? <img src={previewUrl} alt={photo.caption ?? ""} /> : <Text role="status">{activityT(nativePreview.error ? "publicDetail.photosFailed" : "detail.loadingData")}</Text>}
-        {photo.nativePhoto && nativePreview.error != null && <Button onClick={nativePreview.retry}>{activityT("page.retry")}</Button>}
+        {photo.nativePhoto && nativePreview.error != null && <Button size="sm" onClick={nativePreview.retry}>{activityT("page.retry")}</Button>}
         {photo.caption && <p>{photo.caption}</p>}
         <div className="athlete-photo-viewer-controls">
           <IconButton variant="neutral" aria-label={t("profile.previousPhoto")} disabled={index === 0} icon={<ChevronLeft size={ICON_SIZE.md} />} onClick={() => move(index - 1)} />
           <span aria-live="polite">{index + 1} / {photos.length}</span>
           <IconButton variant="neutral" aria-label={t("profile.nextPhoto")} disabled={index === photos.length - 1} icon={<ChevronRight size={ICON_SIZE.md} />} onClick={() => move(index + 1)} />
-          <Link className={buttonClass({ variant: "ghost" })} to={`/activity/${photo.activityId}?tab=overview`}>{t("profile.openActivity")}</Link>
+          <Link className={buttonClass({ variant: "ghost", size: "sm" })} to={`/activity/${photo.activityId}?tab=overview`}>{t("profile.openActivity")}</Link>
         </div>
       </div>}
     </Modal>

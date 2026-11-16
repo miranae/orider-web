@@ -106,7 +106,7 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
         </div>}
         {valid && <Text variant="bodySmall" tone="tertiary">{range.start} – {range.end}</Text>}
       </div>
-      {!valid || result.state === "invalid" ? <Text as="p" role="alert" tone="danger">{t("loadComparison.invalidRange")}</Text> : result.state === "error" ? <div role="alert" className="plan-load-comparison__notice"><Text>{t("loadComparison.error")}</Text><Button variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div> : <>
+      {!valid || result.state === "invalid" ? <Text as="p" role="alert" tone="danger">{t("loadComparison.invalidRange")}</Text> : result.state === "error" ? <div role="alert" className="plan-load-comparison__notice"><Text>{t("loadComparison.error")}</Text><Button size="sm" variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div> : <>
         {(result.state === "loading" || result.state === "idle") && <Text as="p" role="status" variant="bodySmall">{t("loadComparison.loading")}</Text>}
         <div className="plan-load-comparison__metrics" aria-busy={!ready}>
           <Stat compact role="group" aria-label={t("loadComparison.planned")} label={t("loadComparison.planned")} value={number(summary?.plannedTss)} unit="TSS" />
@@ -115,8 +115,8 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
           <Stat compact role="group" aria-label={t("loadComparison.attainment")} label={t("loadComparison.attainment")} value={number(summary?.ratioPct)} unit={summary?.ratioPct == null ? undefined : "%"} />
         </div>
         <div className="plan-load-comparison__notes">
-          {result.parentWeeksPending && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" role="status">{t("loadComparison.parentWeekPending")}</Text><Button variant="secondary" onClick={result.retryParentWeeks}>{t("loadComparison.retry")}</Button></div>}
-          {result.state === "incomplete" && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.incomplete")}</Text><Button variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div>}
+          {result.parentWeeksPending && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" role="status">{t("loadComparison.parentWeekPending")}</Text><Button size="sm" variant="secondary" onClick={result.retryParentWeeks}>{t("loadComparison.retry")}</Button></div>}
+          {result.state === "incomplete" && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.incomplete")}</Text><Button size="sm" variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div>}
           {result.state === "ready" && summary && summary.unknownCount > 0 && <Text as="p" variant="bodySmall" tone="warning" role="status"><Resolvable resolve={webResolve ? { to: loadThresholdHref(discipline) } : undefined}>{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Resolvable></Text>}
           {summary?.estimated && <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.estimated")}</Text>}
           {ready && result.days.length === 1 && dayLink(result.days[0]!.date)}

@@ -319,7 +319,7 @@ export default function ExploreAthletesPage() {
               </ul>
             </Card>}
       {search.status === "done" && search.nextCursor && <div className="explore-people-more">
-        <Button data-testid="E5-2-4" variant="secondary" loading={search.loadingMore} onClick={() => void loadMore()}>{t("search.more")}</Button>
+        <Button size="sm" data-testid="E5-2-4" variant="secondary" loading={search.loadingMore} onClick={() => void loadMore()}>{t("search.more")}</Button>
       </div>}
     </section>}
   </div>;

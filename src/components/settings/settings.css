@@ -217,7 +217,7 @@
     select,
     textarea,
     summary
-  ):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action) {
+  ):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action) {
     min-height: 44px;
   }
 }
@@ -231,8 +231,8 @@
 .settings-inline-control { max-width: 100%; }
 .settings-inline-control > * { max-width: 100%; }
 /* 아바타 위 겹침 아이콘(.settings-profile-avatar__action)은 compact 36 정사각 그대로 둔다 — 히트 영역은 버튼 ::after 가 44 로 보장 */
-.settings-main :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action),
-.mobile-settings-detail :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action) { min-height: var(--dim-button-height); }
+.settings-main :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action),
+.mobile-settings-detail :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action) { min-height: var(--dim-button-height); }
 .settings-main :is(button, input, select, textarea, summary):focus-visible,
 .mobile-settings-detail :is(button, input, select, textarea, summary):focus-visible,
 .settings-toggle:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }

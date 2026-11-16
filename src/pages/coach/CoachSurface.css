@@ -69,7 +69,6 @@
 }
 
 @media (max-width: 36rem) {
- .coach-training-dialog .ds-btn { min-height: var(--dim-button-height); }
  .coach-training-dialog [data-testid="K4-6-7"] { min-width: var(--dim-button-height); min-height: var(--dim-button-height); }
 }
 

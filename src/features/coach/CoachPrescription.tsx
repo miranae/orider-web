@@ -283,9 +283,9 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
         {state === "review" && <Button type="button" variant={confirmArmed ? "primary" : "secondary"}
           disabled={!capabilities.progressPlanner.confirm.enabled || !nonce} onClick={() => void confirmProposal()}>
           {confirmArmed ? t("progress.confirm.final") : t("progress.confirm.review")}</Button>}
-        {state === "error" && confirmRetryable && <Button type="button" variant="outline"
+        {state === "error" && confirmRetryable && <Button size="sm" type="button" variant="outline"
           onClick={() => void confirmProposal()}>{t("progress.states.retryConfirm")}</Button>}
-        {state === "error" && rollbackRetryable && <Button type="button" variant="outline"
+        {state === "error" && rollbackRetryable && <Button size="sm" type="button" variant="outline"
           onClick={() => void rollbackProposal()}>{t("progress.states.retryRollback")}</Button>}
         {state === "applied" && <Button type="button" variant="outline" disabled={!rollbackRequestId}
           onClick={() => void rollbackProposal()}>{t("progress.rollback.action")}</Button>}
@@ -470,8 +470,8 @@ function CoachPrescriptionSession({ initial, parentRequestId, locale, onReanalyz
     <Button variant="ghost" disabled={state === "submitting"} onClick={() => { setAnswers({}); requestRef.current = null; if (state !== "reanalyze") setState("idle"); }}>{t("prescription.checkin.cancel")}</Button>
     {!capabilities && !capabilityFailed && <Text as="p" variant="caption" role="status">{t("prescription.checkin.loading")}</Text>}
     {capabilities?.prescription.checkIn.enabled === false && <Text as="p" variant="caption" tone="warning">{t("prescription.checkin.unavailable")}</Text>}
-    {capabilityFailed && <div><Alert variant="warning" title={t("progress.states.unavailable")} /><Button variant="outline" onClick={() => setCapabilityRetry(value => value + 1)}>{t("prescription.checkin.loadRetry")}</Button></div>}
-    {state === "network_error" && <div role="alert"><p>{t("prescription.checkin.networkError")}</p><Button variant="outline" onClick={() => void submit(true)}>{t("prescription.checkin.retry")}</Button></div>}
+    {capabilityFailed && <div><Alert variant="warning" title={t("progress.states.unavailable")} /><Button size="sm" variant="outline" onClick={() => setCapabilityRetry(value => value + 1)}>{t("prescription.checkin.loadRetry")}</Button></div>}
+    {state === "network_error" && <div role="alert"><p>{t("prescription.checkin.networkError")}</p><Button size="sm" variant="outline" onClick={() => void submit(true)}>{t("prescription.checkin.retry")}</Button></div>}
     {state === "reanalyze" && <div role="alert"><p>{t("prescription.checkin.reanalyze")}</p><Button variant="outline" onClick={onReanalyze}>{t("prescription.checkin.newAnalysis")}</Button></div>}
     {state === "error" && <div role="alert"><p>{t("prescription.checkin.error")}</p><Button variant="outline" onClick={onReanalyze}>{t("prescription.checkin.newAnalysis")}</Button></div>}
     <p className="coach-checkin__policy">{t("prescription.checkin.noCharge")}</p>
