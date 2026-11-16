@@ -1,14 +1,14 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { TFunction } from "i18next";
 import { createMockActivity } from "../../../__tests__/fixtures/mockData";
-import NativeOwnerRoutePreview, { boundedRoutePreview } from "./NativeOwnerRoutePreview";
+import NativeOwnerRoutePreview, { boundedRoutePreview, boundedRouteParts } from "./NativeOwnerRoutePreview";
 const mock = vi.hoisted(() => ({ load: vi.fn(), user: { uid: "owner", isAnonymous: false }, authListener: null as null | ((u: unknown) => void) }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mock.user }) }));
 const services = { auth: { currentUser: mock.user, app: { name: "local", options: { projectId: "demo-route" } } } };
 vi.mock("../../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => services }));
 vi.mock("../../../services/activityRouteEvidence", () => ({ loadActivityRouteEvidence: (...args: unknown[]) => mock.load(...args) }));
 vi.mock("firebase/auth", () => ({ onAuthStateChanged: (_: unknown, callback: typeof mock.authListener) => { mock.authListener = callback; return () => {}; } }));
-vi.mock("../../../components/RouteMap", () => ({ default: ({ latlng }: { latlng: unknown[] }) => <div data-testid="preview-map">{latlng.length}</div> }));
+vi.mock("../../../components/RouteMap", () => ({ default: ({ routeParts }: { routeParts: unknown[][] }) => <div data-testid="preview-map" data-parts={routeParts.length}>{routeParts.flat().length}</div> }));
 const t = ((key: string) => key) as TFunction<"activity">;
 const activity = createMockActivity({ id: "ride", userId: "owner", source: "orider" });
 const ready = { state: "available", route: { points: Array.from({ length: 601 }, (_, i) => ({ lat: 37 + i / 10000, lon: 127 })) } };
@@ -43,4 +43,17 @@ it("never offers another owner's route", () => { render(<NativeOwnerRoutePreview
 it("does not retain points when the SDK project changes", async () => {
  mock.load.mockResolvedValue(ready); const view = render(<NativeOwnerRoutePreview activity={activity} t={t} />); fireEvent.click(screen.getByRole("button")); await screen.findByTestId("preview-map");
  services.auth.app.options.projectId="demo-other"; view.rerender(<NativeOwnerRoutePreview activity={activity} t={t} />); expect(screen.queryByTestId("preview-map")).toBeNull(); services.auth.app.options.projectId="demo-route";
+});
+
+it("preserves transfer boundaries before downsampling and passes separate lines to the map", async () => {
+ const points = [{lat:37,lon:127},{lat:37.001,lon:127},{lat:37.01,lon:127,segmentBreakBefore:true},{lat:37.011,lon:127}];
+ expect(boundedRouteParts(points)).toEqual([[[37,127],[37.001,127]],[[37.01,127],[37.011,127]]]);
+ mock.load.mockResolvedValue({state:"available",route:{points}});
+ render(<NativeOwnerRoutePreview activity={activity} t={t} />); fireEvent.click(screen.getByRole("button"));
+ expect(await screen.findByTestId("preview-map")).toHaveAttribute("data-parts","2");
+});
+it("bounds dense multi-segment previews without dropping a segment endpoint", () => {
+ const points = Array.from({length:10000},(_,i)=>({lat:37+i/100000,lon:127,segmentBreakBefore:i===5000}));
+ const parts=boundedRouteParts(points); expect(parts).toHaveLength(2); expect(parts.flat().length).toBeLessThanOrEqual(204);
+ expect(parts[0]?.at(-1)).toEqual([points[4999]!.lat,127]); expect(parts[1]?.[0]).toEqual([points[5000]!.lat,127]);
 });
