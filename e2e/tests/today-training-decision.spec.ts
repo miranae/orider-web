@@ -40,10 +40,11 @@ async function expectContainedReflow(card: Locator) {
         const rect = item.getBoundingClientRect();
         return rect.left < bounds.left - 1 || rect.right > bounds.right + 1;
       }).map((item) => item.textContent?.trim() || item.tagName);
-    return { ownOverflow: element.scrollWidth - element.clientWidth,
+    const overflow = [...element.querySelectorAll<HTMLElement>('*')].filter(item => item.getBoundingClientRect().right > bounds.right + 1).slice(0, 8).map(item => ({ tag: item.tagName, className: item.className, width: item.getBoundingClientRect().width, minWidth: getComputedStyle(item).minWidth }));
+    return { overflow, ownOverflow: element.scrollWidth - element.clientWidth,
       viewportOverflow: document.documentElement.scrollWidth - window.innerWidth, clipped };
   });
-  expect(geometry.ownOverflow).toBeLessThanOrEqual(1);
+  expect(geometry.ownOverflow, JSON.stringify(geometry)).toBeLessThanOrEqual(1);
   expect(geometry.viewportOverflow).toBeLessThanOrEqual(1);
   expect(geometry.clipped).toEqual([]);
 }

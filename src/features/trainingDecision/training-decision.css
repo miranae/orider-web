@@ -5,6 +5,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.training-decision-card > * { min-width: 0; }
 /* 태그(T4): 공용 <Chip> 15·모서리 6 그대로 — 줄바꿈 규칙만 지정 */
 .training-decision-card .ds-chip { overflow-wrap: normal; word-break: keep-all; }
 .training-decision-card .ds-alert { font-size: var(--fs-xs); }
