@@ -118,6 +118,6 @@ function PublicProfile({ userId, onActivity }: { userId: string; onActivity: (id
     {failed && <Text role="alert"><Resolvable resolve={{ onClick: () => { void loadRef.current(); } }}>{t("embeddedProfile.unavailable")}</Resolvable></Text>}
     {!busy && !failed && !visible.length && <Text>{t("embeddedProfile.empty")}</Text>}
     {visible.map(row => <Button key={row.id} variant="secondary" onClick={() => onActivity(row.id)}>{row.description || t("publicDetail.title")}</Button>)}
-    {cursor && <Button disabled={busy} onClick={() => void loadRef.current(cursor)}>{t("embeddedProfile.more")}</Button>}
+    {cursor && <Stack direction="row" wrap><Button size="sm" disabled={busy} onClick={() => void loadRef.current(cursor)}>{t("embeddedProfile.more")}</Button></Stack>}
   </Stack></Section>;
 }

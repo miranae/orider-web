@@ -290,8 +290,8 @@ export default function GroupsPage() {
         <div><Text as="h1" variant="pageTitle">{t("clubsTitle")}</Text>
         {user && myGroups.length > 0 && <Text as="p" variant="bodySmall" tone="tertiary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
         <div className="club-page-actions">
-          {user && myGroups.length > 0 && <Button data-testid="C0-0-2" variant="secondary" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}
-          {user && <Button data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t("button.create")}</Button>}
+          {user && myGroups.length > 0 && <Button size="sm" data-testid="C0-0-2" variant="secondary" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}
+          {user && <Button size="sm" data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t("button.create")}</Button>}
         </div>
       </header>
       {user && (myGroups.length > 0 || myLoading || Boolean(myGroupsError)) && myClubSection}
@@ -385,7 +385,7 @@ export default function GroupsPage() {
         </div>
       )}
 
-      {publicHasMore && !publicLoading && <Button variant="secondary" disabled={publicLoadingMore} onClick={loadMorePublicGroups}>{t("common:button.more")}</Button>}
+      {publicHasMore && !publicLoading && <Button size="sm" variant="secondary" disabled={publicLoadingMore} onClick={loadMorePublicGroups}>{t("common:button.more")}</Button>}
 
       {!user && <ClubLoginGate />}
       {user && <Card data-testid="C0-3" className="club-invite-card" padding="card">

@@ -1,30 +1,5 @@
 [
   {
-    "path": "src/components/activity/StravaSummaryPublishing.css",
-    "selector": ".activity-strava-publishing-actions > .ds-btn, .activity-strava-publishing-manual > .ds-btn",
-    "fingerprint": "69c84588c1e7a2f60783b520873bbf6806bbd09f0327aedcbb199fc4dc933674"
-  },
-  {
-    "path": "src/components/creator/RecipeShareCard.css",
-    "selector": ".recipe-share-actions .ds-btn",
-    "fingerprint": "20ed8e2e47654405f9e71468747aa8014089fc938ff12c9642c3a718f7f1e511"
-  },
-  {
-    "path": "src/components/creator/RecipeShareCard.css",
-    "selector": "@media (max-width: 480px) > .recipe-share-actions .ds-btn",
-    "fingerprint": "e1476d785890adf4fdeaadb3b4a472538f19fcf3575df6c9e0a3144fa7b377ea"
-  },
-  {
-    "path": "src/components/creator/RideStoryPhotoPicker.css",
-    "selector": ".ride-story-picker-footer .ds-btn",
-    "fingerprint": "5fa1e50e48c7678b5421371ccaa7458ee852a9ba0c4428db02fef05ddf41b300"
-  },
-  {
-    "path": "src/components/creator/RideStoryPhotoPicker.css",
-    "selector": "@media (max-width: 480px) > .ride-story-picker-footer .ds-btn",
-    "fingerprint": "df033ac5059271495ec478d8bb15907b79b7eef7ad4bdc9f1b77b4b626ef20d3"
-  },
-  {
     "path": "src/components/mobile/MobileFitnessPage.css",
     "selector": ".mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__ranges .ds-btn",
     "fingerprint": "a3da0da07b3eebd626cb605345dc178c0dd959c53c321d7e8251ebd6b27a9bc5"
@@ -96,11 +71,6 @@
   },
   {
     "path": "src/features/activity/detail/activity-growth-panel.css",
-    "selector": ".activity-growth-section .ds-btn--sm",
-    "fingerprint": "40f5cc45e40e2af15e9a3362b8d5c238d1dca53f11b673245f8f1a3d1925fd96"
-  },
-  {
-    "path": "src/features/activity/detail/activity-growth-panel.css",
     "selector": ".activity-growth-disclosure[aria-expanded=\"true\"] .ds-btn__icon",
     "fingerprint": "233e13213bd1fe4fbdca971bfcbca03f6e3ad84f9cbc08fc11b05eeded3b6da7"
   },
@@ -131,11 +101,6 @@
   },
   {
     "path": "src/features/activity/detail/activity-route-index-history.css",
-    "selector": ".route-index-history select, .route-index-history .ds-btn",
-    "fingerprint": "af9f3e5057fa1b8545f8559dacc0bf57012c2670024cd17036acc47b2a8b98ed"
-  },
-  {
-    "path": "src/features/activity/detail/activity-route-index-history.css",
     "selector": ".route-index-history .ds-btn--outline",
     "fingerprint": "48ca882ac036479c5f08982c4c831496a05637d28295b2f76cfc43fe781e241e"
   },
@@ -151,18 +116,8 @@
   },
   {
     "path": "src/features/activity/detail/cycling-distance-period-analysis.css",
-    "selector": ".cycling-distance-periods select, .cycling-distance-periods .ds-btn",
-    "fingerprint": "f23bc531d51eae02eee86d7ac2259716a95a442719e441ef101791898e2b7ca1"
-  },
-  {
-    "path": "src/features/activity/detail/cycling-distance-period-analysis.css",
     "selector": ".cycling-distance-periods .ds-btn--outline",
     "fingerprint": "fff3fa19acdf5fdb21ac8f0b1009fff7b533ee6ea22f135ea51dc1df42a93203"
-  },
-  {
-    "path": "src/features/activity/detail/similar-route-history.css",
-    "selector": ".similar-route-history .ds-btn--sm",
-    "fingerprint": "a86f4b1c68e485eade2c3f5fb3d0fdad043ec737b6d85a24f3379de3ee681d74"
   },
   {
     "path": "src/features/club-preparation/clubPreparation.css",
@@ -271,18 +226,8 @@
   },
   {
     "path": "src/features/courses/course-controls.css",
-    "selector": ":is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-btn",
-    "fingerprint": "71ef89778ea41d0fde0cec00454706d2630adbf41aa2901587e6cd5445c5a5fa"
-  },
-  {
-    "path": "src/features/courses/course-controls.css",
     "selector": ".course-catalog-filters .ds-btn",
     "fingerprint": "94297cc5ac6c03280f073e4a745b9daadfabadcfff9b7dc8ae4695b9dd73fb07"
-  },
-  {
-    "path": "src/features/courses/course-controls.css",
-    "selector": ".course-catalog-search .ds-btn",
-    "fingerprint": "25db5962a98c5a80f851394231238678b65047f1fa94b5f108e768c2fe4cc1e0"
   },
   {
     "path": "src/features/courses/course-controls.css",
@@ -441,11 +386,6 @@
   },
   {
     "path": "src/features/segments/segmentSurface.css",
-    "selector": ".segment-surface .ds-btn",
-    "fingerprint": "1cca690c6dc2a583836058acc57a6edfb2941d064bf326cbcc9320e826d50155"
-  },
-  {
-    "path": "src/features/segments/segmentSurface.css",
     "selector": ".segment-surface .segment-create-categories .ds-btn",
     "fingerprint": "fbb0d47fa3379a69e6469529938dd3031a036e71079992df02952e70dd07aaf2"
   },
@@ -566,11 +506,6 @@
   },
   {
     "path": "src/pages/coach/CoachSurface.css",
-    "selector": "@media (max-width: 36rem) > .coach-training-dialog .ds-btn",
-    "fingerprint": "1783533e211a98300423bd9976f0241184332a192e1bcbc3444ad004f65b565b"
-  },
-  {
-    "path": "src/pages/coach/CoachSurface.css",
     "selector": ".coach-training-dialog .ds-btn__label",
     "fingerprint": "384b8f42e8310f03bc14ab7247fac0486b82c850a6f25c5c003f7d80231d3e58"
   },
@@ -578,11 +513,6 @@
     "path": "src/pages/DashboardPage.css",
     "selector": ".dashboard-home .ds-btn--primary, .dashboard-home .ds-btn--primary:hover:not(:disabled)",
     "fingerprint": "adf0588c98fb6600613070da1cd2cfb2566b66401c4fb46fe50beb8dbb51a88b"
-  },
-  {
-    "path": "src/pages/EventControls.css",
-    "selector": ".event-controls-surface .ds-btn:not(:where([role=\"dialog\"] *))",
-    "fingerprint": "17ce229c2725547a5768481488e4292df794313a0887327d67ff3890c06d241c"
   },
   {
     "path": "src/pages/EventControls.css",
@@ -613,16 +543,6 @@
     "path": "src/pages/group/ClubSurface.css",
     "selector": "@media (max-width: 36rem) > .club-settings-save-bar > .ds-btn",
     "fingerprint": "f0c77f8430dce1d65bf3656cbf932129db5586d15cc9ad4ce746b51a3f7d474e"
-  },
-  {
-    "path": "src/pages/group/ClubSurface.css",
-    "selector": ".club-surface .ds-btn",
-    "fingerprint": "46b1656da5dc4f8996d40b7a1b111312948b4a90c643ba3abe514572a7b42798"
-  },
-  {
-    "path": "src/pages/group/ClubSurface.css",
-    "selector": ".club-surface .ds-btn__label",
-    "fingerprint": "8e5317c247b79a833db5588c02d7e57b21f03d828c84e8674942671b97b6d769"
   },
   {
     "path": "src/pages/group/ClubSurface.css",

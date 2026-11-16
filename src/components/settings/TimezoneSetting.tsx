@@ -59,12 +59,12 @@ export function TimezoneSetting() {
       </select>
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         {device && device !== timezone && (
-          <Button variant="secondary" onClick={() => void save(device)}>
+          <Button size="sm" variant="secondary" onClick={() => void save(device)}>
             {t("pane.app.timezoneUseDevice", { tz: device })}
           </Button>
         )}
         {timezone && (
-          <Button variant="ghost" onClick={() => void save(null)}>{t("pane.app.timezoneReset")}</Button>
+          <Button size="sm" variant="ghost" onClick={() => void save(null)}>{t("pane.app.timezoneReset")}</Button>
         )}
       </div>
     </div>

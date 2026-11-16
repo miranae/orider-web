@@ -36,7 +36,7 @@ export default function SegmentRankingReport({ activityId, segmentId }: { activi
     {open && <form onSubmit={event => { event.preventDefault(); void submit(); }}><Stack gap="var(--space-2)">
       <Text>{t("rankingReport.explanation")}</Text>
       <label>{t("rankingReport.reason")}<Select ref={select} value={reason} disabled={busy} onChange={event => setReason(event.target.value as SegmentReportReason)}>{SEGMENT_REPORT_REASONS.map(value => <option key={value} value={value}>{t(`rankingReport.reasons.${value}`)}</option>)}</Select></label>
-      <Stack direction="row" wrap gap="var(--space-2)"><Button type="submit" loading={busy} disabled={busy}>{t("rankingReport.submit")}</Button><Button type="button" variant="outline" onClick={() => { cancel(); trigger.current?.focus(); }}>{t("rankingReport.cancel")}</Button></Stack>
+      <Stack direction="row" wrap gap="var(--space-2)"><Button type="submit" loading={busy} disabled={busy}>{t("rankingReport.submit")}</Button><Button size="sm" type="button" variant="outline" onClick={() => { cancel(); trigger.current?.focus(); }}>{t("rankingReport.cancel")}</Button></Stack>
       {failed && <Text role="alert">{t("rankingReport.error")}</Text>}
     </Stack></form>}
     {result && <Text role="status">{t(`rankingReport.status.${result.status}`)}</Text>}

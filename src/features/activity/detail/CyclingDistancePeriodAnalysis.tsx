@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { BIKE_DISTANCE_TARGETS, type BikeDistanceKey } from "@shared/activity-bike-distance-evidence";
 import type { TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 import { useLocale } from "../../../contexts/LocaleContext";
-import { Button, Select, Text } from "../../../theme";
+import { Button, Select, Text , Stack } from "../../../theme";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 import "./cycling-distance-period-analysis.css";
 /** 이미 받은 기간 응답만 표시한다. 원본·히스토리·GPS를 추가 조회하지 않는다. */
@@ -36,7 +36,7 @@ export default function CyclingDistancePeriodAnalysis({ response }: { response: 
             {d.observedEffortActivityCount === 0 && <Text as="p" variant="bodyMedium" tone="secondary">{t(d.supportedActivityCount > 0 ? "cyclingDistancePeriods.noObserved" : "cyclingDistancePeriods.noSupport")}</Text>}
             {d.sources.length > 0 && <>{!concise && <Text as="p" variant="bodyMedium" tone="secondary">{t("cyclingDistancePeriods.sourceCount", { shown: Math.min(sourceLimit, d.sources.length), total: d.sources.length })}</Text>}
               <ul>{d.sources.slice(0, sourceLimit).map(source => <li key={source.sourceActivityId}><a href={`/${locale}/activity/${encodeURIComponent(source.sourceActivityId)}`}>{date(source.startTime)} · {formatElapsedBoundary(source.elapsedSec)} · {t("cyclingDistancePeriods.provenance", { source: t(`manualBikeEvidence.declaredSources.${source.provenance.declaredActivitySource ?? "unknown"}`), status: t(`cyclingDistancePeriods.provenanceStatuses.${source.provenance.status}`) })}</a></li>)}</ul>
-              {d.sources.length > sourceLimit && <Button size="sm" variant="outline" onClick={() => setSourceLimit(value => value + 5)}>{t("cyclingDistancePeriods.moreSources")}</Button>}
+              {d.sources.length > sourceLimit && <Stack direction="row" wrap gap="var(--space-2)"><Button size="sm" variant="outline" onClick={() => setSourceLimit(value => value + 5)}>{t("cyclingDistancePeriods.moreSources")}</Button></Stack>}
             </>}
           </>}
         </section>;

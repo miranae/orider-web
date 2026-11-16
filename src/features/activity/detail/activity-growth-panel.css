@@ -1,5 +1,4 @@
 .activity-growth-content { padding: var(--dim-card-padding); }
-.activity-growth-section .ds-btn--sm { min-height: calc(var(--space-7) + var(--space-3)); font-size: var(--fs-md); }
 .activity-growth-section { border-top: 1px solid var(--line-soft); padding-top: var(--dim-section-gap); min-width: 0; }
 .activity-growth-disclosure { padding-inline: 0; font-size: inherit; font-weight: inherit; color: inherit; text-align: left; gap: var(--dim-item-gap); }
 .activity-growth-disclosure[aria-expanded="true"] .ds-btn__icon { transform: rotate(180deg); }

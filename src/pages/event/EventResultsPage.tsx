@@ -731,11 +731,11 @@ export default function EventResultsPage() {
             </div>
             {!complete && <div role="status">
               <Text as="p">{t("resultsView.partialResults", { count: results.length })}</Text>
-              <Button disabled={pageLoading} onClick={() => void nextPage.current?.(false)}>{t("resultsView.loadMore")}</Button>
-              <Button disabled={pageLoading} onClick={() => void nextPage.current?.(true)}>{t("resultsView.loadAll")}</Button>
+              <Button size="sm" disabled={pageLoading} onClick={() => void nextPage.current?.(false)}>{t("resultsView.loadMore")}</Button>
+              <Button size="sm" disabled={pageLoading} onClick={() => void nextPage.current?.(true)}>{t("resultsView.loadAll")}</Button>
             </div>}
-            {pageLoading && <Button onClick={() => pausePages.current?.()}>{t("resultsView.pauseLoading")}</Button>}
-            {pageError && <div role="alert"><Text as="p">{pageError}</Text><Button disabled={pageLoading} onClick={() => setReload(value => value + 1)}>{t("resultsView.restartLoading")}</Button></div>}
+            {pageLoading && <Button size="sm" onClick={() => pausePages.current?.()}>{t("resultsView.pauseLoading")}</Button>}
+            {pageError && <div role="alert"><Text as="p">{pageError}</Text><Button size="sm" disabled={pageLoading} onClick={() => setReload(value => value + 1)}>{t("resultsView.restartLoading")}</Button></div>}
             {csvNotice !== null && csvNotice.eventId === eventId && (
               <Text key={csvNotice.sequence} as="p" variant="caption" role="status" style={{ padding: "var(--space-3) var(--space-5)" }}>
                 {t("resultsView.csvComingSoon")}

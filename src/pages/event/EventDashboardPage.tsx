@@ -227,7 +227,7 @@ export default function EventDashboardPage() {
   if (!permissions.canEnter) return <PermissionGate title={t("host.permissionDenied")} resolve={{ to: `/event/${eventId}` }} />;
   const operationFeedback = operationError && <div role="alert" className="site-shell py-3">
     <Text as="p" variant="body">{t("dashboard.errorTitle")}</Text>
-    <Button disabled={busy} onClick={() => void operate(operationError)}>{t("common:button.retry")}</Button>
+    <Button size="sm" disabled={busy} onClick={() => void operate(operationError)}>{t("common:button.retry")}</Button>
   </div>;
   if (permissions.canReadData) return <>{operationFeedback}<PrivateEventDashboard key={identity} permissions={permissions} onStart={() => void operate("startEvent")} operatorBusy={busy} /></>;
   return <div className="event-controls-surface explore-editor-surface site-shell py-6" data-testid="O1-role-only">

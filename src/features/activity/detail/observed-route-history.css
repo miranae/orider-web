@@ -1,7 +1,7 @@
 .observed-route-history-content { display: grid; gap: var(--space-3); }
 .observed-route-history { min-inline-size: 0; border-top: 1px solid var(--line-soft); padding-top: var(--space-4); }
 .observed-route-history-filter { display: grid; gap: var(--space-2); }
-.observed-route-history select, .observed-route-history button, .observed-route-history summary { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
+.observed-route-history select, .observed-route-history summary { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 .observed-route-history fieldset { min-inline-size: 0; padding: 0; border: 0; }
 .observed-route-history-options { display: grid; gap: var(--space-2); max-height: calc(var(--space-8) * 8); overflow-y: auto; }
 .observed-route-history-options label { display: flex; align-items: center; gap: var(--space-2); min-height: calc(var(--dim-button-height) + var(--space-1)); overflow-wrap: anywhere; }

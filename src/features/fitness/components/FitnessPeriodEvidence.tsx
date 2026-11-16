@@ -117,7 +117,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
     {!available && <Text role="status">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text role="status">{t("periodEvidence.loading")}</Text>}
-    {result.state === "error" && <Button onClick={result.retry}>{t("canonical.retry")}</Button>}
+    {result.state === "error" && <Button size="sm" onClick={result.retry}>{t("canonical.retry")}</Button>}
     {result.response && <Stack gap="var(--space-6)">
       {!concise && <Text as="p" variant="caption">{activityT("growth.canonicalPeriodBasis")}</Text>}
       <div className="grid gap-3 sm:grid-cols-2">{result.response.periods.map((period, index) => <section key={index} className="fitness-period-summary">

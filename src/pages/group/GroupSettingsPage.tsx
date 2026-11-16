@@ -468,7 +468,7 @@ export default function GroupSettingsPage() {
               </Button>
             </div>
           ) : (
-            <Button variant="danger"
+            <Button size="sm" variant="danger"
               onClick={() => setShowDeleteConfirm(true)}
             >
               {t("button.deleteGroup")}

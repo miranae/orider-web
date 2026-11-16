@@ -13,7 +13,7 @@ export function NotificationInboxStatus({ loading, failed, empty, onRetry }: {
     <Stack gap="var(--space-2)">
       {showEmpty && <Text tone="tertiary">{t("label.noNotifications")}</Text>}
       {showLoading && <Text role="status" tone="tertiary">{t("notif.loading")}</Text>}
-      {failed && <><Text role="alert">{t("notif.failed")}</Text><Button variant="outline" onClick={onRetry}>{t("notif.retry")}</Button></>}
+      {failed && <><Text role="alert">{t("notif.failed")}</Text><Stack direction="row" wrap><Button size="sm" variant="outline" onClick={onRetry}>{t("notif.retry")}</Button></Stack></>}
     </Stack>
   </div>;
 }
@@ -23,6 +23,6 @@ export function NotificationInboxMore({ hasMore, loading, onMore }: { hasMore: b
   const { t } = useTranslation("common");
   if (!hasMore) return null;
   return <div style={{ padding: "var(--space-2) var(--space-4)" }}>
-    <Button variant="ghost" block disabled={loading} onClick={onMore}>{t("notif.more")}</Button>
+    <Button size="sm" variant="ghost" disabled={loading} onClick={onMore}>{t("notif.more")}</Button>
   </div>;
 }

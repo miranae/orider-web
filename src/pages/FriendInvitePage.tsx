@@ -176,7 +176,7 @@ export default function FriendInvitePage() {
             {inviteError}
           </p>
           <div className="flex gap-2 justify-center">
-            <Button
+            <Button size="sm"
               type="button"
               onClick={() => {
                 setInviteError(null);
@@ -185,14 +185,14 @@ export default function FriendInvitePage() {
             >
               {t("invite.retry")}
             </Button>
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="ghost"
               onClick={() => navigate("/athlete/me/friends", { replace: true })}
-              className="px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] text-[var(--ink-1)]"
-              style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}
             >
               {t("invite.backToFriends")}
-            </button>
+            </Button>
           </div>
         </Card>
       </div>

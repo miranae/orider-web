@@ -2,7 +2,7 @@ import { createRef } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Alert, Button, Card, Chip, Field, IconButton, Input, Progress, Select, Textarea } from './index';
+import { Alert, Button, Card, Chip, Field, IconButton, Input, Progress, Select, Textarea, buttonClass } from './index';
 import { cn } from './cn';
 
 describe('cn()', () => {
@@ -23,6 +23,26 @@ describe('Button', () => {
   it('기본 type 은 button (form submit 방지)', () => {
     render(<Button>x</Button>);
     expect(screen.getByRole('button').getAttribute('type')).toBe('button');
+  });
+
+  it('wrap preserves native events, ref and loading while forwarding the shared presentation to links', () => {
+    const ref = createRef<HTMLButtonElement>(), clicked = vi.fn();
+    const { rerender } = render(<Button ref={ref} wrap size="sm" onClick={clicked} leadingIcon={<svg />} aria-label="Publish this summary to Strava">Publish summary</Button>);
+    const button = screen.getByRole('button', { name: 'Publish this summary to Strava' });
+    expect(ref.current).toBe(button);
+    expect(button).toHaveClass('ds-btn--wrap', 'ds-btn--sm');
+    expect(button).not.toHaveAttribute('wrap');
+    expect(button).not.toHaveClass('ds-btn--block');
+    fireEvent.click(button);
+    expect(clicked).toHaveBeenCalledTimes(1);
+    rerender(<Button wrap loading size="sm" onClick={clicked}>Publish summary</Button>);
+    expect(screen.getByRole('button')).toBeDisabled();
+    expect(screen.getByRole('button')).toHaveAttribute('aria-busy', 'true');
+    fireEvent.click(screen.getByRole('button'));
+    expect(clicked).toHaveBeenCalledTimes(1);
+    const linkClasses = buttonClass({ wrap: true, size: 'sm' });
+    expect(linkClasses).toContain('ds-btn--wrap');
+    expect(linkClasses).not.toContain('ds-btn--block');
   });
 });
 

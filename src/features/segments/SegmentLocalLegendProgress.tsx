@@ -53,7 +53,7 @@ export default function SegmentLocalLegendProgress({segmentId}:{segmentId:string
   <Text as="h3" variant="title">{t("legendProgress.scope")}</Text>
   <Text as="p">{t("legendProgress.intro")}</Text>
   <Button disabled={running||!user||user.isAnonymous} onClick={()=>void start(!run||run.state==="expired"||run.state==="limit"||Date.now()>=run.expiresAt)}>{t(run&&run.state!=="expired"&&run.state!=="limit"&&Date.now()<run.expiresAt?"legendProgress.resume":"legendProgress.start")}</Button>
-  {running&&<><Text role="status">{t("legendProgress.loading",{steps:run?.steps??0})}</Text><Button variant="ghost" onClick={()=>clear(true)}>{t("legendProgress.stop")}</Button></>}
+  {running&&<><Text role="status">{t("legendProgress.loading",{steps:run?.steps??0})}</Text><Button size="sm" variant="ghost" onClick={()=>clear(true)}>{t("legendProgress.stop")}</Button></>}
   {stored.epoch===epoch.current&&stored.error&&<Text role="alert">{t("safeLegend.error")}</Text>}
   {run?.state==="limit"&&<Text role="status">{t("legendProgress.limit")}</Text>}
   {run?.state==="expired"&&<Text role="status">{t("legendProgress.expired")}</Text>}

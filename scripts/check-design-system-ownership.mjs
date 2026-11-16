@@ -7,6 +7,28 @@ import { fileURLToPath } from 'node:url';
 
 const PROTECTED = /\.ds-(?:btn|chart|toolbar|map|toggle|control|section|data-table|combo-chart|segment-timeline|reference-gauge|before-after)(?=[\w-]*\b)/;
 
+// Excluding a shared control is not an override. Keep positive references, including
+// double negation, so mixed selector lists and nested selectors remain protected.
+function withoutNegatedSelectors(selector) {
+  const negations = [];
+  let result = '', quote = '', negated = false;
+  for (let index = 0; index < selector.length; index++) {
+    const char = selector[index];
+    if (quote) {
+      if (char === '\\') index++;
+      else if (char === quote) quote = '';
+      continue;
+    }
+    if (char === '"' || char === "'") { quote = char; continue; }
+    if (char === '(') {
+      negations.push(negated);
+      if (/:not$/i.test(selector.slice(0, index))) negated = !negated;
+    } else if (char === ')') negated = negations.pop() ?? false;
+    else if (!negated) result += char;
+  }
+  return result;
+}
+
 // Preserve strings (including URLs) while dropping comments. Braces in quoted content are not blocks.
 function withoutComments(source) {
   let result = '', quote = '', comment = false;
@@ -39,7 +61,7 @@ export function scanControlOverrides(path, source) {
       block.declarations += clean.slice(start, index);
       const selector = [block.context, block.selector].filter(Boolean).join(' > ').replace(/\s+/g, ' ');
       const declarations = block.declarations.trim().replace(/\s+/g, ' ');
-      if (PROTECTED.test(selector) && declarations) records.push({ path, selector, fingerprint: createHash('sha256').update(`${selector}\n${declarations}`).digest('hex') });
+      if (PROTECTED.test(withoutNegatedSelectors(selector)) && declarations) records.push({ path, selector, fingerprint: createHash('sha256').update(`${selector}\n${declarations}`).digest('hex') });
       start = index + 1;
     } else if (char === ';') {
       if (stack.length) stack.at(-1).declarations += clean.slice(start, index + 1);

@@ -89,15 +89,15 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect, can
       {result && <Text as="p" role="status" variant="bodySmall">{t(`reanalysis.${result}`)}</Text>}
       {failed && <Text as="p" role="alert" variant="bodySmall">{t(failed === "history" ? "reanalysis.historyFailed" : "reanalysis.failed")}</Text>}
       {selectedRevision && <Text as="p" role="status" variant="bodySmall">{t("reanalysis.viewingSaved")}</Text>}
-      <Stack direction="row" gap="sm">
-        {canReanalyze && <Button variant="ghost" disabled={busy} onClick={() => { void load(); }}>{t("reanalysis.check")}</Button>}
-        {canReanalyze && state?.canReanalyze && !state.pending && <Button variant="outline" disabled={busy} onClick={() => { void submit(); }}>{t("reanalysis.start")}</Button>}
-        <Button variant="ghost" disabled={busy} onClick={() => { void readHistory(); }}>{t("reanalysis.history")}</Button>
-        {selectedRevision && <Button variant="ghost" disabled={busy} onClick={() => onSelect(null)}>{t("reanalysis.current")}</Button>}
+      <Stack direction="row" wrap gap="sm">
+        {canReanalyze && <Button size="sm" variant="ghost" disabled={busy} onClick={() => { void load(); }}>{t("reanalysis.check")}</Button>}
+        {canReanalyze && state?.canReanalyze && !state.pending && <Button size="sm" variant="outline" disabled={busy} onClick={() => { void submit(); }}>{t("reanalysis.start")}</Button>}
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => { void readHistory(); }}>{t("reanalysis.history")}</Button>
+        {selectedRevision && <Button size="sm" variant="ghost" disabled={busy} onClick={() => onSelect(null)}>{t("reanalysis.current")}</Button>}
       </Stack>
-      {history?.items.map(row => <Button key={row.revisionId} variant="outline" disabled={busy} onClick={() => { void readHistory(row.revisionId); }}>{t("reanalysis.savedVersion", { version: row.calculatorVersion ?? "—", time: row.calculatedAt === null ? "—" : new Date(row.calculatedAt).toLocaleString() })}</Button>)}
+      {history?.items.map(row => <Button size="sm" block align="start" key={row.revisionId} variant="outline" disabled={busy} onClick={() => { void readHistory(row.revisionId); }}>{t("reanalysis.savedVersion", { version: row.calculatorVersion ?? "—", time: row.calculatedAt === null ? "—" : new Date(row.calculatedAt).toLocaleString() })}</Button>)}
       {history && history.items.length === 0 && <Text variant="bodySmall">{t("reanalysis.noHistory")}</Text>}
-      {history?.nextCursor && <Button variant="ghost" disabled={busy} onClick={() => { void readHistory(undefined, history.nextCursor!); }}>{t("reanalysis.more")}</Button>}
+      {history?.nextCursor && <Stack direction="row"><Button size="sm" variant="ghost" disabled={busy} onClick={() => { void readHistory(undefined, history.nextCursor!); }}>{t("reanalysis.more")}</Button></Stack>}
     </Stack>
   </section>;
   if (!collapsible) return panel;

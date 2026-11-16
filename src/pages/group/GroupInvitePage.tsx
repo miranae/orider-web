@@ -146,12 +146,12 @@ export default function GroupInvitePage() {
   }
 
   if (joinError) return <div className="max-w-xl mx-auto py-16">
-    <Stack gap="var(--space-4)">
+    <Stack gap="var(--space-4)" align="start">
       <Text as="h1" variant="subtitle">{t("inviteLink.title")}</Text>
       <Text role="alert">{t(joinError === "invalid" ? "error.invalidInviteCode" : "inviteLink.retryMessage")}</Text>
       {retryAt > 0 && <Text>{t("error.joinVerificationWait", { count: Math.ceil((retryAt - Date.now()) / 60_000) })}</Text>}
-      {joinError === "failed" && <Button disabled={retryAt > 0} onClick={() => setAttempt(value => value + 1)}>{t("inviteLink.retry")}</Button>}
-      <Button variant="ghost" onClick={() => navigate("/clubs")}>{t("subNav.groupList")}</Button>
+      {joinError === "failed" && <Button size="sm" disabled={retryAt > 0} onClick={() => setAttempt(value => value + 1)}>{t("inviteLink.retry")}</Button>}
+      <Button size="sm" variant="ghost" onClick={() => navigate("/clubs")}>{t("subNav.groupList")}</Button>
     </Stack>
   </div>;
   return null;

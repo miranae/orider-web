@@ -210,7 +210,7 @@ export default function FriendsPage() {
       </div>
 
       {readError != null && <p role="alert" data-testid="P3.error"><Resolvable resolve={{ onClick: retryRead }}>{t("readFailed")}</Resolvable></p>}
-      {tab === "sent" && <Card data-testid="P3-5">{sentRequests.length === 0 ? <p>{t("sentEmpty")}</p> : sentRequests.map(request => <div key={request.targetId} data-testid="P3-5-1" className="friends-sent"><Link to={`/athlete/${request.targetId}`} className="flex items-center gap-2"><Avatar name={request.nickname || t("defaultNickname")} imageUrl={request.profileImage} size="md" /><span>{request.nickname || t("defaultNickname")}<Text as="time" variant="caption" tone="secondary">{request.createdAt > 0 ? new Date(request.createdAt).toLocaleString() : "—"}</Text></span></Link><Button disabled={pendingRequests.has(`cancel:${request.targetId}`)} onClick={async () => {
+      {tab === "sent" && <Card data-testid="P3-5">{sentRequests.length === 0 ? <p>{t("sentEmpty")}</p> : sentRequests.map(request => <div key={request.targetId} data-testid="P3-5-1" className="friends-sent"><Link to={`/athlete/${request.targetId}`} className="flex items-center gap-2"><Avatar name={request.nickname || t("defaultNickname")} imageUrl={request.profileImage} size="md" /><span>{request.nickname || t("defaultNickname")}<Text as="time" variant="caption" tone="secondary">{request.createdAt > 0 ? new Date(request.createdAt).toLocaleString() : "—"}</Text></span></Link><Button size="sm" disabled={pendingRequests.has(`cancel:${request.targetId}`)} onClick={async () => {
         const key = `cancel:${request.targetId}`;
         if (pendingRequests.has(key)) return;
         setPendingRequests(prev => new Set(prev).add(key));
@@ -243,7 +243,7 @@ export default function FriendsPage() {
                       )}
                     </div>
                   </Link>
-                  <Button variant="ghost" aria-label={t("removeNamed", {name: f.nickname})} onClick={() => handleRemove(f.userId, f.nickname)}>{t("remove")}</Button>
+                  <Button size="sm" variant="ghost" aria-label={t("removeNamed", {name: f.nickname})} onClick={() => handleRemove(f.userId, f.nickname)}>{t("remove")}</Button>
                 </div>
               ))}
             </div>
