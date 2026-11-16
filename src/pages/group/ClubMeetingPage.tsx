@@ -447,7 +447,7 @@ function ServerMeetingDetail({
             </ol>
           </Card>
         )}
-        {meeting.status !== "cancelled" && <Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : meeting.courseTrack ? "가상주행 관전" : "가상주행 관전 대기실", completed ? "Spectator & results" : meeting.courseTrack ? "Watch virtual ride" : "Virtual ride spectator lobby")}</Link>}
+        {meeting.status !== "cancelled" && <div className="cp-actions"><Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : meeting.courseTrack ? "가상주행 관전" : "가상주행 관전 대기실", completed ? "Spectator & results" : meeting.courseTrack ? "Watch virtual ride" : "Virtual ride spectator lobby")}</Link></div>}
         {data.isHost && (
           <nav
             className="cp-hero-tools"

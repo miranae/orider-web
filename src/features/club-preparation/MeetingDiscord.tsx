@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useClubMeetingsApi } from "./useClubMeetingsApi";
 import type { MeetingDiscordView } from "../../services/clubMeetings";
 import { PhoneOff } from "lucide-react";
-import { Button, Card, IconButton, buttonClass } from "../../theme/components";
+import { Button, Card, IconButton, Stack, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 import { DiscordLogo } from "../../components/auth/DiscordLogo";
 import { LocalizedLink } from "../../components/LocalizedLink";
@@ -95,13 +95,13 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       : text("참석자와 관전자가 함께 사용하는 공개 음성 채널입니다. 모임 종료·취소 후 자동으로 삭제됩니다.", "A public voice room for riders and spectators. It is removed automatically when the meeting ends or is cancelled.")}</p>
     {error && <p role="alert">{text("음성 채널 상태를 확인하지 못했어요. 다시 확인해주세요.", "Could not confirm the voice room. Please retry.")} <Button variant="ghost" size="sm" onClick={() => { setSignalRetry(value => value + 1); void reload(); }} disabled={pending}>{text("다시 확인", "Retry")}</Button></p>}
     {!data && !error && <p role="status">{text("음성 채널을 확인하고 있어요.", "Checking the voice room…")}</p>}
-    {ready && safeInvite && <a href={safeInvite} target="_blank" rel="noopener noreferrer" className={buttonClass({variant: "discord", size: "lg"})}><DiscordLogo />{text("디스코드에서 함께하기", "Join on Discord")}</a>}
+    {ready && safeInvite && <Stack direction="row" wrap><a href={safeInvite} target="_blank" rel="noopener noreferrer" className={buttonClass({variant: "discord", size: "sm"})}><DiscordLogo />{text("디스코드에서 함께하기", "Join on Discord")}</a></Stack>}
     {!ended && data?.state === "preparing" && <p role="status">{text("음성 채널을 준비하고 있어요. 잠시 후 다시 확인해주세요.", "Preparing the room. Please check again shortly.")}</p>}
     {!ended && data?.state === "closing" && <p role="status">{text("음성 채널을 정리하고 있어요.", "Removing the voice room…")}</p>}
     {!ended && data?.isHost && <>
-      {!data.linked && <LocalizedLink to="/settings/account" className={buttonClass({variant:"outline"})}>{text("디스코드 계정 연결", "Link Discord account")}</LocalizedLink>}
+      {!data.linked && <Stack direction="row" wrap><LocalizedLink to="/settings/account" className={buttonClass({variant:"outline", size:"sm"})}>{text("디스코드 계정 연결", "Link Discord account")}</LocalizedLink></Stack>}
       {safeServer && data.state !== "ready" && <p><a href={safeServer} target="_blank" rel="noopener noreferrer">{text("오라이더 디스코드 서버 참가", "Join the ORider Discord server")}</a></p>}
-      {canOpen && <Button variant="discord" leadingIcon={<DiscordLogo />} loading={pending} onClick={() => void mutate(false)}>{text(data.state === "preparing" ? "채널 준비 다시 시도" : "음성 채널 열기", data.state === "preparing" ? "Retry room setup" : "Open voice room")}</Button>}
+      {canOpen && <Stack direction="row" wrap><Button variant="discord" size="sm" leadingIcon={<DiscordLogo />} loading={pending} onClick={() => void mutate(false)}>{text(data.state === "preparing" ? "채널 준비 다시 시도" : "음성 채널 열기", data.state === "preparing" ? "Retry room setup" : "Open voice room")}</Button></Stack>}
       <p>{text("처음 사용하실 때는 계정을 연결하고 오라이더 디스코드 서버에 참가해주세요. 주최자는 디스코드에서 참가자를 우클릭해 음성 연결을 끊을 수 있습니다.", "For first use, link your account and join the ORider Discord server. The organizer can right-click a participant in Discord to disconnect them from voice.")}</p>
       {confirmClose && <div role="group" aria-label={text("음성 채널 닫기 확인", "Confirm closing the voice room")}>
         <p>{text("음성 채널을 닫으면 연결 중인 사람들의 통화도 끝납니다.", "Closing the room also ends the call for everyone connected.")}</p>
