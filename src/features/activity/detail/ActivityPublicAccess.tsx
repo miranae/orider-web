@@ -1,3 +1,4 @@
+import { decodePublicMapPolylineParts } from "../../../services/publicActivityMaps";
 import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import PublicActivitySafety from "../../../embedded/surfaces/PublicActivitySafety";
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
@@ -14,7 +15,7 @@ import { useSignInResolve } from "../../../hooks/useSignInResolve";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { Text } from "../../../theme/components";
 import { activityFeedSourceRevision } from "../../../services/activityFeedContent";
-export type ActivityPublicAccessState = { session: ReturnType<typeof usePublicActivitySession>; model: PublicActivityModelInput };
+export type ActivityPublicAccessState = { session: ReturnType<typeof usePublicActivitySession>; model: PublicActivityModelInput; routeParts?: [number, number][][] };
 function metricsState(raw: Record<string, unknown> | null | undefined): UseActivityMetricsState {
  if (!raw) return { status: "missing", metrics: null };
  const envelope = "schemaVersion" in raw || "status" in raw;
@@ -59,12 +60,16 @@ function ActivityPublicAccessSession({ children, ...options }: PublicActivitySes
  const signInResolve = useSignInResolve();
  const accessDeniedResolve = session.accessDenied && (!session.user || session.user.isAnonymous) ? signInResolve : undefined;
  const { detail, mapFresh, verifiedMap, client } = session;
+ const routeParts = useMemo(() => {
+   const map = mapFresh && verifiedMap?.client === client ? verifiedMap.value : null;
+   return map?.encodedPolylineParts === undefined ? undefined : decodePublicMapPolylineParts(map.encodedPolylineParts) ?? undefined;
+ }, [mapFresh, verifiedMap, client]);
  const model = useMemo<PublicActivityModelInput>(() => {
    if (!detail) return { activity: null, metrics: { status: "missing", metrics: null } };
    const a = detail.activity;
    const map = mapFresh && verifiedMap?.client === client ? verifiedMap.value : null;
    const activity = { ...a, summary: a.summary as unknown as ActivitySummary,
-     thumbnailTrack: map?.encodedPolyline ?? "", mapImageUrl: map?.imageUrl ?? null,
+     thumbnailTrack: map?.encodedPolylineParts !== undefined ? "" : map?.encodedPolyline ?? "", mapImageUrl: map?.encodedPolylineParts !== undefined ? null : map?.imageUrl ?? null,
      photoCount: detail.content.totalPhotoCount ?? detail.content.photos?.length ?? 0,
    } as unknown as Activity;
    if (detail.content.status === "ready") activity.feedContentV1 = { version: 1, sourceRevision: activityFeedSourceRevision(activity), revision: a.activityRevision ?? "current-access",
@@ -73,5 +78,5 @@ function ActivityPublicAccessSession({ children, ...options }: PublicActivitySes
  }, [detail, mapFresh, verifiedMap, client]);
  if (session.removed?.scope === session.safetyScope) return <div className="site-shell"><Text role="status" tabIndex={-1} ref={node => node?.focus()}>{t(`publicSafety.${session.removed.action}Done`)}</Text><LocalizedLink to="/">{t("publicSafety.home")}</LocalizedLink></div>;
  if (session.loading || session.failed || !detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={session.loading} message={session.accessDenied ? t("publicDetail.accessDenied") : undefined} resolve={accessDeniedResolve} onRetry={session.retry} />;
- return <RevalidationBoundary fresh={session.mapFresh} fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} message={t("publicDetail.mapLoading")} onRetry={session.retry} />}>{children({ session, model })}{session.user && !session.user.isAnonymous && session.user.uid !== detail.activity.userId && <section className="site-shell" aria-label={t("publicSafety.actions")}><PublicActivitySafety activityId={detail.activity.id} authorId={detail.activity.userId} client={session.client} onRemoved={session.remove} onAccessRevoked={session.revokeAccess} /></section>}</RevalidationBoundary>;
+ return <RevalidationBoundary fresh={session.mapFresh} fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} message={t("publicDetail.mapLoading")} onRetry={session.retry} />}>{children({ session, model, routeParts })}{session.user && !session.user.isAnonymous && session.user.uid !== detail.activity.userId && <section className="site-shell" aria-label={t("publicSafety.actions")}><PublicActivitySafety activityId={detail.activity.id} authorId={detail.activity.userId} client={session.client} onRemoved={session.remove} onAccessRevoked={session.revokeAccess} /></section>}</RevalidationBoundary>;
 }

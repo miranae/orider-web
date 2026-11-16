@@ -301,3 +301,10 @@ it("keeps Strava source metrics consistent with detail despite stale calculated 
   expect(screen.getByText("645m")).toBeInTheDocument();
   expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument();
 });
+
+it("keeps the list map hidden when the server intentionally supplies no safe thumbnail geometry", () => {
+  vi.mocked(loadPublicActivityMap).mockClear();
+  renderWithProviders(<ActivityCard activity={createMockActivity({id: "split-list-without-preview", thumbnailTrack: "", mapImageUrl: null})} />);
+  expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
+  expect(loadPublicActivityMap).not.toHaveBeenCalled();
+});

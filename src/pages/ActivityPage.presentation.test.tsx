@@ -1,3 +1,4 @@
+import { encodePolyline } from "../utils/polyline";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -411,4 +412,23 @@ it("renders ACL-authorized visitors through the existing detail tabs and full se
   expect(await screen.findByText("활동 단위 분석 유지")).toBeInTheDocument();
   expect(mockCallableInvocations.some(call => call.name === "getActivityPublicStreams")).toBe(true);
   expect(screen.queryByRole("heading", { name: "요약 공유" })).not.toBeInTheDocument();
+});
+
+it("keeps disconnected public geometry visible without offering original-index segment map actions", async () => {
+  const activity = createMockActivity({id: "public-split-segments", userId: "other-owner", source: "orider", visibility: "everyone"});
+  const parts: [number, number][][] = [[[37,127],[37.01,127.01]], [[38,128],[38.01,128.01]]];
+  const detail = {activity: {...activity, activityRevision: "split-revision", effectiveFacts: {status: "canonical", metrics: {distanceKm: 20}}},
+    viewerHasKudos: false, mapPreview: {encodedPolyline: null, encodedPolylineParts: parts.map(encodePolyline), imageUrl: null},
+    content: {status: "ready", activityId: activity.id, comments: [], photos: [], memo: null}};
+  setCallableResult("getActivityPublicDetail", {data: detail});
+  setCallableResult("getActivityPublicStreams", {data: {activityId: activity.id, state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams",
+    streams: {time: [0,1,2,3], distance: [0,10,20,30], latlng: [[37,127],[37.001,127],[38,128],[38.001,128]],
+      segment_efforts: [{id: "split-effort", name: "분리 원본 구간", elapsedTime: 2, movingTime: 2, distance: 20, startIndex: 0, endIndex: 2,
+        averageWatts: null, averageHeartrate: null, maxHeartrate: null, averageCadence: null, prRank: null, komRank: null, achievements: [],
+        segment: {id: "split-segment", name: "분리 원본 구간", distance: 20, averageGrade: 1, maximumGrade: 2, elevationHigh: 2, elevationLow: 1, climbCategory: 0, starred: false}}]}}});
+  renderWithProviders(<ActivityPage publicAccess={{activityId: activity.id, retryKey: 0, initialDetail: detail as never, onReady: () => {}, onError: () => {}}} />,
+    {authenticated: true, route: `/ko/activity/${activity.id}?tab=segments`});
+  expect((await screen.findAllByText("분리 원본 구간")).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", {name: "분리 원본 구간 지도에서 보기"})).not.toBeInTheDocument();
+  expect(routeMapProps.mock.calls.some(([props]) => JSON.stringify(props.routeParts) === JSON.stringify(parts))).toBe(true);
 });

@@ -478,7 +478,7 @@ export default function ActivityCard({
         </div>
       </div>
 
-      {/* Route map — static image to avoid WebGL overflow + reduce Mapbox costs */}
+      {/* 배치 목록은 분리 원본 fallback을 읽지 않는다. 안전한 단일선이 없으면 생략하고 상세에서 분리 지도를 제공한다. */}
       {showMap && activity.thumbnailTrack && (
         <ActivityRouteThumbnail
           activityId={activity.id}

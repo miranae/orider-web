@@ -28,6 +28,7 @@ function validEvidence(e: ActivityRouteEvidence): boolean {
   for (let i = 0; i < e.points.length; i++) {
     const p = e.points[i];
     if (!p || !finite(p.lat) || p.lat < -90 || p.lat > 90 || !finite(p.lon) || p.lon < -180 || p.lon > 180
+      || p.segmentBreakBefore !== undefined && typeof p.segmentBreakBefore !== "boolean"
       || !finite(p.elapsedSec) || p.elapsedSec < 0 || p.elapsedSec <= previous) return false;
     previous = p.elapsedSec;
   }
@@ -46,7 +47,7 @@ function prepare(evidence: ActivityRouteEvidence): Prepared {
   for (let i = 1; i < evidence.points.length; i++) {
     const a = evidence.points[i - 1]!; const b = evidence.points[i]!;
     const dt = b.elapsedSec - a.elapsedSec; const meters = distance(a, b);
-    if (dt > OBSERVED_ROUTE_POLICY_V1.maxGapSeconds || meters > OBSERVED_ROUTE_POLICY_V1.maxGapMeters) {
+    if (b.segmentBreakBefore === true || dt > OBSERVED_ROUTE_POLICY_V1.maxGapSeconds || meters > OBSERVED_ROUTE_POLICY_V1.maxGapMeters) {
       gapCount++; omittedGapElapsedSec += dt; continue;
     }
     observedElapsedSec += dt; // 같은 좌표의 정지 시간도 남긴다.
