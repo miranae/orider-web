@@ -395,7 +395,7 @@ export default function CoachHistoryPage() {
       <section data-testid="K6-1" className="coach-history-list" aria-labelledby="coach-history-list-title">
         <Text id="coach-history-list-title" as="h2" variant="subtitle">{t("history.listTitle")}</Text>
         {loadingList && <Card role="status">{t("history.loading")}</Card>}
-        {loadError && <Alert variant="danger" title={t("history.loadFailed")}><Text as="p" variant="bodySmall">{t(`readError.${listFailure}`)}</Text><Button variant="outline" onClick={() => void loadList()}>{t("history.retry")}</Button></Alert>}
+        {loadError && <Alert variant="danger" title={t("history.loadFailed")}><Text as="p" variant="bodySmall">{t(`readError.${listFailure}`)}</Text><Button size="sm" variant="outline" onClick={() => void loadList()}>{t("history.retry")}</Button></Alert>}
         {!loadingList && !loadError && threads.length === 0 && <Card data-testid="K6-1-4" className="coach-history-empty"><History aria-hidden /><Text as="h3" variant="subtitle">{t("history.emptyTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.emptyBody")}</Text></Card>}
         <div className="coach-history-list__items">{threads.map((item) => <article key={item.threadId} className={`coach-history-item${threadId === item.threadId ? " is-active" : ""}`}>
           <LocalizedLink to={coachRoute(`/coach/chat/${item.threadId}`, item.discipline)} data-testid="K6-1-1" className="coach-history-item__link" aria-current={threadId === item.threadId ? "page" : undefined}
@@ -414,7 +414,7 @@ export default function CoachHistoryPage() {
         {loadingThread && <Card role="status">{t("history.loadingThread")}</Card>}
         {threadError && <Alert variant="danger" title={t("history.threadLoadFailed")}>
           <Text as="p" variant="bodySmall">{t(`readError.${detailFailure}`)}</Text>
-          {threadId && <Button variant="outline" onClick={() => void loadThread(threadId, generationRef.current, uidRef.current)}>{t("history.retry")}</Button>}
+          {threadId && <Button size="sm" variant="outline" onClick={() => void loadThread(threadId, generationRef.current, uidRef.current)}>{t("history.retry")}</Button>}
         </Alert>}
         {threadId && thread?.threadId === threadId && !loadingThread && <>
           <header className="coach-thread-detail__header">

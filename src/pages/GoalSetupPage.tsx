@@ -227,7 +227,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
 
   if (error) {
     return <Alert variant="warning" title={t('goals.courseLoadFailed')}>
-      <Button type="button" variant="outline" onClick={() => retry()}>{t('goals.courseRetry')}</Button>
+      <Button size="sm" type="button" variant="outline" onClick={() => retry()}>{t('goals.courseRetry')}</Button>
     </Alert>;
   }
 
@@ -270,7 +270,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
         </div>
       </div>
 
-      {hasMore && <Button variant="secondary" disabled={loadingMore} onClick={loadMore}>{t("common:button.more")}</Button>}
+      {hasMore && <Button size="sm" variant="secondary" disabled={loadingMore} onClick={loadMore}>{t("common:button.more")}</Button>}
 
       {/* Course grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)", maxHeight: 400, overflowY: "auto", paddingRight: 'var(--space-1)' }}>

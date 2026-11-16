@@ -87,8 +87,8 @@ export default function LeaderboardPage({ search = "", discipline = "bike", cate
   return (
     /* 순위 목록은 한 행의 시선 이동 거리를 제한해 기존 정보 밀도를 보존한다. */
     <div className="mx-auto max-w-[1120px] space-y-4">
-      {segmentPages.hasMore && !loading && <Button variant="secondary" disabled={segmentPages.loadingMore} onClick={segmentPages.loadMore}>{t("common:button.more")}</Button>}
-      {!!segmentPages.error && <Button variant="secondary" onClick={segmentPages.retry}>{t("common:button.retry")}</Button>}
+      {segmentPages.hasMore && !loading && <Button size="sm" variant="secondary" disabled={segmentPages.loadingMore} onClick={segmentPages.loadMore}>{t("common:button.more")}</Button>}
+      {!!segmentPages.error && <Button size="sm" variant="secondary" onClick={segmentPages.retry}>{t("common:button.retry")}</Button>}
       {loading && <LoadingSkeleton kind="list" count={8} />}
       {!loading && (<>
       {/* List */}

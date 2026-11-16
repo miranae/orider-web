@@ -1343,7 +1343,7 @@ function CoursePageContent() {
               >
                 {saving ? t("button.saving") : t("button.save")}
               </Button>
-              <Button
+              <Button size="sm"
                 onClick={cancelEditing} variant="ghost"
               >
                 {t("button.cancel")}

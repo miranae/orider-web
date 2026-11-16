@@ -586,7 +586,7 @@ const BoardPage: React.FC = () => {
           </div>
         )}
 
-        {pagedSearch && searchHasMore && <Button variant="secondary" disabled={searchLoadingMore} onClick={loadMoreSearch}>{t("button.more")}</Button>}
+        {pagedSearch && searchHasMore && <Button size="sm" variant="secondary" disabled={searchLoadingMore} onClick={loadMoreSearch}>{t("button.more")}</Button>}
 
         {/* Pagination */}
         {!isMyInquiryView && totalPages > 1 && (

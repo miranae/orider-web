@@ -18,7 +18,6 @@
 
 /* Scoped toolbar dimensions; .ds-input keeps the design-system HIG height. */
 .segment-surface textarea.ds-input { min-height: calc(var(--dim-button-height) * 2); }
-.segment-surface .ds-btn { min-height: var(--dim-button-height); }
 .segment-surface .segment-search-action { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: var(--dim-button-height); width: var(--dim-button-height); padding: 0; }
 .segment-surface .segment-search-input { padding-inline-start: calc(var(--dim-button-height) + var(--space-1)); }
 .segment-surface .segment-create-categories .ds-btn { height: auto; min-height: var(--dim-button-height); }

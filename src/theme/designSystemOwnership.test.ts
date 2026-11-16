@@ -31,6 +31,17 @@ describe('shared control CSS ownership', () => {
     expect(scanControlOverrides('src/new.css', '.page .ds-chart { &:hover { color: var(--ink-1); } }')).toHaveLength(1);
   });
 
+  it('permits excluding shared controls while retaining positive and double-negated targets', () => {
+    for (const selector of ['button:not(.ds-btn)', 'button:not(:is(.ds-btn, .ds-toolbar-button))', '.page :is(button, input):not(.ds-input, .ds-btn)']) {
+      expect(scanControlOverrides('src/new.css', `${selector} { min-height: 44px; }`)).toEqual([]);
+    }
+    for (const selector of ['button:not(.ds-btn), .page .ds-btn', '.ds-btn:not(.other)', 'button:not(.ds-btn) .ds-btn', 'button:not(:not(.ds-btn))', ':is(.ds-btn, button:not(.ds-chart))']) {
+      expect(scanControlOverrides('src/new.css', `${selector} { min-height: 44px; }`)).toHaveLength(1);
+    }
+    expect(scanControlOverrides('src/new.css', 'button:not(.ds-btn) { &:hover { color: var(--ink-1); } }')).toEqual([]);
+    expect(scanControlOverrides('src/new.css', '.ds-btn { &:not(.other) { color: var(--ink-1); } }')).toHaveLength(1);
+  });
+
   it('does not grandfather an extra copy of an allowed rule', () => {
     const legacy = scanControlOverrides('src/old.css', '.old .ds-btn { color: var(--ink-1); }');
     expect(findNewOverrides([...legacy, ...legacy], legacy)).toHaveLength(1);

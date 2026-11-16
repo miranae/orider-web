@@ -500,7 +500,7 @@ export default function EventCreatePage() {
             {repeatSummary.failedCount > 0 && (
               <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--amber)", marginTop: 'var(--space-1)' }}>
                 {t("create.repeat.partialFail", { count: repeatSummary.failedCount })}
-                <Button type="button" variant="secondary" disabled={retryingRepeat} onClick={retryFailedRepeats}>
+                <Button size="sm" type="button" variant="secondary" disabled={retryingRepeat} onClick={retryFailedRepeats}>
                   {t("create.repeat.retryFailed")}
                 </Button>
               </div>
@@ -805,7 +805,7 @@ export default function EventCreatePage() {
                                 </div>
                               </Button>
                             ))}
-                          {hasMoreCourses && <Button variant="secondary" disabled={loadingMoreCourses} onClick={loadMoreCourses} style={{ flexShrink: 0 }}>{t("common:button.more")}</Button>}
+                          {hasMoreCourses && <Button size="sm" variant="secondary" disabled={loadingMoreCourses} onClick={loadMoreCourses} style={{ flexShrink: 0 }}>{t("common:button.more")}</Button>}
                         </div>
                       </>
                     )}

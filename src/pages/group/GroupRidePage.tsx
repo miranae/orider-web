@@ -571,12 +571,12 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
 
       <p>{t("ridePage.discoveryScope")}</p>
       {loadError && <p role="alert">{t("error.loadFailed")}</p>}
-      {hasMore && <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>{t(loadingMore ? "ridePage.discoveryLoading" : "ridePage.discoveryMore")}</Button>}
+      {hasMore && <Button size="sm" variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>{t(loadingMore ? "ridePage.discoveryLoading" : "ridePage.discoveryMore")}</Button>}
       {limited && <p>{t("ridePage.discoveryLimited")}</p>}
       {pendingStreams.size > 0 && <p role="status">{t("rides.streamLoading")}</p>}
       {streamErrors.size > 0 && <Card className="mb-4">
         <p role="alert">{t("rides.streamFailed")}</p>
-        <Button variant="secondary" disabled={pendingStreams.size > 0} onClick={() => {
+        <Button size="sm" variant="secondary" disabled={pendingStreams.size > 0} onClick={() => {
           streamErrors.forEach(id => requestedStreams.current.delete(id));
           setStreamErrors(new Set());
           setStreamRetry(value => value + 1);

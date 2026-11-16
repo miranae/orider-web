@@ -91,7 +91,7 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
     <label>{t("nativeBoard.scope")}<Select value={scope} onChange={e => setScope(e.target.value as typeof scope)}>
       <option value="all">{t("nativeBoard.all")}</option><option value="following">{t("nativeBoard.following")}</option><option value="club">{t("nativeBoard.club")}</option>
     </Select></label>
-    {scope === "club" && <><label>{t("nativeBoard.club")}<Select value={clubId} onChange={e => setClubId(e.target.value)}><option value="">{t("nativeBoard.chooseClub")}</option>{groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</Select></label>{!!groupError && <Button onClick={retry}>{t("nativeBoard.retryClubs")}</Button>}</>}
+    {scope === "club" && <><label>{t("nativeBoard.club")}<Select value={clubId} onChange={e => setClubId(e.target.value)}><option value="">{t("nativeBoard.chooseClub")}</option>{groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</Select></label>{!!groupError && <Button size="sm" onClick={retry}>{t("nativeBoard.retryClubs")}</Button>}</>}
     <fieldset><legend>{t("nativeBoard.period")}</legend><Stack direction="row" wrap gap="var(--space-3)">
       <label>{t("nativeBoard.from")}<Input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
       <label>{t("nativeBoard.to")}<Input type="date" value={to} min={from} max={date(Date.now())} onChange={e => setTo(e.target.value)} /></label>
@@ -105,7 +105,7 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
         <Text variant="caption">{e.averageSpeed.toFixed(1)} km/h · {new Date(e.startDate).toLocaleDateString(undefined, { timeZone: "Asia/Seoul" })}</Text>
         <SegmentRankingReport activityId={e.activityId} segmentId={segmentId} />
       </Stack>)}
-      {view.result.nextCursor && <Button variant="outline" onClick={() => void load(view.result!.nextCursor!)}>{t("nativeBoard.next")}</Button>}
+      {view.result.nextCursor && <Button size="sm" variant="outline" onClick={() => void load(view.result!.nextCursor!)}>{t("nativeBoard.next")}</Button>}
       {!view.result.nextCursor && <Text>{t(view.result.limitReached ? "nativeBoard.limit" : "nativeBoard.end")}</Text>}
     </>}
   </Stack></Card>;

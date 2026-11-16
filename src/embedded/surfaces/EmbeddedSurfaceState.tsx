@@ -25,7 +25,7 @@ export default function EmbeddedSurfaceState({ title, loading = false, message, 
         <div className="orider-embedded-state__skeleton" aria-hidden="true">
           <div /><div /><div />
         </div>
-      ) : onRetry && <Button variant="primary" size="lg" block onClick={onRetry}>{t("button.retry")}</Button>}
+      ) : onRetry && <Button variant="primary" size="sm" onClick={onRetry}>{t("button.retry")}</Button>}
     </section>
   );
 }

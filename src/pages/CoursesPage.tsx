@@ -565,7 +565,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
             />
             {(searchQuery ? serverSearch.hasMore : hasMore) && (
               <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>
-                <Button data-testid="E1-4-3"
+                <Button size="sm" data-testid="E1-4-3"
                   type="button"
                   variant="secondary"
                   className="w-full justify-center"

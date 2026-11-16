@@ -41,6 +41,6 @@ export default function PublicActivityPhotos({ activityId, initialPhotos, trunca
     {photos.filter(photo => isNativePhotoReference(photo.nativePhoto) || (/^https:\/\//i.test(photo.url) && !isLegacyActivityPhotoUrl(photo.url))).map(photo => photo.nativePhoto ? <NativeActivityPhotoImage key={photo.id} nativePhoto={photo.nativePhoto} retryable onAccessRevoked={onAccessRevoked} alt={photo.caption || t("page.photoPreview")} loading="lazy" className="public-activity-photo" /> : <img key={photo.id} src={photo.url} alt={photo.caption || t("page.photoPreview")} loading="lazy" className="public-activity-photo" />)}
     {remaining && <Text variant="caption">{t("publicDetail.photoPreview")}</Text>}
     {failed && <Text role="alert">{t("publicDetail.photosFailed")}</Text>}
-    {truncated && (!expanded || failed) && <Button variant="outline" loading={busy} disabled={busy} onClick={() => void expand()}>{t("publicDetail.morePhotos")}</Button>}
+    {truncated && (!expanded || failed) && <Stack direction="row" wrap><Button size="sm" variant="outline" loading={busy} disabled={busy} onClick={() => void expand()}>{t("publicDetail.morePhotos")}</Button></Stack>}
   </Stack>;
 }

@@ -64,7 +64,7 @@ export default function RunRecordsBoard({ run, detailLayer, title, footer, addit
                   <Text as="span" variant="body" tone="secondary">{t("runRecords.unverifiedLabel")}</Text>
                   {sourceId ? (
                     <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(sourceId)}`}
-                      className={buttonClass({ variant: "ghost" })}
+                      className={buttonClass({ variant: "ghost", size: "sm" })}
                       aria-label={t("runRecords.source", { distance: t(`runRecords.dist.${row.distance}`), rank: index + 1, date: formatDate(entry.date, i18n.language) })}>
                       {formatDate(entry.date, i18n.language)} · {t("runRecords.viewActivity")}
                     </a>
@@ -79,7 +79,7 @@ export default function RunRecordsBoard({ run, detailLayer, title, footer, addit
       {footer}
       {detailLayer && (
         <>
-          <Button variant="ghost" onClick={() => setExpanded(v => !v)} aria-expanded={expanded}
+          <Button size="sm" variant="ghost" onClick={() => setExpanded(v => !v)} aria-expanded={expanded}
             style={{ marginTop: "var(--space-3)" }}
             trailingIcon={expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}>
             {t("runRecords.curveToggle")}

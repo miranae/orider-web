@@ -476,14 +476,14 @@ export default function MobileFeedPage({
         <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t(activities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
           <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: "var(--space-4)" }}>{t(activities.length > 0 ? "feed.partialError.description" : "feed.error.description")}</div>
-          {onRetry && <Button variant="primary" onClick={() => { retryMeasurement(); onRetry?.(); }}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
+          {onRetry && <Button variant="primary" size="sm" onClick={() => { retryMeasurement(); onRetry?.(); }}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
         </div>
       )}
 
       {searchActive && !activitySearch!.loading && activitySearch!.error && (
         <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-sm)", marginBottom: "var(--space-4)" }}>{t(filteredActivities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
-          <Button variant="primary" onClick={() => { retryMeasurement(); activitySearch!.retry(); }}>{t("feed.error.retry")}</Button>
+          <Button variant="primary" size="sm" onClick={() => { retryMeasurement(); activitySearch!.retry(); }}>{t("feed.error.retry")}</Button>
         </div>
       )}
 
@@ -507,7 +507,7 @@ export default function MobileFeedPage({
 
       {!(searchActive ? activitySearch!.loading || activitySearch!.error : loading || error) && (hasHiddenLocalItems || (searchActive ? activitySearch!.hasMoreServerResults : hasMore)) && (
         <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-          <Button data-testid="H1-2-3" variant="secondary" size="lg"
+          <Button data-testid="H1-2-3" variant="secondary" size="sm"
             onClick={() => {
               if (hasHiddenLocalItems) {
                 extendRenderLimit();
@@ -519,7 +519,6 @@ export default function MobileFeedPage({
               }
             }}
             disabled={searchActive ? activitySearch!.loadingMore : loadingMore}
-            style={{ width: "100%" }}
           >
             {(searchActive ? activitySearch!.loadingMore : loadingMore) ? t("mobileFeed.loadingMore") : t("mobileFeed.loadMore")}
           </Button>

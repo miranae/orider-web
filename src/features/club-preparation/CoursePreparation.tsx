@@ -3,7 +3,7 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { mt } from "./meetingText";
 import { logClientError } from "../../services/errorLogger";
 import { useEffect, useRef, useState } from "react";
-import { Button, Chip } from "../../theme/components";
+import { Button, Chip, Stack } from "../../theme/components";
 import { Field, Input, Textarea } from "../../theme/components/Input";
 import type { CourseCheckpoint, Meeting } from "./domain";
 import {
@@ -360,7 +360,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
             {mt("공개 코스의 거리·획득고도·체크포인트를 함께 가져옵니다.")}
           </p>
           {!browsingCourses ? (
-            <Button
+            <Stack direction="row" wrap><Button size="sm"
               variant="outline"
               onClick={() => {
                 setBrowsingCourses(true);
@@ -368,15 +368,15 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
               }}
             >
               {mt("다른 코스 찾기")}
-            </Button>
+            </Button></Stack>
           ) : courses === null ? (
-            <Button
+            <Stack direction="row" wrap><Button size="sm"
               variant="outline"
               loading={loading}
               onClick={() => void load()}
             >
               {mt("기존 코스 불러오기")}
-            </Button>
+            </Button></Stack>
           ) : (
             <>
               <Field
@@ -419,7 +419,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
                   </li>
                 ))}
               </ul>
-              {hasMoreCourses && <Button variant="outline" loading={loading} onClick={() => void load(true)}>{mt("더보기")}</Button>}
+              {hasMoreCourses && <Stack direction="row" wrap><Button size="sm" variant="outline" loading={loading} onClick={() => void load(true)}>{mt("더보기")}</Button></Stack>}
             </>
           )}
         </div>
@@ -664,7 +664,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
                     {mt("m 떨어진 지점")}
                   </p>
                 )}
-                <Button
+                <Stack direction="row" wrap><Button
                   size="sm"
                   variant="ghost"
                   onClick={() =>
@@ -672,10 +672,10 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
                   }
                 >
                   {mt("체크포인트 삭제")}
-                </Button>
+                </Button></Stack>
               </article>
             ))}
-            <Button
+            <Stack direction="row" wrap><Button size="sm"
               variant="outline"
               disabled={checkpoints.length >= 100}
               onClick={() =>
@@ -686,7 +686,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
               }
             >
               {mt("체크포인트 추가")}
-            </Button>
+            </Button></Stack>
           </div>
         )}
       </details>

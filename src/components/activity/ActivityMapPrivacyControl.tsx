@@ -87,7 +87,7 @@ export function ActivityMapPrivacyPanel({ control, thumbnail }: { control: Activ
       {/* 보호가 켜진 활동은 썸네일이 없어(imageUrl=null) 다시 만들기 버튼도 숨는다. */}
       {current.current.mapPreview.imageUrl && thumbnail?.polyline && <ActivityMapThumbnailReplaceControl activityId={activityId} {...thumbnail} />}
     </>}
-    {error && <><Text role="alert">{t(`mapPrivacy.${error}`)}</Text><Button variant="secondary" onClick={() => void run("load")} disabled={busy}>{t("page.retry")}</Button></>}
+    {error && <><Text role="alert">{t(`mapPrivacy.${error}`)}</Text><Stack direction="row" wrap><Button size="sm" variant="secondary" onClick={() => void run("load")} disabled={busy}>{t("page.retry")}</Button></Stack></>}
     {saved && <Text role="status">{t("mapPrivacy.saved")}</Text>}
   </Stack></Card>;
 }

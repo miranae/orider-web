@@ -20,14 +20,14 @@ export default function ActivityRouteHistorySnapshotPanel({activity,observedMetr
   <Stack direction="row" wrap gap="var(--space-2)">{/* 첫 확인은 작은 글자 버튼, 결과가 생긴 뒤 새로 확인은 아이콘 버튼으로 둔다. */}
    {data?<IconButton size="sm" variant="ghost" disabled={query.running} aria-label={t("routeHistory.restart")} title={t("routeHistory.restart")} icon={<RefreshCw size={ICON_SIZE.sm}/>} onClick={()=>void query.start()}/>
     :<Button size="sm" variant="outline" disabled={query.running} onClick={()=>void query.start()}>{t("routeHistory.start")}</Button>}
-   {query.canRecover&&<Button disabled={query.running} onClick={()=>void query.recover()}>{t("routeHistory.recover")}</Button>}
-   {(query.canAdvance??(data&&(data.state!=="complete"||query.status==="error")))&&<Button disabled={query.running} loading={query.status==="loading"} onClick={()=>void query.advance()}>{t(query.status==="error"?"routeHistory.retry":"routeHistory.continue")}</Button>}
-   {(data||query.status==="loading")&&<Button variant="ghost" onClick={query.stop}>{t(data?.state==="complete"&&!query.running?"routeHistory.close":query.running?"routeHistory.cancel":"routeHistory.stop")}</Button>}
+   {query.canRecover&&<Button size="sm" disabled={query.running} onClick={()=>void query.recover()}>{t("routeHistory.recover")}</Button>}
+   {(query.canAdvance??(data&&(data.state!=="complete"||query.status==="error")))&&<Button size="sm" disabled={query.running} loading={query.status==="loading"} onClick={()=>void query.advance()}>{t(query.status==="error"?"routeHistory.retry":"routeHistory.continue")}</Button>}
+   {(data||query.status==="loading")&&<Button size="sm" variant="ghost" onClick={query.stop}>{t(data?.state==="complete"&&!query.running?"routeHistory.close":query.running?"routeHistory.cancel":"routeHistory.stop")}</Button>}
   </Stack>
-  <Button variant="ghost" disabled={query.running} onClick={()=>void query.loadHistory()}>{t("routeHistory.loadHistory")}</Button>
-  {entries.length>0&&<Stack direction="row" wrap gap="var(--space-2)">{entries.map((item,index)=><Button key={item.runId} variant="neutral" aria-pressed={data?.runId===item.runId} disabled={query.running} onClick={()=>void query.openSaved(item.runId)}>{t("routeHistory.historyEntry",{index:index+1,time:date(item.asOf),count:item.scanned})}{data?.runId===item.runId&&<> · {t("routeHistory.selected")}</>}</Button>)}</Stack>}
+  <Stack direction="row" wrap gap="var(--space-2)"><Button size="sm" variant="ghost" disabled={query.running} onClick={()=>void query.loadHistory()}>{t("routeHistory.loadHistory")}</Button></Stack>
+  {entries.length>0&&<Stack direction="row" wrap gap="var(--space-2)">{entries.map((item,index)=><Button size="sm" key={item.runId} variant="neutral" aria-pressed={data?.runId===item.runId} disabled={query.running} onClick={()=>void query.openSaved(item.runId)}>{t("routeHistory.historyEntry",{index:index+1,time:date(item.asOf),count:item.scanned})}{data?.runId===item.runId&&<> · {t("routeHistory.selected")}</>}</Button>)}</Stack>}
   {query.history?.items.length===0&&entries.length===0&&<Text>{t("routeHistory.historyEmpty")}</Text>}
-  {query.history?.nextCursor&&<Button disabled={query.running} onClick={()=>void query.loadHistory(true)}>{t("routeHistory.moreHistory")}</Button>}
+  {query.history?.nextCursor&&<Stack direction="row" wrap gap="var(--space-2)"><Button size="sm" disabled={query.running} onClick={()=>void query.loadHistory(true)}>{t("routeHistory.moreHistory")}</Button></Stack>}
   {query.previousResult&&<Text role="note">{t("routeHistory.previousResult")}</Text>}
   {query.running&&query.progress&&query.progress.runId!==data?.runId&&<Text>{t("routeHistory.newProgress",{count:query.progress.scanned})}</Text>}
   {query.status!=="idle"&&(query.status!=="ready"||data)&&<Text role="status">{t(`routeHistory.status.${query.status==="ready"?(data?.state==="complete"?"complete":"paused"):query.status}`)}</Text>}

@@ -51,7 +51,7 @@ export default function GroupWeekPage() {
     <section data-testid="C5-2"><div className="flex flex-wrap gap-2">{(["distance", "time", "elevation"] as const).map(key => <Button data-testid="C5-2-1" key={key} size="sm" variant={key === metric ? "primary" : "secondary"} aria-pressed={key === metric} onClick={() => setMetric(key)}>{t(`week.metricLabels.${key}`)}</Button>)}</div>
     {!weeklyStats || weeklyStats.activeMembers === 0 ? <div data-testid="C5-2-3"><EmptyState title={t("week.empty")} /></div> : ranking.loading ? <LoadingSkeleton kind="list" count={5} /> : ranking.error ? <ErrorState title={t("week.loadFailed")} onRetry={ranking.retry} /> : rows.map(stats => <Card key={stats.userId} className="space-y-2"><Link data-testid="C5-2-2" to={`/athlete/${stats.userId}`}>{stats.nickname}{stats.userId === user?.uid ? ` ${t("dashboard.meIndicator")}` : ""}</Link><p className="font-mono text-[length:var(--ft-body-medium-size)]">{fmt(stats[metric], metric)}</p><progress value={stats[metric]} max={max || 1} aria-label={`${stats.nickname} · ${t(`week.metricLabels.${metric}`)}`} className="club-week-progress" /></Card>)}
     {ranking.moreError && <ErrorState title={t("week.loadFailed")} onRetry={() => { void ranking.loadMore(); }} />}
-    {ranking.hasMore && <Button variant="secondary" disabled={ranking.loadingMore} onClick={() => { void ranking.loadMore(); }}>{t("week.loadMore")}</Button>}
+    {ranking.hasMore && <Button size="sm" variant="secondary" disabled={ranking.loadingMore} onClick={() => { void ranking.loadMore(); }}>{t("week.loadMore")}</Button>}
     </section>
     </>}
   </div>;

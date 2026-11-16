@@ -204,7 +204,7 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
   const visibleDayActs = dayDetailActs.slice((dayPage - 1) * 20, dayPage * 20);
   const pagination = (total: number, current: number, pages: number, day = false) => total > 0 && <nav className="mobile-log__pagination" aria-label={t(day ? "mobileLog.dayPages" : "mobileLog.recordPages")}>
     <Text as="p" variant="caption" role="status">{t("mobileLog.pageStatus", { from: (current - 1) * 20 + 1, to: Math.min(current * 20, total), total, page: current, pages })}</Text>
-    {pages > 1 && <div><Button variant="secondary" disabled={current <= 1} onClick={() => setPage(current - 1, day)}>{t("mobileLog.previousPage")}</Button><Button variant="secondary" disabled={current >= pages} onClick={() => setPage(current + 1, day)}>{t("mobileLog.nextPage")}</Button></div>}
+    {pages > 1 && <div><Button size="sm" variant="secondary" disabled={current <= 1} onClick={() => setPage(current - 1, day)}>{t("mobileLog.previousPage")}</Button><Button size="sm" variant="secondary" disabled={current >= pages} onClick={() => setPage(current + 1, day)}>{t("mobileLog.nextPage")}</Button></div>}
   </nav>;
 
 
@@ -413,7 +413,7 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
           {pagination(matchingActs.length, page, pageCount)}
           {matchingActs.length === 0 && <div className="mobile-log__empty"><Text as="p" variant="bodySmall" role="status">{query ? t("mobileLog.noMatching")
             // 「아직 활동 기록이 없어요」 → 같은 화면의 활동 가져오기 창.
-            : <Resolvable resolve={{ onClick: () => setImportOpen(true) }}>{t("mobileLog.emptyActivity")}</Resolvable>}</Text>{query && <Button variant="ghost" onClick={() => setSearch("")}>{t("mobileLog.clearSearch")}</Button>}</div>}
+            : <Resolvable resolve={{ onClick: () => setImportOpen(true) }}>{t("mobileLog.emptyActivity")}</Resolvable>}</Text>{query && <Button size="sm" variant="ghost" onClick={() => setSearch("")}>{t("mobileLog.clearSearch")}</Button>}</div>}
         </>
       )}
 
@@ -423,7 +423,7 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
         {loading ? <Text role="status">{t("common:button.loading")}</Text> : <>
           {planState !== "ready" && <div>
             <Text as="p" variant="bodySmall" role={planState === "error" ? "alert" : "status"}>{t(planState === "error" ? "training:planRecords.error" : "training:planRecords.loading")}</Text>
-            {planState === "error" && onRetryPlan && <Button variant="secondary" onClick={onRetryPlan}>{t("common:button.retry")}</Button>}
+            {planState === "error" && onRetryPlan && <Button size="sm" variant="secondary" onClick={onRetryPlan}>{t("common:button.retry")}</Button>}
           </div>}
           {periodReturnSlot}
           <PlanRecordEvidence date={selectedDay} plans={plansByDate[selectedDay] ?? []} />

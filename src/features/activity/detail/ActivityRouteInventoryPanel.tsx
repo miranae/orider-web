@@ -49,7 +49,7 @@ export default function ActivityRouteInventoryPanel({activity,observedMetricsIde
    {!!query.pages.length&&<><Text>{t('routeInventory.counts',{scanned,count:rows.length,pages:query.pages.length})}</Text><Text variant="caption">{t('routeInventory.snapshot',{date:date(last!.readTime.seconds*1000)})}</Text>
     {!rows.length&&<Text>{t(last?.inventory.nextCursor?'routeInventory.emptyMore':'routeInventory.empty')}</Text>}
     <ul>{rows.map(row=><li key={row.activityId}><LocalizedLink to={`/activity/${encodeURIComponent(row.activityId)}?tab=overview`} state={{routeInventoryReturn:{uid:activity.userId,pathname:location.pathname,search:location.search,hash:location.hash}}}><time dateTime={new Date(row.startTime).toISOString()}>{date(row.startTime)}</time><span>{t('routeInventory.openSource')}</span></LocalizedLink></li>)}</ul>
-    {last?.inventory.nextCursor&&<Button variant="outline" disabled={query.status==='loading'} onClick={()=>void query.loadMore()}>{t('routeInventory.more')}</Button>}
+    {last?.inventory.nextCursor&&<Button size="sm" variant="outline" disabled={query.status==='loading'} onClick={()=>void query.loadMore()}>{t('routeInventory.more')}</Button>}
     {last?.inventory.exhausted&&<Text>{t('routeInventory.exhausted')}</Text>}
    </>}
    <Text variant="caption" tone="secondary">{t('routeInventory.lifetime')}</Text>

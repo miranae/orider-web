@@ -127,7 +127,7 @@ export default function AccountDeletionPage() {
         {visibleJob?.providerDeletionRequested && <p role="status">{t("accountDeletion.providerProcessing")}</p>}
         {sessionUnavailable && <p role="status">{t("accountDeletion.sessionUnavailable")}</p>}
         {error && <p role="alert">{t(`accountDeletion.${error}`)}</p>}
-        {(user || hasReceipt) && error === "statusFailed" && <Button onClick={() => setRefresh(value => value + 1)}>{t("accountDeletion.retryStatus")}</Button>}
+        {(user || hasReceipt) && error === "statusFailed" && <Button size="sm" onClick={() => setRefresh(value => value + 1)}>{t("accountDeletion.retryStatus")}</Button>}
         {user && needsReauth && <Button loading={busy} onClick={() => void authenticate(true)}>{t("accountDeletion.reauthenticate")}</Button>}
         {user && checked && !job && error !== "statusFailed" && <>
           <label className="block space-y-2"><span>{t("accountDeletion.confirm")}</span><input className="ds-input" value={confirmation} autoComplete="off" onChange={event => setConfirmation(event.target.value)} disabled={busy} /></label>

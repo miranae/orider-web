@@ -16,9 +16,6 @@
   outline: 2px solid var(--color-primary-dark);
   outline-offset: var(--space-1);
 }
-.board-detail button,
-.board-writing-header button,
-.board-comment-composer button { min-height: var(--dim-button-height); }
 .board-post-meta,
 .board-post-actions,
 .board-comment-meta {

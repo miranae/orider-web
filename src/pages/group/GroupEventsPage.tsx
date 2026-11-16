@@ -262,14 +262,14 @@ export default function GroupEventsPage() {
         loading={loading || meetingLoading} error={error || meetingError}
         hasMore={!!(eventNextCursor || eventCursor || nextCursor)} onRetry={() => { setEventPage({ scope: eventScope }); setRetry(value => value + 1); }} />
       {loadedMeetingScope === meetingScope && nextCursor && !meetingError && (
-        <Button loading={loadingMore} disabled={loadingMore} onClick={() => void loadMoreMeetings()}>
+        <Button size="sm" loading={loadingMore} disabled={loadingMore} onClick={() => void loadMoreMeetings()}>
           {i18n.language.startsWith("en") ? "Load more meetings" : "모임 더 보기"}
         </Button>
       )}
       {!loading && !error && (eventNextCursor || eventCursor) && <div>
         <p role="status">{t("event:discovery.partial")}</p>
-        {eventCursor && <Button variant="secondary" onClick={() => setEventPage({ scope: eventScope })}>{t("event:discovery.first")}</Button>}
-        {eventNextCursor && <Button variant="secondary" onClick={() => setEventPage({ scope: eventScope, cursor: eventNextCursor })}>{t("event:message.next")}</Button>}
+        {eventCursor && <Button size="sm" variant="secondary" onClick={() => setEventPage({ scope: eventScope })}>{t("event:discovery.first")}</Button>}
+        {eventNextCursor && <Button size="sm" variant="secondary" onClick={() => setEventPage({ scope: eventScope, cursor: eventNextCursor })}>{t("event:message.next")}</Button>}
       </div>}
     </div>
   );

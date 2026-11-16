@@ -765,7 +765,7 @@ export default function MeetingTeams({
                 onChange={(event) => setInitialSize(Number(event.target.value))}
               />
             </Field>
-            <Button
+            <Button size="sm"
               variant="outline"
               disabled={
                 saving || disabled || !canEdit || stale || !attending.length

@@ -5,6 +5,5 @@
 .bike-observed-climbs-list { display: grid; gap: var(--space-3); padding: 0; list-style: none; }
 .bike-observed-climbs-source { display: inline-flex; align-items: center; min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); color: var(--ink-2); text-decoration: underline; overflow-wrap: anywhere; }
 .bike-observed-climbs-source:hover { color: var(--accent-dark); }
-.bike-observed-climbs button { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 .bike-observed-climbs p { overflow-wrap: anywhere; }
 @media (max-width: 30rem) { .bike-observed-climbs-periods { grid-template-columns: minmax(0, 1fr); } }

@@ -236,9 +236,9 @@ function StravaSummaryPublishingPreview({ activityId, lang }: { activityId: stri
             {feedback === resultStatus && remoteId && <a href={`https://www.strava.com/activities/${remoteId}`} target="_blank" rel="noreferrer">{t("stravaSummary.view")}</a>}
           </div>)}
           <div className="activity-strava-publishing-actions">
-            {preview && <Button variant="secondary" loading={busy} aria-busy={busy} disabled={localPreviewOnly || checkingStatus || uncertain || loadingPreview || result?.status === "queued"} onClick={() => { void publish(); }}>{t(busy ? "stravaSummary.working" : "stravaSummary.publish")}</Button>}
-            {message === "summaryNotReady" && <Button variant="secondary" disabled={localPreviewOnly || checkingStatus || uncertain || busy || loadingPreview || result?.status === "queued"} onClick={() => { void loadPreview(requestedTarget, true); }}>{t("stravaSummary.prepare")}</Button>}
-            {result?.status === "reauthorization-required" && <Button variant="outline" disabled={busy} onClick={() => connectStrava(window.location.pathname, { writeActivities: true })}>{t("stravaSummary.reconnect")}</Button>}
+            {preview && <Button wrap variant="secondary" loading={busy} aria-busy={busy} disabled={localPreviewOnly || checkingStatus || uncertain || loadingPreview || result?.status === "queued"} onClick={() => { void publish(); }}>{t(busy ? "stravaSummary.working" : "stravaSummary.publish")}</Button>}
+            {message === "summaryNotReady" && <Button wrap variant="secondary" disabled={localPreviewOnly || checkingStatus || uncertain || busy || loadingPreview || result?.status === "queued"} onClick={() => { void loadPreview(requestedTarget, true); }}>{t("stravaSummary.prepare")}</Button>}
+            {result?.status === "reauthorization-required" && <Button wrap variant="outline" disabled={busy} onClick={() => connectStrava(window.location.pathname, { writeActivities: true })}>{t("stravaSummary.reconnect")}</Button>}
           </div>
           </div>
           <div className="activity-strava-publishing-footer">{localPreviewOnly && <Text as="p" variant="bodySmall" tone="secondary" role="note">{t("stravaSummary.localPreviewOnly")}</Text>}</div>
@@ -258,7 +258,7 @@ function StravaSummaryPublishingPreview({ activityId, lang }: { activityId: stri
                   if (busy || checkingStatus || uncertain || result?.status === "queued") return;
                   previewRequest.current += 1; setLoadingPreview(false); setTarget(event.target.value); setPreview(null); setMessage(null);
                 }} disabled={busy || preparing || checkingStatus || uncertain || result?.status === "queued"} placeholder="https://www.strava.com/activities/…" /></label>
-              <Button type="submit" variant="outline" disabled={busy || checkingStatus || uncertain || loadingPreview || result?.status === "queued"}>{t("stravaSummary.loadTargetPreview")}</Button>
+              <Button wrap size="sm" type="submit" variant="outline" disabled={busy || checkingStatus || uncertain || loadingPreview || result?.status === "queued"}>{t("stravaSummary.loadTargetPreview")}</Button>
             </form>
       </details>
     </section>

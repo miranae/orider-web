@@ -79,16 +79,10 @@ export default function GroupRidesPage() {
       <div data-testid="C2-0" className="flex flex-wrap items-center gap-3 mb-4">
         <span className="text-[length:var(--ft-body-medium-size)]" style={{ color: "var(--ink-2)" }}>{t("rides.activityCountFilter")}:</span>
         {[0, 2, 5].map((n) => (
-          <Button variant="secondary" data-testid="C2-0-1"
+          <Button size="sm" variant={minActivities === n ? "primary" : "secondary"} data-testid="C2-0-1"
             key={n}
             onClick={() => setMinActivities(n)}
             aria-pressed={minActivities === n}
-            className="px-3 py-1 text-[length:var(--fs-xs)] rounded-full transition-colors"
-            style={
-              minActivities === n
-                ? { background: "var(--lime)", color: "var(--bg-0)" }
-                : { background: "var(--bg-2)", color: "var(--ink-2)" }
-            }
           >
             {n === 0 ? t("filter.all") : t("rides.minimumActivityCount", { count: n })}
           </Button>
@@ -108,12 +102,10 @@ export default function GroupRidesPage() {
           ))}
           {loadMoreError && <p role="alert">{t(loadMoreError === "unavailable" ? "error.rideStatsUnavailable" : "error.rideStatsLoadFailed")}</p>}
           {hasMore && (
-            <Button variant="secondary" data-testid="C2-1-2"
+            <Button size="sm" variant="secondary" data-testid="C2-1-2"
               type="button"
               onClick={() => { void loadMore(); }}
               disabled={loadingMore}
-              className="w-full rounded-[var(--r-sm)] py-3 text-[length:var(--ft-body-medium-size)] disabled:opacity-50"
-              style={{ background: "var(--bg-2)", color: "var(--ink-1)" }}
             >
               {loadingMore ? t("rides.loadingMore") : loadMoreError ? t("invite.retry") : t("rides.loadMore")}
             </Button>

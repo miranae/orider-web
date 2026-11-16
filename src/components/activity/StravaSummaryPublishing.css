@@ -14,11 +14,10 @@
 .activity-strava-publishing-preview-frame:focus-within { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
 .activity-strava-publishing-preview pre:focus-visible { outline: none; }
 .activity-strava-publishing-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.activity-strava-publishing-actions > .ds-btn, .activity-strava-publishing-manual > .ds-btn { min-height: calc(var(--space-7) + var(--space-3)); height: auto; white-space: normal; padding-block: var(--space-3); }
 .activity-strava-publishing-manual { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
 .activity-strava-publishing-manual label { flex: 1; min-width: 0; display: grid; gap: var(--space-2); font-size: var(--fs-sm); }
 .activity-strava-publishing-manual input { width: 100%; min-width: 0; min-height: calc(var(--space-7) + var(--space-3)); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-1); color: var(--ink-1); }
-@media (max-width: 40rem) { .activity-strava-publishing-manual { flex-direction: column; align-items: stretch; } }
+@media (max-width: 40rem) { .activity-strava-publishing-manual { flex-direction: column; align-items: flex-start; } .activity-strava-publishing-manual label { align-self: stretch; } }
 .activity-strava-publishing-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); width: 100%; min-width: 0; align-items: start; }
 .activity-strava-publishing-preview, .activity-strava-publishing-controls { display: grid; grid-template-rows: auto auto auto; gap: var(--space-3); min-width: 0; }
 .activity-strava-publishing-control-body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--bg-2); min-width: 0; }
