@@ -132,7 +132,7 @@ const stage: RuntimeConfig = { appEnvironment: "stage", firebaseProjectId: "mira
   firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net",
   personalApiBase: "https://qapersonalapi-ldfyfyx5da-du.a.run.app",
   aiApiBase: "https://orider-ai-api-qa-firstpass-ldfyfyx5da-du.a.run.app",
-  stravaRedirectUri: "https://orider-dev.web.app", segmentTilesBase: "https://orider-dev.web.app", heatmapBase: "https://orider-dev.web.app" };
+  stravaRedirectUri: "https://orider-dev.web.app", segmentTilesBase: "https://orider-dev.web.app" };
 
 describe("Creator Hub API documentation destinations", () => {
   afterEach(async () => { resetRuntimeConfigForTests(); await act(async () => { await i18n.changeLanguage("ko"); }); });
