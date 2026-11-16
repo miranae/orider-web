@@ -118,8 +118,7 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await page.getByTestId("run-hr-details").locator("summary").click();
   await page.screenshot({ path: info.outputPath("running-analysis-heart-rate.png") });
   await page.getByTestId("run-detail-disclosure").locator("summary").click();
-  await expect(page.getByTestId("run-detail-disclosure").getByText("spm", { exact: true })).toBeVisible();
-  await expect(page.getByTestId("run-detail-disclosure")).toContainText("191");
+  await expect(page.getByTestId("run-detail-disclosure")).toContainText(/191\s*spm/);
   await expect(page.getByTestId("run-detail-disclosure")).toContainText("264");
   await page.getByTestId("run-raw-splits").locator("summary").click();
   await expect(page.getByTestId("run-raw-splits").getByRole("table")).toBeVisible();

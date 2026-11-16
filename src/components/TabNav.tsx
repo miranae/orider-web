@@ -166,7 +166,7 @@ export function RouteTabNav({ tabs, state, revealActive = true }: RouteTabNavPro
 
   return (
     <div className="route-tab-nav" style={{ borderColor: "var(--line-soft)" }}>
-      <button type="button" className="route-tab-nav__more" disabled={!canScrollBack} style={{ visibility: canScrollBack ? "visible" : "hidden" }} aria-label={t("button.previousTabs")} onClick={() => {
+      <button type="button" className="route-tab-nav__more ds-tap-target" disabled={!canScrollBack} style={{ visibility: canScrollBack ? "visible" : "hidden" }} aria-label={t("button.previousTabs")} onClick={() => {
         const scroller = scrollerRef.current;
         if (scroller) { cancelRevealRef.current(); scroller.scrollLeft -= scroller.clientWidth * 0.7; }
       }}>‹</button>
@@ -188,7 +188,7 @@ export function RouteTabNav({ tabs, state, revealActive = true }: RouteTabNavPro
         );
       })}
       </div>
-      <button type="button" className="route-tab-nav__more" disabled={!canScrollForward} style={{ visibility: canScrollForward ? "visible" : "hidden" }} aria-label={t("button.nextTabs")} onClick={() => {
+      <button type="button" className="route-tab-nav__more ds-tap-target" disabled={!canScrollForward} style={{ visibility: canScrollForward ? "visible" : "hidden" }} aria-label={t("button.nextTabs")} onClick={() => {
         const scroller = scrollerRef.current;
         if (scroller) { cancelRevealRef.current(); scroller.scrollLeft += scroller.clientWidth * 0.7; }
       }}>›</button>
