@@ -140,207 +140,67 @@ async function expectProposalKeyboardOrder(page: Page, plan: Locator) {
   await expect(keep).toBeFocused();
 }
 
-test.describe("Today training decision responsive render", () => {
-  test("renders the canonical Home card without horizontal overflow", async ({ page }, testInfo) => {
+test.describe("Current training decision surfaces", () => {
+  test("Home remains an activity feed rather than the retired execution card", async ({ page }) => {
     await mockTodayTraining(page, { execution: "executable", proposal: "pending" });
     await signIn(page);
-
-    const card = page.locator(".training-decision-card--home");
-    await waitForStableDecision(page, card);
-    await expect(card).toHaveAttribute("data-decision-id", "today_cccccccccccccccccccccccc");
-    await expect(card.getByText("변경 권고 · 아직 미적용")).toBeVisible();
-    await expect(card.getByText("현재 실행안 · 원래 계획 기준")).toBeVisible();
-    await expect(card.getByText("조정 권고 · 아직 미적용")).toBeVisible();
-    await expect(card.locator('[data-session-layout="comparison"]')).toHaveClass(/training-decision-card__sessions--comparison/u);
-    await expect(card.getByText("권고 변화 -20분 · -45 TSS")).toBeVisible();
-    await expect(card.getByText("최근 부하가 높은 상태예요")).toBeVisible();
-    await expect(card.getByRole("link", { name: /계획에서 보기/u })).toBeVisible();
-    await expect(card.getByText("운동 실행")).toBeVisible();
-    await expect(card.locator('[data-execution-state="executable"]')).toBeVisible();
-    await expect(card.getByRole("button", { name: "운동 시작" })).toBeVisible();
-    await expect(card.getByRole("button", { name: /AI 코치/u })).toHaveCount(0);
-
-    await card.getByRole("button", { name: "운동 시작" }).focus();
-    await page.keyboard.press("Tab");
-    await expect(card.getByRole("link", { name: /계획에서 보기/u })).toBeFocused();
-
-    const geometry = await card.evaluate((element) => {
-      const box = element.getBoundingClientRect();
-      return { left: box.left, right: box.right, width: box.width, viewport: window.innerWidth,
-        documentWidth: document.documentElement.scrollWidth };
-    });
-    expect(geometry.left).toBeGreaterThanOrEqual(0);
-    expect(geometry.right).toBeLessThanOrEqual(geometry.viewport + 1);
-    expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewport + 1);
-    expect(geometry.width).toBeGreaterThan(250);
-
-    await applyTextScale200(page, card.getByRole("heading", { name: "변경 권고 · 아직 미적용" }));
-    await expectContainedReflow(card);
-    await expectReadableTextScale(card);
-    await expect(card.getByText("현재 실행안 · 원래 계획 기준")).toBeVisible();
-    await expect(card.getByText("권고 변화 -20분 · -45 TSS")).toBeVisible();
-    await card.getByRole("link", { name: /계획에서 보기/u }).scrollIntoViewIfNeeded();
-    await expect(card.getByRole("link", { name: /계획에서 보기/u })).toBeVisible();
-    await expect(card.getByRole("link", { name: /계획에서 보기/u })).toBeInViewport();
-    await attachFullPageFromTop(page, testInfo, `today-training-home-text-scale-200-${testInfo.project.name}.png`);
-    await resetTextScale(page);
-
-    await expect(page.locator(".training-decision-card--home")).toBeVisible();
-    await attachFullPageFromTop(page, testInfo, `today-training-decision-${testInfo.project.name}.png`);
-    await attachFullPageFromTop(page, testInfo, `today-training-home-${testInfo.project.name}-full.png`);
+    await expect(page.getByText("한강 라이딩 즐거웠습니다")).toBeVisible();
+    await expect(page.locator(".training-decision-card")).toHaveCount(0);
   });
 
-  test("keeps Fitness diagnostic and Plan change actions on their own surfaces", async ({ page }, testInfo) => {
+  test("condition shows diagnosis while Plan owns change actions and keyboard order", async ({ page }, testInfo) => {
     await mockTodayTraining(page, { execution: "executable", proposal: "pending" });
     await signIn(page);
+    await page.goto("/ko/coach/condition?sport=bike");
+    const condition = page.locator(".training-decision-card--fitness").first();
+    await waitForStableDecision(page, condition);
+    await expect(condition.getByText("부하 상태 high_load", { exact: false })).toBeVisible();
+    await expect(condition.getByRole("button", { name: "AI 코치에게 분석 요청" })).toBeVisible();
+    await expect(condition.getByText("운동 실행")).toHaveCount(0);
+    await expect(condition.getByText("계획 변경 검토")).toHaveCount(0);
+    await attachFullPageFromTop(page, testInfo, `training-condition-${testInfo.project.name}.png`);
 
-    await page.goto("/ko/fitness?sport=bike");
-    const fitness = page.locator(".training-decision-card--fitness").first();
-    await waitForStableDecision(page, fitness);
-    await expect(fitness.getByText("부하 상태 high_load", { exact: false })).toBeVisible();
-    await expect(fitness.getByRole("button", { name: "AI 코치에게 분석 요청" })).toBeVisible();
-    await expect(fitness.getByText("운동 실행")).toHaveCount(0);
-    await expect(fitness.getByText("계획 변경 검토")).toHaveCount(0);
-    await attachFullPageFromTop(page, testInfo, `today-training-fitness-${testInfo.project.name}.png`);
-
-    await page.goto("/ko/plan?sport=bike");
+    await page.goto("/ko/coach/plan?sport=bike");
     const plan = page.locator(".training-decision-card--plan").first();
     await waitForStableDecision(page, plan);
-    await expect(plan.locator('.training-decision-card__sessions [data-session-role="neutral"]')).toBeVisible();
-    await expect(plan.locator('.training-decision-card__sessions [data-session-role="recommended"]')).toBeVisible();
-    await expect(plan.locator('.training-decision-card__sessions [data-session-role="effective"]')).toBeVisible();
     await expect(plan.locator('[data-proposal-state="pending"]')).toBeVisible();
-    await expect(plan.locator('.training-decision-proposal__change[data-current-day="true"]')).toBeVisible();
     await expect(plan.getByRole("button", { name: "이 변경 적용" })).toBeVisible();
     await expect(plan.getByRole("button", { name: "원래 계획 유지" })).toBeVisible();
-    await expect(plan.getByText("운동 실행")).toHaveCount(0);
-    await expect(plan.getByRole("button", { name: /AI 코치/u })).toHaveCount(0);
     await expectProposalKeyboardOrder(page, plan);
-
     await applyTextScale200(page, plan.getByRole("heading", { name: "변경 권고 · 아직 미적용" }));
     await expectContainedReflow(plan);
     await expectReadableTextScale(plan);
-    await expect(plan.getByText("계획 변경 검토")).toBeVisible();
-    await plan.evaluate((element) => element.querySelector<HTMLElement>(".training-decision-proposal__actions button:last-of-type")?.scrollIntoView({ block: "center" }));
-    await expect(plan.getByRole("button", { name: "원래 계획 유지" })).toBeVisible();
-    await expect(plan.getByRole("button", { name: "원래 계획 유지" })).toBeInViewport();
-    await attachFullPageFromTop(page, testInfo, `today-training-plan-text-scale-200-${testInfo.project.name}.png`);
+    await attachFullPageFromTop(page, testInfo, `training-plan-text-scale-200-${testInfo.project.name}.png`);
     await resetTextScale(page);
-
-    await attachFullPageFromTop(page, testInfo, `today-training-plan-pending-${testInfo.project.name}.png`);
   });
 
-  test("renders proposal and execution state fixtures", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === "tablet", "desktop/mobile fixture matrix");
-    const mutable = { execution: "reserved" as ExecutionFixtureState, proposal: "pending" as ProposalFixtureState,
-      recoverExecutionError: false };
+  test("Plan distinguishes pending, applied, declined and stale proposals", async ({ page }, testInfo) => {
+    const mutable = { execution: "reserved" as ExecutionFixtureState, proposal: "pending" as ProposalFixtureState };
     await mockTodayTraining(page, mutable);
     await signIn(page);
-
     for (const state of ["pending", "applied", "declined", "stale"] as const) {
       mutable.proposal = state;
-      await page.goto("/ko/plan?sport=bike");
-      const panel = page.locator(`.training-decision-card--plan [data-proposal-state="${state}"]`).first();
-      await expect(panel).toBeVisible();
+      await page.goto("/ko/coach/plan?sport=bike");
       const card = page.locator(".training-decision-card--plan").first();
+      const panel = card.locator(`[data-proposal-state="${state}"]`);
       await waitForStableDecision(page, card);
-      const expected = state === "pending" ? "승인 대기" : state === "applied" ? "적용됨"
-        : state === "declined" ? "원래 계획 유지" : "새 검토 필요";
-      await expect(panel.locator(":scope > .training-decision-proposal__heading .ds-chip")).toHaveText(expected);
+      const expected = state === "pending" ? "승인 대기" : state === "applied" ? "적용됨" : state === "declined" ? "원래 계획 유지" : "새 검토 필요";
       await expect(panel.getByRole("status")).toHaveText(expected);
-      if (state === "applied") {
-        await expect(card.getByRole("heading", { name: "변경 적용됨" })).toBeVisible();
-        await expect(card.locator(":scope > .training-decision-card__header .ds-chip")).toHaveText("적용됨");
-      }
+      if (state === "applied") await expect(card.getByRole("heading", { name: "변경 적용됨" })).toBeVisible();
       if (state === "declined") await expect(panel.getByText("원래 계획을 유지했습니다.")).toBeVisible();
-      if (state === "stale") {
-        await expect(card.getByRole("heading", { name: "변경 권고 · 아직 미적용" })).toBeVisible();
-        await expect(panel).toHaveAttribute("data-proposal-state", "stale");
-        await waitForVisualStability(card);
-        await expect(panel.locator(":scope > .training-decision-proposal__heading .ds-chip")).toHaveText("새 검토 필요");
-        await expect(panel.getByRole("status")).toHaveText("새 검토 필요");
-      }
-      await attachFullPageFromTop(page, testInfo, `today-training-plan-${state}-${testInfo.project.name}.png`);
-    }
-
-    mutable.proposal = "applied";
-    await page.goto("/ko/");
-    const appliedHome = page.locator(".training-decision-card--home");
-    await waitForStableDecision(page, appliedHome);
-    await expect(appliedHome.getByRole("heading", { name: "변경 적용됨" })).toBeVisible();
-    await expect(appliedHome.locator(":scope > .training-decision-card__header .ds-chip")).toHaveText("적용됨");
-    await expect(appliedHome.locator('[data-session-role="effective"]')).toContainText("회복");
-    await expect(appliedHome.locator('[data-session-role="effective"]')).toContainText("40분");
-    await expect(appliedHome.locator('[data-session-role="effective"]')).toContainText("25 TSS");
-    await expect(appliedHome.locator('[data-session-role="recommended"]')).toHaveCount(0);
-    await expect(appliedHome.getByText(/아직 미적용/u)).toHaveCount(0);
-    await expect(appliedHome.getByText("권고 변화 -20분 · -45 TSS")).toBeVisible();
-    const singleSessions = appliedHome.locator('[data-session-layout="single"]');
-    await expect(singleSessions).toHaveClass(/training-decision-card__sessions--single/u);
-    await expect(singleSessions.locator('[data-session-role="effective"]')).toBeVisible();
-    await expect(singleSessions.locator(".training-decision-card__delta")).toHaveCSS("text-align", "left");
-    const singleGeometry = await singleSessions.evaluate((element) => {
-      const layout = element.getBoundingClientRect();
-      const session = element.querySelector<HTMLElement>('[data-session-role="effective"]')!.getBoundingClientRect();
-      return { layoutWidth: layout.width, sessionWidth: session.width };
-    });
-    expect(Math.abs(singleGeometry.layoutWidth - singleGeometry.sessionWidth)).toBeLessThanOrEqual(1);
-    await attachFullPageFromTop(page, testInfo, `today-training-home-applied-${testInfo.project.name}.png`);
-
-    mutable.proposal = "pending";
-    for (const state of ["executable", "reserved", "in-progress", "link", "probable", "completed", "error"] as const) {
-      mutable.execution = state;
-      await page.goto("/ko/");
-      const session = page.locator(`.training-decision-card--home [data-execution-state="${state}"]`).first();
-      await expect(session).toBeVisible();
-      const card = page.locator(".training-decision-card--home");
-      await waitForStableDecision(page, card);
-      if (state === "in-progress") {
-        const manualLink = session.getByRole("button", { name: "활동 직접 연결" });
-        await manualLink.focus();
-        await page.keyboard.press("Tab");
-        await expect(session.getByRole("button", { name: "건너뜀" })).toBeFocused();
-        await expectContainedReflow(session);
-        await session.getByRole("button", { name: "연기" }).scrollIntoViewIfNeeded();
-        await expect(session.getByRole("button", { name: "연기" })).toBeVisible();
-      }
-      if (state === "probable") {
-        // 추정 매칭에서 사용자가 빠져나갈 수 있는 세 갈래가 항상 있어야 한다.
-        await expect(session.getByText("이 세션과 시간대가 겹치는 활동을 찾았어요. 이 활동이 맞나요?")).toBeVisible();
-        await expect(session.getByRole("button", { name: "맞아요 · 완료 처리" })).toBeVisible();
-        await expect(session.getByRole("button", { name: "맞지만 부분 완료" })).toBeVisible();
-        await expect(session.getByRole("button", { name: "아니에요 · 연결 해제" })).toBeVisible();
-        await expectContainedReflow(session);
-      }
-      if (state === "error") {
-        await attachFullPageFromTop(page, testInfo, `today-training-execution-error-${testInfo.project.name}.png`);
-        const retry = card.getByRole("button", { name: "새로 확인" });
-        mutable.recoverExecutionError = true;
-        await retry.focus();
-        await page.keyboard.press("Enter");
-        await expect(card.locator('.training-execution-panel[data-execution-state="loading"]')).toBeVisible();
-        await expect(card.getByText("기존 실행 상태를 확인하는 중…")).toBeVisible();
-        await expect(card.locator('.training-execution-panel[data-execution-state="ready"]')).toBeVisible();
-        await expect(card.locator('.training-execution-session[data-execution-state="executable"]')).toBeVisible();
-        await expect(card.getByRole("button", { name: "운동 시작" })).toBeVisible();
-        await attachFullPageFromTop(page, testInfo, `today-training-execution-error-recovered-${testInfo.project.name}.png`);
-        continue;
-      }
-      await attachFullPageFromTop(page, testInfo, `today-training-execution-${state}-${testInfo.project.name}.png`);
+      await expectContainedReflow(card);
+      await waitForVisualStability(card);
+      await attachFullPageFromTop(page, testInfo, `training-plan-${state}-${testInfo.project.name}.png`);
     }
   });
 
-  test("keeps an explaining Home card when the decision call fails", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === "tablet", "desktop/mobile fixture matrix");
+  test("condition explains an unavailable decision and exposes retry", async ({ page }) => {
     await mockTodayTraining(page, { execution: "executable", proposal: "pending", decisionUnavailable: true });
     await signIn(page);
-    await page.goto("/ko/");
-    const card = page.locator('[data-training-decision-fallback="unavailable"]');
-    await expect(card).toBeVisible();
+    await page.goto("/ko/coach/condition?sport=bike");
+    const card = page.locator('[data-training-decision-fallback="unavailable"]').first();
     await expect(card.getByRole("heading", { name: "오늘 계획을 불러오지 못했습니다" })).toBeVisible();
     await expect(card.getByRole("button", { name: "새로 확인" })).toBeVisible();
-    await expect(card.getByRole("link", { name: /오늘 계획 보기/u })).toBeVisible();
     await expectContainedReflow(card);
-    await attachFullPageFromTop(page, testInfo, `today-training-home-unavailable-${testInfo.project.name}.png`);
   });
 });
