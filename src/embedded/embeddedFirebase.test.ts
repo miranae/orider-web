@@ -195,6 +195,21 @@ describe("embeddedFirebase", () => {
     expect(mocks.initializeAppCheck).not.toHaveBeenCalled();
   });
 
+  it("에뮬레이터 포트를 VITE_*_EMULATOR_PORT 로 바꿀 수 있다(E2E Lab demo-orider-lab)", async () => {
+    mocks.runtimeConfig.useEmulators = true;
+    vi.stubEnv("VITE_AUTH_EMULATOR_PORT", "9599");
+    vi.stubEnv("VITE_FIRESTORE_EMULATOR_PORT", "8599");
+    vi.stubEnv("VITE_FUNCTIONS_EMULATOR_PORT", "5599");
+    try {
+      await loadEmbeddedFirebase();
+      expect(mocks.connectAuthEmulator).toHaveBeenCalledWith(mocks.auth, "http://localhost:9599", { disableWarnings: true });
+      expect(mocks.connectFirestoreEmulator).toHaveBeenCalledWith(mocks.firestore, "localhost", 8599);
+      expect(mocks.connectFunctionsEmulator).toHaveBeenCalledWith(mocks.functions, "localhost", 5599);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("fails closed before initialization when the App Check site key is missing", async () => {
     delete mocks.runtimeConfig.appCheckRecaptchaSiteKey;
     const embeddedFirebase = await import("./embeddedFirebase");
