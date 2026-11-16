@@ -1,8 +1,9 @@
+import { decodeTrack, encodePolyline } from "../utils/polyline";
 import { withActivityMapDeadline } from "./activityMapDeadline";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
-export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; imageUrl: string | null; squareImageUrl?: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
+export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; encodedPolylineParts?: string[]; imageUrl: string | null; squareImageUrl?: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
 type Pending = { resolve: (value: PublicActivityMap | null) => void; reject: (reason: unknown) => void };
 type Session = { viewer: FirebaseServices["auth"]["currentUser"]; requests: Map<string, Promise<PublicActivityMap | null>>; queue: Map<string, Pending[]>; scheduled: boolean };
 const sessions = new WeakMap<object, Session>(), connected = new WeakSet<object>();
@@ -35,6 +36,17 @@ export function loadPublicActivityMap(services: FirebaseServices, activityId: st
           if (!("unavailable" in item) && item.mapPreview.imageUrl) {
             const url = new URL(item.mapPreview.imageUrl);
             if (url.protocol !== "https:" || url.username || url.password) throw Error("invalid_public_maps");
+          }
+          if (!("unavailable" in item) && item.mapPreview.encodedPolylineParts !== undefined) {
+            const parts = item.mapPreview.encodedPolylineParts;
+            if (item.privacyEnabled !== false || item.mapPreview.encodedPolyline !== null || !Array.isArray(parts) ||
+              parts.length < 1 || parts.length > 100 || parts.some(part => typeof part !== "string" || !part || part.length > 32768 || !/^[?-~]+$/u.test(part))) throw Error("invalid_public_maps");
+            const points = parts.map(part => decodeTrack(part, 201));
+            if (points.some((part, index) => part.length < 2 || part.length > 200 || part.some(([lat, lon]) =>
+              !Number.isFinite(lat) || Math.abs(lat) > 90 || !Number.isFinite(lon) || Math.abs(lon) > 180) || encodePolyline(part) !== parts[index]) ||
+              points.reduce((sum, part) => sum + part.length, 0) > 200) throw Error("invalid_public_maps");
+            // 분리된 경로에 예전 연결 선이 그려진 정적 이미지를 섞지 않는다.
+            item.mapPreview = { ...item.mapPreview, imageUrl: null, squareImageUrl: null };
           }
           // 정사각 정본(squareImageUrl)은 부가 필드다. 구버전 서버엔 없고, 형식이 이상하면 이 값만 버린다 —
           // 부가 필드 하나 때문에 같은 배치의 기존 지도까지 실패시키지 않는다(카드는 실시간 지도로 대체된다).

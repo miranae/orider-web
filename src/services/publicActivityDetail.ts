@@ -20,7 +20,7 @@ export interface PublicActivityDetail {
   nativeMemoRevision?: string | null;
   nativeCoverPhotoId?: string | null;
   nativeCoverRevision?: string;
-  mapPreview?: { imageUrl: string | null; encodedPolyline: string | null };
+  mapPreview?: { imageUrl: string | null; encodedPolyline: string | null; encodedPolylineParts?: string[] };
   uploadedPhotosTruncated?: boolean;
   content: Pick<ActivityFeedContent, "status" | "activityId" | "comments"> & Partial<ActivityFeedContent>;
 }
