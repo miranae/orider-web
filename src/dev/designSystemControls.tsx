@@ -439,6 +439,13 @@ function ControlsCatalog() {
 
         <section id="states" className="catalog-section">
           <div className="catalog-section-heading"><Text as="h2" variant="title">상태와 접근성</Text><Text as="p" variant="body" tone="tertiary">선택 상태, 진행 상황, 복구 방법을 같은 위치에서 보여줍니다.</Text></div>
+          <Section title="용어 설명과 닫기" headingLevel={3} description="제목 오른쪽 닫기 · 제목 없는 설명 · 긴 본문 스크롤을 넓은 화면과 좁은 화면에서 확인합니다.">
+            <div className="catalog-inline-controls">
+              <InfoTip title="모임 대기" label="제목 있는 도움말" content="빈자리가 생기면 대기 순서대로 제안합니다. 수락 기한 안에 제안을 수락하면 참석이 확정됩니다.">제목 있는 설명</InfoTip>
+              <InfoTip label="제목 없는 도움말" content="닫기 버튼은 같은 설명 상자 안쪽 우측 상단에 있으며 본문과 겹치지 않습니다.">제목 없는 설명</InfoTip>
+              <InfoTip title="좁은 화면에서도 여러 줄 제목과 닫기 버튼이 겹치지 않아야 하는 긴 용어 설명" label="긴 도움말" content={"이 설명은 공통 도움말의 본문 스크롤을 확인하기 위한 예시입니다. 본문을 움직여도 제목과 닫기는 제자리에 남으며, 닫기 또는 Escape로 원래 용어에 돌아갑니다. ".repeat(24)}>긴 설명과 제목</InfoTip>
+            </div>
+          </Section>
           <div className="catalog-state-grid">
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">기본 · 비활성 · 진행 중</Text><div className="catalog-inline-controls"><IconButton icon={<Plus />} aria-label="예시 항목 추가" onClick={() => setMessage('예시 항목을 추가했습니다.')} /><Button disabled>권한 없음</Button><Button loading={loading} onClick={() => { setSaveStatus('저장 중… · 예시'); setLoading(true); }}>{loading ? '저장 중…' : '예시 저장'}</Button><Button loading>불러오는 중…</Button></div><Text as="p" variant="bodySmall" tone="tertiary">진행 중에는 중복 실행을 막습니다. 위의 예시 저장은 1초 후 완료됩니다.</Text><p className="catalog-local-status" role="status">{saveStatus}</p></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">켜짐 · 꺼짐 · 선택 불가</Text><ToggleControls aria-label="토글 상태 예시"><ToggleButton selected={stateSelected} showCheck onClick={() => setStateSelected(!stateSelected)}>실시간 위치</ToggleButton><ToggleButton selected={notifications} showCheck onClick={() => setNotifications(!notifications)}>구간 알림</ToggleButton><ToggleButton selected={false} showCheck disabled>공유 불가</ToggleButton></ToggleControls><Text as="p" variant="bodySmall" tone="tertiary">색 외에 체크와 눌림 상태로 선택을 구분합니다.</Text></div>

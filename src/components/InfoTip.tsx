@@ -143,11 +143,7 @@ export default function InfoTip({ content, title, label, termId, children, class
       zIndex: 150,
       width: `min(${tipWidth}px, calc(100vw - ${2 * viewportMargin}px))`,
       maxHeight: `calc(100dvh - ${2 * viewportMargin}px)`,
-      overflowY: "auto",
       display: "block",
-      background: "var(--bg-1)",
-      borderRadius: "var(--r-lg)",
-      boxShadow: "var(--shadow-md)",
     } satisfies CSSProperties,
   };
 
@@ -201,32 +197,10 @@ export default function InfoTip({ content, title, label, termId, children, class
       </button>
       {open && createPortal(<span {...tooltipProps} className="ds-help-popover" id={`${id}-popover`} role="group" aria-label={title ?? label ?? content}
         onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node) && event.relatedTarget !== buttonRef.current) close(); }}>
-        <IconButton className="ds-help-popover__close" ref={closeRef} aria-label={t("button.close")} variant="ghost" size="sm" onClick={event => { event.stopPropagation(); dismissAndRestore(); }} icon={<X size={ICON_SIZE.xs} aria-hidden />} />
-        {title ? (
-        <TooltipContent id={id} role="tooltip" title={title}>{content}</TooltipContent>
-      ) : (
-        <span
-          id={id} role="tooltip"
-          style={{
-            display: "block",
-            padding: "var(--space-2) var(--space-3)",
-            borderRadius: "var(--r-md)",
-            background: "var(--bg-0)",
-            border: "1px solid var(--line-soft)",
-            color: "var(--ink-1)",
-            fontSize: "var(--fs-xs)",
-            lineHeight: 1.55,
-            fontWeight: 400,
-            boxShadow: "var(--shadow-md)",
-            whiteSpace: "normal",
-            wordBreak: "keep-all",
-            overflowWrap: "anywhere",
-            textAlign: "left",
-          }}
-        >
-          {content}
-        </span>
-      )}</span>, document.body)}
+        <TooltipContent title={title} descriptionId={id} headerAction={
+          <IconButton ref={closeRef} aria-label={t("button.close")} variant="ghost" size="sm" onClick={event => { event.stopPropagation(); dismissAndRestore(); }} icon={<X size={ICON_SIZE.xs} aria-hidden />} />
+        }>{content}</TooltipContent>
+      </span>, document.body)}
     </span>
   );
 }
