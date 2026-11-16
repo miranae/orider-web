@@ -1,3 +1,4 @@
+import { decodePublicMapPolylineParts } from "./publicActivityMaps";
 import { markRawPartStreams } from "./activityStreamSource";
 import { validatedRunEffortFacts } from "./personalDataApi";
 import { announceActivityContentChange } from "./activityContentChanged";
@@ -72,6 +73,10 @@ export function createPublicActivityClient(services: FirebaseServices, options: 
     async load(activityId: string) {
       const data = await call<PublicActivityDetail>("getActivityPublicDetail", { activityId });
       if (data.activity?.id !== activityId || data.content?.activityId !== activityId || typeof data.viewerHasKudos !== "boolean") throw new Error("invalid_public_activity");
+      if (data.mapPreview?.encodedPolylineParts !== undefined) {
+        if (data.mapPreview.encodedPolyline !== null || !decodePublicMapPolylineParts(data.mapPreview.encodedPolylineParts)) throw new Error("invalid_public_activity");
+        data.mapPreview = { ...data.mapPreview, imageUrl: null };
+      }
       return data;
     },
     async streams(activityId: string) {

@@ -4,6 +4,17 @@ import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; encodedPolylineParts?: string[]; imageUrl: string | null; squareImageUrl?: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
+/** 분리된 공개 지도는 총 200점 이하의 정규 인코딩만 소비한다. */
+export function decodePublicMapPolylineParts(value: unknown): [number, number][][] | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 100 || value.some(part =>
+    typeof part !== "string" || !part || part.length > 32768 || !/^[?-~]+$/u.test(part))) return null;
+  const parts = value as string[];
+  const points = parts.map(part => decodeTrack(part, 201));
+  if (points.some((part, index) => part.length < 2 || part.length > 200 || part.some(([lat, lon]) =>
+    !Number.isFinite(lat) || Math.abs(lat) > 90 || !Number.isFinite(lon) || Math.abs(lon) > 180) || encodePolyline(part) !== parts[index]) ||
+    points.reduce((sum, part) => sum + part.length, 0) > 200) return null;
+  return points;
+}
 type Pending = { resolve: (value: PublicActivityMap | null) => void; reject: (reason: unknown) => void };
 type Session = { viewer: FirebaseServices["auth"]["currentUser"]; requests: Map<string, Promise<PublicActivityMap | null>>; queue: Map<string, Pending[]>; scheduled: boolean };
 const sessions = new WeakMap<object, Session>(), connected = new WeakSet<object>();
@@ -39,12 +50,7 @@ export function loadPublicActivityMap(services: FirebaseServices, activityId: st
           }
           if (!("unavailable" in item) && item.mapPreview.encodedPolylineParts !== undefined) {
             const parts = item.mapPreview.encodedPolylineParts;
-            if (item.privacyEnabled !== false || item.mapPreview.encodedPolyline !== null || !Array.isArray(parts) ||
-              parts.length < 1 || parts.length > 100 || parts.some(part => typeof part !== "string" || !part || part.length > 32768 || !/^[?-~]+$/u.test(part))) throw Error("invalid_public_maps");
-            const points = parts.map(part => decodeTrack(part, 201));
-            if (points.some((part, index) => part.length < 2 || part.length > 200 || part.some(([lat, lon]) =>
-              !Number.isFinite(lat) || Math.abs(lat) > 90 || !Number.isFinite(lon) || Math.abs(lon) > 180) || encodePolyline(part) !== parts[index]) ||
-              points.reduce((sum, part) => sum + part.length, 0) > 200) throw Error("invalid_public_maps");
+            if (item.privacyEnabled !== false || item.mapPreview.encodedPolyline !== null || !decodePublicMapPolylineParts(parts)) throw Error("invalid_public_maps");
             // 분리된 경로에 예전 연결 선이 그려진 정적 이미지를 섞지 않는다.
             item.mapPreview = { ...item.mapPreview, imageUrl: null, squareImageUrl: null };
           }

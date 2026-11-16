@@ -997,7 +997,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const activityNickname = author.nickname?.trim() || (isActivityOwner ? profile?.nickname?.trim() || user?.displayName?.trim() : null) || tCommon("label.rider");
   const activityProfileImage = author.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
   const hasAnalysisRoute = !!streams?.latlng?.length;
-  const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute || activityIndependentRoute(streams));
+  const hasTrack = !!(publicAccess?.routeParts?.length || activity.thumbnailTrack || hasAnalysisRoute || activityIndependentRoute(streams));
   const canCreateFromOwnRoute = isActivityOwner && hasAnalysisRoute && sport !== "swim";
   const canRegisterPublicRoute = !!user && !isActivityOwner && activity.visibility === "everyone" && hasTrack && sport !== "swim";
   const canRideActivityRoute = (isActivityOwner || activity.visibility === "everyone") && sport === "ride" && hasTrack;
@@ -1315,12 +1315,12 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
                 if (publicAccess) {
                   const fresh = await publicAccess.session.client.load(activity.id);
                   const map = fresh.activity.visibility === "everyone" ? fresh.mapPreview : null;
-                  return { encodedPolyline: map?.encodedPolyline ?? null, imageUrl: map?.imageUrl ?? null, revision: JSON.stringify([fresh.activity.activityRevision, map]) };
+                  return { encodedPolyline: map?.encodedPolylineParts ? null : map?.encodedPolyline ?? null, imageUrl: map?.encodedPolylineParts ? null : map?.imageUrl ?? null, revision: JSON.stringify([fresh.activity.activityRevision, map]) };
                 }
                 const detail = await createActivityMapPrivacyClient(photoServices).load(activity.id);
                 if (photoServices.auth.currentUser !== viewer) throw new Error("account_changed");
                 const map = detail.visibility === "everyone" ? detail.mapPreview : null;
-                return { encodedPolyline: map?.encodedPolyline ?? null, imageUrl: map?.imageUrl ?? null,
+                return { encodedPolyline: map && "encodedPolylineParts" in map ? null : map?.encodedPolyline ?? null, imageUrl: map && "encodedPolylineParts" in map ? null : map?.imageUrl ?? null,
                   revision: JSON.stringify([detail.activityId, detail.revision, detail.visibility, map]) };
               }}
               onFeedback={showToast}
@@ -1409,6 +1409,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       </div>}
       {(activeTab !== "analysis" || sport !== "ride" || analysisExploreOpen || explorationMounted) && <ActivityMediaPanel
         allowOwnerPreview={!publicAccess}
+        publicRouteParts={publicAccess?.routeParts}
         activity={activity}
         streams={streams}
         sport={sport}

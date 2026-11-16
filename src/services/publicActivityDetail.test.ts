@@ -1,3 +1,4 @@
+import { encodePolyline } from "../utils/polyline";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { createPublicActivityClient } from "./publicActivityDetail";
@@ -112,4 +113,15 @@ it("aborts fallback before AppCheck finishes without late dispatch", async () =>
  const controller = new AbortController(); const promise = createPublicActivityClient(services("owner"), { timeoutMs: 3000, signal: controller.signal }).load("a");
  controller.abort(); await expect(promise).rejects.toThrow("activity_request_aborted"); ready(); await Promise.resolve();
  expect(mocks.call).not.toHaveBeenCalled();
+});
+
+it("validates segmented public detail geometry and never reuses its old image", async () => {
+ const encodedPolylineParts = [encodePolyline([[37,127],[37.01,127.01]]),encodePolyline([[38,128],[38.01,128.01]])];
+ const result = { activity:{id:"a"},content:{activityId:"a"},viewerHasKudos:false,mapPreview:{encodedPolyline:null,encodedPolylineParts,imageUrl:"https://example.test/old"} };
+ mocks.call.mockResolvedValueOnce({data:result});
+ expect((await createPublicActivityClient(services(null)).load("a")).mapPreview).toEqual({...result.mapPreview,imageUrl:null});
+ for (const encodedPolylineParts of [[],["_"],Array(101).fill("????")]) {
+  mocks.call.mockResolvedValueOnce({data:{...result,mapPreview:{...result.mapPreview,encodedPolylineParts}}});
+  await expect(createPublicActivityClient(services(null)).load("a")).rejects.toThrow("invalid_public_activity");
+ }
 });
