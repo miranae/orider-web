@@ -65,6 +65,12 @@ let accountTransition: Promise<void> | null = null;
 // 표면을 열면 안 되고, 다음 격리 시도가 새 인스턴스 생성부터 다시 한다.
 let firestoreNeedsRecreate = false;
 
+// 에뮬레이터 포트 — 기본은 firebase.json 로컬 포트이고, 다른 포트로 띄운 에뮬레이터(앱 E2E Lab 의
+// demo-orider-lab 등)를 쓸 때만 VITE_*_EMULATOR_PORT 로 바꾼다(일반 웹 Firebase 초기화와 같은 규칙).
+function emulatorPort(raw: string | undefined, fallback: number): number {
+  return Number(raw || fallback);
+}
+
 export interface EmbeddedFirebaseServices {
   app: FirebaseApp;
   auth: Auth;
@@ -85,7 +91,9 @@ function createEmbeddedFirestore(app: FirebaseApp): Firestore {
       }),
     }),
   });
-  if (emulatorRuntime) connectFirestoreEmulator(firestore, "localhost", 8080);
+  if (emulatorRuntime) {
+    connectFirestoreEmulator(firestore, "localhost", emulatorPort(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT, 8080));
+  }
   return firestore;
 }
 
@@ -221,8 +229,9 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
   );
 
   if (emulatorRuntime) {
-    connectAuthEmulator(embeddedAuth, "http://localhost:9099", { disableWarnings: true });
-    connectFunctionsEmulator(embeddedFunctions, "localhost", 5001);
+    const authPort = emulatorPort(import.meta.env.VITE_AUTH_EMULATOR_PORT, 9099);
+    connectAuthEmulator(embeddedAuth, `http://localhost:${authPort}`, { disableWarnings: true });
+    connectFunctionsEmulator(embeddedFunctions, "localhost", emulatorPort(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT, 5001));
   } else {
     if (!siteKey) throw new Error("embedded-app-check/missing-site-key");
     // 로컬 개발 전용 App Check 디버그 토큰. reCAPTCHA Enterprise 는 등록된 도메인에서만

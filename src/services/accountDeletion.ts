@@ -6,7 +6,7 @@ import { listSocialLinks, startSocialAuth } from "./socialAuth";
 
 const deletionFunctions = getRuntimeConfig().appEnvironment === "stage"
   ? functions : getFunctions(functions.app, "asia-northeast3");
-if (isEmulatorRuntime() && deletionFunctions !== functions) connectFunctionsEmulator(deletionFunctions, "localhost", 5001);
+if (isEmulatorRuntime() && deletionFunctions !== functions) connectFunctionsEmulator(deletionFunctions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
 
 export interface AccountDeletionStatus {
   state: "pending" | "processing" | "retrying" | "manual_required" | "complete";
