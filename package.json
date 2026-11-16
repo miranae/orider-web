@@ -47,7 +47,7 @@
     "test:product-invariants": "node --test scripts/check-product-invariants.test.mjs",
     "test:linear-backport": "node --test scripts/sync-main-to-dev.test.mjs",
     "test:production-monitor": "node --test scripts/production-monitor.test.mjs",
-    "test:review-context": "node --test scripts/review-context.test.mjs",
+    "test:review-context": "node --test scripts/review-context.test.mjs scripts/review-source-batches.test.mjs",
     "test:eslint-embedded-firebase": "node --test scripts/eslint-embedded-firebase.test.mjs",
     "test:embed-isolation": "npm run test:vitest -- src/embedded/EmbeddedBootstrapRoot.athleteIsolation.test.tsx"
   },
