@@ -23,7 +23,6 @@ checkIsolatedStageConfig({
   aiApiBase: process.env.VITE_ORIDER_AI_API_BASE,
   personalApiBase: process.env.VITE_ORIDER_PERSONAL_API_BASE,
   segmentTilesBase: process.env.VITE_SEGMENT_TILES_BASE,
-  heatmapBase: process.env.VITE_HEATMAP_BASE,
   stravaRedirectUri: process.env.VITE_STRAVA_REDIRECT_URI,
   useEmulators: process.env.VITE_USE_EMULATORS === "true",
 });

@@ -11,7 +11,6 @@ import { stripLangPrefix } from "../i18n/detector";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import MapGL, { Source, Layer, Popup, useMap } from "react-map-gl/mapbox";
-import HeatmapLayer, { type HeatMode } from "../components/explore/HeatmapLayer";
 import PersonalHeatmapLayer from "../components/explore/PersonalHeatmapLayer";
 import ExplorationGridLayer from "../components/explore/ExplorationGridLayer";
 import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
@@ -393,7 +392,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
   });
   const [mapZoom, setMapZoom] = useState(initialView.zoom ?? 7);
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
-  const [heatMode, setHeatMode] = useState<HeatMode>("off");
+  const [heatMode, setHeatMode] = useState<"off" | "mine">("off");
   const { user } = useAuth();
   const personalHeatmap = usePersonalHeatmap(user?.uid, heatMode === "mine");
   useEffect(() => {
@@ -782,8 +781,10 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
           <div data-testid="E2-1" className="h-[55vh] lg:h-auto lg:flex-[2] relative">
             {/* 히트맵 토글 (#493) */}
             <div className="segment-map-tools absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+              {/* 선택지가 "끄기" 하나뿐인 비로그인 상태에서는 선택 UI 를 숨긴다 */}
+              {user && (
               <div className="segment-heatmap-options flex gap-1">
-              {(["off", "global", "recent30", ...(user ? ["mine" as const] : [])] as HeatMode[]).map((m) => (
+              {(["off", "mine"] as const).map((m) => (
                 <button data-testid="E2-1-2"
                   key={m}
                   onClick={() => setHeatMode(m)}
@@ -794,6 +795,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
                 </button>
               ))}
               </div>
+              )}
               {heatMode === "mine" && user && (
                 <div className="segment-map-note max-w-64 rounded-[var(--r-sm)] px-2 py-1 text-right text-[length:var(--ft-body-size)]">
                   {personalHeatmap.loading
@@ -849,7 +851,6 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
               <FlyToSegment segmentId={selectedId} polylineCache={polylineCache.current} segments={allSegments} />
 
               {/* 발견 히트맵 — 세그먼트 아래 렌더(#493) */}
-              <HeatmapLayer mode={heatMode} />
               {heatMode === "mine" && user && <PersonalHeatmapLayer points={personalHeatmap.points} />}
               {showExplorationGrid && user && <ExplorationGridLayer tiles={explorationGrid.result.tiles} />}
 

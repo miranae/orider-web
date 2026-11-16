@@ -48,7 +48,7 @@ describe("isolated stage Firebase identity", () => {
   ])("blocks wrong Firebase identity before SDK initialization %j", overrides => {
     expect(() => assertIsolatedStageRuntime({ ...stage, ...overrides }, "orider-dev.web.app")).toThrow("stage/firebase-identity-mismatch");
   });
-  it.each(["aiApiBase", "personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"] as const)("blocks production service %s", key => {
+  it.each(["aiApiBase", "personalApiBase", "segmentTilesBase", "stravaRedirectUri"] as const)("blocks production service %s", key => {
     expect(() => assertIsolatedStageRuntime({ ...stage, [key]: "https://orider.co.kr/api" })).toThrow("stage/service-origin-mismatch");
   });
   it.each([undefined, "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net"])("rejects absent or production callable endpoint %s", firebaseFunctionsBase => {
@@ -71,7 +71,7 @@ it("allows only the exact reviewed personal API host for its own config key", ()
 it("allows only the exact reviewed AI API origin for its own config key", () => {
   const uri = "https://orider-ai-api-qa-firstpass-ldfyfyx5da-du.a.run.app";
   expect(() => assertIsolatedStageRuntime({ ...stage, aiApiBase: uri })).not.toThrow();
-  for (const key of ["personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"] as const) {
+  for (const key of ["personalApiBase", "segmentTilesBase", "stravaRedirectUri"] as const) {
     expect(() => assertIsolatedStageRuntime({ ...stage, [key]: uri })).toThrow("stage/service-origin-mismatch");
   }
   for (const aiApiBase of [

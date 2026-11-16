@@ -8,13 +8,13 @@ export function checkIsolatedStageConfig(config) {
   if (config.firebaseFunctionsRegion !== "asia-northeast3") throw new Error("isolated stage Functions region mismatch");
   if (config.firebaseFunctionsBase !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage callable endpoint mismatch");
   if (config.socialAuthFunctionsBase && config.socialAuthFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net") throw new Error("stage social Auth endpoint mismatch");
-  for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"]) {
+  for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "stravaRedirectUri"]) {
     if (!config[key]) continue;
     const url = new URL(config[key]);
     const isolated = ["orider-dev.web.app", "orider-dev.firebaseapp.com", "asia-northeast3-orider-dev.cloudfunctions.net"].includes(url.hostname)
       || (key === "personalApiBase" && url.origin === "https://qapersonalapi-ldfyfyx5da-du.a.run.app")
       || (key === "aiApiBase" && url.origin === "https://orider-ai-api-qa-firstpass-ldfyfyx5da-du.a.run.app")
-      || (["segmentTilesBase", "heatmapBase"].includes(key) && url.hostname === "storage.googleapis.com" && /^\/miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname));
+      || (key === "segmentTilesBase" && url.hostname === "storage.googleapis.com" && /^\/miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname));
     if (url.protocol !== "https:" || !isolated || url.username || url.password) throw new Error(`isolated stage service origin mismatch: ${key}`);
   }
   if (config.useEmulators === true) throw new Error("deployed stage cannot use emulators");

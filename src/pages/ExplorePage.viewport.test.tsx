@@ -6,7 +6,6 @@ import ExplorePage from "./ExplorePage";
 const { mapProps, fitBounds } = vi.hoisted(() => ({ mapProps:vi.fn(), fitBounds:vi.fn() }));
 vi.mock("../utils/mapbox", () => ({getMapboxToken:()=>"test-token",MAP_STYLE:"test-style",DEFAULT_VIEW:{latitude:36.5,longitude:127.5,zoom:7},applyKoreaCyclingStyle:vi.fn()}));
 vi.mock("react-map-gl/mapbox",()=>({default:(props: {children:React.ReactNode})=>{mapProps(props);return <div>{props.children}</div>;},Source:()=>null,Layer:()=>null,Popup:()=>null,useMap:()=>({current:{fitBounds}})}));
-vi.mock("../components/explore/HeatmapLayer",()=>({default:()=>null}));
 vi.mock("../components/explore/PersonalHeatmapLayer",()=>({default:()=>null}));
 vi.mock("../components/explore/ExplorationGridLayer",()=>({default:()=>null}));
 vi.mock("../hooks/useExplorationGrid",()=>({useExplorationGrid:()=>({result:{tiles:[],tileCount:383,maxSquare:4},loading:false,error:false})}));
@@ -71,4 +70,16 @@ it("retains a newer search draft when an older query is saved to the URL",async(
   await act(async()=>{await vi.advanceTimersByTimeAsync(500);});
   expect(input).toHaveValue("Global");
  } finally {vi.useRealTimers();}
+});
+
+it("hides the heatmap selector when signed out because only off would remain",async()=>{
+ renderWithProviders(<ExplorePage/>,{route:"/explore/segments"});
+ await screen.findByText("Global climb");
+ expect(screen.queryByTestId("E2-1-2")).not.toBeInTheDocument();
+});
+
+it("offers only off and my heatmap, without global or last-30-days options",async()=>{
+ renderWithProviders(<ExplorePage/>,{route:"/explore/segments",authenticated:true});
+ const options = await screen.findAllByTestId("E2-1-2");
+ expect(options.map(o=>o.textContent)).toEqual(["히트맵 끄기","내 히트맵"]);
 });

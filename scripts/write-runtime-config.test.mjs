@@ -90,7 +90,7 @@ const isolatedStage = {
   VITE_FIREBASE_STORAGE_BUCKET: "miranae-orider-g1.firebasestorage.app", VITE_FIREBASE_APP_ID: "1:289663940841:web:ba08cdae154286e6499878",
   VITE_FIREBASE_MESSAGING_SENDER_ID: "289663940841", VITE_FIREBASE_FUNCTIONS_REGION: "asia-northeast3", VITE_FIREBASE_FUNCTIONS_BASE: "https://asia-northeast3-orider-dev.cloudfunctions.net",
   VITE_STRAVA_CLIENT_ID: "", VITE_STRAVA_REDIRECT_URI: "", VITE_ORIDER_AI_API_BASE: "",
-  VITE_ORIDER_PERSONAL_API_BASE: "", VITE_SEGMENT_TILES_BASE: "", VITE_HEATMAP_BASE: "", VITE_USE_EMULATORS: "false",
+  VITE_ORIDER_PERSONAL_API_BASE: "", VITE_SEGMENT_TILES_BASE: "", VITE_USE_EMULATORS: "false",
 };
 test("writes isolated stage without enabling unavailable production providers", () => {
   const config = render(isolatedStage);
