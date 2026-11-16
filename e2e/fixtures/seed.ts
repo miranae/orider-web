@@ -34,7 +34,8 @@ async function putDoc(collection: string, docId: string, data: Record<string, un
   const resp = await fetch(`${firestoreUrl(collection)}/${docId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer owner' },
-    body: JSON.stringify({ fields: toFirestoreFields(data) }),
+    body: JSON.stringify({ fields: toFirestoreFields(collection === 'activities' && data.source === 'orider'
+      ? { ...data, nativeFeedMemoV1: { version: 1, userId: data.userId, memo: data.description ?? '' } } : data) }),
   });
   if (!resp.ok) {
     const text = await resp.text();
@@ -385,4 +386,14 @@ export async function clearEmulatorData() {
     `${FIRESTORE_EMULATOR}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
     { method: 'DELETE' },
   );
+}
+
+/** 계획 변경 카드의 전제인 활성 목표를 실제 에뮬레이터에 만듭니다. */
+export async function seedTrainingGoal(userId: string) {
+  await putDoc(`users/${userId}/goals`, 'e2e-training-decision', {
+    id: 'e2e-training-decision', userId, discipline: 'bike', goalType: 'fitness',
+    title: 'E2E 훈련 목표', status: 'active', courseId: null, courseName: 'E2E',
+    courseDist: 100, courseElev: 500, eventType: 'completion', eventDate: NOW + 30 * 24 * HOUR,
+    weeklySessions: 3, createdAt: NOW, updatedAt: NOW,
+  });
 }

@@ -17,8 +17,8 @@ test.describe('Explore / Segments', () => {
 
   test('shows the canonical segment page', async ({ seededPage: page }) => {
     await page.goto('/ko/explore/segments', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: '세그먼트', exact: true })).toBeVisible();
-    await expect(page.getByText('세그먼트를 찾아보고 도전해보세요')).toBeVisible();
+    await expect(page.getByRole('link', { name: '세그먼트', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('textbox', { name: '세그먼트 이름 또는 지역' })).toBeVisible();
   });
 
   test('searches the tile-backed segment list', async ({ seededPage: page }) => {

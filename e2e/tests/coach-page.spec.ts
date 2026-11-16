@@ -160,7 +160,7 @@ test.describe("CoachPage", () => {
     const coachEntry = page.getByRole('link', { name: '대화', exact: true });
     await expect(coachEntry).toBeVisible();
     await expect(coachEntry).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole("button", { name: "새 대화" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "AI 코치에게 물어보기" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   });
 

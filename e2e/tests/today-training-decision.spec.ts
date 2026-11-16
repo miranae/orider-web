@@ -1,4 +1,6 @@
 import { test, expect, TEST_EMAIL, TEST_PASSWORD } from "../fixtures/test-fixtures";
+import { signInUser } from "../fixtures/auth";
+import { seedTrainingGoal } from "../fixtures/seed";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import {
   coachCapabilitiesE2eEnvelope, executionListE2eEnvelope, proposalRecoveryE2eEnvelope,
@@ -148,18 +150,11 @@ test.describe("Current training decision surfaces", () => {
     await expect(page.locator(".training-decision-card")).toHaveCount(0);
   });
 
-  test("condition shows diagnosis while Plan owns change actions and keyboard order", async ({ page }, testInfo) => {
+  test("Plan owns change actions and keyboard order", async ({ page }, testInfo) => {
     await mockTodayTraining(page, { execution: "executable", proposal: "pending" });
+    const { localId } = await signInUser(TEST_EMAIL, TEST_PASSWORD);
+    await seedTrainingGoal(localId);
     await signIn(page);
-    await page.goto("/ko/coach/condition?sport=bike");
-    const condition = page.locator(".training-decision-card--fitness").first();
-    await waitForStableDecision(page, condition);
-    await expect(condition.getByText("부하 상태 high_load", { exact: false })).toBeVisible();
-    await expect(condition.getByRole("button", { name: "AI 코치에게 분석 요청" })).toBeVisible();
-    await expect(condition.getByText("운동 실행")).toHaveCount(0);
-    await expect(condition.getByText("계획 변경 검토")).toHaveCount(0);
-    await attachFullPageFromTop(page, testInfo, `training-condition-${testInfo.project.name}.png`);
-
     await page.goto("/ko/coach/plan?sport=bike");
     const plan = page.locator(".training-decision-card--plan").first();
     await waitForStableDecision(page, plan);
@@ -177,6 +172,8 @@ test.describe("Current training decision surfaces", () => {
   test("Plan distinguishes pending, applied, declined and stale proposals", async ({ page }, testInfo) => {
     const mutable = { execution: "reserved" as ExecutionFixtureState, proposal: "pending" as ProposalFixtureState };
     await mockTodayTraining(page, mutable);
+    const { localId } = await signInUser(TEST_EMAIL, TEST_PASSWORD);
+    await seedTrainingGoal(localId);
     await signIn(page);
     for (const state of ["pending", "applied", "declined", "stale"] as const) {
       mutable.proposal = state;
@@ -194,13 +191,12 @@ test.describe("Current training decision surfaces", () => {
     }
   });
 
-  test("condition explains an unavailable decision and exposes retry", async ({ page }) => {
+  test("condition keeps its diagnostic chart without the retired all-in-one card", async ({ page }) => {
     await mockTodayTraining(page, { execution: "executable", proposal: "pending", decisionUnavailable: true });
     await signIn(page);
     await page.goto("/ko/coach/condition?sport=bike");
-    const card = page.locator('[data-training-decision-fallback="unavailable"]').first();
-    await expect(card.getByRole("heading", { name: "오늘 계획을 불러오지 못했습니다" })).toBeVisible();
-    await expect(card.getByRole("button", { name: "새로 확인" })).toBeVisible();
-    await expectContainedReflow(card);
+    await expect(page.getByRole("img", { name: /^컨디션 변화/ })).toBeVisible();
+    await expect(page.locator(".training-decision-card")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "코치에게 묻기", exact: true })).toBeVisible();
   });
 });
