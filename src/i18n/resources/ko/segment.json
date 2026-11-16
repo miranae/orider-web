@@ -227,8 +227,6 @@
   "leaderboardPage.rider.noRanking": "랭킹이 아직 없어요",
   "leaderboardPage.rider.noRankingDesc": "그룹 페이지에서 랭킹을 갱신하면 표시됩니다.",
   "heat.off": "히트맵 끄기",
-  "heat.global": "전체",
-  "heat.recent30": "최근 30일",
   "heat.mine": "내 히트맵",
   "heat.mineLoading": "최근 12개월 경로를 불러오는 중…",
   "heat.mineError": "내 경로를 불러오지 못했어요.",

@@ -26,7 +26,6 @@ interface ImportMetaEnv {
   readonly VITE_STRAVA_CLIENT_ID: string;
   readonly VITE_STRAVA_REDIRECT_URI: string;
   readonly VITE_SEGMENT_TILES_BASE: string;
-  readonly VITE_HEATMAP_BASE: string;
   readonly VITE_MAPBOX_TOKEN?: string;
   readonly VITE_ORIDER_PERSONAL_API_BASE?: string;
   readonly VITE_FIREBASE_FUNCTIONS_REGION?: string;

@@ -4,16 +4,34 @@ import { onSnapshot } from 'firebase/firestore';
 import { setCollectionDocs } from '../../__tests__/mocks/firebase';
 import { setBoardAuthorBlocked, useBoardBlocks } from './useBoardBlocks';
 import { functions } from '../../services/firebase';
-const mocks = vi.hoisted(() => ({ uid: 'owner', call: vi.fn(), getFunctions: vi.fn(() => ({})) }));
+const mocks = vi.hoisted(() => ({ uid: 'owner', call: vi.fn(), getFunctions: vi.fn(() => ({})), connect: vi.fn(), emulator: false }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.uid ? { uid: mocks.uid } : null }) }));
 vi.mock('../../services/firebase', () => ({ ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn(), auth: {}, storage: {}, firestore: {}, functions: { app: { name: 'test' } } }));
-vi.mock('firebase/functions', () => ({ getFunctions: mocks.getFunctions, httpsCallable: vi.fn(() => mocks.call), connectFunctionsEmulator: vi.fn() }));
-beforeEach(() => { mocks.uid = 'owner'; mocks.call.mockReset().mockResolvedValue({ data: {} }); });
+vi.mock('firebase/functions', () => ({ getFunctions: mocks.getFunctions, httpsCallable: vi.fn(() => mocks.call), connectFunctionsEmulator: mocks.connect }));
+vi.mock('../../services/runtimeConfig', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../services/runtimeConfig')>()), isEmulatorRuntime: () => mocks.emulator }));
+beforeEach(() => { mocks.uid = 'owner'; mocks.emulator = false; mocks.connect.mockReset(); mocks.call.mockReset().mockResolvedValue({ data: {} }); });
 it('uses canonical regional server block mutation for both block and undo', async () => {
   await setBoardAuthorBlocked('target', true, functions);
   await setBoardAuthorBlocked('target', false, functions);
   expect(mocks.getFunctions).toHaveBeenCalledWith(expect.anything(), 'asia-northeast3');
   expect(mocks.call.mock.calls).toEqual([[{ targetUid: 'target', blocked: true }], [{ targetUid: 'target', blocked: false }]]);
+});
+it('connects the regional block callable to the configured Functions emulator port', async () => {
+  mocks.emulator = true;
+  vi.stubEnv('VITE_FUNCTIONS_EMULATOR_PORT', '5599');
+  try {
+    await setBoardAuthorBlocked('target', true, functions);
+    expect(mocks.connect).toHaveBeenCalledWith(expect.anything(), 'localhost', 5599);
+    vi.stubEnv('VITE_FUNCTIONS_EMULATOR_PORT', '');
+    await setBoardAuthorBlocked('target', false, functions);
+    expect(mocks.connect).toHaveBeenLastCalledWith(expect.anything(), 'localhost', 5001);
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+it('does not connect to an emulator outside the emulator runtime', async () => {
+  await setBoardAuthorBlocked('target', true, functions);
+  expect(mocks.connect).not.toHaveBeenCalled();
 });
 it('subscribes to canonical blocks and discards previous account state immediately', async () => {
   setCollectionDocs('users/owner/blocks', [{ id: 'target', targetUid: 'target' }]);

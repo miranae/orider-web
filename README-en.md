@@ -60,7 +60,7 @@ For new features or larger changes, prefer moving queries, mutations, types, and
 
 - **Ride analysis**: activity detail, maps, power/zone/lap/segment analysis, GPX/TCX/FIT/CSV exports
 - **Fitness and training**: bike/run/swim/triathlon views, plans, logs, today's workout, pure training calculations
-- **Routes and discovery**: `/discover`, `/explore`, course creation/editing, segments, leaderboards, heatmap/tile integration
+- **Routes and discovery**: `/discover`, `/explore`, course creation/editing, segments, leaderboards, personal heatmap/tile integration
 - **Community and Creator Hub**: board, friends, athlete profiles, personal-data recipes, share cards
 - **Groups and events**: group dashboards, member/ride management, event registration, live views, results, organizer screens
 

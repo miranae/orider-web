@@ -227,8 +227,6 @@
   "leaderboardPage.rider.noRanking": "No ranking yet",
   "leaderboardPage.rider.noRankingDesc": "Refresh the ranking on the group page to see it here.",
   "heat.off": "Heatmap off",
-  "heat.global": "All",
-  "heat.recent30": "Last 30d",
   "heat.mine": "My heatmap",
   "heat.mineLoading": "Loading routes from the last 12 months…",
   "heat.mineError": "Couldn't load your routes.",

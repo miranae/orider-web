@@ -16,7 +16,6 @@ export interface RuntimeConfig {
   stravaClientId?: string;
   stravaRedirectUri?: string;
   segmentTilesBase?: string;
-  heatmapBase?: string;
   mapboxToken?: string;
   personalApiBase?: string;
   aiApiBase?: string;
@@ -92,7 +91,6 @@ function readBuildFallbackConfig(): RuntimeConfig {
     stravaClientId: import.meta.env.VITE_STRAVA_CLIENT_ID,
     stravaRedirectUri: import.meta.env.VITE_STRAVA_REDIRECT_URI,
     segmentTilesBase: import.meta.env.VITE_SEGMENT_TILES_BASE,
-    heatmapBase: import.meta.env.VITE_HEATMAP_BASE,
     mapboxToken: import.meta.env.VITE_MAPBOX_TOKEN,
     personalApiBase: import.meta.env.VITE_ORIDER_PERSONAL_API_BASE,
     aiApiBase: import.meta.env.VITE_ORIDER_AI_API_BASE,
@@ -206,13 +204,13 @@ export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = glo
     || config.firebaseMessagingSenderId !== "289663940841" || config.firebaseFunctionsRegion !== "asia-northeast3"
     || config.useEmulators === true) throw new Error("stage/firebase-identity-mismatch");
   if (config.firebaseFunctionsBase !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage/callable-endpoint-mismatch");
-  for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "heatmapBase", "stravaRedirectUri"] as const) {
+  for (const key of ["aiApiBase", "personalApiBase", "segmentTilesBase", "stravaRedirectUri"] as const) {
     if (!config[key]) continue;
     const url = new URL(config[key]);
     const isolated = ["orider-dev.web.app", "orider-dev.firebaseapp.com", "asia-northeast3-orider-dev.cloudfunctions.net"].includes(url.hostname)
       || (key === "personalApiBase" && url.origin === "https://qapersonalapi-ldfyfyx5da-du.a.run.app")
       || (key === "aiApiBase" && url.origin === "https://orider-ai-api-qa-firstpass-ldfyfyx5da-du.a.run.app")
-      || (["segmentTilesBase", "heatmapBase"].includes(key) && url.hostname === "storage.googleapis.com" && /^\/miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname));
+      || (key === "segmentTilesBase" && url.hostname === "storage.googleapis.com" && /^\/miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname));
     if (url.protocol !== "https:" || !isolated || url.username || url.password) throw new Error(`stage/service-origin-mismatch:${key}`);
   }
 }

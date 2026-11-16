@@ -52,14 +52,13 @@ export function productionDataConfig(source) {
     personalApiBase: [PRODUCTION_ORIGIN], aiApiBase: [PRODUCTION_AI_ORIGIN],
     stravaRedirectUri: ["https://orider-strava.web.app"],
     segmentTilesBase: ["https://storage.googleapis.com", PRODUCTION_ORIGIN],
-    heatmapBase: ["https://storage.googleapis.com", PRODUCTION_ORIGIN],
   };
   for (const [key, origins] of Object.entries(allowed)) {
     if (!config[key]) continue;
     const url = new URL(config[key], PRODUCTION_ORIGIN);
     if (!origins.includes(url.origin) || url.username || url.password || url.hash) throw new Error(`production data service origin mismatch: ${key}`);
     if (["personalApiBase", "aiApiBase"].includes(key) && (url.pathname !== "/" || url.search)) throw new Error(`production data service base path mismatch: ${key}`);
-    if (["segmentTilesBase", "heatmapBase"].includes(key) && url.hostname === "storage.googleapis.com"
+    if (key === "segmentTilesBase" && url.hostname === "storage.googleapis.com"
       && !/^\/miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)\//.test(url.pathname)) throw new Error(`production data Storage path mismatch: ${key}`);
     config[key] = url.href.replace(/\/$/, "");
   }
@@ -75,7 +74,7 @@ export function productionBuildEnv(config) {
     firebaseFunctionsRegion: "VITE_FIREBASE_FUNCTIONS_REGION", firebaseFunctionsBase: "VITE_FIREBASE_FUNCTIONS_BASE",
     appCheckRecaptchaSiteKey: "VITE_APPCHECK_RECAPTCHA_SITE_KEY", stravaClientId: "VITE_STRAVA_CLIENT_ID", stravaRedirectUri: "VITE_STRAVA_REDIRECT_URI",
     mapboxToken: "VITE_MAPBOX_TOKEN", aiApiBase: "VITE_ORIDER_AI_API_BASE", personalApiBase: "VITE_ORIDER_PERSONAL_API_BASE",
-    segmentTilesBase: "VITE_SEGMENT_TILES_BASE", heatmapBase: "VITE_HEATMAP_BASE",
+    segmentTilesBase: "VITE_SEGMENT_TILES_BASE",
     trainingDecisionCanonicalEnabled: "VITE_TRAINING_DECISION_CANONICAL_ENABLED", canonicalConsumersEnabled: "VITE_CANONICAL_CONSUMERS_ENABLED",
     canonicalWeatherEnabled: "VITE_CANONICAL_WEATHER", canonicalCourseEnabled: "VITE_CANONICAL_COURSE", canonicalMaintenanceEnabled: "VITE_CANONICAL_MAINTENANCE",
     canonicalMilestonesEnabled: "VITE_CANONICAL_MILESTONES", canonicalRolloutEnabled: "VITE_CANONICAL_ROLLOUT_ENABLED",

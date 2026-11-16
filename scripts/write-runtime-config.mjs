@@ -53,7 +53,6 @@ const config = {
   stravaClientId: readEnv("VITE_STRAVA_CLIENT_ID"),
   stravaRedirectUri: readEnv("VITE_STRAVA_REDIRECT_URI"),
   segmentTilesBase: readEnv("VITE_SEGMENT_TILES_BASE"),
-  heatmapBase: readEnv("VITE_HEATMAP_BASE"),
   mapboxToken: readEnv("VITE_MAPBOX_TOKEN"),
   personalApiBase: readEnv("VITE_ORIDER_PERSONAL_API_BASE"),
   aiApiBase: readEnv("VITE_ORIDER_AI_API_BASE"),

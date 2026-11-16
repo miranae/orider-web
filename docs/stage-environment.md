@@ -42,7 +42,6 @@ Required `stage` environment variables:
 - `STAGE_VITE_FIREBASE_FUNCTIONS_REGION`
 - `STAGE_VITE_STRAVA_REDIRECT_URI`
 - `STAGE_VITE_SEGMENT_TILES_BASE`
-- `STAGE_VITE_HEATMAP_BASE`
 
 Required `stage` environment secrets:
 
