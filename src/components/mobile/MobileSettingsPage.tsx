@@ -15,7 +15,7 @@ export default function MobileSettingsPage() {
       <header className="mobile-settings-header">
         <LocalizedLink
           to="/athlete/me"
-          className="mobile-settings-back"
+          className="mobile-settings-back ds-tap-target"
           aria-label={t("nav.backToProfile")}
         >
           <ChevronLeft size={ICON_SIZE.lg} aria-hidden="true" />

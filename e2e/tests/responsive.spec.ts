@@ -1,23 +1,41 @@
 import { test, expect } from '../fixtures/test-fixtures';
 
 test.describe('Responsive Layout', () => {
-  test('mobile shows bottom tab bar', async ({ seededPage: page }) => {
-    test.skip(test.info().project.name !== 'mobile', 'Bottom tab bar only on mobile');
-
-    // 시드 로케일과 무관하게 주 탭 내비게이션을 검증한다.
-    const tabBar = page.getByRole('tablist', { name: /(주 네비게이션|Main navigation)/ });
-    await expect(tabBar).toBeVisible();
-    await expect(tabBar.getByRole('tab', { selected: true })).toBeVisible();
+  test('compact navigation stays readable and tappable across locales and themes', async ({ seededPage: page }, testInfo) => {
+    test.skip(testInfo.project.name === 'desktop', '하단 탐색은 모바일·태블릿에 표시됩니다.');
+    const widths = testInfo.project.name === 'mobile' ? [320, 390] : [768];
+    for (const width of widths) for (const locale of ['ko', 'en']) for (const theme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.emulateMedia({ colorScheme: theme });
+      await page.goto(`/${locale}/`, { waitUntil: 'domcontentloaded' });
+      const nav = page.getByRole('navigation', { name: locale === 'ko' ? '메인 내비게이션' : 'Main navigation', exact: true });
+      await expect(nav).toBeVisible();
+      await expect(nav.locator('a[aria-current="page"]')).toHaveCount(1);
+      await expect(nav.getByRole('link')).toHaveCount(5);
+      await page.evaluate(() => document.fonts.ready);
+      const geometry = await nav.getByRole('link').evaluateAll(links => links.map(link => {
+        const bounds = link.getBoundingClientRect();
+        const label = link.querySelector('span')!;
+        const text = label.getBoundingClientRect();
+        return { width: bounds.width, height: bounds.height, font: parseFloat(getComputedStyle(label).fontSize),
+          clipped: label.scrollWidth > label.clientWidth || text.left < bounds.left || text.right > bounds.right || text.bottom > bounds.bottom };
+      }));
+      for (const item of geometry) {
+        expect(item.font).toBeGreaterThanOrEqual(12);
+        expect(item.width).toBeGreaterThanOrEqual(44);
+        expect(item.height).toBeGreaterThanOrEqual(44);
+        expect(item.clipped).toBe(false);
+      }
+      await testInfo.attach(`bottom-navigation-${width}-${locale}-${theme}`, { body: await nav.screenshot(), contentType: 'image/png' });
+    }
   });
 
   test('mobile hides desktop header nav', async ({ seededPage: page }) => {
     test.skip(test.info().project.name !== 'mobile', 'This assertion targets the 390px compact header');
 
     // Full desktop navigation starts at 1024px; mobile stays on the compact header.
-    const desktopNav = page.locator('.hidden.lg\\:flex');
-    if (await desktopNav.count() > 0) {
-      await expect(desktopNav.first()).not.toBeVisible();
-    }
+    await expect(page.getByTestId('X1-1').first().getByRole('link', { name: '코치', exact: true })).toBeHidden();
+    await expect(page.getByRole('button', { name: '더보기' })).toBeVisible();
   });
 
   test('tablet notification button opens a visible sheet', async ({ authenticatedPage: page }) => {
@@ -30,12 +48,8 @@ test.describe('Responsive Layout', () => {
   });
 
   test('desktop hides bottom tab bar', async ({ seededPage: page }) => {
-    test.skip(test.info().project.name === 'mobile', 'This test is for desktop');
+    test.skip(test.info().project.name !== 'desktop', '전체 헤더는 데스크톱 전용입니다.');
 
-    // Desktop should NOT show bottom tab bar (md:hidden)
-    const bottomTabs = page.locator('.fixed.bottom-0');
-    if (await bottomTabs.count() > 0) {
-      await expect(bottomTabs.first()).not.toBeVisible();
-    }
+    await expect(page.getByRole('navigation', { name: '메인 내비게이션', exact: true })).toBeHidden();
   });
 });
