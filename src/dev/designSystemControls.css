@@ -97,3 +97,5 @@ body { font-family: var(--font-sans); }
 .catalog-sport-icon-view { display: flex; flex-direction: column; gap: var(--space-3); }
 .catalog-sport-icon-sizes { display: flex; align-items: flex-end; gap: var(--space-5); }
 .catalog-sport-icon-sample { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); margin: 0; }
+
+.catalog-chip-wrap-example { width: min(100%, 18rem); min-width: 0; }

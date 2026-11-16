@@ -161,6 +161,7 @@
   line-height: 1.35;
   white-space: nowrap;
 }
+.ds-chip--wrap { max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: keep-all; }
 .ds-chip--accent {
   background: var(--accent-soft-bg);
   color: var(--control-accent-text);

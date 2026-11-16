@@ -59,10 +59,12 @@ describe('Card', () => {
 
 describe('Chip', () => {
 
-  it('selectable/onClick 칩은 키보드로 실행 가능', () => {
+  it.each([false, true])('줄바꿈=%s인 선택 칩은 키보드와 접근성 이름을 유지한다', (wrap) => {
     const onClick = vi.fn();
-    render(<Chip selectable onClick={onClick}>AI</Chip>);
+    render(<Chip selectable wrap={wrap} onClick={onClick}>긴 안내가 있는 정보 태그</Chip>);
     const chip = screen.getByRole('button');
+    expect(chip).toHaveAccessibleName('긴 안내가 있는 정보 태그');
+    expect(chip).not.toHaveAttribute('wrap');
     fireEvent.keyDown(chip, { key: ' ' });
     expect(onClick).toHaveBeenCalledTimes(1);
   });

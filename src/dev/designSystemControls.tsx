@@ -254,6 +254,10 @@ function ControlsCatalog() {
           <Section title="존별 시간 정렬" description="이름·비중·시간을 고정된 열로 비교합니다. 생성 데이터입니다."><ActivityReadingLayoutPreview /></Section>
           <Section title="시간별 최고 파워" description="공통 곡선 외형 · 생성 데이터. 실제 분석은 단위·기간·출처·선택을 기능에서 관리합니다."><DurationCurvePreview variant={theme} /></Section>
           <Text as="p" variant="bodySmall" tone="tertiary">Section은 제목·설명·관련 동작을 같은 기준선에 둡니다. 이어지는 표와 차트까지 매번 카드로 감싸지 않습니다. 소스: <code>src/theme/components/Card.tsx</code> · <code>Section.tsx</code>.</Text>
+          <div className="catalog-example-row">
+            <div><Text as="h3" variant="subtitle">긴 정보 태그</Text><code>Chip wrap</code><Text as="p" variant="bodySmall" tone="tertiary">좁은 화면에서도 문장을 생략하지 않고 가용 너비 안에서 줄바꿈합니다.</Text></div>
+            <div className="catalog-chip-wrap-example"><Chip wrap>최근 부하가 높아 원래 계획보다 가벼운 회복 운동을 권장합니다</Chip></div>
+          </div>
         </section>
 
         <section id="buttons" className="catalog-section">

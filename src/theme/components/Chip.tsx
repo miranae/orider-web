@@ -6,6 +6,8 @@ export type ChipVariant = 'default' | 'accent' | 'success' | 'warning' | 'danger
 export interface ChipProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: ChipVariant;
   selectable?: boolean;
+  /** 긴 태그의 내용 전체를 부모 너비 안에서 줄바꿈한다. 기본은 한 줄이다. */
+  wrap?: boolean;
   /** 필터 칩 선택 상태 — `aria-pressed` 로 노출되어 HIG 필터 칩(청록 채움)으로 그려진다. */
   selected?: boolean;
   /** 좌측 작은 점 (상태 표시용). */
@@ -14,7 +16,7 @@ export interface ChipProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 export const Chip = forwardRef<HTMLSpanElement, ChipProps>(function Chip(
-  { variant = 'default', selectable, selected, dot, icon, className, children, ...rest },
+  { variant = 'default', selectable, selected, wrap, dot, icon, className, children, ...rest },
   ref,
 ) {
   const isInteractive = selectable || typeof rest.onClick === 'function';
@@ -25,7 +27,7 @@ export const Chip = forwardRef<HTMLSpanElement, ChipProps>(function Chip(
       role={rest.role ?? (isInteractive ? 'button' : undefined)}
       aria-pressed={rest['aria-pressed'] ?? (selected === undefined ? undefined : selected)}
       tabIndex={rest.tabIndex ?? (isInteractive ? 0 : undefined)}
-      className={cn('ds-chip', variant !== 'default' && `ds-chip--${variant}`, (selectable || selected !== undefined) ? 'ds-chip--selectable' : isInteractive && 'ds-chip--clickable', className)}
+      className={cn('ds-chip', wrap && 'ds-chip--wrap', variant !== 'default' && `ds-chip--${variant}`, (selectable || selected !== undefined) ? 'ds-chip--selectable' : isInteractive && 'ds-chip--clickable', className)}
       onKeyDown={(event) => {
         rest.onKeyDown?.(event);
         if (event.defaultPrevented || typeof rest.onClick !== 'function') return;

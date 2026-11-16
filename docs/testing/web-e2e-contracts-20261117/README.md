@@ -38,7 +38,7 @@ python3 tools/e2e-lab/lab.py run --app-ref dev --server-ref dev \
 
 전용 러닝은 같은 백엔드 dev의 Functions·Auth·Firestore·Storage를 `demo-orider-running-parity`로 실행한다. 검증용 폐기 체크아웃에서만 fixture의 loopback 포트, 보고서와 App Check 헤더를 주입하고 기존 전용 설정의 Chrome·두 화면 크기를 유지한다. 클럽 관전은 기존 SwiftShader 설정과 세 화면 크기를 유지한다. 테스트 본문을 임시로 바꿔 통과시키지 않는다.
 
-모든 실행의 제품·테스트 소스는 `22768c90b976ed543c37afda802b9540c92c865a`, 서버는 `0c05f797ffd32068c49c2aefd98dc11e4568ce4d`다. 아래 결과를 고정한 후 문서·스크린샷만 추가했다. 운영 계정·데이터·배포는 검증 대상이 아니다.
+모든 실행의 제품·테스트 소스는 `22768c90b976ed543c37afda802b9540c92c865a`, 서버는 `0c05f797ffd32068c49c2aefd98dc11e4568ce4d`다. 아래 표는 1차 완료 근거다. 리뷰에 따라 줄바꿈을 공통 `Chip wrap` 옵션과 실물 카탈로그로 옮겼으며 동일 소스로 재검증 중이다. 운영 계정·데이터·배포는 검증 대상이 아니다.
 
 | 실행 | 결과 |
 | --- | --- |
