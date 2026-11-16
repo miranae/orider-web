@@ -3,9 +3,10 @@ import { test, expect } from '../fixtures/test-fixtures';
 test.describe('Home Page', () => {
   test('shows activity feed with public activities', async ({ seededPage: page }) => {
     // Public activities should be visible
-    await expect(page.getByText('한강 라이딩 즐거웠습니다')).toBeVisible();
-    await expect(page.getByText('북한산 힐클라임 도전')).toBeVisible();
-    await expect(page.getByText('팔당댐 왕복')).toBeVisible();
+    await expect(page.getByText('한강 라이딩 즐거웠습니다', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('북한산 힐클라임 도전', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('팔당댐 왕복', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('동네 한바퀴', { exact: true })).toBeHidden();
   });
 
   test('shows hero banner for anonymous user', async ({ seededPage: page }) => {

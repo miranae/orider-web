@@ -14,7 +14,7 @@ test.describe('Navigation', () => {
     test.skip(testInfo.project.name !== 'desktop', '데스크톱 허브 보조 탐색');
     await page.goto('/en/explore/courses', { waitUntil: 'domcontentloaded' });
     for (const [name, path] of [['Segments', 'segments'], ['Events', 'events'], ['Courses', 'courses']]) {
-      await page.getByRole('link', { name, exact: true }).click();
+      await page.getByRole('link', { name, exact: true }).and(page.locator('a:visible')).click();
       await expect(page).toHaveURL(new RegExp(`/en/explore/${path}$`));
     }
   });

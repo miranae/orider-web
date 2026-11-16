@@ -157,6 +157,7 @@ export default function InfoTip({ content, title, label, termId, children, class
     }}>
       <button
         ref={buttonRef}
+        className="ds-tap-target"
         type="button"
         aria-label={label ?? content}
         aria-describedby={open ? id : undefined}

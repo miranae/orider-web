@@ -27,7 +27,7 @@ function SettingsPanes({ section, discipline }: { section: SectionId; discipline
   const { t } = useTranslation("settings");
   return (
     <>
-      {section === "training" && <section id="thresholds"><PaneThresholds discipline={discipline} /><LocalizedLink to="/settings/device">{t("training.deviceStatus")}</LocalizedLink></section>}
+      {section === "training" && <section id="thresholds"><PaneThresholds discipline={discipline} /><LocalizedLink to="/settings/device" className="ds-tap-target">{t("training.deviceStatus")}</LocalizedLink></section>}
       {section === "account" && <PaneAccount />}
       {section === "gear" && <PaneEquipment />}
       {section === "device" && <><PaneDevice /><PaneEquipment part="device" /></>}
@@ -74,7 +74,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
         <header className="mobile-settings-header">
           <LocalizedLink
             to={section === "gear" ? "/athlete/me" : "/settings"}
-            className="mobile-settings-back"
+            className="mobile-settings-back ds-tap-target"
             aria-label={t(section === "gear" ? "nav.backToProfile" : "nav.backToSettings")}
           >
             <ChevronLeft size={ICON_SIZE.lg} aria-hidden="true" />

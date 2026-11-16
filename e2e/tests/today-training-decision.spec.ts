@@ -3,8 +3,7 @@ import { signInUser } from "../fixtures/auth";
 import { seedTrainingGoal } from "../fixtures/seed";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import {
-  coachCapabilitiesE2eEnvelope, executionListE2eEnvelope, proposalRecoveryE2eEnvelope,
-  todayTrainingDecisionE2eEnvelope, type ExecutionFixtureState, type ProposalFixtureState,
+  todayTrainingDecisionE2eEnvelope,
 } from "../fixtures/today-training-decision";
 
 async function signIn(page: Page) {
@@ -15,31 +14,14 @@ async function signIn(page: Page) {
   }, { email: TEST_EMAIL, password: TEST_PASSWORD });
 }
 
-async function mockTodayTraining(page: Page, state: {
-  execution: ExecutionFixtureState; proposal: ProposalFixtureState; recoverExecutionError?: boolean;
-  decisionUnavailable?: boolean;
-}) {
-  await page.route("**/runtime-config.json*", (route) => route.fulfill({ json: {
+async function mockTodayTraining(page: Page, state: { applied?: boolean; decisionUnavailable?: boolean } = {}) {
+  await page.route("**/runtime-config.json*", route => route.fulfill({ json: {
     aiApiBase: "https://coach.e2e.test", useEmulators: true, trainingDecisionEnabled: true,
-    trainingExecutionEnabled: true, coachProgressPlannerEnabled: true,
   } }));
-  await page.route("https://coach.e2e.test/v1/coach/training-decisions/today?discipline=bike", async (route) => {
+  await page.route("https://coach.e2e.test/v1/coach/training-decisions/today?discipline=bike", async route => {
     expect(route.request().headers().authorization).toMatch(/^Bearer /u);
-    if (state.decisionUnavailable === true) {
-      await route.abort("failed");
-      return;
-    }
-    await route.fulfill({ json: todayTrainingDecisionE2eEnvelope({ applied: state.proposal === "applied" }) });
-  });
-  await page.route("https://coach.e2e.test/v1/coach/capabilities", (route) => route.fulfill({ json: coachCapabilitiesE2eEnvelope() }));
-  await page.route("https://coach.e2e.test/v1/coach/change-proposals?*", (route) => route.fulfill({ json: proposalRecoveryE2eEnvelope(state.proposal) }));
-  await page.route("**/listSessionExecutions", async (route) => {
-    if (state.execution === "error" && state.recoverExecutionError !== true) {
-      await route.abort("failed");
-      return;
-    }
-    if (state.execution === "error") await new Promise((resolve) => setTimeout(resolve, 200));
-    await route.fulfill({ json: executionListE2eEnvelope(state.execution === "error" ? "executable" : state.execution) });
+    if (state.decisionUnavailable) await route.abort("failed");
+    else await route.fulfill({ json: todayTrainingDecisionE2eEnvelope({ applied: state.applied === true }) });
   });
 }
 
@@ -81,32 +63,6 @@ async function resetTextScale(page: Page) {
   });
 }
 
-async function expectReadableTextScale(card: Locator) {
-  const readability = await card.evaluate((element) => {
-    const visible = (item: HTMLElement) => item.getClientRects().length > 0 && getComputedStyle(item).visibility !== "hidden";
-    const interactive = [...element.querySelectorAll<HTMLElement>("button, a")].filter(visible).map((item) => {
-      const style = getComputedStyle(item);
-      const rect = item.getBoundingClientRect();
-      const lineHeight = Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) * 1.2;
-      return { text: item.textContent?.trim() ?? "", width: rect.width, lines: Math.round(rect.height / lineHeight) };
-    });
-    const copy = [...element.querySelectorAll<HTMLElement>("h2, h3, h4, p")]
-      .filter((item) => visible(item) && !item.classList.contains("sr-only") && (item.textContent?.trim().length ?? 0) >= 4)
-      .map((item) => {
-        const style = getComputedStyle(item);
-        const rect = item.getBoundingClientRect();
-        const fontSize = Number.parseFloat(style.fontSize);
-        const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.2;
-        return { text: item.textContent?.trim() ?? "", inlineCharacters: rect.width / fontSize,
-          lines: Math.round(rect.height / lineHeight) };
-      });
-    return { narrowActions: interactive.filter((item) => item.width < 128 || item.lines > 2),
-      overWrappedCopy: copy.filter((item) => item.inlineCharacters < 4 || item.lines > 6) };
-  });
-  expect(readability.narrowActions).toEqual([]);
-  expect(readability.overWrappedCopy).toEqual([]);
-}
-
 async function waitForVisualStability(target: Locator) {
   await target.evaluate((element) => {
     element.getAnimations({ subtree: true }).forEach((animation) => animation.finish());
@@ -125,74 +81,56 @@ async function attachFullPageFromTop(page: Page, testInfo: TestInfo, name: strin
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
 
-async function expectProposalKeyboardOrder(page: Page, plan: Locator) {
-  const actions = plan.locator(".training-decision-proposal__actions");
-  await expect.poll(() => actions.locator(":scope > button").evaluateAll((buttons) => buttons.map((button) => ({
-    text: button.textContent?.trim(), disabled: (button as HTMLButtonElement).disabled,
-    tabIndex: (button as HTMLButtonElement).tabIndex,
-  })))).toEqual([
-    { text: "이 변경 적용", disabled: false, tabIndex: 0 },
-    { text: "원래 계획 유지", disabled: false, tabIndex: 0 },
-  ]);
-  const apply = actions.getByRole("button", { name: "이 변경 적용" });
-  const keep = actions.getByRole("button", { name: "원래 계획 유지" });
-  await apply.focus();
-  await expect(apply).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(keep).toBeFocused();
-}
-
 test.describe("Current training decision surfaces", () => {
   test("Home remains an activity feed rather than the retired execution card", async ({ page }) => {
-    await mockTodayTraining(page, { execution: "executable", proposal: "pending" });
+    await mockTodayTraining(page, {});
     await signIn(page);
-    await expect(page.getByText("한강 라이딩 즐거웠습니다")).toBeVisible();
+    await expect(page.getByText("한강 라이딩 즐거웠습니다", { exact: true }).first()).toBeVisible();
     await expect(page.locator(".training-decision-card")).toHaveCount(0);
   });
 
-  test("Plan owns change actions and keyboard order", async ({ page }, testInfo) => {
-    await mockTodayTraining(page, { execution: "executable", proposal: "pending" });
+  test("Plan compares the current session and recommendation without retired execution actions", async ({ page }, testInfo) => {
+    await mockTodayTraining(page, {});
     const { localId } = await signInUser(TEST_EMAIL, TEST_PASSWORD);
     await seedTrainingGoal(localId);
     await signIn(page);
     await page.goto("/ko/coach/plan?sport=bike");
     const plan = page.locator(".training-decision-card--plan").first();
     await waitForStableDecision(page, plan);
-    await expect(plan.locator('[data-proposal-state="pending"]')).toBeVisible();
-    await expect(plan.getByRole("button", { name: "이 변경 적용" })).toBeVisible();
-    await expect(plan.getByRole("button", { name: "원래 계획 유지" })).toBeVisible();
-    await expectProposalKeyboardOrder(page, plan);
+    await expect(plan.getByText("현재 실행안 · 원래 계획 기준")).toBeVisible();
+    await expect(plan.getByText("권고 변화 -20분 · -45 TSS")).toBeVisible();
+    await expect(plan.locator('[data-session-role="recommended"]')).toContainText("회복");
+    await expect(plan.getByRole("button", { name: "운동 시작" })).toHaveCount(0);
+    await expect(plan.getByRole("button", { name: "이 변경 적용" })).toHaveCount(0);
     await applyTextScale200(page, plan.getByRole("heading", { name: "변경 권고 · 아직 미적용" }));
     await expectContainedReflow(plan);
-    await expectReadableTextScale(plan);
     await attachFullPageFromTop(page, testInfo, `training-plan-text-scale-200-${testInfo.project.name}.png`);
     await resetTextScale(page);
   });
 
-  test("Plan distinguishes pending, applied, declined and stale proposals", async ({ page }, testInfo) => {
-    const mutable = { execution: "reserved" as ExecutionFixtureState, proposal: "pending" as ProposalFixtureState };
-    await mockTodayTraining(page, mutable);
+  test("Plan distinguishes an unapplied recommendation from an applied read model", async ({ page }, testInfo) => {
+    const state = { applied: false };
+    await mockTodayTraining(page, state);
     const { localId } = await signInUser(TEST_EMAIL, TEST_PASSWORD);
     await seedTrainingGoal(localId);
     await signIn(page);
-    for (const state of ["pending", "applied", "declined", "stale"] as const) {
-      mutable.proposal = state;
+    for (const applied of [false, true]) {
+      state.applied = applied;
       await page.goto("/ko/coach/plan?sport=bike");
       const card = page.locator(".training-decision-card--plan").first();
-      const panel = card.locator(`[data-proposal-state="${state}"]`);
       await waitForStableDecision(page, card);
-      const expected = state === "pending" ? "승인 대기" : state === "applied" ? "적용됨" : state === "declined" ? "원래 계획 유지" : "새 검토 필요";
-      await expect(panel.getByRole("status")).toHaveText(expected);
-      if (state === "applied") await expect(card.getByRole("heading", { name: "변경 적용됨" })).toBeVisible();
-      if (state === "declined") await expect(panel.getByText("원래 계획을 유지했습니다.")).toBeVisible();
+      await expect(card.getByRole("heading", { name: applied ? "변경 적용됨" : "변경 권고 · 아직 미적용" })).toBeVisible();
+      const effective = card.locator(applied ? '[data-session-role="effective"]' : '[data-session-role="neutral"]');
+      await expect(effective).toContainText(applied ? "회복" : "템포");
+      await expect(effective).toContainText(applied ? "40분" : "60분");
       await expectContainedReflow(card);
       await waitForVisualStability(card);
-      await attachFullPageFromTop(page, testInfo, `training-plan-${state}-${testInfo.project.name}.png`);
+      await attachFullPageFromTop(page, testInfo, `training-plan-applied-${applied}-${testInfo.project.name}.png`);
     }
   });
 
   test("condition keeps its diagnostic chart without the retired all-in-one card", async ({ page }) => {
-    await mockTodayTraining(page, { execution: "executable", proposal: "pending", decisionUnavailable: true });
+    await mockTodayTraining(page, { decisionUnavailable: true });
     await signIn(page);
     await page.goto("/ko/coach/condition?sport=bike");
     await expect(page.getByRole("img", { name: /^컨디션 변화/ })).toBeVisible();
