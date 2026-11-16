@@ -1,5 +1,6 @@
 import { mt } from "./meetingText";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronRight, Mountain, Pencil, Route } from "lucide-react";
 import { Card, Chip, IconButton } from "../../theme/components";
 import type { Meeting } from "./domain";
@@ -8,14 +9,19 @@ import "./coursePreview.css";
 import { checkpointTypeLabel } from "./checkpointPresentation";
 import { MeetingSegmentCards } from "./MeetingSegments";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import InfoTip from "../../components/InfoTip";
 
 export function CourseSummary({ meeting }: { meeting: Meeting }) {
+  const basis = meeting.courseSource?.kind === "segments"
+    ? mt("선택 구간 합계로 자동 입력하며 직접 보정할 수 있어요. 연결 이동 미포함 · 겹치는 구간도 각각 더합니다.")
+    : mt("상단 거리·획득고도는 주최자가 작성한 모집 안내 기준입니다.") +
+      (meeting.courseTrack ? mt(" 가져온 경로의 수치와 다를 수 있습니다.") : "");
   return (
     <div className="cp-course-summary" aria-label={mt("코스 거리와 획득고도")}>
       <div>
         <span>
           <Route size={ICON_SIZE.md} />
-          {mt("거리")}
+          <InfoTip title={mt("거리")} content={basis} label={mt("거리")}>{mt("거리")}</InfoTip>
         </span>
         <strong>
           {meeting.distanceKm === undefined
@@ -27,7 +33,7 @@ export function CourseSummary({ meeting }: { meeting: Meeting }) {
       <div>
         <span>
           <Mountain size={ICON_SIZE.md} />
-          {mt("획득고도")}
+          <InfoTip title={mt("획득고도")} content={basis} label={mt("획득고도")}>{mt("획득고도")}</InfoTip>
         </span>
         <strong>
           {meeting.elevationGainM === undefined
@@ -37,13 +43,6 @@ export function CourseSummary({ meeting }: { meeting: Meeting }) {
         </strong>
       </div>
       <p>{meeting.pace || mt("운영 속도는 추후 안내해요.")}</p>
-      {meeting.courseSource?.kind === "segments" && (
-        <p>
-          {mt(
-            "선택 구간 합계로 자동 입력하며 직접 보정할 수 있어요. 연결 이동 미포함 · 겹치는 구간도 각각 더합니다.",
-          )}
-        </p>
-      )}
     </div>
   );
 }
@@ -64,7 +63,8 @@ export default function CoursePreview({
   descriptionMode?: "full" | "course-only";
 }) {
   const [pendingNoteOpen, setPendingNoteOpen] = useState(false);
-  const track = meeting.courseTrack;
+  const { i18n } = useTranslation();
+  const english = i18n.language.startsWith("en");
   const checkpoints = [...(meeting.courseCheckpoints ?? [])].sort(
     (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity),
   );
@@ -133,6 +133,17 @@ export default function CoursePreview({
               {checkpoints.length}
               {mt("개)")}
             </summary>
+            {checkpoints.some((point) => point.source === "segments") && (
+              <p className="cp-muted">
+                <InfoTip
+                  title={english ? "Cumulative segment distance" : "선택 구간 누적 거리"}
+                  content={english ? "Checkpoint distances add the selected segments in order; connecting travel is excluded." : "지점의 거리는 선택 구간을 순서대로 더한 값이며 연결 이동은 포함하지 않습니다."}
+                  label={english ? "Cumulative segment distance" : "선택 구간 누적 거리"}
+                >
+                  {english ? "Cumulative segment distance" : "선택 구간 누적 거리"}
+                </InfoTip>
+              </p>
+            )}
             <ol className="cp-course-checkpoints">
               {checkpoints.map((point, index) => (
                 <li key={index}>
@@ -167,18 +178,6 @@ export default function CoursePreview({
           ))}
         </ol>
       )}
-      <p className="cp-muted">
-        {meeting.courseSource?.kind === "segments" ? (
-          mt(
-            "상단 수치는 선택 구간 합계로 자동 입력하며 직접 보정할 수 있어요. 연결 이동은 포함하지 않고, 겹치는 구간도 각각 더합니다. 지점의 거리는 선택 구간을 순서대로 더한 값입니다.",
-          )
-        ) : (
-          <>
-            {mt("상단 거리·획득고도는 주최자가 작성한 모집 안내 기준입니다.")}
-            {track ? mt(" 가져온 경로의 수치와 다를 수 있습니다.") : ""}
-          </>
-        )}
-      </p>
       <MeetingSegmentCards segments={meeting.segments} onEdit={onEdit} />
     </Card>
   );

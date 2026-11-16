@@ -1,3 +1,4 @@
+import InfoTip from "../../components/InfoTip";
 import { useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -552,7 +553,7 @@ export default function MeetingTeams({
           <div>
             <h2>
               <Users size={ICON_SIZE.md} aria-hidden="true" />{" "}
-              {text("함께 달릴 조", "Riding groups")}
+              <InfoTip label={text("함께 달릴 조", "Riding groups")} title={text("함께 달릴 조", "Riding groups")} content={text("참석 확정 후 조를 배정할 수 있어요. 초안은 참석 순서대로 나누며 능력·속도를 자동 판단하지 않습니다. 처음 나눌 인원은 조 정원을 고정하지 않으며 저장 후 회원에게 반영됩니다.", "Groups can be assigned after attendance is confirmed. Initial drafts use attendance order without inferring ability or speed. The initial split does not fix group capacities. Members see changes after saving.")}>{text("함께 달릴 조", "Riding groups")}</InfoTip>
             </h2>
             <p className="cp-muted">
               {text(
@@ -645,8 +646,8 @@ export default function MeetingTeams({
                   `Your group · ${currentTeam.name}${currentTeam.leaderId === uid ? " (Leader)" : ""}`,
                 )
               : text(
-                  "현재 배정된 조가 없어요. 대기 회원은 참석 확정 후 배정할 수 있어요.",
-                  "You are not assigned yet. Waitlisted members can be assigned after attendance is confirmed.",
+                  "현재 배정된 조가 없어요.",
+                  "You are not assigned yet.",
                 )}
           </p>
         )}
@@ -792,12 +793,6 @@ export default function MeetingTeams({
             >
               {text("이 인원씩 초안 만들기", "Create groups of this size")}
             </Button>
-            <p className="cp-muted">
-              {text(
-                "처음 나눌 때만 사용하는 인원입니다. 조 정원은 고정하지 않으며 이후 자유롭게 옮길 수 있어요. 아직 회원 화면에는 반영되지 않습니다.",
-                "Used only for the initial split, without fixed capacities. Move members freely afterwards. Not visible to members until saved.",
-              )}
-            </p>
           </div>
         )}
         {editing && (
@@ -848,12 +843,6 @@ export default function MeetingTeams({
             >
               {text("미배정자 나눠 넣기", "Distribute unassigned")}
             </Button>
-            <span className="cp-muted">
-              {text(
-                "능력·속도를 자동 판단하지 않습니다.",
-                "Ability and speed are not inferred.",
-              )}
-            </span>
           </div>
         )}
         {editing && (
@@ -1213,8 +1202,8 @@ export default function MeetingTeams({
         {!teams.length && (
           <p className="cp-muted">
             {text(
-              "아직 조편성이 없어요. 필요한 모임만 조를 나누면 됩니다.",
-              "No groups yet. Arrange groups only when your meeting needs them.",
+              "아직 조편성이 없어요.",
+              "No groups yet.",
             )}
           </p>
         )}

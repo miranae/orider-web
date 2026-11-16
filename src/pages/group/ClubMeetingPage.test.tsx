@@ -224,6 +224,37 @@ describe("실제 인증 회원의 클럽 모임 동선", () => {
     ).toBeInTheDocument();
     expect(control.form).toBeNull();
   });
+  it("실내 참가 방법과 비용 기준은 필요할 때 열고 닫으며 예상 금액은 바로 확인한다", async () => {
+    control.data = { eventId: "event", groupId: "club", revision: 1, isHost: false,
+      meeting: { ...newClubMeeting(), id: "event", venue: "indoor", fee: 10000,
+        registrations: [registration],
+        courseTrack: { fileName: "indoor.gpx", distanceKm: 1, points: [{ lat: 37, lon: 127 }, { lat: 37.01, lon: 127.01 }] },
+      }, members: [{ id: "test-uid", name: "실제 회원" }] };
+    show("detail");
+    const indoorHelp = await screen.findByRole("button", { name: "실내에서 함께 타기" });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(screen.getByText(/10,000 원/)).toBeVisible();
+    fireEvent.click(indoorHelp);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("실내 자전거와 트레이너를 연결");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(indoorHelp).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "예상 비용" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("입금·결제 상태는 처리하지 않습니다");
+  });
+  it("긴 모집 소개를 펼치면 요약을 반복하지 않고 원문을 보여준다", async () => {
+    const description = `특별한 모집 소개입니다.\n\n${"함께 달릴 준비를 해주세요. ".repeat(25)}`;
+    control.data = { eventId: "event", groupId: "club", revision: 1, isHost: false,
+      meeting: { ...newClubMeeting(), id: "event", description }, members: [] };
+    show("detail");
+    const expand = await screen.findByText("모집 소개 전체보기");
+    expect(screen.getByText("특별한 모집 소개입니다.…")).toBeVisible();
+    fireEvent.click(expand);
+    await waitFor(() => expect(screen.queryByText("특별한 모집 소개입니다.…")).toBeNull());
+    expect(screen.getByText(description.replace(/\s+/g, " ").trim())).toBeVisible();
+    fireEvent.click(expand);
+    await waitFor(() => expect(screen.getByText("특별한 모집 소개입니다.…")).toBeVisible());
+  });
 });
 
 describe("클럽 모임 마무리와 개인 결과", () => {
