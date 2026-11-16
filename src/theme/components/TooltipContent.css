@@ -27,12 +27,55 @@
   line-height: 1.5;
 }
 
-/* Help actions remain reachable while a long definition scrolls. */
-.ds-help-popover .ds-help-popover__close {
+/* The close action and sticky text header share one bounded help surface. */
+.ds-help-panel {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+  box-shadow: var(--shadow-md);
+}
+.ds-help-panel__scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ds-help-panel__scroll:focus-visible {
+  outline: var(--space-0-5) solid var(--accent);
+  outline-offset: calc(-1 * var(--space-0-5));
+}
+.ds-help-panel__action {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-2);
+  z-index: 2;
+}
+.ds-tooltip-content--help-text {
+  padding-block-start: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ds-tooltip-content--help-text .ds-tooltip-content__title {
   position: sticky;
   top: 0;
-  display: flex;
-  margin-inline-start: auto;
+  box-sizing: border-box;
+  min-height: calc(var(--space-7) + var(--space-4));
+  padding-block-start: var(--space-4);
+  padding-inline-end: calc(var(--space-7) + var(--space-3) + var(--space-2));
   background: var(--bg-1);
   z-index: 1;
+}
+.ds-tooltip-content--help-text.ds-tooltip-content--untitled {
+  box-sizing: border-box;
+  padding-block-start: var(--space-4);
+  padding-inline-end: calc(var(--space-4) + var(--space-7) + var(--space-3));
+  min-height: calc(var(--space-7) + var(--space-3) + var(--space-4));
 }

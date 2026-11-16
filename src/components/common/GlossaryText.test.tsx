@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import i18n from "i18next";
 import GlossaryText from "./GlossaryText";
 import InfoTip from "../InfoTip";
+import { TooltipContent } from "../../theme/components/TooltipContent";
 import GlossaryProvider from "./GlossaryProvider";
 import { splitGlossaryText, TERM_GLOSSARY } from "../../utils/termGlossary";
 import ko from "../../i18n/resources/ko/termGlossary.json";
@@ -194,16 +195,62 @@ describe("InfoTip interactions", () => {
     fireEvent.click(button);
     const tooltip = screen.getByRole("tooltip");
     expect(button).toHaveAttribute("aria-describedby", tooltip.id);
-    expect(tooltip).toHaveClass("ds-tooltip-content");
-    const title = tooltip.querySelector(".ds-tooltip-content__title");
+    expect(button).toHaveAccessibleDescription(/^훈련 부하 점수\s*시간과 상대 강도로 계산합니다\.$/);
+    const panel = screen.getByRole("group", { name: "훈련 부하 점수" });
+    const title = panel.querySelector("strong");
+    const close = screen.getByRole("button", { name: "닫기" });
+    expect(tooltip.parentElement?.parentElement).toContainElement(close);
+    expect(panel).toContainElement(tooltip);
+    expect(tooltip).not.toContainElement(close);
     expect(title?.tagName).toBe("STRONG");
     expect(title).toHaveClass("ds-text--body-medium");
     expect(title).toHaveStyle({ fontWeight: 600 });
     expect(title).toHaveTextContent("훈련 부하 점수");
+    expect(tooltip).toHaveClass("ds-tooltip-content");
     const body = tooltip.querySelector(".ds-tooltip-content__body");
     expect(body).toHaveClass("ds-text--body-small", "ds-text--tone-1");
     expect(body).toHaveTextContent("시간과 상대 강도로 계산합니다.");
     expect(tooltip).not.toHaveTextContent("—");
+  });
+
+  it("keeps untitled help and its close action in one surface while its text scrolls", async () => {
+    const user = userEvent.setup();
+    render(<InfoTip content={"A long definition. ".repeat(100)} label="Explain route">Route</InfoTip>);
+    const trigger = screen.getByRole("button", { name: "Explain route" });
+    await user.click(trigger);
+    const tooltip = screen.getByRole("tooltip");
+    const close = screen.getByRole("button", { name: "닫기" });
+    expect(tooltip.closest('[role="group"]')).toContainElement(close);
+    expect(tooltip).not.toContainElement(close);
+    expect(trigger).toHaveAttribute("aria-describedby", tooltip.id);
+    expect(trigger).toHaveAccessibleDescription("A long definition. ".repeat(100).trim());
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab();
+    const scrollArea = tooltip.parentElement;
+    expect(scrollArea).toHaveFocus();
+    expect(scrollArea).toHaveAccessibleDescription("A long definition. ".repeat(100).trim());
+    fireEvent.scroll(scrollArea!);
+    expect(tooltip).toBeVisible();
+    expect(close).toBeVisible();
+    await user.tab();
+    // The portal is last in document order, so Tab leaves it for the browser.
+    expect(document.body).toHaveFocus();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await user.click(trigger);
+    await user.tab();
+    expect(screen.getByRole("button", { name: "닫기" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("preserves noninteractive chart tooltip title and body without a close action", () => {
+    render(<TooltipContent title="Chart date" role="tooltip">Chart values</TooltipContent>);
+    const tooltip = screen.getByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Chart date");
+    expect(tooltip).toHaveTextContent("Chart values");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("keeps the first focused/touched click open, supports a second click and Escape", async () => {
@@ -258,7 +305,7 @@ describe("InfoTip interactions", () => {
     try {
       render(<InfoTip content="Definition" />);
       fireEvent.click(screen.getByRole("button"));
-      expect(screen.getByRole("tooltip").parentElement).toHaveStyle({ left: "784px", top: "652px", position: "fixed" });
+      expect(screen.getByRole("tooltip").closest('[role="group"]')).toHaveStyle({ left: "784px", top: "652px", position: "fixed" });
     } finally { bounds.mockRestore(); }
   });
 });
