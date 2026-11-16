@@ -1,34 +1,14 @@
 import { test, expect } from '../fixtures/test-fixtures';
 
-test.describe('Dark Mode', () => {
-  test('applies dark mode based on prefers-color-scheme', async ({ seededPage: page }) => {
-    // Emulate dark color scheme
-    await page.emulateMedia({ colorScheme: 'dark' });
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
-
-    // Check that body or root has dark background
-    const bgColor = await page.evaluate(() => {
-      return window.getComputedStyle(document.body).backgroundColor;
-    });
-
-    // Dark mode should have a dark background (not white)
-    expect(bgColor).not.toBe('rgb(255, 255, 255)');
-  });
-
-  test('applies light mode by default', async ({ seededPage: page }) => {
-    await page.emulateMedia({ colorScheme: 'light' });
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
-
-    const bgColor = await page.evaluate(() => {
-      return window.getComputedStyle(document.body).backgroundColor;
-    });
-
-    // Light mode should have a light/white background
-    const isLight = bgColor === 'rgb(255, 255, 255)' ||
-      bgColor === 'rgba(0, 0, 0, 0)' ||
-      bgColor.includes('249') || bgColor.includes('248');
-    expect(isLight).toBe(true);
-  });
+// 색상 값 자체는 토큰이 소유합니다. 브라우저 선호와 실제 배경 명도가 함께 바뀌는지 확인합니다.
+test('system color scheme switches the resolved theme and page background', async ({ seededPage: page }) => {
+  const brightness: number[] = [];
+  for (const scheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', scheme);
+    const rgb = await page.evaluate(() => getComputedStyle(document.body).backgroundColor.match(/[\d.]+/g)!.slice(0, 3).map(Number));
+    brightness.push(rgb[0]! * 0.2126 + rgb[1]! * 0.7152 + rgb[2]! * 0.0722);
+  }
+  expect(brightness[0]).toBeGreaterThan(200);
+  expect(brightness[1]).toBeLessThan(80);
 });

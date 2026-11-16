@@ -358,6 +358,7 @@ export function PaneAccount() {
               <button
                 type="button"
                 aria-pressed={active}
+                className="ds-tap-target"
                 key={o.value}
                 onClick={() => handleVisibilityChange(o.value)}
                 disabled={visibilitySaving || bulkVisibilitySaving || visibilityAvailability !== "ready"}

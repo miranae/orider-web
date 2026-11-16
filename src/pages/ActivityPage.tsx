@@ -966,7 +966,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
     : null;
   const fitnessAtActivity = fitnessTimeseries?.points
-    .slice()
+    ?.slice()
     .reverse()
     .find((point) => activityDate != null && point.date <= activityDate) ?? null;
   const shareMetric = (label: string, value: number | null | undefined, unit?: string, signed = false): ActivityShareMetric | null => {

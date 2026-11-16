@@ -15,13 +15,10 @@ test.describe('i18n', () => {
 
   test('header toggle changes URL prefix', async ({ page }) => {
     await page.goto('/ko/');
-    // wait briefly for app to mount
-    await page.waitForLoadState('networkidle');
-    const enButton = page.getByRole('button', { name: /^EN$/ });
-    if (await enButton.isVisible()) {
-      await enButton.click();
-      await expect(page).toHaveURL(/\/en\//);
-    }
+    await page.getByRole('button', { name: '더보기' }).click();
+    await page.getByRole('navigation', { name: '더보기', exact: true }).getByRole('radio', { name: 'English' }).check();
+    await expect(page).toHaveURL(/\/en\//);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
 
   test('invalid lang prefix redirects to /ko', async ({ page }) => {

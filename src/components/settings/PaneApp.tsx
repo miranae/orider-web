@@ -79,6 +79,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
                 <button
                   key={lang}
                   type="button"
+                  className="ds-tap-target"
                   aria-pressed={locale === lang}
                   onClick={() => void setLocale(lang)}
                   style={{
@@ -119,6 +120,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
                 <button
                   key={id}
                   type="button"
+                  className="ds-tap-target"
                   aria-pressed={units === id}
                   onClick={() => void setUnits(id)}
                   style={{
@@ -175,6 +177,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
                 <button
                   key={thm.id}
                   type="button"
+                  className="ds-tap-target"
                   onClick={() => setThemeId(thm.id)}
                   aria-pressed={active}
                   style={{
