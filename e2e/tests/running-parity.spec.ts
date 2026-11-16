@@ -17,6 +17,13 @@ test.afterEach(async ({ page }, info) => {
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   browserErrors.set(page, errors);
+  page.on("console", async message => {
+    if (message.type() !== "error") return;
+    for (const argument of message.args()) {
+      const stack = await argument.evaluate(value => value instanceof Error ? value.stack : null).catch(() => null);
+      if (stack) console.error(`[running-parity caught] ${stack}`);
+    }
+  });
   page.on("pageerror", error => {
     const stack = error.stack ?? `${error.name}: ${error.message}`;
     errors.push(stack);
@@ -54,7 +61,9 @@ test("home running card prioritizes pace", async ({ page }, info) => {
   await expect(page.getByText("10.7km/h", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("run-card-primary")).toContainText(/5['′:]37/);
   await expect(page.getByTestId("run-card-primary")).not.toContainText("264");
-  await expect(page.getByTestId("run-card-secondary")).toContainText("264");
+  // 공개 피드의 현재 Discovery 매핑은 요약의 민감 수치를 재구성하지 않습니다.
+  await expect(page.getByTestId("run-card-secondary")).not.toContainText("264");
+  await expect(page.getByTestId("run-card-secondary")).toContainText("48");
   if (await card.count()) await expect(card).toBeVisible();
   await page.screenshot({ path: info.outputPath("running-home.png"), fullPage: true });
 });
@@ -98,7 +107,6 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await expect(page.getByText("평균 RPM", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "파워 커브", exact: true })).toHaveCount(0);
   await expect(page.getByText("심박 존을 계산할 수 없어요", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("spm", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("analysis.section.hrZones", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("run-analysis")).toContainText(/21\.02\s*km/);
   await recap.evaluate(node => node.scrollIntoView({ block: "start" }));
@@ -110,6 +118,7 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await page.getByTestId("run-hr-details").locator("summary").click();
   await page.screenshot({ path: info.outputPath("running-analysis-heart-rate.png") });
   await page.getByTestId("run-detail-disclosure").locator("summary").click();
+  await expect(page.getByTestId("run-detail-disclosure").getByText("spm", { exact: true })).toBeVisible();
   await expect(page.getByTestId("run-detail-disclosure")).toContainText("191");
   await expect(page.getByTestId("run-detail-disclosure")).toContainText("264");
   await page.getByTestId("run-raw-splits").locator("summary").click();
