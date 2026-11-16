@@ -23,7 +23,7 @@ export const runningSummary = {
 };
 
 export const runningPublicMetrics = {
-  version: 34, discipline: "run", activityType: "Run", algorithmVersion: "activity-metrics@34",
+  version: 34, isVirtualPower: false, provenance: { power: "measured" }, discipline: "run", activityType: "Run", algorithmVersion: "activity-metrics@34",
   distanceKm: 21.02, distanceSource: "stream_counter", durationSec: 7082, movingTimeSec: 7082,
   pauseTimeSec: 0, elevationGainM: 47.9, elevationLossM: 52.9,
   avgSpeedKph: 10.6848, maxSpeedKph: 17.784,

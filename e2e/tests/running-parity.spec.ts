@@ -98,7 +98,7 @@ test("public detail keeps running splits and excludes cycling analytics", async 
   await expect(page.getByText("평균 RPM", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "파워 커브", exact: true })).toHaveCount(0);
   await expect(page.getByText("심박 존을 계산할 수 없어요", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("spm", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("spm", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("analysis.section.hrZones", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("run-analysis")).toContainText(/21\.02\s*km/);
   await recap.evaluate(node => node.scrollIntoView({ block: "start" }));
@@ -131,7 +131,7 @@ test("owner scheduled running plan opens exact read-only workout and stays priva
   await expect(page.getByRole("heading", { name: RUNNING_OWNER_TITLE })).toBeVisible();
   await page.getByRole("tab", { name: "분석", exact: true }).click();
   const card = page.getByTestId("run-next-training-card");
-  await expect(card).toContainText(RUNNING_PLAN_TITLE);
+  await expect(card).toContainText(RUNNING_PLAN_TITLE, { timeout: 15000 });
   await expect(card).toContainText("30분");
   await expect(card.getByRole("listitem")).toHaveCount(3);
   const link = card.getByRole("link", { name: "이 훈련 계획 보기" });

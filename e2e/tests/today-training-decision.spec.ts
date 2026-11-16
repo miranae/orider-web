@@ -51,7 +51,18 @@ async function expectContainedReflow(card: Locator) {
 async function applyTextScale200(page: Page, sample: Locator) {
   const baseline = await sample.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
   await page.evaluate(() => {
-    document.documentElement.style.fontSize = "200%";
+    const root = document.documentElement;
+    const styles = getComputedStyle(root);
+    const saved: Record<string, string> = {};
+    // 현재 디자인 토큰은 px입니다. rem 루트만 바꾸면 글자가 커지지 않아 토큰 크기를 실제로 두 배 적용합니다.
+    for (const name of [...styles]) {
+      if (!/^--(?:fs-|ft-.*-size$)/.test(name)) continue;
+      const value = styles.getPropertyValue(name).trim();
+      if (!/^\d+(?:\.\d+)?px$/.test(value)) continue;
+      saved[name] = root.style.getPropertyValue(name);
+      root.style.setProperty(name, `${parseFloat(value) * 2}px`);
+    }
+    root.dataset.e2eTextScale = JSON.stringify(saved);
   });
   await expect.poll(() => sample.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)))
     .toBeCloseTo(baseline * 2, 1);
@@ -59,7 +70,12 @@ async function applyTextScale200(page: Page, sample: Locator) {
 
 async function resetTextScale(page: Page) {
   await page.evaluate(() => {
-    document.documentElement.style.removeProperty("font-size");
+    const root = document.documentElement;
+    const saved = JSON.parse(root.dataset.e2eTextScale ?? '{}') as Record<string, string>;
+    for (const [name, value] of Object.entries(saved)) {
+      if (value) root.style.setProperty(name, value); else root.style.removeProperty(name);
+    }
+    delete root.dataset.e2eTextScale;
   });
 }
 
@@ -120,7 +136,7 @@ test.describe("Current training decision surfaces", () => {
       const card = page.locator(".training-decision-card--plan").first();
       await waitForStableDecision(page, card);
       await expect(card.getByRole("heading", { name: applied ? "변경 적용됨" : "변경 권고 · 아직 미적용" })).toBeVisible();
-      const effective = card.locator(applied ? '[data-session-role="effective"]' : '[data-session-role="neutral"]');
+      const effective = card.locator('[data-session-role="effective"]');
       await expect(effective).toContainText(applied ? "회복" : "템포");
       await expect(effective).toContainText(applied ? "40분" : "60분");
       await expectContainedReflow(card);
@@ -133,7 +149,7 @@ test.describe("Current training decision surfaces", () => {
     await mockTodayTraining(page, { decisionUnavailable: true });
     await signIn(page);
     await page.goto("/ko/coach/condition?sport=bike");
-    await expect(page.getByRole("img", { name: /^컨디션 변화/ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "컨디션 변화", exact: true })).toBeVisible();
     await expect(page.locator(".training-decision-card")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "코치에게 묻기", exact: true })).toBeVisible();
   });

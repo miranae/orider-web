@@ -12,10 +12,12 @@ test.describe('Navigation', () => {
 
   test('desktop hub subnavigation preserves the active locale', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', '데스크톱 허브 보조 탐색');
-    await page.goto('/en/explore/courses', { waitUntil: 'domcontentloaded' });
+    await page.goto('/en/explore/courses', { waitUntil: 'load' });
+    await expect(page.getByRole('link', { name: 'Courses', exact: true })).toHaveAttribute('aria-current', 'page');
     for (const [name, path] of [['Segments', 'segments'], ['Events', 'events'], ['Courses', 'courses']]) {
-      await page.getByRole('link', { name, exact: true }).and(page.locator('a:visible')).click();
+      await page.getByRole('link', { name, exact: true }).filter({ visible: true }).click();
       await expect(page).toHaveURL(new RegExp(`/en/explore/${path}$`));
+      await expect(page.getByRole('link', { name, exact: true }).filter({ visible: true })).toHaveAttribute('aria-current', 'page');
     }
   });
 

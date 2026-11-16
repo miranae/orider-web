@@ -14,7 +14,7 @@ export interface Resolve {
 
 /** 문구 모양은 그대로 두고 누를 수 있다는 것만 커서·밑줄(호버·키보드 초점)로 드러낸다. */
 export const RESOLVABLE_CLASS =
-  "appearance-none bg-transparent border-0 p-0 m-0 [font:inherit] [color:inherit] text-left cursor-pointer underline-offset-2 decoration-dotted hover:underline focus-visible:underline focus-visible:outline-none";
+  "ds-tap-target appearance-none bg-transparent border-0 p-0 m-0 [font:inherit] [color:inherit] text-left cursor-pointer underline-offset-2 decoration-dotted hover:underline focus-visible:underline focus-visible:outline-none";
 
 interface ResolvableProps {
   resolve?: Resolve;

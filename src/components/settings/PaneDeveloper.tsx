@@ -255,7 +255,7 @@ export function PaneDeveloper() {
       <SettingsCard data-testid="S5-2-1" title={t("pane.developer.docsTitle")}>
         <div className="flex flex-wrap gap-3">
           <LocalizedLink to="/explore/recipes/examples" className="ds-tap-target">{t("pane.developer.examplesLink")}</LocalizedLink>
-          <a href={`${(getRuntimeConfig().personalApiBase || "").replace(/\/+$/, "")}/api/v1/docs`}>{t("pane.developer.apiDocsLink")}</a>
+          <a className="ds-tap-target" href={`${(getRuntimeConfig().personalApiBase || "").replace(/\/+$/, "")}/api/v1/docs`}>{t("pane.developer.apiDocsLink")}</a>
         </div>
       </SettingsCard>
     </>

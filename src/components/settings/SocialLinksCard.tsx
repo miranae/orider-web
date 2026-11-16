@@ -201,7 +201,7 @@ export function SocialLinksCard() {
         return (
           <InlineRow key={provider} data-testid={`S1-4-1-${provider}`}
             label={<span className="inline-flex items-center gap-2">{Logo && <Logo />}{t(`pane.account.social.${provider}`)}</span>}
-            hint={<>{t(isLinked ? "pane.account.socialLinked" : "pane.account.socialNotLinked")}{provider === "strava" && <> {t("pane.account.stravaLoginHint")} <LocalizedLink to="/settings/connections" className="underline">{t("pane.account.stravaSyncSettings")}</LocalizedLink></>}</>}>
+            hint={<>{t(isLinked ? "pane.account.socialLinked" : "pane.account.socialNotLinked")}{provider === "strava" && <> {t("pane.account.stravaLoginHint")} <LocalizedLink to="/settings/connections" className="underline ds-tap-target">{t("pane.account.stravaSyncSettings")}</LocalizedLink></>}</>}>
             {isLinked ? (
               <Button variant="secondary" loading={pending === provider} disabled={pending !== null} onClick={() => { void handleUnlink(provider); }}>
                 {t("pane.account.socialUnlinkBtn")}
