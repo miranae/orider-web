@@ -634,6 +634,7 @@
   "src/hooks/useNativePowerV2Twelve.ts",
   "src/hooks/useObservedRouteComparison.ts",
   "src/hooks/useObservedRouteHistory.ts",
+  "src/hooks/usePageDataTiming.ts",
   "src/hooks/usePagedSearch.ts",
   "src/hooks/usePdc.ts",
   "src/hooks/usePeriodControls.ts",
