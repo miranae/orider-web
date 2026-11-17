@@ -1,4 +1,3 @@
-import { useMobileKeyboard } from "../../src/hooks/useMobileKeyboard";
 import { preserveActionPosition } from "../../src/utils/preserveActionPosition";
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -24,7 +23,6 @@ import '../../src/theme/generated.css';
 import '../../src/theme/components/components.css';
 await i18next.init({ lng: 'ko', resources: { ko: { training, common, board } }, interpolation: { escapeValue: false } });
 function Fixture() {
-  useMobileKeyboard();
   const [saved, setSaved] = useState(0);
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState('2030-11-20');
@@ -34,7 +32,7 @@ function Fixture() {
   const params = new URLSearchParams(location.search);
   const kind = params.get('kind');
   const Stepper = () => <h1>목표 설정</h1>;
-  return <main className="site-shell site-shell--padded" style={{ paddingBottom: 'var(--space-8)' }}>
+  return <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}><main className="site-shell site-shell--padded" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
     {kind === 'run' ? <RunGoalSetupWizard Stepper={Stepper} /> : kind === 'swim' ? <SwimGoalSetupWizard Stepper={Stepper} /> : <>
       <h1>입력 화면 검증</h1><Input aria-label="일반 입력" /><Input type="number" aria-label="숫자 입력" /><input type="checkbox" aria-label="체크박스" />
       <Button onClick={() => setOpen(true)}>입력 팝업</Button>
@@ -46,7 +44,6 @@ function Fixture() {
         <p>{'긴 설명 '.repeat(100)}</p><Textarea aria-label="팝업 입력" /><Button onClick={() => setOpen(false)}>저장하고 닫기</Button>
       </Modal>
     </>}
-    <MobileTabBar active="coach" />
-  </main>;
+  </main><MobileTabBar active="coach" /></div>;
 }
 createRoot(document.getElementById('root')!).render(<ThemeProvider><OriderThemeProvider><FirebaseServicesProvider services={services as unknown as FirebaseServices}><I18nextProvider i18n={i18next}><MemoryRouter><DialogProvider><Fixture /></DialogProvider></MemoryRouter></I18nextProvider></FirebaseServicesProvider></OriderThemeProvider></ThemeProvider>);

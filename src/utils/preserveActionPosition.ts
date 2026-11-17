@@ -8,7 +8,6 @@ export function preserveActionPosition(event: PointerEvent<HTMLElement>) {
   const input = document.activeElement;
   if (!(input instanceof HTMLElement) || !input.matches(KEYBOARD_INPUT_SELECTOR)) return;
   if (!(event.target instanceof Element) || !event.target.closest("button, a[href]")) return;
-  if (!document.documentElement.hasAttribute("data-mobile-keyboard-open")) return;
   const bar = event.currentTarget;
   bar.dataset.editingAction = "true";
   let timeout: ReturnType<typeof setTimeout> | undefined;

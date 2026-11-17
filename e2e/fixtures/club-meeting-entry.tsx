@@ -1,4 +1,3 @@
-import { useMobileKeyboard } from "../../src/hooks/useMobileKeyboard";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import i18next from "i18next";
@@ -24,7 +23,7 @@ import "../../src/theme/components/components.css";
 import "../../src/pages/group/ClubSurface.css";
 const lang = english ? "en" : "ko";
 await i18next.init({ lng: lang, resources: { ko: { group: ko, event: koEvent, common: koCommon, clubMeeting: koMeeting }, en: { group: en, event: enEvent, common: enCommon, clubMeeting: enMeeting } }, interpolation: { escapeValue: false } });
-function Position() { useMobileKeyboard(); const l = useLocation(); return <output data-testid="flow-location" hidden>{l.pathname}</output>; }
+function Position() { const l = useLocation(); return <output data-testid="flow-location" hidden>{l.pathname}</output>; }
 function Clubs() { return <><h1>{english ? "My clubs" : "내 클럽"}</h1><GroupCard group={group} showMyRole /></>; }
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider><OriderThemeProvider><FirebaseServicesProvider services={services as unknown as FirebaseServices}>

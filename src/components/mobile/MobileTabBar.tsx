@@ -21,7 +21,7 @@ export default function MobileTabBar({
 
   return (
     <div
-      className="mobile-tab-bar lg:hidden fixed bottom-0 left-0 right-0 z-50"
+      className="mobile-tab-bar lg:hidden shrink-0 z-50"
       style={{
         background: "var(--bg-1)",
         borderTop: "1px solid var(--line-soft)",

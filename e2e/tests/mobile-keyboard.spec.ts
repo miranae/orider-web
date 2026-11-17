@@ -14,13 +14,13 @@ async function panKeyboard(page: Page, height: number, top: number) {
   }, { height, top });
 }
 
-test('resize keyboard hides navigation and frees the fixed save bar only for editable controls', async ({ page }) => {
+test('resize keyboard reserves navigation space and frees the fixed save bar for editable controls', async ({ page }, info) => {
   await page.goto('/e2e/fixtures/mobile-keyboard.html');
   const nav = page.getByTestId('X1-1');
   await expect(nav).toBeVisible();
   await page.getByRole('textbox', { name: '일반 입력' }).focus();
   await page.setViewportSize({ width: 390, height: 300 });
-  await expect(nav).toBeHidden();
+  await expect(nav).toBeInViewport();
   const input = page.getByRole('spinbutton', { name: '숫자 입력' });
   await input.fill('42');
   await input.evaluate(node => node.scrollIntoView({ block: 'end' }));
@@ -28,6 +28,7 @@ test('resize keyboard hides navigation and frees the fixed save bar only for edi
     const r = node.getBoundingClientRect();
     return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === node;
   })).toBe(true);
+  await page.screenshot({ path: info.outputPath('navigation-input.png') });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('checkbox').focus();
   await expect(nav).toBeVisible();
@@ -52,7 +53,7 @@ test('a save tap completes before input blur can relocate the action bar', async
   await expect(page.locator('[data-editing-action]')).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('checkbox').focus();
-  await expect(page.getByTestId('X1-1')).toBeVisible();
+  await expect(page.getByTestId('X1-1')).toBeInViewport();
   await save.tap();
   await expect(page.getByRole('status', { name: '저장 횟수' })).toHaveText('3');
 });
@@ -62,29 +63,32 @@ test('dismissing the keyboard restores navigation while input focus is retained'
   const input = page.getByRole('textbox', { name: '일반 입력' });
   await input.fill('입력 유지');
   await page.setViewportSize({ width: 390, height: 300 });
-  await expect(page.getByTestId('X1-1')).toBeHidden();
+  await expect(page.getByTestId('X1-1')).toBeInViewport();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(input).toBeFocused();
   await expect(input).toHaveValue('입력 유지');
-  await expect(page.getByTestId('X1-1')).toBeVisible();
+  await expect(page.getByTestId('X1-1')).toBeInViewport();
 });
 
 test('rotation with an open keyboard preserves navigation recovery and reopening', async ({ page }) => {
   await page.goto('/e2e/fixtures/mobile-keyboard.html');
   const input = page.getByRole('textbox', { name: '일반 입력' });
+  await page.setViewportSize({ width: 430, height: 932 });
   await input.fill('회전 후에도 입력 유지');
-  await page.setViewportSize({ width: 390, height: 300 });
-  await expect(page.getByTestId('X1-1')).toBeHidden();
-  await page.setViewportSize({ width: 844, height: 160 });
-  await expect(page.getByTestId('X1-1')).toBeHidden();
-  await page.setViewportSize({ width: 844, height: 350 });
+  await page.setViewportSize({ width: 430, height: 300 });
+  await expect(page.getByTestId('X1-1')).toBeInViewport();
+  await page.setViewportSize({ width: 932, height: 180 });
+  await expect(page.getByTestId('X1-1')).toBeInViewport();
+  await page.setViewportSize({ width: 932, height: 300 });
   await expect(input).toBeFocused();
-  await expect(page.getByTestId('X1-1')).toBeVisible();
-  await page.setViewportSize({ width: 844, height: 160 });
-  await expect(page.getByTestId('X1-1')).toBeHidden();
-  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(input).toBeInViewport();
+  await expect(page.getByTestId('X1-1')).toBeInViewport();
+  await page.setViewportSize({ width: 932, height: 180 });
+  await expect(page.getByTestId('X1-1')).toBeInViewport();
+  await page.setViewportSize({ width: 430, height: 932 });
   await expect(input).toBeFocused();
-  await expect(page.getByTestId('X1-1')).toBeVisible();
+  await expect(input).toBeInViewport();
+  await expect(page.getByTestId('X1-1')).toBeInViewport();
 });
 
 for (const name of [/2030/, /오전 8:00/]) {
@@ -113,7 +117,7 @@ for (const kind of ['run', 'swim']) {
       const r = node.getBoundingClientRect();
       return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === node;
     })).toBe(true);
-    await expect(page.getByTestId('X1-1')).toBeHidden();
+    await expect(page.getByTestId('X1-1')).toBeInViewport();
   });
 }
 
@@ -137,7 +141,7 @@ for (const prompt of [false, true]) {
     await panKeyboard(page, 844, 0);
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByTestId('X1-1')).toBeVisible();
+    await expect(page.getByTestId('X1-1')).toBeInViewport();
   });
 }
 

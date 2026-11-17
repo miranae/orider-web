@@ -1,4 +1,3 @@
-import { useMobileKeyboard } from "./hooks/useMobileKeyboard";
 import { useLocation } from "react-router-dom";
 
 import App, { isEmbeddedRoutePath } from "./App";
@@ -12,7 +11,6 @@ import { usesLiveDarkAppearance } from "./theme/appearancePolicy";
 
 /** Keeps the normal web provider tree completely absent on embedded routes. */
 export default function AppRoot() {
-  useMobileKeyboard();
   const location = useLocation();
   const embedded = isEmbeddedRoutePath(location.pathname);
 
