@@ -86,7 +86,6 @@ export async function getPublicUserProfiles(userIds: readonly string[], database
       return profile ? [[userId, profile] as const] : [];
     }
     if (options.onReadError) { options.onReadError(ids[index]!, result.reason); return []; }
-    if (options.onReadError) { options.onReadError(ids[index], result.reason); return []; }
     if (isPermissionDeniedError(result.reason)) return [];
     throw result.reason;
   }));
