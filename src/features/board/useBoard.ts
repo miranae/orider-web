@@ -1,3 +1,4 @@
+import { readBoardCount, clearBoardCountCache } from "./countCache";
 import { clearBoardPageCursors, nearestBoardPageCursor, saveBoardPageCursor } from "./pageCursorCache";
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "../../hooks/usePagedSearch";
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
@@ -54,6 +55,7 @@ const subscribeBoardMutations = (listener: () => void) => {
 };
 function notifyBoardMutation(services: FirebaseServices) {
   clearBoardPageCursors(services);
+  clearBoardCountCache(services);
   boardMutationRevision += 1;
   for (const listener of boardMutationListeners) listener();
 }
@@ -97,12 +99,8 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   // 페이지별 마지막 문서 스냅샷 캐시
   const pageLastDocs = useRef<{ key: string; docs: Map<number, DocumentSnapshot> }>({ key: "", docs: new Map() });
 
-  // 총개수(count) 캐시 — 같은 필터(filterKey+로그인여부)면 effect 가 여러 번 돌아도(인증
-  // 정착·리렌더 등) count 쿼리를 1회만 친다. count 는 page 와 무관(전체 개수)이라 필터별 1회로 충분.
-  // refresh() 시 refreshKey 가 바뀌어 새 키 → 자동 재조회(새 글 반영).
-  const countCacheRef = useRef<Map<string, number>>(new Map());
-
-  const refresh = () => { clearBoardPageCursors(services); setRefreshKey((k) => k + 1); setPage(1); };
+  // Count reuse is scoped to the injected Firebase session and survives list remounts.
+  const refresh = () => { clearBoardCountCache(services); clearBoardPageCursors(services); setRefreshKey((k) => k + 1); setPage(1); };
 
   // 필터 변경 시 1페이지로 리셋 (실제 값 변경만 감지, strict mode 안전)
   const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, mutationRevision, ownerOnly, uid]);
@@ -154,23 +152,15 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
         // 총 개수(페이지네이션 "N개" 라벨용)는 글 렌더에 불필요 → 비차단으로 발사한다.
         // 목록 쿼리가 count 왕복을 기다리지 않아 콘텐츠가 더 빨리 뜬다(전: count→목록 순차 2왕복).
         // count 실패는 라벨에만 영향이라 무시.
-        const countKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, mutationRevision, ownerOnly, ownerOnly ? uid : uid ? "1" : "0"]);
-        const cachedCount = countCacheRef.current.get(countKey);
-        if (cachedCount !== undefined) {
-          // 같은 필터 — 캐시된 총개수 사용, 네트워크 count 생략(중복 발사 제거).
-          setTotal(cachedCount);
-          setTotalPages(Math.max(1, Math.ceil(cachedCount / pageSize)));
-        } else {
-          getCountFromServer(query(collection(firestore, "board_posts"), ...baseConstraints))
-            .then((countSnap) => {
-              const totalCount = countSnap.data().count;
-              countCacheRef.current.set(countKey, totalCount);
-              if (cancelled) return;
-              setTotal(totalCount);
-              setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
-            })
-            .catch(() => { /* 라벨용 count 실패는 목록과 무관 — 무시 */ });
-        }
+        const countKey = JSON.stringify([boardType, tag ?? null, keyword ?? "", excludeKey, mutationRevision, ownerOnly, uid ?? null]);
+        void readBoardCount(services, countKey, async () =>
+          (await getCountFromServer(query(collection(firestore, "board_posts"), ...baseConstraints))).data().count)
+          .then(totalCount => {
+            if (cancelled) return;
+            setTotal(totalCount);
+            setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
+          })
+          .catch(error => logClientError("board:count", error, { ownerOnly }, services));
 
         try {
           // 페이지 쿼리 (실제 콘텐츠)
