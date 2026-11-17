@@ -12,7 +12,9 @@ export function usePageDataTiming(page: "dashboard" | "activity", key: string, l
     const frame = requestAnimationFrame(() => { secondFrame = requestAnimationFrame(() => {
       if (cancelled || state.current !== current || current.reported) return;
       current.reported = true;
-      track("page_data_ready", { page, duration_ms: Math.round(performance.now() - current.start), outcome: failed ? "failed" : "ready" });
+      try {
+        track("page_data_ready", { page, duration_ms: Math.round(performance.now() - current.start), outcome: failed ? "failed" : "ready" });
+      } catch { /* Analytics must never interrupt the page. */ }
     }); });
     return () => { cancelled = true; cancelAnimationFrame(frame); if (secondFrame !== undefined) cancelAnimationFrame(secondFrame); };
   }, [page, key, loading, ready, failed]);
