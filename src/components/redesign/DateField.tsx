@@ -129,7 +129,7 @@ export default function DateField({
     };
     positionPopup();
     return observeViewport(positionPopup);
-  }, [open, viewMonth, portal]);
+  }, [open, viewMonth, portal, position.maxWidth]);
 
   useEffect(() => {
     if (!open || !pendingDateFocus.current) return;

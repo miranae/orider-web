@@ -102,7 +102,7 @@ export default function TimeField({
     };
     place();
     return observeViewport(place);
-  }, [open, portal]);
+  }, [open, portal, position.maxWidth]);
 
   // 외부 클릭 닫기
   useEffect(() => {

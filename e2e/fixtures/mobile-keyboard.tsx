@@ -1,3 +1,4 @@
+import { useMobileKeyboard } from "../../src/hooks/useMobileKeyboard";
 import { preserveActionPosition } from "../../src/utils/preserveActionPosition";
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -23,6 +24,7 @@ import '../../src/theme/generated.css';
 import '../../src/theme/components/components.css';
 await i18next.init({ lng: 'ko', resources: { ko: { training, common, board } }, interpolation: { escapeValue: false } });
 function Fixture() {
+  useMobileKeyboard();
   const [saved, setSaved] = useState(0);
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState('2030-11-20');
@@ -37,7 +39,7 @@ function Fixture() {
       <h1>입력 화면 검증</h1><Input aria-label="일반 입력" /><Input type="number" aria-label="숫자 입력" /><input type="checkbox" aria-label="체크박스" />
       <Button onClick={() => setOpen(true)}>입력 팝업</Button>
       <Button onClick={() => void dialog.prompt('내용을 입력해주세요.', { multiline: true, defaultValue: '검증 내용\n'.repeat(30) })}>긴 입력 확인창</Button>
-      <div style={{ marginTop: 'var(--space-8)' }}><DateField portal={!params.has('inline')} value={date} onChange={setDate} /><TimeField portal={!params.has('inline')} value={time} onChange={setTime} /><DropdownSelect label="종목" value={choice} onChange={setChoice} options={Array.from({length:20},(_,i)=>({value:String(i),label:`선택 ${i}`}))} /></div>
+      <div data-testid="picker-controls" style={{ marginTop: 'var(--space-8)' }}><DateField portal={!params.has('inline')} value={date} onChange={setDate} /><TimeField portal={!params.has('inline')} value={time} onChange={setTime} /><DropdownSelect label="종목" value={choice} onChange={setChoice} options={Array.from({length:20},(_,i)=>({value:String(i),label:`선택 ${i}`}))} /></div>
       <div style={{ height: '60vh' }} />
       <output aria-label="저장 횟수">{saved}</output><div onPointerDown={preserveActionPosition} className="mobile-form-actions mobile-form-actions--fixed"><Button onClick={() => setSaved(n => n + 1)}>변경 저장</Button></div>
       <Modal open={open} onClose={() => setOpen(false)} title="입력 팝업">

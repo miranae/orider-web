@@ -28,9 +28,9 @@ test('resize keyboard hides navigation and frees the fixed save bar only for edi
     const r = node.getBoundingClientRect();
     return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === node;
   })).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('checkbox').focus();
   await expect(nav).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: '변경 저장' }).focus();
   await expect(page.getByRole('button', { name: '변경 저장' })).toBeInViewport();
 });
@@ -50,10 +50,38 @@ test('a save tap completes before input blur can relocate the action bar', async
   await save.tap();
   await expect(page.getByRole('status', { name: '저장 횟수' })).toHaveText('2');
   await expect(page.locator('[data-editing-action]')).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('checkbox').focus();
+  await expect(page.getByTestId('X1-1')).toBeVisible();
   await save.tap();
   await expect(page.getByRole('status', { name: '저장 횟수' })).toHaveText('3');
 });
+
+test('dismissing the keyboard restores navigation while input focus is retained', async ({ page }) => {
+  await page.goto('/e2e/fixtures/mobile-keyboard.html');
+  const input = page.getByRole('textbox', { name: '일반 입력' });
+  await input.fill('입력 유지');
+  await page.setViewportSize({ width: 390, height: 300 });
+  await expect(page.getByTestId('X1-1')).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue('입력 유지');
+  await expect(page.getByTestId('X1-1')).toBeVisible();
+});
+
+for (const name of [/2030/, /오전 8:00/]) {
+  test(`popup remeasures its width after viewport expansion: ${name}`, async ({ page }) => {
+    await page.goto('/e2e/fixtures/mobile-keyboard.html');
+    await overlayKeyboard(page, 500);
+    await page.getByTestId('picker-controls').evaluate(node => Object.assign(node.style, { position: 'fixed', right: '0', top: '100px', width: '120px' }));
+    await page.evaluate(() => Object.assign(window.visualViewport!, { width: 220 }));
+    await page.getByRole('button', { name }).click();
+    const popup = page.getByRole('dialog');
+    await expect.poll(() => popup.evaluate(node => node.getBoundingClientRect().right <= 220)).toBe(true);
+    await page.evaluate(() => { Object.assign(window.visualViewport!, { width: 390 }); window.visualViewport!.dispatchEvent(new Event('resize')); });
+    await expect.poll(() => popup.evaluate(node => node.getBoundingClientRect().right <= 390)).toBe(true);
+  });
+}
 
 for (const kind of ['run', 'swim']) {
   test(`${kind} goal input stays uncovered by wizard actions`, async ({ page }) => {

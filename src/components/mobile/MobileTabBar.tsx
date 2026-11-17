@@ -1,5 +1,4 @@
 import { Link, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
 import { HUB_RETURN_STATE, hubReturnTarget } from "../../services/hubReturn";
@@ -18,23 +17,6 @@ export default function MobileTabBar({
 }) {
   const { t } = useTranslation("common");
   const { lang } = useParams();
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const update = () => {
-      setKeyboardOpen(window.innerHeight - viewport.height - viewport.offsetTop > 120);
-    };
-    update();
-    viewport.addEventListener("resize", update);
-    viewport.addEventListener("scroll", update);
-    return () => {
-      viewport.removeEventListener("resize", update);
-      viewport.removeEventListener("scroll", update);
-    };
-  }, []);
-
   const localized = (to: string) => `/${lang ?? 'ko'}${to === '/' ? '' : to}`;
 
   return (
@@ -44,8 +26,6 @@ export default function MobileTabBar({
         background: "var(--bg-1)",
         borderTop: "1px solid var(--line-soft)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        transform: keyboardOpen ? "translateY(110%)" : "translateY(0)",
-        transition: "transform 160ms ease",
       }}
     >
       <nav data-testid="X1-1" className="mobile-tab-bar-nav" aria-label={t("nav.mainNavAria")}>
