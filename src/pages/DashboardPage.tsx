@@ -256,7 +256,7 @@ function DashboardContent() {
   };
 
   const queryParam = searchParams.get("q")?.trim() ?? "";
-  const dataReadiness = dashboardDataReadiness(isMobile ? queryParam || (activitySearch.active ? activitySearch.searchedKeyword : null) : null,
+  const dataReadiness = dashboardDataReadiness(queryParam || (activitySearch.active ? activitySearch.searchedKeyword : null),
     activitySearch, loading, !!feedError, authLoading);
   usePageDataTiming("dashboard", `${feedLocation.key}:${feedLocation.search}`, dataReadiness.loading, dataReadiness.ready, dataReadiness.failed);
   const { search: searchActivities, reset: resetActivitySearch } = activitySearch;
