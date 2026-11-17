@@ -1,6 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const track = vi.hoisted(() => vi.fn());
+const logError = vi.hoisted(() => vi.fn());
+vi.mock("../services/errorLogger", () => ({ logClientError: logError }));
 vi.mock("../services/analytics", () => ({ track }));
 import { usePageDataTiming } from "./usePageDataTiming";
 let frames: Map<number, FrameRequestCallback>, id: number;
@@ -18,4 +20,11 @@ it("cancels pending paint when readiness changes or the component unmounts", () 
   const { rerender, unmount } = renderHook(({ loading }) => usePageDataTiming("dashboard", "route", loading, !loading, false), { initialProps: { loading: false } });
   act(() => paint()); rerender({ loading: true }); act(() => paint()); expect(track).not.toHaveBeenCalled();
   rerender({ loading: false }); unmount(); act(() => { paint(); paint(); }); expect(track).not.toHaveBeenCalled();
+});
+
+it("records telemetry failure without interrupting page rendering", () => {
+  const error = new Error("analytics unavailable"); track.mockImplementationOnce(() => { throw error; });
+  renderHook(() => usePageDataTiming("dashboard", "route-error", false, true, false));
+  act(() => { paint(); paint(); });
+  expect(logError).toHaveBeenCalledWith("pageDataTiming.track", error, { page: "dashboard" });
 });
