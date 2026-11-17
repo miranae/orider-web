@@ -137,6 +137,16 @@ export function CommunityLogo({
   );
 }
 
+export function dashboardDataReadiness(keyword: string | null,
+  search: { active: boolean; searchedKeyword: string; loading: boolean; error: boolean },
+  feedLoading: boolean, feedError: boolean, authLoading: boolean) {
+  if (keyword) {
+    const pending = authLoading || !search.active || search.searchedKeyword !== keyword || search.loading;
+    return { loading: pending, ready: !pending, failed: !pending && search.error };
+  }
+  return { loading: authLoading || feedLoading, ready: !authLoading && !feedLoading, failed: feedError };
+}
+
 export function normalizeDashboardDiscipline(value: string | null): Discipline | null {
   if (value === "bike" || value === "run" || value === "swim" || value === "tri") {
     return value;
@@ -233,7 +243,6 @@ function DashboardContent() {
   });
   const loading = activitiesLoading || feedScope === "following" && subscriptions.loading;
   const feedError = activitiesError || feedScope === "following" && subscriptions.error;
-  usePageDataTiming("dashboard", `${feedLocation.key}:${feedLocation.search}`, loading, !loading, !!feedError);
   const retryFeed = () => { if (feedScope === "following" && subscriptions.error) subscriptions.retry(); else retryActivities(); };
   // 정본(서버 집계) 홈 요약 — `homeSummary` 서버 전환 판정 AND 빌드 플래그 뒤에 있다.
   // 꺼져 있으면(오늘의 기본값) 아래 KPI 는 useWeeklyStats 의 클라 집계를 그대로 그린다.
@@ -247,6 +256,9 @@ function DashboardContent() {
   };
 
   const queryParam = searchParams.get("q")?.trim() ?? "";
+  const dataReadiness = dashboardDataReadiness(isMobile ? queryParam || (activitySearch.active ? activitySearch.searchedKeyword : null) : null,
+    activitySearch, loading, !!feedError, authLoading);
+  usePageDataTiming("dashboard", `${feedLocation.key}:${feedLocation.search}`, dataReadiness.loading, dataReadiness.ready, dataReadiness.failed);
   const { search: searchActivities, reset: resetActivitySearch } = activitySearch;
   useEffect(() => {
     if (queryParam) searchActivities(queryParam, mobileDatePreset);
