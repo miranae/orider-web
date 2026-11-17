@@ -69,6 +69,24 @@ test('dismissing the keyboard restores navigation while input focus is retained'
   await expect(page.getByTestId('X1-1')).toBeVisible();
 });
 
+test('rotation with an open keyboard preserves navigation recovery and reopening', async ({ page }) => {
+  await page.goto('/e2e/fixtures/mobile-keyboard.html');
+  const input = page.getByRole('textbox', { name: '일반 입력' });
+  await input.fill('회전 후에도 입력 유지');
+  await page.setViewportSize({ width: 390, height: 300 });
+  await expect(page.getByTestId('X1-1')).toBeHidden();
+  await page.setViewportSize({ width: 844, height: 160 });
+  await expect(page.getByTestId('X1-1')).toBeHidden();
+  await page.setViewportSize({ width: 844, height: 350 });
+  await expect(input).toBeFocused();
+  await expect(page.getByTestId('X1-1')).toBeVisible();
+  await page.setViewportSize({ width: 844, height: 160 });
+  await expect(page.getByTestId('X1-1')).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(input).toBeFocused();
+  await expect(page.getByTestId('X1-1')).toBeVisible();
+});
+
 for (const name of [/2030/, /오전 8:00/]) {
   test(`popup remeasures its width after viewport expansion: ${name}`, async ({ page }) => {
     await page.goto('/e2e/fixtures/mobile-keyboard.html');
