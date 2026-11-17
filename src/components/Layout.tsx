@@ -180,7 +180,7 @@ export default function Layout() {
       />
 
       {/* 홈은 대시보드 셸, 다른 페이지는 콘텐츠 셸. 기본 허브 화면은 탭을 오가는 동안 살려 둔다. */}
-      <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+      <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0">
         <RetainedHubPages path={path} hub={activeNav} owner={user?.uid ?? null}>
           {path === "/" ? (
             <div className="site-shell md:px-6 md:py-6" data-page-shell="home">
