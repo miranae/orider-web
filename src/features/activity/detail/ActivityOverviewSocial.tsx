@@ -6,7 +6,7 @@ import { ICON_SIZE } from '../../../theme/tokens/icon';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import ActivityFeedVideo from "../../../components/activity/ActivityFeedVideo";
-import { MapPin, Trash2, Play, EyeOff, Plus } from "lucide-react";
+import { MapPin, Trash2, Play, EyeOff, ImagePlus } from "lucide-react";
 import { providerPhotoIdOf } from "./providerPhotoVisibility";
 import type { Activity } from "@shared/types";
 import Avatar from "../../../components/Avatar";
@@ -89,7 +89,7 @@ export default function ActivityOverviewSocial(props: Props) {
         {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
         {props.memoTruncated && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoPartial")}</Text>}
       </div> : <Text as="p" variant="bodyMedium" tone="tertiary" role={props.memoLoading ? "status" : undefined}>{t(props.memoLoading ? "detail.loadingData" : props.memoError ? "overviewSocial.memoUnavailable" : "overviewSocial.noMemo")}</Text>)}
-      <div className="activity-overview-photos" style={{ gridTemplateColumns: `repeat(${previews.length === 0 ? 5 : previews.length + Number(addTile)}, minmax(0, 1fr))` }} aria-label={t("page.photos")}>
+      <div className={`activity-overview-photos${previews.length === 0 ? " activity-overview-photos--empty" : ""}`} style={previews.length ? { gridTemplateColumns: `repeat(${previews.length + Number(addTile)}, minmax(0, 1fr))` } : undefined} aria-label={t("page.photos")}>
         {previews.map((item, position) => <div className="activity-overview-photo" key={item.id}>
           <button type="button" className="activity-overview-photo-open"
             aria-label={t("overviewSocial.openPhoto", { index: position + 1, count: total })}
@@ -103,8 +103,8 @@ export default function ActivityOverviewSocial(props: Props) {
               onClick={() => { setSelected(item.id); if (total > safePhotos.length) load(); }} /></span>
           </>}
         </div>)}
-        {addTile && <div className="activity-overview-photo activity-overview-photo-add">
-          <IconButton variant="ghost" icon={<Plus size={ICON_SIZE.lg} />} loading={props.uploading} onClick={props.onUpload}
+        {addTile && <div className={previews.length ? "activity-overview-photo activity-overview-photo-add" : undefined}>
+          <IconButton variant="ghost" size={previews.length ? "md" : "sm"} icon={<ImagePlus size={previews.length ? ICON_SIZE.lg : ICON_SIZE.sm} />} loading={props.uploading} onClick={props.onUpload}
             aria-label={t("page.addPhoto")} title={t("page.addPhoto")} />
         </div>}
       </div>
