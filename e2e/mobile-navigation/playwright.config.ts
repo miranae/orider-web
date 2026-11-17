@@ -1,0 +1,3 @@
+import { defineConfig } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+export default defineConfig({ testDir: '.', testMatch: '*.spec.ts', workers: 1, use: { baseURL: 'http://127.0.0.1:18499', viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true }, projects: [{ name: 'chromium', use: { browserName: 'chromium' } }, { name: 'webkit', use: { browserName: 'webkit' } }], webServer: { cwd: fileURLToPath(new URL('../..', import.meta.url)), command: 'node_modules/.bin/vite --config e2e/mobile-navigation/vite.config.ts --host 127.0.0.1 --port 18499', url: 'http://127.0.0.1:18499', reuseExistingServer: false } });
