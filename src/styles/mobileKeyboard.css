@@ -2,6 +2,12 @@
    Focus also covers Android resize mode, where innerHeight equals visualViewport.height. */
 .mobile-form-actions { position: sticky; bottom: 0; }
 .mobile-form-actions--fixed { position: fixed; }
+@media (max-width: 63.999rem) {
+  /* The web tab bar has its own fixed layer; embedded screens have no tab bar. */
+  :root:has(.mobile-tab-bar) .mobile-form-actions--fixed {
+    bottom: calc(var(--space-8) + var(--dim-divider-thickness) + env(safe-area-inset-bottom, 0px));
+  }
+}
 @media (max-width: 63.999rem), (pointer: coarse) {
   :root .mobile-form-actions[data-editing-action] { position: static; }
   :root:has(:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"]), textarea, select, [contenteditable="true"], [contenteditable=""]):focus) {

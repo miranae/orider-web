@@ -49,6 +49,10 @@ test('a save tap completes before input blur can relocate the action bar', async
   await save.evaluate(node => node.scrollIntoView({ block: 'center' }));
   await save.tap();
   await expect(page.getByRole('status', { name: '저장 횟수' })).toHaveText('2');
+  await expect(page.locator('[data-editing-action]')).toHaveCount(0);
+  await page.getByRole('checkbox').focus();
+  await save.tap();
+  await expect(page.getByRole('status', { name: '저장 횟수' })).toHaveText('3');
 });
 
 for (const kind of ['run', 'swim']) {
