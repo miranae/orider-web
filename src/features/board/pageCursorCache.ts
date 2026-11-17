@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from '../../services/errorLogger';
 import { Timestamp, type Firestore, type DocumentSnapshot } from 'firebase/firestore';
 
@@ -7,15 +8,15 @@ const MAX_ENTRIES = 200;
 type StoredCursor = { page: number; id: string; value: number | { seconds: number; nanoseconds: number }; expiresAt: number };
 const memory = new Map<string, StoredCursor>();
 const namespace = (firestore: Firestore, scope: string) => `${PREFIX}${JSON.stringify([firestore.app?.options?.projectId, firestore.app?.name, scope])}:`;
-const storage = () => { try { return typeof sessionStorage === 'undefined' ? null : sessionStorage; } catch (error) { logClientError('board:cursor:storage_access', error); return null; } };
+const storage = (services?: FirebaseServices) => { try { return typeof sessionStorage === 'undefined' ? null : sessionStorage; } catch (error) { logClientError('board:cursor:storage_access', error, undefined, services); return null; } };
 
-export function clearBoardPageCursors() {
+export function clearBoardPageCursors(services?: FirebaseServices) {
   memory.clear();
-  const store = storage();
-  try { if (store) for (const key of Object.keys(store)) if (key.startsWith(PREFIX)) store.removeItem(key); } catch (error) { logClientError('board:cursor:clear', error); }
+  const store = storage(services);
+  try { if (store) for (const key of Object.keys(store)) if (key.startsWith(PREFIX)) store.removeItem(key); } catch (error) { logClientError('board:cursor:clear', error, undefined, services); }
 }
 
-export function saveBoardPageCursor(firestore: Firestore, scope: string, page: number, snapshot: DocumentSnapshot) {
+export function saveBoardPageCursor(firestore: Firestore, scope: string, page: number, snapshot: DocumentSnapshot, services?: FirebaseServices) {
   const raw: unknown = snapshot.data()?.createdAt;
   const value = typeof raw === 'number' && Number.isFinite(raw) ? raw
     : raw instanceof Timestamp ? { seconds: raw.seconds, nanoseconds: raw.nanoseconds } : null;
@@ -24,22 +25,22 @@ export function saveBoardPageCursor(firestore: Firestore, scope: string, page: n
   memory.delete(key); memory.set(key, entry);
   while (memory.size > MAX_ENTRIES) memory.delete(memory.keys().next().value!);
   try {
-    const store = storage(); store?.setItem(key, JSON.stringify(entry));
+    const store = storage(services); store?.setItem(key, JSON.stringify(entry));
     const keys = store ? Object.keys(store).filter(key => key.startsWith(PREFIX)) : [];
     if (keys.length > MAX_ENTRIES) keys.slice(0, keys.length - MAX_ENTRIES).forEach(key => store?.removeItem(key));
-  } catch (error) { logClientError('board:cursor:save', error); }
+  } catch (error) { logClientError('board:cursor:save', error, undefined, services); }
 }
 
 /** 계정·Firebase 앱·필터가 같은 가장 가까운 앞 페이지 앵커만 재사용한다. */
-export function nearestBoardPageCursor(firestore: Firestore, scope: string, beforePage: number) {
-  const prefix = namespace(firestore, scope), store = storage();
+export function nearestBoardPageCursor(firestore: Firestore, scope: string, beforePage: number, services?: FirebaseServices) {
+  const prefix = namespace(firestore, scope), store = storage(services);
   try {
     if (store) for (const key of Object.keys(store)) {
       if (!key.startsWith(prefix)) continue;
       const entry = JSON.parse(store.getItem(key) ?? 'null') as StoredCursor | null;
       if (entry) memory.set(key, entry);
     }
-  } catch (error) { logClientError('board:cursor:restore', error); }
+  } catch (error) { logClientError('board:cursor:restore', error, undefined, services); }
   let best: StoredCursor | null = null;
   for (const [key, entry] of memory) {
     if (!key.startsWith(prefix) || !Number.isFinite(entry.expiresAt) || entry.expiresAt <= Date.now() || !Number.isSafeInteger(entry.page) || entry.page < 1 || entry.page >= beforePage

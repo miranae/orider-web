@@ -11,13 +11,14 @@ export interface UseCoursesOptions { enabled?: boolean }
 type Cursor = Array<{ last: QueryDocumentSnapshot<DocumentData> | null; exhausted: boolean }>;
 
 export function useCourses(options: UseCoursesOptions = {}) {
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const page = usePagedSearch(options.enabled === false ? null : JSON.stringify([uid, cacheVersion]), async (cursor: Cursor | null) => {
     const sources = uid ? ["mine", "public"] : ["public"];
     const items = new Map<string, Course>();
-    const indexed = await indexedCourseQueries(firestore);
+    const indexed = await indexedCourseQueries(firestore, services);
     const pages = await Promise.all(sources.map(async (source, index) => {
       const previous = cursor?.[index];
       if (previous?.exhausted) return { previous, docs: [] };
