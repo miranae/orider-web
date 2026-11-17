@@ -1,3 +1,4 @@
+import { logClientError } from '../../services/errorLogger';
 import { Timestamp, type Firestore, type DocumentSnapshot } from 'firebase/firestore';
 
 const PREFIX = 'orider:board-cursors:v1:';
@@ -6,12 +7,12 @@ const MAX_ENTRIES = 200;
 type StoredCursor = { page: number; id: string; value: number | { seconds: number; nanoseconds: number }; expiresAt: number };
 const memory = new Map<string, StoredCursor>();
 const namespace = (firestore: Firestore, scope: string) => `${PREFIX}${JSON.stringify([firestore.app?.options?.projectId, firestore.app?.name, scope])}:`;
-const storage = () => { try { return typeof sessionStorage === 'undefined' ? null : sessionStorage; } catch { return null; } };
+const storage = () => { try { return typeof sessionStorage === 'undefined' ? null : sessionStorage; } catch (error) { logClientError('board:cursor:storage_access', error); return null; } };
 
 export function clearBoardPageCursors() {
   memory.clear();
   const store = storage();
-  try { if (store) for (const key of Object.keys(store)) if (key.startsWith(PREFIX)) store.removeItem(key); } catch { /* 메모리 캐시만으로도 조회할 수 있다. */ }
+  try { if (store) for (const key of Object.keys(store)) if (key.startsWith(PREFIX)) store.removeItem(key); } catch (error) { logClientError('board:cursor:clear', error); }
 }
 
 export function saveBoardPageCursor(firestore: Firestore, scope: string, page: number, snapshot: DocumentSnapshot) {
@@ -26,7 +27,7 @@ export function saveBoardPageCursor(firestore: Firestore, scope: string, page: n
     const store = storage(); store?.setItem(key, JSON.stringify(entry));
     const keys = store ? Object.keys(store).filter(key => key.startsWith(PREFIX)) : [];
     if (keys.length > MAX_ENTRIES) keys.slice(0, keys.length - MAX_ENTRIES).forEach(key => store?.removeItem(key));
-  } catch { /* 저장소가 막혀도 현재 탭의 메모리 캐시는 유지한다. */ }
+  } catch (error) { logClientError('board:cursor:save', error); }
 }
 
 /** 계정·Firebase 앱·필터가 같은 가장 가까운 앞 페이지 앵커만 재사용한다. */
@@ -38,7 +39,7 @@ export function nearestBoardPageCursor(firestore: Firestore, scope: string, befo
       const entry = JSON.parse(store.getItem(key) ?? 'null') as StoredCursor | null;
       if (entry) memory.set(key, entry);
     }
-  } catch { /* 손상된 저장소는 조회에 영향을 주지 않는다. */ }
+  } catch (error) { logClientError('board:cursor:restore', error); }
   let best: StoredCursor | null = null;
   for (const [key, entry] of memory) {
     if (!key.startsWith(prefix) || !Number.isFinite(entry.expiresAt) || entry.expiresAt <= Date.now() || !Number.isSafeInteger(entry.page) || entry.page < 1 || entry.page >= beforePage

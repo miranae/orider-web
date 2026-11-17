@@ -1,7 +1,7 @@
 import { getDoc, type DocumentSnapshot, type Firestore } from 'firebase/firestore';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { indexedCourseQueries } from './catalogQueryMode';
-vi.mock('../../services/sentry', () => ({ captureError: vi.fn() }));
+vi.mock('../../services/errorLogger', () => ({ logClientError: vi.fn() }));
 const state = (data: object) => ({ data: () => data }) as DocumentSnapshot;
 afterEach(() => vi.useRealTimers());
 describe('course query activation', () => {
