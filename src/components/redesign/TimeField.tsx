@@ -206,7 +206,7 @@ export default function TimeField({
             borderRadius: "var(--r-md)",
             padding: 'var(--space-3)',
             boxShadow: "0 12px 32px color-mix(in srgb, var(--bg-0) 45%, transparent)",
-            minWidth: 220,
+            minWidth: Math.min(220, position.maxWidth),
           }}
         >
           <div className="flex" style={{ gap: "var(--space-2)" }}>
