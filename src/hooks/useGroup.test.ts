@@ -825,3 +825,14 @@ it.each(["missing", "failed"])("clears an expired member profile when its rechec
     await waitFor(() => expect(result.current.members[0]?.profile).toBeNull());
   } finally { clock.mockRestore(); }
 });
+
+
+it("keeps successful profiles in a partial roster response", async () => {
+  vi.mocked(getPublicUserProfiles).mockResolvedValueOnce(new Map([["good", profile("good")]]));
+  setCollectionDocs("groups/partial/members", [{ id: "good" }, { id: "failed" }]);
+  const { result } = renderHook(() => useGroupMembers("partial"));
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.members.find(member => member.id === "good")?.profile?.nickname).toBe("good");
+  expect(result.current.members.find(member => member.id === "failed")?.profile).toBeNull();
+  expect(getPublicUserProfiles).toHaveBeenLastCalledWith(expect.any(Array), expect.anything(), expect.anything(), { onReadError: expect.any(Function) });
+});

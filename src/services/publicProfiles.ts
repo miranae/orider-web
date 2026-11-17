@@ -55,7 +55,7 @@ export async function getPublicUserProfile(userId: string, database = firestore)
 }
 
 const batchUnavailableUntil = new WeakMap<object, number>();
-export async function getPublicUserProfiles(userIds: readonly string[], database = firestore, services?: FirebaseServices): Promise<Map<string, PublicUserProfile>> {
+export async function getPublicUserProfiles(userIds: readonly string[], database = firestore, services?: FirebaseServices, options: { onReadError?: (userId: string, error: unknown) => void } = {}): Promise<Map<string, PublicUserProfile>> {
   const ids = [...new Set(userIds)];
   if (services && services.firestore === database && (batchUnavailableUntil.get(services.functions) ?? 0) <= Date.now() && ids.length) {
     const viewer = services.auth.currentUser;
@@ -80,11 +80,13 @@ export async function getPublicUserProfiles(userIds: readonly string[], database
   const pairs = await Promise.allSettled(
     Array.from(new Set(userIds)).map(async (userId) => [userId, await getPublicUserProfile(userId, database)] as const),
   );
-  return new Map(pairs.flatMap((result) => {
+  return new Map(pairs.flatMap((result, index) => {
     if (result.status === "fulfilled") {
       const [userId, profile] = result.value;
       return profile ? [[userId, profile] as const] : [];
     }
+    if (options.onReadError) { options.onReadError(ids[index]!, result.reason); return []; }
+    if (options.onReadError) { options.onReadError(ids[index], result.reason); return []; }
     if (isPermissionDeniedError(result.reason)) return [];
     throw result.reason;
   }));

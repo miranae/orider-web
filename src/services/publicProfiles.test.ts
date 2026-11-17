@@ -54,3 +54,15 @@ it("uses one injected callable for a profile batch and never falls back on backe
   await expect(getPublicUserProfiles(["a"], database, services)).rejects.toBe(failure);
   expect(getDoc).not.toHaveBeenCalled();
 });
+
+
+it("preserves successful legacy roster reads when another profile fails", async () => {
+  vi.mocked(getDoc).mockReset()
+    .mockResolvedValueOnce({ exists: () => true, id: "visible", data: () => ({ nickname: "Visible" }) } as Awaited<ReturnType<typeof getDoc>>)
+    .mockRejectedValueOnce(new Error("network failed"));
+  const onReadError = vi.fn();
+  const result = await getPublicUserProfiles(["visible", "failed"], undefined, undefined, { onReadError });
+  expect(result.get("visible")?.nickname).toBe("Visible");
+  expect(result.has("failed")).toBe(false);
+  expect(onReadError).toHaveBeenCalledWith("failed", expect.any(Error));
+});

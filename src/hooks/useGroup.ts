@@ -181,14 +181,14 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
       let fetched: Map<string, PublicUserProfile> | null = null;
       if (missing.length) {
         const key = JSON.stringify(missing);
-        if (pending?.key !== key) pending = { key, promise: getPublicUserProfiles(missing, firestore, services) };
+        if (pending?.key !== key) pending = { key, promise: getPublicUserProfiles(missing, firestore, services, { onReadError: (userId, reason) => logClientError("useGroupMembers.profile", reason, { groupId, userId }, services) }) };
         try { fetched = await pending.promise; }
         catch (reason) { logClientError("useGroupMembers.profiles", reason, { groupId, count: missing.length }, services); }
         if (pending?.key === key) pending = null;
       }
       if (cancelled || epoch !== snapshotEpochRef.current) return;
       for (const id of missing) {
-        if (fetched) profiles.set(id, { profile: fetched.get(id) ?? null, expires: Date.now() + 60_000 });
+        if (fetched?.has(id)) profiles.set(id, { profile: fetched.get(id)!, expires: Date.now() + 60_000 });
         else profiles.delete(id);
       }
       const rows = snap.docs.map(memberDoc => ({ id: memberDoc.id, ...memberDoc.data(), profile: profiles.get(memberDoc.id)?.profile ?? null } as GroupMemberWithProfile));
