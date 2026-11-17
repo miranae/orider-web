@@ -29,6 +29,17 @@ interface PeekState {
 
 // 세션 캐시 — 탭 전환 시 peek 재요청 방지. 키 = `${activityId}:${lang}`.
 const peekDone = new Map<string, ActivityNarrative | null>();
+const peekPending = new Map<string, ReturnType<typeof peekActivityNarrative>>();
+function sharedPeek(key: string, read: () => ReturnType<typeof peekActivityNarrative>) {
+  const existing = peekPending.get(key);
+  if (existing) return existing;
+  const pending = read();
+  // Only in-flight requests are shared; failure and account changes cannot become completed cache hits.
+  if (peekPending.size < 64) peekPending.set(key, pending);
+  const clear = () => { if (peekPending.get(key) === pending) peekPending.delete(key); };
+  void pending.then(clear, clear);
+  return pending;
+}
 const peekKey = (activityId: string, lang: NarrativeLang, viewer: string) => `${activityId}:${lang}:${viewer}`;
 
 /**
@@ -59,7 +70,7 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
     let cancelled = false;
     setState({ data: null, loading: true, cacheMiss: false });
 
-    peekActivityNarrative({ activityId, cacheOnly: true, lang }, services)
+    sharedPeek(key, () => peekActivityNarrative({ activityId, cacheOnly: true, lang }, services))
       .then((d) => {
         if (cancelled || !session.isCurrent()) return;
         if (d.hit) {
