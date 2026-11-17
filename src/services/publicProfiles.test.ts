@@ -37,3 +37,20 @@ it("reads profile batches from the explicitly injected Firestore instance", asyn
   expect(rows.get("named-rider")?.nickname).toBe("Named rider");
   expect(doc).toHaveBeenLastCalledWith(database, "users_public", "named-rider");
 });
+
+it("uses one injected callable for a profile batch and never falls back on backend failure", async () => {
+  const { setCallableResult, setCallableImplementation, mockCallableInvocations } = await import("../__tests__/mocks/firebase");
+  const { httpsCallable } = await import("firebase/functions");
+  const database = {} as Firestore;
+  const services = { firestore: database, functions: {}, auth: { currentUser: { uid: "member" } }, ensureAppCheckReady: vi.fn() } as unknown as import("../contexts/FirebaseServicesContext").FirebaseServices;
+  vi.mocked(getDoc).mockClear();
+  setCallableResult("getPublicUserProfiles", { data: { profiles: [{ id: "a", nickname: "A" }, { id: "b", nickname: "B" }] } });
+  expect((await getPublicUserProfiles(["a", "a", "b"], database, services)).size).toBe(2);
+  expect(mockCallableInvocations.at(-1)).toEqual({ name: "getPublicUserProfiles", data: { ids: ["a", "b"] } });
+  expect(httpsCallable).toHaveBeenLastCalledWith(services.functions, "getPublicUserProfiles");
+  expect(getDoc).not.toHaveBeenCalled();
+  const failure = Object.assign(new Error("backend failed"), { code: "functions/unavailable" });
+  setCallableImplementation("getPublicUserProfiles", () => { throw failure; });
+  await expect(getPublicUserProfiles(["a"], database, services)).rejects.toBe(failure);
+  expect(getDoc).not.toHaveBeenCalled();
+});

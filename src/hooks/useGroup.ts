@@ -7,7 +7,7 @@ import {
 // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
-import { getPublicUserProfile, type PublicUserProfile } from "../services/publicProfiles";
+import { getPublicUserProfiles, type PublicUserProfile } from "../services/publicProfiles";
 import type { Group, GroupMember, GroupMemberRole } from "@shared/types";
 
 export interface GroupMemberWithProfile extends GroupMember {
@@ -148,7 +148,8 @@ export function useGroupMemberRole(groupId: string | undefined, userId: string |
 
 // 그룹 멤버 목록 + 프로필 조회
 export function useGroupMembers(groupId: string | undefined, maxCount?: number, accessKey?: string) {
-  const { auth, firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { auth, firestore } = services;
   const [members, setMembers] = useState<GroupMemberWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -163,6 +164,8 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
     if (!groupId) { setLoading(false); return; }
     setLoading(true);
     let cancelled = false;
+    const profiles = new Map<string, { profile: PublicUserProfile | null; expires: number }>();
+    let pending: { key: string; promise: ReturnType<typeof getPublicUserProfiles> } | null = null;
     const q = maxCount
       ? query(collection(firestore, "groups", groupId, "members"), firestoreLimit(maxCount))
       : query(collection(firestore, "groups", groupId, "members"));
@@ -172,13 +175,20 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
         if (!cancelled) { setError(new Error("Club members could not be confirmed with the server")); setLoading(false); }
         return;
       }
-      const rows = await Promise.all(snap.docs.map(async memberDoc => {
-        const member = { id: memberDoc.id, ...memberDoc.data(), profile: null as PublicUserProfile | null } as GroupMemberWithProfile;
-        try { member.profile = await getPublicUserProfile(member.id); }
-        catch (reason) { logClientError("useGroupMembers.profile", reason, {groupId,userId:member.id}); }
-        return member;
-      }));
+      const currentIds = new Set(snap.docs.map(doc => doc.id));
+      for (const id of profiles.keys()) if (!currentIds.has(id)) profiles.delete(id);
+      const missing = [...currentIds].filter(id => !profiles.has(id) || profiles.get(id)!.expires <= Date.now()).sort();
+      let fetched = new Map<string, PublicUserProfile>();
+      if (missing.length) {
+        const key = JSON.stringify(missing);
+        if (pending?.key !== key) pending = { key, promise: getPublicUserProfiles(missing, firestore, services) };
+        try { fetched = await pending.promise; }
+        catch (reason) { logClientError("useGroupMembers.profiles", reason, { groupId, count: missing.length }, services); }
+        if (pending?.key === key) pending = null;
+      }
       if (cancelled || epoch !== snapshotEpochRef.current) return;
+      for (const id of missing) if (fetched.has(id)) profiles.set(id, { profile: fetched.get(id)!, expires: Date.now() + 60_000 });
+      const rows = snap.docs.map(memberDoc => ({ id: memberDoc.id, ...memberDoc.data(), profile: profiles.get(memberDoc.id)?.profile ?? null } as GroupMemberWithProfile));
       setMembers(rows);
       setError(snap.metadata?.fromCache === true ? new Error("Club members could not be confirmed with the server") : null);
       setLoading(false);
@@ -189,7 +199,7 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
       setError(reason); setLoading(false);
     });
     return () => { cancelled = true; unsub(); };
-  }, [firestore, groupId, maxCount, accessKey, uid, scope, attempt]);
+  }, [services, firestore, groupId, maxCount, accessKey, uid, scope, attempt]);
   return { members, loading, error, retry: () => setAttempt(value => value + 1) };
 }
 

@@ -12,6 +12,7 @@ vi.mock("../services/publicClubs", () => ({ listPublicClubs: vi.fn(async () => (
 
 vi.mock("../services/publicProfiles", () => ({
   getPublicUserProfile: vi.fn(),
+  getPublicUserProfiles: vi.fn(async (ids: string[]) => new Map(await Promise.all(ids.map(async id => [id, await getPublicUserProfile(id)] as const)))),
 }));
 
 function deferred<T>() {

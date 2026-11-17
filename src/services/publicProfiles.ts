@@ -1,3 +1,5 @@
+import { httpsCallable } from "firebase/functions";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { SEARCH_PAGE_SIZE } from "../constants/pagination";
 import { collection, doc, getDoc, getDocs, limit, query, where, orderBy, startAfter, type QueryDocumentSnapshot, type DocumentData, type Firestore } from "firebase/firestore";
 import type { UserStats } from "@shared/types";
@@ -52,7 +54,29 @@ export async function getPublicUserProfile(userId: string, database = firestore)
   return snap.exists() ? toPublicUserProfile(snap.id, snap.data()) : null;
 }
 
-export async function getPublicUserProfiles(userIds: readonly string[], database = firestore): Promise<Map<string, PublicUserProfile>> {
+const batchUnavailableUntil = new WeakMap<object, number>();
+export async function getPublicUserProfiles(userIds: readonly string[], database = firestore, services?: FirebaseServices): Promise<Map<string, PublicUserProfile>> {
+  const ids = [...new Set(userIds)];
+  if (services && services.firestore === database && (batchUnavailableUntil.get(services.functions) ?? 0) <= Date.now() && ids.length) {
+    const viewer = services.auth.currentUser;
+    await services.ensureAppCheckReady();
+    if (services.auth.currentUser !== viewer) throw new Error("account_changed");
+    try {
+      const profiles = new Map<string, PublicUserProfile>();
+      for (let offset = 0; offset < ids.length; offset += 50) {
+        const chunk = ids.slice(offset, offset + 50);
+        const response = (await httpsCallable<{ ids: string[] }, { profiles: Array<DocumentData & { id: string }> }>(services.functions, "getPublicUserProfiles")({ ids: chunk })).data;
+        if (services.auth.currentUser !== viewer) throw new Error("account_changed");
+        if (!Array.isArray(response.profiles)) throw new Error("Invalid public profile batch response");
+        for (const profile of response.profiles) if (chunk.includes(profile.id)) profiles.set(profile.id, toPublicUserProfile(profile.id, profile));
+      }
+      return profiles;
+    } catch (error) {
+      logClientError("getPublicUserProfiles.batch", error, { count: ids.length }, services);
+      if (!["functions/not-found", "functions/unimplemented"].includes((error as { code?: string })?.code ?? "")) throw error;
+      batchUnavailableUntil.set(services.functions, Date.now() + 60_000);
+    }
+  }
   const pairs = await Promise.allSettled(
     Array.from(new Set(userIds)).map(async (userId) => [userId, await getPublicUserProfile(userId, database)] as const),
   );
