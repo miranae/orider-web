@@ -178,7 +178,7 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
       const currentIds = new Set(snap.docs.map(doc => doc.id));
       for (const id of profiles.keys()) if (!currentIds.has(id)) profiles.delete(id);
       const missing = [...currentIds].filter(id => !profiles.has(id) || profiles.get(id)!.expires <= Date.now()).sort();
-      let fetched = new Map<string, PublicUserProfile>();
+      let fetched: Map<string, PublicUserProfile> | null = null;
       if (missing.length) {
         const key = JSON.stringify(missing);
         if (pending?.key !== key) pending = { key, promise: getPublicUserProfiles(missing, firestore, services) };
@@ -187,7 +187,10 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
         if (pending?.key === key) pending = null;
       }
       if (cancelled || epoch !== snapshotEpochRef.current) return;
-      for (const id of missing) if (fetched.has(id)) profiles.set(id, { profile: fetched.get(id)!, expires: Date.now() + 60_000 });
+      for (const id of missing) {
+        if (fetched) profiles.set(id, { profile: fetched.get(id) ?? null, expires: Date.now() + 60_000 });
+        else profiles.delete(id);
+      }
       const rows = snap.docs.map(memberDoc => ({ id: memberDoc.id, ...memberDoc.data(), profile: profiles.get(memberDoc.id)?.profile ?? null } as GroupMemberWithProfile));
       setMembers(rows);
       setError(snap.metadata?.fromCache === true ? new Error("Club members could not be confirmed with the server") : null);
