@@ -88,4 +88,10 @@ describe('generateTcx', () => {
     expect(tcx).not.toContain('<HeartRateBpm>');
     expect(tcx).not.toContain('<ext:Watts>');
   });
+
+  it('writes the activity sport (TCX allows only Running, Biking and Other)', () => {
+    const streams = { userId: 'u1', time: [0], latlng: [[37.5, 127.0]] as [number, number][] };
+    expect(generateTcx(makeActivity({ type: 'Run' }), streams)).toContain('<Activity Sport="Running">');
+    expect(generateTcx(makeActivity({ type: 'Walk' }), streams)).toContain('<Activity Sport="Other">');
+  });
 });

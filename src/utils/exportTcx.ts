@@ -1,4 +1,5 @@
 import type { Activity, ActivityStreams } from "@shared/types";
+import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
 export function generateTcx(activity: Activity, streams: ActivityStreams): string {
@@ -14,7 +15,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ext="http://www.garmin.com/xmlschemas/ActivityExtension/v2">',
     '<Activities>',
-    '<Activity Sport="Biking">',
+    `<Activity Sport="${exportSportOf(activity).tcxSport}">`,
     `<Id>${startDate.toISOString()}</Id>`,
   ];
 

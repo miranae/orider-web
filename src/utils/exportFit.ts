@@ -1,4 +1,5 @@
 import type { Activity, ActivityStreams } from "@shared/types";
+import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
 /** FIT 파일 바이너리 생성 */
@@ -87,6 +88,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
   }
 
   // Session 메시지 (mesg 18) — 요약
+  const sport = exportSportOf(activity);
   buf.writeDefinition(0, 18, [
     [253, 4, 134], // timestamp
     [2, 4, 134],   // start_time: uint32
@@ -102,8 +104,8 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
     ...uint32LE(Math.round(durationMs)),   // total_elapsed_time
     ...uint32LE(Math.round(durationMs)),   // total_timer_time
     ...uint32LE(Math.round(distanceM * 100)), // total_distance (cm)
-    2, // sport: cycling
-    0, // sub_sport: generic
+    sport.fitSport,
+    sport.fitSubSport,
   ]);
 
   // Lap 메시지 (mesg 19) — 최소 1개 필수

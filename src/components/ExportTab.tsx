@@ -5,6 +5,7 @@ import { generateTcx } from "../utils/exportTcx";
 import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
+import { exportFilename } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
 import { logClientError } from "../services/errorLogger";
 
@@ -12,13 +13,6 @@ interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
   resolveCurrentStreams?: () => Promise<ActivityStreams>;
-}
-
-function makeFilename(activity: Activity, ext: string): string {
-  const date = new Date(activity.startTime);
-  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
-  const name = (activity.description || "ride").replace(/[^a-zA-Z0-9가-힣]/g, "_").slice(0, 30);
-  return `${dateStr}_${name}.${ext}`;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -55,23 +49,23 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
           const data = generateFit(activity, currentStreams);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
-          downloadBlob(new Blob([ab], { type: "application/octet-stream" }), makeFilename(activity, "fit"));
+          downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
           break;
         }
         case "tcx": {
           const xml = generateTcx(activity, currentStreams);
-          downloadBlob(new Blob([xml], { type: "application/xml" }), makeFilename(activity, "tcx"));
+          downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }
         case "csv": {
           const csv = generateCsv(currentStreams);
-          downloadBlob(new Blob([csv], { type: "text/csv" }), makeFilename(activity, "csv"));
+          downloadBlob(new Blob([csv], { type: "text/csv" }), exportFilename(activity, "csv"));
           break;
         }
         case "gpx": {
           const gpx = generateGpx(activity, currentStreams);
           if (gpx) {
-            downloadBlob(new Blob([gpx], { type: "application/gpx+xml" }), makeFilename(activity, "gpx"));
+            downloadBlob(new Blob([gpx], { type: "application/gpx+xml" }), exportFilename(activity, "gpx"));
           }
           break;
         }
