@@ -1,3 +1,4 @@
+import { clearBoardPageCursors, nearestBoardPageCursor, saveBoardPageCursor } from "./pageCursorCache";
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "../../hooks/usePagedSearch";
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import {
@@ -5,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  documentId,
   limit,
   startAfter,
   getDocs,
@@ -51,6 +53,7 @@ const subscribeBoardMutations = (listener: () => void) => {
   return () => { boardMutationListeners.delete(listener); };
 };
 function notifyBoardMutation() {
+  clearBoardPageCursors();
   boardMutationRevision += 1;
   for (const listener of boardMutationListeners) listener();
 }
@@ -98,10 +101,11 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   // refresh() 시 refreshKey 가 바뀌어 새 키 → 자동 재조회(새 글 반영).
   const countCacheRef = useRef<Map<string, number>>(new Map());
 
-  const refresh = () => { setRefreshKey((k) => k + 1); setPage(1); };
+  const refresh = () => { clearBoardPageCursors(); setRefreshKey((k) => k + 1); setPage(1); };
 
   // 필터 변경 시 1페이지로 리셋 (실제 값 변경만 감지, strict mode 안전)
   const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, mutationRevision, ownerOnly, uid]);
+  const cursorScope = JSON.stringify([uid, ownerOnly, boardType, pageSize, tag ?? null, excludeKey]);
   const [loadedFilterKey, setLoadedFilterKey] = useState<string | null>(null);
   useEffect(() => {
     // URL이 필터와 페이지의 정본이다. 뒤로가기와 상세 화면 복귀도 같은 페이지를 읽는다.
@@ -172,6 +176,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
           const pageConstraints: QueryConstraint[] = [
             ...baseConstraints,
             orderBy("createdAt", "desc"),
+            orderBy(documentId(), "desc"),
           ];
 
           if (page === 1) {
@@ -181,17 +186,20 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
             if (lastDoc) {
               pageConstraints.push(startAfter(lastDoc), limit(pageSize));
             } else {
-              // 캐시 없으면 offset 스킵 (앞 페이지 건너뛸 때)
-              const skipCount = (page - 1) * pageSize;
-              const skipSnap = await getDocs(
-                query(collection(firestore, "board_posts"), ...baseConstraints, orderBy("createdAt", "desc"), limit(skipCount))
-              );
-              if (cancelled) return;
-              const lastVisible = skipSnap.docs[skipSnap.docs.length - 1];
-              if (lastVisible) {
-                pageConstraints.push(startAfter(lastVisible), limit(pageSize));
+              const anchor = nearestBoardPageCursor(firestore, cursorScope, page);
+              const skipCount = (page - 1 - (anchor?.page ?? 0)) * pageSize;
+              if (anchor && skipCount === 0) {
+                pageConstraints.push(startAfter(anchor.value, anchor.id), limit(pageSize));
               } else {
-                pageConstraints.push(limit(pageSize));
+                const skipSnap = await getDocs(query(collection(firestore, "board_posts"), ...baseConstraints,
+                  orderBy("createdAt", "desc"), orderBy(documentId(), "desc"),
+                  ...(anchor ? [startAfter(anchor.value, anchor.id)] : []), limit(skipCount)));
+                if (cancelled) return;
+                const lastVisible = skipSnap.docs[skipSnap.docs.length - 1];
+                if (lastVisible) {
+                  saveBoardPageCursor(firestore, cursorScope, page - 1, lastVisible);
+                  pageConstraints.push(startAfter(lastVisible), limit(pageSize));
+                } else pageConstraints.push(...(anchor ? [startAfter(anchor.value, anchor.id)] : []), limit(pageSize));
               }
             }
           }
@@ -206,6 +214,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
           if (snap.docs.length > 0) {
             if (pageLastDocs.current.key !== filterKey) pageLastDocs.current = { key: filterKey, docs: new Map() };
             pageLastDocs.current.docs.set(page, snap.docs[snap.docs.length - 1]!);
+            saveBoardPageCursor(firestore, cursorScope, page, snap.docs[snap.docs.length - 1]!);
           }
         } catch (err) {
           if (cancelled) return;
@@ -219,7 +228,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       fetchPage();
       return () => { cancelled = true; };
     }
-  }, [firestore, boardType, pageSize, tag, keyword, excludeKey, refreshKey, mutationRevision, page, uid, ownerOnly, pagedSearch]);
+  }, [firestore, boardType, pageSize, tag, keyword, excludeKey, refreshKey, mutationRevision, page, uid, ownerOnly, pagedSearch, cursorScope]);
 
   const goToPage = (p: number) => {
     if (p >= 1 && p <= totalPages) setPage(p);

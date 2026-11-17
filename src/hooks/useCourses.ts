@@ -2,6 +2,7 @@ import { collection, query, where, getDocs, orderBy, limit, startAfter, type Que
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useAuth } from "../contexts/AuthContext";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
+import { indexedCourseQueries } from "../features/courses/catalogQueryMode";
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "./usePagedSearch";
 import type { Course } from "@shared/types";
 
@@ -16,19 +17,23 @@ export function useCourses(options: UseCoursesOptions = {}) {
   const page = usePagedSearch(options.enabled === false ? null : JSON.stringify([uid, cacheVersion]), async (cursor: Cursor | null) => {
     const sources = uid ? ["mine", "public"] : ["public"];
     const items = new Map<string, Course>();
-    const cursors: Cursor = [];
-    for (const [index, source] of sources.entries()) {
+    const indexed = await indexedCourseQueries(firestore);
+    const pages = await Promise.all(sources.map(async (source, index) => {
       const previous = cursor?.[index];
-      if (previous?.exhausted) { cursors.push(previous); continue; }
+      if (previous?.exhausted) return { previous, docs: [] };
       const snap = await getDocs(query(collection(firestore, "courses"),
+        ...(indexed ? [where("hidden", "==", false), where("deletedAt", "==", null)] : []),
         ...(source === "mine" ? [where("creatorId", "==", uid), orderBy("createdAt", "desc")] : [orderBy("likeCount", "desc")]),
         ...(previous?.last ? [startAfter(previous.last)] : []), limit(SEARCH_PAGE_SIZE),
       ));
-      for (const doc of snap.docs) {
+      return { previous, docs: snap.docs };
+    }));
+    const cursors: Cursor = pages.map(({ previous, docs }) => {
+      for (const doc of docs) {
         if (isVisibleCourseDocData(doc.data())) items.set(doc.id, { id: doc.id, ...doc.data() } as Course);
       }
-      cursors.push({ last: snap.docs[snap.docs.length - 1] ?? previous?.last ?? null, exhausted: snap.docs.length < SEARCH_PAGE_SIZE });
-    }
+      return previous?.exhausted ? previous : { last: docs[docs.length - 1] ?? previous?.last ?? null, exhausted: docs.length < SEARCH_PAGE_SIZE };
+    });
     return { items: [...items.values()], cursor: cursors, hasMore: cursors.some(source => !source.exhausted) };
   });
   const search = (text: string) => {

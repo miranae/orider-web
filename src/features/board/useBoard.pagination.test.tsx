@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { getDocs, startAfter, where, orderBy, setDoc, updateDoc } from 'firebase/firestore';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockCallableInvocations, setCallableImplementation, setCollectionDocs } from '../../__tests__/mocks/firebase';
+import { clearBoardPageCursors } from './pageCursorCache';
 import { useBoardPosts, useMyInquiryPosts, useCreatePost, useDeletePost } from './useBoard';
 
 const auth = vi.hoisted(() => ({ user: { uid: 'first-user' } as { uid: string } | null }));
@@ -12,6 +13,7 @@ const searchPosts = Array.from({ length: 7 }, (_, index) => ({
 }));
 
 beforeEach(() => {
+  clearBoardPageCursors();
   auth.user = { uid: 'first-user' };
   vi.mocked(getDocs).mockClear();
   vi.mocked(startAfter).mockClear();
@@ -30,6 +32,20 @@ describe('board URL pagination', () => {
     act(() => { result.current.loadMoreSearch?.(); result.current.loadMoreSearch?.(); });
     await waitFor(() => expect(result.current.posts.map(post => post.id)).toEqual(['post-0', 'post-1', 'post-2', 'post-3']));
     expect(mockCallableInvocations.at(-1)?.data).toMatchObject({ keyword: 'bike', limitCount: 20, pageOnly: true, publicOnly: true, pageCursor: { createdAt: 100, id: 'post-1' } });
+  });
+
+  it('reuses the prior page anchor across remounts without reading preceding pages again', async () => {
+    setCollectionDocs('board_posts', searchPosts);
+    const first = renderHook(() => useBoardPosts('all', 2));
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    first.unmount();
+    vi.mocked(getDocs).mockClear(); vi.mocked(startAfter).mockClear();
+    const second = renderHook(() => useBoardPosts('all', 2, undefined, undefined, [], 2));
+    await waitFor(() => expect(second.result.current.loading).toBe(false));
+    // 저장된 앵커로 페이지 본문만 한 번 읽는다.
+    expect(vi.mocked(getDocs).mock.calls.length).toBe(1);
+    expect(startAfter).toHaveBeenCalledWith(100, 'post-6');
+    second.unmount();
   });
 
   it('uses the bounded cursor search for archives too', async () => {
