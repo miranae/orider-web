@@ -354,6 +354,7 @@
   "src/features/activity/share/activityShareCard.ts",
   "src/features/board/BoardFeedbackIcon.tsx",
   "src/features/board/BoardImage.tsx",
+  "src/features/board/countCache.ts",
   "src/features/board/editor/serializePostEditorContent.ts",
   "src/features/board/pageCursorCache.ts",
   "src/features/board/postDraft.ts",
