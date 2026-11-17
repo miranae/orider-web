@@ -265,12 +265,6 @@
 }
 /* 앱 임베드에는 웹 하단 탭이 없다 — 화면 맨 아래에 붙이고 앱이 알려준 아래 안전 영역만큼 띄운다. */
 .orider-embedded-root .cp-product .cp-form-actions.cp-form-actions--bar { bottom:0; padding-bottom:calc(var(--space-3) + var(--orider-host-safe-bottom, 0px)); }
-/* 모바일 입력 중에는 키보드가 줄인 viewport에 sticky 막대까지 끼워 넣지 않는다.
-   입력칸의 초점으로 판단해 Android WebView의 resize/pan 방식에도 동일하게 적용한다.
-   막대는 양식 끝에서 계속 사용할 수 있고, 버튼으로 초점이 옮겨지면 다시 고정된다. */
-@media(max-width:63.999rem), (pointer:coarse) {
-  .cp-form-panel:has(input:focus, textarea:focus, select:focus, [contenteditable="true"]:focus) .cp-form-actions--bar { position:static; }
-}
 /* 모임에서는 클럽의 맥락을 짧게 유지하고 모집 내용을 먼저 읽는다. */
 .cp-product>.club-subnav { margin-bottom:0; }
 .cp-product>.club-subnav>nav { margin-bottom:var(--space-2); }

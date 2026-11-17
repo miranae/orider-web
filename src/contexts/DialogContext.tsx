@@ -120,7 +120,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
       {children}
       {request &&
         createPortal(
-          <div className="app-dialog" role="presentation">
+          <div className="app-dialog mobile-dialog-viewport" role="presentation">
             <button className="app-dialog__backdrop" type="button" aria-label={String(cancelLabel)} onClick={() => close(request.kind === "alert" ? true : null)} />
             <DialogPanel
               onClose={() => close(request.kind === "alert" ? true : null)}

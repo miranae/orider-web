@@ -467,6 +467,9 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 }
 .app-dialog__panel {
   position: relative;
+  max-height: calc(var(--dialog-viewport-height, 100dvh) - var(--space-4) * 2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   width: min(100%, 420px);
   flex-direction: column;

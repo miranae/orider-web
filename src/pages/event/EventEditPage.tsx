@@ -1058,10 +1058,8 @@ export default function EventEditPage() {
 
       {/* 하단 저장 바 */}
       {dirty && (
-        <div
+        <div className="mobile-form-actions mobile-form-actions--fixed"
           style={{
-            position: "fixed",
-            bottom: 0,
             left: 0,
             right: 0,
             background: "color-mix(in oklch, var(--bg-1) 95%, transparent)",

@@ -50,7 +50,7 @@ export default function CoachDetailSection({ id, title, requested = false, child
     <div id={id} className="coach-detail-entry">
       <Button ref={entry} variant="neutral" block onClick={open} aria-haspopup="dialog">{title} →</Button>
     </div>
-    {createPortal(<div ref={surface} className="coach-detail" hidden={!active}>
+    {createPortal(<div ref={surface} className="coach-detail mobile-dialog-viewport" hidden={!active}>
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1} className="coach-detail__panel">
         <header className="coach-detail__header">
           <Button variant="ghost" data-dialog-initial-focus onClick={close}>← {t("button.back")}</Button>

@@ -1,0 +1,18 @@
+/* Action bars remain reachable in document flow while the keyboard owns space.
+   Focus also covers Android resize mode, where innerHeight equals visualViewport.height. */
+.mobile-form-actions { position: sticky; bottom: 0; }
+.mobile-form-actions--fixed { position: fixed; }
+@media (max-width: 63.999rem), (pointer: coarse) {
+  :root:has(:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"]), textarea, select, [contenteditable="true"], [contenteditable=""]):focus) {
+    .mobile-form-actions { position: static; }
+    .mobile-tab-bar, .coach-question-launcher.fixed { visibility: hidden; pointer-events: none; }
+  }
+}
+
+/* Overlay-only keyboards shrink the visual viewport without changing dvh.
+   Values are shared by active dialogs and restored after the last one closes. */
+:root .mobile-dialog-viewport {
+  top: var(--dialog-viewport-top, 0px);
+  bottom: auto;
+  height: var(--dialog-viewport-height, 100dvh);
+}

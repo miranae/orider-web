@@ -1,3 +1,4 @@
+import { observeViewport, visibleViewport } from "../../services/visibleViewport";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
@@ -73,21 +74,23 @@ export function DropdownSelect({ value, onChange, options, label, id, placeholde
     const place = () => {
       if (!triggerRef.current || !menuRef.current) return;
       const trigger = triggerRef.current.getBoundingClientRect();
+      const bounds = visibleViewport();
       const margin = 12;
       const gap = 4;
-      const width = Math.max(0, Math.min(Math.max(trigger.width, 240), window.innerWidth - margin * 2));
-      const below = window.innerHeight - trigger.bottom - margin - gap;
-      const above = trigger.top - margin - gap;
-      const maxHeight = Math.max(0, Math.min(320, Math.max(below, above)));
-      const height = Math.min(menuRef.current.scrollHeight, maxHeight);
+      const width = Math.max(0, Math.min(Math.max(trigger.width, 240), bounds.width - margin * 2));
+      const below = bounds.bottom - trigger.bottom - margin - gap;
+      const above = trigger.top - bounds.top - margin - gap;
+      const maxHeight = Math.max(0, Math.min(320, bounds.height - margin * 2, Math.max(below, above)));
+      const menu = menuRef.current;
+      const style = getComputedStyle(menu);
+      const border = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+      const height = Math.min(menu.scrollHeight + border, maxHeight);
       const top = below >= height || below >= above ? trigger.bottom + gap : trigger.top - height - gap;
-      const next = { left: Math.max(margin, Math.min(trigger.left, window.innerWidth - width - margin)), top: Math.max(margin, top), width, maxHeight };
+      const next = { left: Math.max(bounds.left + margin, Math.min(trigger.left, bounds.right - width - margin)), top: Math.max(bounds.top + margin, Math.min(top, bounds.bottom - height - margin)), width, maxHeight };
       setPosition(previous => previous && Object.keys(next).every(key => previous[key as keyof typeof next] === next[key as keyof typeof next]) ? previous : next);
     };
     place();
-    window.addEventListener('resize', place);
-    window.addEventListener('scroll', place, true);
-    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+    return observeViewport(place);
   }, [open, options, position?.width]);
 
   useEffect(() => {

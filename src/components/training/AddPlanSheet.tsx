@@ -211,7 +211,7 @@ export default function AddPlanSheet({
       <div className="coach-training-dialog" ref={modalRef} role="dialog" tabIndex={-1} aria-modal="true" aria-busy={loading} aria-labelledby={titleId} data-testid="K4-7"
         style={{
           position: "fixed",
-          bottom: 0,
+          bottom: "var(--dialog-viewport-bottom, 0px)",
           left: 0,
           right: 0,
           width: "min(100%, 36rem)",
@@ -221,7 +221,7 @@ export default function AddPlanSheet({
           borderRadius: "16px 16px 0 0",
           border: "1px solid var(--line-soft)",
           borderBottom: "none",
-          maxHeight: "80vh",
+          maxHeight: "calc(var(--dialog-viewport-height, 100dvh) * 0.8)",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
