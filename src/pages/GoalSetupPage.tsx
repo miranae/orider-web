@@ -1,4 +1,4 @@
-import { preserveActionFocus } from "../utils/preserveActionFocus";
+import { preserveActionPosition } from "../utils/preserveActionPosition";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import { useGoalFitnessInputs } from "../hooks/useGoalFitnessInputs";
 import { GoalInputNotice } from "../components/training/GoalInputNotice";
@@ -396,7 +396,7 @@ interface WizardFooterProps {
 function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: WizardFooterProps) {
   const { t } = useTranslation('training');
   return (
-    <div onPointerDown={preserveActionFocus} className="mobile-form-actions"
+    <div onPointerDown={preserveActionPosition} className="mobile-form-actions"
       style={{
         display: "flex",
         gap: "var(--space-2)",

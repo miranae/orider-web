@@ -926,7 +926,7 @@
   "src/utils/planTss.ts",
   "src/utils/polyline.ts",
   "src/utils/powerDurationWindows.ts",
-  "src/utils/preserveActionFocus.ts",
+  "src/utils/preserveActionPosition.ts",
   "src/utils/recordShare.ts",
   "src/utils/regionName.ts",
   "src/utils/runRecords.ts",

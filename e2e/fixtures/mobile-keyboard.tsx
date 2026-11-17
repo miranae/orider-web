@@ -1,4 +1,4 @@
-import { preserveActionFocus } from "../../src/utils/preserveActionFocus";
+import { preserveActionPosition } from "../../src/utils/preserveActionPosition";
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
@@ -39,7 +39,7 @@ function Fixture() {
       <Button onClick={() => void dialog.prompt('내용을 입력해주세요.', { multiline: true, defaultValue: '검증 내용\n'.repeat(30) })}>긴 입력 확인창</Button>
       <div style={{ marginTop: 'var(--space-8)' }}><DateField portal={!params.has('inline')} value={date} onChange={setDate} /><TimeField portal={!params.has('inline')} value={time} onChange={setTime} /><DropdownSelect label="종목" value={choice} onChange={setChoice} options={Array.from({length:20},(_,i)=>({value:String(i),label:`선택 ${i}`}))} /></div>
       <div style={{ height: '60vh' }} />
-      <output aria-label="저장 횟수">{saved}</output><div onPointerDown={preserveActionFocus} className="mobile-form-actions mobile-form-actions--fixed"><Button onClick={() => setSaved(n => n + 1)}>변경 저장</Button></div>
+      <output aria-label="저장 횟수">{saved}</output><div onPointerDown={preserveActionPosition} className="mobile-form-actions mobile-form-actions--fixed"><Button onClick={() => setSaved(n => n + 1)}>변경 저장</Button></div>
       <Modal open={open} onClose={() => setOpen(false)} title="입력 팝업">
         <p>{'긴 설명 '.repeat(100)}</p><Textarea aria-label="팝업 입력" /><Button onClick={() => setOpen(false)}>저장하고 닫기</Button>
       </Modal>

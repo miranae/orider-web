@@ -3,6 +3,7 @@
 .mobile-form-actions { position: sticky; bottom: 0; }
 .mobile-form-actions--fixed { position: fixed; }
 @media (max-width: 63.999rem), (pointer: coarse) {
+  :root .mobile-form-actions[data-editing-action] { position: static; }
   :root:has(:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"]), textarea, select, [contenteditable="true"], [contenteditable=""]):focus) {
     .mobile-form-actions { position: static; }
     .mobile-tab-bar, .coach-question-launcher.fixed { visibility: hidden; pointer-events: none; }
