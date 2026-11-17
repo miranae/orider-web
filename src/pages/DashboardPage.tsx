@@ -1,3 +1,4 @@
+import { usePageDataTiming } from "../hooks/usePageDataTiming";
 import WeeklyTssBars from "../components/dashboard/WeeklyTrainingLoadBars";
 export { default as WeeklyTssBars } from "../components/dashboard/WeeklyTrainingLoadBars";
 export type { WeeklyTssBar } from "../components/dashboard/WeeklyTrainingLoadBars";
@@ -232,6 +233,7 @@ function DashboardContent() {
   });
   const loading = activitiesLoading || feedScope === "following" && subscriptions.loading;
   const feedError = activitiesError || feedScope === "following" && subscriptions.error;
+  usePageDataTiming("dashboard", `${feedLocation.key}:${feedLocation.search}`, loading, !loading, !!feedError);
   const retryFeed = () => { if (feedScope === "following" && subscriptions.error) subscriptions.retry(); else retryActivities(); };
   // 정본(서버 집계) 홈 요약 — `homeSummary` 서버 전환 판정 AND 빌드 플래그 뒤에 있다.
   // 꺼져 있으면(오늘의 기본값) 아래 KPI 는 useWeeklyStats 의 클라 집계를 그대로 그린다.

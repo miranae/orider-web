@@ -1,3 +1,4 @@
+import { usePageDataTiming } from "../hooks/usePageDataTiming";
 import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
 import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
 import { useSignInResolve } from "../hooks/useSignInResolve";
@@ -880,6 +881,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     ? null : serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null;
 
   // Detail readiness means committed primary activity content, not lazy analysis/media completion.
+  usePageDataTiming("activity", `${activityId}:${user?.uid ?? "guest"}`, loadingActivity || authLoading || overview.loading,
+    !!activity && activity.id === activityId, !!activityLoadError || !!overview.error);
   const detailOutcome: JourneyOutcome | null = loadingActivity ? null : activityLoadError ? "error"
     : activityProcessing ? "pending" : !activity?.summary ? "unavailable"
     : activity.deletedAt ? "access_denied" : publicAccess && !publicAccess.session.mapFresh ? null : "success";
