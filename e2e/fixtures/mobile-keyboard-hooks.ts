@@ -1,0 +1,1 @@
+export const useGoalFitnessInputs = () => ({ ftp: 200, weightKg: 70, thresholdPace: 275, css: 108, ftpSource: 'assumed', weightSource: 'assumed', thresholdPaceSource: 'assumed', cssSource: 'assumed' });

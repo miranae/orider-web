@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useDialogViewport } from "./useDialogViewport";
 
 let lockCount = 0;
 let scrollY = 0;
@@ -44,6 +45,7 @@ function unlockBody() {
 }
 
 export function useBodyScrollLock(active: boolean) {
+  useDialogViewport(active);
   useEffect(() => {
     if (!active) return;
     lockBody();
