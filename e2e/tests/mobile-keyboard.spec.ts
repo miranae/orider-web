@@ -35,6 +35,22 @@ test('resize keyboard hides navigation and frees the fixed save bar only for edi
   await expect(page.getByRole('button', { name: '변경 저장' })).toBeInViewport();
 });
 
+test('a save tap completes before input blur can relocate the action bar', async ({ page }) => {
+  await page.goto('/e2e/fixtures/mobile-keyboard.html');
+  const input = page.getByRole('textbox', { name: '일반 입력' });
+  await input.fill('저장할 입력');
+  await page.setViewportSize({ width: 390, height: 500 });
+  const save = page.getByRole('button', { name: '변경 저장', exact: true });
+  await save.evaluate(node => node.scrollIntoView({ block: 'center' }));
+  await expect(input).toBeFocused();
+  await save.click();
+  await expect(page.getByRole('status', { name: '저장 횟수' })).toHaveText('1');
+  await input.focus();
+  await save.evaluate(node => node.scrollIntoView({ block: 'center' }));
+  await save.tap();
+  await expect(page.getByRole('status', { name: '저장 횟수' })).toHaveText('2');
+});
+
 for (const kind of ['run', 'swim']) {
   test(`${kind} goal input stays uncovered by wizard actions`, async ({ page }) => {
     await page.goto(`/e2e/fixtures/mobile-keyboard.html?kind=${kind}`);

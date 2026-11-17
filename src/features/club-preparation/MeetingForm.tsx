@@ -1,3 +1,4 @@
+import { preserveActionFocus } from "../../utils/preserveActionFocus";
 import { mt } from "./meetingText";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
@@ -252,7 +253,7 @@ export default function MeetingForm({
   // 막대를 두 줄로 키워 빼고, 저장 실패 같은 오류만 위쪽 경고(role=alert)와 같은 문장을 한 줄로
   // 줄여 막대 위에 보여준다 — 긴 양식 끝에서 버튼을 누르려는 사람이 위 경고를 놓치지 않게.
   const actions = () => (
-    <div className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar mobile-form-actions">
+    <div onPointerDown={preserveActionFocus} className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar mobile-form-actions">
       {saveError && (
         <p className="cp-form-actions__error" title={saveError}>
           <Resolvable resolve={fixResolve()}>{saveError}</Resolvable>
@@ -366,7 +367,7 @@ export default function MeetingForm({
               <Resolvable resolve={fixResolve()}>{saveError}</Resolvable>
             </div>
           )}
-          <div className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar mobile-form-actions">
+          <div onPointerDown={preserveActionFocus} className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar mobile-form-actions">
             <Button disabled={saving} onClick={() => setPreview(false)}>
               {mt("더 수정하기")}
             </Button>

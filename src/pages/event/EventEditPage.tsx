@@ -1,3 +1,4 @@
+import { preserveActionFocus } from "../../utils/preserveActionFocus";
 import { withReadDeadline } from "../../utils/withReadDeadline";
 import { EventCapacityField } from "../../features/event/form/EventCapacityField";
 import { eventCategoryCapacity } from "../../features/event/form/eventFormUtils";
@@ -1058,7 +1059,7 @@ export default function EventEditPage() {
 
       {/* 하단 저장 바 */}
       {dirty && (
-        <div className="mobile-form-actions mobile-form-actions--fixed"
+        <div onPointerDown={preserveActionFocus} className="mobile-form-actions mobile-form-actions--fixed"
           style={{
             left: 0,
             right: 0,

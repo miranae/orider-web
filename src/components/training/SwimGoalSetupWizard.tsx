@@ -1,3 +1,4 @@
+import { preserveActionFocus } from "../../utils/preserveActionFocus";
 import { useGoalFitnessInputs } from "../../hooks/useGoalFitnessInputs";
 import { GoalInputNotice } from "./GoalInputNotice";
 import { useSearchParams } from "react-router-dom";
@@ -494,7 +495,7 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
       )}
 
       {/* Footer — sticky bottom 으로 첫 화면에서도 다음 버튼이 늘 보이게. */}
-      <div className="mobile-form-actions"
+      <div onPointerDown={preserveActionFocus} className="mobile-form-actions"
         style={{
           display: 'flex',
           gap: "var(--space-2)",
