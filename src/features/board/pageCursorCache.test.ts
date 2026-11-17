@@ -2,10 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Timestamp, type Firestore, type DocumentSnapshot } from 'firebase/firestore';
 import { clearBoardPageCursors, nearestBoardPageCursor, saveBoardPageCursor } from './pageCursorCache';
 
-vi.mock('firebase/firestore', async () => {
-  const actual = await vi.importActual<typeof import('firebase/firestore')>('firebase/firestore');
-  return { Timestamp: actual.Timestamp };
-});
 const db = { app: { name: 'app', options: { projectId: 'project' } } } as Firestore;
 const snapshot = (id: string, createdAt: unknown) => ({ id, data: () => ({ createdAt }) }) as DocumentSnapshot;
 beforeEach(() => { vi.useRealTimers(); clearBoardPageCursors(); });

@@ -48,6 +48,14 @@ describe('board URL pagination', () => {
     second.unmount();
   });
 
+  it('keeps a board fetch successful when a fixture has no usable cursor timestamp', async () => {
+    setCollectionDocs('board_posts', [{ id: 'legacy', title: 'Legacy post' }]);
+    const { result } = renderHook(() => useBoardPosts('all'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBeNull();
+    expect(result.current.posts.map(post => post.id)).toEqual(['legacy']);
+  });
+
   it('uses the bounded cursor search for archives too', async () => {
     const { result } = renderHook(() => useBoardPosts('archive'));
     await waitFor(() => expect(result.current.posts.map(post => post.id)).toEqual(['post-0', 'post-1']));
