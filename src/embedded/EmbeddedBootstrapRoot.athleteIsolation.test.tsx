@@ -35,10 +35,10 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   vi.mocked(getFunctions).mockImplementation((app, region) => app?.name === isolated.functions.app.name
     ? isolated.functions as unknown as ReturnType<typeof getFunctions>
     : getOtherFunctions(app, region));
-  const discoveryItem = (id: string, description: string): ActivityDiscoveryItem => ({
+  const discoveryItem = (id: string, description: string, source: "orider" | "strava" = "orider"): ActivityDiscoveryItem => ({
     viewerHasKudos: false, presentationRevision: "a".repeat(64),
     activity: { id, description, userId: "rider-1", nickname: "Isolated rider", profileImage: null,
-      type: "Ride", discipline: "bike", source: "orider", startTime: 1, endTime: 600001, createdAt: 1, visibility: "everyone",
+      type: "Ride", discipline: "bike", source, startTime: 1, endTime: 600001, createdAt: 1, visibility: "everyone",
       photoCount: 0, kudosCount: 0, commentCount: 0, externalId: null, summary: { distance: 3000, ridingTimeMillis: 600000 },
       summarySource: "recorded", effectiveFacts: { source: "activity_metrics", status: "ready", inputRevision: "a", computedAt: 1,
         coverage: "partial_terminal", thresholdBasis: null, powerSource: null, metrics: { distanceKm: 3, durationSec: 600 } } },
@@ -48,7 +48,12 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   const listCursors: (string | undefined)[] = [];
   setCallableImplementation("getActivityDiscovery", (request) => {
     const { cursor, order } = request as { cursor?: string; order?: string };
-    if (order !== "id_asc") listCursors.push(cursor);
+    if (order === "id_asc") return { data: {
+      items: [discoveryItem("filter-inventory-ride", "Isolated Strava ride", "strava")],
+      nextCursor: null, exhausted: true, scannedCount: 1, totalCount: null, expiresAt: Date.now() + 600_000,
+      order, includesUndated: true, consistency: "current_authorized_seek_pages",
+    } };
+    listCursors.push(cursor);
     const next = Boolean(cursor);
     return { data: { items: [discoveryItem(next ? "second-ride" : "first-ride", next ? "Second isolated ride" : "First isolated ride")],
       nextCursor: next ? null : "ad1.signed", exhausted: next, scannedCount: 1, totalCount: null,
@@ -92,6 +97,8 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   expect(listCursors[0]).toBeUndefined();
   expect(listCursors.filter(Boolean)).toEqual(["ad1.signed"]);
   for (const [instance] of activityFactories) expect(instance).toBe(isolated.functions);
+  fireEvent.click(screen.getByRole("button", { name: "Strava", exact: true }));
+  await screen.findByRole("link", { name: "Isolated Strava ride" });
   fireEvent.click(await screen.findByRole("tab", { name: "만든 구간", exact: true }));
   await screen.findAllByText("First isolated segment");
   fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));

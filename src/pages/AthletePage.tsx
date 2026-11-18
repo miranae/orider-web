@@ -1209,7 +1209,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </div>}
             </div>
 
-            {!isOwnProfile && <div className="athlete-query-status">
+            {!isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all") && <div className="athlete-query-status">
         {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
         {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}
       </div>}
