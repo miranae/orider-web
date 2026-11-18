@@ -1,3 +1,5 @@
+import { decodeTrack } from "./polyline";
+
 export type RoutePosition = [number, number];
 export type RouteSlot = RoutePosition | null;
 
@@ -13,9 +15,22 @@ export function routeSlots(value: unknown): RouteSlot[] {
   return Array.isArray(value) ? Array.from(value, point => isRoutePosition(point) ? [point[0], point[1]] : null) : [];
 }
 
+/** Preserve invalid Orider track entries as gaps rather than joining their neighbours. */
+export function routeTrackSlots(track: string): RouteSlot[] {
+  if (!track.includes(",")) return routeSlots(decodeTrack(track));
+  return track.split(";").map(entry => {
+    const values = entry.split(",");
+    if (values.length !== 2 || values.some(value => !value.trim())) return null;
+    const point = values.map(Number);
+    return isRoutePosition(point) ? [point[0], point[1]] : null;
+  });
+}
+
 /** A line needs adjacent measured samples; isolated points must never be bridged. */
-export function hasRouteLine(positions: readonly unknown[]): boolean {
+export function hasRouteLine(positions: readonly unknown[], segmentStarts: readonly number[] = []): boolean {
+  const starts = new Set(segmentStarts);
   for (let index = 1; index < positions.length; index++) {
+    if (starts.has(index)) continue;
     if (isRoutePosition(positions[index - 1]) && isRoutePosition(positions[index])) return true;
   }
   return false;

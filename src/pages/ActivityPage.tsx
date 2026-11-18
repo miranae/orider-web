@@ -30,7 +30,7 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { elapsedRangeFromChartSelection } from "../features/activity/detail/activityRangeSelection";
+import { elapsedRangeFromChartSelection, visualRouteSelection } from "../features/activity/detail/activityRangeSelection";
 import { canonicalActivityChartMetrics, withStravaChartSummary, withCanonicalChartSummary, getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
 import { ActivityAnalysisSummary } from "../features/activity/detail/ActivityAnalysisSummary";
@@ -734,15 +734,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     const dragged = dragSelection.current, current = rangeSelection.selection;
     if (visualRange && dragged && current && current.startOffsetSec === dragged.startOffsetSec && current.endOffsetSec === dragged.endOffsetSec) setVisualRange(null);
   };
-  const visualRouteRange = useMemo(() => {
-    if (!visualRange || !streams?.latlng) return null;
-    if (sampledData.some(point => point.routeSourceIndex !== undefined)) return rangeSelection.routeRange ?? null;
-    const startIndex = sampledData[visualRange[0]]?.routeSourceIndex === null ? undefined : sampledData[visualRange[0]]?.routeSourceIndex ?? sampledData[visualRange[0]]?.sourceIndex;
-    const endIndex = sampledData[visualRange[1]]?.routeSourceIndex === null ? undefined : sampledData[visualRange[1]]?.routeSourceIndex ?? sampledData[visualRange[1]]?.sourceIndex;
-    if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || startIndex! < 0 || endIndex! <= startIndex! || endIndex! >= streams.latlng.length) return null;
-    if (!streams.latlng.slice(startIndex, endIndex! + 1).every(point => point?.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180)) return null;
-    return { startIndex: startIndex!, endIndex: endIndex! };
-  }, [visualRange, sampledData, streams, rangeSelection.routeRange]);
+  const visualRouteRange = useMemo(() => visualRouteSelection(visualRange, sampledData, streams?.latlng, rangeSelection.routeRange),
+    [visualRange, sampledData, streams, rangeSelection.routeRange]);
   const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
   const availableOverlays = useMemo(() => getPerformanceOverlays(
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),

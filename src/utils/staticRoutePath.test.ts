@@ -31,6 +31,13 @@ describe("buildStaticRoutePath", () => {
     expect(points[1]![0]! - points[0]![0]!).toBeCloseTo(points[0]![1]! - points[1]![1]!, 1);
   });
 
+  it("renders long sparse routes without exceeding the browser argument limit", () => {
+    const points = Array.from({ length: 150000 }, (_, index) => index === 70000 ? null : [37 + index / 1000000, 127] as [number,number]);
+    const path = buildStaticRoutePath(points);
+    expect(path).not.toMatch(/NaN|Infinity/);
+    expect(path?.match(/M/g)).toHaveLength(2);
+  });
+
   it("독립 구간과 잘못된 좌표 양옆을 연결하지 않는다", () => {
     expect(buildStaticRoutePath([[37, 127], [37.001, 127], [37.002, 127], [37.003, 127]], [2])?.match(/M/g)).toHaveLength(2);
     const path = buildStaticRoutePath([[37, 127], [37.001, 127], [NaN, 127], [37.003, 127]]);

@@ -10,11 +10,10 @@ import type { LngLatBoundsLike } from "mapbox-gl";
 // 컨트롤/팝업 스타일. 메인 entry 가 아닌 RouteMap chunk 와 함께 로드 (홈 진입 시 1.6MB 절약).
 import "mapbox-gl/dist/mapbox-gl.css";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { decodeTrack } from "../utils/polyline";
 import { buildStaticRoutePath } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
-import { isRoutePosition, hasRouteLine, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
+import { isRoutePosition, hasRouteLine, routeTrackSlots, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface PhotoMarker {
@@ -303,7 +302,7 @@ export default function RouteMap({
     } else {
       const streamPositions = routeSlots(latlng);
       if (hasRouteLine(streamPositions)) return { positions: streamPositions, segmentStarts };
-      const thumbnail = polyline ? routeSlots(decodeTrack(polyline)) : [];
+      const thumbnail = polyline ? routeTrackSlots(polyline) : [];
       if (hasRouteLine(thumbnail)) return { positions: thumbnail, segmentStarts, streamFallback: streamPositions.length > 0 };
       return { positions: streamPositions.length ? streamPositions : thumbnail, segmentStarts };
     }
@@ -324,6 +323,7 @@ export default function RouteMap({
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
   const bounds = useMemo(() => getBounds(positions), [positions]);
+  const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
     if (!highlightRange || positions.length === 0) return null;
@@ -363,7 +363,7 @@ export default function RouteMap({
     if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
   }, [positions, onHighlightRangeChange, highlightRange]);
 
-  if (!bounds) {
+  if (!bounds || (!drawable && fallbackImageUrl)) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}

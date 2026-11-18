@@ -18,12 +18,14 @@ export function buildStaticRoutePath(positions: readonly RouteSlot[], segmentSta
     previousLongitude = longitude;
     return [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360))] as const;
   });
-  const valid = projected.filter(point => point !== null);
-  if (valid.length < 2) return null;
-  const minX = Math.min(...valid.map(point => point[0]));
-  const maxX = Math.max(...valid.map(point => point[0]));
-  const minY = Math.min(...valid.map(point => point[1]));
-  const maxY = Math.max(...valid.map(point => point[1]));
+  let count = 0, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const point of projected) {
+    if (!point) continue;
+    count++;
+    minX = Math.min(minX, point[0]); maxX = Math.max(maxX, point[0]);
+    minY = Math.min(minY, point[1]); maxY = Math.max(maxY, point[1]);
+  }
+  if (count < 2) return null;
   const pad = 16;
   const width = 320;
   const height = 160;

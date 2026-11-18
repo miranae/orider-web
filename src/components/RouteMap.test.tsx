@@ -158,6 +158,17 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[128,38.01]]);
   });
 
+  it("shows the saved route image when only isolated GPS points remain", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127], null, [38,128]] as unknown as [number,number][]} fallbackImageUrl="https://example.test/map.png" />);
+    expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/map.png");
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+  });
+
+  it("never bridges an invalid Orider thumbnail entry", () => {
+    renderWithProviders(<RouteMap latlng={[null] as unknown as [number,number][]} polyline="37,127;37.01,127;broken;38,128;38.01,128" />);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{type:"MultiLineString",coordinates:[[[127,37],[127,37.01]],[[128,38],[128,38.01]]]}});
+  });
+
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
     const invalid = [null, {}, [NaN, 127], [91, 127], [37, Infinity], [37], ["37", 127]] as unknown as [number, number][];
     const { rerender } = renderWithProviders(<RouteMap latlng={invalid} />);

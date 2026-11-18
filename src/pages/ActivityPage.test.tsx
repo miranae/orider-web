@@ -369,12 +369,12 @@ describe("ActivityPage", () => {
       else expect(sourceCalls()).toBe(1);
     } finally { vi.mocked(getDoc).mockImplementation(original); }
   });
-  it("keeps public visual zoom independent from owner analysis, maps source indices, preserves selection across axes, and resets on account changes", async () => {
+  it.each([false, true])("keeps actual analysis-page visual selection and map source indices aligned (GPS gap=%s)", async gap => {
     const epoch = 1791375809874;
     const activity = createMockActivity({ id: "test-activity", userId: "other-owner", source: "orider", startTime: epoch,
       summary: createMockSummary({ ridingTimeMillis: 600000, elapsedTimeMillis: 600000 }) });
     const count = 601;
-    const latlng = Array.from({ length: count }, (_, index) => [37 + index / 100000, 127]);
+    const latlng = Array.from({ length: count }, (_, index) => gap && index === 60 ? null : [37 + index / 100000, 127]);
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_streams/test-activity", { userId: activity.userId, json: JSON.stringify({
       time: Array.from({ length: count }, (_, index) => epoch + index * 1000),
