@@ -403,6 +403,20 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128,38],[128,38.02]]);
   });
 
+  it("keeps a new photo camera when the photo and range arrive together", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const route: [number, number][] = [[37, 127], [37.01, 127], [37.02, 127]];
+    const view = renderWithProviders(<RouteMap latlng={route} />);
+    const photo: [number, number] = [60, 150];
+    const range = { startIndex: 0, endIndex: 1, requestId: 1 };
+    view.rerender(<RouteMap latlng={route} flyToPosition={photo} flyToRange={range} />);
+    expect(api.flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [150, 60] }));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={[[38, 128], [38.01, 128], [38.02, 128]]} flyToPosition={photo} flyToRange={range} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
   it("keeps isolated GPS points in the static fallback after an SDK failure", () => {
     renderWithProviders(<RouteMap latlng={[[37,127],null,[38,127]] as unknown as [number,number][]} />);
     fireEvent.click(screen.getByTestId("mock-map"));

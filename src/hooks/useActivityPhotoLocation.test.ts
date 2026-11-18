@@ -43,10 +43,10 @@ describe("useActivityPhotoLocation", () => {
   });
   it("drops navigation after a same-UID Firebase session change", () => {
     const services = {};
-    const first = { uid: "owner" }, second = { uid: "owner" };
-    const view = renderHook(({ viewer }) => useActivityPhotoLocation("activity:owner", services, viewer), { initialProps: { viewer: first } });
+    const auth = { currentUser: { uid: "owner" } };
+    const view = renderHook(() => useActivityPhotoLocation("activity:owner", services, auth));
     act(() => view.result.current.locate([37, 127]));
-    view.rerender({ viewer: second });
+    auth.currentUser = { uid: "owner" };
     act(() => vi.runAllTimers());
     expect(view.result.current.flyToPosition).toBeNull();
   });

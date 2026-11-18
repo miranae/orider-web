@@ -315,11 +315,12 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
     requestedRange.current = range;
     const photo = isRoutePosition(photoPosition) ? photoPosition : null;
     const previous = previousPhoto.current;
-    if (photo && (!previous || photo[0] !== previous[0] || photo[1] !== previous[1])) prevRange.current = null;
+    const photoChanged = photo && (!previous || photo[0] !== previous[0] || photo[1] !== previous[1]);
+    if (photoChanged) prevRange.current = null;
     previousPhoto.current = photo ? [photo[0], photo[1]] : null;
     // New chart selections may move the camera, but background route updates may
     // not override a photo the user has already located.
-    if (fullRouteRequested && !rangeChanged || photo && !rangeAfterPhoto && !rangeChanged && !prevRange.current) return;
+    if (fullRouteRequested && !rangeChanged || photo && !rangeAfterPhoto && (photoChanged || !rangeChanged && !prevRange.current)) return;
     if (range) {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);

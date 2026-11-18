@@ -233,7 +233,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
   const [photoUploading, setPhotoUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const { flyToPosition, locate: locatePhoto } = useActivityPhotoLocation(uploadedPhotoIdentity, photoServices, photoServices.auth?.currentUser);
+  const { flyToPosition, locate: locatePhoto } = useActivityPhotoLocation(uploadedPhotoIdentity, photoServices, photoServices.auth);
   const activityNavigationRef = useRef<HTMLDivElement>(null);
   const mobileReading = useMobile();
   const [wideStats, setWideStats] = useState(false);
