@@ -62,9 +62,19 @@ function firestoreFields(data: Record<string, unknown>): Record<string, unknown>
   return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, firestoreValue(value)]));
 }
 
-export async function seedRunningParity(): Promise<void> {
+export async function writeRunningFixtureDocuments(docs: Record<string, Record<string, unknown>>): Promise<void> {
   // 고정 localhost 에뮬레이터에서만 합성 문서를 쓴다.
   const root = `http://127.0.0.1:8080/v1/projects/${RUNNING_PARITY_PROJECT}/databases/(default)/documents`;
+  for (const [path, data] of Object.entries(docs)) {
+    const response = await fetch(`${root}/${path}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer owner" },
+      body: JSON.stringify({ fields: firestoreFields(data) }),
+    });
+    if (!response.ok) throw new Error(`fixture_seed_failed:${path}:${response.status}`);
+  }
+}
+
+export async function seedRunningParity(): Promise<void> {
   const now = Date.now();
   const owner = await createTestUser(RUNNING_OWNER_EMAIL, RUNNING_OWNER_PASSWORD, "러닝 계획 테스트").catch(error => {
     if (!String(error).includes("EMAIL_EXISTS")) throw error;
@@ -91,11 +101,5 @@ export async function seedRunningParity(): Promise<void> {
     [`goals/${RUNNING_PLAN_GOAL}`]: { userId: owner.localId, discipline: "run", status: "active", courseName: "합성 러닝 목표", courseId: null, courseDist: 10, courseElev: 0, eventType: "10k", eventDate: tomorrow + 28 * 86400000, weeklySessions: 3, createdAt: now, updatedAt: now, snapshot: { ftp: 0, weightKg: 70, ctl: 10 }, feasibility: { label: "easy" } },
     [`goals/${RUNNING_PLAN_GOAL}/plan/${RUNNING_PLAN_WEEK}`]: { weekNumber: 1, phase: "base", startDate: tomorrow, plannedTSS: 30, days: [{ date: tomorrow, dayOfWeek: new Date(tomorrow + 9 * 3600000).getUTCDay(), workout: "easyRun", workoutName: RUNNING_PLAN_TITLE, plannedDurationMin: 30, plannedTSS: 30, completed: false, skipped: false, intervals: [{ label: "WU", durationMin: 5 }, { label: "Z2", durationMin: 20 }, { label: "CD", durationMin: 5 }] }] },
   };
-  for (const [path, data] of Object.entries(docs)) {
-    const response = await fetch(`${root}/${path}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer owner" },
-      body: JSON.stringify({ fields: firestoreFields(data) }),
-    });
-    if (!response.ok) throw new Error(`fixture_seed_failed:${path}:${response.status}`);
-  }
+  await writeRunningFixtureDocuments(docs);
 }
