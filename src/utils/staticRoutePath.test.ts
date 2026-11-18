@@ -30,6 +30,12 @@ describe("buildStaticRoutePath", () => {
     expect(geometry.selectionPoints?.flat().every(Number.isFinite)).toBe(true);
   });
 
+  it("keeps finite visible geometry for selected coordinates above the Mercator view limit", () => {
+    const geometry = buildStaticRouteGeometry([[85,127],[86,127]], [], {range:{startIndex:0,endIndex:1}});
+    expect(geometry.selectionPath?.match(/L/g)).toHaveLength(1);
+    expect(geometry.path).not.toMatch(/NaN|Infinity/);
+  });
+
   it("실제 정사각형 경로를 가로 카드에서도 정사각형으로 유지한다", () => {
     const longitudeSpan = 0.003 / Math.cos(37.0015 * Math.PI / 180);
     const points = pixels([[37, 127], [37, 127 + longitudeSpan], [37.003, 127 + longitudeSpan], [37.003, 127]]);

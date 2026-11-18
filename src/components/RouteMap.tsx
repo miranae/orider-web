@@ -141,6 +141,7 @@ export function RouteMapFallback({
   segmentStarts,
   pointsOnly,
   highlightRange,
+  selectedPosition,
   imageUrl,
   imageAlt,
   height,
@@ -152,6 +153,7 @@ export function RouteMapFallback({
   segmentStarts?: number[];
   pointsOnly?: boolean;
   highlightRange?: RouteMapProps["highlightRange"];
+  selectedPosition?: [number,number];
   imageUrl?: string | null;
   imageAlt: string;
   height: string;
@@ -166,9 +168,11 @@ export function RouteMapFallback({
   const loggedImage = useRef<string | null>(null);
   useEffect(() => { setFailedImage(null); loggedImage.current = null; }, [imageUrl]);
   const startIndex = highlightRange?.startIndex, endIndex = highlightRange?.endIndex;
+  const selectedLatitude = selectedPosition?.[0], selectedLongitude = selectedPosition?.[1];
   const { path, points, selectionPath, selectionPoints = [] } = useMemo(() => buildStaticRouteGeometry(positions, segmentStarts, {
     pointsOnly, range: startIndex != null && endIndex != null ? { startIndex, endIndex } : undefined,
-  }), [positions, segmentStarts, pointsOnly, startIndex, endIndex]);
+    selectedPosition: selectedLatitude != null && selectedLongitude != null ? [selectedLatitude, selectedLongitude] : undefined,
+  }), [positions, segmentStarts, pointsOnly, startIndex, endIndex, selectedLatitude, selectedLongitude]);
   const hasSelection = Boolean(selectionPath || selectionPoints.length);
   if (imageUrl && failedImage !== imageUrl && !hasSelection) {
     return (
@@ -202,7 +206,7 @@ export function RouteMapFallback({
         border: "1px solid var(--line-soft)",
       }}
     >
-      {(path || points.length > 0) && (
+      {(path || points.length > 0 || selectionPoints.length > 0) && (
         <svg viewBox="0 0 320 160" className="absolute inset-0 h-full w-full" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
           {points.map(([x,y], index) => <circle key={index} cx={x} cy={y} r="4" fill={hasSelection ? "var(--ink-3)" : "var(--lime)"} stroke="var(--bg-1)" strokeWidth="2" />)}
           {path && <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />}
@@ -516,9 +520,14 @@ export default function RouteMap({
     setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices]);
 
+  const previewRange = highlightRange ?? flyToRange;
+  const selectedMeasuredPoint = streamFallback && previewRange?.startIndex === previewRange?.endIndex
+    && previewRange ? sourcePositions[previewRange.startIndex] : null;
+  const fallbackSelectedPosition = isRoutePosition(selectedMeasuredPoint) ? selectedMeasuredPoint : undefined;
+
   if (!bounds || (!drawable && standalonePositions.length !== 1 && !(Array.isArray(routeParts) && endpoints.length > 0) && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
-      return <RouteMapFallback positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
+      return <RouteMapFallback positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined} selectedPosition={fallbackSelectedPosition} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
         height={fallbackHeight ?? height} rounded={rounded}
         title={t("map.unavailableTitle")} description={t("map.unavailableDescription")} />;
@@ -534,7 +543,7 @@ export default function RouteMap({
   const mapboxToken = getMapboxToken();
   const fallback = (
     <RouteMapFallback
-      positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined}
+      positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined} selectedPosition={fallbackSelectedPosition}
       pointsOnly={!drawable}
       segmentStarts={segmentStarts}
       imageUrl={fallbackImageUrl}

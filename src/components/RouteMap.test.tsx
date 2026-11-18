@@ -604,6 +604,16 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({maxZoom:15});
   });
 
+  it("retains a measured selected point without applying its index to a thumbnail's separate clock", () => {
+    renderWithProviders(<RouteMap latlng={[[60,150],null] as unknown as [number,number][]} polyline="37,127;37.01,127"
+      highlightRange={{startIndex:0,endIndex:0}} flyToRange={{startIndex:0,endIndex:0}} fallbackImageUrl="https://example.test/route.png" />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(document.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    expect(document.querySelector("path[data-route-static-selection]")).toBeNull();
+    expect(document.querySelector("svg path")?.getAttribute("d")?.match(/L/g)).toHaveLength(1);
+  });
+
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
