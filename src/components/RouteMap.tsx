@@ -448,7 +448,7 @@ export default function RouteMap({
     setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices]);
 
-  if (!bounds || (!drawable && fallbackImageUrl && navigationPoints.length === 0 && endpoints.length === 0 && !hasLocatedAttachment)) {
+  if (!bounds || (!drawable && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}

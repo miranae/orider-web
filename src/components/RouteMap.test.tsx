@@ -165,8 +165,8 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[128,38.01]]);
   });
 
-  it("shows the saved route image when only isolated GPS points remain", () => {
-    renderWithProviders(<RouteMap latlng={[[37,127], null, [38,128]] as unknown as [number,number][]} fallbackImageUrl="https://example.test/map.png" />);
+  it.each([false,true])("shows the saved route image for isolated GPS points with endpoint display %s", showRouteEndpoints => {
+    renderWithProviders(<RouteMap latlng={[[37,127], null, [38,128]] as unknown as [number,number][]} showRouteEndpoints={showRouteEndpoints} fallbackImageUrl="https://example.test/map.png" />);
     expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/map.png");
     expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
   });
