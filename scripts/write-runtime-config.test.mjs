@@ -185,14 +185,16 @@ test("parity source attestation rejects modified entry HTML and untracked build 
   const directory = mkdtempSync(join(tmpdir(), "orider-stage-source-"));
   try {
     const git = args => execFileSync("git", ["-c", "core.hooksPath=/dev/null", ...args], { cwd: directory, encoding: "utf8", stdio: "pipe" });
-    git(["init"]); writeFileSync(join(directory, "index.html"), "production entry"); git(["add", "."]);
+    git(["init"]); writeFileSync(join(directory, "index.html"), "production entry"); writeFileSync(join(directory, "firebase.stage.json"), "{}"); git(["add", "."]);
     git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "fixture"]);
     const sha = git(["rev-parse", "HEAD"]).trim();
-    const run = () => execFileSync(process.execPath, [join(process.cwd(), "scripts/prepare-stage-production-parity.mjs"), "--source-sha", sha, "--out", join(directory, "output")], { cwd: directory, stdio: "pipe" });
+    const run = () => execFileSync(process.execPath, [join(process.cwd(), "scripts/prepare-stage-production-parity.mjs"), "--source-sha", sha, "--reviewed-head", sha, "--out", join(directory, "output")], { cwd: directory, stdio: "pipe" });
     writeFileSync(join(directory, "index.html"), "unreleased entry");
     assert.throws(run, /application source differs.*index.html/s);
     git(["checkout", "--", "index.html"]); writeFileSync(join(directory, "injected.js"), "unreleased input");
     assert.throws(run, /untracked build inputs.*injected.js/s);
+    rmSync(join(directory,"injected.js")); writeFileSync(join(directory,"firebase.stage.json"),"changed allowed path");
+    assert.throws(run, /reviewed source HEAD, clean state or transport patch changed/);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
@@ -320,4 +322,15 @@ test("public club deployment preflight is read only and fails closed on cache, f
   await assert.rejects(verifyPublicClubApi({ publicClubApiUrl: PUBLIC_CLUB_ENDPOINT }, origin, async () => response({ clubs: [], nextCursor: null }, "max-age=60")));
   await assert.rejects(verifyPublicClubApi({ publicClubApiUrl: PUBLIC_CLUB_ENDPOINT }, origin, async () => response({ clubs: [{ id: "fixture", name: "fixture", description: "", approval: "manual", members: [] }], nextCursor: null })));
   await assert.rejects(verifyPublicClubApi({ publicClubApiUrl: PUBLIC_CLUB_ENDPOINT }, "https://unapproved.test", fake));
+});
+
+test("parity public club read logs bounded operation context for transport and JSON failures", async () => {
+  const config={appEnvironment:"production",deploymentProfile:"production-parity-stage",publicClubApiUrl:`${STAGE_FUNCTIONS}/publicClubs`};
+  const original=console.error,events=[]; console.error=value=>events.push(JSON.parse(value));
+  try {
+    await assert.rejects(verifyPublicClubApi(config,"https://orider-dev.web.app",async()=>{throw Object.assign(new Error("sensitive raw message"),{code:"ENOTFOUND"});}),/verification failed/);
+    await assert.rejects(verifyPublicClubApi(config,"https://orider-dev.web.app",async()=>({ok:true,status:200,headers:new Headers({"access-control-allow-origin":"https://orider-dev.web.app","cache-control":"no-store"}),json:async()=>{throw new SyntaxError("sensitive response body");}})),/verification failed/);
+    assert.equal(events.length,2);assert.ok(events.every(event=>event.operation==="verify-public-club-api"&&event.method==="GET"&&event.target===`${STAGE_FUNCTIONS}/publicClubs?size=1`));
+    assert.ok(!JSON.stringify(events).includes("sensitive"));
+  } finally {console.error=original;}
 });
