@@ -24,7 +24,7 @@ const mobileMenuItemClass = `rounded-[var(--r-md)] ${navFocusClass}`;
 
 // 데스크톱 메뉴와 모바일 하단 탭은 config/navHubs.ts 의 기본 허브를 공유한다.
 interface TopNavProps {
-  active: HubKey;
+  active: HubKey | null;
   notifications?: Notification[];
   notificationStatus?: ReactNode;
   notificationFooter?: ReactNode;
