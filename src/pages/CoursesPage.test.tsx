@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import type { CourseData } from "../features/courses/courseSnapshot";
 import CoursesPage from "./CoursesPage";
+import courseKo from "../i18n/resources/ko/course.json";
+import courseEn from "../i18n/resources/en/course.json";
 
 const { mockLogClientError } = vi.hoisted(() => ({
   mockLogClientError: vi.fn(),
@@ -93,6 +95,17 @@ vi.mock("../features/courses/CoursesMap", () => ({
     </div>
   ),
 }));
+
+describe("CoursesPage guest call to action", () => {
+  it("names the calculator it links to instead of an unselected course, in both locales", () => {
+    renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
+
+    const cta = screen.getByRole("link", { name: courseKo["guest.compareCta"] });
+    expect(cta.getAttribute("href")).toMatch(/\/tools\/virtual-power$/);
+    expect(courseKo["guest.compareCta"]).not.toContain("이 코스");
+    expect(courseEn["guest.compareCta"]).not.toMatch(/[가-힣]/);
+  });
+});
 
 describe("CoursesPage mobile layout", () => {
   beforeEach(() => {

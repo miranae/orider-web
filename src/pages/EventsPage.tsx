@@ -508,7 +508,7 @@ export default function EventsPage() {
               </Link>
             ) : !authLoading ? (
               <Link to="/tools/virtual-power" className={buttonClass({ variant: "secondary", size: "sm" })}>
-                {t("guest.compareCta", { defaultValue: "내 예상 기록과 비교하기" })}
+                {t("guest.compareCta")}
               </Link>
             ) : null
           }

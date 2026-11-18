@@ -301,7 +301,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
             </Link></span>
           ) : (
             <Link data-testid="E1-5-2" to="/tools/virtual-power" className={`${buttonClass({ variant: 'secondary', className: 'whitespace-nowrap' })}`}>
-              {t("guest.compareCta", { defaultValue: "이 코스 내 기록과 비교하기" })}
+              {t("guest.compareCta")}
             </Link>
           )}
         </div>
