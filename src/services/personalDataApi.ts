@@ -2,7 +2,7 @@
 import { auth, functions, ensureAppCheckReady, getAppCheckToken } from "./firebase";
 import { httpsCallable, type Functions } from "firebase/functions";
 import type { Auth } from "firebase/auth";
-import { getRuntimeConfig, isStageParityRuntime } from "./runtimeConfig";
+import { getRuntimeConfig } from "./runtimeConfig";
 import type { RunningBestEffortsFacts } from "@shared/types/running-best-efforts-facts";
 import { RUN_DISTANCE_M } from "@shared/types/personal-records";
 import type { ActivityStreams } from "@shared/types";
@@ -38,7 +38,7 @@ async function apiFetch<T>(authInstance: Auth, path: string, init?: RequestInit)
   if (!token) throw new Error("SIGN_IN_REQUIRED");
   const config = getRuntimeConfig();
   const apiBase = (config.personalApiBase || "").replace(/\/$/, "");
-  const protectedStageApi = (config.appEnvironment === "stage" && apiBase === "https://qapersonalapi-ldfyfyx5da-du.a.run.app") || isStageParityRuntime(config);
+  const protectedStageApi = config.appEnvironment === "stage" && apiBase === "https://qapersonalapi-ldfyfyx5da-du.a.run.app";
   const appCheckToken = protectedStageApi ? await getAppCheckToken() : null;
   if (authInstance.currentUser?.uid !== requestUid) throw new Error("account_changed");
   if (protectedStageApi && !appCheckToken) throw new Error("app-check/empty-token");

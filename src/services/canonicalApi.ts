@@ -19,7 +19,7 @@ import type { Auth } from "firebase/auth";
 
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 live singleton getter 기본값. 임베드 canonical hooks는 services를 주입한다.
 import { auth, ensureAppCheckReady, getAppCheckToken } from "./firebase";
-import { getRuntimeConfig, isStageParityRuntime } from "./runtimeConfig";
+import { getRuntimeConfig } from "./runtimeConfig";
 import {
   CANONICAL_SCHEMA_VERSION,
   type CanonicalPeriod,
@@ -111,7 +111,7 @@ async function fetchCanonical<T>(
   let appCheckToken: string | null;
   const config = getRuntimeConfig();
   const apiBase = (config.personalApiBase || "").replace(/\/$/, "");
-  const protectedStageApi = (config.appEnvironment === "stage" && apiBase === "https://qapersonalapi-ldfyfyx5da-du.a.run.app") || isStageParityRuntime(config);
+  const protectedStageApi = config.appEnvironment === "stage" && apiBase === "https://qapersonalapi-ldfyfyx5da-du.a.run.app";
   try {
     // 임베드에서는 별도 Firebase app/App Check 인스턴스를 쓴다. 해당 provider 의 준비 함수를
     // 거쳐야 뒤이은 인증 API 호출이 전역 앱과 섞이지 않는다.

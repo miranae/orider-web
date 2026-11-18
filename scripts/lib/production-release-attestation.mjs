@@ -62,7 +62,7 @@ export async function readProductionHostingRelease() {
     });
     for (const file of files.files ?? []) if (["/runtime-config.json", "/index.html"].includes(file.path) || /^\/assets\/index-[A-Za-z0-9_-]+\.js$/.test(file.path)) fileHashes[file.path] = file.hash;
     pageToken = files.nextPageToken;
-  } while (pageToken && !(fileHashes["/runtime-config.json"] && fileHashes["/index.html"] && Object.keys(fileHashes).some(path => path.endsWith(".js"))));
+  } while (pageToken);
   return { version: release.version.name, releaseTime: release.releaseTime, fileHashes };
 }
 
@@ -90,7 +90,7 @@ export async function readPinnedProductionRuntime(sourceSha, {
   const deployment = await readDeployment();
   const released = Date.parse(before.releaseTime);
   if (deployment.sourceSha !== sourceSha || released < Date.parse(deployment.startedAt) || released > Date.parse(deployment.succeededAt)) {
-    throw new Error("production source SHA does not bind to the current Hosting release window");
+    throw new Error("production source SHA does not bind to the observed Deployment and Hosting release window");
   }
   const runtimeFile = await readFile("/runtime-config.json");
   const htmlFile = await readFile("/index.html"), html = htmlFile.body.toString("utf8");
@@ -111,6 +111,7 @@ export async function readPinnedProductionRuntime(sourceSha, {
     throw new Error("production runtime config parse failed", { cause: error });
   }
   return { source, release: { ...before, deployment, entry,
+    sourceBinding: "successful GitHub Deployment SHA and release time correlation; Hosting bytes are verified, source-to-build artifact is not retained",
     entrySha256: createHash("sha256").update(asset.body).digest("hex"),
     runtimeSha256: createHash("sha256").update(runtimeFile.body).digest("hex") } };
 }

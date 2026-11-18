@@ -26,11 +26,18 @@
 ```sh
 node scripts/prepare-stage-production-parity.mjs \
   --source-sha 2e5bf8e5c08493c69121710da26173fcea77e8ea \
+  --reviewed-head "$REVIEWED_STAGE_COMMIT" \
   --out /tmp/orider-stage-parity-prepared --build
 ```
 
 이 명령은 배포하지 않는다. 운영 공개 설정의 기능 스위치를 모두 보존하고 개발 실행 URL로만 바꾼다.
+`REVIEWED_STAGE_COMMIT`은 독립 리뷰를 마친 앱/전송 패치의 전체 커밋 SHA로 지정한다.
+HEAD가 이 값과 다르거나 작업 트리가 더러우면 중단하며, 네트워크 조회 전·빌드 전후 같은 상태인지 다시 검사한다.
+빌드는 이 커밋의 `git archive` 전용 디렉터리에서 수행한다. 무시된 로컬 `.env*`와 호출자의 `VITE_*`를 상속하지 않는다.
 운영 Hosting 버전·파일 해시와 성공한 GitHub Deployment SHA/배포 시간 구간을 대조한다.
+현재 운영 실행의 `production-hosting-evidence` artifact는 보존돼 있지 않다.
+따라서 GitHub SHA와 Hosting 버전의 관계는 관측한 성공 배포와 시간 구간의 상관관계이며, 소스→빌드의 암호학적 증명으로 표현하지 않는다.
+해당 구간 안에 별도 운영 게시가 겹친 경우를 판별하려면 보존된 배포 artifact가 필요하다.
 라이브 HTML·entry·runtime 설정의 저장된 gzip 응답 SHA256을 Hosting 파일 해시와 비교하고, 조회 전후 버전이 바뀌면 중단한다.
 전송 설정·검증 도구의 허용된 변경 외 tracked 차이, 수정한 `index.html`·빌드 설정, 미추적 파일이 있으면 중단한다.
 비공개 출력 디렉터리에 설정·빌드 환경·운영 SHA·전송 설정 패치 해시와 릴리스 증명을 남긴다.

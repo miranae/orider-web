@@ -20,19 +20,25 @@ export async function verifyPublicClubApi(config, origin, fetcher = fetch) {
   if (!endpoint) throw new Error("public club endpoint is not configured");
   if (!["https://orider.co.kr", "https://orider-dev.web.app"].includes(origin)) throw new Error("unapproved public club origin");
   if (stage && origin !== "https://orider-dev.web.app") throw new Error("stage public club API requires the development origin");
-  const response = await fetcher(`${endpoint}?size=1`, {
-    method: "GET", credentials: "omit", cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10_000),
-    headers: { Origin: origin },
-  });
-  if (!response.ok || response.headers.get("access-control-allow-origin") !== origin
-      || !response.headers.get("cache-control")?.includes("no-store")) throw new Error("public club response or CORS/cache boundary not ready");
-  const body = await response.json();
-  const fields = ["id", "name", "badge", "description", "kind", "sports", "discipline", "city", "approval"];
-  if (!body || !Array.isArray(body.clubs) || body.clubs.length > 1
-      || Object.keys(body).some(key => !["clubs", "nextCursor"].includes(key))
-      || (body.nextCursor !== null && typeof body.nextCursor !== "string")
-      || body.clubs.some(club => !club || Object.keys(club).some(key => !fields.includes(key))
-        || typeof club.id !== "string" || typeof club.name !== "string" || typeof club.description !== "string"
-        || !["auto", "manual"].includes(club.approval))) throw new Error("public club response exceeds the approved DTO");
-  return { ok: true, clubCount: body.clubs.length };
+  let response;
+  try {
+    response = await fetcher(`${endpoint}?size=1`, {
+      method: "GET", credentials: "omit", cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10_000),
+      headers: { Origin: origin },
+    });
+    if (!response.ok || response.headers.get("access-control-allow-origin") !== origin
+        || !response.headers.get("cache-control")?.includes("no-store")) throw new Error("public club response or CORS/cache boundary not ready");
+    const body = await response.json();
+    const fields = ["id", "name", "badge", "description", "kind", "sports", "discipline", "city", "approval"];
+    if (!body || !Array.isArray(body.clubs) || body.clubs.length > 1
+        || Object.keys(body).some(key => !["clubs", "nextCursor"].includes(key))
+        || (body.nextCursor !== null && typeof body.nextCursor !== "string")
+        || body.clubs.some(club => !club || Object.keys(club).some(key => !fields.includes(key))
+          || typeof club.id !== "string" || typeof club.name !== "string" || typeof club.description !== "string"
+          || !["auto", "manual"].includes(club.approval))) throw new Error("public club response exceeds the approved DTO");
+    return { ok: true, clubCount: body.clubs.length };
+  } catch (error) {
+    console.error(JSON.stringify({ operation: "verify-public-club-api", method: "GET", target: `${endpoint}?size=1`, errorClass: error?.name ?? "Error", errorCode: error?.code ?? error?.cause?.code ?? "unknown", status: response?.status ?? null }));
+    throw new Error(`[public-club-deploy] GET ${endpoint} verification failed`);
+  }
 }

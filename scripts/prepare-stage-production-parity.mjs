@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, rmSync, cpSync, symlinkSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { stageProductionParityConfig, stageProductionParityBuildEnv } from "./lib/stage-production-parity.mjs";
 import { readPinnedProductionRuntime } from "./lib/production-release-attestation.mjs";
@@ -9,8 +9,9 @@ import { readPinnedProductionRuntime } from "./lib/production-release-attestatio
 const args = process.argv.slice(2);
 const read = name => args[args.indexOf(name) + 1];
 const sourceSha = args.includes("--source-sha") ? read("--source-sha") : "";
+const reviewedHead = args.includes("--reviewed-head") ? read("--reviewed-head") : "";
 const directory = args.includes("--out") ? resolve(read("--out")) : "";
-if (!/^[a-f0-9]{40}$/.test(sourceSha) || !directory) throw new Error("--source-sha <production SHA> and --out <private directory> required");
+if (![sourceSha, reviewedHead].every(value => /^[a-f0-9]{40}$/.test(value)) || !directory) throw new Error("--source-sha <production SHA>, --reviewed-head <approved full commit> and --out <private directory> required");
 // 배포 도구 수정과 운영 앱 버전을 분리한다. 미출시 앱 코드는 섞지 않는다.
 const transportPaths = [
   "src/services/runtimeConfig.ts", "src/services/firebase.ts", "src/embedded/embeddedFirebase.ts",
@@ -30,6 +31,13 @@ if (untracked) throw new Error(`untracked build inputs are not allowed: ${untrac
 const unexpected = changed.filter(path => !transportPaths.includes(path) && !allowedTools.includes(path) && !/^src\/.*\.test\.tsx?$/.test(path));
 if (unexpected.length) throw new Error(`application source differs from pinned production: ${unexpected.join(", ")}`);
 const transportPatch = execFileSync("git", ["diff", sourceSha, "--", ...transportPaths], { encoding: "utf8" });
+function assertReviewedSource() {
+  const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { encoding: "utf8" }).trim();
+  const patch = execFileSync("git", ["diff", sourceSha, "--", ...transportPaths], { encoding: "utf8" });
+  if (head !== reviewedHead || dirty || patch !== transportPatch) throw new Error("reviewed source HEAD, clean state or transport patch changed");
+}
+assertReviewedSource();
 const { source, release } = await readPinnedProductionRuntime(sourceSha);
 const runtime = stageProductionParityConfig(source, { sourceSha, hostingVersion: release.version });
 mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -42,7 +50,7 @@ const buildEnv = { ...stageProductionParityBuildEnv(source), STAGE_PARITY_PRODUC
   STAGE_PARITY_SOURCE_SHA: sourceSha, STAGE_PARITY_HOSTING_VERSION: release.version };
 write("build-env.json", buildEnv);
 write("preparation.json", {
-  sourceSha, preparedAt: new Date().toISOString(),
+  sourceSha, reviewedHead, preparedAt: new Date().toISOString(),
   transportPatchFiles: changed.filter(path => transportPaths.includes(path)),
   transportPatchSha256: createHash("sha256").update(transportPatch).digest("hex"),
   sourceRuntimeSha256: createHash("sha256").update(JSON.stringify(source)).digest("hex"),
@@ -52,15 +60,24 @@ write("preparation.json", {
   oauthAcceptance: "Canonical proxy allows the development returnOrigin; live user consent/token exchange requires separate verification",
 });
 if (args.includes("--build")) {
-  const env = { ...process.env, ...buildEnv };
+  assertReviewedSource();
+  const buildSource = resolve(directory, "build-source");
+  rmSync(buildSource, { recursive: true, force: true }); mkdirSync(buildSource, { mode: 0o700 });
+  const archive = execFileSync("git", ["archive", "--format=tar", reviewedHead], { maxBuffer: 128 * 1024 * 1024 });
+  execFileSync("tar", ["-x", "-C", buildSource], { input: archive, stdio: ["pipe", "inherit", "inherit"] });
+  // git archive는 무시된 .env 파일을 포함하지 않는다. 호출자의 VITE 변수도 상속하지 않는다.
+  symlinkSync(realpathSync("node_modules"), resolve(buildSource, "node_modules"), "dir");
+  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("VITE_"))), ...buildEnv };
   delete env.SENTRY_AUTH_TOKEN;
-  execFileSync("npm", ["run", "build"], { env, stdio: "inherit" });
-  execFileSync(process.execPath, ["scripts/write-runtime-config.mjs"], { env, stdio: "inherit" });
+  execFileSync("npm", ["run", "build"], { cwd: buildSource, env, stdio: "inherit" });
+  execFileSync(process.execPath, ["scripts/write-runtime-config.mjs"], { cwd: buildSource, env, stdio: "inherit" });
+  assertReviewedSource();
+  rmSync(resolve("dist"), { recursive: true, force: true }); cpSync(resolve(buildSource, "dist"), resolve("dist"), { recursive: true });
   const html = readFileSync("dist/index.html", "utf8");
   const entry = html.match(/assets\/index-[A-Za-z0-9_-]+\.js/)?.[0];
   if (!entry) throw new Error("built entry not found");
   write("build.json", {
-    sourceSha, builtAt: new Date().toISOString(), entry,
+    sourceSha, reviewedHead, builtAt: new Date().toISOString(), entry,
     entrySha256: createHash("sha256").update(readFileSync(resolve("dist", entry))).digest("hex"),
     runtimeSha256: createHash("sha256").update(readFileSync("dist/runtime-config.json")).digest("hex"),
   });
