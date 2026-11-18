@@ -134,7 +134,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const requestedUserId = meUserId ?? paramUserId;
   const userId = requestedUserId && requestedUserId.length <= 512 && !requestedUserId.includes("/") && requestedUserId !== "." && requestedUserId !== ".." ? requestedUserId : undefined;
   const { user: currentUser, profile: currentProfile, loading: authLoading } = useAuth();
-  const sessionAuthorized = (currentUser?.uid ?? null) === (services.auth.currentUser?.uid ?? null);
+  const sdkViewer = services.auth.currentUser;
+  const sessionAuthorized = services.scope === "embedded"
+    ? currentUser === sdkViewer && sdkViewer?.isAnonymous !== true
+    : (currentUser?.uid ?? null) === (sdkViewer?.uid ?? null);
   const publicTotalsAuthorized = sessionAuthorized && (Boolean(currentUser) || !authLoading);
   const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine);
   useEffect(() => {
@@ -476,7 +479,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }
     let cancelled = false;
 
+    const current = () => !cancelled && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer;
     const load = async () => {
+      if (!current()) return;
       setActivitiesLoading(true);
       setLoadingMore(false);
       setActivityReadError(false);
@@ -488,7 +493,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       try {
         if (!isOwnProfile) {
           const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, limit: ACTIVITIES_PAGE_SIZE });
-          if (cancelled) return;
+          if (!current()) return;
           setDisplayActivities(page.items); setPublicActivityCursor(page.nextCursor); setHasMoreActivities(!page.exhausted);
           return;
         }
@@ -506,18 +511,18 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         ];
         const q = query(collection(services.firestore, "activities"), ...constraints);
         const snap = await getDocs(q);
-        if (cancelled) return;
+        if (!current()) return;
         setDisplayActivities(docsToActivities(snap.docs));
         setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
         setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
       } catch (err) {
         if (!(err instanceof Error && err.message === "account_changed"))
           logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile }, services, readIdentity.viewer);
-        if (!cancelled && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer) {
+        if (current()) {
           setActivityReadError(true); setHasMoreActivities(false);
         }
       } finally {
-        if (!cancelled) setActivitiesLoading(false);
+        if (current()) setActivitiesLoading(false);
       }
     };
 
@@ -594,27 +599,34 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       limit(50),
     ];
 
+    const current = () => !cancelled && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer;
+    if (!current()) return;
     const read = isOwnProfile
       ? getDocs(query(collection(services.firestore, "activities"), ...constraints)).then(snap => docsToActivities(snap.docs))
-      : loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, keyword: token, limit: 20 }).then(page => { if (!cancelled) setPublicSearchCursor(page.nextCursor); return page.items; });
-    read.then(items => { if (!cancelled) setSearchResults(items); }).catch(err => {
-      logClientError("AthletePage.searchActivities", err, { userId }); if (!cancelled) { setSearchResults([]); setPublicSearchError(true); }
-    }).finally(() => { if (!cancelled) setSearchLoading(false); });
+      : loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, keyword: token, limit: 20 }).then(page => { if (current()) setPublicSearchCursor(page.nextCursor); return page.items; });
+    read.then(items => { if (current()) setSearchResults(items); }).catch(err => {
+      if (!(err instanceof Error && err.message === "account_changed")) logClientError("AthletePage.searchActivities", err, { userId }, services, readIdentity.viewer); if (current()) { setSearchResults([]); setPublicSearchError(true); }
+    }).finally(() => { if (current()) setSearchLoading(false); });
 
     return () => { cancelled = true; };
   }, [searchQuery, userId, isOwnProfile, profileReadReady, activityAccessAllowed, readIdentity]);
 
   const loadMorePublicSearch = async () => {
     if (!userId || !publicSearchCursor || searchLoading || isOwnProfile) return;
-    const identity = profileReadIdentity.current;
+    const identity = readIdentity;
+    const current = () => profileReadIdentity.current === identity && services.auth.currentUser === identity.viewer;
+    if (!profileReadReady || !current()) return;
     setSearchLoading(true); setPublicSearchError(false);
     try {
       const keyword = searchQuery.toLowerCase().split(/[^\p{L}\p{N}]+/gu).filter(Boolean)[0];
       const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, keyword, limit: 20, cursor: publicSearchCursor });
-      if (profileReadIdentity.current !== identity) return;
+      if (!current()) return;
       setSearchResults(previous => [...previous, ...page.items.filter(item => !previous.some(old => old.id === item.id))]); setPublicSearchCursor(page.nextCursor);
-    } catch { if (profileReadIdentity.current === identity) { setSearchResults([]); setPublicSearchCursor(null); setPublicSearchError(true); } }
-    finally { if (profileReadIdentity.current === identity) setSearchLoading(false); }
+    } catch (error) {
+      if (!(error instanceof Error && error.message === "account_changed"))
+        logClientError("AthletePage.morePublicSearch", error, { userId }, services, identity.viewer);
+      if (current()) { setSearchResults([]); setPublicSearchCursor(null); setPublicSearchError(true); }
+    } finally { if (current()) setSearchLoading(false); }
   };
 
   const handleResetSearch = () => {
@@ -626,11 +638,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore) return;
     if (!profileReadReady) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
-    setLoadingMore(true);
-    setActivityReadError(false);
-    const identity = profileReadIdentity.current;
+    const identity = readIdentity;
     const generation = activityGeneration.current;
     const current = () => profileReadIdentity.current === identity && activityGeneration.current === generation && services.auth.currentUser === identity.viewer;
+    if (!current()) return;
+    setLoadingMore(true);
+    setActivityReadError(false);
     try {
       if (!isOwnProfile) {
         const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, limit: 20, ...(publicActivityCursor ? { cursor: publicActivityCursor } : {}) });
@@ -698,12 +711,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }
 
     let active = true;
-    const viewer = services.auth.currentUser;
+    const viewer = readIdentity.viewer;
+    const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === viewer;
+    if (!sessionAuthorized || !current()) return;
     setRelationshipLoading(true); setRelationshipError(false); setFriendStatus("none");
     // 1. 이미 친구인지 확인
     getDoc(doc(services.firestore, "friends", currentUser.uid, "users", userId))
       .then((snap) => {
-        if (!active) return;
+        if (!current()) return;
         if (snap.exists()) {
           setFriendStatus("friends");
           return;
@@ -711,7 +726,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         // 2. 내가 요청을 보냈는지 확인
         return getDoc(doc(services.firestore, "friend_requests", userId, "items", currentUser.uid))
           .then((reqSnap) => {
-            if (!active) return;
+            if (!current()) return;
             if (reqSnap.exists()) {
               setFriendStatus("request_sent");
               return;
@@ -719,15 +734,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             // 3. 상대가 나에게 요청을 보냈는지 확인
             return getDoc(doc(services.firestore, "friend_requests", currentUser.uid, "items", userId))
               .then((recvSnap) => {
-                if (!active) return;
+                if (!current()) return;
                 setFriendStatus(recvSnap.exists() ? "request_received" : "none");
               });
           });
       })
-      .catch((err) => { logClientError("AthletePage.relationship", err, { userId, operation: "friendship-read" }, services, viewer); if (active) setRelationshipError(true); })
-      .finally(() => { if (active) setRelationshipLoading(false); });
+      .catch((err) => { logClientError("AthletePage.relationship", err, { userId, operation: "friendship-read" }, services, viewer); if (current()) setRelationshipError(true); })
+      .finally(() => { if (current()) setRelationshipLoading(false); });
     return () => { active = false; };
-  }, [currentUser, userId, services, relationshipAttempt]);
+  }, [currentUser, userId, services, relationshipAttempt, readIdentity, sessionAuthorized]);
 
   // Handle auto-friend request from invite link
   useEffect(() => {
@@ -1183,7 +1198,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           </nav>
           {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("photos") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
           {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("highlights") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
-          {!isOwnProfile && (profileTab === "photos" || profileTab === "achievements") && publicGlobal.status !== "complete" &&
+          {!isOwnProfile && profileTab === "photos" && publicGlobal.status !== "complete" &&
             <div className="athlete-query-status">
               {publicGlobal.status !== "partial" && <Text as="p" role="status">
                 {t(publicGlobal.status === "limit" ? "profile.publicMediaLimit" : `publicGlobal.${publicGlobal.status}`)}
