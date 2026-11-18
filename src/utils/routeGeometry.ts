@@ -16,8 +16,20 @@ export function routeSlots(value: unknown): RouteSlot[] {
 }
 
 /** Preserve invalid Orider track entries as gaps rather than joining their neighbours. */
-export function routeTrackSlots(track: string): RouteSlot[] {
-  if (!track.includes(",")) return routeSlots(decodeTrack(track));
+export function routeTrackSlots(track: unknown): RouteSlot[] {
+  if (typeof track !== "string") return [];
+  if (!track.includes(",")) {
+    // The permissive legacy decoder fabricates zero deltas for truncated values.
+    // Require complete latitude/longitude varint pairs before using a thumbnail.
+    let values = 0, bits = 0;
+    for (const character of track) {
+      const byte = character.charCodeAt(0) - 63;
+      if (byte < 0 || byte > 63 || (bits += 5) > 30) return [];
+      if (byte < 32) { values++; bits = 0; }
+    }
+    if (bits || values % 2) return [];
+    return routeSlots(decodeTrack(track));
+  }
   return track.split(";").map(entry => {
     const values = entry.split(",");
     if (values.length !== 2 || values.some(value => !value.trim())) return null;

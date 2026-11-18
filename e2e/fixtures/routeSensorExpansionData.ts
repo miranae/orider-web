@@ -9,6 +9,6 @@ export const routeFixtureActivity = { id: "synthetic-route-regression", userId: 
 export function routeFixtureStreams(kind = "sparse"): ActivityStreams {
   const latlng = kind === "normal" ? normal : kind === "missing" ? [null, {}, null, null, null]
     : [normal[0], normal[1], null, [37.02,127.02], [37.022,127.022]];
-  return markRawPartStreams({ userId: "synthetic", time: [0,1,2,3,4].map(second => routeFixtureStart + second * 1000),
-    distance: [0,10,20,30,40], altitude: [1,2,3,4,5], watts: [100,110,120,130,140], latlng: latlng as [number,number][] }, "a".repeat(64));
+  return markRawPartStreams({ userId: "synthetic", time: [0,1,2,3,4],
+    distance: [0,10,20,30,40], altitude: [1,2,3,4,5], watts: [100,null,120,130,140] as unknown as number[], latlng: latlng as [number,number][] }, "a".repeat(64));
 }

@@ -2,7 +2,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import RouteMap from "./RouteMap";
 import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
-import { buildSampledData } from "../features/activity/detail/activityDetailDerived";
+import { buildSampledData, buildAlignedActivityChartChannels } from "../features/activity/detail/activityDetailDerived";
 import type { ActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { routeFixtureActivity, routeFixtureStreams } from "../../e2e/fixtures/routeSensorExpansionData";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -95,6 +95,8 @@ describe("RouteMap", () => {
 
   it("keeps the real chart selection model, power samples and map indices aligned after a GPS gap", () => {
     const streams = routeFixtureStreams();
+    expect(streams.time).toEqual([0,1,2,3,4]);
+    expect(buildAlignedActivityChartChannels(streams).chartPower).toEqual([100,null,120,130,140]);
     const sampled = buildSampledData(streams);
     const model = { activity: routeFixtureActivity, streams, effectiveStreams: streams, serverMetrics: { metrics: null }, authorizedActivityAccess: true } as unknown as ActivityAnalysisModel;
     function Analysis() {
@@ -104,15 +106,15 @@ describe("RouteMap", () => {
         <RouteMap latlng={streams.latlng} highlightRange={selection.routeRange} /></>;
     }
     renderWithProviders(<Analysis />);
-    expect(screen.getByRole("status")).toHaveTextContent('"power":[100,110,120,130,140]');
+    expect(screen.getByRole("status")).toHaveTextContent('"power":[100,null,120,130,140]');
     fireEvent.click(screen.getByRole("button", {name:"Select chart range"}));
     expect(screen.getByRole("status")).toHaveTextContent('"range":{"startIndex":3,"endIndex":4},"power":[130,140]');
     expect(mapProps.sources.at(-1)).toMatchObject({geometry:{coordinates:[[127.02,37.02],[127.022,37.022]]}});
     fireEvent.click(screen.getByRole("button", {name:"Select across gap"}));
-    expect(screen.getByRole("status")).toHaveTextContent('"range":{"startIndex":0,"endIndex":4},"power":[100,110,120,130,140]');
+    expect(screen.getByRole("status")).toHaveTextContent('"range":{"startIndex":0,"endIndex":4},"power":[100,null,120,130,140]');
     expect(mapProps.sources.at(-1)).toMatchObject({geometry:{type:"MultiLineString",coordinates:[[[127,37],[127.002,37.002]],[[127.02,37.02],[127.022,37.022]]]}});
     expect(streams.latlng?.[2]).toBeNull();
-    expect(streams.watts).toEqual([100,110,120,130,140]);
+    expect(streams.watts).toEqual([100,null,120,130,140]);
   });
 
   it("returns original source indices when dragging after a missing sample", () => {
@@ -167,6 +169,12 @@ describe("RouteMap", () => {
   it("never bridges an invalid Orider thumbnail entry", () => {
     renderWithProviders(<RouteMap latlng={[null] as unknown as [number,number][]} polyline="37,127;37.01,127;broken;38,128;38.01,128" />);
     expect(mapProps.sources[0]).toMatchObject({geometry:{type:"MultiLineString",coordinates:[[[127,37],[127,37.01]],[[128,38],[128,38.01]]]}});
+  });
+
+  it.each([{}, "_p~iF~ps|U_ulL"])("recovers malformed thumbnail input %s with the saved map", polyline => {
+    renderWithProviders(<RouteMap latlng={[null] as unknown as [number,number][]} polyline={polyline as string} fallbackImageUrl="https://example.test/map.png" />);
+    expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/map.png");
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
   });
 
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {

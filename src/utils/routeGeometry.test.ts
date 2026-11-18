@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routeSlots, routeGeometry, routeBounds } from "./routeGeometry";
+import { routeSlots, routeGeometry, routeBounds, routeTrackSlots } from "./routeGeometry";
 
 describe("route geometry at the untrusted stream boundary", () => {
   it("preserves null, malformed and sparse source indices without mutating the sensor clock", () => {
@@ -24,6 +24,13 @@ describe("route geometry at the untrusted stream boundary", () => {
 
   it("retains legacy segment coordinates with trailing elevation", () => {
     expect(routeSlots([[37,127,42], [38,128,43]])).toEqual([[37,127], [38,128]]);
+  });
+
+  it("rejects incomplete encoded latitude/longitude pairs and non-string tracks", () => {
+    expect(routeTrackSlots({})).toEqual([]);
+    expect(routeTrackSlots("_p~iF~ps|U_ulL")).toEqual([]);
+    expect(routeTrackSlots("_p~iF~ps|U_ulLnnqC_mqNvxq`@")).toEqual([[38.5,-120.2],[40.7,-120.95],[43.252,-126.453]]);
+    expect(routeTrackSlots("37,127;broken;38,128")).toEqual([[37,127],null,[38,128]]);
   });
 
   it("rejects invalid geographic values and returns no bounds for an empty route", () => {

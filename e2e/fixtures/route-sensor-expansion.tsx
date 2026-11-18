@@ -48,7 +48,7 @@ function Fixture() {
           overlays={[{ label: "Power", data: sampled.map(point => point.power), color: "#008986", yAxisID: "power", unit: "W" }]}
           rangeMode range={selection.chartRange ?? [0, sampled.length - 1]} onRangeChange={range => { setVisualRange(range); selection.selectChart(range); }}
           elapsedAxisSec={selection.sampledAxis ?? undefined} xAxis="elapsed" />
-        <output>선택 표본: {selectedSamples.map(point => point.power).join(" · ")} W · 원본 인덱스 {selection.routeRange ? `${selection.routeRange.startIndex}~${selection.routeRange.endIndex}` : "없음"}</output>
+        <output>선택 표본: {selectedSamples.map(point => point.power ?? "—").join(" · ")} W · 원본 인덱스 {selection.routeRange ? `${selection.routeRange.startIndex}~${selection.routeRange.endIndex}` : "없음"}</output>
       </Card>
     </ErrorBoundary>}
   </main>;
