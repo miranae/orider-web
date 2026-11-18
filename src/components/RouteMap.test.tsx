@@ -775,6 +775,15 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[-181, 0], [0, 0]]);
   });
 
+  it("places the selected subrange on the full route's world copy", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, 179], [0, -170], [0, 10]]}
+      highlightRange={{ startIndex: 1, endIndex: 2 }} flyToRange={{ startIndex: 1, endIndex: 2 }} />);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({ geometry: { type: "LineString", coordinates: [[190, 0], [10, 0]] } }));
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[10, 0], [190, 0]]);
+  });
+
   it("shows a selected photo point on the static map without recorded GPS", () => {
     renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
     fireEvent.click(screen.getByTestId("mock-map"));

@@ -1,9 +1,14 @@
+import { onIdTokenChanged, type Auth } from "firebase/auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isRoutePosition, type RoutePosition } from "../utils/routeGeometry";
 
 /** Photo navigation cannot outlive the activity/account that requested it. */
 export function useActivityPhotoLocation(identity: string, services?: unknown, auth?: { currentUser: unknown }) {
   const viewer = auth?.currentUser;
+  const [, observeViewer] = useState(viewer);
+  useEffect(() => {
+    if (auth) return onIdTokenChanged(auth as Auth, observeViewer);
+  }, [auth]);
   const scope = useRef({ identity, services, auth, viewer });
   if (scope.current.identity !== identity || scope.current.services !== services || scope.current.auth !== auth || scope.current.viewer !== viewer) {
     scope.current = { identity, services, auth, viewer };

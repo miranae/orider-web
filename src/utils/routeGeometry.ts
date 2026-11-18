@@ -57,26 +57,32 @@ export function drawableRouteSlots(positions: readonly RouteSlot[], segmentStart
   ) ? point : null);
 }
 
+/** Use one longitude placement for every sample before deriving route subranges. */
+export function projectRouteSlots(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []): RouteSlot[] {
+  const starts = new Set(segmentStarts);
+  const shifted = routeBounds(positions, true)?.[0][0] !== routeBounds(positions)?.[0][0];
+  let previous: number | undefined;
+  return positions.map((point, index) => {
+    if (!point || starts.has(index)) previous = undefined;
+    if (!point) return null;
+    const [lat, lon] = point;
+    const longitude = shifted && lon < 0 ? lon + 360 : lon;
+    const projected = previous === undefined ? longitude : unwrapLongitudeNear(longitude, previous);
+    previous = projected;
+    return [lat, projected];
+  });
+}
+
 export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []) {
   const starts = new Set(segmentStarts);
-  const parts: RoutePosition[][] = [];
-  let part: RoutePosition[] = [];
-  const flush = () => { if (part.length >= 2) parts.push(part); part = []; };
+  const coordinates: number[][][] = [];
+  let part: number[][] = [];
+  const flush = () => { if (part.length >= 2) coordinates.push(part); part = []; };
   positions.forEach((point, index) => {
     if (!point || starts.has(index)) flush();
-    if (point) part.push(point);
+    if (point) part.push([point[1], point[0]]);
   });
   flush();
-  const shiftedLongitude = routeBounds(positions, true)?.[0][0] !== routeBounds(positions)?.[0][0];
-  const coordinates = parts.map(segment => {
-    let previous: number | undefined;
-    return segment.map(([lat, lon]) => {
-      let longitude = shiftedLongitude && lon < 0 ? lon + 360 : lon;
-      if (previous !== undefined) longitude = unwrapLongitudeNear(longitude, previous);
-      previous = longitude;
-      return [longitude, lat];
-    });
-  });
   return {
     type: "Feature", properties: {},
     geometry: coordinates.length === 1

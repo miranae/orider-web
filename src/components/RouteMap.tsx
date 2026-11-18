@@ -16,7 +16,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { buildStaticRouteGeometry } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
-import { isRoutePosition, hasRouteLine, drawableRouteSlots, routeTrackSlots, routeSlots, routeGeometry, routeGeometryBounds, routeBounds as getBounds, shortestLongitudeDelta, type RouteSlot } from "../utils/routeGeometry";
+import { isRoutePosition, hasRouteLine, drawableRouteSlots, routeTrackSlots, routeSlots, routeGeometry, routeGeometryBounds, projectRouteSlots, routeBounds as getBounds, shortestLongitudeDelta, type RouteSlot } from "../utils/routeGeometry";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface PhotoMarker {
@@ -375,7 +375,9 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       }
       const slice = positions.slice(lo, hi + 1);
       const geometry = routeGeometry(slice, segmentStarts.map(index => index - lo)).geometry;
-      const bounds = routeGeometryBounds(geometry, lo === hi ? slice : []);
+      const point = lo === hi ? slice[0] : null;
+      const bounds = point ? [[point[1], point[0]], [point[1], point[0]]] as [[number, number], [number, number]]
+        : routeGeometryBounds(geometry);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
       else map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevRange.current = bounds ? range : null;
@@ -486,6 +488,10 @@ export default function RouteMap({
   }, [polyline, latlng, routeParts, rangeUsesRawSamples]);
   // Geometry has its own thumbnail clock; point interactions retain the measured source clock.
   const positions = useMemo(() => drawableRouteSlots(routePositions, segmentStarts), [routePositions, segmentStarts]);
+  const mapRouteSlots = useMemo(() => projectRouteSlots(routePositions, segmentStarts), [routePositions, segmentStarts]);
+  const mapLineSlots = useMemo(() => drawableRouteSlots(mapRouteSlots, segmentStarts), [mapRouteSlots, segmentStarts]);
+  const mapRangeSlots = useMemo(() => streamFallback ? projectRouteSlots(sourcePositions, segmentStarts) : mapRouteSlots,
+    [streamFallback, sourcePositions, segmentStarts, mapRouteSlots]);
   const highlightRange = rawHighlightRange;
   const onHighlightRangeChange = rawOnHighlightRangeChange;
   const flyToRange = rawFlyToRange;
@@ -537,7 +543,7 @@ export default function RouteMap({
   }, [hasRecordedPosition, activePoints.length, photos, waypoints]);
   const pointPositions = useMemo(() => [...standalonePositions, ...endpoints, ...activePoints, ...attachmentPositions],
     [standalonePositions, endpoints, activePoints, attachmentPositions]);
-  const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
+  const fullRouteGeoJSON = useMemo(() => routeGeometry(mapLineSlots, segmentStarts), [mapLineSlots, segmentStarts]);
   const routeBounds = useMemo(() => routeGeometryBounds(fullRouteGeoJSON.geometry, endpoints), [endpoints, fullRouteGeoJSON]);
   const standaloneBounds = useMemo(() => standalonePositions.length ? getBounds([...standalonePositions, ...attachmentPositions], true) : null,
     [standalonePositions, attachmentPositions]);
@@ -558,8 +564,8 @@ export default function RouteMap({
     if (streamFallback || !highlightRange || positions.length === 0) return null;
     const lo = Math.max(0, Math.min(highlightRange.startIndex, highlightRange.endIndex));
     const hi = Math.max(highlightRange.startIndex, highlightRange.endIndex);
-    return routeGeometry(positions.slice(lo, hi + 1), segmentStarts.map(index => index - lo));
-  }, [positions, highlightRange, segmentStarts, streamFallback]);
+    return routeGeometry(mapLineSlots.slice(lo, hi + 1), segmentStarts.map(index => index - lo));
+  }, [positions.length, mapLineSlots, highlightRange, segmentStarts, streamFallback]);
 
   const markerGeoJSON = useMemo(() => {
     if (!isRoutePosition(markerPosition)) return null;
@@ -908,7 +914,7 @@ export default function RouteMap({
         <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds}
           autoFitKey={JSON.stringify(recordedBounds ?? bounds)} disabled={(isRoutePosition(flyToPosition) || (!drawable && isRoutePosition(selectedPoint))) && !cameraIntent.current.full}
           padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />
-        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={fullRouteBounds ?? bounds}
+        <FlyToSegmentRange positions={mapRangeSlots} segmentStarts={segmentStarts} range={flyToRange} fullBounds={fullRouteBounds ?? bounds}
           photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full}
           rangeAfterPhoto={cameraIntent.current.rangeAfterPhoto} />
         {flyToPosition !== undefined && (
