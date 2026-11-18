@@ -9,6 +9,7 @@ import { logClientError } from '../../services/errorLogger';
 /** `functions` 는 호출부의 useFirebaseServices() 인스턴스 — 임베드는 별도 Firebase app 이다(#847). */
 export async function setBoardAuthorBlocked(targetUid: string, blocked: boolean, services: Pick<FirebaseServices, 'auth' | 'functions' | 'ensureAppCheckReady'>) {
   const { functions } = services;
+  const requestUser = services.auth.currentUser;
   const socialFunctions = isStageComputeRuntime(getRuntimeConfig()) ? functions : getFunctions(functions.app, 'asia-northeast3');
   if (isEmulatorRuntime()) connectFunctionsEmulator(socialFunctions, 'localhost', Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
   try {
@@ -17,6 +18,7 @@ export async function setBoardAuthorBlocked(targetUid: string, blocked: boolean,
     const code = (error as { code?: unknown } | null)?.code;
     const context = { operation: 'setActivitySocialBlock', blocked,
       errorCode: typeof code === 'string' && /^[a-z0-9/_-]{1,64}$/i.test(code) ? code : 'unknown' };
+    if (services.auth.currentUser !== requestUser) throw error;
     try {
       logClientError('Board.authorBlock', new Error('게시판 작성자 차단 요청 실패'), context, { ...services, functions: socialFunctions });
     } catch {

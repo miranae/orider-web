@@ -24,3 +24,17 @@ it("records embedded block failures through the real injected logger without ini
   expect(m.callable).toHaveBeenCalledWith(m.functions,"logClientError");
   expect(JSON.stringify(m.log.mock.calls)).not.toContain("private-target");expect(JSON.stringify(m.log.mock.calls)).not.toContain("private request body");
 });
+
+it("does not attribute a delayed failure to a replacement embedded account",async()=>{
+  const {setBoardAuthorBlocked}=await import("./useBoardBlocks");
+  const auth={app:m.app,currentUser:m.user};
+  const services={auth,functions:m.functions,ensureAppCheckReady:m.ready} as unknown as Pick<FirebaseServices,"auth"|"functions"|"ensureAppCheckReady">;
+  const failure=new Error("original request failure");
+  let rejectRequest!:(error:Error)=>void;
+  m.block.mockImplementationOnce(()=>new Promise((_,reject)=>{rejectRequest=reject;}));
+  const pending=setBoardAuthorBlocked("private-target",false,services);
+  auth.currentUser={uid:"replacement-owner"};
+  rejectRequest(failure);
+  await expect(pending).rejects.toBe(failure);
+  expect(m.log).not.toHaveBeenCalled();expect(m.capture).not.toHaveBeenCalled();expect(m.ready).not.toHaveBeenCalled();
+});
