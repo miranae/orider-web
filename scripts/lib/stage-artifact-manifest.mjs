@@ -37,12 +37,12 @@ export function stageHtmlEntry(html, label = "stage HTML") {
   // DOM으로 읽어 주석·preload·template·JSON script의 파일명을 실행 entry로 오인하지 않는다.
   // prepare는 npm ci 전에 실행된다. 빌드 이후 HTML 검사에서만 설치된 parser를 읽는다.
   const { JSDOM } = requireDependency("jsdom");
-  const dom = new JSDOM(html);
+  const dom = new JSDOM(html, { url: "https://orider-dev.web.app/" });
   try {
     for (const script of dom.window.document.querySelectorAll("script[src]")) {
       if (script.namespaceURI !== "http://www.w3.org/1999/xhtml" || script.hasAttribute("nomodule") || script.closest("noscript") || !["", "module", "text/javascript", "application/javascript"].includes((script.getAttribute("type") || "").toLowerCase())) continue;
-      const entry = script.getAttribute("src").match(/^\/?(assets\/index-[A-Za-z0-9_-]+\.js)$/u)?.[1];
-      if (entry) return entry;
+      const entry = script.getAttribute("src").match(/^\/(assets\/index-[A-Za-z0-9_-]+\.js)$/u)?.[1];
+      if (entry && script.src === `https://orider-dev.web.app/${entry}`) return entry;
     }
     throw new Error(`stage entry script missing in ${label}`);
   } finally { dom.window.close(); }

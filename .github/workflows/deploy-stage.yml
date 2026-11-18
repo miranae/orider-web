@@ -137,17 +137,26 @@ jobs:
           # 동일한 활성 버전 응답도 다음 단계의 실제 entry/runtime 대조를 통과해야 한다.
       - name: Verify served entry and runtime
         env:
+          SELECTED_TRANSPORT: ${{ inputs.transport }}
           FRONTEND_SOURCE: ${{ steps.source.outputs.sha }}
         run: |
           set -euo pipefail
-          built=$(node scripts/stage-html-entry.mjs dist/index.html)
+          entry() {
+            if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
+              node scripts/stage-html-entry.mjs "$1"
+            else
+              # 명시적 legacy는 이전에 검토된 SHA의 도구 추가 전 검증 방식을 유지한다.
+              grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' "$1" | head -1 || true
+            fi
+          }
+          built=$(entry dist/index.html)
           if [ -z "$built" ]; then echo "::error::Built entry is missing"; exit 1; fi
           echo "Expected development entry: $built"
           ok=0
           for i in $(seq 1 10); do
             live=""
             if curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' "https://orider-dev.web.app/?cacheBust=${FRONTEND_SOURCE}-$i" -o "$RUNNER_TEMP/live-index.html"; then
-              live=$(node scripts/stage-html-entry.mjs "$RUNNER_TEMP/live-index.html" || true)
+              live=$(entry "$RUNNER_TEMP/live-index.html" || true)
             fi
             echo "Attempt $i: expected=$built actual=${live:-<missing>}"
             if [ "$live" = "$built" ]; then ok=1; break; fi
@@ -165,7 +174,7 @@ jobs:
             echo "::error::Development detail transport failed: url=$detail_url expected=HTTP200 actual=${detail_status:-transport-error}"; exit 1
           fi
           if [ "$detail_status" != 200 ]; then echo "::error::Development detail response mismatch: url=$detail_url expected=HTTP200 actual=HTTP$detail_status"; exit 1; fi
-          detail=$(node scripts/stage-html-entry.mjs "$RUNNER_TEMP/live-detail.html" || true)
+          detail=$(entry "$RUNNER_TEMP/live-detail.html" || true)
           if [ "$detail" != "$built" ]; then echo "::error::Development detail entry mismatch: expected=$built actual=${detail:-<missing>}"; exit 1; fi
           if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
       - name: Restore previous development release after failed publication verification

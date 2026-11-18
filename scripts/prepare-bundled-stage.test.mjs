@@ -309,12 +309,13 @@ test("development backend identity is re-read after callable probes and after th
   }
 });
 test("served HTML requires an executable script rather than a comment, preload or inert script", () => {
-  for (const html of ['<!-- <script src="/assets/index-fixture.js"></script> -->', '<link rel="preload" href="/assets/index-fixture.js">', '<script type="application/json" src="/assets/index-fixture.js"></script>', '<template><script src="/assets/index-fixture.js"></script></template>', '<script nomodule src="/assets/index-fixture.js"></script>', '<svg><script src="/assets/index-fixture.js"></script></svg>']) {
+  for (const html of ['<!-- <script src="/assets/index-fixture.js"></script> -->', '<link rel="preload" href="/assets/index-fixture.js">', '<script type="application/json" src="/assets/index-fixture.js"></script>', '<template><script src="/assets/index-fixture.js"></script></template>', '<script nomodule src="/assets/index-fixture.js"></script>', '<svg><script src="/assets/index-fixture.js"></script></svg>', '<script src="assets/index-fixture.js"></script>', '<base href="https://orider.co.kr/"><script src="/assets/index-fixture.js"></script>']) {
     assert.throws(() => stageHtmlEntry(html, "fixture URL"), /script missing in fixture URL/);
   }
   assert.equal(stageHtmlEntry('<script type="module" crossorigin src="/assets/index-fixture.js"></script>'), "assets/index-fixture.js");
   const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
-  assert.match(workflow, /detail=\$\(node scripts\/stage-html-entry.mjs/);
+  assert.match(workflow, /detail=\$\(entry /);
+  assert.match(workflow, /node scripts\/stage-html-entry.mjs "\$1"/);
   assert.match(workflow, /always\(\) && \(failure\(\) \|\| cancelled\(\)\)/);
   assert.ok(workflow.split("\n").filter(line => line.includes("curl ")).every(line => line.includes("--connect-timeout 10 --max-time 30")));
 });
@@ -326,5 +327,19 @@ test("fresh pre-install preparation loads without jsdom or node_modules", () => 
     const actual = spawnSync(process.execPath, ["--input-type=module", "-e", 'import { createRequire } from "node:module"; try { createRequire(process.argv[1]).resolve("jsdom"); throw Error("fixture unexpectedly resolves jsdom"); } catch (error) { if (error.code !== "MODULE_NOT_FOUND") throw error; } await import(process.argv[1]); console.log("preinstall import ready")', new URL(`file://${resolve(root, "scripts/prepare-bundled-stage.mjs")}`).href], { cwd: root, encoding: "utf8", env: { ...process.env, NODE_PATH: "" } });
     assert.equal(actual.status, 0, actual.stderr); assert.match(actual.stdout, /preinstall import ready/);
     assert.equal(existsSync(resolve(root, "node_modules")), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("explicit historical legacy verification never invokes a bundled-only source tool", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
+  const start = workflow.indexOf("          entry() {");
+  const end = workflow.indexOf("          built=$(entry ", start);
+  assert.ok(start >= 0 && end > start);
+  const root = mkdtempSync(resolve(tmpdir(), "bundled-legacy-entry-"));
+  try {
+    const file = resolve(root, "index.html"); writeFileSync(file, '<script src="/assets/index-historical.js"></script>');
+    const actual = spawnSync("bash", ["-euc", `${workflow.slice(start, end)}\nentry "$LEGACY_HTML"`], { cwd: root, encoding: "utf8", env: { ...process.env, SELECTED_TRANSPORT: "legacy", LEGACY_HTML: file } });
+    assert.equal(actual.status, 0, actual.stderr); assert.equal(actual.stdout.trim(), "assets/index-historical.js");
+    assert.equal(existsSync(resolve(root, "scripts/stage-html-entry.mjs")), false);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

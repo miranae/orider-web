@@ -96,9 +96,10 @@ owner publishing during the last read-to-write gap remains a platform limit.
 Both release profiles verify handoff's malformed-code rejection and the AI API's
 anonymous-auth rejection with browser Origin/preflight headers; these probes do
 not exchange a handoff code or invoke a model. Development identity is re-read
-after callable probes and again after the final public API probe. Served root
+after callable probes and again after the final public API probe. For the bundled profile, served root
 and detail HTML must contain the actual executable entry script, not merely its
 filename in a preload, comment or inert element. HTTP reads have bounded timeouts.
+Executable entry URLs must be root-absolute and resolve to the development origin, including when the document contains a base element. Explicit historical `legacy` releases retain their earlier inline entry inspection without requiring new bundled tools absent from that source.
 The compensating release step also runs on workflow cancellation when the runner
 can execute cleanup; a forcibly terminated runner still requires live-state
 inspection before the next manual/break-glass operation.
