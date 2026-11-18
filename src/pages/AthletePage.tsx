@@ -131,7 +131,8 @@ function AthleteIdentityChips({
 export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const services = useFirebaseServices();
   const { userId: paramUserId } = useParams<{ userId: string }>();
-  const userId = meUserId ?? paramUserId;
+  const requestedUserId = meUserId ?? paramUserId;
+  const userId = requestedUserId && requestedUserId.length <= 512 && !requestedUserId.includes("/") && requestedUserId !== "." && requestedUserId !== ".." ? requestedUserId : undefined;
   const { user: currentUser, profile: currentProfile, loading: authLoading } = useAuth();
   const location = useLocation();
   const localizedNavigate = useLocalizedNavigate();
@@ -287,8 +288,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, [isOwnProfile, userId, readIdentity]);
   const retryPublicTotals = () => {
+    setTotalsAttempt(value => value + 1);
     if (currentSignals?.public?.error || currentSignals?.viewer?.error) setSignalAttempt(value => value + 1);
-    else setTotalsAttempt(value => value + 1);
   };
   const [ownerPhotos, setOwnerPhotos] = useState<AthletePhoto[]>([]);
   const [ownerHighlights, setOwnerHighlights] = useState<AthleteHighlight[]>([]);
@@ -905,6 +906,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         {!isOwnProfile && statsReady && <Button size="sm" variant="ghost" onClick={retryPublicTotals}>{t("profile.reloadTotals")}</Button>}
       </section>
   );
+
+  if (!userId) return <Text role="alert">{t("notFound")}</Text>;
 
   if (viewIdentity !== readIdentity) {
     return (

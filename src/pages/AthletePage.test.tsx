@@ -1005,3 +1005,31 @@ it.each(["cache", "error"])("shows a freshly authorized callable snapshot even w
     await screen.findByText("9회");
   } finally { vi.mocked(onSnapshot).mockImplementation(original); }
 });
+
+
+it("rejects malformed target paths before registering Firestore reads", async () => {
+  renderWithProviders(<AthletePage meUserId="a/b" />);
+  await screen.findByRole("alert", { name: "" });
+  expect(screen.getByText("사용자를 찾을 수 없습니다.")).toBeInTheDocument();
+  expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(0);
+});
+
+it("retries the callable immediately when a terminated signal subscription has not delivered a new callback", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Retry rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  let first = true;
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (!options || typeof options !== "object" || !("includeMetadataChanges" in options))
+      return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+    if (first) (error as (failure: Error) => void)(new Error("signal unavailable"));
+    return () => {};
+  }) as never);
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("5회");
+    first = false;
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 11 }) });
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await screen.findByText("11회");
+  } finally { vi.mocked(onSnapshot).mockImplementation(original); }
+});
