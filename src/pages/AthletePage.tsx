@@ -135,7 +135,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const userId = requestedUserId && requestedUserId.length <= 512 && !requestedUserId.includes("/") && requestedUserId !== "." && requestedUserId !== ".." ? requestedUserId : undefined;
   const { user: currentUser, profile: currentProfile, loading: authLoading } = useAuth();
   const sessionAuthorized = (currentUser?.uid ?? null) === (services.auth.currentUser?.uid ?? null);
-  const publicTotalsAuthorized = sessionAuthorized && !authLoading;
+  const publicTotalsAuthorized = sessionAuthorized && (Boolean(currentUser) || !authLoading);
   const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine);
   useEffect(() => {
     const online = () => setNetworkOnline(true), offline = () => setNetworkOnline(false);
@@ -1084,10 +1084,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       {isOwnProfile && !chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} onRetry={retryChart} />}
 
       </div>
-      {!isOwnProfile && <div className="athlete-query-status">
-        {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
-        {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}
-      </div>}
       <div className="athlete-profile-layout">
       <aside className="athlete-profile-sidebar">
       {totalsSection}
@@ -1213,7 +1209,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </div>}
             </div>
 
-            {!isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all") && publicGlobal.status !== "complete" && <div><Text as="p">{t("publicPeriod.filterPartial")}</Text>{publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}</div>}
+            {!isOwnProfile && <div className="athlete-query-status">
+        {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
+        {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}
+      </div>}
+            {!isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all") && publicGlobal.status !== "complete" && <div><Text as="p">{t("publicPeriod.filterPartial")}</Text></div>}
             {isSearchActive && <p className="athlete-section-note">{t("profile.searchScope")}</p>}
             {/* Search bar */}
             {!isOwnProfile && <div className="flex items-center gap-2">

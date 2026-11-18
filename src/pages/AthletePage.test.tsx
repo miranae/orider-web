@@ -103,8 +103,8 @@ describe("AthletePage", () => {
     setCollectionDocs("activities", rows);
     renderWithProviders(<AthletePage />);
     await screen.findByLabelText("종목 선택");
-    fireEvent.click(await screen.findByRole("button", { name: "통계 불러오기" }));
-    await waitFor(() => expect(screen.queryByRole("button", {name: "통계 불러오기"})).not.toBeInTheDocument());
+    fireEvent.click(await screen.findByRole("button", { name: "공개 활동 더 불러오기" }));
+    await waitFor(() => expect(screen.queryByRole("button", {name: "공개 활동 더 불러오기"})).not.toBeInTheDocument());
     fireEvent.click(within(screen.getByLabelText("종목 선택")).getByText("러닝"));
     expect(await screen.findByRole("link", { name: "Older run" })).toBeInTheDocument();
     fireEvent.click(within(screen.getByLabelText("종목 선택")).getByText("전체"));
@@ -407,7 +407,7 @@ it('distinguishes bounded public inventory exhaustion from a retryable network f
  setDocData('users_public/athlete-1',{nickname:'Public test rider',profilePublic:true});
  const original=vi.mocked(loadActivityDiscovery).getMockImplementation()!;let pages=0;
  vi.mocked(loadActivityDiscovery).mockImplementation(async(services,request)=>request.order==='id_asc'?{items:[],nextCursor:'ad1.'+(++pages),exhausted:false,expiresAt:Date.now()+600000} as never:original(services,request));
- try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'통계 불러오기'}));}await screen.findAllByText(/전체 통계를 불러올 수 없습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'새로고침'})).not.toBeInTheDocument();}
+ try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'공개 활동 더 불러오기'}));}await screen.findAllByText(/공개 활동 목록을 최대 200개까지 확인했습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'새로고침'})).not.toBeInTheDocument();}
  finally{vi.mocked(loadActivityDiscovery).mockImplementation(original);}
 });
 

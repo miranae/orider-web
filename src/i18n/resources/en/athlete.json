@@ -1,7 +1,7 @@
 {
   "publicGlobal": {
   "loading": "Loading…",
-  "partial": "Load more activities to view statistics.",
+  "partial": "More public activities are available.",
   "complete": "Reached the last page of the public-statistics query ({{count}} records collected). Changes during the query may not be reflected.",
   "error": "Unable to load activities.",
   "restart": "Please reload activities.",
@@ -10,7 +10,7 @@
   "publicPeriod": {
   "filterPartial": "Showing loaded activities.",
   "globalComplete": "Reached the last page of the public-statistics query ({{count}} records collected). Changes during the query may not be reflected.",
-  "globalMore": "Load statistics",
+  "globalMore": "Load more public activities",
   "title": "Activity statistics",
   "basis": "Dates use KST. Select up to one year. Each request checks up to 20 records. Records and access can change between pages; this is not an all-time snapshot.",
   "from": "Start date",
@@ -27,7 +27,7 @@
   "records": "Collected public activities",
   "activity": "View original activity"
 },
-  "publicDiscoveryLimit": "Select a date range to view statistics.",
+  "publicDiscoveryLimit": "The public activity list has reached its 200-record limit. Select a date range to find other activities.",
   "publicDiscoveryScope": "Statistics describe public records checked with current access, up to 200 activities. Totals are withheld when the scan is incomplete. Undated records are excluded from monthly charts; private sensors and training load are not provided.",
   "notFound": "User not found.",
   "stats.activities": "All activities",

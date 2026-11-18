@@ -54,6 +54,11 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
       nextCursor: next ? null : "ad1.signed", exhausted: next, scannedCount: 1, totalCount: null,
       expiresAt: Date.now() + 600_000, order: "startTime_desc", includesUndated: false, consistency: "current_authorized_seek_pages" } };
   });
+  setCallableImplementation("getPublicAthleteTotals", () => ({ data: {
+    schemaVersion: 1, ownerUid: "rider-1", epoch: "isolated-totals", state: "ready", revision: 1, count: 42,
+    distance: 125_000, timeDisplayMillis: 3_600_000, elevation: 650,
+    unknownDistanceCount: 0, unknownTimeCount: 0, unknownElevationCount: 0,
+  } }));
   let page = 0;
   setCallableImplementation("getPublicSegmentMetadata", () => ({ data: {
     items: [{ id: `segment-${page}`, name: page === 0 ? "First isolated segment" : "Next isolated segment", distance: 1000 }],
@@ -74,6 +79,12 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   await waitFor(() => expect(send).toHaveBeenCalledWith("auth.state", { uid: null }, undefined));
   await emit("host.sessionAccepted", { theme: { mode: "light" }, locale: "ko", safeInsets: { top: 0, bottom: 0 } });
   await screen.findByText("Isolated rider");
+  await screen.findByText("42회");
+  const totalValues = [...screen.getByTestId("P0-1").querySelectorAll("strong")].map(value => value.textContent?.trim());
+  expect(totalValues).toEqual(["42회", "125 km", expect.stringContaining("1"), "650 m"]);
+  const totalsFactories = vi.mocked(httpsCallable).mock.calls.filter(([, name]) => name === "getPublicAthleteTotals");
+  expect(totalsFactories.length).toBeGreaterThan(0);
+  for (const [instance] of totalsFactories) expect(instance).toBe(isolated.functions);
   await screen.findByRole("link", { name: "First isolated ride" });
   fireEvent.click(screen.getByRole("button", { name: "더 보기", exact: true }));
   await screen.findByRole("link", { name: "Second isolated ride" });
