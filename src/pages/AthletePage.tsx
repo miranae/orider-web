@@ -906,9 +906,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const ownerHighlightItems = mediaCurrent ? ownerHighlights : [];
   const photosBuffered = isOwnProfile && ownerPhotoItems.length > mediaVisible.photos;
   const highlightsBuffered = isOwnProfile && ownerHighlightItems.length > mediaVisible.highlights;
-  const recentPhotos = useMemo(() => {
+  const profilePhotos = useMemo(() => {
     const seen = new Set<string>();
-    if (isOwnProfile) return ownerPhotoItems.slice(0, mediaVisible.photos);
+    if (isOwnProfile) return ownerPhotoItems;
     return chartActivities.filter(activity => activity.userId === userId).sort((a, b) => b.startTime - a.startTime).flatMap(activity => {
       if (activity.feedContentV1?.sourceRevision !== activityFeedSourceRevision(activity)) return [];
       return (boundedFeedContent(activity.feedContentV1)?.photos ?? []).flatMap(photo => {
@@ -917,8 +917,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         seen.add(identity);
         return [{ ...photo, activityId: activity.id }];
       });
-    }).slice(0, 6);
-  }, [chartActivities, userId, isOwnProfile, ownerPhotoItems, mediaVisible.photos]);
+    });
+  }, [chartActivities, userId, isOwnProfile, ownerPhotoItems]);
+  const recentPhotos = profilePhotos.slice(0, mediaVisible.photos);
+  const publicPhotosBuffered = !isOwnProfile && profilePhotos.length > mediaVisible.photos;
   const highlights = useMemo(() => isOwnProfile ? ownerHighlightItems.slice(0, mediaVisible.highlights) : [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime).flatMap(activity => (activity.topAchievements ?? []).slice(0, 3).map(achievement => ({ ...achievement, activityId: activity.id }))).slice(0, 12), [acceptedChartActivities, isOwnProfile, ownerHighlights, mediaCurrent, mediaVisible.highlights]);
 
   // 검색 활성 시: 서버 검색 결과 사용
@@ -1203,13 +1205,16 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             <TabNav tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
           </nav>
           {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("photos") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
-          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("highlights") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
-          {!isOwnProfile && (profileTab === "overview" || profileTab === "photos" || profileTab === "achievements") && publicGlobal.status !== "complete" &&
+          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.publicHighlightsUnavailable")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("highlights") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
+          {!isOwnProfile && (profileTab === "overview" || profileTab === "photos") && (publicPhotosBuffered || publicGlobal.status !== "complete") &&
             <div className="athlete-query-status">
-              {publicGlobal.status !== "partial" && <Text as="p" role="status">
+              {publicGlobal.status !== "partial" && publicGlobal.status !== "complete" && <Text as="p" role="status">
                 {t(publicGlobal.status === "limit" ? "profile.publicMediaLimit" : `publicGlobal.${publicGlobal.status}`)}
               </Text>}
-              {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("profile.morePublicMediaActivities")}</Button>}
+              {(publicPhotosBuffered || publicGlobal.status === "partial") && <Button size="sm" onClick={() => {
+                setMediaVisible(visible => ({ ...visible, photos: visible.photos + 6 }));
+                if (!publicPhotosBuffered) void publicGlobal.more();
+              }}>{t(publicPhotosBuffered ? "profile.moreCachedPhotos" : "profile.morePublicMediaActivities")}</Button>}
               {["error", "restart", "stale"].includes(publicGlobal.status) && <Button size="sm" onClick={publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>
                 {t("common:button.retry")}
               </Button>}

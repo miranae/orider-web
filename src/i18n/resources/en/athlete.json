@@ -28,7 +28,7 @@
   "records": "Collected public activities",
   "activity": "View original activity"
 },
-  "publicDiscoveryLimit": "The sport and source filters have reached their 200-record search limit. Select a date range to find other activities.",
+  "publicDiscoveryLimit": "The sport and source filters have reached their 200-record search limit.",
   "publicDiscoveryScope": "Statistics describe public records checked with current access, up to 200 activities. Totals are withheld when the scan is incomplete. Undated records are excluded from monthly charts; private sensors and training load are not provided.",
   "notFound": "User not found.",
   "stats.activities": "All activities",
@@ -136,6 +136,7 @@
     "continueTotals": "Continue lifetime record check",
     "restartTotals": "Restart lifetime record check",
     "totalsRestartScope": "Check record integrity with a fresh inspection. Each action processes at most 100 pages.",
+    "publicHighlightsUnavailable": "Public highlights are currently unavailable for other profiles.",
     "publicMediaLimit": "Photo search covers up to 200 public activities.",
     "morePublicMediaActivities": "Load more public records",
     "noMediaInPages": "No displayable items in the activities inspected so far.",
