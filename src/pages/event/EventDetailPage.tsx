@@ -375,7 +375,7 @@ export default function EventDetailPage() {
               if (!cancelled && auth.currentUser === owner) setEvent(current => current?.id === eventId
                 ? { ...current, creatorName: creator?.nickname ?? "" } : current);
             }).catch(error => {
-              if (!cancelled && auth.currentUser === owner) logClientError("EventDetailPage.loadCreatorProfile", error, { eventId });
+              logClientError("EventDetailPage.loadCreatorProfile", error, { eventId }, services, owner);
             });
           }
         }

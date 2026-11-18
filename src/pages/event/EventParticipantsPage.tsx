@@ -293,7 +293,7 @@ export default function EventParticipantsPage() {
             const nickname = profile?.nickname || t("participantsView.defaultRider");
             profiles.set(participant.id, { nickname, team: profile?.team || "—" });
           } catch (error) {
-            if (current()) logClientError("EventParticipantsPage.loadPublicProfile", error, { eventId });
+            logClientError("EventParticipantsPage.loadPublicProfile", error, { eventId }, services, scope.owner);
           }
         }
       };

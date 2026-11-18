@@ -140,7 +140,7 @@ function GroupEventsContent() {
             const myRsvp = participant.exists() && isActiveEventRegistration(participant.data()?.status);
             setEvents(current => current.map(event => event.id === eventDoc.id ? { ...event, myRsvp } : event));
           } catch (reason) {
-            if (current()) logClientError("GroupEventsPage.registration", reason, { groupId, eventId: eventDoc.id });
+            logClientError("GroupEventsPage.registration", reason, { groupId, eventId: eventDoc.id }, services, viewer);
           }
         }));
       })

@@ -179,10 +179,10 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
         let snapshot;
         try { snapshot = await getDoc(doc(services.firestore, "courses", id)); }
         catch (fallbackError) {
+          logClientError("CourseDetail.assetFallbackRead", fallbackError, { courseId: id }, services, user);
           if (!active()) return;
           const code = (fallbackError as { code?: string })?.code;
           if (code === "permission-denied" || code === "unauthenticated") throw fallbackError;
-          logClientError("CourseDetail.assetFallbackRead", fallbackError, { courseId: id });
           onData({ ...metadata, elevationProfile: undefined, id, trackLoadState: "error" }); return;
         }
         if (!active()) return;

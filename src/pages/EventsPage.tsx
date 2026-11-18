@@ -416,7 +416,7 @@ export default function EventsPage() {
         setParticipation({ scope: pageScope, key: participationKey, ids: new Set(joined.filter((id): id is string => id !== null)) });
       }
     }).catch(error => {
-      if (current()) logClientError("EventsPage.loadMyEvents", error);
+      logClientError("EventsPage.loadMyEvents", error, undefined, services, viewer);
     });
     return () => { cancelled = true; };
   }, [firestore, services, user, viewer, participationKey, loading, pageScope]);

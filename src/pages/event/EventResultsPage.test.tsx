@@ -164,7 +164,7 @@ it("keeps results available and reports an optional course read that times out",
     renderWithProviders(<ResultsWithNavigation />, { route: "/ko/event/first/results" });
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
     expect(screen.getByRole("heading", { name: "Finished optional course" })).toBeVisible();
-    expect(logClientError).toHaveBeenCalledWith("EventResultsPage.loadCourse", expect.any(Error), { eventId: "first" });
+    expect(logClientError).toHaveBeenCalledWith("EventResultsPage.loadCourse", expect.any(Error), { eventId: "first" }, expect.objectContaining({ auth: expect.anything() }), null);
   } finally {
     read.mockImplementation(original);
     vi.useRealTimers();

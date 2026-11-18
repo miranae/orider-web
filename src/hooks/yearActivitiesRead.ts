@@ -125,6 +125,10 @@ export async function readRecapYears(uid: string, cancelled: () => boolean, sess
   if ([...(first ? [first] : []), ...tail.docs].some(doc => !Number.isFinite(doc.data().startTime))) throw new Error("year-read-invalid-calendar");
   const currentYear = new Date().getFullYear();
   const complete = first ? tail.docs.length === 1 && tail.docs[0]?.id === first.id : tail.docs.length === 0;
+  if (complete && session.docs.size !== tail.docs.length) {
+    session.valid = false;
+    throw new Error("year-read-inventory-changed");
+  }
   if (complete) session.calendarCoverage = [{ start: -Infinity, end: Infinity }];
   else if (first && tail.docs.length >= 2) {
     const firstTime = first.data().startTime;

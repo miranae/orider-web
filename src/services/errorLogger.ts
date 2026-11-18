@@ -56,6 +56,7 @@ export function logClientError(
   error: unknown,
   context?: Record<string, unknown>,
   services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">,
+  requestViewer?: FirebaseServices["auth"]["currentUser"],
 ) {
   const message = error instanceof Error ? error.message : String(error);
   if (shouldSuppressClientError(source, message)) return;
@@ -72,7 +73,9 @@ export function logClientError(
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
   const stack = error instanceof Error ? error.stack : undefined;
 
-  const user = services?.auth.currentUser;
+  const user = requestViewer === undefined ? services?.auth.currentUser : requestViewer;
+  // Report late failures to Sentry, but never send them through a different account's callable.
+  if (services && services.auth.currentUser !== user) return;
   void (async () => {
     try {
       await (services?.ensureAppCheckReady ?? ensureAppCheckReady)();

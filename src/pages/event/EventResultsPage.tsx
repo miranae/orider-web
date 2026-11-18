@@ -17,7 +17,6 @@ import { doc, getDoc, collection, getDocs, query, orderBy, documentId, startAfte
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { getEventPublicParticipantsPage, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import { logClientError } from "../../services/errorLogger";
-import { captureError } from "../../services/sentry";
 import { isEventHost } from "../../features/event/eventHost";
 import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
@@ -230,7 +229,8 @@ export default function EventResultsPage() {
 
         // 코스 요약은 결과 페이지와 권한 확인을 기다리게 하지 않는다.
         if ((distanceKm == null || elevationGain == null) && courseIds[0]) {
-          void withReadDeadline(getDoc(doc(db, "courses", courseIds[0])), t("readTimeout")).then(snapshot => {
+          const courseId = courseIds[0];
+          void Promise.resolve().then(() => withReadDeadline(getDoc(doc(db, "courses", courseId)), t("readTimeout"))).then(snapshot => {
             if (cancelled || auth.currentUser !== owner || !snapshot.exists()) return;
             const course = snapshot.data();
             setEventHead(current => current ? { ...current,
@@ -238,8 +238,7 @@ export default function EventResultsPage() {
               elevationGain: current.elevationGain ?? (typeof course.elevationGain === "number" ? course.elevationGain : null),
             } : current);
           }).catch(error => {
-            if (!cancelled && auth.currentUser === owner) logClientError("EventResultsPage.loadCourse", error, { eventId });
-            else captureError(error, { tags: { source: "EventResultsPage.loadCourse" } });
+            logClientError("EventResultsPage.loadCourse", error, { eventId }, services, owner);
           });
         }
 
@@ -272,7 +271,7 @@ export default function EventResultsPage() {
             void withReadDeadline(getPublicUserProfile(uid, services.firestore), t("readTimeout")).then(profile => {
               if (current()) profileNames.set(uid, profile?.nickname ?? "");
             }).catch(error => {
-              if (current()) logClientError("EventResultsPage.loadPublicProfiles", error, { eventId });
+              logClientError("EventResultsPage.loadPublicProfiles", error, { eventId }, services, owner);
             }).finally(() => {
               profileWorkers--;
               if (!current()) return;

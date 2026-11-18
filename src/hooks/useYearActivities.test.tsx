@@ -117,8 +117,8 @@ it("loads an explicit year before calendar discovery and retains it when calenda
   expect(h.result.current.error).toBe(false);
   expect(h.result.current.activities[0]?.id).toBe("ride");
   act(() => h.result.current.retry());
-  await waitFor(() => expect(h.result.current.calendarError).toBe(false));
-  expect(h.result.current.years).toEqual([2026, 2025, 2024]);
+  await waitFor(() => expect(h.result.current.years).toEqual([2026, 2025, 2024]));
+  expect(h.result.current.calendarError).toBe(false);
 });
 
 it("recovers a failed explicit-year read when calendar bounds become available", async () => {

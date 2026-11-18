@@ -98,3 +98,12 @@ it("uses injected logging transport and drops a stale SDK user after AppCheck", 
   logClientError("named.current", new Error("current"), {}, services);
   await vi.waitFor(() => expect(httpsCallable).toHaveBeenCalledWith(services.functions, "logClientError"));
 });
+
+it("keeps contextual diagnostics when a request's auth session ended before it failed", () => {
+  const services = { auth: { currentUser: { uid: "new" } }, functions: {}, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+  const viewer = { uid: "old" } as FirebaseServices["auth"]["currentUser"];
+  const error = new Error("course read failed");
+  logClientError("course.oldSession", error, { courseId: "course" }, services, viewer);
+  expect(captureError).toHaveBeenCalledWith(error, { tags: { source: "course.oldSession" }, extra: { courseId: "course" } });
+  expect(services.ensureAppCheckReady).not.toHaveBeenCalled();
+});

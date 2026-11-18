@@ -20,7 +20,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
-import { captureError } from "../../services/sentry";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField, TimeField } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
@@ -241,7 +240,7 @@ export default function EventEditPage() {
       const firstCourseId: string | undefined = Array.isArray(info.courseIds) ? info.courseIds[0] : undefined;
       if (firstCourseId) {
         const owner = services.auth.currentUser;
-        void withReadDeadline(getDoc(doc(firestore, "courses", firstCourseId)), t("readTimeout")).then(cs => {
+        void Promise.resolve().then(() => withReadDeadline(getDoc(doc(firestore, "courses", firstCourseId)), t("readTimeout"))).then(cs => {
           if (generation !== loadGeneration.current || services.auth.currentUser !== owner || !cs.exists()) return;
           const cd = cs.data();
           setCourse({
@@ -251,9 +250,7 @@ export default function EventEditPage() {
             elevationGain: typeof cd.elevationGain === "number" ? cd.elevationGain : undefined,
           });
         }).catch(err => {
-          if (generation === loadGeneration.current && services.auth.currentUser === owner)
-            logClientError("EventEditPage.loadCourse", err, { eventId, courseId: firstCourseId });
-          else captureError(err, { tags: { source: "EventEditPage.loadCourse" } });
+          logClientError("EventEditPage.loadCourse", err, { eventId, courseId: firstCourseId }, services, owner);
         });
       }
     } catch (err) {
