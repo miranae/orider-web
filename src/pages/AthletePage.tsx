@@ -363,7 +363,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const chartError = isOwnProfile ? ownChartError : publicGlobal.status !== "complete";
   const chartLimited = !isOwnProfile && publicGlobal.status === "limit";
 
-  const [, setRelationshipLoading] = useState(true);
+  const [relationshipLoading, setRelationshipLoading] = useState(true);
   const [friendLoading, setFriendLoading] = useState(false);
   const autoInviteAttemptRef = useRef<string | null>(null);
   const [friendCount, setFriendCount] = useState(0);
@@ -618,10 +618,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       return;
     }
 
-    setRelationshipLoading(true);
+    let active = true;
+    setRelationshipLoading(true); setFriendStatus("none");
     // 1. 이미 친구인지 확인
     getDoc(doc(services.firestore, "friends", currentUser.uid, "users", userId))
       .then((snap) => {
+        if (!active) return;
         if (snap.exists()) {
           setFriendStatus("friends");
           return;
@@ -629,6 +631,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         // 2. 내가 요청을 보냈는지 확인
         return getDoc(doc(services.firestore, "friend_requests", userId, "items", currentUser.uid))
           .then((reqSnap) => {
+            if (!active) return;
             if (reqSnap.exists()) {
               setFriendStatus("request_sent");
               return;
@@ -636,12 +639,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             // 3. 상대가 나에게 요청을 보냈는지 확인
             return getDoc(doc(services.firestore, "friend_requests", currentUser.uid, "items", userId))
               .then((recvSnap) => {
+                if (!active) return;
                 setFriendStatus(recvSnap.exists() ? "request_received" : "none");
               });
           });
       })
       .catch((err) => logClientError("AthletePage.bg", err, {}))
-      .finally(() => setRelationshipLoading(false));
+      .finally(() => { if (active) setRelationshipLoading(false); });
+    return () => { active = false; };
   }, [currentUser, userId, services.firestore]);
 
   // Handle auto-friend request from invite link
@@ -653,6 +658,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       searchParams.get("action") !== "invite" ||
       profileForPage?.friendRequestsAllowed === false ||
       friendStatus !== "none" ||
+      relationshipLoading ||
       friendLoading
     ) return;
 
@@ -665,7 +671,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         showToast(t("friend.autoSent"));
       }
     });
-  }, [currentUser, userId, profileForPage?.friendRequestsAllowed, friendStatus, friendLoading, searchParams, t]);
+  }, [currentUser, userId, profileForPage?.friendRequestsAllowed, friendStatus, relationshipLoading, friendLoading, searchParams, t]);
 
   // Fetch friend list + count
   useEffect(() => {
@@ -851,7 +857,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       </section>
   );
 
-  if (viewIdentity !== readIdentity || profileLoading && !ownProfileFallback) {
+  if (viewIdentity !== readIdentity) {
     return (
       <div data-testid="P0.loading" className="space-y-6">
         <Card className="h-32 animate-pulse" />
@@ -864,10 +870,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     );
   }
 
+  if (profileLoading && !ownProfileFallback) {
+    return <div data-testid="P0.loading" className="space-y-6">{totalsSection}<Card className="h-32 animate-pulse" /></div>;
+  }
+
   if (!nickname) {
     return (
-      <div className="text-center py-12 text-[var(--ink-3)]">
-        {t("notFound")}
+      <div className="space-y-6">
+        {totalsSection}
+        <p className="text-center py-12 text-[var(--ink-3)]">{t("profile.identityUnavailable")}</p>
       </div>
     );
   }
@@ -888,7 +899,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           <div className="mt-2 text-[length:var(--fs-sm)] text-[var(--ink-3)]">
             {t("privacy.privateDesc")}
           </div>
-          {currentUser && (
+          {currentUser && !relationshipLoading && (
             <div className="mt-5 flex justify-center gap-2">
               {friendStatus === "none" && canSendFriendRequest && (
                 <Button size="sm"
@@ -950,7 +961,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={isOwnProfile ? [] : chartActivities} /></div>
           )}
         </div>
-        {!isMe && currentUser && (
+        {!isMe && currentUser && !relationshipLoading && (
           <div data-testid="P0-0-4" className="athlete-friend-actions">
             <ActivitySubscriptionButton targetUid={userId} services={services} size="sm" />
             {friendStatus === "none" && canSendFriendRequest && (

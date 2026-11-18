@@ -2,7 +2,7 @@ import { httpsCallable } from "firebase/functions";
 import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import * as errorLogger from "../services/errorLogger";
 import { installActivityQueryFake } from "../__tests__/fixtures/activityQueryFake";
-import { getDocs } from "firebase/firestore";
+import { getDoc, getDocs } from "firebase/firestore";
 import { auth } from "../services/firebase";
 import * as activityAcceptance from "../utils/estimateTSS";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -837,4 +837,25 @@ it("does not use whole-history count as the remaining authorized list count", as
   await screen.findByText("100회", {}, { timeout: 1000 });
   expect(screen.queryByText("더 보기 (80개 남음)")).not.toBeInTheDocument();
   expect(await screen.findByRole("button", { name: "더 보기", exact: true }, { timeout: 1000 })).toBeInTheDocument();
+});
+
+it("renders an authorized public summary even if the separate public identity is missing", async () => {
+  setDocData("users_public/athlete-1", {});
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 13 }) });
+  renderWithProviders(<AthletePage />);
+  await screen.findByText("13회");
+  expect(screen.getByText("프로필 정보를 불러오지 못했습니다.")).toBeInTheDocument();
+  expect(screen.getByText("전체 활동 기록 기준")).toBeInTheDocument();
+});
+it("keeps private summary visible while waiting for relationship status without enabling friend writes", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Private rider", profilePublic: false });
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let resolve!: (value: unknown) => void;
+  vi.mocked(getDoc).mockImplementation(((ref: { path?: string }) => ref.path === "friends/viewer/users/athlete-1"
+    ? new Promise(done => { resolve = done; }) : original(ref as never)) as never);
+  const view = renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+  await screen.findByText("5회");
+  expect(screen.queryByRole("button", { name: "친구 요청", exact: true })).not.toBeInTheDocument();
+  view.unmount(); resolve?.({ exists: () => true });
+  vi.mocked(getDoc).mockImplementation(original);
 });

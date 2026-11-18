@@ -103,6 +103,7 @@
   "recent.time": "Activity time",
   "dateLocale": "en-US",
   "profile": {
+    "identityUnavailable": "Profile information is unavailable.",
     "reloadTotals": "Reload cumulative records",
     "recentPhotos": "Activity photos",
     "openPhoto": "Open activity photos",
