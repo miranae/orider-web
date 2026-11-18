@@ -1,4 +1,4 @@
-import { isRoutePosition, routeSlots, drawableRouteSlots, type RouteSlot } from "./routeGeometry";
+import { unwrapLongitudeNear, isRoutePosition, routeSlots, drawableRouteSlots, type RouteSlot } from "./routeGeometry";
 
 type Pixel = [number, number];
 type Range = { startIndex: number; endIndex: number };
@@ -28,10 +28,7 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
     if (!isRoutePosition(coordinate)) return null;
     const latitude = Math.max(-85.0511, Math.min(85.0511, coordinate[0]));
     let longitude = coordinate[1];
-    if (previousLongitude !== null) {
-      while (longitude - previousLongitude > 180) longitude -= 360;
-      while (longitude - previousLongitude < -180) longitude += 360;
-    }
+    if (previousLongitude !== null) longitude = unwrapLongitudeNear(longitude, previousLongitude);
     if (followsRoute) previousLongitude = longitude;
     return [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))] as const;
   };

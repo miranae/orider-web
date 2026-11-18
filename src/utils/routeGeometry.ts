@@ -72,10 +72,7 @@ export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: re
     let previous: number | undefined;
     return segment.map(([lat, lon]) => {
       let longitude = shiftedLongitude && lon < 0 ? lon + 360 : lon;
-      if (previous !== undefined) {
-        while (longitude - previous > 180) longitude -= 360;
-        while (longitude - previous < -180) longitude += 360;
-      }
+      if (previous !== undefined) longitude = unwrapLongitudeNear(longitude, previous);
       previous = longitude;
       return [longitude, lat];
     });
@@ -86,6 +83,13 @@ export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: re
       ? { type: "LineString", coordinates: coordinates[0]! }
       : { type: "MultiLineString", coordinates },
   } as GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>;
+}
+
+export function unwrapLongitudeNear(longitude: number, reference: number): number {
+  const delta = longitude - reference;
+  if (delta > 180) return longitude - 360 * Math.ceil((delta - 180) / 360);
+  if (delta < -180) return longitude + 360 * Math.ceil((-delta - 180) / 360);
+  return longitude;
 }
 
 export function shortestLongitudeDelta(delta: number): number {

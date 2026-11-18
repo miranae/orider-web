@@ -1,3 +1,4 @@
+import { onIdTokenChanged } from "firebase/auth";
 import { NativeActivityPhotoImage } from "./activity/NativeActivityPhotoImage";
 import type { NativePhotoReference } from "../services/nativeActivityPhoto";
 import type { ReactNode, CSSProperties } from "react";
@@ -456,6 +457,11 @@ export default function RouteMap({
   const [readyFor, setReadyFor] = useState<object | null>(null);
   const [webglSupported] = useState(() => supportsWebGL());
   const mapViewer = firebaseServices.auth?.currentUser;
+  const [, observeMapViewer] = useState(mapViewer);
+  useEffect(() => {
+    const auth = firebaseServices.auth;
+    if (auth) return onIdTokenChanged(auth, observeMapViewer);
+  }, [firebaseServices.auth]);
 
   const { routePositions, sourcePositions, segmentStarts, streamFallback } = useMemo(() => {
     const parts: RouteSlot[] = [];
@@ -619,7 +625,7 @@ export default function RouteMap({
         pointCount: pointPositions.length, hasSavedImage: Boolean(fallbackImageUrl), hasRouteLine: drawable,
       }, firebaseServices, mapScope.mapViewer, isCurrent() ? "" : "superseded", isCurrent);
     }
-    if (sameMap() && firebaseServices.auth?.currentUser?.uid === mapScope.mapViewer?.uid) setMapFailed(true);
+    if (isCurrent()) setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope, mapContext, mounted]);
 
   const previewRange = highlightRange ?? flyToRange;

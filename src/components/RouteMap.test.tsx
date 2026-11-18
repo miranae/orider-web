@@ -750,6 +750,15 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[-120, 0], [240, 0]]);
   });
 
+  it("does not show the former session's SDK error after same-UID renewal", () => {
+    const services = { auth: { currentUser: { uid: "viewer" } }, functions: {} } as unknown as FirebaseServices;
+    renderWithProviders(<FirebaseServicesProvider services={services}><RouteMap latlng={[[37, 127], [38, 128]]} /></FirebaseServicesProvider>);
+    const firstMap = screen.getByTestId("mock-map"), oldError = mapProps.latest?.onError;
+    services.auth.currentUser = { ...services.auth.currentUser! };
+    act(() => oldError?.({ error: new Error("network") }));
+    expect(screen.getByTestId("mock-map")).toBe(firstMap);
+  });
+
   it("fits the emitted dateline edge at exactly 180 degrees", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
