@@ -78,11 +78,17 @@ export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: re
 
 export function routeBounds(positions: readonly unknown[]): [[number, number], [number, number]] | null {
   let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  let minShiftedLng = Infinity, maxShiftedLng = -Infinity;
   for (const point of positions) {
     if (!isRoutePosition(point)) continue;
     const [lat, lng] = point;
     minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
     minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+    const shifted = lng < 0 ? lng + 360 : lng;
+    minShiftedLng = Math.min(minShiftedLng, shifted); maxShiftedLng = Math.max(maxShiftedLng, shifted);
   }
-  return Number.isFinite(minLat) ? [[minLng, minLat], [maxLng, maxLat]] : null;
+  if (!Number.isFinite(minLat)) return null;
+  if (maxShiftedLng - minShiftedLng < maxLng - minLng)
+    return [[minShiftedLng, minLat], [maxShiftedLng, maxLat]];
+  return [[minLng, minLat], [maxLng, maxLat]];
 }

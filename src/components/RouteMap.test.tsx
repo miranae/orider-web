@@ -721,6 +721,16 @@ describe("RouteMap", () => {
     expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
     view.rerender(<RouteMapFallback {...props} highlightRange={{ startIndex: 140_002, endIndex: 140_002 }} />);
     expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    view.rerender(<RouteMapFallback {...props} imageUrl="https://example.test/static.png" highlightRange={{ startIndex: 1, endIndex: 3 }} />);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    expect(view.container.querySelector("img")).toBeNull();
+  });
+
+  it("fits isolated dateline points into the same narrow viewport", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, 179], null, [0, -179]] as unknown as [number, number][]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[179, 0], [181, 0]]);
   });
 
   it("shows a selected photo point on the static map without recorded GPS", () => {
