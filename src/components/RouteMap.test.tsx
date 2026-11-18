@@ -671,6 +671,22 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37]]);
   });
 
+  it("preserves the user camera when raw GPS adds points inside the thumbnail bounds", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = { polyline: "37,127;38,128",
+      navigationLabels: { zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show entire route" } };
+    const view = renderWithProviders(<RouteMap {...props} />);
+    const map = screen.getByTestId("mock-map");
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} latlng={[[37, 127], [37.8, 127.3], [38, 128]]} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(api.zoomIn).toHaveBeenCalledTimes(1);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+    expect(JSON.stringify(mapProps.sources)).toContain("[127.3,37.8]");
+  });
+
   it("ignores a late SDK error from an earlier route", () => {
     const view = renderWithProviders(<RouteMap flyToPosition={[37, 127]} />);
     const previousMap = screen.getByTestId("mock-map");

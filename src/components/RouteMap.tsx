@@ -81,13 +81,6 @@ function toPointGeoJSON(lat: number, lng: number): GeoJSON.Feature<GeoJSON.Point
   };
 }
 
-function sameRouteSlots(first: RouteSlot[], second: RouteSlot[]): boolean {
-  return first === second || first.length === second.length && first.every((point, index) => {
-    const other = second[index];
-    return point === other || point != null && other != null && point[0] === other[0] && point[1] === other[1];
-  });
-}
-
 export { routeBounds as getBounds } from "../utils/routeGeometry";
 
 function findNearestIndex(positions: RouteSlot[], lat: number, lng: number): number {
@@ -485,17 +478,6 @@ export default function RouteMap({
     [firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
   const mapScopeRef = useRef(mapScope);
   mapScopeRef.current = mapScope;
-  const mapInstance = useRef({ routePositions, segmentStarts, firebaseServices, mapViewer, generation: 0 });
-  const previousMap = mapInstance.current;
-  if (previousMap.routePositions !== routePositions || previousMap.segmentStarts !== segmentStarts
-    || previousMap.firebaseServices !== firebaseServices || previousMap.mapViewer !== mapViewer) {
-    const sameGeometry = sameRouteSlots(previousMap.routePositions, routePositions)
-      && previousMap.segmentStarts.length === segmentStarts.length
-      && previousMap.segmentStarts.every((value, index) => value === segmentStarts[index]);
-    const sameSession = previousMap.firebaseServices === firebaseServices && previousMap.mapViewer === mapViewer;
-    mapInstance.current = { routePositions, segmentStarts, firebaseServices, mapViewer,
-      generation: previousMap.generation + (sameGeometry && sameSession ? 0 : 1) };
-  }
   useEffect(() => {
     mapErrorLogged.current = false;
     setMapFailed(false);
@@ -524,6 +506,12 @@ export default function RouteMap({
   const recordedBounds = useMemo(() => routeBounds ?? getBounds(standalonePositions), [routeBounds, standalonePositions]);
   const bounds = cameraIntent.current.full && recordedBounds ? recordedBounds : routeBounds ?? standaloneBounds ?? pointBounds;
   const fullRouteBounds = recordedBounds ?? bounds;
+  const routeBoundsKey = recordedBounds?.flat().join(",") ?? "";
+  const mapInstance = useRef({ routeBoundsKey, firebaseServices, mapViewer, generation: 0 });
+  const previousMap = mapInstance.current;
+  if (previousMap.routeBoundsKey !== routeBoundsKey || previousMap.firebaseServices !== firebaseServices || previousMap.mapViewer !== mapViewer) {
+    mapInstance.current = { routeBoundsKey, firebaseServices, mapViewer, generation: previousMap.generation + 1 };
+  }
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
