@@ -288,10 +288,35 @@ describe("RouteMap", () => {
     expect(mapProps.sources.some(source => (source as {features?:unknown[]}).features?.length === 2)).toBe(true);
   });
 
-  it("does not open an empty map for isolated fixes without any requested markers", () => {
-    renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} />);
-    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+  it("retains isolated recorded points and the same map while hovering across GPS gaps", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127],null,[38,128]] as unknown as [number,number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={latlng} markerPosition={[37,127]} />);
+    const map = screen.getByTestId("mock-map");
+    const fits = api.fitBounds.mock.calls.length;
     expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({type:"FeatureCollection",features:[
+      {type:"Feature",properties:{},geometry:{type:"Point",coordinates:[127,37]}},
+      {type:"Feature",properties:{},geometry:{type:"Point",coordinates:[128,38]}},
+    ]}));
+    rerender(<RouteMap latlng={latlng} markerPosition={null} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(api.fitBounds).toHaveBeenCalledTimes(fits);
+  });
+
+  it("renders a single recorded polyline location as a point without inventing a line", () => {
+    renderWithProviders(<RouteMap polyline="37,127" />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(mapProps.layers.has("route-standalone-points")).toBe(true);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[]}});
+  });
+
+  it("caps full-range selection zoom for a stationary recording", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37,127]]} flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall).toEqual([[[127,37],[127,37]],{padding:20,maxZoom:15}]);
   });
 
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {

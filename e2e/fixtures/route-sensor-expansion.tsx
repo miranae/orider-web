@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createInstance } from "i18next";
+import { loadRuntimeConfig } from "../../src/services/runtimeConfig";
 import { logClientError } from "../../src/services/errorLogger";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { ActivityMediaPanel } from "../../src/features/activity/detail/ActivityMediaPanel";
@@ -24,6 +25,7 @@ import "../../src/pages/activity/activity-detail-page.css";
 import "../../src/theme/generated.css";
 import "../../src/theme/components/components.css";
 
+await loadRuntimeConfig();
 const fixtureI18n = createInstance();
 await new Promise<void>((resolve, reject) => {
   void fixtureI18n.init({ lng: "ko", fallbackLng: "ko", ns: ["common", "activity"], defaultNS: "common",

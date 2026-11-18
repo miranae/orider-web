@@ -224,7 +224,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds }: {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
       if (positions.length > 1 && lo === 0 && hi === positions.length - 1) {
-        map.fitBounds(fullBounds, { padding: 20 });
+        map.fitBounds(fullBounds, { padding: 20, maxZoom: 15 });
         prevRange.current = null;
         return;
       }
@@ -350,9 +350,15 @@ export default function RouteMap({
     return points;
   }, [flyToPosition, highlightRange, flyToRange, sourcePositions]);
   const activePoints = useMemo(() => isRoutePosition(markerPosition) ? [...navigationPoints, markerPosition] : navigationPoints, [navigationPoints, markerPosition]);
+  const standalonePositions = useMemo(() => hasRouteLine(positions, segmentStarts) ? [] : sourcePositions.filter(isRoutePosition), [positions, segmentStarts, sourcePositions]);
+  const standaloneGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
+    type: "FeatureCollection", features: standalonePositions.map(point => ({
+      type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [point[1], point[0]] },
+    })),
+  }), [standalonePositions]);
   const hasSourcePosition = useMemo(() => sourcePositions.some(isRoutePosition), [sourcePositions]);
   const pointPositions = useMemo(() => {
-    const points: [number, number][] = [...endpoints, ...activePoints];
+    const points: [number, number][] = [...standalonePositions, ...endpoints, ...activePoints];
     const add = (point: unknown) => { if (isRoutePosition(point)) points.push([point[0], point[1]]); };
     // Passive attachments must not replace a saved route image or create a map request on their own.
     if (hasSourcePosition || activePoints.length > 0) {
@@ -360,7 +366,7 @@ export default function RouteMap({
       if (Array.isArray(waypoints)) waypoints.forEach(point => add([point?.lat, point?.lon]));
     }
     return points;
-  }, [endpoints, activePoints, hasSourcePosition, photos, waypoints]);
+  }, [standalonePositions, endpoints, activePoints, hasSourcePosition, photos, waypoints]);
   const routeBounds = useMemo(() => getBounds([...positions, ...endpoints]), [positions, endpoints]);
   const pointBounds = useMemo(() => getBounds(pointPositions), [pointPositions]);
   // Hover/highlight points do not define the recorded route's camera. Explicit point
@@ -421,7 +427,7 @@ export default function RouteMap({
     setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices]);
 
-  if (!bounds) {
+  if (!bounds || (!drawable && fallbackImageUrl && navigationPoints.length === 0 && endpoints.length === 0)) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
@@ -680,6 +686,12 @@ export default function RouteMap({
           </Source>
         )}
 
+        {standalonePositions.length > 0 && <Source type="geojson" data={standaloneGeoJSON}>
+          <Layer id="route-standalone-points" type="circle" paint={{
+            "circle-radius": 4, "circle-color": RECORDED_TRACK_COLOR,
+            "circle-stroke-color": "#ffffff", "circle-stroke-width": 1,
+          }} />
+        </Source>}
         {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
         <FitBoundsOnLoad bounds={bounds} />
         <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} />
