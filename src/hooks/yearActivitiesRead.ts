@@ -68,6 +68,7 @@ function reader(uid: string, cancelled: () => boolean, budget = YEAR_READ_BUDGET
     const snapshot = await getDocs(query(collection(session.firestore, "activities"),
       where("userId", "==", uid), where("deletedAt", "==", null), ...constraints, limit(count)));
     current();
+    if (snapshot.metadata?.fromCache) throw new Error("year-read-cache-incomplete");
     charged += Math.max(1, snapshot.docs.length);
     for (const doc of snapshot.docs) {
       const data = doc.data();

@@ -40,7 +40,7 @@ export async function loadAthleteChartActivities(
   try {
     if (session.owner?.uid !== userId || session.owner !== session.auth.currentUser) throw new Error("athlete-owner-session-changed");
     await readRecapYears(userId, cancelled, session, (endpoint, error) => {
-      logClientError("athleteMonthlyActivities.calendarEndpoint", error, { userId, endpoint }, services, session.owner);
+      logClientError("athleteMonthlyActivities.calendarEndpoint", error, { userId, endpoint }, services, session.owner, endpoint);
     });
     const start = planMonthBounds(year, 0).start, end = planMonthBounds(year + 1, 0).start;
     await readActivityTimeWindow(userId, { start, end }, cancelled, undefined, session, true);

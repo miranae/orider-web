@@ -44,7 +44,7 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
     };
     const timer = globalThis.setTimeout(() => fail(new Error("year-calendar-read-timeout")), 12_000);
     void readRecapYears(uid, () => cancelled, session, (endpoint, error) => {
-      logClientError("useYearActivities.calendarEndpoint", error, { uid, endpoint }, services, session.owner);
+      logClientError("useYearActivities.calendarEndpoint", error, { uid, endpoint }, services, session.owner, endpoint);
     }).then((loaded) => {
       if (!cancelled) setCalendar({ session, uid, years: loaded, loading: false, error: false });
     }, fail).finally(() => globalThis.clearTimeout(timer));
@@ -71,7 +71,7 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
     const timer = globalThis.setTimeout(() => fail(new Error("year-activities-read-timeout"), false), 12_000);
     void readYearActivities(uid, year, () => cancelled, undefined, session).then((activities) => {
       if (!cancelled) setState({ session, uid, year, activities, loading: false, error: false, startedBeforeCalendar });
-    }, err => fail(err, !(err instanceof Error && err.message.startsWith("year-read-"))))
+    }, err => fail(err, !(err instanceof Error && err.message.startsWith("year-read-") && err.message !== "year-read-cache-incomplete")))
       .finally(() => globalThis.clearTimeout(timer));
     return () => { cancelled = true; globalThis.clearTimeout(timer); };
   }, [uid, year, ready, retryGeneration, session]);

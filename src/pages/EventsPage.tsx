@@ -260,7 +260,7 @@ export default function EventsPage() {
   pageScopeRef.current = pageScope;
   const [resolvedPageScope, setResolvedPageScope] = useState<typeof pageScope | null>(null);
   const loading = resolvedPageScope !== pageScope;
-  const [participation, setParticipation] = useState<{ scope: typeof pageScope; key: string; ids: Set<string> } | null>(null);
+  const [participation, setParticipation] = useState<{ scope: typeof pageScope; key: string; ids: Set<string>; unknown: Set<string> } | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | EventStatus>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [regionFilter, setRegionFilter] = useState<string>("ALL");
@@ -409,18 +409,26 @@ export default function EventsPage() {
     const ids = JSON.parse(participationKey) as string[];
     const current = () => !cancelled && pageScopeRef.current === pageScope && services.auth.currentUser === viewer;
     void Promise.all(ids.map(async eventId => {
-      const snapshot = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
-      return snapshot.exists() ? eventId : null;
-    })).then(joined => {
-      if (current()) {
-        setParticipation({ scope: pageScope, key: participationKey, ids: new Set(joined.filter((id): id is string => id !== null)) });
+      try {
+        const snapshot = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
+        return { eventId, status: snapshot.exists() ? "joined" : "absent" };
+      } catch (error) {
+        logClientError("EventsPage.loadMyEvents", error, { eventId }, services, viewer, eventId);
+        return { eventId, status: "unknown" };
       }
-    }).catch(error => {
-      logClientError("EventsPage.loadMyEvents", error, undefined, services, viewer);
+    })).then(results => {
+      if (!current()) return;
+      const joined = new Set<string>();
+      const unknown = new Set<string>();
+      for (const { eventId, status } of results) {
+        if (status === "joined") joined.add(eventId);
+        if (status === "unknown") unknown.add(eventId);
+      }
+      setParticipation({ scope: pageScope, key: participationKey, ids: joined, unknown });
     });
     return () => { cancelled = true; };
   }, [firestore, services, user, viewer, participationKey, loading, pageScope]);
-  const myEventIds = !loading && participation?.scope === pageScope && participation.key === participationKey ? participation.ids : null;
+  const currentParticipation = !loading && participation?.scope === pageScope && participation.key === participationKey ? participation : null;
 
   const filtered = useMemo(() => {
     return events
@@ -447,7 +455,8 @@ export default function EventsPage() {
   );
 
   const { live: liveCount, open: openCount } = useMemo(() => eventAvailability(events, now), [events, now]);
-  const myCount = !user || user.isAnonymous ? 0 : myEventIds?.size ?? "—";
+  const myCount = !user || user.isAnonymous ? 0
+    : currentParticipation && !currentParticipation.unknown.size ? currentParticipation.ids.size : "—";
   const activeAdvancedCount = [typeFilter, regionFilter, datePreset, difficultyFilter].filter((value) => value !== "ALL").length;
   const calendarCells = useMemo(() => buildMonthCells(filtered, calendarMonth), [calendarMonth, filtered]);
   const monthEvents = useMemo(() => calendarCells.filter(cell => cell.inMonth).flatMap(cell => cell.events), [calendarCells]);
@@ -706,7 +715,7 @@ export default function EventsPage() {
               key={e.id}
               event={e}
               now={now}
-              isMine={myEventIds?.has(e.id)}
+              isMine={currentParticipation?.unknown.has(e.id) ? undefined : currentParticipation?.ids.has(e.id)}
               mapImageUrl={e.courseId ? courseThumbs[e.courseId] : undefined}
               polyline={(e.courseId ? coursePolylines[e.courseId] : undefined) ?? e.inlinePolyline}
               t={t}
