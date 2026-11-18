@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildStaticRoutePath } from "./staticRoutePath";
+import { buildStaticRoutePath, buildStaticRouteGeometry } from "./staticRoutePath";
 
 function pixels(positions: [number, number][]) {
   return [...(buildStaticRoutePath(positions) ?? "").matchAll(/[ML] ([\d.-]+) ([\d.-]+)/g)]
@@ -7,6 +7,13 @@ function pixels(positions: [number, number][]) {
 }
 
 describe("buildStaticRoutePath", () => {
+  it("renders recorded singleton locations as points without inventing line segments", () => {
+    expect(buildStaticRouteGeometry([[37,127]])).toEqual({path:null,points:[[160,80]]});
+    const geometry = buildStaticRouteGeometry([[37,127],null,[38,127]]);
+    expect(geometry.path).toBeNull();
+    expect(geometry.points).toEqual([[160,144],[160,16]]);
+  });
+
   it("실제 정사각형 경로를 가로 카드에서도 정사각형으로 유지한다", () => {
     const longitudeSpan = 0.003 / Math.cos(37.0015 * Math.PI / 180);
     const points = pixels([[37, 127], [37, 127 + longitudeSpan], [37.003, 127 + longitudeSpan], [37.003, 127]]);

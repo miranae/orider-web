@@ -12,7 +12,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { buildStaticRoutePath } from "../utils/staticRoutePath";
+import { buildStaticRouteGeometry } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 import { isRoutePosition, hasRouteLine, drawableRouteSlots, routeTrackSlots, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
@@ -114,6 +114,7 @@ export function supportsWebGL(): boolean {
 export function RouteMapFallback({
   positions,
   segmentStarts,
+  pointsOnly,
   imageUrl,
   imageAlt,
   height,
@@ -123,6 +124,7 @@ export function RouteMapFallback({
 }: {
   positions: RouteSlot[];
   segmentStarts?: number[];
+  pointsOnly?: boolean;
   imageUrl?: string | null;
   imageAlt: string;
   height: string;
@@ -145,7 +147,7 @@ export function RouteMapFallback({
     );
   }
 
-  const path = buildStaticRoutePath(positions, segmentStarts);
+  const { path, points } = buildStaticRouteGeometry(positions, segmentStarts, { pointsOnly });
   return (
     <div
       className={`${containerClass} relative`}
@@ -157,10 +159,11 @@ export function RouteMapFallback({
         border: "1px solid var(--line-soft)",
       }}
     >
-      {path && (
+      {(path || points.length > 0) && (
         <svg viewBox="0 0 320 160" className="absolute inset-0 h-full w-full" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
-          <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-          <path d={path} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {points.map(([x,y], index) => <circle key={index} cx={x} cy={y} r="4" fill="var(--lime)" stroke="var(--bg-1)" strokeWidth="2" />)}
+          {path && <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />}
+          {path && <path d={path} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
         </svg>
       )}
       <div
@@ -197,26 +200,27 @@ function RouteNavigation({ labels, bounds, padding }: {
   </MapNavigation>;
 }
 
-function FitBoundsOnLoad({ bounds, disabled }: { bounds: LngLatBoundsLike; disabled?: boolean }) {
+function FitBoundsOnLoad({ bounds, disabled, padding }: { bounds: LngLatBoundsLike; disabled?: boolean; padding: number }) {
   const { current: map } = useMap();
   const fittedKey = useRef<string | null>(null);
   useEffect(() => {
     if (disabled) return;
     const key = JSON.stringify(bounds);
     if (fittedKey.current !== key && map) {
-      map.fitBounds(bounds, { padding: 20, duration: 0 });
+      map.fitBounds(bounds, { padding, duration: 0 });
       fittedKey.current = key;
     }
-  }, [map, bounds, disabled]);
+  }, [map, bounds, disabled, padding]);
   return null;
 }
 
-function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition }: {
+function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition, fullPadding }: {
   positions: RouteSlot[];
   segmentStarts: readonly number[];
   range: { startIndex: number; endIndex: number; requestId?: number } | null | undefined;
   fullBounds: LngLatBoundsLike;
   photoPosition?: [number, number] | null;
+  fullPadding: number;
 }) {
   const { current: map } = useMap();
   const startIndex = rawRange?.startIndex, endIndex = rawRange?.endIndex, requestId = rawRange?.requestId;
@@ -240,7 +244,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
       if (positions.length > 1 && lo === 0 && hi === positions.length - 1) {
-        map.fitBounds(fullBounds, { padding: 20, maxZoom: 15 });
+        map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
         prevRange.current = range;
         return;
       }
@@ -248,20 +252,21 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       const segment = lo === hi ? slice : drawableRouteSlots(slice, segmentStarts.map(index => index - lo));
       const bounds = getBounds(segment);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
-      else map.fitBounds(fullBounds, { padding: 20 });
+      else map.fitBounds(fullBounds, { padding: fullPadding });
       prevRange.current = bounds ? range : null;
     } else if (prevRange.current) {
-      map.fitBounds(fullBounds, { padding: 20 });
+      map.fitBounds(fullBounds, { padding: fullPadding });
       prevRange.current = null;
     }
-  }, [map, positions, segmentStarts, range, fullBounds, photoPosition]);
+  }, [map, positions, segmentStarts, range, fullBounds, photoPosition, fullPadding]);
 
   return null;
 }
 
-function FlyToPositionControl({ position, fullBounds }: {
+function FlyToPositionControl({ position, fullBounds, fullPadding }: {
   position: [number, number] | null | undefined;
   fullBounds: LngLatBoundsLike;
+  fullPadding: number;
 }) {
   const { current: map } = useMap();
   const prevPosition = useRef<[number, number] | null>(null);
@@ -276,10 +281,10 @@ function FlyToPositionControl({ position, fullBounds }: {
       map.flyTo({ center: [position[1], position[0]], zoom: 15, duration: 800 });
       prevPosition.current = position;
     } else if (prevPosition.current) {
-      map.fitBounds(fullBounds, { padding: 20 });
+      map.fitBounds(fullBounds, { padding: fullPadding });
       prevPosition.current = null;
     }
-  }, [map, position, fullBounds]);
+  }, [map, position, fullBounds, fullPadding]);
 
   return null;
 }
@@ -450,7 +455,7 @@ export default function RouteMap({
 
   if (!bounds || (!drawable && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
-      return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
+      return <RouteMapFallback positions={drawable ? positions : pointPositions} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
         height={fallbackHeight ?? height} rounded={rounded}
         title={t("map.unavailableTitle")} description={t("map.unavailableDescription")} />;
@@ -466,7 +471,8 @@ export default function RouteMap({
   const mapboxToken = getMapboxToken();
   const fallback = (
     <RouteMapFallback
-      positions={positions}
+      positions={drawable ? positions : pointPositions}
+      pointsOnly={!drawable}
       segmentStarts={segmentStarts}
       imageUrl={fallbackImageUrl}
       imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
@@ -714,10 +720,10 @@ export default function RouteMap({
           }} />
         </Source>}
         {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
-        <FitBoundsOnLoad bounds={bounds} disabled={isRoutePosition(flyToPosition)} />
-        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} photoPosition={flyToPosition} />
+        <FitBoundsOnLoad bounds={bounds} disabled={isRoutePosition(flyToPosition)} padding={fitPadding} />
+        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} photoPosition={flyToPosition} fullPadding={fitPadding} />
         {flyToPosition !== undefined && (
-          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} />
+          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} />
         )}
         </Map>
       </ErrorBoundary>

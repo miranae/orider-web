@@ -400,6 +400,24 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128,38],[128,38.02]]);
   });
 
+  it("keeps isolated GPS points in the static fallback after an SDK failure", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],null,[38,127]] as unknown as [number,number][]} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(document.querySelectorAll("svg circle")).toHaveLength(2);
+    expect(document.querySelector("svg path")).toBeNull();
+    expect(document.querySelector("svg")?.innerHTML).not.toMatch(/NaN|Infinity/);
+  });
+
+  it("applies the requested course padding on full-range fits and selection clearing", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127],[37.01,127]];
+    const view = renderWithProviders(<RouteMap latlng={latlng} fitPadding={40} flyToRange={{startIndex:0,endIndex:1,requestId:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40,maxZoom:15});
+    view.rerender(<RouteMap latlng={latlng} fitPadding={40} flyToRange={null} />);
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40});
+  });
+
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
