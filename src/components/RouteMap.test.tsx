@@ -184,9 +184,9 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify([[127,37],[127,37.01]]))).toBe(true);
   });
 
-  it("shows no-route guidance rather than an empty map for isolated GPS without a fallback", () => {
+  it("keeps measured endpoint navigation and explains that isolated GPS has no route line", () => {
     renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} showRouteEndpoints />);
-    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
     expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
   });
 
@@ -242,7 +242,7 @@ describe("RouteMap", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
     renderWithProviders(<RouteMap routeParts={[[[60,150]],[[37,127],[37.01,127]]]} flyToRange={{startIndex:0,endIndex:0}} showRouteEndpoints />);
-    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[127,37.01]]);
+    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[150,60]]);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
     expect(mapProps.sources.some(source => (source as {features?: {geometry:{coordinates:number[]}}[]}).features?.[0]?.geometry.coordinates[0] === 150)).toBe(true);
   });
@@ -269,6 +269,23 @@ describe("RouteMap", () => {
     expect(handles).toHaveLength(2);
     act(() => handles[0]!.onDragEnd?.({lngLat:{lat:60,lng:150}}));
     expect(onChange).toHaveBeenCalledWith(0,0);
+  });
+
+  it("shows endpoints for single-fix parts without connecting them", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[37,127]],[[38,128]]]} showRouteEndpoints />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
+    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[128,38]]);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[]}});
+    expect(mapProps.sources.some(source => (source as {features?:unknown[]}).features?.length === 2)).toBe(true);
+  });
+
+  it("does not open an empty map for isolated fixes without any requested markers", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} />);
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
   });
 
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {

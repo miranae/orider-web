@@ -327,13 +327,23 @@ export default function RouteMap({
 
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
-  const pointNavigation = Boolean(isRoutePosition(markerPosition) || isRoutePosition(flyToPosition)
-    || Array.isArray(photos) && photos.some(photo => isRoutePosition(photo?.location))
-    || Array.isArray(waypoints) && waypoints.some(point => isRoutePosition([point?.lat, point?.lon]))
-    || flyToRange && flyToRange.startIndex === flyToRange.endIndex && isRoutePosition(sourcePositions[flyToRange.startIndex])
-    || highlightRange && (isRoutePosition(sourcePositions[highlightRange.startIndex]) || isRoutePosition(sourcePositions[highlightRange.endIndex])));
-  const bounds = useMemo(() => getBounds(positions) ?? (pointNavigation ? getBounds(sourcePositions) : null),
-    [positions, sourcePositions, pointNavigation]);
+  const endpoints = useMemo(() => {
+    const valid = (streamFallback ? routePositions : sourcePositions).filter(isRoutePosition);
+    return showRouteEndpoints && valid.length >= 2 ? [valid[0]!, valid[valid.length - 1]!] : [];
+  }, [sourcePositions, routePositions, streamFallback, showRouteEndpoints]);
+  const pointPositions = useMemo(() => {
+    const points: [number, number][] = [...endpoints];
+    const add = (point: unknown) => { if (isRoutePosition(point)) points.push([point[0], point[1]]); };
+    if (Array.isArray(photos)) photos.forEach(photo => add(photo?.location));
+    if (Array.isArray(waypoints)) waypoints.forEach(point => add([point?.lat, point?.lon]));
+    add(markerPosition); add(flyToPosition);
+    if (highlightRange) { add(sourcePositions[highlightRange.startIndex]); add(sourcePositions[highlightRange.endIndex]); }
+    if (flyToRange) { add(sourcePositions[flyToRange.startIndex]); add(sourcePositions[flyToRange.endIndex]); }
+    return points;
+  }, [endpoints, photos, waypoints, markerPosition, flyToPosition, highlightRange, flyToRange, sourcePositions]);
+  // Route endpoints are part of the full route view, even when their fragment has no line.
+  const routeBounds = useMemo(() => getBounds([...positions, ...endpoints]), [positions, endpoints]);
+  const bounds = useMemo(() => routeBounds ?? getBounds(pointPositions), [routeBounds, pointPositions]);
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
@@ -349,10 +359,9 @@ export default function RouteMap({
   }, [markerPosition]);
 
   const endpointGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point> | null>(() => {
-    const valid = (streamFallback ? routePositions : sourcePositions).filter(isRoutePosition);
-    if (!showRouteEndpoints || valid.length < 2) return null;
-    const start = valid[0]!;
-    const end = valid[valid.length - 1]!;
+    if (endpoints.length < 2) return null;
+    const start = endpoints[0]!;
+    const end = endpoints[1]!;
     return {
       type: "FeatureCollection",
       features: [
@@ -360,7 +369,7 @@ export default function RouteMap({
         { type: "Feature", properties: { endpoint: "end" }, geometry: { type: "Point", coordinates: [end[1], end[0]] } },
       ],
     };
-  }, [sourcePositions, routePositions, streamFallback, showRouteEndpoints]);
+  }, [endpoints]);
 
   const handleStartDrag = useCallback((e: { lngLat: { lat: number; lng: number } }) => {
     if (!onHighlightRangeChange || !highlightRange) return;
@@ -374,7 +383,7 @@ export default function RouteMap({
     if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
   }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
-  if (!bounds || (!drawable && !pointNavigation)) {
+  if (!bounds) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
@@ -641,6 +650,7 @@ export default function RouteMap({
         )}
         </Map>
       </ErrorBoundary>
+      {!drawable && <div role="status" data-route-no-line className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-1)", color: "var(--ink-2)" }}>{t("map.noRouteData")}</div>}
     </div>
   );
 }
