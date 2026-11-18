@@ -15,7 +15,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { buildStaticRouteGeometry } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
-import { isRoutePosition, hasRouteLine, drawableRouteSlots, routeTrackSlots, routeSlots, routeGeometry, routeBounds as getBounds, shortestLongitudeDelta, type RouteSlot } from "../utils/routeGeometry";
+import { isRoutePosition, hasRouteLine, drawableRouteSlots, routeTrackSlots, routeSlots, routeGeometry, routeGeometryBounds, routeBounds as getBounds, shortestLongitudeDelta, type RouteSlot } from "../utils/routeGeometry";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface PhotoMarker {
@@ -373,8 +373,8 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
         return;
       }
       const slice = positions.slice(lo, hi + 1);
-      const segment = lo === hi ? slice : drawableRouteSlots(slice, segmentStarts.map(index => index - lo));
-      const bounds = getBounds(segment, true);
+      const geometry = routeGeometry(slice, segmentStarts.map(index => index - lo)).geometry;
+      const bounds = routeGeometryBounds(geometry, lo === hi ? slice : []);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
       else map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevRange.current = bounds ? range : null;
@@ -532,19 +532,7 @@ export default function RouteMap({
   const pointPositions = useMemo(() => [...standalonePositions, ...endpoints, ...activePoints, ...attachmentPositions],
     [standalonePositions, endpoints, activePoints, attachmentPositions]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
-  const routeBounds = useMemo(() => {
-    const bounds = getBounds([...positions, ...endpoints], true);
-    if (!bounds) return null;
-    const line = fullRouteGeoJSON.geometry;
-    const segments = line.type === "LineString" ? [line.coordinates] : line.coordinates;
-    for (const segment of segments) {
-      for (const [lng] of segment) {
-        bounds[0][0] = Math.min(bounds[0][0], lng!);
-        bounds[1][0] = Math.max(bounds[1][0], lng!);
-      }
-    }
-    return bounds;
-  }, [positions, endpoints, fullRouteGeoJSON]);
+  const routeBounds = useMemo(() => routeGeometryBounds(fullRouteGeoJSON.geometry, endpoints), [endpoints, fullRouteGeoJSON]);
   const standaloneBounds = useMemo(() => standalonePositions.length ? getBounds([...standalonePositions, ...attachmentPositions], true) : null,
     [standalonePositions, attachmentPositions]);
   const pointBounds = useMemo(() => getBounds(pointPositions, true), [pointPositions]);

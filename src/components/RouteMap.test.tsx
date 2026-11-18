@@ -750,6 +750,22 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[-120, 0], [240, 0]]);
   });
 
+  it("fits the emitted dateline edge at exactly 180 degrees", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, -180], [0, 179]]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[179, 0], [180, 0]]);
+    expect(mapProps.sources[0]).toMatchObject({ geometry: { coordinates: [[180, 0], [179, 0]] } });
+  });
+
+  it("fits the selected line in the same world as the displayed geometry", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, 0], [0, -179], [0, 179], [0, 178]]}
+      highlightRange={{ startIndex: 0, endIndex: 2 }} flyToRange={{ startIndex: 0, endIndex: 2 }} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[-181, 0], [0, 0]]);
+  });
+
   it("shows a selected photo point on the static map without recorded GPS", () => {
     renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
     fireEvent.click(screen.getByTestId("mock-map"));

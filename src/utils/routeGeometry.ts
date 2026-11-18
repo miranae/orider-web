@@ -67,7 +67,7 @@ export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: re
     if (point) part.push(point);
   });
   flush();
-  const shiftedLongitude = (routeBounds(positions, true)?.[1][0] ?? 0) > 180;
+  const shiftedLongitude = routeBounds(positions, true)?.[0][0] !== routeBounds(positions)?.[0][0];
   const coordinates = parts.map(segment => {
     let previous: number | undefined;
     return segment.map(([lat, lon]) => {
@@ -107,4 +107,24 @@ export function routeBounds(positions: readonly unknown[], wrapDateline = false)
   if (wrapDateline && maxShiftedLng - minShiftedLng < maxLng - minLng)
     return [[minShiftedLng, minLat], [maxShiftedLng, maxLat]];
   return [[minLng, minLat], [maxLng, maxLat]];
+}
+
+/** Fit the exact emitted line, adding nearby world copies of explicitly included points. */
+export function routeGeometryBounds(
+  geometry: GeoJSON.LineString | GeoJSON.MultiLineString,
+  includedPoints: readonly unknown[] = [],
+): [[number, number], [number, number]] | null {
+  const parts = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
+  let west = Infinity, east = -Infinity, south = Infinity, north = -Infinity;
+  const include = (lng: number, lat: number) => {
+    west = Math.min(west, lng); east = Math.max(east, lng);
+    south = Math.min(south, lat); north = Math.max(north, lat);
+  };
+  for (const part of parts) for (const [lng, lat] of part) include(lng!, lat!);
+  if (!Number.isFinite(west)) return routeBounds(includedPoints, true);
+  const center = (west + east) / 2;
+  for (const point of includedPoints) {
+    if (isRoutePosition(point)) include(center + shortestLongitudeDelta(point[1] - center), point[0]);
+  }
+  return [[west, south], [east, north]];
 }
