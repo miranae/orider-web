@@ -577,6 +577,7 @@
   "src/hooks/useActivityNarrativeHistory.ts",
   "src/hooks/useActivityNarrativePeek.ts",
   "src/hooks/useActivityOverview.ts",
+  "src/hooks/useActivityPhotoLocation.ts",
   "src/hooks/useActivityRangeAnalysis.ts",
   "src/hooks/useActivityRangeSelection.ts",
   "src/hooks/useActivityRepresentatives.ts",
