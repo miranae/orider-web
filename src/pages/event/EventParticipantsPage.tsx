@@ -289,7 +289,9 @@ export default function EventParticipantsPage() {
             if (!current()) return;
             const nickname = profile?.nickname || t("participantsView.defaultRider");
             profiles.set(participant.id, { nickname, team: profile?.team || "—" });
-          } catch { /* 공개 프로필 실패는 이미 확인된 참가 기록을 숨기지 않는다. */ }
+          } catch (error) {
+            if (current()) logClientError("EventParticipantsPage.loadPublicProfile", error, { eventId });
+          }
         }
       };
       void Promise.all(Array.from({ length: Math.min(4, partsSnap.docs.length) }, hydrateProfiles)).then(() => {

@@ -373,7 +373,9 @@ export default function EventDetailPage() {
             void getPublicUserProfile(creatorId, services.firestore).then(creator => {
               if (!cancelled && auth.currentUser === owner) setEvent(current => current?.id === eventId
                 ? { ...current, creatorName: creator?.nickname ?? "" } : current);
-            }).catch(() => { /* 작성자 이름 실패가 준비된 이벤트를 가리지 않는다. */ });
+            }).catch(error => {
+              if (!cancelled && auth.currentUser === owner) logClientError("EventDetailPage.loadCreatorProfile", error, { eventId });
+            });
           }
         }
       } catch (err) {

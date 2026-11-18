@@ -74,7 +74,7 @@ it("로그인하지 않은 사람의 「권한이 없습니다」 문구를 누�
 
 it.each(["ready", "denied"])("keeps the authorized owner overview display-only until the canonical read is %s", async outcome => {
   const activity = createMockActivity({ id: "test-activity", userId: "test-uid", description: "먼저 표시된 개요" });
-  const initialOwnerActivity = { ...activity, effectiveFacts: { status: "ready", metrics: null } } as import("../services/publicActivityDetail").PublicActivityDetail["activity"];
+  const initialOwnerActivity = { ...activity, effectiveFacts: { status: "ready", metrics: { distanceKm: 40, durationSec: 3500 } } } as import("../services/publicActivityDetail").PublicActivityDetail["activity"];
   setDocData("activities/test-activity", { ...activity, description: "확정된 전체 기록" });
   const original = vi.mocked(getDoc).getMockImplementation()!;
   let resolve!: () => void;
@@ -85,8 +85,8 @@ it.each(["ready", "denied"])("keeps the authorized owner overview display-only u
   try {
     renderWithProviders(<ActivityPage initialOwnerActivity={initialOwnerActivity} />, { authenticated: true });
     expect(await screen.findByText("먼저 표시된 개요")).toBeInTheDocument();
-    expect(screen.getByText("42.0km")).toBeInTheDocument();
-    expect(screen.getByText("01:00:00")).toBeInTheDocument();
+    expect(screen.getByText("40.0km")).toBeInTheDocument();
+    expect(screen.getByText("00:58:20")).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "분석" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     if (outcome === "ready") {

@@ -275,6 +275,7 @@ export default function EventsPage() {
     let cancelled = false;
     setLoading(true);
     setEvents([]);
+    setParticipation(null);
     setCoursePolylines({});
     setCourseThumbs({});
     setPageError(false);

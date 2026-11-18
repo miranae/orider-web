@@ -6,6 +6,7 @@ import { collection, documentId, getDocs, limit, query, where } from "firebase/f
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getRuntimeConfig } from "../services/runtimeConfig";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { createPublicActivityClient, isPublicActivityAccessError, type PublicActivityDetail } from "../services/publicActivityDetail";
@@ -35,7 +36,7 @@ function PublicActivityDetailRoute() {
     if (!activityId || authLoading) return;
     // Start access resolution and the heavy map/chart module together. The
     // route shell must not download the full detail page before calling the API.
-    void loadActivityPage().catch(() => {});
+    void loadActivityPage().catch(error => logClientError("ActivityDetailRoute.preload", error, { stage: "detail_chunk" }, services));
     let active = true;
     const finish = startJourneyMeasurement("activity_detail_ready", "web_public_activity", "detail");
     const hidden = () => { if (document.visibilityState === "hidden") finish("cancelled"); };
