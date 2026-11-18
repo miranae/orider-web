@@ -57,6 +57,7 @@ beforeEach(() => {
 });
 
 it("keeps the next public activity page available after an empty first page", async () => {
+  setDocData("users_public/athlete-1", { ...createMockProfile(), nickname: "Public profile", profilePublic: true });
   const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
   vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request) => {
     if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
