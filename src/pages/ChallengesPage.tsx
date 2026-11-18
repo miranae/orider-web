@@ -21,7 +21,7 @@ export default function ChallengesPage() {
         <Text as="h3" variant="label">{t("challengeGuest.previewTitle")}</Text>
         <Text as="p" variant="bodySmall" tone="secondary">{t("challengeGuest.example")}</Text>
       </Card>
-      <CoachSignInButton primary />
+      <CoachSignInButton primary label={t("challengeGuest.loginAction")} />
     </div> : <>
       <ChallengeFeed part="monthly" />
       {loading ? <LoadingSkeleton kind="list" count={2} /> : error ? <ErrorState title={t("error.generic")} onRetry={retry} /> : <GroupChallengesPanel userId={user.uid} groups={groups} />}
