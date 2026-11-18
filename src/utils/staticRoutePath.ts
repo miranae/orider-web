@@ -43,7 +43,7 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
       }
     }
   }
-  const reference = worldSlots.find(point => point !== null)?.[1];
+  const reference = worldSlots.find((point, index) => point !== null && (!hasLine || lines[index]))?.[1];
   const selectedProjected = isRoutePosition(selectedPosition) ? project([
     selectedPosition[0], reference === undefined ? selectedPosition[1] : unwrapLongitudeNear(selectedPosition[1], reference),
   ]) : null;

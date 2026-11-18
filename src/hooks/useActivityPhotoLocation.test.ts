@@ -63,6 +63,17 @@ describe("useActivityPhotoLocation", () => {
     expect(view.result.current.flyToPosition).toBeNull();
   });
 
+  it("rejects a delayed photo movement after sign-in metadata changes before notification", () => {
+    const user = { uid: "owner", metadata: { lastSignInTime: "first" } };
+    const services = {};
+    const auth = { currentUser: user };
+    const view = renderHook(() => useActivityPhotoLocation("activity:owner", services, auth));
+    act(() => view.result.current.locate([37, 127]));
+    user.metadata.lastSignInTime = "second";
+    act(() => vi.advanceTimersByTime(10));
+    expect(view.result.current.flyToPosition).toBeNull();
+  });
+
   it("drops navigation after a same-UID Firebase session change", () => {
     const services = {};
     const auth = { currentUser: { uid: "owner" } };

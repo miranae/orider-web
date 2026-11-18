@@ -2,7 +2,7 @@ import { observeFirebaseSignIn } from "../utils/firebaseSignIn";
 import { NativeActivityPhotoImage } from "./activity/NativeActivityPhotoImage";
 import type { NativePhotoReference } from "../services/nativeActivityPhoto";
 import type { ReactNode, CSSProperties } from "react";
-import { useMemo, useEffect, useRef, useCallback, useState } from "react";
+import { useMemo, useEffect, useRef, useCallback, useState, useId } from "react";
 import { useTranslation } from "react-i18next";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
 import { ImageOff, LocateFixed, Minus, Plus } from "lucide-react";
@@ -476,6 +476,7 @@ export default function RouteMap({
   const [readyFor, setReadyFor] = useState<object | null>(null);
   const [webglSupported] = useState(() => supportsWebGL());
   const mapViewer = firebaseServices.auth?.currentUser;
+  const mapSignedInAt = mapViewer?.metadata?.lastSignInTime;
   const tokenVersion = useRef(0);
   const [mapTokenVersion, observeMapViewer] = useState(0);
   useEffect(() => {
@@ -549,8 +550,8 @@ export default function RouteMap({
   }), [standalonePositions]);
   const hasRecordedPosition = useMemo(() => sourcePositions.some(isRoutePosition) || routePositions.some(isRoutePosition), [sourcePositions, routePositions]);
   const locationCommand = hasRecordedPosition ? null : photoCommand;
-  const mapScope = useMemo(() => ({ firebaseServices, mapViewer, mapTokenVersion, polyline, latlng, routeParts, fallbackImageUrl, locationCommand }),
-    [firebaseServices, mapViewer, mapTokenVersion, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
+  const mapScope = useMemo(() => ({ firebaseServices, mapViewer, mapSignedInAt, mapTokenVersion, polyline, latlng, routeParts, fallbackImageUrl, locationCommand }),
+    [firebaseServices, mapViewer, mapSignedInAt, mapTokenVersion, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
   const hasLocatedAttachment = hasRecordedPosition && (photos?.some(photo => isRoutePosition(photo?.location))
     || waypoints?.some(point => isRoutePosition([point?.lat, point?.lon])));
   const attachmentPositions = useMemo(() => {
@@ -647,13 +648,20 @@ export default function RouteMap({
   const mapReady = readyFor === readiness;
   const mapContext = useMemo(() => ({ mapScope, mapGeneration, mapDisplayable }), [mapScope, mapGeneration, mapDisplayable]);
   const mapContextRef = useRef(mapContext);
-  mapContextRef.current = mapContext;
+  const contextGeneration = useRef(0);
+  if (mapContextRef.current !== mapContext) {
+    mapContextRef.current = mapContext;
+    contextGeneration.current++;
+  }
+  const mapId = useId();
+  const mapDiagnosticScope = `${mapId}:${contextGeneration.current}`;
   useEffect(() => { setMapFailed(false); }, [mapContext]);
   const mounted = useMapMounted();
   const handleMapError = useCallback((event: { error?: unknown } = {}) => {
     const sameMap = () => mounted.current && mapContextRef.current === mapContext;
     const isCurrent = () => sameMap() && firebaseServices.auth?.currentUser === mapScope.mapViewer
-      && tokenVersion.current === mapScope.mapTokenVersion;
+      && tokenVersion.current === mapScope.mapTokenVersion
+      && firebaseServices.auth?.currentUser?.metadata?.lastSignInTime === mapScope.mapSignedInAt;
     if (!mapErrorLogged.current.has(mapContext)) {
       mapErrorLogged.current.add(mapContext);
       const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
@@ -664,10 +672,10 @@ export default function RouteMap({
       logClientError("RouteMap.mapbox", new Error(`mapbox_${kind}_failure${status == null ? "" : `_${status}`}`), {
         stage: "mapbox_render_or_request", kind, status, routeSlotCount: sourcePositions.length,
         pointCount: pointPositions.length, hasSavedImage: Boolean(fallbackImageUrl), hasRouteLine: drawable,
-      }, firebaseServices, mapScope.mapViewer, isCurrent() ? "" : "superseded", isCurrent);
+      }, firebaseServices, mapScope.mapViewer, mapDiagnosticScope, isCurrent);
     }
     if (isCurrent()) setMapFailed(true);
-  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope, mapContext, mounted]);
+  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope, mapContext, mapDiagnosticScope, mounted]);
 
   const previewRange = highlightRange ?? flyToRange;
   const selectedMeasuredPoint = streamFallback && previewRange?.startIndex === previewRange?.endIndex
