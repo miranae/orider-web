@@ -113,7 +113,7 @@
   "button.detailView": "상세 보기",
   "button.loadMore": "더보기",
   "button.loadingMore": "불러오는 중...",
-  "search.placeholder": "코스 검색... (Enter)",
+  "search.placeholder": "코스 검색...",
   "sort.latest": "최신순",
   "sort.popular": "인기순",
   "stats.resultCount": "검색 결과: {{count}}건",

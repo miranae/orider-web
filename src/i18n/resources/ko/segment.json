@@ -97,7 +97,7 @@
   "status.approved": "승인됨",
   "status.rejected": "반려됨",
   "status.hidden": "숨김",
-  "search.placeholder": "세그먼트 검색... (Enter)",
+  "search.placeholder": "세그먼트 검색...",
   "stats.resultCount": "검색 결과: {{count}}건",
   "stats.areaCount": "이 영역의 세그먼트 {{count}}개",
   "stats.leaderboardCount": "리더보드 ({{count}}명)",

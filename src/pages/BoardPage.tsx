@@ -234,9 +234,20 @@ const BoardPage: React.FC = () => {
         <div className="board-list-controls">
           <div className="board-list-search">
             <div data-testid="M2-1" className="relative flex-1">
-              <span className="board-search-icon" aria-hidden="true"><Search size={ICON_SIZE.md} /></span>
+              <Button
+                type="button"
+                className="board-search-icon"
+                variant="ghost"
+                iconOnly
+                aria-label={t("button.search")}
+                onClick={handleSearch}
+                disabled={isMyPosts || isMyInquiryView}
+              >
+                <Search size={ICON_SIZE.md} aria-hidden="true" />
+              </Button>
               <Input data-testid="M2-1-1"
                 type="search"
+                enterKeyHint="search"
                 aria-label={t("placeholder.search")}
                 disabled={isMyPosts || isMyInquiryView}
                 placeholder={t("placeholder.search")}
@@ -247,14 +258,6 @@ const BoardPage: React.FC = () => {
               />
             </div>
 
-            <div className="flex">
-              <Button
-                onClick={handleSearch}
-                disabled={isMyPosts || isMyInquiryView} variant="secondary"
-              >
-                {t("button.search")}
-              </Button>
-            </div>
             {submittedQuery && (
               <button
                 onClick={() => { setSearchQuery(''); updateFilters({ q: undefined }); }}

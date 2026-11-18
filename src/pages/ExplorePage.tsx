@@ -561,7 +561,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
 
   const handleSearch = () => setSearchQuery(inputValue.trim());
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSearch();
   };
   // 실시간 검색(#488) — 입력 디바운스 250ms 로 검색어 반영(Enter/버튼은 즉시).
   useEffect(() => {
@@ -746,7 +746,8 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
               </svg>
             </button>
             <Input data-testid="E2-2-1"
-              type="text"
+              type="search"
+              enterKeyHint="search"
               aria-label={t("search.label")}
               placeholder={t("search.placeholder")}
               value={inputValue}

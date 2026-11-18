@@ -245,7 +245,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
     return () => clearTimeout(timer);
   }, [inputValue, queryParam, searchParams, setSearchParams]);
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSearch();
   };
 
   const scrollToCard = useCallback((id: string) => {
@@ -319,7 +319,8 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
               </svg>
             </button>
             <Input data-testid="E1-1-1"
-              type="text"
+              type="search"
+              enterKeyHint="search"
               aria-label={t("search.placeholder")}
               placeholder={t("search.placeholder")}
               value={inputValue}
