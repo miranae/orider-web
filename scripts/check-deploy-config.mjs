@@ -277,8 +277,12 @@ requireIncludes(stageDeployWorkflow, "PRODUCTION_RUNTIME_CONFIG_PATH:", "deploy-
 requireIncludes(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "deploy-stage.yml production runtime and CORS gate");
 requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "npm ci", "deploy-stage.yml production runtime pinning");
 requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "node scripts/check-canonical-deploy-env.mjs", "deploy-stage.yml canonical runtime source");
-requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
-requireIncludes(stageDeployWorkflow, "- dev", "deploy-stage.yml trigger");
+requireIncludes(stageDeployWorkflow, "workflow_dispatch:", "deploy-stage.yml manual trigger");
+if (/^  push:/mu.test(stageDeployWorkflow)) fail("deploy-stage.yml must not publish automatically on dev push");
+requireIncludes(stageDeployWorkflow, "group: deploy-hosting-stage", "deploy-stage.yml shared writer lock");
+requireIncludes(stageDeployWorkflow, "cancel-in-progress: false", "deploy-stage.yml serialized writer");
+requireIncludes(stageDeployWorkflow, 'if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then', "deploy-stage.yml operator contract");
+requireBefore(stageDeployWorkflow, 'if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then', "google-github-actions/auth", "deploy-stage.yml pre-auth writer contract");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
 requireIncludes(stageDeployWorkflow, "if: github.ref == 'refs/heads/dev'", "deploy-stage.yml dev ref guard");
 requireIncludes(stageDeployWorkflow, "runs-on: ubuntu-latest", "deploy-stage.yml disposable runner");
