@@ -30,7 +30,7 @@ let fixtureConfigFailure = false;
 let configStage = "request";
 let configStatus: number | null = null;
 try {
-  const response = await fetch("/runtime-config.json", {cache:"no-store", credentials:"same-origin"});
+  const response = await fetch("/runtime-config.json", {cache:"no-store", credentials:"same-origin", signal:AbortSignal.timeout(5_000)});
   configStage = "http"; configStatus = response.status;
   if (!response.ok) throw new Error("fixture/runtime-config-http");
   configStage = "json";
@@ -39,9 +39,9 @@ try {
   if (!remote || typeof remote !== "object" || Array.isArray(remote)
     || ("mapboxToken" in remote && typeof remote.mapboxToken !== "string")) throw new Error("fixture/runtime-config-shape");
   resetRuntimeConfigForTests({ mapboxToken: "mapboxToken" in remote ? remote.mapboxToken as string : undefined });
-} catch {
+} catch (error) {
   fixtureConfigFailure = true;
-  logClientError("RouteSensorExpansionFixture.config", new Error("fixture/runtime-config-unavailable"), {stage:configStage,status:configStatus});
+  logClientError("RouteSensorExpansionFixture.config", new Error("fixture/runtime-config-unavailable"), {stage:configStage,status:configStatus,reason:error instanceof DOMException && /AbortError|TimeoutError/.test(error.name) ? "timeout" : configStage});
 }
 const fixtureMapAvailable = Boolean(getMapboxToken());
 if (!fixtureMapAvailable) logClientError("RouteSensorExpansionFixture.config", new Error("fixture/mapbox-token-unavailable"), {stage:"runtime_config", mode:"static_fallback"});

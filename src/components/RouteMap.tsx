@@ -225,7 +225,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds }: {
       const hi = Math.max(range.startIndex, range.endIndex);
       if (positions.length > 1 && lo === 0 && hi === positions.length - 1) {
         map.fitBounds(fullBounds, { padding: 20, maxZoom: 15 });
-        prevRange.current = null;
+        prevRange.current = range;
         return;
       }
       const slice = positions.slice(lo, hi + 1);

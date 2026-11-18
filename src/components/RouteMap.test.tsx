@@ -328,6 +328,17 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall).toEqual([[[127,37],[127,37]],{padding:20,maxZoom:15}]);
   });
 
+  it("restores the route when full selection is cleared after manual camera changes", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127],[37.01,127]];
+    const view = renderWithProviders(<RouteMap latlng={latlng} flyToRange={{startIndex:0,endIndex:1}} />);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToRange={null} />);
+    expect(api.fitBounds).toHaveBeenCalledOnce();
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+  });
+
   it("keeps a located photo popup accessible alongside a single GPS fix and a saved image", () => {
     renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png"
       photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
