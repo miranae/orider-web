@@ -311,6 +311,7 @@ export default function RouteMap({
     }
     return { positions, segmentStarts };
   }, [polyline, latlng, routeParts]);
+  // Lines and their bounds exclude isolated fixes; handles and point navigation retain all valid source slots.
   const positions = useMemo(() => drawableRouteSlots(sourcePositions, segmentStarts), [sourcePositions, segmentStarts]);
   // A thumbnail has its own sampling axis; raw sensor indices cannot select it.
   const highlightRange = streamFallback ? undefined : rawHighlightRange;
@@ -342,7 +343,7 @@ export default function RouteMap({
   }, [markerPosition]);
 
   const endpointGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point> | null>(() => {
-    const valid = positions.filter(isRoutePosition);
+    const valid = sourcePositions.filter(isRoutePosition);
     if (!showRouteEndpoints || valid.length < 2) return null;
     const start = valid[0]!;
     const end = valid[valid.length - 1]!;
@@ -353,19 +354,19 @@ export default function RouteMap({
         { type: "Feature", properties: { endpoint: "end" }, geometry: { type: "Point", coordinates: [end[1], end[0]] } },
       ],
     };
-  }, [positions, showRouteEndpoints]);
+  }, [sourcePositions, showRouteEndpoints]);
 
   const handleStartDrag = useCallback((e: { lngLat: { lat: number; lng: number } }) => {
     if (!onHighlightRangeChange || !highlightRange) return;
-    const idx = findNearestIndex(positions, e.lngLat.lat, e.lngLat.lng);
+    const idx = findNearestIndex(sourcePositions, e.lngLat.lat, e.lngLat.lng);
     if (idx >= 0) onHighlightRangeChange(idx, highlightRange.endIndex);
-  }, [positions, onHighlightRangeChange, highlightRange]);
+  }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
   const handleEndDrag = useCallback((e: { lngLat: { lat: number; lng: number } }) => {
     if (!onHighlightRangeChange || !highlightRange) return;
-    const idx = findNearestIndex(positions, e.lngLat.lat, e.lngLat.lng);
+    const idx = findNearestIndex(sourcePositions, e.lngLat.lat, e.lngLat.lng);
     if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
-  }, [positions, onHighlightRangeChange, highlightRange]);
+  }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
   if (!bounds || !drawable) {
     if (fallbackImageUrl) {
@@ -452,10 +453,10 @@ export default function RouteMap({
               </Source>
             )}
             {/* Start marker */}
-            {positions[highlightRange.startIndex] && (
+            {sourcePositions[highlightRange.startIndex] && (
               <Marker
-                longitude={positions[highlightRange.startIndex]![1]}
-                latitude={positions[highlightRange.startIndex]![0]}
+                longitude={sourcePositions[highlightRange.startIndex]![1]}
+                latitude={sourcePositions[highlightRange.startIndex]![0]}
                 draggable={!!onHighlightRangeChange}
                 onDragEnd={handleStartDrag}
                 anchor="center"
@@ -464,10 +465,10 @@ export default function RouteMap({
               </Marker>
             )}
             {/* End marker */}
-            {positions[highlightRange.endIndex] && (
+            {sourcePositions[highlightRange.endIndex] && (
               <Marker
-                longitude={positions[highlightRange.endIndex]![1]}
-                latitude={positions[highlightRange.endIndex]![0]}
+                longitude={sourcePositions[highlightRange.endIndex]![1]}
+                latitude={sourcePositions[highlightRange.endIndex]![0]}
                 draggable={!!onHighlightRangeChange}
                 onDragEnd={handleEndDrag}
                 anchor="center"
@@ -628,7 +629,7 @@ export default function RouteMap({
 
         {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
         <FitBoundsOnLoad bounds={bounds} />
-        <FlyToSegmentRange positions={positions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} />
+        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} />
         {flyToPosition !== undefined && (
           <FlyToPositionControl position={flyToPosition} fullBounds={bounds} />
         )}

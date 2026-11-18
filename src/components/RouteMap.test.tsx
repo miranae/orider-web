@@ -224,6 +224,29 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[170,80.01]]);
   });
 
+  it("retains isolated measured fixes for single-point navigation and draggable boundaries", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const onChange = vi.fn();
+    const latlng = [[37,127],[37.01,127],null,[60,150],null,[80,170],[80.01,170]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} flyToRange={{startIndex:3,endIndex:3}} highlightRange={{startIndex:3,endIndex:3}} onHighlightRangeChange={onChange} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
+    const handles = mapProps.markers.filter(marker => marker.draggable);
+    expect(handles).toHaveLength(2);
+    expect(handles.every(marker => marker.latitude === 60 && marker.longitude === 150)).toBe(true);
+    act(() => handles[0]!.onDragEnd?.({lngLat:{lat:60,lng:150}}));
+    expect(onChange).toHaveBeenCalledWith(3,3);
+  });
+
+  it("can navigate to a single-point part without using it to fit the route line", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[60,150]],[[37,127],[37.01,127]]]} flyToRange={{startIndex:0,endIndex:0}} showRouteEndpoints />);
+    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[127,37.01]]);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
+    expect(mapProps.sources.some(source => (source as {features?: {geometry:{coordinates:number[]}}[]}).features?.[0]?.geometry.coordinates[0] === 150)).toBe(true);
+  });
+
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
     const invalid = [null, {}, [NaN, 127], [91, 127], [37, Infinity], [37], ["37", 127]] as unknown as [number, number][];
     const { rerender } = renderWithProviders(<RouteMap latlng={invalid} />);
