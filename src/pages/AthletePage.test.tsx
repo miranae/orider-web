@@ -1129,3 +1129,51 @@ it("releases an old continuation's busy state when the injected app changes", as
     expect(screen.queryByText("Rejected old app result")).not.toBeInTheDocument();
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
+
+it("observes first signal insertion on existing documents whose counters start at version zero", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Initial version rider", profilePublic: false });
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+  await screen.findByText("5회");
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 7 }) });
+  act(() => setDocData("users_public/athlete-1", { nickname: "Initial version rider", profilePublic: false, athleteTotalsSignal: "first-version" }));
+  await screen.findByText("7회");
+  setCallableImplementation("getPublicAthleteTotals", () => { throw Object.assign(new Error("blocked"), { code: "functions/not-found" }); });
+  act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "first-block" }));
+  await screen.findByText("누적 기록 확인이 중단되었습니다.");
+  expect(screen.queryByText("7회")).not.toBeInTheDocument();
+});
+
+it.each(["success", "failure"])("ignores an older public continuation's %s and busy completion after visibility restarts the first page", async outcome => {
+  const profile = { nickname: "Visibility rider", profilePublic: true, athleteTotalsSignal: "one" };
+  setDocData("users_public/athlete-1", profile);
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let firstPages = 0;
+  let releaseOld!: (value: Awaited<ReturnType<typeof loadActivityDiscovery>>) => void;
+  let rejectOld!: (error: Error) => void;
+  let releaseNew!: (value: Awaited<ReturnType<typeof loadActivityDiscovery>>) => void;
+  const page = (description: string, cursor: string | null) => ({ expiresAt: Date.now() + 600000, items: [createMockActivity({ id: description, userId: "athlete-1", description })] as never, nextCursor: cursor, exhausted: cursor === null });
+  vi.mocked(loadActivityDiscovery).mockImplementation((async (services, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
+    if (!request.cursor) return page(++firstPages === 1 ? "Original page" : "Refreshed page", firstPages === 1 ? "old-cursor" : "fresh-cursor");
+    if (request.cursor === "old-cursor") return await new Promise((resolve, reject) => { releaseOld = resolve; rejectOld = reject; });
+    return await new Promise(resolve => { releaseNew = resolve; });
+  }) as typeof loadActivityDiscovery);
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("Original page");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    await waitFor(() => expect(releaseOld).toBeDefined());
+    act(() => setDocData("users_public/athlete-1", { ...profile, profilePublic: false }));
+    await screen.findByText("비공개 프로필입니다");
+    act(() => setDocData("users_public/athlete-1", profile));
+    await screen.findByText("Refreshed page");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    await waitFor(() => expect(releaseNew).toBeDefined());
+    await act(async () => { if (outcome === "success") releaseOld(page("Obsolete detail", "poisoned-cursor")); else rejectOld(new Error("old request failed")); });
+    expect(screen.getByText("Refreshed page")).toBeInTheDocument();
+    expect(screen.queryByText("Obsolete detail")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /불러오는 중/ })).toBeDisabled();
+    await act(async () => releaseNew(page("Current continuation", null)));
+    await screen.findByText("Current continuation");
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});

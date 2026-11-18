@@ -173,6 +173,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const ACTIVITIES_PAGE_SIZE = 20;
   const [displayActivities, setDisplayActivities] = useState<Activity[]>([]);
   const [activityAttempt, setActivityAttempt] = useState(0);
+  const activityGeneration = useRef(0);
   const [activityReadError, setActivityReadError] = useState(false);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -225,6 +226,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       .catch(error => { if (!cancelled) { logClientError("AthletePage.ensureAthleteProfile", error, { userId }, services); setTotalsError(true); } });
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, totalsAttempt, readIdentity, liveTotals?.epoch]);
+  // Producers create revisions on actual updates; an existing document without a counter is version zero.
+  // Document listeners observe its first field insertion, so existing accounts need no counter backfill.
   type TotalsSignal = { present: boolean; fromCache: boolean; error: boolean; revision: string };
   const [signalAttempt, setSignalAttempt] = useState(0);
   const [totalsSignals, setTotalsSignals] = useState<{ identity: typeof readIdentity; public?: TotalsSignal; viewer?: TotalsSignal } | null>(null);
@@ -234,8 +237,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
       doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
         if (!active) return;
+        // An absent counter is version zero: the live document listener observes its first insertion too.
         const revision: unknown = snapshot.data()?.[field];
-        const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "" };
+        const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
         setTotalsSignals(previous => {
           const current = previous?.identity === readIdentity ? previous : { identity: readIdentity };
           const prior = current[kind];
@@ -444,6 +448,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
 
   useEffect(() => {
+    const generation = ++activityGeneration.current;
+    setLoadingMore(false);
     if (!userId) return;
     if (!profileReadReady) return;
     if (!activityAccessAllowed) {
@@ -498,7 +504,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; if (activityGeneration.current === generation) activityGeneration.current++; };
   }, [userId, isOwnProfile, profileReadReady, activityAccessAllowed, readIdentity, activityAttempt]);
 
   // 본인 차트는 선택한 연도와 최근 28일의 검증된 범위만 읽는다.
@@ -605,10 +611,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     setLoadingMore(true);
     setActivityReadError(false);
     const identity = profileReadIdentity.current;
+    const generation = activityGeneration.current;
+    const current = () => profileReadIdentity.current === identity && activityGeneration.current === generation;
     try {
       if (!isOwnProfile) {
         const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, limit: 20, ...(publicActivityCursor ? { cursor: publicActivityCursor } : {}) });
-        if (profileReadIdentity.current !== identity) return;
+        if (!current()) return;
         setDisplayActivities(previous => [...previous, ...page.items.filter(item => !previous.some(old => old.id === item.id))]);
         setPublicActivityCursor(page.nextCursor); setHasMoreActivities(!page.exhausted); return;
       }
@@ -622,18 +630,18 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       ];
       const q = query(collection(services.firestore, "activities"), ...constraints);
       const snap = await getDocs(q);
-      if (profileReadIdentity.current !== identity) return;
+      if (!current()) return;
       setDisplayActivities((prev) => [...prev, ...docsToActivities(snap.docs)]);
       setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
       setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
     } catch (err) {
       logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile }, services);
-      if (profileReadIdentity.current === identity) {
+      if (current()) {
         setActivityReadError(true);
         if (!isOwnProfile) { setDisplayActivities([]); setPublicActivityCursor(null); setHasMoreActivities(false); }
       }
     } finally {
-      if (profileReadIdentity.current === identity) setLoadingMore(false);
+      if (current()) setLoadingMore(false);
     }
   };
 
