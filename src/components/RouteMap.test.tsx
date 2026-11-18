@@ -793,6 +793,15 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[178, 0], [182, 0]]);
   });
 
+  it("marks the only valid selected point on a static route with other line segments", () => {
+    const positions = [[37, 127], [37.1, 127], null, [38, 128], [38.1, 128]] as ([number, number] | null)[];
+    const view = renderWithProviders(<RouteMapFallback positions={positions}
+      highlightRange={{ startIndex: 1, endIndex: 2 }} imageUrl="https://example.test/static.png"
+      title="Fallback" description="Static preview" imageAlt="Route" height="normal" rounded />);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    expect(view.container.querySelector("img")).toBeNull();
+  });
+
   it("shows a selected photo point on the static map without recorded GPS", () => {
     renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
     fireEvent.click(screen.getByTestId("mock-map"));
