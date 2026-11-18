@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routeSlots, routeGeometry, routeBounds, routeTrackSlots } from "./routeGeometry";
+import { routeSlots, routeGeometry, routeBounds, routeTrackSlots, projectRouteSlots, routeGeometryBounds } from "./routeGeometry";
 
 describe("route geometry at the untrusted stream boundary", () => {
   it("preserves null, malformed and sparse source indices without mutating the sensor clock", () => {
@@ -20,6 +20,14 @@ describe("route geometry at the untrusted stream boundary", () => {
     expect(routeGeometry(points, [2]).geometry.coordinates).toEqual([
       [[127,37], [127,37.01]], [[128,38], [128,38.01]], [[129,39], [129,39.01]],
     ]);
+  });
+
+  it("places disconnected segments on the same world copy regardless of direction", () => {
+    const slots = routeSlots([[0, 179.99], [0, -179.99], null, [0, -1], [0, 1], [0, 1], [0, -1]]);
+    const projected = projectRouteSlots(slots, [5]);
+    expect(projected.slice(3)).toEqual([[0, -1], [0, 1], [0, 1], [0, -1]]);
+    const bounds = routeGeometryBounds(routeGeometry(projected.slice(3), [2]).geometry);
+    expect(bounds).toEqual([[-1, 0], [1, 0]]);
   });
 
   it("retains legacy segment coordinates with trailing elevation", () => {

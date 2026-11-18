@@ -62,17 +62,45 @@ export function projectRouteSlots(positions: readonly RouteSlot[], segmentStarts
   const starts = new Set(segmentStarts);
   const lineSlots = drawableRouteSlots(positions, segmentStarts);
   const fitSlots = lineSlots.some(Boolean) ? lineSlots : positions;
-  const shifted = routeBounds(fitSlots, true)?.[0][0] !== routeBounds(fitSlots)?.[0][0];
-  let previous: number | undefined;
-  return positions.map((point, index) => {
-    if (!point || starts.has(index)) previous = undefined;
-    if (!point) return null;
-    const [lat, lon] = point;
-    const longitude = shifted && lon < 0 ? lon + 360 : lon;
-    const projected = previous === undefined ? longitude : unwrapLongitudeNear(longitude, previous);
-    previous = projected;
-    return [lat, projected];
-  });
+  const bounds = routeBounds(fitSlots, true);
+  if (!bounds) return positions.slice();
+  const center = (bounds[0][0] + bounds[1][0]) / 2;
+  const projected: RouteSlot[] = [];
+  let start = 0;
+  while (start < positions.length) {
+    const first = positions[start];
+    if (!first) {
+      projected.push(null);
+      start++;
+      continue;
+    }
+    let longitude = first[1];
+    let west = longitude, east = longitude;
+    projected.push([first[0], longitude]);
+    let end = start + 1;
+    for (; end < positions.length && !starts.has(end); end++) {
+      const point = positions[end];
+      if (!point) break;
+      longitude = unwrapLongitudeNear(point[1], longitude);
+      west = Math.min(west, longitude); east = Math.max(east, longitude);
+      projected.push([point[0], longitude]);
+    }
+    const middle = (west + east) / 2;
+    // Canonicalize the midpoint so reversed segments also agree at the world seam.
+    const canonical = ((middle % 360) + 360) % 360;
+    const offset = 360 * Math.round((unwrapLongitudeNear(canonical, center) - middle) / 360);
+    for (let index = start; index < end; index++) projected[index]![1] += offset;
+    start = end;
+  }
+  // Preserve the existing world copy of the first drawable sample for the map camera.
+  const anchorIndex = fitSlots.findIndex(Boolean);
+  const anchor = fitSlots[anchorIndex]![1];
+  const firstLongitude = bounds[0][0] >= 0 && anchor < 0 ? anchor + 360 : anchor;
+  const worldOffset = firstLongitude - projected[anchorIndex]![1];
+  if (worldOffset) {
+    for (const point of projected) if (point) point[1] += worldOffset;
+  }
+  return projected;
 }
 
 export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []) {
