@@ -1,3 +1,4 @@
+import { encodePolyline } from "../utils/polyline";
 import { loadPublicActivityMap } from "./publicActivityMaps";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 const m = vi.hoisted(() => ({ call: vi.fn(), ready: vi.fn(), fn: {} }));
@@ -69,5 +70,24 @@ it("passes a stored square map image through and drops only a malformed square v
  for (const squareImageUrl of ["http://example.test/sq.webp", 7, "not a url"]) {
   m.call.mockResolvedValueOnce({ data: { items: [{ ...item, mapPreview: { ...item.mapPreview, squareImageUrl } }] } });
   await expect(loadPublicActivityMap(services(), "a")).resolves.toEqual({ ...item, mapPreview: { ...item.mapPreview, squareImageUrl: null } });
+ }
+});
+
+it("accepts bounded disconnected geometry and discards a stale joined image", async () => {
+ const parts = [encodePolyline([[37, 127], [37.01, 127.01]]), encodePolyline([[38, 128], [38.01, 128.01]])];
+ const item = { ...row("a"), privacyEnabled: false, mapPreview: { encodedPolyline: null, encodedPolylineParts: parts, imageUrl: "https://example.test/old.webp" } };
+ m.call.mockResolvedValueOnce({ data: { items: [item] } });
+ const result = await loadPublicActivityMap(services(), "a");
+ expect(result?.mapPreview).toEqual({ encodedPolyline: null, encodedPolylineParts: parts, imageUrl: null, squareImageUrl: null });
+});
+it.each([[], ["_"], Array(101).fill("????"), [encodePolyline(Array.from({length:201}, (_, i) => [37+i/10000, 127] as [number,number]))]].map(parts => ({ parts })))("rejects malformed or unbounded disconnected geometry", async ({ parts: encodedPolylineParts }) => {
+ m.call.mockResolvedValueOnce({ data: { items: [{ ...row("a"), privacyEnabled: false, mapPreview: { encodedPolyline: null, imageUrl: null, encodedPolylineParts } }] } });
+ await expect(loadPublicActivityMap(services(), "a")).rejects.toThrow("invalid_public_maps");
+});
+it("does not permit segmented geometry to bypass a protected map or coexist with a joined route", async () => {
+ const parts = [encodePolyline([[37,127],[37.01,127.01]])];
+ for (const patch of [{privacyEnabled:true, encodedPolyline:null}, {privacyEnabled:false, encodedPolyline:parts[0]}]) {
+  m.call.mockResolvedValueOnce({ data: { items: [{ ...row("a"), privacyEnabled: patch.privacyEnabled, mapPreview: { encodedPolyline: patch.encodedPolyline, imageUrl:null, encodedPolylineParts:parts } }] } });
+  await expect(loadPublicActivityMap(services(), "a")).rejects.toThrow("invalid_public_maps");
  }
 });

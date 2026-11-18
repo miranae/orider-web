@@ -10,6 +10,7 @@ vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 describe("group next events", () => {
   beforeEach(() => {
     installEventDiscoveryFixture();
+    setCallableImplementation("getGroupNextEvents", () => { throw Object.assign(new Error("Not deployed"), { code: "functions/not-found" }); });
     vi.mocked(logClientError).mockClear();
     setCollectionDocs("events", []);
   });
@@ -99,7 +100,7 @@ describe("group next events", () => {
 
 
 describe("bounded next-event discovery continuation", () => {
-  beforeEach(() => installEventDiscoveryFixture());
+  beforeEach(() => { installEventDiscoveryFixture(); setCallableImplementation("getGroupNextEvents", () => { throw Object.assign(new Error("Not deployed"), { code: "functions/not-found" }); }); });
 
   it("reports an empty private scan window as incomplete without automatic requests", async () => {
     setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: "~ed1_" + "a".repeat(48) } }));

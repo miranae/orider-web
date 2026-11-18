@@ -72,7 +72,8 @@ vi.mock("firebase/auth", () => ({
 }));
 
 // ─── firebase/firestore ──────────────────────────────────
-vi.mock("firebase/firestore", () => {
+vi.mock("firebase/firestore", async () => {
+  const { Timestamp } = await vi.importActual<typeof import("firebase/firestore")>("firebase/firestore");
   const doc = vi.fn((_fs: unknown, ...pathSegments: string[]) => {
     const path = pathSegments.join("/");
     return { path, id: pathSegments[pathSegments.length - 1] };
@@ -178,7 +179,7 @@ vi.mock("firebase/firestore", () => {
     startAfter: vi.fn((...args: unknown[]) => ({ type: "startAfter", args })),
     writeBatch: mockWriteBatch,
     serverTimestamp: vi.fn(() => Date.now()),
-    Timestamp: { now: () => ({ toMillis: () => Date.now() }) },
+    Timestamp,
     getCountFromServer: vi.fn(async () => ({ data: () => ({ count: 0 }) })),
     count: vi.fn(() => ({ type: "count" })),
     sum: vi.fn((field: string) => ({ type: "sum", field })),

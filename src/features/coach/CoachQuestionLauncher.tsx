@@ -1,3 +1,4 @@
+import { useDialogViewport } from "../../hooks/useDialogViewport";
 import { useCoachConsentApi } from "../../hooks/useCoachApi";
 import { useCoachApi } from "../../hooks/useCoachApi";
 import { coachRoute } from "../../utils/coachRoute";
@@ -218,6 +219,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }, [phase]);
 
   const open = phase !== "closed";
+  useDialogViewport(open);
   useEffect(() => {
     if (!open) return undefined;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -632,7 +634,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       {showPmcInsight && user && <CoachPmcInsightCard user={user} discipline={discipline} onQuestionSelect={choosePmcQuestion} />}
       <Button data-testid="K6-F-1" ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={ICON_SIZE.md} />} onClick={openProgressPlannerQuestion}>{triggerLabel ?? t("open")}</Button>
       {open && createPortal(
-        <div data-testid="K6-S" className="coach-sheet" role="presentation">
+        <div data-testid="K6-S" className="coach-sheet mobile-dialog-viewport" role="presentation">
           <button type="button" className="coach-sheet__backdrop" tabIndex={-1} aria-hidden="true" aria-label={t("close")}
             disabled={phase === "submitting"} onMouseDown={(event) => event.preventDefault()} onClick={closeSheet} />
           <section ref={panelRef} tabIndex={-1} className="coach-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="coach-sheet-title">

@@ -936,3 +936,10 @@ it("keeps Strava source metrics consistent with detail despite stale calculated 
   expect(screen.getByRole("article")).toHaveTextContent(/645\s*m/);
   expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument();
 });
+
+it("does not start a raw route fallback from a mobile list row without a safe public preview", () => {
+  vi.mocked(loadPublicActivityMap).mockClear();
+  const {container} = renderWithProviders(<MobileRouteThumbnail activity={createMockActivity({id: "split-mobile-without-preview", thumbnailTrack: "", mapImageUrl: null, photoCount: 0})} content={null} />);
+  expect(container.querySelector(".mobile-feed-map")).not.toBeInTheDocument();
+  expect(loadPublicActivityMap).not.toHaveBeenCalled();
+});

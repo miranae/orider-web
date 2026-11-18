@@ -1,3 +1,4 @@
+import { decodeTrack } from "../../utils/polyline";
 import { Text } from "../../theme/components";
 import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -107,6 +108,7 @@ interface ActivityRouteThumbnailProps {
   activityId: string;
   userId: string;
   polyline: string;
+  encodedPolylineParts?: string[];
   mapImageUrl?: string | null;
   /** 정사각 정본 이미지(`activities/{id}.mapImageSquareUrl`). square 표시에서만 쓴다. */
   squareImageUrl?: string | null;
@@ -180,11 +182,11 @@ export default function ActivityRouteThumbnail(props: ActivityRouteThumbnailProp
   const map = maps[props.activityId];
   const resolvedWithoutRoute = failed || Object.prototype.hasOwnProperty.call(maps, props.activityId);
   return <div ref={host}>
-    {map?.mapPreview.encodedPolyline ? <CanonicalActivityRouteThumbnail {...props} onScreen={visible}
-      key={map.revision} polyline={map.mapPreview.encodedPolyline} mapImageUrl={map.mapPreview.imageUrl}
+    {map && (map.mapPreview.encodedPolyline || map.mapPreview.encodedPolylineParts?.length) ? <CanonicalActivityRouteThumbnail {...props} onScreen={visible}
+      key={map.revision} polyline={map.mapPreview.encodedPolyline ?? ""} encodedPolylineParts={map.mapPreview.encodedPolylineParts} mapImageUrl={map.mapPreview.imageUrl}
       squareImageUrl={map.mapPreview.squareImageUrl}
       contentRevision={map.contentRevision} contentSelectedRevision={map.contentSelectedRevision}
-      allowCapture={map.privacyEnabled === false && map.contentRevision !== undefined && map.contentSelectedRevision !== undefined} />
+      allowCapture={!map.mapPreview.encodedPolylineParts && map.privacyEnabled === false && map.contentRevision !== undefined && map.contentSelectedRevision !== undefined} />
       : resolvedWithoutRoute ? <Text as="div" variant="bodySmall" tone="secondary" role="status" style={{ padding: "var(--dim-item-gap)" }}>
         {t(failed ? "mapPrivacy.liveFailed" : "mapPrivacy.liveUnavailable")}
       </Text>
@@ -197,6 +199,7 @@ export function CanonicalActivityRouteThumbnail({
   activityId,
   userId,
   polyline,
+  encodedPolylineParts,
   mapImageUrl,
   squareImageUrl,
   visibility,
@@ -219,7 +222,8 @@ export function CanonicalActivityRouteThumbnail({
   const variant: MapThumbnailVariant = shape === "square" ? "square" : "wide";
   const dimensions = MAP_THUMBNAIL_DIMENSIONS[variant];
   // 표시 모양에 맞는 정본만 받는다. square 에 wide 이미지를, wide 에 square 이미지를 쓰지 않는다.
-  const storedImageUrl = variant === "square" ? squareImageUrl : mapImageUrl;
+  const storedImageUrl = encodedPolylineParts ? null : variant === "square" ? squareImageUrl : mapImageUrl;
+  const routeParts = useMemo(() => encodedPolylineParts?.map(part => decodeTrack(part, 200)), [encodedPolylineParts]);
   const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
   const [timedOutImageUrl, setTimedOutImageUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(storedImageUrl ?? null);
@@ -238,7 +242,7 @@ export function CanonicalActivityRouteThumbnail({
     ? `managed:${revisionState.headRevision}:${revisionState.selectedRevision}`
     : revisionState.kind;
 
-  const keyIdentity = `${activityId}:${polyline}:${revisionIdentity}`;
+  const keyIdentity = `${activityId}:${encodedPolylineParts ? JSON.stringify(encodedPolylineParts) : polyline}:${revisionIdentity}`;
   const snapshotOwner = user?.uid ?? "anonymous";
   const liveHost = useRef<HTMLDivElement>(null);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(() => readRouteSnapshot(snapshotOwner, keyIdentity));
@@ -268,7 +272,7 @@ export function CanonicalActivityRouteThumbnail({
   const canonicalVersion = canonicalKey?.sourceHash ?? "";
   const captureIdentity = `${canonicalFileName}:${canonicalVersion}:${revisionIdentity}`;
   activeCanonicalKey.current = captureIdentity;
-  const canonicalImageUrl = canonicalKey && isCanonicalMapThumbnailUrl(
+  const canonicalImageUrl = !encodedPolylineParts && canonicalKey && isCanonicalMapThumbnailUrl(
     imageUrl,
     userId,
     canonicalFileName,
@@ -315,7 +319,7 @@ export function CanonicalActivityRouteThumbnail({
   // 활동을 볼 수 있는 누구나 첫 썸네일을 발행한다(잘못된 이미지는 주인이 지운다).
   // 실제 접근 권한은 prepare/finalize callable이 최신 서버 상태로 최종 강제한다.
   const mayCapture = revisionState.kind !== "invalid" && (visibility === "everyone" || !!user);
-  const needsCapture = allowCapture && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
+  const needsCapture = !encodedPolylineParts && allowCapture && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -444,6 +448,7 @@ export function CanonicalActivityRouteThumbnail({
         <RouteMap
           key={`${canonicalFileName}:${canonicalVersion}:live`}
           polyline={polyline}
+          routeParts={routeParts}
           height="w-full h-full"
           fitPadding={16}
           interactive={false}
@@ -451,7 +456,7 @@ export function CanonicalActivityRouteThumbnail({
           preserveDrawingBuffer
           onLoad={handleLiveMapLoad}
           loadingPlaceholder={placeholder}
-          fallbackImageUrl={mapImageUrl === failedImageUrl ? null : mapImageUrl}
+          fallbackImageUrl={encodedPolylineParts || mapImageUrl === failedImageUrl ? null : mapImageUrl}
         />
       </Suspense>
     </div>
@@ -542,6 +547,7 @@ export function CanonicalActivityRouteThumbnail({
           <RouteMap
             key={`${canonicalFileName}:${canonicalVersion}:capture`}
             polyline={polyline}
+            routeParts={routeParts}
             height="w-full h-full"
             fitPadding={16}
             interactive={false}

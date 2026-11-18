@@ -11,6 +11,26 @@ vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 beforeEach(() => { mocks.uid = "owner"; vi.clearAllMocks(); });
 describe("activity narrative viewer isolation", () => {
+  it("shares pending peek requests for the same viewer while retaining separate subscriber state", async () => {
+    let release!: (value: unknown) => void;
+    mocks.peek.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const first = renderHook(() => useActivityNarrativePeek("shared-pending-peek", true));
+    const second = renderHook(() => useActivityNarrativePeek("shared-pending-peek", true));
+    expect(mocks.peek).toHaveBeenCalledOnce();
+    first.unmount();
+    await act(async () => release({ hit: true, summary: "shared evidence" }));
+    await waitFor(() => expect(second.result.current.data?.summary).toBe("shared evidence"));
+    second.unmount();
+  });
+  it("retries a failed shared peek on a later mount", async () => {
+    mocks.peek.mockRejectedValueOnce(new Error("network failure"));
+    const first = renderHook(() => useActivityNarrativePeek("shared-peek-retry", true));
+    await waitFor(() => expect(first.result.current.loading).toBe(false)); first.unmount();
+    mocks.peek.mockResolvedValueOnce({ hit: true, summary: "recovered" });
+    const second = renderHook(() => useActivityNarrativePeek("shared-peek-retry", true));
+    await waitFor(() => expect(second.result.current.data?.summary).toBe("recovered"));
+    expect(mocks.peek).toHaveBeenCalledTimes(2); second.unmount();
+  });
   it("retains a successful full result during refresh failure while isolating activity and language", async () => {
     mocks.generate.mockResolvedValueOnce({ summary: "saved full analysis" });
     const { result, rerender } = renderHook(({ activityId, lang, refreshKey }) => useActivityNarrativeWithOptions(activityId, true, lang, refreshKey > 0, refreshKey), {

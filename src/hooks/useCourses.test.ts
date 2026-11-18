@@ -93,12 +93,12 @@ describe("useCourses", () => {
       await waitFor(() => expect(view.result.current.error).toBe(true));
       expect(view.result.current.loading).toBe(false);
       expect(view.result.current.courses).toEqual([]);
-      expect(getDocs).toHaveBeenCalledTimes(1);
+      expect(getDocs).toHaveBeenCalledTimes(2);
       act(() => view.result.current.retry());
       await waitFor(() => expect(view.result.current.loading).toBe(false));
       expect(view.result.current.error).toBe(false);
       expect(view.result.current.courses).toEqual([]);
-      expect(getDocs).toHaveBeenCalledTimes(3);
+      expect(getDocs).toHaveBeenCalledTimes(4);
     } finally { view.unmount(); spy.mockRestore(); }
   });
 

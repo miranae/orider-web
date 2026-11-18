@@ -1,3 +1,4 @@
+import { preserveActionPosition } from "../../utils/preserveActionPosition";
 import { CalendarDays } from "lucide-react";
 import { useGoalFitnessInputs } from "../../hooks/useGoalFitnessInputs";
 import { GoalInputNotice } from "./GoalInputNotice";
@@ -342,13 +343,11 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
       )}
 
       {/* Footer — sticky bottom 으로 첫 화면에서도 다음 버튼이 늘 보이게 (UX). */}
-      <div
+      <div onPointerDown={preserveActionPosition} className="mobile-form-actions"
         style={{
           display: 'flex',
           gap: "var(--space-2)",
           marginTop: 'var(--space-6)',
-          position: 'sticky',
-          bottom: 0,
           padding: 'var(--space-3) 0',
           background: 'linear-gradient(180deg, color-mix(in oklch, var(--bg-1) 0%, transparent) 0%, var(--bg-1) 30%)',
           borderTop: '1px solid var(--line-soft)',

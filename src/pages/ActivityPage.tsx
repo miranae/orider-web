@@ -1,3 +1,4 @@
+import { usePageDataTiming } from "../hooks/usePageDataTiming";
 import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
 import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
 import { useSignInResolve } from "../hooks/useSignInResolve";
@@ -125,6 +126,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const formatFullDate = useFormatFullDate();
   const { activityId: routeActivityId } = useParams<{ activityId: string }>();
   const activityId = publicAccess?.model.activity?.id ?? routeActivityId;
+  // 공개 분리 경로는 축소된 좌표이므로 원본 스트림의 인덱스와 일치하지 않는다.
+  const hasPublicRouteParts = !!publicAccess?.routeParts?.length;
   const { user, profile, loading: authLoading, signIn } = useAuth();
   const signInResolve = useSignInResolve();
   const { units, locale } = useLocale();
@@ -319,8 +322,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     setHoveredSegment(null);
     setSegmentMapSelection(null);
     segmentMapTrigger.current = null;
-  }, [activityId, user?.uid, activeTab]);
+  }, [activityId, user?.uid, activeTab, hasPublicRouteParts]);
   const viewSegmentOnMap = useCallback((effort: SegmentEffortData, trigger: HTMLButtonElement) => {
+    if (hasPublicRouteParts) return;
     segmentMapTrigger.current = trigger;
     setHoveredSegment(null);
     setSegmentMapSelection({ scope: segmentMapScope, effort });
@@ -335,7 +339,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       runLocationAnchor.current?.focus({ preventScroll: true });
       runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
     });
-  }, [segmentMapScope]);
+  }, [segmentMapScope, hasPublicRouteParts]);
   const returnToSegment = useCallback(() => {
     segmentMapTrigger.current?.focus({ preventScroll: true });
     segmentMapTrigger.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
@@ -752,13 +756,13 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
   // 스플릿 선택은 프로필이 마운트·탭 전환 때도 자동으로 부르므로 드래그를 풀지 않는다.
   // 사용자가 "구간 위치 보기"를 눌렀을 때만 이전 드래그 범위를 풀어 스플릿 하이라이트를 보인다.
-  const onViewRunSplitLocation = useCallback(() => { releaseDragSelection.current(); viewRunSplitLocation(); }, [viewRunSplitLocation]);
+  const onViewRunSplitLocation = useCallback(() => { if (hasPublicRouteParts) return; releaseDragSelection.current(); viewRunSplitLocation(); }, [viewRunSplitLocation, hasPublicRouteParts]);
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
   const locatePeak = useCallback((peak: RidePeakEffort | null) => {
     pendingPeakLocation.current = null;
     setPeakSelection({ activityId, peak });
-    if (!peak || selectedAnalysis) return;
+    if (!peak || selectedAnalysis || hasPublicRouteParts) return;
     releaseDragSelection.current();
     setAnalysisExploreOpen(true);
     if (!streams) {
@@ -766,11 +770,11 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       requestStreams();
     }
     else if (resolvePeakEffortLocation(peak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData)) viewMapLocation();
-  }, [activityId, user?.uid, streams, requestStreams, viewMapLocation, serverMetrics.metrics, sampledData]);
+  }, [activityId, user?.uid, streams, requestStreams, viewMapLocation, serverMetrics.metrics, sampledData, hasPublicRouteParts]);
   useEffect(() => {
     const pending = pendingPeakLocation.current;
     if (!pending) return;
-    if (pending.activityId !== activityId || pending.uid !== user?.uid || (!isActivityOwner && !publicAccess)
+    if (hasPublicRouteParts || pending.activityId !== activityId || pending.uid !== user?.uid || (!isActivityOwner && !publicAccess)
       || pending.peak !== selectedPeak || streamsError) {
       pendingPeakLocation.current = null;
       return;
@@ -779,12 +783,12 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     // 준비된 위치를 한 번만 보여 준다. 이후 사용자의 탭 선택은 바꾸지 않는다.
     pendingPeakLocation.current = null;
     if (peakLocation) viewMapLocation();
-  }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewMapLocation]);
+  }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewMapLocation, hasPublicRouteParts]);
   const lapContext = { source: activity?.source, activityStartMs: normalizeEpochMilliseconds(activity?.startTime) ?? 0, durationSec: rangeSelection.durationSec };
   const [unlinkedLapIdentity, setUnlinkedLapIdentity] = useState<string | null>(null);
   const pendingLap = useRef<{ identity: string; lap: RecordedLap } | null>(null);
   if (pendingLap.current?.identity !== rangeSelection.identity) pendingLap.current = null;
-  const canSelectLap = (lap: RecordedLap) => !selectedAnalysis && !!rangeSelection.ownerUid && activity?.id === activityId
+  const canSelectLap = (lap: RecordedLap) => !hasPublicRouteParts && !selectedAnalysis && !!rangeSelection.ownerUid && activity?.id === activityId
     && !rangeSelection.sourceLocked && (!loadingStreams || !streams) && (streams
       ? !!resolveRecordedLapRange(lap, lapContext, streams.time, streams.laps)
       : !!recordedLapElapsedRange(lap, lapContext));
@@ -797,7 +801,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       return;
     }
     const range = resolveRecordedLapRange(lap, lapContext, streams.time, streams.laps);
-    if (range) { rangeSelection.selectAndEnable(range); viewMapLocation(); }
+    if (range) { rangeSelection.selectAndEnable(range); if (!hasPublicRouteParts) viewMapLocation(); }
   };
   useEffect(() => {
     const pending = pendingLap.current;
@@ -810,9 +814,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     pendingLap.current = null;
     const range = resolveRecordedLapRange(pending.lap, { source: activity?.source,
       activityStartMs: normalizeEpochMilliseconds(activity?.startTime) ?? 0, durationSec: rangeSelection.durationSec }, streams.time, streams.laps);
-    if (range) { rangeSelection.selectAndEnable(range); viewMapLocation(); }
+    if (range) { rangeSelection.selectAndEnable(range); if (!hasPublicRouteParts) viewMapLocation(); }
     else setUnlinkedLapIdentity(rangeSelection.identity);
-  }, [rangeSelection, streams, loadingStreams, streamsError, activity?.source, activity?.startTime, viewMapLocation]);
+  }, [rangeSelection, streams, loadingStreams, streamsError, activity?.source, activity?.startTime, viewMapLocation, hasPublicRouteParts]);
   const markerPosition = useMemo(() => {
     if (selectedMapSegment) return streams?.latlng?.[selectedMapSegment.endIndex] ?? null;
     if (hoverIndex == null || !sampledData[hoverIndex]) {
@@ -835,7 +839,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   }), [segmentEfforts, sampledData, units, locale, activity?.id, streams]);
   const canViewSegmentOnMap = (effort: SegmentEffortData) => {
     const points = streams?.latlng;
-    return !!points && Number.isInteger(effort.startIndex) && Number.isInteger(effort.endIndex)
+    return !hasPublicRouteParts && !!points && Number.isInteger(effort.startIndex) && Number.isInteger(effort.endIndex)
       && effort.startIndex >= 0 && effort.endIndex > effort.startIndex && effort.endIndex < points.length
       && points.slice(effort.startIndex, effort.endIndex + 1).every(point => point?.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180);
   };
@@ -877,6 +881,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     ? null : serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null;
 
   // Detail readiness means committed primary activity content, not lazy analysis/media completion.
+  usePageDataTiming("activity", `${activityId}:${user?.uid ?? "guest"}`, loadingActivity || authLoading || overview.loading,
+    !!activity && activity.id === activityId, !!activityLoadError || !!overview.error);
   const detailOutcome: JourneyOutcome | null = loadingActivity ? null : activityLoadError ? "error"
     : activityProcessing ? "pending" : !activity?.summary ? "unavailable"
     : activity.deletedAt ? "access_denied" : publicAccess && !publicAccess.session.mapFresh ? null : "success";
@@ -997,7 +1003,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const activityNickname = author.nickname?.trim() || (isActivityOwner ? profile?.nickname?.trim() || user?.displayName?.trim() : null) || tCommon("label.rider");
   const activityProfileImage = author.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
   const hasAnalysisRoute = !!streams?.latlng?.length;
-  const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute || activityIndependentRoute(streams));
+  const hasTrack = !!(publicAccess?.routeParts?.length || activity.thumbnailTrack || hasAnalysisRoute || activityIndependentRoute(streams));
   const canCreateFromOwnRoute = isActivityOwner && hasAnalysisRoute && sport !== "swim";
   const canRegisterPublicRoute = !!user && !isActivityOwner && activity.visibility === "everyone" && hasTrack && sport !== "swim";
   const canRideActivityRoute = (isActivityOwner || activity.visibility === "everyone") && sport === "ride" && hasTrack;
@@ -1315,12 +1321,12 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
                 if (publicAccess) {
                   const fresh = await publicAccess.session.client.load(activity.id);
                   const map = fresh.activity.visibility === "everyone" ? fresh.mapPreview : null;
-                  return { encodedPolyline: map?.encodedPolyline ?? null, imageUrl: map?.imageUrl ?? null, revision: JSON.stringify([fresh.activity.activityRevision, map]) };
+                  return { encodedPolyline: map?.encodedPolylineParts ? null : map?.encodedPolyline ?? null, imageUrl: map?.encodedPolylineParts ? null : map?.imageUrl ?? null, revision: JSON.stringify([fresh.activity.activityRevision, map]) };
                 }
                 const detail = await createActivityMapPrivacyClient(photoServices).load(activity.id);
                 if (photoServices.auth.currentUser !== viewer) throw new Error("account_changed");
                 const map = detail.visibility === "everyone" ? detail.mapPreview : null;
-                return { encodedPolyline: map?.encodedPolyline ?? null, imageUrl: map?.imageUrl ?? null,
+                return { encodedPolyline: map && "encodedPolylineParts" in map ? null : map?.encodedPolyline ?? null, imageUrl: map && "encodedPolylineParts" in map ? null : map?.imageUrl ?? null,
                   revision: JSON.stringify([detail.activityId, detail.revision, detail.visibility, map]) };
               }}
               onFeedback={showToast}
@@ -1409,6 +1415,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       </div>}
       {(activeTab !== "analysis" || sport !== "ride" || analysisExploreOpen || explorationMounted) && <ActivityMediaPanel
         allowOwnerPreview={!publicAccess}
+        publicRouteParts={publicAccess?.routeParts}
         activity={activity}
         streams={streams}
         sport={sport}
@@ -1515,8 +1522,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
             {sport === "swim" ? t("page.swim.setAnalysis") : t("page.lapAnalysis")}
           </h3>}
           {analysisTabProps?.analysisSummary ? (
-            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} sport={sport} onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} />
-          ) : streams?.laps ? sport === "run" ? <AnalysisLapTable laps={streams.laps} ftp={null} sport={sport} onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : <LapTable laps={streams.laps} onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : null}
+            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} sport={sport} onSelectLap={!selectedAnalysis && !hasPublicRouteParts && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} />
+          ) : streams?.laps ? sport === "run" ? <AnalysisLapTable laps={streams.laps} ftp={null} sport={sport} onSelectLap={!selectedAnalysis && !hasPublicRouteParts && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : <LapTable laps={streams.laps} onSelectLap={!selectedAnalysis && !hasPublicRouteParts && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : null}
         </Card>
       )}
 
@@ -1615,7 +1622,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
           });
           if (!streams) requestStreams();
         }}
-        onLocate={selectedAnalysis ? undefined : locatePeak} locating={loadingStreams && selectedPeak != null}
+        onLocate={selectedAnalysis || hasPublicRouteParts ? undefined : locatePeak} locating={loadingStreams && selectedPeak != null}
         locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }        </>}
         powerControls={isActivityOwner && (canRecalculateVirtualPowerPreview || activePowerOverride) ? <div className="activity-analysis-power-controls">
           {/* 제목 옆 작은 재계산 아이콘, 되돌리기는 미리보기가 적용됐을 때만 */}
@@ -1711,11 +1718,11 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         summary={displayedSummary}
         canonicalPresentationAvailable={overview.response?.status === "available"}
         onSelectRunEffort={!selectedAnalysis && getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().activityAnalysisExpansionEnabled === true && rangeSelection.enabled && !rangeSelection.sourceLocked ? rangeSelection.select : undefined}
-        onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined}
+        onSelectLap={!selectedAnalysis && !hasPublicRouteParts && rangeSelection.ownerUid ? selectLap : undefined}
         canSelectLap={canSelectLap}
         onSelectRunSplit={selectedAnalysis ? undefined : selectRunSplit}
-        onViewRunSplitLocation={selectedAnalysis ? undefined : onViewRunSplitLocation}
-        canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
+        onViewRunSplitLocation={selectedAnalysis || hasPublicRouteParts ? undefined : onViewRunSplitLocation}
+        canViewRunSplitLocation={!hasPublicRouteParts && !!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
       {activeTab === "analysis" && !selectedAnalysis && sport === "run" && (isActivityOwner || publicAccess) && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">
         {/* 차트가 없는 달리기(거리 스트림 없음)는 드래그할 그래프가 없어 시작 버튼으로만 구간 분석을 연다. */}

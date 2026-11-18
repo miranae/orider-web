@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listPublicClubs } from "../services/publicClubs";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import { setCollectionDocs, setDocData, setCallableResult, setCallableImplementation } from "../__tests__/mocks/firebase";
-import { getPublicUserProfile } from "../services/publicProfiles";
+import { getPublicUserProfile, getPublicUserProfiles } from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
 import { useGroup, useGroupMemberRole, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
 
@@ -12,6 +12,7 @@ vi.mock("../services/publicClubs", () => ({ listPublicClubs: vi.fn(async () => (
 
 vi.mock("../services/publicProfiles", () => ({
   getPublicUserProfile: vi.fn(),
+  getPublicUserProfiles: vi.fn(async (ids: string[]) => new Map(await Promise.all(ids.map(async id => [id, await getPublicUserProfile(id)] as const)))),
 }));
 
 function deferred<T>() {
@@ -807,4 +808,31 @@ describe("cached absence is not confirmed nonmembership", () => {
     expect(result.current.role).toBeNull();
     expect(result.current.error).toBe(failure);
   });
+});
+
+
+it.each(["missing", "failed"])("clears an expired member profile when its recheck is %s", async outcome => {
+  vi.mocked(getPublicUserProfiles).mockResolvedValueOnce(new Map([["member", profile("member")]]));
+  setCollectionDocs("groups/cache-recheck/members", [{ id: "member", status: "active" }]);
+  const { result } = renderHook(() => useGroupMembers("cache-recheck"));
+  await waitFor(() => expect(result.current.members[0]?.profile?.nickname).toBe("member"));
+  if (outcome === "missing") vi.mocked(getPublicUserProfiles).mockResolvedValueOnce(new Map());
+  else vi.mocked(getPublicUserProfiles).mockRejectedValueOnce(new Error("backend failed"));
+  const now = Date.now();
+  const clock = vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
+  try {
+    act(() => setCollectionDocs("groups/cache-recheck/members", [{ id: "member", status: "active", updatedAt: 1 }]));
+    await waitFor(() => expect(result.current.members[0]?.profile).toBeNull());
+  } finally { clock.mockRestore(); }
+});
+
+
+it("keeps successful profiles in a partial roster response", async () => {
+  vi.mocked(getPublicUserProfiles).mockResolvedValueOnce(new Map([["good", profile("good")]]));
+  setCollectionDocs("groups/partial/members", [{ id: "good" }, { id: "failed" }]);
+  const { result } = renderHook(() => useGroupMembers("partial"));
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.members.find(member => member.id === "good")?.profile?.nickname).toBe("good");
+  expect(result.current.members.find(member => member.id === "failed")?.profile).toBeNull();
+  expect(getPublicUserProfiles).toHaveBeenLastCalledWith(expect.any(Array), expect.anything(), expect.anything(), { onReadError: expect.any(Function) });
 });

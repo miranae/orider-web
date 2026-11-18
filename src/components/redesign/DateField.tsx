@@ -1,3 +1,4 @@
+import { observeViewport, visibleViewport } from "../../services/visibleViewport";
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -84,7 +85,7 @@ export default function DateField({
   const WEEKDAYS = WEEKDAY_KEYS.map((k) => t(`weekday.${k}`));
   const resolvedPlaceholder = placeholder ?? t("field.datePlaceholder");
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ left: 0, top: 0 });
+  const [position, setPosition] = useState({ left: 0, top: 0, maxHeight: window.innerHeight - 24, maxWidth: window.innerWidth - 24 });
   const [focusedDate, setFocusedDate] = useState(value);
   const pendingDateFocus = useRef(false);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -115,17 +116,20 @@ export default function DateField({
       const container = containerRef.current.getBoundingClientRect();
       const popup = popupRef.current.getBoundingClientRect();
       const margin = 12;
-      const left = Math.max(margin, Math.min(trigger.left, window.innerWidth - margin - popup.width));
+      const bounds = visibleViewport();
+      const maxHeight = Math.max(0, bounds.height - margin * 2);
+      const maxWidth = Math.max(0, bounds.width - margin * 2);
+      const popupHeight = Math.min(popupRef.current.scrollHeight + popup.height - popupRef.current.clientHeight, maxHeight);
+      const popupWidth = Math.min(popup.width, maxWidth);
+      const left = Math.max(bounds.left + margin, Math.min(trigger.left, bounds.right - margin - popupWidth));
       const below = trigger.bottom + 4;
-      const preferred = below + popup.height <= window.innerHeight - margin ? below : trigger.top - popup.height - 4;
-      const top = Math.max(margin, Math.min(preferred, window.innerHeight - margin - popup.height));
-      setPosition({ left: portal ? left : left - container.left, top: portal ? top : top - container.top });
+      const preferred = below + popupHeight <= bounds.bottom - margin ? below : trigger.top - popupHeight - 4;
+      const top = Math.max(bounds.top + margin, Math.min(preferred, bounds.bottom - margin - popupHeight));
+      setPosition({ left: portal ? left : left - container.left, top: portal ? top : top - container.top, maxHeight, maxWidth });
     };
     positionPopup();
-    window.addEventListener('resize', positionPopup);
-    window.addEventListener('scroll', positionPopup, true);
-    return () => { window.removeEventListener('resize', positionPopup); window.removeEventListener('scroll', positionPopup, true); };
-  }, [open, viewMonth, portal]);
+    return observeViewport(positionPopup);
+  }, [open, viewMonth, portal, position.maxWidth]);
 
   useEffect(() => {
     if (!open || !pendingDateFocus.current) return;
@@ -247,7 +251,8 @@ export default function DateField({
             padding: 'var(--space-3)',
             boxShadow: "0 12px 32px color-mix(in srgb, var(--bg-0) 45%, transparent)",
             width: "min(20rem, calc(100vw - var(--space-6)))",
-            maxHeight: "calc(100dvh - var(--space-6))",
+            maxHeight: position.maxHeight,
+            maxWidth: position.maxWidth,
             overflowY: "auto",
             boxSizing: "border-box",
           }}
