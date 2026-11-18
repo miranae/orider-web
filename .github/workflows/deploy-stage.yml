@@ -94,6 +94,8 @@ jobs:
       - name: Check deploy config
         run: npm run check:deploy-config
       - name: Build selected source
+        env:
+          VITE_EXPECTED_BUNDLED_PROFILE: ${{ inputs.transport == 'bundled-development' && 'bundled-development' || '' }}
         run: npm run build
       - name: Write selected runtime config
         run: npm run write:runtime-config

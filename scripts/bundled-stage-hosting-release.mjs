@@ -61,7 +61,7 @@ export async function rollbackStageHosting(snapshot, { token, fetcher = fetch, s
     channel = await request(fetcher, token, "GET", API + CHANNEL);
   }
   const current = currentVersion(channel);
-  if (current === snapshot.previousVersion && releaseName(channel) === snapshot.previousRelease) throw new Error(`development Hosting publication outcome unverified at ${API}${CHANNEL}: previous release still visible after bounded observations; this run may still complete; retain the snapshot/marker for operator retry`);
+  if (current === snapshot.previousVersion && releaseName(channel) === snapshot.previousRelease) throw new Error(`development Hosting publication outcome unverified at ${API}${CHANNEL}: previous release still visible after bounded observations; this run may still complete; retain the snapshot/marker and confirm the live release before manually retrying`);
   // 직렬화된 CI 계약 아래 관측한 다른 릴리스는 거부한다. Hosting API에는 CAS가 없다.
   if (channel.release.message !== snapshot.marker) throw new Error(`development Hosting rollback refused: active version ${current} is not this deployment`);
   const previous = await request(fetcher, token, "GET", API + snapshot.previousVersion);

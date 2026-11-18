@@ -63,14 +63,14 @@ export interface RuntimeConfig {
 }
 
 let runtimeConfig: RuntimeConfig = readBuildFallbackConfig();
-let loaded = false;
+let runtimeLoad: Promise<RuntimeConfig> | undefined;
 
 function readBuildFallbackConfig(): RuntimeConfig {
-  const allowBuildFallback =
+  const allowBuildFallback = !import.meta.env.VITE_EXPECTED_BUNDLED_PROFILE && (
     import.meta.env.DEV ||
     import.meta.env.MODE === "test" ||
     import.meta.env.VITE_USE_EMULATORS === "true" ||
-    import.meta.env.VITE_USE_BUILD_ENV_FALLBACK === "true";
+    import.meta.env.VITE_USE_BUILD_ENV_FALLBACK === "true");
 
   if (!allowBuildFallback) {
     return {
@@ -144,26 +144,29 @@ function withoutEmptyValues(config: RuntimeConfig): RuntimeConfig {
   ) as RuntimeConfig;
 }
 
-export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
-  if (loaded) return runtimeConfig;
-  loaded = true;
-
-  if (typeof window === "undefined") return runtimeConfig;
-
-  try {
-    const response = await fetch(`/runtime-config.json?v=${Date.now()}`, {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-    if (!response.ok) return runtimeConfig;
-
-    const remote = withoutEmptyValues((await response.json()) as RuntimeConfig);
-    runtimeConfig = { ...runtimeConfig, ...remote };
-  } catch {
-    // Local dev and tests may not provide runtime-config.json; Vite env fallback remains.
+async function fetchRuntimeConfig(): Promise<RuntimeConfig> {
+  const expected = import.meta.env.VITE_EXPECTED_BUNDLED_PROFILE;
+  let remote: RuntimeConfig | undefined;
+  if (typeof window !== "undefined") {
+    try {
+      const response = await fetch(`/runtime-config.json?v=${Date.now()}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (response.ok) remote = withoutEmptyValues((await response.json()) as RuntimeConfig);
+    } catch {
+      // Local dev and tests may rely on the Vite env fallback.
+    }
   }
-
+  if (expected && (!remote || remote.deploymentProfile !== expected || !bundledFunctionsBase(remote))) {
+    throw new Error("bundled/runtime-config-required");
+  }
+  if (remote) runtimeConfig = { ...runtimeConfig, ...remote };
   return runtimeConfig;
+}
+
+export function loadRuntimeConfig(): Promise<RuntimeConfig> {
+  return runtimeLoad ??= fetchRuntimeConfig();
 }
 
 export function getRuntimeConfig(): RuntimeConfig {
@@ -176,7 +179,7 @@ export function isEmulatorRuntime(): boolean {
 
 export function resetRuntimeConfigForTests(config: RuntimeConfig = {}): void {
   runtimeConfig = { ...readBuildFallbackConfig(), ...withoutEmptyValues(config) };
-  loaded = false;
+  runtimeLoad = undefined;
 }
 
 export const STAGE_PARITY_GATEWAY = "https://stage-parity-default-818364001341.asia-northeast3.run.app";

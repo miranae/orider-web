@@ -7,7 +7,7 @@ vi.unmock("firebase/app");
 vi.unmock("firebase/functions");
 vi.unmock("firebase/auth");
 vi.unmock("firebase/app-check");
-import { assertIsolatedStageRuntime, bundledFunctionsBase, BUNDLED_FUNCTIONS_BASES, BUNDLED_AI_BASES, isFunctionsGatewayRuntime, resetRuntimeConfigForTests, type RuntimeConfig } from "./runtimeConfig";
+import { assertIsolatedStageRuntime, bundledFunctionsBase, BUNDLED_FUNCTIONS_BASES, BUNDLED_AI_BASES, isFunctionsGatewayRuntime, loadRuntimeConfig, resetRuntimeConfigForTests, type RuntimeConfig } from "./runtimeConfig";
 import { redeemHandoffCode } from "./handoffRedeem";
 import { analysisCapabilityAvailable, matchesAnalysisCapability } from "./analysisCapability";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -20,9 +20,33 @@ function config(environment: "development" | "production"): RuntimeConfig {
     firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841" };
 }
 afterEach(async () => {
-  resetRuntimeConfigForTests({}); vi.unstubAllGlobals();
+  vi.unstubAllEnvs(); vi.unstubAllGlobals(); resetRuntimeConfigForTests({});
   await Promise.all(getApps().map(deleteApp));
 });
+it.each(["missing", "network", "bad json", "legacy"] as const)("bundled builds reject %s runtime config before initialization", async failure => {
+  vi.stubEnv("VITE_EXPECTED_BUNDLED_PROFILE", "bundled-production");
+  vi.stubEnv("VITE_USE_BUILD_ENV_FALLBACK", "true");
+  vi.stubEnv("VITE_FIREBASE_API_KEY", "build-fallback");
+  resetRuntimeConfigForTests();
+  const fetchRuntime = vi.fn(async () => {
+    if (failure === "network") throw new Error("offline");
+    if (failure === "missing") return new Response(null, { status: 404 });
+    if (failure === "legacy") return Response.json({ firebaseApiKey: "legacy" });
+    return new Response("<html>");
+  });
+  vi.stubGlobal("fetch", fetchRuntime);
+  await expect(loadRuntimeConfig()).rejects.toThrow("bundled/runtime-config-required");
+  await expect(loadRuntimeConfig()).rejects.toThrow("bundled/runtime-config-required");
+  expect(fetchRuntime).toHaveBeenCalledTimes(1);
+});
+
+it("loads a runtime config that matches the bundled build", async () => {
+  vi.stubEnv("VITE_EXPECTED_BUNDLED_PROFILE", "bundled-development");
+  resetRuntimeConfigForTests();
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(config("development"))));
+  await expect(loadRuntimeConfig()).resolves.toMatchObject({ deploymentProfile: "bundled-development" });
+});
+
 it.each(["development", "production"] as const)("%s keeps SDK callable paths and App Check on the same reviewed gateway", async environment => {
   const runtime = config(environment), base = bundledFunctionsBase(runtime)!;
   const host = environment === "development" ? "orider-dev.web.app" : "orider.co.kr";

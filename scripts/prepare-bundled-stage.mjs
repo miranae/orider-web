@@ -48,10 +48,12 @@ async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
 }
 export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
   const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
-  await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", fetcher });
-  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "getActivityDiscovery", fetcher });
-  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
-  await verifyBundledCallable({ base: runtime.aiApiBase, origin: "https://orider-dev.web.app", name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  for (const origin of ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"]) {
+    await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin, fetcher });
+    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher });
+    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
+    await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  }
   await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
   return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
 }
