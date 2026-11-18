@@ -12,7 +12,7 @@ import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, EMBEDDED_
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onIdTokenChanged, signOut } from "firebase/auth";
 import {
   lazy,
   Suspense,
@@ -1126,7 +1126,7 @@ export default function EmbeddedBootstrapRoot({
     };
 
     const unsubscribe = bridge.subscribe(handleMessage);
-    const unsubscribeAuth = onAuthStateChanged(controlServices.auth, (user) => {
+    const unsubscribeAuth = onIdTokenChanged(controlServices.auth, (user) => {
       observeSdkViewer(user);
       const onCacheError = (error: unknown) =>
         logClientError("embedded.authChangeCacheReset", error, {}, controlServices, user, () => false);

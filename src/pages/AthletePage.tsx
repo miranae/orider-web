@@ -247,7 +247,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   useEffect(() => {
     if (isOwnProfile || !userId || !publicTotalsAuthorized) return;
     let active = true;
-    const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer;
+    const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer
+      && services.isSessionApproved?.(readIdentity.viewer) !== false;
     if (!current()) return;
     const generation = ++signalGeneration.current;
     setTotalsSignals(null);
@@ -716,7 +717,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     let active = true;
     const viewer = readIdentity.viewer;
-    const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === viewer;
+    const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === viewer
+      && services.isSessionApproved?.(viewer) !== false;
     if (!sessionAuthorized || !current()) return;
     setRelationshipLoading(true); setRelationshipError(false); setFriendStatus("none");
     // 1. 이미 친구인지 확인

@@ -30,7 +30,7 @@ export async function loadActivityDiscovery(services:FirebaseServices,request:Ac
  let active=true, rejectAbort: (error: Error)=>void = () => {};
  const abort = () => { active=false; rejectAbort(Error('request_aborted')); };
  const aborted = new Promise<never>((_,reject)=>{rejectAbort=reject;});
- const timer=setTimeout(abort,15000);
+ const timer=setTimeout(()=>{active=false;rejectAbort(Error('request_timeout'));},15000);
  signal?.addEventListener('abort',abort,{once:true});
  if(signal?.aborted)abort();
  try { return await Promise.race([readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');}),aborted]); }

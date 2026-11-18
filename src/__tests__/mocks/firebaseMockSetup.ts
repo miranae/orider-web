@@ -60,9 +60,8 @@ vi.mock("firebase/analytics", () => ({
 
 // ─── firebase/auth ────────────────────────────────────────
 vi.mock("firebase/auth", () => ({
-  onAuthStateChanged: vi.fn((_auth: unknown, cb: (user: unknown) => void) => {
-    return addAuthListener(cb);
-  }),
+  onAuthStateChanged: vi.fn((_auth: unknown, cb: (user: unknown) => void) => addAuthListener(cb)),
+  onIdTokenChanged: vi.fn((_auth: unknown, cb: (user: unknown) => void) => addAuthListener(cb)),
   signInWithPopup: mockSignInWithPopup,
   signInWithRedirect: vi.fn().mockResolvedValue(undefined),
   getRedirectResult: vi.fn().mockResolvedValue(null),

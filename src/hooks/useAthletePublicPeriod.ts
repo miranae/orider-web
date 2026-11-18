@@ -60,7 +60,7 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
     } catch (error) {
       const code = String((error as {code?: string})?.code ?? (error as Error)?.message ?? error);
       const context = { targetUid, global, continuation: Boolean(previous.cursor) };
-      if (code !== "account_changed" && (error as Error)?.name !== "AbortError")
+      if (code !== "account_changed" && code !== "request_aborted" && (error as Error)?.name !== "AbortError")
         logClientError("useAthletePublicPeriod.read", error, context, services, user, current);
       if (!current()) return;
       const restart = /permission-denied|unauthenticated|not-found|failed-precondition|invalid-argument|account_changed|invalid_activity_discovery/.test(code);
