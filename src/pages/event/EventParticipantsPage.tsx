@@ -58,6 +58,7 @@ interface ParticipantRow {
   realName: string;
   nickname: string;
   identityPending: boolean;
+  searchableNames: string[];
   category: string | null;
   age: number | null;
   gender: "M" | "F" | "X" | null;
@@ -259,6 +260,7 @@ export default function EventParticipantsPage() {
           realName: data.realName || t("participantsView.defaultRider"),
           nickname: t("participantsView.defaultRider"),
           identityPending: !data.realName && typeof data.bib !== "number",
+          searchableNames: typeof data.realName === "string" && data.realName ? [data.realName] : [],
           category: data.category ?? null,
           age: data.birth ? ageFromBirth(data.birth) : null,
           gender: data.gender ?? null,
@@ -285,7 +287,7 @@ export default function EventParticipantsPage() {
       // 권한이 확인된 참가 기록을 먼저 표시한다. 공개 프로필은 최대 4개 동시 조회 후 한 번에 반영한다.
       // CSV 내보내기는 아직 비활성 버튼이며, 프로필 보강은 화면의 참가자 행에만 적용한다.
       let nextProfile = 0;
-      const profiles = new Map<string, { nickname: string; team: string }>();
+      const profiles = new Map<string, { nickname: string; team: string; verifiedNickname?: string }>();
       const canonicalNames = new Set(partsSnap.docs.filter(participant => participant.data().realName).map(participant => participant.id));
       const identitiesPending = new Set(rows.filter(row => row.identityPending).map(row => row.userId));
       const hydrateProfiles = async () => {
@@ -295,11 +297,11 @@ export default function EventParticipantsPage() {
             const profile = await withReadDeadline(getPublicUserProfile(participant.id, services.firestore), t("readTimeout"));
             if (!current()) return;
             const nickname = profile?.nickname || t("participantsView.defaultRider");
-            const identity = { nickname, team: profile?.team || "—" };
+            const identity = { nickname, team: profile?.team || "—", verifiedNickname: profile?.nickname };
             profiles.set(participant.id, identity);
             if (profile?.nickname && identitiesPending.has(participant.id)) {
               setParticipants(previous => previous.map(row => row.userId === participant.id
-                ? { ...row, ...identity, realName: nickname, identityPending: false } : row));
+                ? { ...row, nickname, team: identity.team, realName: nickname, identityPending: false, searchableNames: [nickname] } : row));
             }
           } catch (error) {
             logClientError("EventParticipantsPage.loadPublicProfile", error, { eventId }, services, scope.owner);
@@ -310,7 +312,8 @@ export default function EventParticipantsPage() {
         if (!current()) return;
         const enrich = (row: ParticipantRow) => {
           const profile = profiles.get(row.userId);
-          return profile ? { ...row, ...profile, identityPending: false,
+          return profile ? { ...row, nickname: profile.nickname, team: profile.team, identityPending: false,
+            searchableNames: profile.verifiedNickname ? [...new Set([...row.searchableNames, profile.verifiedNickname])] : row.searchableNames,
             realName: !canonicalNames.has(row.userId) && row.realName === t("participantsView.defaultRider") ? profile.nickname : row.realName,
           } : { ...row, identityPending: false };
         };
@@ -336,12 +339,10 @@ export default function EventParticipantsPage() {
   const filtered = useMemo(() => {
     let r = participants;
     const q = search.trim().toLowerCase();
-    const defaultName = t("participantsView.defaultRider");
     if (q) {
       r = r.filter(
         (p) =>
-          (p.realName !== defaultName && p.realName.toLowerCase().includes(q)) ||
-          (p.nickname !== defaultName && p.nickname.toLowerCase().includes(q)) ||
+          p.searchableNames.some(name => name.toLowerCase().includes(q)) ||
           String(p.bib ?? "").includes(q) ||
           p.phone.includes(q)
       );
@@ -357,7 +358,7 @@ export default function EventParticipantsPage() {
       }
       return a.status.localeCompare(b.status);
     });
-  }, [participants, search, categoryFilter, statusFilter, sortBy, t]);
+  }, [participants, search, categoryFilter, statusFilter, sortBy]);
 
   const stats = useMemo(() => {
     const total = participants.length;
@@ -381,11 +382,12 @@ export default function EventParticipantsPage() {
     });
   }
 
-  const selectableRows = filtered.filter(row => !row.identityPending);
-  const allSelected = selectableRows.length > 0 && selectableRows.every(row => selected.has(row.userId));
+  const canSelectAll = filtered.length > 0 && filtered.every(row => !row.identityPending);
+  const allSelected = canSelectAll && filtered.every(row => selected.has(row.userId));
   function toggleAll() {
+    if (!canSelectAll) return;
     if (allSelected) setSelected(new Set());
-    else setSelected(new Set(selectableRows.map(row => row.userId)));
+    else setSelected(new Set(filtered.map(row => row.userId)));
   }
 
   async function handleAssignBibs(mode: "sequential" | "category" | "random") {
@@ -753,7 +755,7 @@ export default function EventParticipantsPage() {
                     <input
                       type="checkbox"
                       checked={allSelected}
-                      disabled={!selectableRows.length}
+                      disabled={!canSelectAll}
                       onChange={toggleAll}
                       aria-label={t("participantsView.selectAll")}
                     />

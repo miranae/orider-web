@@ -108,10 +108,11 @@ function validSnapshot(surface: TrainingCacheSurface, value: unknown, uid: strin
       && Array.isArray(week.days) && week.days.every(isRecord));
 }
 
-function storage(): Storage | null {
+function storage(onError?: (error: unknown) => void): Storage | null {
   try {
     return typeof window === "undefined" ? null : window.localStorage;
-  } catch {
+  } catch (error) {
+    onError?.(error);
     return null;
   }
 }
@@ -129,7 +130,7 @@ function purgeDisk(): void {
   }
 }
 
-function persist(): void {
+function persist(onError?: (error: unknown) => void): void {
   const scope = trainingSurfaceCacheScope();
   if (!ownerUid || !scope) return;
   try {
@@ -142,9 +143,10 @@ function persist(): void {
       if (new TextEncoder().encode(encoded).byteLength <= CACHE_MAX_BYTES) break;
       snapshots.shift();
     }
-    storage()?.setItem(STORAGE_KEY, encoded);
-  } catch {
+    storage(onError)?.setItem(STORAGE_KEY, encoded);
+  } catch (error) {
     // 디스크 저장 실패 시에도 이미 검증된 메모리 값은 유지한다.
+    onError?.(error);
   }
 }
 
@@ -227,10 +229,10 @@ export function setTrainingSurfaceCache<T>(key: TrainingSurfaceCacheKey, value: 
   persist();
 }
 
-export function removeTrainingSurfaceCache(key: TrainingSurfaceCacheKey): void {
+export function removeTrainingSurfaceCache(key: TrainingSurfaceCacheKey, onError?: (error: unknown) => void): void {
   if (ownerUid !== key.uid || ownerScope !== trainingSurfaceCacheScope()) return;
   entries.delete(serializeKey(key));
-  persist();
+  persist(onError);
 }
 
 /** 변경 성공 후 같은 종목의 다른 언어 스냅샷도 fresh로 재사용하지 않는다. */

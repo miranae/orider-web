@@ -196,8 +196,9 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
         // Keep cached weeks only while the confirmed goal still matches them.
         if (cached?.goal?.id !== nextGoal.id) {
           if (cached) {
-            removeTrainingSurfaceCache(cacheKey);
-            removeTrainingSurfaceCache(snapshotKey);
+            const logCacheError = (error: unknown) => logClientError("PlanPage.invalidateOldGoal", error, { discipline, goalId: nextGoal.id });
+            removeTrainingSurfaceCache(cacheKey, logCacheError);
+            removeTrainingSurfaceCache(snapshotKey, logCacheError);
           }
           setCacheHit(false);
           setGoal(nextGoal);

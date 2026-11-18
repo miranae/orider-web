@@ -167,7 +167,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       if (!url) { legacy(); return; }
       const version = String(metadata.trackVersion);
       // 현재 접근이 확인된 메타데이터부터 표시한다. 새 revision에는 이전 고도를 섞지 않는다.
-      if (lastVersion !== version || !lastTrack) onData({ ...metadata, id, trackLoadState: "loading" });
+      if (lastVersion !== version || !lastTrack) onData({ ...metadata, elevationProfile: undefined, id, trackLoadState: "loading" });
       let track: DocumentData;
       try {
         track = lastVersion === version && lastTrack ? lastTrack : await trackPayload(url, version, services, signal);
