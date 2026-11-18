@@ -24,7 +24,7 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
   const selectedIndex = range && Number.isInteger(range.startIndex) && range.startIndex === range.endIndex ? range.startIndex : null;
   const starts = new Set(segmentStarts);
   let previousLongitude: number | null = null;
-  const project = (coordinate: unknown) => {
+  const project = (coordinate: unknown, followsRoute: boolean) => {
     if (!isRoutePosition(coordinate)) return null;
     const latitude = Math.max(-85.0511, Math.min(85.0511, coordinate[0]));
     let longitude = coordinate[1];
@@ -32,11 +32,14 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
       while (longitude - previousLongitude > 180) longitude -= 360;
       while (longitude - previousLongitude < -180) longitude += 360;
     }
-    previousLongitude = longitude;
+    if (followsRoute) previousLongitude = longitude;
     return [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))] as const;
   };
-  const projected = Array.from(hasLine ? lines : normalized, (point, index) => project(index === selectedIndex ? normalized[index] : point));
-  const selectedProjected = project(selectedPosition);
+  const projected = Array.from(hasLine ? lines : normalized, point => project(point, true));
+  if (selectedIndex != null && selectedIndex >= 0 && selectedIndex < projected.length && !projected[selectedIndex]) {
+    projected[selectedIndex] = project(normalized[selectedIndex], false);
+  }
+  const selectedProjected = project(selectedPosition, false);
   let count = 0, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const point of projected) {
     if (!point) continue;

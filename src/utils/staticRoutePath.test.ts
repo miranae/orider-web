@@ -60,6 +60,15 @@ describe("buildStaticRoutePath", () => {
     expect(points[1]![0]! - points[0]![0]!).toBeCloseTo(points[0]![1]! - points[1]![1]!, 1);
   });
 
+  it("keeps adjacent date-line fragments together when selecting an isolated point", () => {
+    const geometry = buildStaticRouteGeometry([[0, 178], [0, 179], [0, 0], [0, -179], [0, -178]], [2, 3],
+      { range: { startIndex: 2, endIndex: 2 } });
+    const xs = [...(geometry.path ?? "").matchAll(/[ML] ([\d.]+)/g)].map(match => Number(match[1]));
+    expect(xs).toHaveLength(4);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(10);
+    expect(geometry.selectionPoints).toHaveLength(1);
+  });
+
   it("renders long sparse routes without exceeding the browser argument limit", () => {
     const points = Array.from({ length: 150000 }, (_, index) => index === 70000 ? null : [37 + index / 1000000, 127] as [number,number]);
     const path = buildStaticRoutePath(points);

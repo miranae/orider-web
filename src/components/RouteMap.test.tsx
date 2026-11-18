@@ -614,9 +614,22 @@ describe("RouteMap", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
     renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png"
+      navigationLabels={{ zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show entire route" }}
       photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[128,38]]);
     expect(screen.getByTestId("map-marker")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show entire route" }));
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37]]);
+  });
+
+  it("ignores a late SDK error from an earlier route", () => {
+    const view = renderWithProviders(<RouteMap flyToPosition={[37, 127]} />);
+    const previousError = mapProps.latest?.onError;
+    view.rerender(<RouteMap latlng={[[38, 128], [38.01, 128]]} />);
+    const error = { error: new Error("network") };
+    act(() => previousError?.(error));
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(mapErrors.mock.calls.some(call => call[0] === "RouteMap.mapbox")).toBe(false);
   });
 
   it.each([0,3])("preserves a single GPS selection at raw index %s in the static fallback", index => {

@@ -190,7 +190,7 @@ export function RouteMapFallback({
           className="h-full w-full object-cover"
           loading="lazy"
           onError={() => {
-            if (scope.current !== currentScope) return;
+            if (scope.current !== currentScope || services.auth?.currentUser !== viewer) return;
             setFailedImage(currentScope);
             if (loggedImage.current === currentScope) return;
             loggedImage.current = currentScope;
@@ -268,8 +268,9 @@ function RouteNavigation({ labels, bounds, padding, onFit }: {
   </MapNavigation>;
 }
 
-function RouteCameraControls({ bounds, disabled, padding, labels, onFit }: {
+function RouteCameraControls({ bounds, navigationBounds, disabled, padding, labels, onFit }: {
   bounds: LngLatBoundsLike;
+  navigationBounds: LngLatBoundsLike;
   disabled: boolean;
   padding: number;
   labels: RouteMapProps["navigationLabels"];
@@ -285,8 +286,8 @@ function RouteCameraControls({ bounds, disabled, padding, labels, onFit }: {
       fittedKey.current = key;
     }
   }, [map, bounds, disabled, padding]);
-  return labels ? <RouteNavigation labels={labels} bounds={bounds} padding={padding} onFit={() => {
-    fittedKey.current = JSON.stringify(bounds);
+  return labels ? <RouteNavigation labels={labels} bounds={navigationBounds} padding={padding} onFit={() => {
+    fittedKey.current = JSON.stringify(navigationBounds);
     onFit();
   }} /> : null;
 }
@@ -409,6 +410,11 @@ export default function RouteMap({
   const [mapFailed, setMapFailed] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [webglSupported] = useState(() => supportsWebGL());
+  const mapViewer = firebaseServices.auth?.currentUser;
+  const mapScope = useMemo(() => ({ firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl }),
+    [firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl]);
+  const mapScopeRef = useRef(mapScope);
+  mapScopeRef.current = mapScope;
 
   const { routePositions, sourcePositions, segmentStarts, streamFallback } = useMemo(() => {
     const parts: RouteSlot[] = [];
@@ -447,7 +453,7 @@ export default function RouteMap({
   useEffect(() => {
     mapErrorLogged.current = false;
     setMapFailed(false);
-  }, [polyline, latlng, routeParts, fallbackImageUrl]);
+  }, [mapScope]);
 
   useEffect(() => { setMapReady(false); }, [polyline, latlng, routeParts]);
 
@@ -493,7 +499,9 @@ export default function RouteMap({
   const pointBounds = useMemo(() => getBounds(pointPositions), [pointPositions]);
   // Hover/highlight points do not define the recorded route's camera. Explicit point
   // navigation has its own controller; route fit remains stable after photo navigation.
-  const bounds = routeBounds ?? standaloneBounds ?? pointBounds;
+  const recordedBounds = useMemo(() => routeBounds ?? getBounds(standalonePositions), [routeBounds, standalonePositions]);
+  const bounds = cameraIntent.current.full && recordedBounds ? recordedBounds : routeBounds ?? standaloneBounds ?? pointBounds;
+  const fullRouteBounds = recordedBounds ?? bounds;
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
@@ -536,6 +544,7 @@ export default function RouteMap({
   }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
   const handleMapError = useCallback((event: { error?: unknown } = {}) => {
+    if (mapScopeRef.current !== mapScope || firebaseServices.auth?.currentUser !== mapScope.mapViewer) return;
     if (!mapErrorLogged.current) {
       mapErrorLogged.current = true;
       const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
@@ -549,7 +558,7 @@ export default function RouteMap({
       }, firebaseServices);
     }
     setMapFailed(true);
-  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices]);
+  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope]);
 
   const previewRange = highlightRange ?? flyToRange;
   const selectedMeasuredPoint = streamFallback && previewRange?.startIndex === previewRange?.endIndex
@@ -593,7 +602,7 @@ export default function RouteMap({
   return (
     <div className={`${containerClass} relative`}>
       {loadingPlaceholder && !mapReady && <div data-map-thumbnail-loading className="absolute inset-0 z-10">{loadingPlaceholder}</div>}
-      <ErrorBoundary fallback={() => fallback} onError={() => setMapFailed(true)}>
+      <ErrorBoundary fallback={() => fallback} onError={error => handleMapError({ error })}>
         <Map
           mapboxAccessToken={mapboxToken}
           mapStyle={MAP_STYLE}
@@ -828,13 +837,13 @@ export default function RouteMap({
           </Source>
         )}
 
-        <RouteCameraControls labels={navigationLabels} bounds={bounds} disabled={isRoutePosition(flyToPosition) && !cameraIntent.current.full}
+        <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds} disabled={isRoutePosition(flyToPosition) && !cameraIntent.current.full}
           padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />
-        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds}
+        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={fullRouteBounds ?? bounds}
           photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full}
           rangeAfterPhoto={cameraIntent.current.rangeAfterPhoto} />
         {flyToPosition !== undefined && (
-          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)}
+          <FlyToPositionControl position={flyToPosition} fullBounds={fullRouteBounds ?? bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)}
             suppressed={cameraIntent.current.full || cameraIntent.current.rangeAfterPhoto} />
         )}
         </Map>
