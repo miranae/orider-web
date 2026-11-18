@@ -97,3 +97,19 @@ test("development CSP preserves the production Cloud Functions policy", () => {
     assert.match(result.stderr, /preserve production CSP directive connect-src/);
   }
 });
+
+test("development publication is manual-only and rejects an unasserted writer contract before auth", () => {
+  const workflow = readFileSync(join(root, ".github/workflows/deploy-stage.yml"), "utf8");
+  const events = workflow.split("\npermissions:")[0].match(/^  [a-z_]+:/gm)?.map(value => value.trim());
+  assert.deepEqual(events, ["workflow_dispatch:"]);
+  assert.match(workflow, /group: deploy-hosting-stage/); assert.match(workflow, /cancel-in-progress: false/);
+  const start = workflow.indexOf('          if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then');
+  const end = workflow.indexOf("      - name: Set production runtime snapshot path", start);
+  assert.ok(start > 0 && end > start);
+  assert.ok(start < workflow.indexOf("google-github-actions/auth")); assert.ok(start < workflow.indexOf("firebase deploy"));
+  for (const value of ["", "false", "true"]) {
+    const actual = spawnSync("bash", ["-euc", `${workflow.slice(start, end)}\nprintf 'writer-authorized'`], { encoding: "utf8", env: { ...process.env, ORIDER_STAGE_HOSTING_SERIALIZED_WRITES: value } });
+    assert.equal(actual.status, value === "true" ? 0 : 1);
+    assert.equal(actual.stdout.includes("writer-authorized"), value === "true");
+  }
+});
