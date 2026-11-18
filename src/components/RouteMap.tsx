@@ -327,7 +327,13 @@ export default function RouteMap({
 
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
-  const bounds = useMemo(() => getBounds(positions), [positions]);
+  const pointNavigation = Boolean(isRoutePosition(markerPosition) || isRoutePosition(flyToPosition)
+    || Array.isArray(photos) && photos.some(photo => isRoutePosition(photo?.location))
+    || Array.isArray(waypoints) && waypoints.some(point => isRoutePosition([point?.lat, point?.lon]))
+    || flyToRange && flyToRange.startIndex === flyToRange.endIndex && isRoutePosition(sourcePositions[flyToRange.startIndex])
+    || highlightRange && (isRoutePosition(sourcePositions[highlightRange.startIndex]) || isRoutePosition(sourcePositions[highlightRange.endIndex])));
+  const bounds = useMemo(() => getBounds(positions) ?? (pointNavigation ? getBounds(sourcePositions) : null),
+    [positions, sourcePositions, pointNavigation]);
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
@@ -368,7 +374,7 @@ export default function RouteMap({
     if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
   }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
-  if (!bounds || !drawable) {
+  if (!bounds || (!drawable && !pointNavigation)) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}

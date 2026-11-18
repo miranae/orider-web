@@ -247,6 +247,15 @@ describe("RouteMap", () => {
     expect(mapProps.sources.some(source => (source as {features?: {geometry:{coordinates:number[]}}[]}).features?.[0]?.geometry.coordinates[0] === 150)).toBe(true);
   });
 
+  it("keeps photo location navigation available when only one GPS fix exists", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127]]} photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} flyToPosition={[38,128]} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(mapProps.markers).toContainEqual(expect.objectContaining({latitude:38,longitude:128}));
+    expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[128,38]}));
+  });
+
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
     const invalid = [null, {}, [NaN, 127], [91, 127], [37, Infinity], [37], ["37", 127]] as unknown as [number, number][];
     const { rerender } = renderWithProviders(<RouteMap latlng={invalid} />);
