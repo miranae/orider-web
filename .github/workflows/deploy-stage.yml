@@ -33,6 +33,7 @@ jobs:
     env:
       VITE_MODE: production
       STAGE_FIREBASE_PROJECT_ID: orider-dev
+      ORIDER_STAGE_HOSTING_SERIALIZED_WRITES: ${{ vars.ORIDER_STAGE_HOSTING_SERIALIZED_WRITES }}
       VITE_PUBLIC_CLUB_API_URL: ${{ vars.VITE_PUBLIC_CLUB_API_URL }}
     steps:
       - uses: actions/checkout@v5
@@ -52,6 +53,9 @@ jobs:
         run: |
           set -euo pipefail
           node -e 'if(!/^[A-Za-z0-9._/-]+$/.test(process.env.REQUESTED_SOURCE||"")||!["legacy","bundled-development"].includes(process.env.SELECTED_TRANSPORT))throw Error("invalid selected source/profile");if(process.env.SELECTED_TRANSPORT==="bundled-development"&&!/^[a-f0-9]{40}$/.test(process.env.BACKEND_SOURCE||""))throw Error("validated backend full SHA required");'
+          if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then
+            echo "::error::Development Hosting requires ORIDER_STAGE_HOSTING_SERIALIZED_WRITES=true and serialized CI as the only supported live writer"; exit 1
+          fi
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main +refs/heads/dev:refs/remotes/origin/dev
           selected_sha=$(git rev-parse HEAD)
           if ! git merge-base --is-ancestor "$selected_sha" origin/main && ! git merge-base --is-ancestor "$selected_sha" origin/dev; then
@@ -116,11 +120,15 @@ jobs:
         env:
           SELECTED_TRANSPORT: ${{ inputs.transport }}
           FRONTEND_SOURCE: ${{ steps.source.outputs.sha }}
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
           set -euo pipefail
           config=firebase.stage.json
           if [ "$SELECTED_TRANSPORT" = bundled-development ]; then config=firebase.bundled-stage.json; fi
           npm install -g firebase-tools
+          if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
+            node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/bundled-stage-hosting.json"
+          fi
           set +e
           firebase deploy --config "$config" --only hosting --project orider-dev --non-interactive --message "bundled-stage:${FRONTEND_SOURCE}:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT" 2>&1 | tee firebase-stage-deploy.log
           status=${PIPESTATUS[0]}

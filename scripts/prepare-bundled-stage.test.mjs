@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSync } from "node:fs";
+import { mkdtempSync, existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
-import { snapshotStageHosting, rollbackStageHosting } from "./bundled-stage-hosting-release.mjs";
+import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
 import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
@@ -198,17 +198,18 @@ test("failed development release restores only its own marker to the exact previ
   const fetcher = async (url, options) => {
     calls.push({ url, method: options.method });
     assert.equal(options.headers.Authorization, "Bearer fixture"); assert.equal(options.redirect, "error");
-    if (url.endsWith("/channels/live")) return Response.json({ name: channelName, release: { version: { name: active }, message } });
+    if (url.endsWith("/channels/live")) return Response.json({ name: channelName, release: { name: `sites/orider-dev/releases/${active.split("/").at(-1)}`, version: { name: active }, message } });
     if (options.method === "POST") { assert.equal(url, `https://firebasehosting.googleapis.com/v1beta1/${channelName}/releases?versionName=${encodeURIComponent(previous)}`); active = previous; return Response.json({}); }
     return Response.json({ name: previous, status: "FINALIZED" });
   };
-  const snapshot = await snapshotStageHosting({ token: "fixture", marker, fetcher });
+  const snapshot = await snapshotStageHosting({ serializedWrites: "true", token: "fixture", marker, fetcher });
   assert.equal(calls.some(call => call.method !== "GET"), false);
+  assert.deepEqual(await verifyStagePublishPointer(snapshot, { serializedWrites: "true", token: "fixture", fetcher }), { verified: true, version: previous });
   active = next; message = marker;
-  assert.deepEqual(await rollbackStageHosting(snapshot, { token: "fixture", fetcher }), { restored: true, unchanged: false, version: previous });
+  assert.deepEqual(await rollbackStageHosting(snapshot, { serializedWrites: "true", token: "fixture", fetcher }), { restored: true, unchanged: false, version: previous });
   assert.equal(calls.filter(call => call.method === "POST").length, 1);
   active = next; message = marker;
-  const uncertain = await rollbackStageHosting(snapshot, { token: "fixture", fetcher: async (url, options) => {
+  const uncertain = await rollbackStageHosting(snapshot, { serializedWrites: "true", token: "fixture", fetcher: async (url, options) => {
     if (options.method === "POST") { active = previous; throw new Error("PRIVATE_TIMEOUT"); }
     return fetcher(url, options);
   } });
@@ -217,16 +218,16 @@ test("failed development release restores only its own marker to the exact previ
   active = next; message = marker;
   for (const readbackFails of [false, true]) {
     let channelReads = 0;
-    await assert.rejects(rollbackStageHosting(snapshot, { token: "fixture", fetcher: async (url, options) => {
+    await assert.rejects(rollbackStageHosting(snapshot, { serializedWrites: "true", token: "fixture", fetcher: async (url, options) => {
       if (options.method === "POST") return new Response(null, { status: 403 });
-      if (url.endsWith("/channels/live") && ++channelReads > 1 && readbackFails) throw new Error("PRIVATE_GET_FAILURE");
+      if (url.endsWith("/channels/live") && ++channelReads > 2 && readbackFails) throw new Error("PRIVATE_GET_FAILURE");
       return fetcher(url, options);
     } }), error => /POST.*HTTP403/u.test(error.message) && (readbackFails ? /GET transport failed/u : /readback mismatch/u).test(error.message) && !/PRIVATE_GET_FAILURE/u.test(error.message));
   }
   active = next; message = "another operator deployment"; calls.length = 0;
-  await assert.rejects(rollbackStageHosting(snapshot, { token: "fixture", fetcher }), /not this deployment/);
+  await assert.rejects(rollbackStageHosting(snapshot, { serializedWrites: "true", token: "fixture", fetcher }), /not this deployment/);
   assert.equal(calls.some(call => call.method === "POST"), false);
-  await assert.rejects(rollbackStageHosting({ ...snapshot, site: "miranae-orider-g1" }, { token: "fixture", fetcher }), /snapshot invalid/);
+  await assert.rejects(rollbackStageHosting({ ...snapshot, site: "miranae-orider-g1" }, { serializedWrites: "true", token: "fixture", fetcher }), /snapshot invalid/);
 });
 test("development rollback is wired after the live checks and before artifact publication", () => {
   const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
@@ -244,4 +245,48 @@ test("missing handoff or AI browser routes block development before publication 
         ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options) }), new RegExp(path));
     } finally { f.cleanup(); }
   }
+});
+
+test("serialized CI assertion fails before authentication or any Hosting request", async () => {
+  let calls = 0; const fetcher = async () => { calls++; throw new Error("must not request"); };
+  assert.throws(() => assertSerializedStageHostingWrites("false"), /SERIALIZED_WRITES=true/);
+  for (const operation of [snapshotStageHosting, verifyStagePublishPointer, rollbackStageHosting]) {
+    await assert.rejects(operation === snapshotStageHosting
+      ? operation({ serializedWrites: "false", fetcher })
+      : operation({}, { serializedWrites: "false", fetcher }), /SERIALIZED_WRITES=true/);
+  }
+  assert.equal(calls, 0);
+  const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
+  const start = workflow.indexOf('          if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then');
+  const end = workflow.indexOf('          git fetch --no-tags', start);
+  assert.ok(start >= 0 && end > start);
+  for (const later of ["google-github-actions/auth", "--phase snapshot", "firebase deploy --config"]) assert.ok(start < workflow.indexOf(later));
+  assert.match(workflow, /group: deploy-hosting-stage/); assert.match(workflow, /cancel-in-progress: false/);
+  const root = mkdtempSync(resolve(tmpdir(), "bundled-serialized-guard-"));
+  try {
+    for (const value of ["false", "true"]) {
+      const marker = resolve(root, value);
+      const actual = spawnSync("bash", ["-euc", `${workflow.slice(start, end)}\ntouch "$GUARD_MARKER"`], { cwd: root, encoding: "utf8", env: { ...process.env, ORIDER_STAGE_HOSTING_SERIALIZED_WRITES: value, GUARD_MARKER: marker } });
+      assert.equal(actual.status, value === "true" ? 0 : 1); assert.equal(existsSync(marker), value === "true");
+    }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+test("observed intervening release changes abort publication and compensating rollback without POST", async () => {
+  const previous = "sites/orider-dev/versions/previous", active = "sites/orider-dev/versions/ours";
+  const snapshot = { schemaVersion: 1, site: "orider-dev", channel: "live", previousVersion: previous, previousRelease: "sites/orider-dev/releases/previous", marker: `bundled-stage:${"a".repeat(40)}:123:1` };
+  for (const operation of [verifyStagePublishPointer, rollbackStageHosting]) {
+    let reads = 0, writes = 0;
+    const fetcher = async (url, options) => {
+      if (options.method === "POST") writes++;
+      if (url.endsWith("/channels/live")) {
+        reads++;
+        return Response.json({ name: "sites/orider-dev/channels/live", release: { name: `sites/orider-dev/releases/${reads === 1 ? operation === verifyStagePublishPointer ? "previous" : "ours" : "other"}`, version: { name: operation === verifyStagePublishPointer ? previous : active }, message: snapshot.marker } });
+      }
+      return Response.json({ name: previous, status: "FINALIZED" });
+    };
+    await assert.rejects(operation(snapshot, { serializedWrites: "true", token: "fixture", fetcher }), /live release changed/);
+    assert.equal(writes, 0); assert.equal(reads, 2);
+  }
+  const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
+  assert.ok(workflow.indexOf("--phase check-publish") < workflow.indexOf("firebase deploy --config"));
 });

@@ -74,7 +74,21 @@ nonempty HTML entry and its referenced JS chunk before it can be sealed or publi
 Before bundled development publication, the job snapshots the exact finalized
 `orider-dev` live Hosting version. If publication or live entry/detail verification
 fails, it restores that version only when the current release carries this run's
-unique deployment marker, then checks the live pointer. A later operator's release
-is never rolled back by this job. A recovered release still leaves the job failed
+unique deployment marker, then checks the live pointer. A different observed release identity aborts the job's publication or recovery. A recovered release still leaves the job failed
 for investigation. This recovery is fixed to development and does not publish
 or roll back production.
+
+Development live publication supports serialized CI writers only. Before enabling
+it, audit all normal writer paths to use the same repository workflow concurrency
+`deploy-hosting-stage` with cancellation disabled, then set repository variable
+`ORIDER_STAGE_HOSTING_SERIALIZED_WRITES=true`. Missing/false rejects before cloud
+authentication; the Hosting helpers also reject before requests. Publication
+rechecks the snapshotted release name/version twice, and compensation rechecks
+its own marker/name/version immediately before POST.
+
+This variable is an operator assertion, not IAM enforcement. Firebase Hosting's
+release API provides no compare-and-swap/ETag precondition; these reads are not
+atomic with publication. Concurrent out-of-band Console/manual publication is
+unsupported. Break-glass changes require stopping/awaiting the active workflow,
+then inspecting the current live release before resuming CI. An unconstrained
+owner publishing during the last read-to-write gap remains a platform limit.
