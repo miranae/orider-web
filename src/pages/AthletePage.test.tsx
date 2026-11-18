@@ -564,7 +564,7 @@ it("keeps owner sport filters on loaded pages with explicit More even when an ol
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" }, route: "/ko/athlete/me/activities" });
   fireEvent.click(within(await screen.findByLabelText("종목 선택")).getByText("러닝"));
   expect(screen.queryByRole("link", { name: "Older loaded-page run" })).not.toBeInTheDocument();
-  fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }, { timeout: 1000 }));
   await screen.findByRole("link", { name: "Older loaded-page run" });
 });
 it("offers an honest retry after a failed initial owner feed page without re-reading media", async () => {
@@ -585,7 +585,7 @@ it("does not reload loaded pages, friends or segments when numeric profile revis
   setCollectionDocs("activities", Array.from({ length: 24 }, (_, i) => createMockActivity({ deletedAt: null, id: `stable-${i}`, userId: "athlete-1", startTime: Date.UTC(2020, 0, i + 1), endTime: Date.UTC(2020, 0, i + 1, 1), description: `Stable ride ${i}`, keywords: ["stable"] })));
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" }, route: "/ko/athlete/me/activities" });
   await screen.findByLabelText("연도");
-  fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }, { timeout: 1000 }));
   await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(24));
   const scopedCalls = () => mockCallableInvocations.filter(call => ["ensureAthleteProfile", "getAthleteProfilePreview", "getPublicSegmentMetadata"].includes(call.name)).map(call => JSON.stringify(call));
   const reads = vi.mocked(getDocs).mock.calls.length, functions = scopedCalls();
@@ -802,4 +802,39 @@ it.each(["pending", "failed"])("does not replace public %s totals with activity-
   await waitFor(() => expect(within(totals).getByRole("status")).toHaveTextContent(state === "failed" ? "누적 기록 확인이 중단되었습니다." : "누적 기록을 확인하고 있습니다."));
   expect(within(totals).queryByText("0회")).not.toBeInTheDocument();
   expect(within(totals).getAllByText("—")).toHaveLength(4);
+});
+
+it("re-reads whole totals from a profile change signal and when returning to the tab", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Signal rider", profilePublic: true, athleteTotalsSignal: "one" });
+  renderWithProviders(<AthletePage />);
+  const totals = await screen.findByRole("region", { name: "활동 누적 기록" });
+  await waitFor(() => expect(within(totals).getByText("5회")).toBeInTheDocument());
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 7 }) });
+  act(() => setDocData("users_public/athlete-1", { nickname: "Signal rider", profilePublic: true, athleteTotalsSignal: "two" }));
+  await waitFor(() => expect(within(totals).getByText("7회")).toBeInTheDocument());
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
+  fireEvent(window, new Event("focus"));
+  await waitFor(() => expect(within(totals).getByText("9회")).toBeInTheDocument());
+});
+it("records a real public request failure after unmount without updating abandoned state", async () => {
+  const failure = new Error("offline"); let reject!: (error: Error) => void;
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  setCallableImplementation("getPublicAthleteTotals", () => new Promise((_, fail) => { reject = fail; }));
+  const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+  const view = renderWithProviders(<AthletePage />);
+  await waitFor(() => expect(reject).toBeTypeOf("function"));
+  view.unmount();
+  await act(async () => { reject(failure); await Promise.resolve(); });
+  expect(log).toHaveBeenCalledWith("AthletePage.publicTotals", failure, {}, expect.anything());
+  log.mockRestore();
+});
+it("does not use whole-history count as the remaining authorized list count", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 100 }) });
+  const visible = Array.from({ length: 21 }, (_, i) => createMockActivity({ id: `visible-${i}`, userId: "athlete-1", deletedAt: null, visibility: "everyone" }));
+  vi.mocked(loadActivityDiscovery).mockImplementation(async () => ({ expiresAt: Date.now() + 600000, items: visible.slice(0, 20), nextCursor: "next", exhausted: false }));
+  renderWithProviders(<AthletePage />);
+  await screen.findByText("100회", {}, { timeout: 1000 });
+  expect(screen.queryByText("더 보기 (80개 남음)")).not.toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "더 보기", exact: true }, { timeout: 1000 })).toBeInTheDocument();
 });

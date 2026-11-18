@@ -232,9 +232,18 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (isOwnProfile || !userId) return;
     void loadPublicAthleteTotals(services, userId, () => !cancelled && profileReadIdentity.current === readIdentity)
       .then(value => { if (!cancelled) setPublicTotals({ identity: readIdentity, value }); })
-      .catch(error => { if (!cancelled) { logClientError("AthletePage.publicTotals", error, {}, services); setPublicTotalsError(true); } });
+      .catch(error => {
+        if (!(error instanceof Error && error.message === "athlete-profile-session-changed")) logClientError("AthletePage.publicTotals", error, {}, services);
+        if (!cancelled) setPublicTotalsError(true);
+      });
     return () => { cancelled = true; };
-  }, [userId, isOwnProfile, readIdentity, totalsAttempt]);
+  }, [userId, isOwnProfile, readIdentity, totalsAttempt, profileForPage?.athleteTotalsSignal]);
+  useEffect(() => {
+    if (isOwnProfile || !userId) return;
+    const refresh = () => { if (document.visibilityState !== "hidden") setTotalsAttempt(value => value + 1); };
+    window.addEventListener("focus", refresh); document.addEventListener("visibilitychange", refresh);
+    return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [isOwnProfile, userId, readIdentity]);
   const [ownerPhotos, setOwnerPhotos] = useState<AthletePhoto[]>([]);
   const [ownerHighlights, setOwnerHighlights] = useState<AthleteHighlight[]>([]);
   const [photoCursor, setPhotoCursor] = useState<AthletePreviewCursor | null>(null);
@@ -838,6 +847,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
         {!isOwnProfile && !statsReady && <p role="status">{t(summaryError || summaryTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Button size="sm" onClick={() => setTotalsAttempt(value => value + 1)}>{t("profile.reloadTotals")}</Button></p>}
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t("stats.scopeOwn")}</Text>
+        {!isOwnProfile && statsReady && <Button size="sm" variant="ghost" onClick={() => setTotalsAttempt(value => value + 1)}>{t("profile.reloadTotals")}</Button>}
       </section>
   );
 
@@ -1180,8 +1190,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                         <span className="w-4 h-4 border-2 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
                         {t("activities.loading")}
                       </span>
-                    ) : !isOwnProfile && stats.count > displayActivities.length ? (
-                      t("activities.loadMoreRemaining", { count: stats.count - displayActivities.length })
                     ) : (
                       t("activities.loadMore")
                     )}
