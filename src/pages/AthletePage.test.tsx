@@ -45,8 +45,10 @@ const setCallableImplementation = (name: string, fn: (request: unknown) => unkno
   return name === "getAthleteProfilePreview" ? { data: withCoverage(response.data) } : response;
 });
 const totalsFixture = (patch = {}) => ({ schemaVersion: 1, ownerUid: "athlete-1", epoch: "profile-epoch", state: "ready", revision: 1, count: 5, distance: 5000, timeDisplayMillis: 3600000, elevation: 100, unknownDistanceCount: 0, unknownTimeCount: 0, unknownElevationCount: 0, ...patch });
+const defaultDiscovery = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
 let activityQueries: ReturnType<typeof installActivityQueryFake>;
 beforeEach(() => {
+  vi.mocked(loadActivityDiscovery).mockImplementation(defaultDiscovery);
   activityQueries = installActivityQueryFake();
   setCallableResult("getPublicSegmentMetadata", { data: { items: [], cursor: null, hasMore: false } });
   setCallableResult("ensureAthleteProfile", { data: totalsFixture() });
@@ -1032,4 +1034,49 @@ it("retries the callable immediately when a terminated signal subscription has n
     fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
     await screen.findByText("11회");
   } finally { vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it.each(["missing", "delayed"])("uses a bounded snapshot when the logged-in viewer signal is %s", async mode => {
+  setDocData("users_public/athlete-1", { nickname: "Bounded rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (ref.path === "users/viewer" && options && typeof options === "object" && "includeMetadataChanges" in options) {
+      if (mode === "missing") (next as (snapshot: unknown) => void)({ exists: () => false, data: () => undefined, metadata: { fromCache: false } });
+      return () => {};
+    }
+    return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+  }) as never);
+  const originalTimer = globalThis.setTimeout;
+  let expire: (() => void) | undefined;
+  const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: () => void, delay?: number, ...args: unknown[]) => {
+    if (delay === 60_000) expire = callback;
+    return originalTimer(callback, delay, ...args);
+  }) as typeof setTimeout);
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("5회");
+    expect(expire).toBeDefined();
+    act(() => expire!());
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    expect(screen.getByText("누적 기록을 다시 확인해 주세요.")).toBeInTheDocument();
+  } finally { timer.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it("keeps whole totals while a failed initial public list remains unknown and can be retried", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true, athleteTotalsSignal: "one" });
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let attempts = 0;
+  vi.mocked(loadActivityDiscovery).mockImplementation((async (services, request) => {
+    if (request.scope === "athlete" && request.fromInclusive === undefined && request.order !== "id_asc" && !request.cursor && ++attempts === 1) throw new Error("list timeout");
+    return original(services, request);
+  }) as typeof loadActivityDiscovery);
+  try {
+    renderWithProviders(<AthletePage />);
+    const retry = await screen.findByRole("button", { name: "활동 목록을 불러오지 못했습니다. 전체 결과가 아니며 같은 위치에서 다시 시도할 수 있습니다." });
+    expect(screen.getByText("5회")).toBeInTheDocument();
+    expect(screen.queryByText("공개된 활동이 없습니다.")).not.toBeInTheDocument();
+    fireEvent.click(retry);
+    await waitFor(() => expect(attempts).toBe(2));
+    await screen.findByText("공개된 활동이 없습니다.");
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });

@@ -173,7 +173,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const ACTIVITIES_PAGE_SIZE = 20;
   const [displayActivities, setDisplayActivities] = useState<Activity[]>([]);
   const [activityAttempt, setActivityAttempt] = useState(0);
-  const [ownerActivityError, setOwnerActivityError] = useState(false);
+  const [activityReadError, setActivityReadError] = useState(false);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreActivities, setHasMoreActivities] = useState(true);
@@ -271,7 +271,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         // Like existing public detail reads, authorization is checked at read time (P3).
         setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, readAt: Date.now(), value });
         // Signal changes discard old results. Missing/failed/cached signals only allow a short, server-authorized snapshot.
-        if (!currentSignals?.public?.present || currentSignals.public.error || currentSignals.public.fromCache || currentSignals.viewer?.error || currentSignals.viewer?.fromCache) expiry = setTimeout(() => {
+        if (!currentSignals?.public?.present || currentSignals.public.error || currentSignals.public.fromCache || services.auth.currentUser && !currentSignals.viewer?.present || currentSignals.viewer?.error || currentSignals.viewer?.fromCache) expiry = setTimeout(() => {
           cancelled = true; setPublicTotals(null); setPublicTotalsExpired(true);
         }, 60_000);
       })
@@ -457,7 +457,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     const load = async () => {
       setActivitiesLoading(true);
-      setOwnerActivityError(false);
+      setActivityReadError(false);
       setDisplayActivities([]);
       setLastActivityDoc(null);
       setPublicActivityCursor(null);
@@ -489,8 +489,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
         setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
       } catch (err) {
-        logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile });
-        if (!cancelled && isOwnProfile) setOwnerActivityError(true);
+        logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile }, services);
+        if (!cancelled) { setActivityReadError(true); setHasMoreActivities(false); }
       } finally {
         if (!cancelled) setActivitiesLoading(false);
       }
@@ -602,7 +602,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!profileReadReady) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
     setLoadingMore(true);
-    if (isOwnProfile) setOwnerActivityError(false);
+    setActivityReadError(false);
     const identity = profileReadIdentity.current;
     try {
       if (!isOwnProfile) {
@@ -626,9 +626,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
       setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
     } catch (err) {
-      logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile });
-      if (profileReadIdentity.current === identity && isOwnProfile) setOwnerActivityError(true);
-      if (profileReadIdentity.current === identity && !isOwnProfile) { setDisplayActivities([]); setPublicActivityCursor(null); setHasMoreActivities(false); }
+      logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile }, services);
+      if (profileReadIdentity.current === identity) setActivityReadError(true);
     } finally {
       if (profileReadIdentity.current === identity) setLoadingMore(false);
     }
@@ -1216,7 +1215,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             </div>}
           </div>
 
-          {isOwnProfile && ownerActivityError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t("profile.activitiesReadError")}</Resolvable></Text></div>}
+          {!isSearchActive && activityReadError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t("profile.activitiesReadError")}</Resolvable></Text></div>}
           
           <div className="relative z-0 space-y-4">
             {(activitiesLoading || searchLoading) ? (
@@ -1225,7 +1224,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   <Card key={i} padding="none" className="h-40 rounded-[var(--r-xl)] animate-pulse" />
                 ))}
               </div>
-            ) : filteredActivities.length === 0 ? (
+            ) : !isSearchActive && activityReadError && filteredActivities.length === 0 ? null : filteredActivities.length === 0 ? (
               <Card padding="none" className="text-center py-12 rounded-[var(--r-xl)]">
                 <p className="text-[var(--ink-3)]">
                   {isSearchActive ? t("activities.emptySearch") : isOwnProfile && !selectedPeriod && hasMoreActivities ? t("profile.noMatchesInLoaded")
