@@ -357,6 +357,8 @@ export default function RouteMap({
     })),
   }), [standalonePositions]);
   const hasSourcePosition = useMemo(() => sourcePositions.some(isRoutePosition), [sourcePositions]);
+  const hasLocatedAttachment = hasSourcePosition && (photos?.some(photo => isRoutePosition(photo?.location))
+    || waypoints?.some(point => isRoutePosition([point?.lat, point?.lon])));
   const pointPositions = useMemo(() => {
     const points: [number, number][] = [...standalonePositions, ...endpoints, ...activePoints];
     const add = (point: unknown) => { if (isRoutePosition(point)) points.push([point[0], point[1]]); };
@@ -427,7 +429,7 @@ export default function RouteMap({
     setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices]);
 
-  if (!bounds || (!drawable && fallbackImageUrl && navigationPoints.length === 0 && endpoints.length === 0)) {
+  if (!bounds || (!drawable && fallbackImageUrl && navigationPoints.length === 0 && endpoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}

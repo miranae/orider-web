@@ -319,6 +319,14 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall).toEqual([[[127,37],[127,37]],{padding:20,maxZoom:15}]);
   });
 
+  it("keeps a located photo popup accessible alongside a single GPS fix and a saved image", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png"
+      photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("map-marker"));
+    expect(screen.getByTestId("map-popup")).toBeInTheDocument();
+  });
+
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;

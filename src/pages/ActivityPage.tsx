@@ -1,3 +1,4 @@
+import { useActivityPhotoLocation } from "../hooks/useActivityPhotoLocation";
 import { usePageDataTiming } from "../hooks/usePageDataTiming";
 import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
 import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
@@ -231,9 +232,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const [uploadedPhotoState, setUploadedPhotoState] = useState<{ identity: string; photos: UploadedPhoto[] } | null>(null);
   const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
   const [photoUploading, setPhotoUploading] = useState(false);
-  // 서버 응답으로 받은 숨김 목록. 활동 문서 구독이 새 값을 가져올 때까지 화면에 바로 반영한다.
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
+  const { flyToPosition, locate: locatePhoto } = useActivityPhotoLocation(uploadedPhotoIdentity);
   const activityNavigationRef = useRef<HTMLDivElement>(null);
   const mobileReading = useMobile();
   const [wideStats, setWideStats] = useState(false);
@@ -1382,7 +1382,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         loadingPhotos={publicAccess ? publicPhotosBusy : loadingStreams || showStreamSpinner} photoError={publicAccess ? publicPhotosError : (activity.photoCount ?? 0) > overviewPhotos.length ? streamsError : null} canLoadPhotos={!streamsSignInRequired}
         onSignIn={() => { void signIn(); }} onLoadPhotos={() => { if (publicAccess) { void loadPublicPhotos(); return; } if (streamsError) void retryStreams(); else requestStreams(); }} onUpload={() => photoInputRef.current?.click()}
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
-        onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
+        onLocate={location => { locatePhoto(location); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
       {activeTab === "analysis" && <header className="activity-analysis-intro">
         <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>

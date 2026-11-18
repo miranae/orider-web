@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createInstance } from "i18next";
+import { getMapboxToken } from "../../src/utils/mapbox";
 import { loadRuntimeConfig } from "../../src/services/runtimeConfig";
 import { logClientError } from "../../src/services/errorLogger";
 import { I18nextProvider, useTranslation } from "react-i18next";
@@ -26,6 +27,8 @@ import "../../src/theme/generated.css";
 import "../../src/theme/components/components.css";
 
 await loadRuntimeConfig();
+const fixtureMapAvailable = Boolean(getMapboxToken());
+if (!fixtureMapAvailable) logClientError("RouteSensorExpansionFixture.config", new Error("fixture/mapbox-token-unavailable"), {stage:"runtime_config", mode:"static_fallback"});
 const fixtureI18n = createInstance();
 await new Promise<void>((resolve, reject) => {
   void fixtureI18n.init({ lng: "ko", fallbackLng: "ko", ns: ["common", "activity"], defaultNS: "common",
@@ -52,6 +55,7 @@ function Fixture() {
   const selectedSamples = selection.chartRange ? sampled.slice(selection.chartRange[0], selection.chartRange[1] + 1) : sampled;
   return <main className="site-shell space-y-4">
     <h1>활동 분석 지도·센서 회귀 검증</h1>
+    {!fixtureMapAvailable && <Text as="p" role="status">지도 토큰 없음: 정적 대체 경로 모드입니다. 실제 지도 하이라이트 검증은 사용할 수 없습니다.</Text>}
     <Text as="p">합성 활동 · 센서 5개 · 실제 계정·활동 데이터 사용 없음</Text>
     <Card><Text as="p">분석 요약: 40 m · 4초</Text></Card>
     <div className="flex flex-wrap gap-2">{[["sparse","결측 좌표"],["normal","정상 좌표"],["missing","좌표 없음"]].map(([key,label]) => <Button key={key} variant="outline" onClick={() => { setKind(key!); selection.clear(); setVisualRange(null); }}>{label}</Button>)}</div>
