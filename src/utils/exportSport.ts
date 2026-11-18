@@ -23,6 +23,8 @@ export interface ExportSport {
   gpxType: string | null;
   /** 설명이 없을 때 트랙 이름·파일 이름에 쓰는 종목 이름. */
   label: string;
+  /** 발로 움직이는 종목 — 파일의 케이던스가 한 발 기준(strides/min)이다. */
+  footCadence: boolean;
 }
 
 // FIT SDK Profile 의 enum 값.
@@ -33,14 +35,14 @@ export function exportSportOf(activity: Pick<Activity, "type">): ExportSport {
   const type = typeof activity.type === "string" ? activity.type.trim().toLowerCase() : "";
   // 걷기·하이킹은 종목 축으로는 러닝이지만 FIT·GPX 에는 고유 값이 있다.
   if (type === "walk") {
-    return { fitSport: FIT_SPORT.walking, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: "walking", label: "Walk" };
+    return { fitSport: FIT_SPORT.walking, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: "walking", label: "Walk", footCadence: true };
   }
   if (type === "hike") {
-    return { fitSport: FIT_SPORT.hiking, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: "hiking", label: "Hike" };
+    return { fitSport: FIT_SPORT.hiking, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: "hiking", label: "Hike", footCadence: true };
   }
   switch (disciplineOfType(activity.type)) {
     case "run":
-      return { fitSport: FIT_SPORT.running, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Running", gpxType: "running", label: "Run" };
+      return { fitSport: FIT_SPORT.running, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Running", gpxType: "running", label: "Run", footCadence: true };
     case "bike":
       return {
         fitSport: FIT_SPORT.cycling,
@@ -49,12 +51,13 @@ export function exportSportOf(activity: Pick<Activity, "type">): ExportSport {
         tcxSport: "Biking",
         gpxType: "cycling",
         label: "Ride",
+        footCadence: false,
       };
     case "swim":
-      return { fitSport: FIT_SPORT.swimming, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: "swimming", label: "Swim" };
+      return { fitSport: FIT_SPORT.swimming, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: "swimming", label: "Swim", footCadence: false };
     default:
       // 추적 종목이 아니면 사이클로 떨어뜨리지 않는다(`disciplineOfType` 계약).
-      return { fitSport: FIT_SPORT.generic, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: null, label: "Activity" };
+      return { fitSport: FIT_SPORT.generic, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: null, label: "Activity", footCadence: false };
   }
 }
 

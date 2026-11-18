@@ -19,7 +19,7 @@ describe('exportSportOf', () => {
 
   it('does not fall back to cycling for untracked sports', () => {
     for (const type of ['Workout', 'Yoga', '']) {
-      expect(exportSportOf({ type })).toEqual({ fitSport: 0, fitSubSport: 0, tcxSport: 'Other', gpxType: null, label: 'Activity' });
+      expect(exportSportOf({ type })).toEqual({ fitSport: 0, fitSubSport: 0, tcxSport: 'Other', gpxType: null, label: 'Activity', footCadence: false });
     }
   });
 });

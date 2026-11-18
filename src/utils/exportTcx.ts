@@ -1,8 +1,12 @@
 import type { Activity, ActivityStreams } from "@shared/types";
+import { cadenceWriter, type CadenceWriter, type ExportCadenceUnit } from "./exportCadence";
 import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
-export function generateTcx(activity: Activity, streams: ActivityStreams): string {
+/** @param cadenceUnit 활동 지표의 저장 케이던스 단위 — 러닝 케이던스를 한 발 기준으로 바꾸는 데 쓴다. */
+export function generateTcx(activity: Activity, streams: ActivityStreams, cadenceUnit?: ExportCadenceUnit): string {
+  const sport = exportSportOf(activity);
+  const cadence = cadenceWriter(sport, cadenceUnit);
   const startDate = new Date(activity.startTime);
   const startMs = startDate.getTime();
   const len = streams.time?.length || streams.latlng?.length || 0;
@@ -15,7 +19,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ext="http://www.garmin.com/xmlschemas/ActivityExtension/v2">',
     '<Activities>',
-    `<Activity Sport="${exportSportOf(activity).tcxSport}">`,
+    `<Activity Sport="${sport.tcxSport}">`,
     `<Id>${startDate.toISOString()}</Id>`,
   ];
 
@@ -35,7 +39,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
       while (trackIdx < len) {
         const tSec = relSecAt(trackIdx) ?? trackIdx;
         if (tSec > lapEndTime && trackIdx > 0) break;
-        writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx));
+        writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx), cadence);
         trackIdx++;
       }
 
@@ -53,7 +57,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
     lines.push('<Track>');
 
     for (let i = 0; i < len; i++) {
-      writeTrackpoint(lines, streams, i, startMs, relSecAt(i));
+      writeTrackpoint(lines, streams, i, startMs, relSecAt(i), cadence);
     }
 
     lines.push('</Track>', '</Lap>');
@@ -63,7 +67,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
   return lines.join('\n');
 }
 
-function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, startMs: number, relSec: number | null) {
+function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, startMs: number, relSec: number | null, cadence: CadenceWriter) {
   const time = relSec != null ? new Date(startMs + relSec * 1000).toISOString() : new Date(startMs).toISOString();
   lines.push('<Trackpoint>');
   lines.push(`<Time>${time}</Time>`);
@@ -85,13 +89,17 @@ function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, s
     lines.push(`<Value>${streams.heartrate[i]}</Value>`);
     lines.push('</HeartRateBpm>');
   }
-  if (streams.cadence?.[i] != null) {
-    lines.push(`<Cadence>${streams.cadence[i]}</Cadence>`);
+  const cad = cadence.whole(streams.cadence?.[i]);
+  // Trackpoint <Cadence> 는 자전거 rpm 이다. 러닝은 TPX 확장의 RunCadence(한 발 기준)에 싣는다.
+  if (cad != null && !cadence.footCadence) {
+    lines.push(`<Cadence>${cad}</Cadence>`);
   }
-  if (streams.watts?.[i] != null) {
+  const runCadence = cadence.footCadence ? cad : null;
+  if (streams.watts?.[i] != null || runCadence != null) {
     lines.push('<Extensions>');
     lines.push('<ext:TPX>');
-    lines.push(`<ext:Watts>${streams.watts[i]}</ext:Watts>`);
+    if (runCadence != null) lines.push(`<ext:RunCadence>${runCadence}</ext:RunCadence>`);
+    if (streams.watts?.[i] != null) lines.push(`<ext:Watts>${streams.watts[i]}</ext:Watts>`);
     lines.push('</ext:TPX>');
     lines.push('</Extensions>');
   }

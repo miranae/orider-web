@@ -1,10 +1,14 @@
 import type { Activity, ActivityStreams } from "@shared/types";
+import { cadenceWriter, type ExportCadenceUnit } from "./exportCadence";
 import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
 /** FIT 파일 바이너리 생성 */
-export function generateFit(activity: Activity, streams: ActivityStreams): Uint8Array {
+/** @param cadenceUnit 활동 지표의 저장 케이던스 단위 — 러닝 케이던스를 한 발 기준으로 바꾸는 데 쓴다. */
+export function generateFit(activity: Activity, streams: ActivityStreams, cadenceUnit?: ExportCadenceUnit): Uint8Array {
   const buf = new FitWriter();
+  const sport = exportSportOf(activity);
+  const cadence = cadenceWriter(sport, cadenceUnit);
   const startDate = new Date(activity.startTime);
   const garminEpoch = new Date("1989-12-31T00:00:00Z").getTime();
   const startTimestamp = Math.floor((startDate.getTime() - garminEpoch) / 1000);
@@ -37,7 +41,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
   const hasLatLng = !!streams.latlng?.length;
   const hasAlt = !!streams.altitude?.length;
   const hasHr = !!streams.heartrate?.length;
-  const hasCad = !!streams.cadence?.length;
+  const hasCad = !!streams.cadence?.length && streams.cadence.some(v => cadence.whole(v) != null);
   const hasPower = !!streams.watts?.length;
   const hasSpeed = !!streams.velocity_smooth?.length;
 
@@ -53,6 +57,8 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
   if (hasCad) recordFields.push([4, 1, 2]);    // cadence: uint8
   if (hasPower) recordFields.push([7, 2, 132]); // power: uint16
   if (hasSpeed) recordFields.push([6, 2, 132]); // speed: uint16 (scale 1000)
+  // 러닝·하이킹 cadence 는 한 발 기준 — 홀수 spm 의 반 걸음은 fractional_cadence(1/128)로 보존한다.
+  if (hasCad && cadence.footCadence) recordFields.push([53, 1, 2]); // fractional_cadence: uint8
 
   buf.writeDefinition(0, 20, recordFields);
 
@@ -77,18 +83,18 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
       recBytes.push(...uint16LE(encoded));
     }
     if (hasHr) recBytes.push(streams.heartrate![i] ?? 0xFF);
-    if (hasCad) recBytes.push(streams.cadence![i] ?? 0xFF);
+    if (hasCad) recBytes.push(cadence.whole(streams.cadence![i]) ?? 0xFF);
     if (hasPower) recBytes.push(...uint16LE(streams.watts![i] ?? 0xFFFF));
     if (hasSpeed) {
       const speedMs = streams.velocity_smooth![i] ?? 0;
       recBytes.push(...uint16LE(Math.round(speedMs * 1000)));
     }
+    if (hasCad && cadence.footCadence) recBytes.push(cadence.fraction(streams.cadence![i]) ?? 0xFF);
 
     buf.writeData(0, recBytes);
   }
 
   // Session 메시지 (mesg 18) — 요약
-  const sport = exportSportOf(activity);
   buf.writeDefinition(0, 18, [
     [253, 4, 134], // timestamp
     [2, 4, 134],   // start_time: uint32

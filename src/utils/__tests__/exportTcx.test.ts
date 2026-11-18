@@ -94,4 +94,24 @@ describe('generateTcx', () => {
     expect(generateTcx(makeActivity({ type: 'Run' }), streams)).toContain('<Activity Sport="Running">');
     expect(generateTcx(makeActivity({ type: 'Walk' }), streams)).toContain('<Activity Sport="Other">');
   });
+
+  it('writes run cadence as one-foot RunCadence instead of the cycling Cadence element', () => {
+    const streams = { userId: 'u1', time: [0, 1], cadence: [168, 169] };
+    const xml = generateTcx(makeActivity({ type: 'Run' }), streams, 'spm');
+    expect(xml).toContain('<ext:RunCadence>84</ext:RunCadence>');
+    expect(xml).not.toContain('<Cadence>');
+  });
+
+  it('omits run cadence when its unit is unknown', () => {
+    const streams = { userId: 'u1', time: [0], cadence: [168] };
+    const xml = generateTcx(makeActivity({ type: 'Run' }), streams, null);
+    expect(xml).not.toContain('Cadence>');
+  });
+
+  it('keeps cycling cadence in the Cadence element', () => {
+    const streams = { userId: 'u1', time: [0], cadence: [90] };
+    const xml = generateTcx(makeActivity({ type: 'Ride' }), streams, 'rpm');
+    expect(xml).toContain('<Cadence>90</Cadence>');
+    expect(xml).not.toContain('RunCadence');
+  });
 });
