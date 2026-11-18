@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import LoadingSkeleton from "../../components/redesign/states/LoadingSkeleton";
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import { CoachQuestionEntry } from "./CoachQuestionEntry";
 import { Outlet, useSearchParams, useLocation, Navigate } from "react-router-dom";
@@ -21,5 +23,5 @@ export default function CoachFitnessLayout() {
     return <Navigate replace to={{ pathname: location.pathname, search: `?${next}`, hash: location.hash }} />;
   }
   // 오늘 훈련은 화면 안에 "AI 코치에게 분석 요청" 을 둔다 — 떠 있는 버튼을 겹쳐 두지 않는다.
-  return <><Outlet context={model} />{!today && <CoachQuestionEntry model={model} page={location.pathname.endsWith("/condition") ? "condition" : "analysis"} />}</>;
+  return <><Suspense fallback={<LoadingSkeleton kind="chart" />}><Outlet context={model} /></Suspense>{!today && <CoachQuestionEntry model={model} page={location.pathname.endsWith("/condition") ? "condition" : "analysis"} />}</>;
 }

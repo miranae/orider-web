@@ -1,3 +1,4 @@
+import { ELEVATION_PLOT_AXIS_WIDTH } from "./elevationChartLayout";
 import ElevationChartAnalysis, { type AnalysisChartPresentation } from "./ElevationChartAnalysis";
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -233,14 +234,7 @@ export function gradeBandIndex(gradePct: number): number {
   return GRADE_BANDS.findIndex((band) => gradePct < band.maxGradePct);
 }
 
-/**
- * 플롯 영역이 좌우로 들여쓰이는 폭(px). y축이 `afterFit` 으로 이 값에 고정돼 있다.
- *
- * 프로필 아래에 거리축을 공유하는 띠(경유지 레인 등)를 그릴 때 이 값만큼 들여써야 x좌표가
- * 맞는다. 예전에는 Chart.js chartArea 를 그리는 도중에 재서 상태에 넣었는데, 마커가 있으면
- * 좌우 스페이서가 항상 붙으므로 측정 없이 상수로 맞출 수 있다.
- */
-export const ELEVATION_PLOT_AXIS_WIDTH = 54;
+export { ELEVATION_PLOT_AXIS_WIDTH } from "./elevationChartLayout";
 
 /**
  * 오른쪽에도 축 폭만큼 자리를 잡아 플롯 영역을 좌우 대칭으로 만들 것인가.

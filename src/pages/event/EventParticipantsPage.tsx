@@ -5,7 +5,7 @@ import Modal from "../../components/Modal";
 import { localeTag } from "../../utils/localeDate";
 import { CalendarDays, CircleAlert, Download, PencilLine, LockKeyhole, MapPin, Megaphone, Search, Send } from "lucide-react";
 import "../ExploreReview.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -164,6 +164,9 @@ export default function EventParticipantsPage() {
   const { t } = useTranslation("event");
   const dialog = useDialog();
 
+  const scope = useMemo(() => ({ eventId, user, owner: services.auth.currentUser }), [eventId, user, services.auth.currentUser]);
+  const loadGeneration = useRef(0);
+  const [loadedScope, setLoadedScope] = useState<typeof scope | null>(null);
   const [event, setEvent] = useState<EventHead | null>(null);
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,10 +192,16 @@ export default function EventParticipantsPage() {
 
   const load = useCallback(async () => {
     if (!eventId) return;
+    const generation = ++loadGeneration.current;
+    const current = () => generation === loadGeneration.current && services.auth.currentUser === scope.owner;
     setLoading(true);
     setLoadError(null);
+    setParticipants([]);
+    setDrawer(null);
+    setSelected(new Set());
     try {
       const evtSnap = await getDoc(doc(firestore, "events", eventId));
+      if (!current()) return;
       if (!evtSnap.exists()) {
         setEvent(null);
         return;
@@ -232,26 +241,9 @@ export default function EventParticipantsPage() {
 
       const partsSnap = await getDocs(collection(firestore, `events/${eventId}/participants`));
 
-      // 닉네임 비정규화 — users/{uid}.nickname
-      const userIds = partsSnap.docs.map((d) => d.id);
-      const userMap = new Map<string, { nickname: string; team: string }>();
-      await Promise.all(
-        userIds.map(async (uid) => {
-          try {
-            const profile = await getPublicUserProfile(uid, services.firestore);
-            userMap.set(uid, {
-              nickname: profile?.nickname || t("participantsView.defaultRider"),
-              team: profile?.team || "—",
-            });
-          } catch {
-            userMap.set(uid, { nickname: t("participantsView.defaultRider"), team: "—" });
-          }
-        })
-      );
-
+      if (!current()) return;
       const rows: ParticipantRow[] = partsSnap.docs.map((p) => {
         const data = p.data();
-        const u = userMap.get(p.id);
         const status = (data.status as ParticipantStatus) || "REGISTERED";
         const finishedAt = typeof data.finishedAt === "number" ? data.finishedAt
           : data.finishedAt?.toMillis?.() ?? (typeof data.finishedAt?._seconds === "number" ? data.finishedAt._seconds * 1000 : null);
@@ -260,8 +252,8 @@ export default function EventParticipantsPage() {
         return {
           userId: p.id,
           bib: typeof data.bib === "number" ? data.bib : null,
-          realName: data.realName || u?.nickname || t("participantsView.defaultRider"),
-          nickname: u?.nickname || t("participantsView.defaultRider"),
+          realName: data.realName || t("participantsView.defaultRider"),
+          nickname: t("participantsView.defaultRider"),
           category: data.category ?? null,
           age: data.birth ? ageFromBirth(data.birth) : null,
           gender: data.gender ?? null,
@@ -271,7 +263,7 @@ export default function EventParticipantsPage() {
           verificationPending,
           cpProgress: typeof data.cpProgress === "number" ? data.cpProgress : 0,
           bestTime: info.resultContractVersion >= 2 && !verifiedFinisher ? "—" : data.bestTime || "—",
-          team: u?.team || "—",
+          team: "—",
           // 무료 이벤트: REFUNDED 외 모두 paid 취급. 유료 이벤트: REGISTERED는 미결제, 그 외 paid.
           // 명시적인 data.paid 필드가 있으면 우선.
           paid:
@@ -285,16 +277,44 @@ export default function EventParticipantsPage() {
         };
       });
       setParticipants(rows);
+      // 권한이 확인된 참가 기록을 먼저 표시한다. 공개 프로필은 최대 4개 동시 조회 후 한 번에 반영한다.
+      let nextProfile = 0;
+      const profiles = new Map<string, { nickname: string; team: string }>();
+      const canonicalNames = new Set(partsSnap.docs.filter(participant => participant.data().realName).map(participant => participant.id));
+      const hydrateProfiles = async () => {
+        while (current() && nextProfile < partsSnap.docs.length) {
+          const participant = partsSnap.docs[nextProfile++]!;
+          try {
+            const profile = await getPublicUserProfile(participant.id, services.firestore);
+            if (!current()) return;
+            const nickname = profile?.nickname || t("participantsView.defaultRider");
+            profiles.set(participant.id, { nickname, team: profile?.team || "—" });
+          } catch { /* 공개 프로필 실패는 이미 확인된 참가 기록을 숨기지 않는다. */ }
+        }
+      };
+      void Promise.all(Array.from({ length: Math.min(4, partsSnap.docs.length) }, hydrateProfiles)).then(() => {
+        if (!current()) return;
+        const enrich = (row: ParticipantRow) => {
+          const profile = profiles.get(row.userId);
+          return profile ? { ...row, ...profile,
+            realName: !canonicalNames.has(row.userId) && row.realName === t("participantsView.defaultRider") ? profile.nickname : row.realName,
+          } : row;
+        };
+        setParticipants(previous => previous.map(enrich));
+        setDrawer(previous => previous ? enrich(previous) : previous);
+      });
     } catch (err) {
+      if (!current()) return;
       logClientError("EventParticipantsPage.load", err, { eventId });
       setLoadError(err instanceof Error ? err.message : t("participantsView.loadError"));
     } finally {
-      setLoading(false);
+      if (current()) { setLoadedScope(scope); setLoading(false); }
     }
-  }, [eventId, t]);
+  }, [eventId, t, scope, firestore, services]);
 
   useEffect(() => {
     void load();
+    return () => { loadGeneration.current += 1; };
   }, [load]);
 
   const isHost = !!event && !!user && (user.uid === event.creatorId || event.hostIds.includes(user.uid));
@@ -416,7 +436,7 @@ export default function EventParticipantsPage() {
       </div>
     );
   }
-  if (loading) {
+  if (loading || loadedScope !== scope) {
     return (
       <div className="max-w-4xl mx-auto py-6">
         <LoadingSkeleton kind="list" count={8} />

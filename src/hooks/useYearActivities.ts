@@ -48,7 +48,8 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
   }, [uid, calendarRetry, session]);
 
   const calendarReady = calendar.session === session && calendar.uid === uid && !calendar.loading && !calendar.error;
-  const ready = calendarReady;
+  // 선택한 연도는 이미 알고 있으므로 연도 목록 조회를 기다리지 않는다.
+  const ready = selectedYear !== undefined || calendarReady;
   useEffect(() => {
     if (!uid || !ready) return;
     let cancelled = false;
@@ -67,7 +68,8 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
   }, [uid, year, ready, retryGeneration, session]);
 
   const current = state.session === session && state.uid === uid && state.year === year;
-  const error = !!uid && ((calendar.session === session && calendar.uid === uid && calendar.error) || (current && state.error));
-  const loading = !!uid && !error && (!calendarReady || !current || state.loading);
-  return { year, years, activities: uid && current && !loading && !error ? state.activities : [], loading, error, retry };
+  const calendarError = !!uid && calendar.session === session && calendar.uid === uid && calendar.error;
+  const error = !!uid && ((selectedYear === undefined && calendarError) || (current && state.error));
+  const loading = !!uid && !error && (!ready || !current || state.loading);
+  return { year, years, activities: uid && current && !loading && !error ? state.activities : [], loading, error, calendarError, retry };
 }

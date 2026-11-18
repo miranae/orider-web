@@ -118,8 +118,10 @@ export async function readRecapYears(uid: string, cancelled: () => boolean, sess
   const read = reader(uid, cancelled, { documents: 3, requests: 2, pageSize: 2 }, session);
   read.current();
   if (session.years) return session.years;
-  const first = await read.point("calendar:first", [orderBy("startTime", "asc"), orderBy("__name__", "asc")]);
-  const tail = await read.read([orderBy("startTime", "desc"), orderBy("__name__", "desc")], 2);
+  const [first, tail] = await Promise.all([
+    read.point("calendar:first", [orderBy("startTime", "asc"), orderBy("__name__", "asc")]),
+    read.read([orderBy("startTime", "desc"), orderBy("__name__", "desc")], 2),
+  ]);
   if ([...(first ? [first] : []), ...tail.docs].some(doc => !Number.isFinite(doc.data().startTime))) throw new Error("year-read-invalid-calendar");
   const currentYear = new Date().getFullYear();
   if (!first || tail.docs.length < 2) cover(session, { start: -Infinity, end: Infinity });

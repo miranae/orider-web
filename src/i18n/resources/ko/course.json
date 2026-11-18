@@ -230,6 +230,7 @@
   "edit.ownerOnly": "코스 수정은 소유자만 가능합니다.",
   "edit.noPermission": "수정 권한이 없습니다",
   "edit.noPermissionDesc": "본인이 만든 코스만 수정할 수 있어요.",
+  "error.trackLoadFailed": "코스 고도를 불러오지 못했습니다",
   "error.loadFailed": "코스를 불러오지 못했습니다",
   "builder.mode": "지도에서 만들기",
   "builder.title": "지도 클릭 루트 빌더",

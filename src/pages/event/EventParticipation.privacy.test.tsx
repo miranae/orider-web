@@ -777,3 +777,58 @@ it("opens the existing Google auth flow for guest follow without navigating or s
   expect(screen.getByRole("heading", { name: "Event", level: 1 })).toBeInTheDocument();
   expect(vi.mocked(httpsCallable).mock.calls.some(call => call[1] === "setEventFollow")).toBe(false);
 });
+
+
+describe("optional event profile hydration", () => {
+  it("shows the ready event while its organizer profile is pending or unavailable", async () => {
+    let reject!: (error: Error) => void;
+    const pending = new Promise<never>((_, no) => { reject = no; });
+    vi.mocked(getDoc).mockImplementation((...args) => (args[0] as { path?: string }).path === "users_public/host" ? pending : realGetDoc(...args));
+    try {
+      show(<EventDetailPage />);
+      expect(await screen.findByRole("heading", { level: 1, name: "Event" })).toBeInTheDocument();
+      await act(async () => reject(new Error("profile offline")));
+      expect(screen.getByRole("heading", { level: 1, name: "Event" })).toBeInTheDocument();
+    } finally { vi.mocked(getDoc).mockImplementation(realGetDoc); }
+  });
+
+  it("keeps authorized participant records visible while public names are pending and rejects late old-route names", async () => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), creatorId: "actor" } });
+    mockDocData.set("events/next", { info: { name: "Next participant event", creatorId: "actor", status: "OPEN" } });
+    let finish!: (value: unknown) => void;
+    const pending = new Promise(resolve => { finish = resolve; });
+    vi.mocked(getDoc).mockImplementation((...args) => (args[0] as { path?: string }).path === "users_public/rider" ? pending as never : realGetDoc(...args));
+    vi.mocked(getDocs).mockImplementation(async ref => collectionPath(ref) === "events/ev/participants"
+      ? { docs: [{ id: "rider", data: () => ({ realName: "Authorized real name", bib: 9, status: "REGISTERED" }) }] } as never
+      : { docs: [] } as never);
+    try {
+      show(<EventParticipantsPage />);
+      expect(await screen.findByText("Authorized real name", { exact: true })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Event", exact: true })).toBeInTheDocument();
+      await act(async () => navigateRoute("/ko/event/next"));
+      await screen.findByRole("link", { name: "Next participant event", exact: true });
+      await act(async () => finish({ id: "rider", exists: () => true, data: () => ({ nickname: "Late previous name" }) }));
+      expect(screen.queryByText("Late previous name")).not.toBeInTheDocument();
+      expect(screen.queryByText("Authorized real name")).not.toBeInTheDocument();
+    } finally { vi.mocked(getDoc).mockImplementation(realGetDoc); vi.mocked(getDocs).mockImplementation(realGetDocs); }
+  });
+});
+
+
+it("retains canonical participant names in the table and open drawer when a late public profile arrives", async () => {
+  const event = mockDocData.get("events/ev")!;
+  mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), creatorId: "actor" } });
+  let finish!: (value: unknown) => void;
+  const pending = new Promise(resolve => { finish = resolve; });
+  vi.mocked(getDoc).mockImplementation((...args) => (args[0] as { path?: string }).path === "users_public/rider" ? pending as never : realGetDoc(...args));
+  vi.mocked(getDocs).mockImplementation(async () => ({ docs: [{ id: "rider", data: () => ({ realName: "Canonical participant", bib: 9, status: "REGISTERED" }) }] }) as never);
+  try {
+    show(<EventParticipantsPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Canonical participant", exact: true }));
+    expect(await screen.findByRole("dialog", { name: "Canonical participant" })).toBeInTheDocument();
+    await act(async () => finish({ id: "rider", exists: () => true, data: () => ({ nickname: "Optional nickname", team: "Optional team" }) }));
+    expect(screen.getByRole("button", { name: "Canonical participant", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Canonical participant" })).toHaveTextContent("Optional nickname");
+  } finally { vi.mocked(getDoc).mockImplementation(realGetDoc); vi.mocked(getDocs).mockImplementation(realGetDocs); }
+});

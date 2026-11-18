@@ -160,27 +160,40 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       if (response.status === 404) { onData(null); return; }
       if (!response.ok) throw new Error(`코스 메타데이터 조회 실패 (${response.status})`);
       const wire = await response.json() as { fields?: Record<string, Value> };
+      if (!active()) return;
       if (!wire.fields) throw new Error("코스 메타데이터 없음");
       const metadata = Object.fromEntries(Object.entries(wire.fields).map(([key, value]) => [key, decode(value)]));
       const url = courseAssetUrl(services.firestore, id, metadata);
       if (!url) { legacy(); return; }
+      const version = String(metadata.trackVersion);
+      // 현재 접근이 확인된 메타데이터부터 표시한다. 새 revision에는 이전 고도를 섞지 않는다.
+      if (lastVersion !== version || !lastTrack) onData({ ...metadata, id, trackLoadState: "loading" });
       let track: DocumentData;
       try {
-        const version = String(metadata.trackVersion);
         track = lastVersion === version && lastTrack ? lastTrack : await trackPayload(url, version, services, signal);
+        if (!active()) return;
         lastVersion = version; lastTrack = track;
       } catch (error) {
         if (!active()) return;
         logClientError("CourseDetail.assetFallback", error, { courseId: id });
-        const snapshot = await getDoc(doc(services.firestore, "courses", id));
+        let snapshot;
+        try { snapshot = await getDoc(doc(services.firestore, "courses", id)); }
+        catch (fallbackError) {
+          if (!active()) return;
+          const code = (fallbackError as { code?: string })?.code;
+          if (code === "permission-denied" || code === "unauthenticated") throw fallbackError;
+          onData({ ...metadata, id, trackLoadState: "error" }); return;
+        }
         if (!active()) return;
         if (!snapshot.exists()) { onData(null); return; }
         const latest = snapshot.data();
         if (latest.deletedAt != null || latest.hidden === true) { onData(null); return; }
-        if (!Array.isArray(latest.elevationProfile)) throw error;
-        onData({ ...latest, id }); return;
+        if (!Array.isArray(latest.elevationProfile)) {
+          onData({ ...latest, id, trackLoadState: "error" }); return;
+        }
+        onData({ ...latest, id, trackLoadState: "ready" }); return;
       }
-      if (active()) onData({ ...metadata, elevationProfile: track.elevationProfile, altitudeSemantics: track.altitudeSemantics, id });
+      if (active()) onData({ ...metadata, elevationProfile: track.elevationProfile, altitudeSemantics: track.altitudeSemantics, id, trackLoadState: "ready" });
     } catch (error) {
       if (active()) {
         logClientError("CourseDetail.metadataRead", error, { courseId: id });

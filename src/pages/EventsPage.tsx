@@ -1,8 +1,9 @@
+import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import "./EventControls.css";
 import { Bell, CalendarDays, ChevronDown, Eye, Mountain, Users } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import "./ExploreReview.css";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -16,12 +17,15 @@ import { decodeTrack, encodePolyline } from "../utils/polyline";
 import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { Button, Card, Chip, DropdownSelect, Text, buttonClass } from "../theme/components";
-import "mapbox-gl/dist/mapbox-gl.css";
-import MapGL, { Marker, Popup, type MapRef } from "react-map-gl/mapbox";
+import type { MapRef } from "react-map-gl/mapbox";
 import { MAP_STYLE, DEFAULT_VIEW } from "../utils/mapbox";
 import { buildMonthCells, firstPolylinePoint } from "../features/event/discovery/eventViews";
 import { ICON_SIZE } from "../theme/tokens/icon";
 import TabNav from "../components/TabNav";
+
+const MapGL = lazy(() => Promise.all([import("react-map-gl/mapbox"), import("mapbox-gl/dist/mapbox-gl.css")]).then(([module]) => module));
+const Marker = lazy(() => import("react-map-gl/mapbox").then(module => ({ default: module.Marker })));
+const Popup = lazy(() => import("react-map-gl/mapbox").then(module => ({ default: module.Popup })));
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
 type DisplayEventStatus = EventStatus | "PAST";
@@ -245,7 +249,8 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [coursePolylines, setCoursePolylines] = useState<Record<string, string>>({});
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
-  const [myEventIds, setMyEventIds] = useState<Set<string>>(new Set());
+  const viewer = services.auth.currentUser;
+  const [participation, setParticipation] = useState<{ viewer: typeof viewer; key: string; ids: Set<string> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageCursor, setPageCursor] = useState<string>();
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -269,7 +274,9 @@ export default function EventsPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setMyEventIds(new Set());
+    setEvents([]);
+    setCoursePolylines({});
+    setCourseThumbs({});
     setPageError(false);
     setNextCursor(null);
     (async () => {
@@ -314,6 +321,8 @@ export default function EventsPage() {
           });
         });
         setEvents(list);
+        // 기본 목록은 지도 미리보기와 내 참가 여부를 기다리지 않는다.
+        setLoading(false);
 
         // courseGpx가 URL인 이벤트 — 비동기 fetch 후 inlinePolyline 채워 setEvents 업데이트
         const urlGpxEvents = snap.docs.filter((d) => {
@@ -375,21 +384,7 @@ export default function EventsPage() {
           setCourseThumbs(thumbMap);
         }
 
-        if (cancelled) return;
-        if (user) {
-          try {
-            const myParticipantDocs = await Promise.all(
-              list.map(async (event) => {
-                const participantSnap = await getDoc(doc(firestore, "events", event.id, "participants", user.uid));
-                return participantSnap.exists() ? event.id : null;
-              }),
-            );
-            if (cancelled) return;
-            setMyEventIds(new Set(myParticipantDocs.filter((id): id is string => !!id)));
-          } catch (err) {
-            logClientError("EventsPage.loadMyEvents", err);
-          }
-        }
+
       } catch (err) {
         if (cancelled) return;
         logClientError("EventsPage.loadEvents", err);
@@ -399,7 +394,26 @@ export default function EventsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [firestore, services, user, pageCursor, pageAttempt]);
+  }, [firestore, services, viewer, pageCursor, pageAttempt]);
+
+  const participationKey = events.map(event => event.id).join("|");
+  useEffect(() => {
+    let cancelled = false;
+    if (!user || user.isAnonymous || viewer?.uid !== user.uid || loading) return;
+    const ids = participationKey ? participationKey.split("|") : [];
+    void Promise.all(ids.map(async eventId => {
+      const snapshot = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
+      return snapshot.exists() ? eventId : null;
+    })).then(joined => {
+      if (!cancelled && services.auth.currentUser === viewer) {
+        setParticipation({ viewer, key: participationKey, ids: new Set(joined.filter((id): id is string => id !== null)) });
+      }
+    }).catch(error => {
+      if (!cancelled && services.auth.currentUser === viewer) logClientError("EventsPage.loadMyEvents", error);
+    });
+    return () => { cancelled = true; };
+  }, [firestore, services, user, viewer, participationKey, loading]);
+  const myEventIds = !loading && participation?.viewer === viewer && participation.key === participationKey ? participation.ids : null;
 
   const filtered = useMemo(() => {
     return events
@@ -426,7 +440,7 @@ export default function EventsPage() {
   );
 
   const { live: liveCount, open: openCount } = useMemo(() => eventAvailability(events, now), [events, now]);
-  const myCount = myEventIds.size;
+  const myCount = !user || user.isAnonymous ? 0 : myEventIds?.size ?? "—";
   const activeAdvancedCount = [typeFilter, regionFilter, datePreset, difficultyFilter].filter((value) => value !== "ALL").length;
   const calendarCells = useMemo(() => buildMonthCells(filtered, calendarMonth), [calendarMonth, filtered]);
   const monthEvents = useMemo(() => calendarCells.filter(cell => cell.inMonth).flatMap(cell => cell.events), [calendarCells]);
@@ -665,10 +679,10 @@ export default function EventsPage() {
         <Card padding="none" style={{ overflow: "hidden" }}>
           {mapEvents.some(({ point }) => !point) && <Text as="p" variant="body" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)", margin: 0 }}>{t("view.noCoordinates", { count: mapEvents.filter(({ point }) => !point).length })}</Text>}
           <div data-testid="E3-4" style={{ height: 560 }}>
-            <MapGL ref={eventMapRef} onLoad={fitCurrentMapBounds} initialViewState={mapBounds ? { bounds: mapBounds, fitBoundsOptions: { padding: 48, maxZoom: 10 } } : DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
+            <Suspense fallback={<LoadingSkeleton kind="chart" />}><MapGL ref={eventMapRef} onLoad={fitCurrentMapBounds} initialViewState={mapBounds ? { bounds: mapBounds, fitBoundsOptions: { padding: 48, maxZoom: 10 } } : DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
               {mapEvents.map(({ event, point }) => point && <Marker key={event.id} latitude={point[0]} longitude={point[1]} anchor="bottom"><button type="button" aria-label={event.name} onClick={(click) => { click.stopPropagation(); setMapEventId(event.id); }} style={{ border: 0, background: "var(--lime)", color: "var(--primary-fg)", borderRadius: "50%", width: 32, height: 32, cursor: "pointer" }}><SportIcon sport="bike" size={ICON_SIZE.md} /></button></Marker>)}
               {(() => { const selected = mapEvents.find(({ event }) => event.id === mapEventId); return selected?.point ? <Popup closeOnClick={false} latitude={selected.point[0]} longitude={selected.point[1]} onClose={() => setMapEventId(null)} maxWidth="min(320px, calc(100% - var(--space-4)))" style={{ minWidth: 180 }} offset={36}><div style={{ minWidth: 0, overflowWrap: "anywhere" }}><strong>{selected.event.name}</strong><div style={{ color: "var(--ink-3)", margin: "var(--space-1) 0" }}>{selected.event.meetLocation || selected.event.region || t("view.routeStart")}</div><Link data-testid="E3-4-1" to={`/event/${selected.event.id}`}>{t("action.viewDetails")} →</Link></div></Popup> : null; })()}
-            </MapGL>
+            </MapGL></Suspense>
           </div>
         </Card>
       ) : (
@@ -685,7 +699,7 @@ export default function EventsPage() {
               key={e.id}
               event={e}
               now={now}
-              isMine={myEventIds.has(e.id)}
+              isMine={myEventIds?.has(e.id)}
               mapImageUrl={e.courseId ? courseThumbs[e.courseId] : undefined}
               polyline={(e.courseId ? coursePolylines[e.courseId] : undefined) ?? e.inlinePolyline}
               t={t}

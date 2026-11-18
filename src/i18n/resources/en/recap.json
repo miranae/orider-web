@@ -3,6 +3,7 @@
   "subtitle": "My {{year}} activities",
   "rider": "Rider",
   "loginRequired": "Please sign in.",
+  "calendarError": "Could not load other years. Records for the selected year remain available.",
   "loading": "Loading...",
   "loadError": "Unable to load annual records. Please try again.",
   "selectYear": "Select year",

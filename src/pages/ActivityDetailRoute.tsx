@@ -1,6 +1,7 @@
+import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import { startJourneyMeasurement, type JourneyOutcome } from "../services/journeyMeasurement";
 import { NotificationCommentTarget } from "../components/notifications/NotificationCommentTarget";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { collection, documentId, getDocs, limit, query, where } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";

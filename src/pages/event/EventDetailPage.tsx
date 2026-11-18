@@ -1,3 +1,4 @@
+import { lazyWithRetry as lazy } from "../../utils/lazyWithRetry";
 import { publicEventUrl } from "../../features/event/share/publicEventUrl";
 import NextEventContinuation from "../../components/group/NextEventContinuation";
 import "../EventControls.css";
@@ -7,7 +8,7 @@ import GlossaryText from "../../components/common/GlossaryText";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import SportIcon from "../../components/common/SportIcon";
 import { groupCalendarUrl } from "../../features/group/groupCalendar";
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { Suspense, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -24,7 +25,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useDialog } from "../../contexts/DialogContext";
 import { Course } from "@shared/types";
-import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
+import type { WaypointMarker } from "../../components/RouteMap";
 import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
 import { useToast } from "../../contexts/ToastContext";
 import { localeTag } from "../../utils/localeDate";
@@ -49,7 +50,7 @@ import {
   LANE_DEFS,
   type WpLane,
 } from "../../features/courseEngine";
-import ElevationChart, { ELEVATION_PLOT_AXIS_WIDTH } from "../../components/ElevationChart";
+import { ELEVATION_PLOT_AXIS_WIDTH } from "../../components/elevationChartLayout";
 import { waypointPipAnchorStyle } from "../../features/courses/courseWaypoints";
 import "../../features/event/detail/event-profile.css";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
@@ -61,6 +62,9 @@ import { buildEventFollowPayload, followerExists } from "../../features/event/de
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+
+const ElevationChart = lazy(() => import("../../components/ElevationChart"));
+const RouteMap = lazy(() => import("../../components/RouteMap"));
 
 /** 이보다 트랙에서 멀리 떨어진 웨이포인트는 프로필·지도에 찍지 않는다(m). */
 const OFF_TRACK_LIMIT_M = 2_000;
@@ -339,16 +343,6 @@ export default function EventDetailPage() {
           const totalRegistered = d.counters?.totalRegistered;
           setParticipantCount(typeof totalRegistered === "number" && Number.isInteger(totalRegistered) && totalRegistered >= 0
             ? totalRegistered : null);
-          let creatorName = "";
-          if (creatorId) {
-            try {
-              const creator = await getPublicUserProfile(creatorId, services.firestore);
-              creatorName = creator?.nickname ?? "";
-            } catch {
-              creatorName = "";
-            }
-          }
-          if (cancelled) return;
           setEvent({
             id: docSnap.id,
             name: info.name || t("noName"),
@@ -358,7 +352,7 @@ export default function EventDetailPage() {
             closeAt: typeof info.closeAt === "string" ? info.closeAt : undefined,
             creatorId,
             hostIds,
-            creatorName,
+            creatorName: "",
             groupId: info.groupId || "",
             maxParticipants: info.settings?.maxParticipants ?? info.maxParticipants ?? 0,
             courseGpx: info.courseGpx || "",
@@ -374,6 +368,13 @@ export default function EventDetailPage() {
             cutoffMs: typeof info.cutoffMs === "number" ? info.cutoffMs : undefined,
             bibStartTime: typeof info.bibStartTime === "string" ? info.bibStartTime : undefined,
           });
+          if (creatorId) {
+            const owner = auth.currentUser;
+            void getPublicUserProfile(creatorId, services.firestore).then(creator => {
+              if (!cancelled && auth.currentUser === owner) setEvent(current => current?.id === eventId
+                ? { ...current, creatorName: creator?.nickname ?? "" } : current);
+            }).catch(() => { /* 작성자 이름 실패가 준비된 이벤트를 가리지 않는다. */ });
+          }
         }
       } catch (err) {
         if (cancelled) return;
@@ -700,14 +701,14 @@ export default function EventDetailPage() {
       <div data-testid="D4-0" className="site-shell event-detail-hero">
         <Card padding="none" style={{ padding: 0, overflow: "hidden" }}>
           {courseData && courseData.latlng.length > 1 && (
-            <RouteMap
+            <Suspense fallback={<LoadingSkeleton kind="chart" />}><RouteMap
               latlng={courseData.latlng}
               height="h-80"
               interactive={false}
               rounded={false}
               waypoints={mapWaypoints}
               flyToPosition={flyToPos}
-            />
+            /></Suspense>
           )}
           <div className="event-detail-hero-content">
             {/* 칩 행 */}
@@ -936,7 +937,7 @@ export default function EventDetailPage() {
                 </div>
               ) : (
                 <>
-                  <ElevationChart
+                  <Suspense fallback={<LoadingSkeleton kind="chart" />}><ElevationChart
                     data={elevationData}
                     height={200}
                     colorByGrade
@@ -947,7 +948,7 @@ export default function EventDetailPage() {
                       label: marker.name,
                       active: activeWpIdx === index,
                     }))}
-                  />
+                  /></Suspense>
                   {profileMarkers.length > 0 && (
                     <div className="event-lanes" style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
                       {LANE_ORDER.map((lane) => {

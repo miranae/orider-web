@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { MemoryRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { describe, it, expect, vi } from "vitest";
 import CoachFitnessLayout, { useCoachFitnessModel } from "./CoachFitnessLayout";
@@ -46,4 +46,20 @@ it("uses bike consistently for an unspecified coach sport", () => {
   mount("/coach/analysis");
   expect(screen.getByText("bike")).toBeInTheDocument();
   expect(mocks.sport).toHaveBeenLastCalledWith("bike");
+});
+
+
+it("starts the shared model while the destination code is still pending", async () => {
+  let release!: (module: { default: () => React.ReactNode }) => void;
+  const PendingCondition = lazy(() => new Promise<{ default: () => React.ReactNode }>(resolve => { release = resolve; }));
+  mocks.mount.mockClear();
+  render(<MemoryRouter initialEntries={["/coach/condition"]}><Suspense fallback={<div>전체 화면 대기</div>}><Routes>
+    <Route element={<CoachFitnessLayout />}><Route path="/coach/condition" element={<PendingCondition />} /></Route>
+  </Routes></Suspense></MemoryRouter>);
+  expect(mocks.mount).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("status", { name: "불러오는 중" })).toBeInTheDocument();
+  expect(screen.queryByText("전체 화면 대기")).not.toBeInTheDocument();
+  await act(async () => release({ default: Probe }));
+  expect(await screen.findByText("bike")).toBeInTheDocument();
+  expect(mocks.mount).toHaveBeenCalledTimes(1);
 });

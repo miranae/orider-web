@@ -39,9 +39,8 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
   const statusLabel = (status: string) => t(status === "AUTO_FINISHED" ? "event:status.autoFinished" : status === "PAST_DATE" ? "event:status.pastDate" : `event:status.${status.toLowerCase()}`);
   return <section aria-label={t("events.listLabel")} data-testid={timeWindow === "past" ? "C3-2" : "C3-1"} >
     <Stack gap="var(--dim-section-gap)">
-    {loading ? <LoadingSkeleton kind="list" count={3} /> : <>
       {error && <ErrorState title={t("error.loadFailed")} onRetry={onRetry} />}
-      {!rows.length && !error && <div data-testid="C3-1-3"><EmptyState
+      {!rows.length && !error && !loading && <div data-testid="C3-1-3"><EmptyState
         title={hasMore ? t("event:discovery.emptyPage") : t(`events.empty.${timeWindow}`)}
         /></div>}
       {rows.map(row => {
@@ -140,7 +139,7 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
             </Card>
         );
       })}
-    </>}
+      {loading && <LoadingSkeleton kind="list" count={rows.length ? 1 : 3} />}
     </Stack>
   </section>;
 }

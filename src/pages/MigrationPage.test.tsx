@@ -1,3 +1,5 @@
+import { AuthContextProvider, type AuthContextValue } from "../contexts/AuthContext";
+import { createMockProfile } from "../__tests__/fixtures/mockData";
 import { screen, waitFor } from "@testing-library/react";
 import MigrationPage, { calculateMigrationProgressPercent } from "./MigrationPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -146,4 +148,25 @@ describe("MigrationPage", () => {
       expect(content.includes("200") || content.includes("완료")).toBeTruthy();
     });
   });
+});
+
+
+it("distinguishes a pending profile from an unavailable profile and recovers when it arrives", async () => {
+  const session: AuthContextValue = {
+    user: { uid: "test-uid" } as AuthContextValue["user"], profile: null, loading: false,
+    profileLoading: true, signIn: vi.fn(), logout: vi.fn(),
+  };
+  const page = () => <AuthContextProvider value={{ ...session }}><MigrationPage /></AuthContextProvider>;
+  const view = renderWithProviders(page(), { authenticated: true });
+  expect(screen.getByRole("status", { name: "불러오는 중" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Strava 활동 가져오기" })).not.toBeInTheDocument();
+  session.profileLoading = false;
+  view.rerender(page());
+  expect(screen.getByRole("alert")).toHaveTextContent("프로필을 불러오지 못했어요");
+  expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  session.profile = createMockProfile({ stravaConnected: false });
+  view.rerender(page());
+  expect(await screen.findByRole("button", { name: "Strava 연결하기" })).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });

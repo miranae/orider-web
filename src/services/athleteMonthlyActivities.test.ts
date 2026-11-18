@@ -107,7 +107,10 @@ describe("athlete monthly activities", () => {
     const original = vi.mocked(getDocs).getMockImplementation()!;
     vi.mocked(getDocs).mockImplementationOnce((async q => { const result = await original(q); cancelled = true; return result; }) as never);
     expect(await loadAthleteChartActivities("athlete", true, () => cancelled)).toBeNull();
-    expect(fake.requests).toHaveLength(1);
+    // 두 달력 endpoint는 독립적으로 시작하지만, 취소 뒤 연도·최근 구간 조회는 시작하지 않는다.
+    expect(fake.requests).toHaveLength(2);
+    expect(fake.requests.map(constraints => constraints.find(item => item.type === "limit")?.args[0])).toEqual([1, 2]);
+    expect(fake.requests.flat().some(item => item.type === "where" && item.args[0] === "startTime")).toBe(false);
   });
 
 });

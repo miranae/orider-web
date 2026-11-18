@@ -143,6 +143,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
 
     let cancelled = false;
     let loadTimeout: ReturnType<typeof setTimeout> | undefined;
+    let goalResolved = false;
     const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
     const cacheEnabled = prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
     const snapshotKey = planSnapshotKey(user.uid, discipline, locale);
@@ -167,7 +168,8 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
         if (cancelled) return;
         cancelled = true;
         const error = new Error("plan/load-timeout");
-        setGoalError(error);
+        if (goalResolved) setPlanError(error);
+        else setGoalError(error);
         setGoalLoading(false);
         setPlanLoading(false);
         setFreshLoaded(false);
@@ -176,6 +178,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
       try {
         const nextGoal = await readPreferredActiveGoal(firestore, user.uid, discipline);
         if (cancelled) return;
+        goalResolved = true;
         if (!nextGoal) {
           setGoal(null);
           setWeeks([]);
@@ -189,6 +192,12 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
           return;
         }
 
+        // The confirmed goal can be read before its plan. Cached goal/week pairs
+        // stay together until the new pair is complete; no old weeks join a new goal.
+        if (cached === null) {
+          setGoal(nextGoal);
+          setGoalLoading(false);
+        }
         try {
           const planSnap = await getDocs(
             query(
@@ -209,10 +218,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
           }
         } catch (error) {
           if (cancelled) return;
-          if (cached === null) {
-            setGoal(null);
-            setWeeks([]);
-          }
+          if (cached === null) setWeeks([]);
           setPlanError(error);
           setGoalLoading(false);
           setFreshLoaded(false);

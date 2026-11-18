@@ -103,3 +103,20 @@ it("replaces all cache proof and masks data after same-UID SDK replacement", asy
   await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("new-session"));
   expect(readRecapYears).toHaveBeenCalledTimes(2);
 });
+
+
+it("loads an explicit year before calendar discovery and retains it when calendar discovery fails", async () => {
+  let rejectCalendar!: (error: Error) => void;
+  vi.mocked(readRecapYears).mockReturnValueOnce(new Promise((_, reject) => { rejectCalendar = reject; }));
+  const h = renderHook(() => useYearActivities("owner", 2025));
+  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
+  expect(h.result.current.loading).toBe(false);
+  expect(h.result.current.years).toEqual([]);
+  await act(async () => rejectCalendar(new Error("calendar offline")));
+  expect(h.result.current.calendarError).toBe(true);
+  expect(h.result.current.error).toBe(false);
+  expect(h.result.current.activities[0]?.id).toBe("ride");
+  act(() => h.result.current.retry());
+  await waitFor(() => expect(h.result.current.calendarError).toBe(false));
+  expect(h.result.current.years).toEqual([2026, 2025, 2024]);
+});

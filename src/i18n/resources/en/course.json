@@ -230,6 +230,7 @@
   "edit.ownerOnly": "Only the owner can edit this course.",
   "edit.noPermission": "No edit permission",
   "edit.noPermissionDesc": "You can only edit courses you created.",
+  "error.trackLoadFailed": "Could not load course elevation",
   "error.loadFailed": "Failed to load course",
   "builder.mode": "Build on map",
   "builder.title": "Click-to-build route planner",
