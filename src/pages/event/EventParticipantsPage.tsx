@@ -280,6 +280,7 @@ export default function EventParticipantsPage() {
       });
       setParticipants(rows);
       // 권한이 확인된 참가 기록을 먼저 표시한다. 공개 프로필은 최대 4개 동시 조회 후 한 번에 반영한다.
+      // CSV 내보내기는 아직 비활성 버튼이며, 프로필 보강은 화면의 참가자 행에만 적용한다.
       let nextProfile = 0;
       const profiles = new Map<string, { nickname: string; team: string }>();
       const canonicalNames = new Set(partsSnap.docs.filter(participant => participant.data().realName).map(participant => participant.id));

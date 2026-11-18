@@ -132,3 +132,19 @@ it("recovers a failed explicit-year read when calendar bounds become available",
   await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
   expect(readYearActivities).toHaveBeenCalledTimes(2);
 });
+
+it("retries a budget-limited year only when the calendar supplies coverage for that year", async () => {
+  let finishCalendar!: () => void;
+  vi.mocked(readRecapYears).mockImplementationOnce((_uid, _cancelled, session) => new Promise(resolve => {
+    finishCalendar = () => {
+      session!.calendarCoverage = [{ start: new Date(2025, 11, 31).getTime(), end: Infinity }];
+      resolve([2025]);
+    };
+  }));
+  vi.mocked(readYearActivities).mockRejectedValueOnce(new Error("year-read-budget-exceeded"));
+  const h = renderHook(() => useYearActivities("owner", 2025));
+  await waitFor(() => expect(h.result.current.error).toBe(true));
+  await act(async () => finishCalendar());
+  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
+  expect(readYearActivities).toHaveBeenCalledTimes(2);
+});

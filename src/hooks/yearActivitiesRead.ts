@@ -20,7 +20,7 @@ export function localYearBounds(year: number) {
 /** 이전 전체 snapshot과 같은 mount 수명. 전역/영구 캐시가 아니며 인증 교체 뒤 재사용하지 않는다. */
 export function createYearReadSession(uid: string, services: Pick<FirebaseServices, "auth" | "firestore"> = { auth, firestore }) {
   return { uid, auth: services.auth, firestore: services.firestore, owner: services.auth.currentUser, valid: true, docs: new Map<string, QueryDocumentSnapshot>(),
-    coverage: [] as Interval[], queries: new Map<string, PageState>(), years: null as number[] | null, duration: null as number | null, crossings: new Map<string, number>() };
+    coverage: [] as Interval[], calendarCoverage: [] as Interval[], queries: new Map<string, PageState>(), years: null as number[] | null, duration: null as number | null, crossings: new Map<string, number>() };
 }
 export type YearReadSession = ReturnType<typeof createYearReadSession>;
 function missing(coverage: Interval[], requested: Interval): Interval[] {
@@ -125,14 +125,14 @@ export async function readRecapYears(uid: string, cancelled: () => boolean, sess
   if ([...(first ? [first] : []), ...tail.docs].some(doc => !Number.isFinite(doc.data().startTime))) throw new Error("year-read-invalid-calendar");
   const currentYear = new Date().getFullYear();
   const complete = first ? tail.docs.length === 1 && tail.docs[0]?.id === first.id : tail.docs.length === 0;
-  if (complete) cover(session, { start: -Infinity, end: Infinity });
+  if (complete) session.calendarCoverage = [{ start: -Infinity, end: Infinity }];
   else if (first && tail.docs.length >= 2) {
     const firstTime = first.data().startTime;
     const lastTime = tail.docs[tail.docs.length - 1]!.data().startTime;
     if (!Number.isFinite(firstTime) || !Number.isFinite(lastTime)) throw new Error("year-read-invalid-calendar");
-    cover(session, { start: -Infinity, end: firstTime });
-    cover(session, { start: afterTimestamp(lastTime), end: Infinity });
+    session.calendarCoverage = [{ start: -Infinity, end: firstTime }, { start: afterTimestamp(lastTime), end: Infinity }];
   }
+  for (const interval of session.calendarCoverage) cover(session, interval);
   const earliest = first ? Math.max(2000, new Date(first.data().startTime).getFullYear()) : currentYear;
   const latest = tail.docs[0] ? Math.min(currentYear, new Date(tail.docs[0].data().startTime).getFullYear()) : currentYear;
   if (!Number.isFinite(earliest) || !Number.isFinite(latest)) throw new Error("year-read-invalid-calendar");

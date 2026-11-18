@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { logClientError } from "../services/errorLogger";
 import type { Activity } from "@shared/types";
 import { auth } from "../services/firebase";
-import { createYearReadSession, readRecapYears, readYearActivities } from "./yearActivitiesRead";
+import { createYearReadSession, localYearBounds, readRecapYears, readYearActivities } from "./yearActivitiesRead";
 
 /** 연도 목록은 계정별 point query 두 번, 활동은 선택한 로컬 연도만 조회한다. */
 export function useYearActivities(uid: string | null | undefined, selectedYear?: number) {
@@ -19,7 +19,7 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
   const [calendar, setCalendar] = useState<{ session: typeof session; uid: typeof uid; years: number[]; loading: boolean; error: boolean }>({ session, uid, years: [], loading: !!uid, error: false });
   const years = calendar.session === session && calendar.uid === uid ? calendar.years : [];
   const year = selectedYear ?? years[0] ?? new Date().getFullYear();
-  const [state, setState] = useState<{ session: typeof session; uid: typeof uid; year: number; activities: Activity[]; loading: boolean; error: boolean; startedBeforeCalendar?: boolean }>({ session, uid, year, activities: [], loading: !!uid, error: false });
+  const [state, setState] = useState<{ session: typeof session; uid: typeof uid; year: number; activities: Activity[]; loading: boolean; error: boolean; startedBeforeCalendar?: boolean; needsCalendarCoverage?: boolean }>({ session, uid, year, activities: [], loading: !!uid, error: false });
   const [retryGeneration, setRetryGeneration] = useState(0);
   const [calendarRetry, setCalendarRetry] = useState(0);
   const retry = useCallback(() => {
@@ -59,7 +59,9 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
     const fail = (err: unknown, canRetryWithCalendar: boolean) => {
       if (cancelled) return;
       cancelled = true;
-      setState({ session, uid, year, activities: [], loading: false, error: true, startedBeforeCalendar: startedBeforeCalendar && canRetryWithCalendar });
+      const needsCalendarCoverage = err instanceof Error && err.message === "year-read-budget-exceeded";
+      setState({ session, uid, year, activities: [], loading: false, error: true,
+        startedBeforeCalendar: startedBeforeCalendar && (canRetryWithCalendar || needsCalendarCoverage), needsCalendarCoverage });
       logClientError("useYearActivities.load", err, { uid, year });
     };
     const timer = globalThis.setTimeout(() => fail(new Error("year-activities-read-timeout"), false), 12_000);
@@ -72,8 +74,11 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
 
   const current = state.session === session && state.uid === uid && state.year === year;
   const calendarError = !!uid && calendar.session === session && calendar.uid === uid && calendar.error;
-  const completeCalendar = session.coverage.some(({ start, end }) => start === -Infinity && end === Infinity);
-  const retryWithCalendar = current && state.startedBeforeCalendar === true && calendarReady && (state.error || state.loading && completeCalendar);
+  const completeCalendar = session.calendarCoverage.some(({ start, end }) => start === -Infinity && end === Infinity);
+  const yearBounds = localYearBounds(year);
+  const calendarOverlapsYear = session.calendarCoverage.some(({ start, end }) => start < yearBounds.end && end > yearBounds.start);
+  const retryWithCalendar = current && state.startedBeforeCalendar === true && calendarReady
+    && (state.error && (!state.needsCalendarCoverage || calendarOverlapsYear) || state.loading && completeCalendar);
   useEffect(() => {
     if (retryWithCalendar) setRetryGeneration(generation => generation + 1);
   }, [retryWithCalendar]);
