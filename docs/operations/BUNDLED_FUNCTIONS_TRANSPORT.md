@@ -32,3 +32,25 @@ The existing runtime writer accepts `BUNDLED_RUNTIME_CONFIG_PATH` and
 production-data/parity source variables. Normal deployment remains unchanged
 until this explicit configuration is selected. Deploy the backend and verify
 its source/topology/digests before activating either profile.
+
+
+Development Hosting is deployed only by explicit `Deploy (Hosting → stage)`
+dispatch. Merging `dev` does not deploy it. Select `source_ref`, transport and the
+validated bundled backend's full SHA. The job resolves the frontend ref to a full
+SHA, checks the live gateway source/topology, prepares a matching runtime and
+Hosting/CSP configuration, and seals the actual built `dist` artifact. Predeploy
+rechecks its bytes and backend identity; the published entry/runtime are then
+compared with that artifact. Only explicit `legacy` selection runs the former
+regional Functions CORS checks. The verified client artifact and receipt are
+retained for seven days. Authentication uses Firebase CLI Application Default
+Credentials from the development WIF action, without a legacy Firebase token.
+
+Production tag releases remain on `legacy` by default. After the production
+backend is validated, explicitly set repository variable
+`ORIDER_FUNCTIONS_TRANSPORT=production` for the reviewed release. The tag workflow
+creates the production pair from that release's normal feature variables, never
+from the development snapshot, and rechecks gateway source/topology before
+Hosting deployment. The existing production tag, main-ancestry and environment
+approval gates still apply. No variable or production deployment is changed by
+this preparation. The production AI address remains the existing canonical
+`orider-ai-api-h5zqzw3n4a-du.a.run.app` service.

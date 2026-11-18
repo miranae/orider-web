@@ -431,6 +431,13 @@ test("bundled runtime writer is explicit and rejects mixed deployment sources", 
     const env = { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: "", PRODUCTION_RUNTIME_CONFIG_PATH: "", BUNDLED_RUNTIME_CONFIG_PATH: source, BUNDLED_FUNCTIONS_ENVIRONMENT: "development" };
     execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], { env, stdio: "pipe" });
     assert.equal(JSON.parse(readFileSync(output)).deploymentProfile, "bundled-development");
+    for (const [path, environment] of [[undefined, "development"], [source, undefined], ["", "development"], ["", ""]]) {
+      const partial = { ...env }; delete partial.BUNDLED_RUNTIME_CONFIG_PATH; delete partial.BUNDLED_FUNCTIONS_ENVIRONMENT;
+      if (path !== undefined) partial.BUNDLED_RUNTIME_CONFIG_PATH = path;
+      if (environment !== undefined) partial.BUNDLED_FUNCTIONS_ENVIRONMENT = environment;
+      assert.throws(() => execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], { env: partial, stdio: "pipe" }), /both nonempty/);
+    }
+
     assert.throws(() => execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], { env: { ...env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source }, stdio: "pipe" }), /mixed/);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });

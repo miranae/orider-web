@@ -33,3 +33,9 @@ firestore-debug.log
 # Local production monitor evidence (never commit rider/browser artifacts)
 production-monitor-results/
 source-deployment.json
+
+/firebase.bundled-stage.json
+firebase-stage-deploy.log
+
+/firebase.bundled-production.json
+firebase-deploy.log

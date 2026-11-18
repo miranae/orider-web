@@ -17,9 +17,12 @@ const args = process.argv.slice(2);
 const outIndex = args.indexOf("--out");
 const outputPath = resolve(outIndex >= 0 ? args[outIndex + 1] : "dist/runtime-config.json");
 const bundledSource = process.env.BUNDLED_RUNTIME_CONFIG_PATH;
-if (bundledSource) {
+const bundledEnvironment = process.env.BUNDLED_FUNCTIONS_ENVIRONMENT;
+const bundledRequested = bundledSource !== undefined || bundledEnvironment !== undefined;
+if (bundledRequested && (!bundledSource?.trim() || !bundledEnvironment?.trim())) throw new Error("bundled runtime requires both nonempty source and environment");
+if (bundledRequested) {
   if (process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH || process.env.PRODUCTION_RUNTIME_CONFIG_PATH || args.includes("--production-source")) throw new Error("bundled runtime source cannot be mixed with legacy deployment sources");
-  const config = bundledFunctionsConfig(JSON.parse(readFileSync(resolve(bundledSource), "utf8")), process.env.BUNDLED_FUNCTIONS_ENVIRONMENT);
+  const config = bundledFunctionsConfig(JSON.parse(readFileSync(resolve(bundledSource), "utf8")), bundledEnvironment);
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(config, null, 2)}\n`);
   console.log(`[write-runtime-config] bundled runtime ${outputPath}`);
