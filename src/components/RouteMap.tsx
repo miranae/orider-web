@@ -122,7 +122,7 @@ function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { phot
   const logged = useRef<typeof currentScope | null>(null);
   const failed = failedFor === currentScope;
   const onError = () => {
-    if (scope.current !== currentScope) return;
+    if (scope.current !== currentScope || services.auth?.currentUser !== viewer) return;
     setFailedFor(currentScope);
     if (logged.current === currentScope) return;
     logged.current = currentScope;

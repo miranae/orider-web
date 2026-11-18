@@ -581,7 +581,7 @@ describe("RouteMap", () => {
   });
 
   it("restores the most recent chart range after remounting a map that had a photo target", () => {
-    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), getContainer: () => document.createElement("div") };
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
     const props = { flyToPosition: [60, 150] as [number, number] };
     const first: [number, number][] = [[37, 127], [37.01, 127], [37.02, 127]];
@@ -611,7 +611,7 @@ describe("RouteMap", () => {
   });
 
   it("includes a located photo in the initial bounds of a single-fix route", () => {
-    const api = { fitBounds: vi.fn(), resize: vi.fn(), getContainer: () => document.createElement("div") };
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
     renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png"
       navigationLabels={{ zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show entire route" }}
@@ -690,7 +690,11 @@ describe("RouteMap", () => {
     const photos = [{id:"photo",url:"https://example.test/photo.jpg",location:[37,127] as [number,number],caption:"로딩 사진"}];
     const view = renderWithProviders(<FirebaseServicesProvider services={first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
     const pending = screen.getByRole("img", {name:"로딩 사진"});
-    if (mode === "account") auth.currentUser = {uid:"other"};
+    if (mode === "account") {
+      auth.currentUser = {uid:"other"};
+      fireEvent.error(pending);
+      expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
+    }
     view.rerender(<FirebaseServicesProvider services={mode === "services" ? second : first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
     const current = screen.getByRole("img", {name:"로딩 사진"});
     expect(current).not.toBe(pending);
