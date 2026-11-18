@@ -134,7 +134,11 @@ export function RouteMapFallback({
 }) {
   const { t } = useTranslation("common");
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
-  if (imageUrl) {
+  const services = useFirebaseServices();
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const loggedImage = useRef<string | null>(null);
+  useEffect(() => { setFailedImage(null); loggedImage.current = null; }, [imageUrl]);
+  if (imageUrl && failedImage !== imageUrl) {
     return (
       <div className={containerClass} style={{ background: "var(--bg-1)" }}>
         <img
@@ -142,6 +146,14 @@ export function RouteMapFallback({
           alt={imageAlt}
           className="h-full w-full object-cover"
           loading="lazy"
+          onError={() => {
+            setFailedImage(imageUrl);
+            if (loggedImage.current === imageUrl) return;
+            loggedImage.current = imageUrl;
+            logClientError("RouteMap.image", new Error("route_image_load_failed"), {
+              stage: "static_image", routeSlotCount: positions.length,
+            }, services);
+          }}
         />
       </div>
     );
@@ -263,10 +275,11 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
   return null;
 }
 
-function FlyToPositionControl({ position, fullBounds, fullPadding }: {
+function FlyToPositionControl({ position, fullBounds, fullPadding, rangeActive }: {
   position: [number, number] | null | undefined;
   fullBounds: LngLatBoundsLike;
   fullPadding: number;
+  rangeActive: boolean;
 }) {
   const { current: map } = useMap();
   const prevPosition = useRef<[number, number] | null>(null);
@@ -281,10 +294,10 @@ function FlyToPositionControl({ position, fullBounds, fullPadding }: {
       map.flyTo({ center: [position[1], position[0]], zoom: 15, duration: 800 });
       prevPosition.current = position;
     } else if (prevPosition.current) {
-      map.fitBounds(fullBounds, { padding: fullPadding });
+      if (!rangeActive) map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
       prevPosition.current = null;
     }
-  }, [map, position, fullBounds, fullPadding]);
+  }, [map, position, fullBounds, fullPadding, rangeActive]);
 
   return null;
 }
@@ -379,19 +392,19 @@ export default function RouteMap({
       type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [point[1], point[0]] },
     })),
   }), [standalonePositions]);
-  const hasSourcePosition = useMemo(() => sourcePositions.some(isRoutePosition), [sourcePositions]);
-  const hasLocatedAttachment = hasSourcePosition && (photos?.some(photo => isRoutePosition(photo?.location))
+  const hasRecordedPosition = useMemo(() => sourcePositions.some(isRoutePosition) || routePositions.some(isRoutePosition), [sourcePositions, routePositions]);
+  const hasLocatedAttachment = hasRecordedPosition && (photos?.some(photo => isRoutePosition(photo?.location))
     || waypoints?.some(point => isRoutePosition([point?.lat, point?.lon])));
   const pointPositions = useMemo(() => {
     const points: [number, number][] = [...standalonePositions, ...endpoints, ...activePoints];
     const add = (point: unknown) => { if (isRoutePosition(point)) points.push([point[0], point[1]]); };
     // Passive attachments must not replace a saved route image or create a map request on their own.
-    if (hasSourcePosition || activePoints.length > 0) {
+    if (hasRecordedPosition || activePoints.length > 0) {
       if (Array.isArray(photos)) photos.forEach(photo => add(photo?.location));
       if (Array.isArray(waypoints)) waypoints.forEach(point => add([point?.lat, point?.lon]));
     }
     return points;
-  }, [standalonePositions, endpoints, activePoints, hasSourcePosition, photos, waypoints]);
+  }, [standalonePositions, endpoints, activePoints, hasRecordedPosition, photos, waypoints]);
   const routeBounds = useMemo(() => getBounds([...positions, ...endpoints]), [positions, endpoints]);
   const standaloneBounds = useMemo(() => getBounds(standalonePositions), [standalonePositions]);
   const pointBounds = useMemo(() => getBounds(pointPositions), [pointPositions]);
@@ -698,6 +711,12 @@ export default function RouteMap({
         )}
 
         {/* WebGL 레이어로 그려 캔버스 기반 공유 썸네일에도 포함한다. */}
+        {standalonePositions.length > 0 && <Source type="geojson" data={standaloneGeoJSON}>
+          <Layer id="route-standalone-points" type="circle" paint={{
+            "circle-radius": 4, "circle-color": RECORDED_TRACK_COLOR,
+            "circle-stroke-color": "#ffffff", "circle-stroke-width": 1,
+          }} />
+        </Source>}
         {endpointGeoJSON && (
           <Source type="geojson" data={endpointGeoJSON}>
             <Layer id="route-endpoint-halo" type="circle" paint={{
@@ -713,17 +732,11 @@ export default function RouteMap({
           </Source>
         )}
 
-        {standalonePositions.length > 0 && <Source type="geojson" data={standaloneGeoJSON}>
-          <Layer id="route-standalone-points" type="circle" paint={{
-            "circle-radius": 4, "circle-color": RECORDED_TRACK_COLOR,
-            "circle-stroke-color": "#ffffff", "circle-stroke-width": 1,
-          }} />
-        </Source>}
         {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
         <FitBoundsOnLoad bounds={bounds} disabled={isRoutePosition(flyToPosition)} padding={fitPadding} />
         <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} photoPosition={flyToPosition} fullPadding={fitPadding} />
         {flyToPosition !== undefined && (
-          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} />
+          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)} />
         )}
         </Map>
       </ErrorBoundary>

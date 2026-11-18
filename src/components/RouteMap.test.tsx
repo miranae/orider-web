@@ -432,6 +432,46 @@ describe("RouteMap", () => {
     expect(document.querySelector("svg path")).toBeNull();
   });
 
+  it("keeps full-range zoom limits when clearing a checkpoint in the same render", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127],[37,127]];
+    const view = renderWithProviders(<RouteMap latlng={latlng} flyToPosition={[38,128]} fitPadding={40} />);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={null} fitPadding={40} flyToRange={{startIndex:0,endIndex:1,requestId:1}} />);
+    expect(api.fitBounds).toHaveBeenCalled();
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40,maxZoom:15});
+  });
+
+  it("keeps a photo popup available when an all-missing stream arrives after a one-point thumbnail", () => {
+    const props = {polyline:"37,127",fallbackImageUrl:"https://example.test/route.png",photos:[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128] as [number,number]}]};
+    const view = renderWithProviders(<RouteMap {...props} />);
+    const map = screen.getByTestId("mock-map");
+    fireEvent.click(screen.getByTestId("map-marker"));
+    expect(screen.getByTestId("map-popup")).toBeInTheDocument();
+    view.rerender(<RouteMap {...props} latlng={[null,null] as unknown as [number,number][]} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(screen.getByTestId("map-popup")).toBeInTheDocument();
+  });
+
+  it("falls back to recorded GPS and logs safely when the saved image fails", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png?token=fake" />);
+    const image = screen.getByRole("img");
+    fireEvent.error(image);
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(document.querySelectorAll("svg circle")).toHaveLength(1);
+    const failures = mapErrors.mock.calls.filter(call => call[0] === "RouteMap.image");
+    expect(failures).toHaveLength(1);
+    expect((failures[0]![1] as Error).message).toBe("route_image_load_failed");
+    expect(failures[0]![2]).toEqual({stage:"static_image",routeSlotCount:1});
+  });
+
+  it("renders endpoint colors above standalone point circles", () => {
+    renderWithProviders(<RouteMap routeParts={[[[37,127]],[[38,128]]]} showRouteEndpoints />);
+    const layers = [...mapProps.layers.keys()];
+    expect(layers.indexOf("route-standalone-points")).toBeLessThan(layers.indexOf("route-endpoint-core"));
+  });
+
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
