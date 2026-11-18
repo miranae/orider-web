@@ -30,7 +30,7 @@ type ActivityMediaPanelProps = {
   markerPosition: [number, number] | null;
   hoveredSegment: SegmentEffortData | null;
   selectedRunRange?: { startIndex: number; endIndex: number };
-  selectedSegmentRange?: { startIndex: number; endIndex: number } | null;
+  selectedSegmentRange?: { startIndex: number; endIndex: number; requestId?: number } | null;
   photos: StreamPhoto[];
   uploadedPhotos: UploadedPhoto[];
   flyToPosition: [number, number] | null;

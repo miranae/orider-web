@@ -155,7 +155,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const [editingText, setEditingText] = useState("");
   const [showAllResults, setShowAllResults] = useState(false);
   const [hoveredSegment, setHoveredSegment] = useState<SegmentEffortData | null>(null);
-  const [segmentMapSelection, setSegmentMapSelection] = useState<{ scope: string; effort: SegmentEffortData } | null>(null);
+  const [segmentMapSelection, setSegmentMapSelection] = useState<{ scope: string; effort: SegmentEffortData; requestId: number } | null>(null);
   const segmentMapTrigger = useRef<HTMLButtonElement | null>(null);
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string> | null>(null);
@@ -327,7 +327,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     if (hasPublicRouteParts) return;
     segmentMapTrigger.current = trigger;
     setHoveredSegment(null);
-    setSegmentMapSelection({ scope: segmentMapScope, effort });
+    setSegmentMapSelection(previous => ({ scope: segmentMapScope, effort, requestId: (previous?.requestId ?? 0) + 1 }));
     requestAnimationFrame(() => {
       const stickyNavigation = Array.from(document.querySelectorAll("nav")).filter(nav => {
         const style = getComputedStyle(nav), top = Number.parseFloat(style.top);
@@ -1419,7 +1419,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         summary={s}
         markerPosition={markerPosition}
         hoveredSegment={activeTab === "analysis" && visualRange ? null : selectedMapSegment ?? hoveredSegment}
-        selectedSegmentRange={selectedMapSegment}
+        selectedSegmentRange={selectedMapSegment && segmentMapSelection ? { ...selectedMapSegment, requestId: segmentMapSelection.requestId } : null}
         selectedRunRange={activeTab === "analysis" && visualRange ? visualRouteRange ?? undefined : rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
         photos={mapPhotos}
         uploadedPhotos={uploadedPhotos}

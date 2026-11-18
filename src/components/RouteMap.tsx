@@ -47,7 +47,8 @@ interface RouteMapProps {
   waypoints?: WaypointMarker[];
   highlightRange?: { startIndex: number; endIndex: number };
   onHighlightRangeChange?: (startIndex: number, endIndex: number) => void;
-  flyToRange?: { startIndex: number; endIndex: number } | null;
+  /** Increment requestId to repeat a camera request for the same indices. */
+  flyToRange?: { startIndex: number; endIndex: number; requestId?: number } | null;
   flyToPosition?: [number, number] | null;
   onLoad?: () => void;
   /** 피드에서 배경 타일이 준비되기 전 보여줄 플레이스홀더 */
@@ -213,21 +214,21 @@ function FitBoundsOnLoad({ bounds, disabled }: { bounds: LngLatBoundsLike; disab
 function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition }: {
   positions: RouteSlot[];
   segmentStarts: readonly number[];
-  range: { startIndex: number; endIndex: number } | null | undefined;
+  range: { startIndex: number; endIndex: number; requestId?: number } | null | undefined;
   fullBounds: LngLatBoundsLike;
   photoPosition?: [number, number] | null;
 }) {
   const { current: map } = useMap();
-  const startIndex = rawRange?.startIndex, endIndex = rawRange?.endIndex;
-  const range = useMemo(() => startIndex != null && endIndex != null ? { startIndex, endIndex } : null, [startIndex, endIndex]);
+  const startIndex = rawRange?.startIndex, endIndex = rawRange?.endIndex, requestId = rawRange?.requestId;
+  const range = useMemo(() => startIndex != null && endIndex != null ? { startIndex, endIndex, requestId } : null, [startIndex, endIndex, requestId]);
   const requestedRange = useRef(range);
   const previousPhoto = useRef<RouteSlot>(null);
   const prevRange = useRef<{ startIndex: number; endIndex: number } | null>(null);
 
   useEffect(() => {
     if (!map) return;
-    const rangeChanged = requestedRange.current?.startIndex !== range?.startIndex || requestedRange.current?.endIndex !== range?.endIndex;
-    requestedRange.current = range ? { startIndex: range.startIndex, endIndex: range.endIndex } : range;
+    const rangeChanged = requestedRange.current?.startIndex !== range?.startIndex || requestedRange.current?.endIndex !== range?.endIndex || requestedRange.current?.requestId !== range?.requestId;
+    requestedRange.current = range;
     const photo = isRoutePosition(photoPosition) ? photoPosition : null;
     const previous = previousPhoto.current;
     if (photo && (!previous || photo[0] !== previous[0] || photo[1] !== previous[1])) prevRange.current = null;

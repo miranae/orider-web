@@ -282,6 +282,9 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("지도에서 보는 구간: 합성 언덕")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("region", { name: "활동 경로 지도" })).toHaveFocus());
     expect(screen.getByRole("region", { name: "활동 경로 지도" }).style.getPropertyValue("--activity-sticky-clearance")).toBe("140px");
+    expect(routeMapProps.mock.lastCall?.[0].flyToRange).toMatchObject({startIndex:1,endIndex:3,requestId:1});
+    fireEvent.click(action);
+    expect(routeMapProps.mock.lastCall?.[0].flyToRange).toMatchObject({startIndex:1,endIndex:3,requestId:2});
     fireEvent.mouseLeave(action.closest("tr") ?? action.parentElement!);
     expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 1, endIndex: 3 });
     expect(action).toHaveAttribute("aria-pressed", "true");

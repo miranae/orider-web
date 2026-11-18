@@ -377,7 +377,7 @@ describe("RouteMap", () => {
     const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
     const latlng: [number,number][] = [[37,127],[37.01,127],[37.02,127]];
-    const range = {startIndex:0,endIndex:1};
+    const range = {startIndex:0,endIndex:1,requestId:1};
     const view = renderWithProviders(<RouteMap latlng={latlng} flyToRange={range} />);
     const position: [number,number] = [60,150];
     view.rerender(<RouteMap latlng={latlng} flyToRange={range} flyToPosition={position} />);
@@ -389,8 +389,11 @@ describe("RouteMap", () => {
     view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2}} />);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[127,37.02]]);
     api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2,requestId:2}} />);
+    expect(api.fitBounds).toHaveBeenCalledOnce();
+    api.fitBounds.mockClear();
     const updated: [number,number][] = [[38,128],[38.01,128],[38.02,128]];
-    view.rerender(<RouteMap latlng={updated} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2}} />);
+    view.rerender(<RouteMap latlng={updated} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2,requestId:2}} />);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128,38.01],[128,38.02]]);
     api.fitBounds.mockClear();
     view.rerender(<RouteMap latlng={updated} flyToPosition={position} flyToRange={null} />);
