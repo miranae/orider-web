@@ -190,6 +190,23 @@ describe("RouteMap", () => {
     expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
   });
 
+  it.each([
+    { range: {startIndex:0,endIndex:3}, expected: [[127,37],[127,37.01]] },
+    { range: {startIndex:1,endIndex:4}, expected: [[170,80],[170,80.01]] },
+  ])("fits the selected lines without neighbouring isolated boundary samples: $range", ({range, expected}) => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[80,170],[80.01,170]] as unknown as [number,number][]} flyToRange={range} highlightRange={range} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual(expected);
+  });
+
+  it("fits selections using explicit part boundaries as well as GPS gaps", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[37,127],[37.01,127]],[[80,170],[80.01,170]]]} flyToRange={{startIndex:0,endIndex:2}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+  });
+
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
     const invalid = [null, {}, [NaN, 127], [91, 127], [37, Infinity], [37], ["37", 127]] as unknown as [number, number][];
     const { rerender } = renderWithProviders(<RouteMap latlng={invalid} />);

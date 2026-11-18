@@ -207,8 +207,9 @@ function FitBoundsOnLoad({ bounds }: { bounds: LngLatBoundsLike }) {
   return null;
 }
 
-function FlyToSegmentRange({ positions, range, fullBounds }: {
+function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds }: {
   positions: RouteSlot[];
+  segmentStarts: readonly number[];
   range: { startIndex: number; endIndex: number } | null | undefined;
   fullBounds: LngLatBoundsLike;
 }) {
@@ -218,9 +219,9 @@ function FlyToSegmentRange({ positions, range, fullBounds }: {
   useEffect(() => {
     if (!map) return;
     if (range) {
-      const lo = Math.min(range.startIndex, range.endIndex);
+      const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
-      const segment = positions.slice(lo, hi + 1);
+      const segment = drawableRouteSlots(positions.slice(lo, hi + 1), segmentStarts.map(index => index - lo));
       const bounds = getBounds(segment);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
       prevRange.current = range;
@@ -228,7 +229,7 @@ function FlyToSegmentRange({ positions, range, fullBounds }: {
       map.fitBounds(fullBounds, { padding: 20 });
       prevRange.current = null;
     }
-  }, [map, positions, range, fullBounds]);
+  }, [map, positions, segmentStarts, range, fullBounds]);
 
   return null;
 }
@@ -625,7 +626,7 @@ export default function RouteMap({
 
         {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
         <FitBoundsOnLoad bounds={bounds} />
-        <FlyToSegmentRange positions={positions} range={flyToRange} fullBounds={bounds} />
+        <FlyToSegmentRange positions={positions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} />
         {flyToPosition !== undefined && (
           <FlyToPositionControl position={flyToPosition} fullBounds={bounds} />
         )}
