@@ -188,6 +188,10 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
         if (!active()) return;
         if (!snapshot.exists()) { onData(null); return; }
         const latest = snapshot.data();
+        if (snapshot.metadata?.fromCache && String(latest.trackVersion) !== version) {
+          onData({ ...metadata, elevationProfile: undefined, id, trackLoadState: "error" });
+          return;
+        }
         if (latest.deletedAt != null || latest.hidden === true) { onData(null); return; }
         if (!Array.isArray(latest.elevationProfile)) {
           onData({ ...latest, elevationProfile: undefined, id, trackLoadState: "error" }); return;

@@ -15,7 +15,7 @@ export default function ActivityDetailLoading({ activity: preview, verifiedAt }:
   useEffect(() => {
     if (verifiedAt === undefined) return;
     const remaining = verifiedAt + PUBLIC_ACCESS_VERIFIED_TTL_MS - Date.now();
-    if (remaining <= 0) return;
+    if (remaining <= 0) { setExpiredVerification(verifiedAt); return; }
     const timer = setTimeout(() => setExpiredVerification(verifiedAt), remaining);
     return () => clearTimeout(timer);
   }, [verifiedAt]);

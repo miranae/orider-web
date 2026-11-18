@@ -287,6 +287,7 @@ export default function EventParticipantsPage() {
       let nextProfile = 0;
       const profiles = new Map<string, { nickname: string; team: string }>();
       const canonicalNames = new Set(partsSnap.docs.filter(participant => participant.data().realName).map(participant => participant.id));
+      const identitiesPending = new Set(rows.filter(row => row.identityPending).map(row => row.userId));
       const hydrateProfiles = async () => {
         while (current() && nextProfile < partsSnap.docs.length) {
           const participant = partsSnap.docs[nextProfile++]!;
@@ -294,7 +295,12 @@ export default function EventParticipantsPage() {
             const profile = await withReadDeadline(getPublicUserProfile(participant.id, services.firestore), t("readTimeout"));
             if (!current()) return;
             const nickname = profile?.nickname || t("participantsView.defaultRider");
-            profiles.set(participant.id, { nickname, team: profile?.team || "—" });
+            const identity = { nickname, team: profile?.team || "—" };
+            profiles.set(participant.id, identity);
+            if (profile?.nickname && identitiesPending.has(participant.id)) {
+              setParticipants(previous => previous.map(row => row.userId === participant.id
+                ? { ...row, ...identity, realName: nickname, identityPending: false } : row));
+            }
           } catch (error) {
             logClientError("EventParticipantsPage.loadPublicProfile", error, { eventId }, services, scope.owner);
           }
@@ -328,7 +334,7 @@ export default function EventParticipantsPage() {
   const isHost = !!event && !!user && (user.uid === event.creatorId || event.hostIds.includes(user.uid));
 
   const filtered = useMemo(() => {
-    let r = participants.filter(participant => !participant.identityPending);
+    let r = participants;
     const q = search.trim().toLowerCase();
     const defaultName = t("participantsView.defaultRider");
     if (q) {
@@ -375,9 +381,11 @@ export default function EventParticipantsPage() {
     });
   }
 
+  const selectableRows = filtered.filter(row => !row.identityPending);
+  const allSelected = selectableRows.length > 0 && selectableRows.every(row => selected.has(row.userId));
   function toggleAll() {
-    if (selected.size === filtered.length) setSelected(new Set());
-    else setSelected(new Set(filtered.map((r) => r.userId)));
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(selectableRows.map(row => row.userId)));
   }
 
   async function handleAssignBibs(mode: "sequential" | "category" | "random") {
@@ -744,7 +752,8 @@ export default function EventParticipantsPage() {
                   <th style={{ width: 36, padding: "10px 16px", textAlign: "left" }}>
                     <input
                       type="checkbox"
-                      checked={selected.size === filtered.length && filtered.length > 0}
+                      checked={allSelected}
+                      disabled={!selectableRows.length}
                       onChange={toggleAll}
                       aria-label={t("participantsView.selectAll")}
                     />
@@ -807,6 +816,7 @@ export default function EventParticipantsPage() {
                           <input
                             type="checkbox"
                             checked={isSelected}
+                            disabled={p.identityPending}
                             onChange={() => toggleSelect(p.userId)}
                             aria-label={t("participantsView.selectRow", { name: p.realName })}
                           />
@@ -827,6 +837,7 @@ export default function EventParticipantsPage() {
                         <td style={{ padding: "var(--space-3) var(--space-2)" }}>
                           <Button
                             type="button"
+                            disabled={p.identityPending}
                             onClick={() => setDrawer(p)}
                             style={{
                               textAlign: "left",
@@ -898,6 +909,7 @@ export default function EventParticipantsPage() {
                         <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right" }}>
                           <Button
                             type="button"
+                            disabled={p.identityPending}
                             onClick={() => setDrawer(p)}
                             aria-label={t("participantsView.viewDetail", { name: p.realName })}
                             style={{

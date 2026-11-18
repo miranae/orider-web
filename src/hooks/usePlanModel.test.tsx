@@ -345,7 +345,7 @@ describe("usePlanModel", () => {
 
     expect(hook.result.current.goal?.id).toBe("fresh-goal");
     expect(hook.result.current.weeks).toEqual([]);
-    expect(getTrainingSurfaceCache<typeof cachedTuple>(cacheKey)).toEqual(cachedTuple);
+    expect(getTrainingSurfaceCache<typeof cachedTuple>(cacheKey)).toBeNull();
     await waitFor(() => expect(hook.result.current.planError).toEqual(new Error("plan offline")));
     expect(hook.result.current.loadError).toEqual(new Error("plan offline"));
     expect(hook.result.current.freshLoaded).toBe(false);

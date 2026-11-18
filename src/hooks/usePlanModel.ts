@@ -20,6 +20,7 @@ import {
   clearTrainingSurfaceCache,
   getTrainingSurfaceCache,
   prepareTrainingSurfaceCacheOwner,
+  removeTrainingSurfaceCache,
   setTrainingSurfaceCache,
   trainingSurfaceCacheScope,
 } from "../embedded/trainingSurfaceCache";
@@ -194,6 +195,11 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
 
         // Keep cached weeks only while the confirmed goal still matches them.
         if (cached?.goal?.id !== nextGoal.id) {
+          if (cached) {
+            removeTrainingSurfaceCache(cacheKey);
+            removeTrainingSurfaceCache(snapshotKey);
+          }
+          setCacheHit(false);
           setGoal(nextGoal);
           setWeeks([]);
           setGoalLoading(false);
