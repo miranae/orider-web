@@ -890,7 +890,7 @@ export default function EmbeddedBootstrapRoot({
           safeSend("surface.error", { code: "auth_uid_mismatch" }, message.requestId);
           return;
         }
-        prepareTrainingSurfaceCacheOwner(currentUid, controlServices.auth.currentUser?.isAnonymous === true);
+        prepareTrainingSurfaceCacheOwner(currentUid);
         if (rootRef.current) applyHostContract(rootRef.current, accepted, liveDarkRef.current);
         acceptedUid.current = currentUid;
         sessionAccepted.current = true;
