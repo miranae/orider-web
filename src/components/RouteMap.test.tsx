@@ -671,10 +671,13 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37]]);
   });
 
-  it("keeps a selected single GPS fix in view when a distant photo arrives", () => {
+  it.each([
+    { points: [[37, 127]] },
+    { points: [[37, 127], null, [37.5, 127.5]] },
+  ])("keeps a selected GPS fix in view when a distant photo arrives with route $points", ({ points }) => {
     const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
-    const props = { latlng: [[37, 127]] as [number, number][], flyToRange: { startIndex: 0, endIndex: 0 } };
+    const props = { latlng: points as unknown as [number, number][], flyToRange: { startIndex: 0, endIndex: 0 } };
     const view = renderWithProviders(<RouteMap {...props} />);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127, 37], [127, 37]]);
     api.fitBounds.mockClear();
@@ -696,6 +699,13 @@ describe("RouteMap", () => {
     expect(api.zoomIn).toHaveBeenCalledTimes(1);
     expect(api.fitBounds).not.toHaveBeenCalled();
     expect(JSON.stringify(mapProps.sources)).toContain("[127.3,37.8]");
+  });
+
+  it("shows a selected photo point on the static map without recorded GPS", () => {
+    renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(document.querySelector("circle[data-route-static-selection]")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
   it("reports a late SDK error without replacing the current route", () => {

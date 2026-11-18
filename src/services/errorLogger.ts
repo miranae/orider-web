@@ -18,8 +18,8 @@ const RECENT_ERROR_WINDOW_MS = 10_000;
 const MAX_RECENT_ERROR_KEYS = 200;
 const recentClientErrors = new Map<string, number>();
 
-function shouldSuppressClientError(source: string, message: string, now = Date.now()): boolean {
-  const key = `${source}\u0000${message}`;
+function shouldSuppressClientError(source: string, message: string, scope: string, now = Date.now()): boolean {
+  const key = `${source}\u0000${message}\u0000${scope}`;
   const previousAt = recentClientErrors.get(key);
   if (previousAt != null && now - previousAt < RECENT_ERROR_WINDOW_MS) return true;
 
@@ -57,9 +57,10 @@ export function logClientError(
   context?: Record<string, unknown>,
   services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">,
   requestViewer?: FirebaseServices["auth"]["currentUser"],
+  dedupeScope = "",
 ) {
   const message = error instanceof Error ? error.message : String(error);
-  if (shouldSuppressClientError(source, message)) return;
+  if (shouldSuppressClientError(source, message, dedupeScope)) return;
 
   // Sentry 에 전송 (lazy-loaded, init 전이면 큐에 저장 → load 시 flush)
   captureError(

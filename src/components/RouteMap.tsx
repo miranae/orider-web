@@ -124,10 +124,11 @@ function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { phot
   const logged = useRef(new WeakSet<typeof currentScope>());
   const failed = failedFor === currentScope;
   const onError = () => {
-    if (scope.current === currentScope && services.auth?.currentUser === viewer) setFailedFor(currentScope);
+    const current = scope.current === currentScope && services.auth?.currentUser === viewer;
+    if (current) setFailedFor(currentScope);
     if (logged.current.has(currentScope)) return;
     logged.current.add(currentScope);
-    logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services, viewer);
+    logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services, viewer, current ? "" : "superseded");
   };
   if (failed) return <div data-map-photo-failed style={{ ...style, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"var(--space-8)" }}>
     <span role="img" aria-label={t("publicDetail.photosFailed")}><ImageOff size={ICON_SIZE.sm} aria-hidden="true" /></span>
@@ -191,12 +192,13 @@ export function RouteMapFallback({
           className="h-full w-full object-cover"
           loading="lazy"
           onError={() => {
-            if (scope.current === currentScope && services.auth?.currentUser === viewer) setFailedImage(currentScope);
+            const current = scope.current === currentScope && services.auth?.currentUser === viewer;
+            if (current) setFailedImage(currentScope);
             if (loggedImage.current.has(currentScope)) return;
             loggedImage.current.add(currentScope);
             logClientError("RouteMap.image", new Error("route_image_load_failed"), {
               stage: "static_image", routeSlotCount: positions.length,
-            }, services, viewer);
+            }, services, viewer, current ? "" : "superseded");
           }}
         />
       </div>
@@ -551,6 +553,7 @@ export default function RouteMap({
   }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
   const handleMapError = useCallback((event: { error?: unknown } = {}) => {
+    const current = mapScopeRef.current === mapScope && firebaseServices.auth?.currentUser === mapScope.mapViewer;
     if (!mapErrorLogged.current.has(mapScope)) {
       mapErrorLogged.current.add(mapScope);
       const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
@@ -561,16 +564,16 @@ export default function RouteMap({
       logClientError("RouteMap.mapbox", new Error(`mapbox_${kind}_failure${status == null ? "" : `_${status}`}`), {
         stage: "mapbox_render_or_request", kind, status, routeSlotCount: sourcePositions.length,
         pointCount: pointPositions.length, hasSavedImage: Boolean(fallbackImageUrl), hasRouteLine: drawable,
-      }, firebaseServices, mapScope.mapViewer);
+      }, firebaseServices, mapScope.mapViewer, current ? "" : "superseded");
     }
-    if (mapScopeRef.current === mapScope && firebaseServices.auth?.currentUser === mapScope.mapViewer) setMapFailed(true);
+    if (current) setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope]);
 
   const previewRange = highlightRange ?? flyToRange;
   const selectedMeasuredPoint = streamFallback && previewRange?.startIndex === previewRange?.endIndex
     && previewRange ? sourcePositions[previewRange.startIndex] : null;
   const pointAlreadyInPreview = !streamFallback && previewRange?.startIndex === flyToRange?.startIndex && previewRange?.endIndex === flyToRange?.endIndex;
-  const fallbackSelectedPosition = [pointAlreadyInPreview ? null : selectedPoint, selectedMeasuredPoint, drawable ? null : markerPosition].find(isRoutePosition);
+  const fallbackSelectedPosition = [hasRecordedPosition ? null : flyToPosition, pointAlreadyInPreview ? null : selectedPoint, selectedMeasuredPoint, drawable ? null : markerPosition].find(isRoutePosition);
   const mapOpenedFor = useRef<typeof mapScope | null>(null);
   if (activePoints.length > 0) mapOpenedFor.current = mapScope;
 
@@ -846,7 +849,7 @@ export default function RouteMap({
           </Source>
         )}
 
-        <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds} disabled={(isRoutePosition(flyToPosition) || (!drawable && standalonePositions.length === 1 && isRoutePosition(selectedPoint))) && !cameraIntent.current.full}
+        <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds} disabled={(isRoutePosition(flyToPosition) || (!drawable && isRoutePosition(selectedPoint))) && !cameraIntent.current.full}
           padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />
         <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={fullRouteBounds ?? bounds}
           photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full}
