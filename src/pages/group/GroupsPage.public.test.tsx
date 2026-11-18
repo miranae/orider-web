@@ -17,7 +17,7 @@ describe("anonymous public directory", () => {
     expect(screen.queryByRole("button", { name: "가입 신청" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "클럽 만들기" })).not.toBeInTheDocument();
     expect(screen.queryByText("내가 속한 클럽")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "로그인", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "로그인하고 클럽 참여하기", exact: true })).toBeInTheDocument();
   });
   it("debounces filters and queries the API rather than filtering a partial first page", async () => {
     page(); await screen.findByText(fixture.name);
