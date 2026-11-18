@@ -733,6 +733,16 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[179, 0], [181, 0]]);
   });
 
+  it("unwraps the route line across the dateline and drags to the wrapped sample", () => {
+    const onChange = vi.fn();
+    renderWithProviders(<RouteMap latlng={[[0, 179], [0, -179]]} highlightRange={{ startIndex: 0, endIndex: 1 }} onHighlightRangeChange={onChange} />);
+    expect(mapProps.sources[0]).toMatchObject({ geometry: { coordinates: [[179, 0], [181, 0]] } });
+    const start = mapProps.markers.find(marker => marker.draggable && marker.longitude === 179);
+    expect(start).toBeDefined();
+    act(() => start?.onDragEnd?.({ lngLat: { lat: 0, lng: 181 } }));
+    expect(onChange).toHaveBeenCalledWith(1, 1);
+  });
+
   it("shows a selected photo point on the static map without recorded GPS", () => {
     renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
     fireEvent.click(screen.getByTestId("mock-map"));

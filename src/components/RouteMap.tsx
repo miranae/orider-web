@@ -15,7 +15,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { buildStaticRouteGeometry } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
-import { isRoutePosition, hasRouteLine, drawableRouteSlots, routeTrackSlots, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
+import { isRoutePosition, hasRouteLine, drawableRouteSlots, routeTrackSlots, routeSlots, routeGeometry, routeBounds as getBounds, shortestLongitudeDelta, type RouteSlot } from "../utils/routeGeometry";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface PhotoMarker {
@@ -90,7 +90,7 @@ function findNearestIndex(positions: RouteSlot[], lat: number, lng: number): num
     const point = positions[i];
     if (!point) continue;
     const dlat = point[0] - lat;
-    const dlng = point[1] - lng;
+    const dlng = shortestLongitudeDelta(point[1] - lng);
     const dist = dlat * dlat + dlng * dlng;
     if (dist < minDist) {
       minDist = dist;
@@ -453,7 +453,7 @@ export default function RouteMap({
   const [photoRetryVersions, setPhotoRetryVersions] = useState<Record<string, number>>({});
   const selectedPhoto = photos?.find(photo => photo.id === selectedPhotoId);
   const [mapFailed, setMapFailed] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
+  const [readyFor, setReadyFor] = useState<object | null>(null);
   const [webglSupported] = useState(() => supportsWebGL());
   const mapViewer = firebaseServices.auth?.currentUser;
 
@@ -517,7 +517,6 @@ export default function RouteMap({
   const locationCommand = hasRecordedPosition ? null : photoCommand;
   const mapScope = useMemo(() => ({ firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand }),
     [firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
-  useEffect(() => { setMapReady(false); }, [polyline, latlng, routeParts, locationCommand]);
   const hasLocatedAttachment = hasRecordedPosition && (photos?.some(photo => isRoutePosition(photo?.location))
     || waypoints?.some(point => isRoutePosition([point?.lat, point?.lon])));
   const attachmentPositions = useMemo(() => {
@@ -595,6 +594,11 @@ export default function RouteMap({
   const mapboxToken = getMapboxToken();
   const mapDisplayable = hasRouteBounds && Boolean(mapboxToken) && webglSupported;
   const mapGeneration = mapInstance.current.generation;
+  const readiness = useMemo(() => ({ polyline, latlng, routeParts, locationCommand, mapGeneration, mapDisplayable }),
+    [polyline, latlng, routeParts, locationCommand, mapGeneration, mapDisplayable]);
+  const readinessRef = useRef(readiness);
+  readinessRef.current = readiness;
+  const mapReady = readyFor === readiness;
   const mapContext = useMemo(() => ({ mapScope, mapGeneration, mapDisplayable }), [mapScope, mapGeneration, mapDisplayable]);
   const mapContextRef = useRef(mapContext);
   mapContextRef.current = mapContext;
@@ -670,7 +674,7 @@ export default function RouteMap({
             if (pixelRatio) resizeMapAtPixelRatio(e.target, pixelRatio);
             if (onLoad) { e.target.once("idle", onLoad); }
           }}
-          onIdle={loadingPlaceholder ? () => setMapReady(true) : undefined}
+          onIdle={loadingPlaceholder ? () => { if (readinessRef.current === readiness) setReadyFor(readiness); } : undefined}
           onError={handleMapError}
           interactive={interactive}
           cooperativeGestures={interactive}

@@ -67,13 +67,29 @@ export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: re
     if (point) part.push(point);
   });
   flush();
-  const coordinates = parts.map(segment => segment.map(([lat, lon]) => [lon, lat]));
+  const shiftedLongitude = (routeBounds(positions)?.[1][0] ?? 0) > 180;
+  const coordinates = parts.map(segment => {
+    let previous: number | undefined;
+    return segment.map(([lat, lon]) => {
+      let longitude = shiftedLongitude && lon < 0 ? lon + 360 : lon;
+      if (previous !== undefined) {
+        while (longitude - previous > 180) longitude -= 360;
+        while (longitude - previous < -180) longitude += 360;
+      }
+      previous = longitude;
+      return [longitude, lat];
+    });
+  });
   return {
     type: "Feature", properties: {},
     geometry: coordinates.length === 1
       ? { type: "LineString", coordinates: coordinates[0]! }
       : { type: "MultiLineString", coordinates },
   } as GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>;
+}
+
+export function shortestLongitudeDelta(delta: number): number {
+  return Math.abs(delta) <= 180 ? delta : ((delta + 180) % 360 + 360) % 360 - 180;
 }
 
 export function routeBounds(positions: readonly unknown[]): [[number, number], [number, number]] | null {
