@@ -99,6 +99,19 @@ describe("CoursesPage mobile layout", () => {
     mockLogClientError.mockClear();
   });
 
+  it("puts the condition toggle in the sort chip row and marks the parts the narrow layout folds or floats", () => {
+    const { container } = renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
+
+    const sortRow = container.querySelector(".course-catalog-actions");
+    const toggle = screen.getByRole("button", { name: /코스 조건/ });
+    expect(sortRow).toContainElement(toggle);
+    expect(sortRow).toContainElement(screen.getByRole("button", { name: "최신순" }));
+    expect(toggle).toHaveAttribute("aria-controls", "course-catalog-filter-controls");
+    expect(container.querySelectorAll(".course-catalog-filter-toolbar")).toHaveLength(1);
+    expect(screen.getByText("코스를 찾아보거나 나만의 코스를 등록하세요")).toHaveClass("course-catalog-subtitle");
+    expect(screen.getByRole("button", { name: "지도 보기" }).parentElement).toHaveClass("course-catalog-map-toggle");
+  });
+
   it("applies menu surface and difficulty filters, external updates, reset, and history on the mounted page", async () => {
     function RouteControls() {
       const navigate = useNavigate();
