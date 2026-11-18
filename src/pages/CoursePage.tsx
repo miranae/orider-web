@@ -1121,7 +1121,7 @@ function CoursePageContent() {
 
       <TabNav tabs={[{ id: "overview", label: t("detailTabs.overview"), specId: "D2-T" }, ...(canPrepare ? [{ id: "prepare", label: t("detailTabs.prepare"), specId: "D2-T" }] : []), ...(isOwner ? [{ id: "edit", label: t("button.edit"), specId: "D2-T" }] : [])]} activeTab={detailTab === "edit" && !isOwner ? "overview" : detailTab} onChange={(tab) => { setDetailTab(tab); if (tab === "edit" && isOwner) startEditing(); else setEditing(false); }} />
       {canPrepare && detailTab === "prepare" && climbSection && <Card data-testid="D2-2">{climbSection}</Card>}
-      {canPrepare && detailTab === "prepare" && <Suspense fallback={<LoadingSkeleton kind="card" />}><LabPage presetCourseId={courseId ?? course.id} embedded /></Suspense>}
+      {canPrepare && detailTab === "prepare" && <ErrorBoundary fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="card" />}><LabPage presetCourseId={courseId ?? course.id} embedded /></Suspense></ErrorBoundary>}
       {/* 본문 2단 — 넓은 열에 프로필·경유지·사진, 좁은 열에 정보와 액션. */}
       <div data-testid="D2-1" className="course-body">
         <div data-testid="D2-1" className="course-col" style={canPrepare && detailTab === "prepare" || (detailTab === "edit" && isOwner) ? { display: "none" } : undefined}>

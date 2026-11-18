@@ -31,7 +31,7 @@ function PublicActivityDetailRoute() {
   const key = JSON.stringify([activityId, uid]);
   const client = useMemo(() => createPublicActivityClient(services), [services, user, services.auth.currentUser]);
   const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<{ owner: typeof user; client: typeof client; key: string; detail?: PublicActivityDetail; failed?: boolean; ownerFallback?: boolean; accessDenied?: boolean; finish: (outcome: JourneyOutcome) => void } | null>(null);
+  const [state, setState] = useState<{ owner: typeof user; client: typeof client; key: string; detail?: PublicActivityDetail; verifiedAt?: number; failed?: boolean; ownerFallback?: boolean; accessDenied?: boolean; finish: (outcome: JourneyOutcome) => void } | null>(null);
   useEffect(() => {
     if (!activityId || authLoading) return;
     // Start access resolution and the heavy map/chart module together. The
@@ -42,7 +42,7 @@ function PublicActivityDetailRoute() {
     const hidden = () => { if (document.visibilityState === "hidden") finish("cancelled"); };
     document.addEventListener("visibilitychange", hidden); hidden();
     setState(null);
-    void client.load(activityId).then(detail => { if (active) setState({ owner: user, client, key, detail, finish }); })
+    void client.load(activityId).then(detail => { if (active) setState({ owner: user, client, key, detail, verifiedAt: Date.now(), finish }); })
       .catch(async error => {
         // During a separate backend rollout, preserve existing owner analysis only after
         // a server-filtered ownership read. Never fetch an unfiltered activity as fallback.
@@ -65,7 +65,6 @@ function PublicActivityDetailRoute() {
   if (current?.ownerFallback) return <Suspense fallback={<ActivityDetailLoading />}><OwnerActivityPage key={key} detailMeasurement={current.finish} detailRetry={() => setAttempt(value => value + 1)} /></Suspense>;
   if (activityId && !current?.failed && !current?.detail) return <ActivityDetailLoading />;
   if (!activityId || !current?.detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={!!activityId && !current?.failed} message={current?.accessDenied ? t("publicDetail.accessDenied") : undefined} onRetry={() => setAttempt(value => value + 1)} />;
-  const fallback = <ActivityDetailLoading activity={current.detail.activity} />;
-  if (uid && !user?.isAnonymous && current.detail.activity.userId === uid) return <Suspense fallback={fallback}><OwnerActivityPage key={key} initialOwnerActivity={current.detail.activity} detailMeasurement={current.finish} detailRetry={() => setAttempt(value => value + 1)} /></Suspense>;
-  return <Suspense fallback={fallback}><OwnerActivityPage key={key} publicAccess={{ activityId, retryKey: 0, initialDetail: current.detail, detailMeasurement: current.finish, onDetailRetry: () => setAttempt(value => value + 1), onReady: ignore, onError: ignore }} /></Suspense>;
+  if (uid && !user?.isAnonymous && current.detail.activity.userId === uid) return <Suspense fallback={<ActivityDetailLoading activity={current.detail.activity} />}><OwnerActivityPage key={key} initialOwnerActivity={current.detail.activity} detailMeasurement={current.finish} detailRetry={() => setAttempt(value => value + 1)} /></Suspense>;
+  return <Suspense fallback={<ActivityDetailLoading />}><OwnerActivityPage key={key} publicAccess={{ activityId, retryKey: 0, initialDetail: current.detail, initialDetailVerifiedAt: current.verifiedAt, detailMeasurement: current.finish, onDetailRetry: () => setAttempt(value => value + 1), onReady: ignore, onError: ignore }} /></Suspense>;
 }

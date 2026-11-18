@@ -13,6 +13,7 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader } from "../components/redesign";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { decodeTrack, encodePolyline } from "../utils/polyline";
 import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
@@ -685,10 +686,10 @@ export default function EventsPage() {
         <Card padding="none" style={{ overflow: "hidden" }}>
           {mapEvents.some(({ point }) => !point) && <Text as="p" variant="body" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)", margin: 0 }}>{t("view.noCoordinates", { count: mapEvents.filter(({ point }) => !point).length })}</Text>}
           <div data-testid="E3-4" style={{ height: 560 }}>
-            <Suspense fallback={<LoadingSkeleton kind="chart" />}><MapGL ref={eventMapRef} onLoad={fitCurrentMapBounds} initialViewState={mapBounds ? { bounds: mapBounds, fitBoundsOptions: { padding: 48, maxZoom: 10 } } : DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
+            <ErrorBoundary fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><MapGL ref={eventMapRef} onLoad={fitCurrentMapBounds} initialViewState={mapBounds ? { bounds: mapBounds, fitBoundsOptions: { padding: 48, maxZoom: 10 } } : DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
               {mapEvents.map(({ event, point }) => point && <Marker key={event.id} latitude={point[0]} longitude={point[1]} anchor="bottom"><button type="button" aria-label={event.name} onClick={(click) => { click.stopPropagation(); setMapEventId(event.id); }} style={{ border: 0, background: "var(--lime)", color: "var(--primary-fg)", borderRadius: "50%", width: 32, height: 32, cursor: "pointer" }}><SportIcon sport="bike" size={ICON_SIZE.md} /></button></Marker>)}
               {(() => { const selected = mapEvents.find(({ event }) => event.id === mapEventId); return selected?.point ? <Popup closeOnClick={false} latitude={selected.point[0]} longitude={selected.point[1]} onClose={() => setMapEventId(null)} maxWidth="min(320px, calc(100% - var(--space-4)))" style={{ minWidth: 180 }} offset={36}><div style={{ minWidth: 0, overflowWrap: "anywhere" }}><strong>{selected.event.name}</strong><div style={{ color: "var(--ink-3)", margin: "var(--space-1) 0" }}>{selected.event.meetLocation || selected.event.region || t("view.routeStart")}</div><Link data-testid="E3-4-1" to={`/event/${selected.event.id}`}>{t("action.viewDetails")} →</Link></div></Popup> : null; })()}
-            </MapGL></Suspense>
+            </MapGL></Suspense></ErrorBoundary>
           </div>
         </Card>
       ) : (

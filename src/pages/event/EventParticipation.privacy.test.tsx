@@ -805,6 +805,7 @@ describe("optional event profile hydration", () => {
     try {
       show(<EventParticipantsPage />);
       expect(await screen.findByText("Authorized real name", { exact: true })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /CSV/ })).toBeDisabled();
       expect(screen.getByRole("link", { name: "Event", exact: true })).toBeInTheDocument();
       await act(async () => navigateRoute("/ko/event/next"));
       await screen.findByRole("link", { name: "Next participant event", exact: true });

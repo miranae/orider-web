@@ -54,8 +54,8 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
   useEffect(() => {
     if (!uid || !ready) return;
     let cancelled = false;
-    setState({ session, uid, year, activities: [], loading: true, error: false });
     const startedBeforeCalendar = !calendarReadyRef.current;
+    setState({ session, uid, year, activities: [], loading: true, error: false, startedBeforeCalendar });
     const fail = (err: unknown, canRetryWithCalendar: boolean) => {
       if (cancelled) return;
       cancelled = true;
@@ -72,7 +72,8 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
 
   const current = state.session === session && state.uid === uid && state.year === year;
   const calendarError = !!uid && calendar.session === session && calendar.uid === uid && calendar.error;
-  const retryWithCalendar = current && state.error && state.startedBeforeCalendar === true && calendarReady;
+  const completeCalendar = session.coverage.some(({ start, end }) => start === -Infinity && end === Infinity);
+  const retryWithCalendar = current && state.startedBeforeCalendar === true && calendarReady && (state.error || state.loading && completeCalendar);
   useEffect(() => {
     if (retryWithCalendar) setRetryGeneration(generation => generation + 1);
   }, [retryWithCalendar]);
