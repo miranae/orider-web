@@ -229,9 +229,18 @@ export function setTrainingSurfaceCache<T>(key: TrainingSurfaceCacheKey, value: 
   persist();
 }
 
-export function removeTrainingSurfaceCache(key: TrainingSurfaceCacheKey, onError?: (error: unknown) => void): void {
+export function removeTrainingSurfaceCache(key: TrainingSurfaceCacheKey): void {
   if (ownerUid !== key.uid || ownerScope !== trainingSurfaceCacheScope()) return;
   entries.delete(serializeKey(key));
+  persist();
+}
+
+export function removeTrainingPlanCacheForSport(uid: string, sport: string, onError: (error: unknown) => void): void {
+  if (ownerUid !== uid || ownerScope !== trainingSurfaceCacheScope()) return;
+  for (const [serialized, entry] of entries) {
+    if (entry.key.uid === uid && entry.key.sport === sport && (entry.key.surface === "plan" || entry.key.surface === "plan-snapshot"))
+      entries.delete(serialized);
+  }
   persist(onError);
 }
 

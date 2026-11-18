@@ -188,7 +188,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
         if (!active()) return;
         if (snapshot.metadata?.fromCache) {
           const cached = snapshot.data();
-          const isCurrentTrack = String(cached?.trackVersion) === version && Array.isArray(cached?.elevationProfile);
+          const isCurrentTrack = String(cached?.trackVersion) === version && cached?.hidden !== true && cached?.deletedAt == null && Array.isArray(cached?.elevationProfile);
           onData({ ...metadata, id, elevationProfile: isCurrentTrack ? cached?.elevationProfile : undefined,
             altitudeSemantics: isCurrentTrack ? cached?.altitudeSemantics : undefined,
             trackLoadState: isCurrentTrack ? "ready" : "error" });

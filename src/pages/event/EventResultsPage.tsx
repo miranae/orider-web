@@ -140,6 +140,7 @@ function CategoryChip({ category }: { category: string }) {
 export default function EventResultsPage() {
   const services = useFirebaseServices();
   const { auth, firestore: db } = services;
+  const sdkViewer = auth.currentUser;
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -186,7 +187,8 @@ export default function EventResultsPage() {
     if (!eventId || authLoading) return;
     let cancelled = false;
     let profileFlush: ReturnType<typeof setTimeout> | undefined;
-    const owner = auth.currentUser;
+    const owner = sdkViewer;
+    if (auth.currentUser !== owner) return;
     setResultScope({ eventId, owner, services });
     nextPage.current = null;
     setComplete(false);
@@ -407,7 +409,7 @@ export default function EventResultsPage() {
       }
     })();
     return () => { cancelled = true; clearTimeout(profileFlush); nextPage.current = null; pausePages.current = null; };
-  }, [eventId, user, authLoading, t, reload, services, auth, db]);
+  }, [eventId, user, authLoading, t, reload, services, auth, db, sdkViewer]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();

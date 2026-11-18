@@ -20,7 +20,7 @@ import {
   clearTrainingSurfaceCache,
   getTrainingSurfaceCache,
   prepareTrainingSurfaceCacheOwner,
-  removeTrainingSurfaceCache,
+  removeTrainingPlanCacheForSport,
   setTrainingSurfaceCache,
   trainingSurfaceCacheScope,
 } from "../embedded/trainingSurfaceCache";
@@ -75,6 +75,9 @@ export interface PlanModel {
 export function usePlanModel(sport?: string | null, active = true): PlanModel {
   const services = useFirebaseServices();
   const { firestore } = services;
+  const requestViewer = services.auth.currentUser;
+  const servicesRef = useRef(services);
+  servicesRef.current = services;
   const { user } = useAuth();
   const { i18n } = useTranslation();
   const discipline = normalizePlanSport(sport);
@@ -146,7 +149,8 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     let cancelled = false;
     let loadTimeout: ReturnType<typeof setTimeout> | undefined;
     let goalResolved = false;
-    const requestViewer = services.auth.currentUser;
+    const current = () => !cancelled && servicesRef.current === services && services.auth.currentUser === requestViewer;
+    if (!current()) return;
     const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
     const cacheEnabled = prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
     const snapshotKey = planSnapshotKey(user.uid, discipline, locale);
@@ -168,7 +172,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
       if (forced) invalidatePlanSnapshot(snapshotKey);
       // Firestore의 오프라인 재시도는 끝나지 않을 수 있다. 캐시는 보존하고 재시도 가능한 오류로 확정한다.
       loadTimeout = setTimeout(() => {
-        if (cancelled) return;
+        if (!current()) return;
         cancelled = true;
         const error = new Error("plan/load-timeout");
         if (goalResolved) setPlanError(error);
@@ -180,7 +184,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
       }, 20_000);
       try {
         const nextGoal = await readPreferredActiveGoal(firestore, user.uid, discipline);
-        if (cancelled) return;
+        if (!current()) return;
         goalResolved = true;
         if (!nextGoal) {
           setGoal(null);
@@ -199,8 +203,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
         if (cached?.goal?.id !== nextGoal.id) {
           if (cached) {
             const logCacheError = (error: unknown) => logClientError("PlanPage.invalidateOldGoal", error, { discipline, goalId: nextGoal.id }, services, requestViewer);
-            removeTrainingSurfaceCache(cacheKey, logCacheError);
-            removeTrainingSurfaceCache(snapshotKey, logCacheError);
+            removeTrainingPlanCacheForSport(user.uid, discipline, logCacheError);
           }
           setCacheHit(false);
           setGoal(nextGoal);
@@ -215,7 +218,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
               orderBy("weekNumber"),
             ),
           );
-          if (cancelled) return;
+          if (!current()) return;
           const nextWeeks = planSnap.docs.map((item) => ({ id: item.id, ...item.data() }) as PlanWeek);
           setGoal(nextGoal);
           setWeeks(nextWeeks);
@@ -227,17 +230,17 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
             writePlanSnapshot(snapshotKey, { goal: nextGoal, weeks: nextWeeks });
           }
         } catch (error) {
-          if (cancelled) return;
+          if (!current()) return;
           if (cached === null) setWeeks([]);
           setPlanError(error);
           setGoalLoading(false);
           setFreshLoaded(false);
           logClientError("PlanPage.planLoad", error, { discipline, goalId: nextGoal.id });
         } finally {
-          if (!cancelled) setPlanLoading(false);
+          if (current()) setPlanLoading(false);
         }
       } catch (error) {
-        if (cancelled) return;
+        if (!current()) return;
         if (cached === null) {
           setGoal(null);
           setWeeks([]);
@@ -258,7 +261,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
       clearTimeout(loadTimeout);
       refreshGenerationRef.current.value += 1;
     };
-  }, [discipline, firestore, locale, modelKey, reloadKey, user]);
+  }, [discipline, firestore, locale, modelKey, reloadKey, services, requestViewer, user]);
 
   useEffect(() => {
     if (!active || !user) return;
