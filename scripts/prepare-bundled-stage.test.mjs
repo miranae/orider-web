@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSy
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
+import { snapshotStageHosting, rollbackStageHosting } from "./bundled-stage-hosting-release.mjs";
 import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
@@ -26,6 +27,7 @@ function fixture() {
     calls.push(url);
     if (url === "https://orider.co.kr/runtime-config.json") return Response.json(source);
     if (url.endsWith("/healthz")) return Response.json(health);
+    if (/\/oriderReadinessMissing[a-f0-9]+$/u.test(url)) return Response.json({ error: "unknown-bundle-function" }, { status: 404 });
     if (url.endsWith("/getActivityDiscovery")) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider-dev.web.app", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401, headers: { "access-control-allow-origin": "https://orider-dev.web.app" } });
     if (url.endsWith("/publicClubs?size=1")) {
       assert.equal(options.credentials, "omit");
@@ -157,9 +159,70 @@ test("reviewed historical sources without bundled tooling are rejected before a 
     const run = () => spawnSync("bash", ["-euc", check], { cwd: root, encoding: "utf8", env: { ...process.env, SELECTED_TRANSPORT: "bundled-development", selected_sha: "a".repeat(40) } });
     const missing = run();
     assert.equal(missing.status, 1); assert.match(missing.stdout, /does not support bundled transport: missing/);
-    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs"]) {
+    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs"]) {
       mkdirSync(resolve(root, path, ".."), { recursive: true }); writeFileSync(resolve(root, path), "// capability fixture");
     }
     assert.equal(run().status, 0);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("missing HTML or entry chunks fail before seal or any remote verification", async () => {
+  for (const missing of ["index.html", "assets/index-fixture.js"]) {
+    const f = fixture();
+    try {
+      await f.prepare(); f.build();
+      rmSync(resolve(f.workspace, "dist", missing)); const calls = f.calls.length;
+      await assert.rejects(sealBundledStage(f.directory, f.fetcher), /stage entry (HTML|asset) missing/);
+      assert.equal(f.calls.length, calls);
+    } finally { f.cleanup(); }
+  }
+  const f = fixture();
+  try {
+    await f.prepare(); f.build(); await sealBundledStage(f.directory, f.fetcher);
+    rmSync(resolve(f.workspace, "dist/assets/index-fixture.js")); const calls = f.calls.length;
+    await assert.rejects(verifyBundledStage(f.directory, f.fetcher), /stage entry asset missing/); assert.equal(f.calls.length, calls);
+  } finally { f.cleanup(); }
+});
+test("null development health identifies the gateway instead of throwing an unscoped TypeError", async () => {
+  const f = fixture();
+  try {
+    f.setHealth(null);
+    await assert.rejects(f.prepare(), /source\/topology mismatch at https:\/\/dev-bundle-default-api-818364001341.asia-northeast3.run.app\/healthz/);
+  } finally { f.cleanup(); }
+});
+
+test("failed development release restores only its own marker to the exact previous finalized version", async () => {
+  const marker = `bundled-stage:${"a".repeat(40)}:123:1`;
+  const channelName = "sites/orider-dev/channels/live", previous = "sites/orider-dev/versions/previous", next = "sites/orider-dev/versions/new";
+  let active = previous, message = "previous deployment"; const calls = [];
+  const fetcher = async (url, options) => {
+    calls.push({ url, method: options.method });
+    assert.equal(options.headers.Authorization, "Bearer fixture"); assert.equal(options.redirect, "error");
+    if (url.endsWith("/channels/live")) return Response.json({ name: channelName, release: { version: { name: active }, message } });
+    if (options.method === "POST") { assert.equal(url, `https://firebasehosting.googleapis.com/v1beta1/${channelName}/releases?versionName=${encodeURIComponent(previous)}`); active = previous; return Response.json({}); }
+    return Response.json({ name: previous, status: "FINALIZED" });
+  };
+  const snapshot = await snapshotStageHosting({ token: "fixture", marker, fetcher });
+  assert.equal(calls.some(call => call.method !== "GET"), false);
+  active = next; message = marker;
+  assert.deepEqual(await rollbackStageHosting(snapshot, { token: "fixture", fetcher }), { restored: true, unchanged: false, version: previous });
+  assert.equal(calls.filter(call => call.method === "POST").length, 1);
+  active = next; message = marker;
+  const uncertain = await rollbackStageHosting(snapshot, { token: "fixture", fetcher: async (url, options) => {
+    if (options.method === "POST") { active = previous; throw new Error("PRIVATE_TIMEOUT"); }
+    return fetcher(url, options);
+  } });
+  assert.equal(uncertain.restored, true); assert.equal(uncertain.requestOutcome, "readback-confirmed-after-error");
+  assert.match(uncertain.requestDiagnostic, /POST transport failed/); assert.doesNotMatch(uncertain.requestDiagnostic, /PRIVATE_TIMEOUT/);
+  active = next; message = "another operator deployment"; calls.length = 0;
+  await assert.rejects(rollbackStageHosting(snapshot, { token: "fixture", fetcher }), /not this deployment/);
+  assert.equal(calls.some(call => call.method === "POST"), false);
+  await assert.rejects(rollbackStageHosting({ ...snapshot, site: "miranae-orider-g1" }, { token: "fixture", fetcher }), /snapshot invalid/);
+});
+test("development rollback is wired after the live checks and before artifact publication", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
+  assert.ok(workflow.indexOf("--phase snapshot") < workflow.indexOf("firebase deploy --config"));
+  assert.ok(workflow.indexOf("--phase rollback") > workflow.indexOf("Development detail response mismatch"));
+  assert.ok(workflow.indexOf("--phase rollback") < workflow.indexOf("Retain verified bundled client artifact"));
+  assert.match(workflow, /if: failure\(\).*steps\.hosting_snapshot\.outcome == 'success'/);
 });

@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSy
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { verifyBundledCallable } from "./lib/bundled-callable-probe.mjs";
+import { verifyBundledCallable, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
 import { prepareBundledProduction, verifyBundledProduction } from "./prepare-bundled-production.mjs";
 import { bundledFunctionsConfig } from "./lib/bundled-functions-config.mjs";
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
@@ -19,7 +19,7 @@ function fixture() {
   const git = (...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "fixture"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.test"); git("add", "."); git("commit", "-m", "fixture");
   let health = { status: "ok", exposure: "public", sourceSha: "b".repeat(40), topologyHash: "c".repeat(64) };
-  const calls = [], fetcher = async (url, options) => { calls.push(url); return url.endsWith("/healthz") ? Response.json(health) : options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider.co.kr", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401, headers: { "access-control-allow-origin": "https://orider.co.kr" } }); };
+  const calls = [], fetcher = async (url, options) => { calls.push(url); return url.endsWith("/healthz") ? Response.json(health) : /\/oriderReadinessMissing[a-f0-9]+$/u.test(url) ? Response.json({ error: "unknown-bundle-function" }, { status: 404 }) : options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider.co.kr", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401, headers: { "access-control-allow-origin": "https://orider.co.kr" } }); };
   const prepare = (patch = {}) => prepareBundledProduction({ source, workspace, directory, fetcher, backendSourceSha: "b".repeat(40), backendTopologyHash: "c".repeat(64), ...patch });
   const build = runtime => { mkdirSync(resolve(workspace, "dist")); writeFileSync(resolve(workspace, "dist/runtime-config.json"), JSON.stringify(runtime)); };
   return { workspace, directory, prepare, fetcher, calls, build, setHealth: next => { health = next; }, cleanup: () => rmSync(root, { recursive: true, force: true }) };
@@ -36,7 +36,7 @@ test("production opt-in derives routing from normal release flags and keeps cano
     assert.equal(config.site, "miranae-orider-g1"); assert.ok(config.rewrites.filter(rule => rule.run).every(rule => rule.run.serviceId === "orider-bundle-default-api"));
     assert.match(config.predeploy, /predeploy-guard/); assert.match(config.predeploy, /prepare-bundled-production\.mjs --phase verify/);
     await verifyBundledProduction(f.directory, f.fetcher);
-    assert.equal(f.calls.filter(url => !url.endsWith("/healthz")).length, 82);
+    assert.equal(f.calls.filter(url => !url.endsWith("/healthz")).length, 83);
     assert.ok(f.calls.includes(`${runtime.firebaseFunctionsBase}/getActivityDiscovery`));
   } finally { f.cleanup(); }
 });
@@ -80,7 +80,7 @@ test("bundled production rejects a missing social callable before Hosting", asyn
   const f = fixture();
   try {
     await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
-    await assert.rejects(verifyBundledProduction(f.directory, url => url.endsWith("/healthz") ? f.fetcher(url) : Promise.resolve(Response.json({}, { status: 404 }))), /bundled callable/);
+    await assert.rejects(verifyBundledProduction(f.directory, url => url.endsWith("/healthz") ? f.fetcher(url) : Promise.resolve(Response.json({}, { status: 404 }))), /bundled (callable|missing-route control)/);
   } finally { f.cleanup(); }
 });
 
@@ -99,4 +99,20 @@ test("browser callable gate rejects missing CORS headers and attributes transpor
     if (options.method === "POST") throw new Error("timeout");
     return new Response(null, { status: 204, headers: { "access-control-allow-origin": origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } });
   } }), /getActivityDiscovery POST transport failed/);
+});
+
+test("null production health reports the exact metadata endpoint", async () => {
+  const f = fixture();
+  try { f.setHealth(null); await assert.rejects(f.prepare(), /identity missing at https:\/\/orider-bundle-default-api-289663940841.asia-northeast3.run.app\/healthz/); }
+  finally { f.cleanup(); }
+});
+
+test("a blanket401 middleware cannot establish callable registration", async () => {
+  const base = "https://orider-bundle-default-api-289663940841.asia-northeast3.run.app", origin = "https://orider.co.kr";
+  await assert.rejects(verifyBundledRouteControl({ base, origin, fetcher: async () => Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401 }) }), /missing-route control POST failed.*expected=404/);
+  await verifyBundledRouteControl({ base, origin, fetcher: async (url, options) => {
+    assert.ok(url.startsWith(`${base}/oriderReadinessMissing`)); assert.equal(options.headers.Origin, origin);
+    assert.equal(options.method, "POST"); assert.equal(options.headers.Authorization, undefined);
+    return Response.json({ error: "unknown-bundle-function" }, { status: 404 });
+  } });
 });

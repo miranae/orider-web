@@ -65,3 +65,16 @@ The bundled predeploy checks all 41 canonical social callables on the selected
 gateway for HTTP401/UNAUTHENTICATED, then checks backend identity again.
 Development source must be an ancestor of reviewed `origin/main` or `origin/dev`
 before any selected source script, install or cloud authentication runs.
+
+Readiness also requires a randomized missing callable to return the router's
+HTTP404/unknown-bundle-function response; blanket HTTP401 authentication alone
+cannot establish route readiness. The development artifact must contain a
+nonempty HTML entry and its referenced JS chunk before it can be sealed or published.
+
+Before bundled development publication, the job snapshots the exact finalized
+`orider-dev` live Hosting version. If publication or live entry/detail verification
+fails, it restores that version only when the current release carries this run's
+unique deployment marker, then checks the live pointer. A later operator's release
+is never rolled back by this job. A recovered release still leaves the job failed
+for investigation. This recovery is fixed to development and does not publish
+or roll back production.

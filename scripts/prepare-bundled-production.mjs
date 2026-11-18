@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { verifyBundledCallable } from "./lib/bundled-callable-probe.mjs";
+import { verifyBundledCallable, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -25,8 +25,8 @@ async function health(runtime, fetcher, expected) {
   if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled production gateway is unavailable at ${url} HTTP ${response.status}`); }
   let value;
   try { value = await response.json(); } catch { throw new Error(`bundled production health invalid JSON at ${url}`); }
-  if (value.status !== "ok" || value.exposure !== "public" || !/^[a-f0-9]{40}$/u.test(value.sourceSha || "")
-    || !/^[a-f0-9]{64}$/u.test(value.topologyHash || "")) throw new Error(`bundled production gateway identity missing at ${url}`);
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.status !== "ok" || value.exposure !== "public" || typeof value.sourceSha !== "string" || !/^[a-f0-9]{40}$/u.test(value.sourceSha)
+    || typeof value.topologyHash !== "string" || !/^[a-f0-9]{64}$/u.test(value.topologyHash)) throw new Error(`bundled production gateway identity missing at ${url}`);
   const identity = { sourceSha: value.sourceSha, topologyHash: value.topologyHash };
   if (expected && !isDeepStrictEqual(expected, identity)) throw new Error(`bundled production backend changed during frontend build: expected source=${expected.sourceSha} topology=${expected.topologyHash}; actual source=${identity.sourceSha} topology=${identity.topologyHash}`);
   return identity;
@@ -66,6 +66,7 @@ export async function verifyBundledProduction(directory, fetcher = fetch) {
   const actual = json(resolve(receipt.workspace, "dist/runtime-config.json"));
   if (!isDeepStrictEqual(actual, expected)) throw new Error("built production runtime differs from normal release flags");
   await health(expected, fetcher, receipt.backend);
+  await verifyBundledRouteControl({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", fetcher });
   const manifest = json(new URL("./contracts/social-callables.json", import.meta.url));
   for (const { name } of manifest.callables) {
     await verifyBundledCallable({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", name, fetcher });

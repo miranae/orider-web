@@ -8,8 +8,8 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
-import { stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
-import { verifyBundledCallable } from "./lib/bundled-callable-probe.mjs";
+import { assertStageEntryArtifact, stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
+import { verifyBundledCallable, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const SHA = /^[a-f0-9]{40}$/u;
@@ -40,10 +40,11 @@ async function requestJson(url, fetcher) {
 export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
   if (!SHA.test(sourceSha || "")) throw new Error("bundled development backend source SHA required");
   const health = await requestJson(`${runtime.firebaseFunctionsBase}/healthz`, fetcher);
-  if (health.status !== "ok" || health.sourceSha !== sourceSha || health.exposure !== "public"
-    || !/^[a-f0-9]{64}$/u.test(health.topologyHash || "") || topologyHash && health.topologyHash !== topologyHash) {
-    throw new Error("bundled development backend source/topology mismatch");
+  if (!health || typeof health !== "object" || Array.isArray(health) || health.status !== "ok" || health.sourceSha !== sourceSha || health.exposure !== "public"
+    || typeof health.topologyHash !== "string" || !/^[a-f0-9]{64}$/u.test(health.topologyHash) || topologyHash && health.topologyHash !== topologyHash) {
+    throw new Error(`bundled development backend source/topology mismatch at ${runtime.firebaseFunctionsBase}/healthz`);
   }
+  await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", fetcher });
   await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "getActivityDiscovery", fetcher });
   return health.topologyHash;
 }
@@ -98,6 +99,7 @@ function readPrepared(directory) {
 export async function sealBundledStage(directory, fetcher = fetch) {
   const state = readPrepared(directory), { prepared, runtime } = state;
   if (hash(readFileSync(resolve(prepared.artifactDirectory, "runtime-config.json"))) !== prepared.runtimeHash) throw new Error("built runtime differs from the prepared development profile");
+  assertStageEntryArtifact(prepared.artifactDirectory);
   const manifest = stageArtifactManifest(prepared.artifactDirectory);
   await verifyStageArtifacts(prepared.artifactDirectory, manifest, () => verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher));
   readPrepared(directory);
@@ -109,6 +111,7 @@ export async function verifyBundledStage(directory, fetcher = fetch) {
   const { prepared, runtime } = readPrepared(directory), receipt = json(resolve(directory, "build.json"));
   if (receipt.complete !== true || Object.entries(prepared).some(([key, value]) => !isDeepStrictEqual(receipt[key], value))
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
+  assertStageEntryArtifact(prepared.artifactDirectory);
   await verifyStageArtifacts(prepared.artifactDirectory, receipt.artifactManifest, async () => {
     await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
     await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);

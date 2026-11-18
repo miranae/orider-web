@@ -30,3 +30,16 @@ export async function verifyStageArtifacts(directory, expected, verifyRemote) {
   verify();
   return result;
 }
+
+/** 앱을 시작할 HTML과 실제 entry 청크가 없는 산출물은 게시 전에 거부한다. */
+export function assertStageEntryArtifact(directory) {
+  const htmlPath = join(directory, "index.html");
+  let html;
+  try { html = readFileSync(htmlPath, "utf8"); } catch { throw new Error(`stage entry HTML missing at ${htmlPath}`); }
+  const entry = html.match(/<script\b[^>]*\bsrc=["']\/?(assets\/index-[A-Za-z0-9_-]+\.js)["'][^>]*>/u)?.[1];
+  if (!entry) throw new Error(`stage entry script missing in ${htmlPath}`);
+  const entryPath = join(directory, entry);
+  try {
+    if (!lstatSync(entryPath).isFile() || readFileSync(entryPath).length === 0) throw new Error("not a nonempty file");
+  } catch { throw new Error(`stage entry asset missing or invalid at ${entryPath}`); }
+}
