@@ -1,4 +1,3 @@
-import { withReadDeadline } from "../../utils/withReadDeadline";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -294,7 +293,7 @@ export default function EventParticipantsPage() {
         while (current() && nextProfile < partsSnap.docs.length) {
           const participant = partsSnap.docs[nextProfile++]!;
           try {
-            const profile = await withReadDeadline(getPublicUserProfile(participant.id, services.firestore), t("readTimeout"));
+            const profile = await getPublicUserProfile(participant.id, services.firestore);
             if (!current()) return;
             const nickname = profile?.nickname || t("participantsView.defaultRider");
             const identity = { nickname, team: profile?.team || "—", verifiedNickname: profile?.nickname };

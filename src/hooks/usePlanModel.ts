@@ -73,7 +73,8 @@ export interface PlanModel {
 
 /** Plan data model shared by the full page and embedded surface. */
 export function usePlanModel(sport?: string | null, active = true): PlanModel {
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const { user } = useAuth();
   const { i18n } = useTranslation();
   const discipline = normalizePlanSport(sport);
@@ -145,6 +146,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     let cancelled = false;
     let loadTimeout: ReturnType<typeof setTimeout> | undefined;
     let goalResolved = false;
+    const requestViewer = services.auth.currentUser;
     const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
     const cacheEnabled = prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
     const snapshotKey = planSnapshotKey(user.uid, discipline, locale);
@@ -196,7 +198,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
         // Keep cached weeks only while the confirmed goal still matches them.
         if (cached?.goal?.id !== nextGoal.id) {
           if (cached) {
-            const logCacheError = (error: unknown) => logClientError("PlanPage.invalidateOldGoal", error, { discipline, goalId: nextGoal.id });
+            const logCacheError = (error: unknown) => logClientError("PlanPage.invalidateOldGoal", error, { discipline, goalId: nextGoal.id }, services, requestViewer);
             removeTrainingSurfaceCache(cacheKey, logCacheError);
             removeTrainingSurfaceCache(snapshotKey, logCacheError);
           }

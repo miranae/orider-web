@@ -186,12 +186,16 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
           onData({ ...metadata, elevationProfile: undefined, id, trackLoadState: "error" }); return;
         }
         if (!active()) return;
-        if (!snapshot.exists()) { onData(null); return; }
-        const latest = snapshot.data();
-        if (snapshot.metadata?.fromCache && String(latest.trackVersion) !== version) {
-          onData({ ...metadata, elevationProfile: undefined, id, trackLoadState: "error" });
+        if (snapshot.metadata?.fromCache) {
+          const cached = snapshot.data();
+          const isCurrentTrack = String(cached?.trackVersion) === version && Array.isArray(cached?.elevationProfile);
+          onData({ ...metadata, id, elevationProfile: isCurrentTrack ? cached?.elevationProfile : undefined,
+            altitudeSemantics: isCurrentTrack ? cached?.altitudeSemantics : undefined,
+            trackLoadState: isCurrentTrack ? "ready" : "error" });
           return;
         }
+        if (!snapshot.exists()) { onData(null); return; }
+        const latest = snapshot.data();
         if (latest.deletedAt != null || latest.hidden === true) { onData(null); return; }
         if (!Array.isArray(latest.elevationProfile)) {
           onData({ ...latest, elevationProfile: undefined, id, trackLoadState: "error" }); return;
