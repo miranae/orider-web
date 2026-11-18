@@ -86,7 +86,8 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
           flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", lineHeight: 1,
         }}
       >
-        {(group.badge ?? badgeText(group.name)).slice(0, 3).toUpperCase()}
+        {/* 빈 문자열 badge 는 ?? 로 넘어가지 않아 빈 아이콘이 됐다 — 비었으면 이름 글자로 대체 */}
+        {(group.badge?.trim() || badgeText(group.name)).slice(0, 3).toUpperCase()}
       </div>
 
       {/* Body */}
