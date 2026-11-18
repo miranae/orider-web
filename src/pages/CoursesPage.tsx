@@ -223,11 +223,9 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
     setHoveredId(null);
   }, []);
 
-  const handleSearch = () => {
-    const nextQuery = inputValue.trim();
+  const applySearch = (nextQuery: string) => {
     setSearchQuery(nextQuery);
-    setSelectedId(null);
-    setHoveredId(null);
+    handleClearSelection();
 
     const nextParams = new URLSearchParams(searchParams);
     if (nextQuery) nextParams.set("q", nextQuery);
@@ -235,7 +233,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
     setSearchParams(nextParams, { replace: true });
   };
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSearch();
+    if (e.key === "Enter" && !e.nativeEvent.isComposing) applySearch(inputValue.trim());
   };
 
   const scrollToCard = useCallback((id: string) => {
@@ -300,7 +298,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
           <div data-testid="E1-1" className="relative flex-1">
             <button
               aria-label={t("search.submit")}
-              onClick={handleSearch}
+              onClick={() => applySearch(inputValue.trim())}
               className={buttonClass({ variant: "ghost", className: "course-search-action transition-colors" })}
               style={{ color: "var(--ink-3)" }}
             >
@@ -314,7 +312,11 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
               aria-label={t("search.placeholder")}
               placeholder={t("search.placeholder")}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setInputValue(value);
+                if (value === "" && searchQuery) applySearch("");
+              }}
               onKeyDown={handleKeyDown}
               className="course-search-input w-full"
 

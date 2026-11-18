@@ -117,6 +117,24 @@ describe("CoursesPage mobile layout", () => {
     await waitFor(() => expect(searchVisibleCoursesPage).toHaveBeenCalledTimes(1));
   });
 
+  it("returns to the catalog when the active course search is cleared", async () => {
+    function CurrentQuery() {
+      return <output data-testid="course-query">{useLocation().search}</output>;
+    }
+
+    vi.mocked(searchVisibleCoursesPage).mockClear();
+    renderWithProviders(<><CoursesPage /><CurrentQuery /></>, {
+      route: "/explore/courses?surface=paved&q=남한강",
+    });
+    await waitFor(() => expect(searchVisibleCoursesPage).toHaveBeenCalledTimes(1));
+
+    fireEvent.input(screen.getByRole("searchbox"), { target: { value: "" } });
+
+    expect(await screen.findByRole("heading", { name: "남한강 자전거길" })).toBeInTheDocument();
+    expect(screen.getByTestId("course-query")).toHaveTextContent(/^\?surface=paved$/);
+    expect(searchVisibleCoursesPage).toHaveBeenCalledTimes(1);
+  });
+
   it("applies menu surface and difficulty filters, external updates, reset, and history on the mounted page", async () => {
     function RouteControls() {
       const navigate = useNavigate();
