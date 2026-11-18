@@ -165,9 +165,14 @@ export function RouteMapFallback({
   const { t } = useTranslation("common");
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
   const services = useFirebaseServices();
-  const [failedImage, setFailedImage] = useState<string | null>(null);
-  const loggedImage = useRef<string | null>(null);
-  useEffect(() => { setFailedImage(null); loggedImage.current = null; }, [imageUrl]);
+  const viewer = services.auth?.currentUser;
+  const scope = useRef({ services, viewer, imageUrl, generation: 0 });
+  if (scope.current.services !== services || scope.current.viewer !== viewer || scope.current.imageUrl !== imageUrl) {
+    scope.current = { services, viewer, imageUrl, generation: scope.current.generation + 1 };
+  }
+  const currentScope = scope.current;
+  const [failedImage, setFailedImage] = useState<typeof currentScope | null>(null);
+  const loggedImage = useRef<typeof currentScope | null>(null);
   const startIndex = highlightRange?.startIndex, endIndex = highlightRange?.endIndex;
   const selectedLatitude = selectedPosition?.[0], selectedLongitude = selectedPosition?.[1];
   const { path, points, selectionPath, selectionPoints = [] } = useMemo(() => buildStaticRouteGeometry(positions, segmentStarts, {
@@ -175,18 +180,20 @@ export function RouteMapFallback({
     selectedPosition: selectedLatitude != null && selectedLongitude != null ? [selectedLatitude, selectedLongitude] : undefined,
   }), [positions, segmentStarts, pointsOnly, startIndex, endIndex, selectedLatitude, selectedLongitude]);
   const hasSelection = Boolean(selectionPath || selectionPoints.length);
-  if (imageUrl && failedImage !== imageUrl && !hasSelection) {
+  if (imageUrl && failedImage !== currentScope && !hasSelection) {
     return (
       <div className={containerClass} style={{ background: "var(--bg-1)" }}>
         <img
+          key={currentScope.generation}
           src={imageUrl}
           alt={imageAlt}
           className="h-full w-full object-cover"
           loading="lazy"
           onError={() => {
-            setFailedImage(imageUrl);
-            if (loggedImage.current === imageUrl) return;
-            loggedImage.current = imageUrl;
+            if (scope.current !== currentScope) return;
+            setFailedImage(currentScope);
+            if (loggedImage.current === currentScope) return;
+            loggedImage.current = currentScope;
             logClientError("RouteMap.image", new Error("route_image_load_failed"), {
               stage: "static_image", routeSlotCount: positions.length,
             }, services);
@@ -284,7 +291,7 @@ function RouteCameraControls({ bounds, disabled, padding, labels, onFit }: {
   }} /> : null;
 }
 
-function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition, fullPadding, fullRouteRequested }: {
+function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition, fullPadding, fullRouteRequested, rangeAfterPhoto }: {
   positions: RouteSlot[];
   segmentStarts: readonly number[];
   range: { startIndex: number; endIndex: number; requestId?: number } | null | undefined;
@@ -292,6 +299,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
   photoPosition?: [number, number] | null;
   fullPadding: number;
   fullRouteRequested: boolean;
+  rangeAfterPhoto: boolean;
 }) {
   const { current: map } = useMap();
   const startIndex = rawRange?.startIndex, endIndex = rawRange?.endIndex, requestId = rawRange?.requestId;
@@ -310,7 +318,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
     previousPhoto.current = photo ? [photo[0], photo[1]] : null;
     // New chart selections may move the camera, but background route updates may
     // not override a photo the user has already located.
-    if (fullRouteRequested && !rangeChanged || photo && !rangeChanged && !prevRange.current) return;
+    if (fullRouteRequested && !rangeChanged || photo && !rangeAfterPhoto && !rangeChanged && !prevRange.current) return;
     if (range) {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
@@ -329,24 +337,24 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevRange.current = null;
     }
-  }, [map, positions, segmentStarts, range, fullBounds, photoPosition, fullPadding, fullRouteRequested]);
+  }, [map, positions, segmentStarts, range, fullBounds, photoPosition, fullPadding, fullRouteRequested, rangeAfterPhoto]);
 
   return null;
 }
 
-function FlyToPositionControl({ position, fullBounds, fullPadding, rangeActive, fullRouteRequested }: {
+function FlyToPositionControl({ position, fullBounds, fullPadding, rangeActive, suppressed }: {
   position: [number, number] | null | undefined;
   fullBounds: LngLatBoundsLike;
   fullPadding: number;
   rangeActive: boolean;
-  fullRouteRequested: boolean;
+  suppressed: boolean;
 }) {
   const { current: map } = useMap();
   const prevPosition = useRef<[number, number] | null>(null);
 
   useEffect(() => {
     if (!map) return;
-    if (fullRouteRequested) {
+    if (suppressed) {
       prevPosition.current = isRoutePosition(position) ? [position[0], position[1]] : null;
       return;
     }
@@ -361,7 +369,7 @@ function FlyToPositionControl({ position, fullBounds, fullPadding, rangeActive, 
       if (!rangeActive) map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevPosition.current = null;
     }
-  }, [map, position, fullBounds, fullPadding, rangeActive, fullRouteRequested]);
+  }, [map, position, fullBounds, fullPadding, rangeActive, suppressed]);
 
   return null;
 }
@@ -428,9 +436,13 @@ export default function RouteMap({
   const onHighlightRangeChange = rawOnHighlightRangeChange;
   const flyToRange = rawFlyToRange;
   const markerPosition = rawMarkerPosition;
-  const cameraIntent = useRef({ command: "", full: false });
-  const cameraCommand = JSON.stringify([flyToPosition?.[0], flyToPosition?.[1], flyToRange?.startIndex, flyToRange?.endIndex, flyToRange?.requestId]);
-  if (cameraIntent.current.command !== cameraCommand) cameraIntent.current = { command: cameraCommand, full: false };
+  const photoCommand = JSON.stringify([flyToPosition?.[0], flyToPosition?.[1]]);
+  const rangeCommand = JSON.stringify([flyToRange?.startIndex, flyToRange?.endIndex, flyToRange?.requestId]);
+  const cameraIntent = useRef({ photoCommand, rangeCommand, full: false, rangeAfterPhoto: false });
+  if (cameraIntent.current.photoCommand !== photoCommand || cameraIntent.current.rangeCommand !== rangeCommand) {
+    const rangeAfterPhoto = cameraIntent.current.photoCommand === photoCommand && isRoutePosition(flyToPosition) && Boolean(flyToRange);
+    cameraIntent.current = { photoCommand, rangeCommand, full: false, rangeAfterPhoto };
+  }
 
   useEffect(() => {
     mapErrorLogged.current = false;
@@ -818,9 +830,12 @@ export default function RouteMap({
 
         <RouteCameraControls labels={navigationLabels} bounds={bounds} disabled={isRoutePosition(flyToPosition) && !cameraIntent.current.full}
           padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />
-        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full} />
+        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds}
+          photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full}
+          rangeAfterPhoto={cameraIntent.current.rangeAfterPhoto} />
         {flyToPosition !== undefined && (
-          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)} fullRouteRequested={cameraIntent.current.full} />
+          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)}
+            suppressed={cameraIntent.current.full || cameraIntent.current.rangeAfterPhoto} />
         )}
         </Map>
       </ErrorBoundary>

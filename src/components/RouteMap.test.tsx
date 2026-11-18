@@ -580,6 +580,36 @@ describe("RouteMap", () => {
     expect(api.fitBounds).not.toHaveBeenCalled();
   });
 
+  it("restores the most recent chart range after remounting a map that had a photo target", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = { flyToPosition: [60, 150] as [number, number] };
+    const first: [number, number][] = [[37, 127], [37.01, 127], [37.02, 127]];
+    const view = renderWithProviders(<RouteMap {...props} latlng={first} />);
+    const range = { startIndex: 0, endIndex: 1, requestId: 1 };
+    view.rerender(<RouteMap {...props} latlng={first} flyToRange={range} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    api.fitBounds.mockClear();
+    api.flyTo.mockClear();
+    view.rerender(<RouteMap {...props} latlng={[[38, 128], [38.01, 128], [38.02, 128]]} flyToRange={range} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128, 38], [128, 38.01]]);
+    expect(api.flyTo).not.toHaveBeenCalled();
+  });
+
+  it("discards a saved image error from a replaced same-UID session", () => {
+    const services = { auth: { currentUser: { uid: "owner" } } } as unknown as FirebaseServices;
+    const props = { fallbackImageUrl: "https://example.test/route.png" };
+    const view = renderWithProviders(<FirebaseServicesProvider services={services}><RouteMap {...props} /></FirebaseServicesProvider>);
+    const previous = screen.getByRole("img");
+    Object.assign(services.auth, { currentUser: { uid: "owner" } });
+    view.rerender(<FirebaseServicesProvider services={services}><RouteMap {...props} /></FirebaseServicesProvider>);
+    const current = screen.getByRole("img");
+    expect(current).not.toBe(previous);
+    fireEvent.error(previous);
+    expect(current).toBeInTheDocument();
+    expect(mapErrors.mock.calls.some(call => call[0] === "RouteMap.image")).toBe(false);
+  });
+
   it("includes a located photo in the initial bounds of a single-fix route", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;

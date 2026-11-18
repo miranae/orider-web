@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { isRoutePosition, type RoutePosition } from "../utils/routeGeometry";
 
 /** Photo navigation cannot outlive the activity/account that requested it. */
-export function useActivityPhotoLocation(identity: string, session?: unknown) {
-  const scope = useRef({ identity, session });
-  if (scope.current.identity !== identity || scope.current.session !== session) scope.current = { identity, session };
+export function useActivityPhotoLocation(identity: string, services?: unknown, viewer?: unknown) {
+  const scope = useRef({ identity, services, viewer });
+  if (scope.current.identity !== identity || scope.current.services !== services || scope.current.viewer !== viewer) {
+    scope.current = { identity, services, viewer };
+  }
   const currentScope = scope.current;
   const [selection, setSelection] = useState<{ scope: typeof currentScope; position: RoutePosition } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -12,7 +14,7 @@ export function useActivityPhotoLocation(identity: string, session?: unknown) {
     if (timer.current != null) clearTimeout(timer.current);
     timer.current = null;
   }, []);
-  useEffect(() => cancel, [identity, session, cancel]);
+  useEffect(() => cancel, [currentScope, cancel]);
   const locate = useCallback((position: RoutePosition) => {
     cancel();
     setSelection(null);
