@@ -288,3 +288,15 @@ test("bundled runtime writer is explicit and rejects mixed deployment sources", 
     assert.throws(() => execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], { env: { ...env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source }, stdio: "pipe" }), /mixed/);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+
+test("public club transport failures identify profile and endpoint without leaking the underlying error", async () => {
+  for (const environment of ["development", "production"]) {
+    const config = bundledFunctionsConfig(productionFixture(), environment);
+    const origin = environment === "development" ? "https://orider-dev.web.app" : "https://orider.co.kr";
+    await assert.rejects(verifyPublicClubApi(config, origin, async () => { throw new Error("PRIVATE_DNS_DIAGNOSTIC"); }), error => {
+      assert.match(error.message, new RegExp(`public club bundled-${environment} GET`));
+      assert.ok(error.message.includes(`${config.publicClubApiUrl}?size=1`));
+      assert.match(error.message, /transport failed/); assert.doesNotMatch(error.message, /PRIVATE_DNS/); return true;
+    });
+  }
+});

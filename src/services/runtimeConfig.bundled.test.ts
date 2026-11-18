@@ -38,7 +38,7 @@ it.each(["development", "production"] as const)("%s keeps SDK callable paths and
 
   const request = vi.fn().mockResolvedValue({ status: 200, json: async () => ({ result: { ok: true } }) });
   vi.stubGlobal("fetch", request);
-  for (const name of ["getActivityOverview", "getCourse", "stravaGetTokens", "socialAuthStart"]) {
+  for (const name of ["getActivityOverview", "getCourse", "stravaGetTokens", "socialAuthStart", "getActivityDiscovery"]) {
     expect((await httpsCallable(getFunctions(app, base), name)({ id: "fixture" })).data).toEqual({ ok: true });
     const [url, options] = request.mock.calls.at(-1)!;
     expect(url).toBe(`${base}/${name}`);

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
@@ -130,10 +130,13 @@ test("development workflow is manual-only and seals the selected artifact before
   assert.match(workflow, /steps\.source\.outputs\.sha/);
   assert.doesNotMatch(workflow, /--token/);
   assert.match(workflow, /orider-dev\.web\.app\/ko\/course\/nonexistent/);
-  assert.match(workflow, /curl -fsS -A 'Mozilla\/5\.0 ORiderStageAcceptance'/);
+  assert.match(workflow, /curl -sS -A 'Mozilla\/5\.0 ORiderStageAcceptance'/);
   assert.doesNotMatch(workflow, /curl -fsSL -A/);
   assert.match(workflow, /Built entry is missing/);
   assert.match(workflow, /Development detail response mismatch/);
+  assert.match(workflow, /Development detail transport failed: url=\$detail_url expected=HTTP200/);
+  assert.match(workflow, /does not support bundled transport: missing/);
+  assert.ok(workflow.indexOf("does not support bundled transport") < workflow.indexOf("run: node scripts/prepare-bundled-stage.mjs"));
   assert.match(workflow, /Development detail entry mismatch: expected=\$built actual=/);
 });
 
@@ -141,4 +144,22 @@ test("development metadata failures identify the failing endpoint", async () => 
   const f = fixture();
   try { await assert.rejects(f.prepare({ fetcher: async () => new Response(null, { status: 503 }) }), /https:\/\/orider.co.kr\/runtime-config.json HTTP 503/); }
   finally { f.cleanup(); }
+});
+
+test("reviewed historical sources without bundled tooling are rejected before a missing-module invocation", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
+  const start = workflow.indexOf('          if [ "$SELECTED_TRANSPORT" = bundled-development ]; then');
+  const end = workflow.indexOf('          echo "sha=$selected_sha"', start);
+  assert.ok(start >= 0 && end > start);
+  const check = workflow.slice(start, end);
+  const root = mkdtempSync(resolve(tmpdir(), "bundled-source-capability-"));
+  try {
+    const run = () => spawnSync("bash", ["-euc", check], { cwd: root, encoding: "utf8", env: { ...process.env, SELECTED_TRANSPORT: "bundled-development", selected_sha: "a".repeat(40) } });
+    const missing = run();
+    assert.equal(missing.status, 1); assert.match(missing.stdout, /does not support bundled transport: missing/);
+    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs"]) {
+      mkdirSync(resolve(root, path, ".."), { recursive: true }); writeFileSync(resolve(root, path), "// capability fixture");
+    }
+    assert.equal(run().status, 0);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
