@@ -1130,12 +1130,13 @@ export default function EmbeddedBootstrapRoot({
         safeSend("surface.error", { code: "auth_uid_changed" }, requestId);
         return;
       }
-      if (!lockedUid || user?.uid === lockedUid) return;
+      if (lockedUid ? user?.uid === lockedUid : !sessionAccepted.current || !guestAuthorized.current || user === null) return;
       const requestId = activeSelectionRequestId.current;
       clearTrainingSurfaceCache();
       authorizationAttempt.current += 1;
       acceptedUid.current = null;
       authorizedUid.current = null;
+      guestAuthorized.current = false;
       sessionAccepted.current = false;
       selectionGeneration.current += 1;
       surfaceLoadingFlow.current = null;

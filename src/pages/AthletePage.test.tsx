@@ -1177,3 +1177,46 @@ it.each(["success", "failure"])("ignores an older public continuation's %s and b
     await screen.findByText("Current continuation");
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
+
+it("suppresses callable retries throughout a known offline interval and recovers while Firestore remains cached", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Network rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  let update!: (snapshot: unknown) => void;
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (ref.path === "users_public/athlete-1" && options && typeof options === "object" && "includeMetadataChanges" in options) update = next as typeof update;
+    return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+  }) as never);
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("5회");
+    const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+    await act(async () => {
+      fireEvent(window, new Event("offline"));
+      update({ exists: () => true, data: () => ({ athleteTotalsSignal: "one" }), metadata: { fromCache: true } });
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
+    act(() => fireEvent(window, new Event("online")));
+    await screen.findByText("9회");
+  } finally { vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it("never reads a late SDK account's private profile or credentials in an approved guest frame", async () => {
+  const services = { auth: { currentUser: null }, firestore: {}, functions: {}, ensureAppCheckReady: async () => {}, getAppCheckToken: async () => null } as unknown as FirebaseServices;
+  setDocData("users_public/athlete-1", { nickname: "Guest rider", athleteTotalsSignal: "one" });
+  renderWithProviders(<FirebaseServicesProvider services={services}><AthletePage /></FirebaseServicesProvider>);
+  await screen.findByText("5회");
+  const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+  const lateUser = { uid: "late-account", getIdToken: vi.fn(async () => "unapproved") };
+  Object.defineProperty(services.auth, "currentUser", { value: lateUser, configurable: true });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  expect(screen.getByText("프로필 공개 범위를 확인하는 중…")).toBeInTheDocument();
+  expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+  expect(lateUser.getIdToken).not.toHaveBeenCalled();
+  expect(vi.mocked(onSnapshot).mock.calls.some(([ref]) => (ref as { path?: string }).path === "users/late-account")).toBe(false);
+});

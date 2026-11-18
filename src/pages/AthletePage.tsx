@@ -134,6 +134,13 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const requestedUserId = meUserId ?? paramUserId;
   const userId = requestedUserId && requestedUserId.length <= 512 && !requestedUserId.includes("/") && requestedUserId !== "." && requestedUserId !== ".." ? requestedUserId : undefined;
   const { user: currentUser, profile: currentProfile, loading: authLoading } = useAuth();
+  const sessionAuthorized = (currentUser?.uid ?? null) === (services.auth.currentUser?.uid ?? null);
+  const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const online = () => setNetworkOnline(true), offline = () => setNetworkOnline(false);
+    window.addEventListener("online", online); window.addEventListener("offline", offline);
+    return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
+  }, []);
   const location = useLocation();
   const localizedNavigate = useLocalizedNavigate();
   const ownRedirectDoneRef = useRef(false);
@@ -181,8 +188,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [publicSearchCursor, setPublicSearchCursor] = useState<string | null>(null);
   const [publicSearchError, setPublicSearchError] = useState(false);
   const [publicActivityCursor, setPublicActivityCursor] = useState<string | null>(null);
-  const profileReadIdentity = useRef({ userId, viewer: services.auth.currentUser, auth: services.auth, database: services.firestore, functions: services.functions });
-  if (profileReadIdentity.current.userId !== userId || profileReadIdentity.current.viewer !== services.auth.currentUser || profileReadIdentity.current.auth !== services.auth || profileReadIdentity.current.database !== services.firestore || profileReadIdentity.current.functions !== services.functions) profileReadIdentity.current = { userId, viewer: services.auth.currentUser, auth: services.auth, database: services.firestore, functions: services.functions };
+  const profileReadIdentity = useRef({ userId, viewer: services.auth.currentUser, acceptedViewerUid: currentUser?.uid ?? null, auth: services.auth, database: services.firestore, functions: services.functions });
+  if (profileReadIdentity.current.userId !== userId || profileReadIdentity.current.acceptedViewerUid !== (currentUser?.uid ?? null) || profileReadIdentity.current.viewer !== services.auth.currentUser || profileReadIdentity.current.auth !== services.auth || profileReadIdentity.current.database !== services.firestore || profileReadIdentity.current.functions !== services.functions) profileReadIdentity.current = { userId, viewer: services.auth.currentUser, acceptedViewerUid: currentUser?.uid ?? null, auth: services.auth, database: services.firestore, functions: services.functions };
   const readIdentity = profileReadIdentity.current;
   const [viewIdentity, setViewIdentity] = useState(readIdentity);
   useEffect(() => { setViewIdentity(readIdentity); }, [readIdentity]);
@@ -232,7 +239,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [signalAttempt, setSignalAttempt] = useState(0);
   const [totalsSignals, setTotalsSignals] = useState<{ identity: typeof readIdentity; public?: TotalsSignal; viewer?: TotalsSignal } | null>(null);
   useEffect(() => {
-    if (isOwnProfile || !userId) return;
+    if (isOwnProfile || !userId || !sessionAuthorized) return;
     let active = true;
     const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
       doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
@@ -251,14 +258,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         if (active) setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity ? previous : { identity: readIdentity }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
       });
     const stopPublic = watch("public", "users_public", userId, "athleteTotalsSignal");
-    const viewer = services.auth.currentUser?.uid;
+    const viewer = currentUser?.uid;
     const stopViewer = viewer ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
     return () => { active = false; stopPublic(); stopViewer?.(); };
-  }, [isOwnProfile, userId, readIdentity, services, signalAttempt]);
+  }, [isOwnProfile, userId, readIdentity, services, signalAttempt, sessionAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity ? totalsSignals : null;
-  const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals });
-  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals)
-    publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals };
+  const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline });
+  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline)
+    publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline };
   const publicTotalsScope = publicTotalsScopeRef.current;
   const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; readAt: number; value: PublicAthleteTotals } | null>(null);
   const [publicTotalsError, setPublicTotalsError] = useState(false);
@@ -267,7 +274,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     let cancelled = false;
     let expiry: ReturnType<typeof setTimeout> | undefined;
     setPublicTotals(null); setPublicTotalsError(false); setPublicTotalsExpired(false);
-    if (isOwnProfile || !userId) return;
+    if (isOwnProfile || !userId || !sessionAuthorized || !networkOnline) return;
     void loadPublicAthleteTotals(services, userId, () => !cancelled && publicTotalsScopeRef.current === publicTotalsScope)
       .then(value => {
         if (cancelled || publicTotalsScopeRef.current !== publicTotalsScope) return;
@@ -284,7 +291,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         if (!cancelled) setPublicTotalsError(true);
       });
     return () => { cancelled = true; clearTimeout(expiry); };
-  }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, currentSignals]);
+  }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, currentSignals, sessionAuthorized, networkOnline]);
   useEffect(() => {
     if (isOwnProfile || !userId) return;
     const refresh = () => { if (document.visibilityState !== "hidden") setTotalsAttempt(value => value + 1); };
@@ -405,9 +412,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
-  const profileReadReady = isOwnProfile || !profileLoading;
+  const profileReadReady = sessionAuthorized && (isOwnProfile || !profileLoading);
   const activityAccessAllowed = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
-  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && !profileLoading && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true);
+  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true);
   const chartCurrent = chartScope?.identity === readIdentity && chartScope.year === chartYear;
   const chartActivities = isOwnProfile ? chartCurrent ? ownChartActivities : [] : publicGlobal.items;
   const chartLoading = isOwnProfile ? ownChartLoading || !chartCurrent && !ownChartError : publicGlobal.status === "loading";
@@ -919,6 +926,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   );
 
   if (!userId) return <Text role="alert">{t("notFound")}</Text>;
+  if (!sessionAuthorized) return <Text role="status">{t("privacy.checking")}</Text>;
 
   if (viewIdentity !== readIdentity) {
     return (
