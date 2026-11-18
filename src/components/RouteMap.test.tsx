@@ -150,11 +150,12 @@ describe("RouteMap", () => {
     expect(mapProps.markers).toHaveLength(0);
   });
 
-  it("uses the thumbnail for isolated GPS samples without joining them", () => {
+  it("keeps isolated measured GPS without drawing a thumbnail bridge over the gaps", () => {
     const latlng = [[37,127], null, [38,128], null, [39,129]] as unknown as [number,number][];
     renderWithProviders(<RouteMap latlng={latlng} polyline="37,127;39,129" highlightRange={{startIndex:0,endIndex:4}} />);
-    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[129,39]]}});
-    expect(mapProps.sources).toHaveLength(1);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({ type: "FeatureCollection", features:
+      expect.arrayContaining([expect.objectContaining({ geometry: { type: "Point", coordinates: [128, 38] } })]) }));
+    expect(mapProps.sources).not.toContainEqual(expect.objectContaining({ geometry: expect.objectContaining({ type: "LineString" }) }));
   });
 
   it("restores the whole thumbnail after a selected stream becomes unavailable with identical bounds", () => {

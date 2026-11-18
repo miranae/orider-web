@@ -501,11 +501,15 @@ export default function RouteMap({
     }
     const measured = routeSlots(latlng);
     const useMeasuredIndices = rangeUsesRawSamples || measured.length > 0;
-    if (hasRouteLine(measured)) return { routePositions: measured, sourcePositions: measured, segmentStarts, streamFallback: false };
+    const firstMeasuredIndex = measured.findIndex(isRoutePosition);
+    // A thumbnail may provide overview context for one fix, but cannot bridge two measured slots.
+    if (firstMeasuredIndex >= 0 && measured.some((point, index) => index > firstMeasuredIndex && isRoutePosition(point))) {
+      return { routePositions: measured, sourcePositions: measured, segmentStarts, streamFallback: false };
+    }
     const thumbnail = polyline ? routeTrackSlots(polyline) : [];
     if (hasRouteLine(thumbnail)) return { routePositions: thumbnail,
       sourcePositions: useMeasuredIndices ? measured : thumbnail, segmentStarts, streamFallback: useMeasuredIndices };
-    const useThumbnailPoint = !measured.some(isRoutePosition) && thumbnail.some(isRoutePosition);
+    const useThumbnailPoint = firstMeasuredIndex < 0 && thumbnail.some(isRoutePosition);
     const positions = useThumbnailPoint ? thumbnail : measured.length ? measured : thumbnail;
     return { routePositions: positions, sourcePositions: useMeasuredIndices ? measured : positions, segmentStarts,
       streamFallback: useMeasuredIndices && positions !== measured };
