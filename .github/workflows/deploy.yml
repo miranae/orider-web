@@ -22,6 +22,10 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, web-hosting]
     environment: production # GitHub Environment 보호(필수 리뷰어)로 게이트
     env:
+      # 검증한 서비스 전환 뒤 명시적으로 선택한다. 기본값은 기존 경로다.
+      ORIDER_FUNCTIONS_TRANSPORT: ${{ vars.ORIDER_FUNCTIONS_TRANSPORT || 'legacy' }}
+      BUNDLED_BACKEND_SOURCE_SHA: ${{ vars.ORIDER_BUNDLED_BACKEND_SOURCE_SHA }}
+      BUNDLED_BACKEND_TOPOLOGY_HASH: ${{ vars.ORIDER_BUNDLED_TOPOLOGY_HASH }}
       # 빌드·predeploy(check-env) 공통 env.
       VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
       VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -91,6 +95,19 @@ jobs:
           fi
           echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
           echo "Verified release commit on origin/main: $release_sha"
+      - name: Prepare selected production transport
+        run: |
+          set -euo pipefail
+          case "$ORIDER_FUNCTIONS_TRANSPORT" in legacy|production) ;; *) echo "Invalid production transport profile"; exit 1 ;; esac
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = production ]; then
+            # 릴리스 변수의 정상 플래그를 새로 쓴다. 개발 snapshot과 이전 프로필은 상속하지 않는다.
+            unset BUNDLED_RUNTIME_CONFIG_PATH BUNDLED_FUNCTIONS_ENVIRONMENT PRODUCTION_RUNTIME_CONFIG_PATH STAGE_PARITY_PRODUCTION_RUNTIME_PATH
+            printf '%s\n' 'PRODUCTION_RUNTIME_CONFIG_PATH=' 'STAGE_PARITY_PRODUCTION_RUNTIME_PATH=' 'BUNDLED_RUNTIME_CONFIG_PATH=' 'BUNDLED_FUNCTIONS_ENVIRONMENT=' >> "$GITHUB_ENV"
+            node scripts/write-runtime-config.mjs --out "$RUNNER_TEMP/normal-production-runtime.json"
+            node scripts/prepare-bundled-production.mjs --phase prepare --source "$RUNNER_TEMP/normal-production-runtime.json" --directory "$RUNNER_TEMP/bundled-production"
+          elif [ -n "${BUNDLED_RUNTIME_CONFIG_PATH:-}${BUNDLED_FUNCTIONS_ENVIRONMENT:-}" ]; then
+            echo "Legacy release cannot inherit a bundled runtime source"; exit 1
+          fi
       - name: Install dependencies
         run: npm ci
       - name: Build production artifact
@@ -99,6 +116,9 @@ jobs:
         run: node scripts/write-runtime-config.mjs
       - name: Verify public club API before Hosting deployment
         run: node scripts/verify-public-club-api.mjs --runtime dist/runtime-config.json --origin https://orider.co.kr
+      - name: Verify bundled production runtime and gateway
+        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
+        run: node scripts/prepare-bundled-production.mjs --phase verify
       - name: Auth (Workload Identity Federation — 키리스)
         id: auth
         uses: google-github-actions/auth@v3
@@ -107,6 +127,7 @@ jobs:
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
           token_format: access_token
       - name: Verify production backend social callable contract
+        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'
         env:
           SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: >-
@@ -118,7 +139,9 @@ jobs:
           set -euo pipefail
           npm install -g firebase-tools
           set +e
-          firebase deploy --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-deploy.log
+          config=firebase.json
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = production ]; then config=firebase.bundled-production.json; fi
+          firebase deploy --config "$config" --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-deploy.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-deploy.log; then

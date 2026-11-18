@@ -5,7 +5,7 @@ import {loadActivityDiscovery,mapDiscoveryActivity} from './activityDiscovery';
 import {activityFeedSourceRevision,resolveActivityMemo} from './activityFeedContent';
 const mocks=vi.hoisted(()=>({call:vi.fn(),ready:vi.fn()}));
 vi.mock('firebase/functions',()=>({getFunctions:()=>({}),httpsCallable:()=>mocks.call,connectFunctionsEmulator:vi.fn()}));
-vi.mock('./runtimeConfig',()=>({getRuntimeConfig:()=>({appEnvironment:'stage'}),isEmulatorRuntime:()=>false}));
+vi.mock('./runtimeConfig',()=>({getRuntimeConfig:()=>({appEnvironment:'stage'}),isEmulatorRuntime:()=>false,isFunctionsGatewayRuntime:()=>true}));
 const viewer={uid:'owner',isAnonymous:false};
 const services={auth:{currentUser:viewer},functions:{app:{}},ensureAppCheckReady:mocks.ready} as unknown as FirebaseServices;
 function item():ActivityDiscoveryItem{return{viewerHasKudos:false,presentationRevision:'a'.repeat(64),activity:{id:'ride',userId:'owner',nickname:'Synthetic',profileImage:null,type:'Ride',discipline:'bike',source:'orider',startTime:1,endTime:600001,createdAt:1,description:'Ride',visibility:'everyone',photoCount:0,kudosCount:1,commentCount:0,externalId:null,summary:{distance:99999,ridingTimeMillis:600000,averageSpeed:12,elevationGain:99},summarySource:'recorded',effectiveFacts:{source:'activity_metrics',status:'ready',inputRevision:'a',computedAt:1,coverage:'partial_terminal',thresholdBasis:null,powerSource:null,metrics:{distanceKm:6,durationSec:600,movingTimeSec:500,elevationGainM:null,avgSpeedKph:36}}},content:{status:'ready',memo:'memo',memoTruncated:false,photos:[],totalPhotoCount:0,totalPhotoCountExact:true},mapPreview:{imageUrl:null,encodedPolyline:null}};}
