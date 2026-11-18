@@ -6,7 +6,8 @@ import { ActivityReanalysisControl } from "../features/activity/detail/ActivityR
 import type { JourneyOutcome } from "../services/journeyMeasurement";
 import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
 import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
-import { isPublicActivityAccessError } from "../services/publicActivityDetail";
+import { isPublicActivityAccessError, type PublicActivityDetail } from "../services/publicActivityDetail";
+import ActivityDetailLoading from "../features/activity/detail/ActivityDetailLoading";
 import { useAuthorizedActivityComments } from "../features/activity/detail/useAuthorizedActivityComments";
 import { ActivityPublicAccess, type ActivityPublicAccessState } from "../features/activity/detail/ActivityPublicAccess";
 import type { PublicActivitySessionOptions } from "../hooks/usePublicActivitySession";
@@ -115,10 +116,10 @@ import { ICON_SIZE } from "../theme/tokens/icon";
 /** 숨김 목록이 없을 때 매 렌더 같은 배열을 쓰도록 둔다(임시 값 비교가 참조로 흔들리지 않게). */
 const NO_HIDDEN_PROVIDER_IDS: string[] = [];
 
-export default function ActivityPage({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: PublicActivitySessionOptions; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void } = {}) {
-  return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
+export default function ActivityPage({ publicAccess, initialOwnerActivity, detailMeasurement, detailRetry }: { publicAccess?: PublicActivitySessionOptions; initialOwnerActivity?: PublicActivityDetail["activity"]; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void } = {}) {
+  return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent initialOwnerActivity={initialOwnerActivity} detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
 }
-function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: ActivityPublicAccessState; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void }) {
+function ActivityPageContent({ publicAccess, initialOwnerActivity, detailMeasurement, detailRetry }: { publicAccess?: ActivityPublicAccessState; initialOwnerActivity?: PublicActivityDetail["activity"]; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void }) {
   const { firestore } = useFirebaseServices();
   const { t, i18n } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -896,17 +897,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   }, [detailMeasurement, detailOutcome]);
 
   if (loadingActivity) {
-    return (
-      <div className="site-shell activity-detail">
-        <div className="h-80 rounded-[var(--r-lg)] animate-pulse" style={{ background: 'var(--bg-2)' }} />
-        <div className="h-8 rounded-[var(--r-sm)] w-1/3 animate-pulse" style={{ background: 'var(--bg-2)' }} />
-        <div className="grid grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 rounded-[var(--r-sm)] animate-pulse" style={{ background: 'var(--bg-2)' }} />
-          ))}
-        </div>
-      </div>
-    );
+    // Display only: owner actions require the canonical activity read.
+    return <ActivityDetailLoading activity={!authLoading && initialOwnerActivity && initialOwnerActivity.id === activityId
+      && initialOwnerActivity.userId === user?.uid ? initialOwnerActivity : undefined} />;
   }
 
   if (activityLoadError) {

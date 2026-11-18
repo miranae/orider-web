@@ -15,6 +15,7 @@ import { useSignInResolve } from "../../../hooks/useSignInResolve";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { Text } from "../../../theme/components";
 import { activityFeedSourceRevision } from "../../../services/activityFeedContent";
+import ActivityDetailLoading from "./ActivityDetailLoading";
 export type ActivityPublicAccessState = { session: ReturnType<typeof usePublicActivitySession>; model: PublicActivityModelInput; routeParts?: [number, number][][] };
 function metricsState(raw: Record<string, unknown> | null | undefined): UseActivityMetricsState {
  if (!raw) return { status: "missing", metrics: null };
@@ -77,6 +78,7 @@ function ActivityPublicAccessSession({ children, ...options }: PublicActivitySes
    return { activity: withActivityPresentation(activity), metrics: metricsState(detail.metrics), accessRevision: JSON.stringify([a.id, a.activityRevision, detail.metrics?.revisionId, detail.metrics?.etag]), onAccessRevoked: session.revokeAccess };
  }, [detail, mapFresh, verifiedMap, client]);
  if (session.removed?.scope === session.safetyScope) return <div className="site-shell"><Text role="status" tabIndex={-1} ref={node => node?.focus()}>{t(`publicSafety.${session.removed.action}Done`)}</Text><LocalizedLink to="/">{t("publicSafety.home")}</LocalizedLink></div>;
- if (session.loading || session.failed || !detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={session.loading} message={session.accessDenied ? t("publicDetail.accessDenied") : undefined} resolve={accessDeniedResolve} onRetry={session.retry} />;
+ if (session.loading) return <ActivityDetailLoading />;
+ if (session.failed || !detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} message={session.accessDenied ? t("publicDetail.accessDenied") : undefined} resolve={accessDeniedResolve} onRetry={session.retry} />;
  return <RevalidationBoundary fresh={session.mapFresh} fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} message={t("publicDetail.mapLoading")} onRetry={session.retry} />}>{children({ session, model, routeParts })}{session.user && !session.user.isAnonymous && session.user.uid !== detail.activity.userId && <section className="site-shell" aria-label={t("publicSafety.actions")}><PublicActivitySafety activityId={detail.activity.id} authorId={detail.activity.userId} client={session.client} onRemoved={session.remove} onAccessRevoked={session.revokeAccess} /></section>}</RevalidationBoundary>;
 }

@@ -1,8 +1,8 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { getDoc } from "firebase/firestore";
 import { auth } from "../services/firebase";
-import { getCurrentUser, setCallableImplementation, setCallableResult, mockCallableInvocations } from "../__tests__/mocks/firebase";
+import { getCurrentUser, setCallableImplementation, setCallableResult, setDocData, mockCallableInvocations } from "../__tests__/mocks/firebase";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import ActivityPage from "./ActivityPage";
@@ -68,5 +68,36 @@ it("로그인하지 않은 사람의 「권한이 없습니다」 문구를 누�
     renderWithProviders(<ActivityPage />, { authenticated: true });
     expect(await screen.findByText(/권한이 없습니다/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /권한이 없습니다/ })).not.toBeInTheDocument();
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
+});
+
+
+it.each(["ready", "denied"])("keeps the authorized owner overview display-only until the canonical read is %s", async outcome => {
+  const activity = createMockActivity({ id: "test-activity", userId: "test-uid", description: "먼저 표시된 개요" });
+  const initialOwnerActivity = { ...activity, effectiveFacts: { status: "ready", metrics: null } } as import("../services/publicActivityDetail").PublicActivityDetail["activity"];
+  setDocData("activities/test-activity", { ...activity, description: "확정된 전체 기록" });
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let resolve!: () => void;
+  let reject!: (error: unknown) => void;
+  const pending = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
+  vi.mocked(getDoc).mockImplementation((...args) => (args[0] as { path?: string }).path === "activities/test-activity"
+    ? pending.then(() => original(...args)) : original(...args));
+  try {
+    renderWithProviders(<ActivityPage initialOwnerActivity={initialOwnerActivity} />, { authenticated: true });
+    expect(await screen.findByText("먼저 표시된 개요")).toBeInTheDocument();
+    expect(screen.getByText("42.0km")).toBeInTheDocument();
+    expect(screen.getByText("01:00:00")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "분석" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    if (outcome === "ready") {
+      await act(async () => resolve());
+      expect(await screen.findByText("확정된 전체 기록")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "분석" })).toBeInTheDocument();
+    } else {
+      await act(async () => reject({ code: "permission-denied" }));
+      expect(await screen.findByText(/권한이 없습니다/)).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "분석" })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText("먼저 표시된 개요")).not.toBeInTheDocument();
   } finally { vi.mocked(getDoc).mockImplementation(original); }
 });

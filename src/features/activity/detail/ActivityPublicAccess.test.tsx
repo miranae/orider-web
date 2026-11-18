@@ -2,6 +2,7 @@ import { encodePolyline } from "../../../utils/polyline";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: "metric" }) }));
 import { ActivityPublicAccess } from "./ActivityPublicAccess";
 import type { PublicActivityDetail } from "../../../services/publicActivityDetail";
 import { PUBLIC_ACCESS_VERIFIED_TTL_MS } from "../../../hooks/usePublicActivitySession";

@@ -8,10 +8,11 @@ import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { createPublicActivityClient, isPublicActivityAccessError, type PublicActivityDetail } from "../services/publicActivityDetail";
-import PublicActivitySurface from "../embedded/surfaces/PublicActivitySurface";
 import EmbeddedSurfaceState from "../embedded/surfaces/EmbeddedSurfaceState";
+import ActivityDetailLoading from "../features/activity/detail/ActivityDetailLoading";
 
-const OwnerActivityPage = lazy(() => import("./ActivityPage"));
+const loadActivityPage = () => import("./ActivityPage");
+const OwnerActivityPage = lazy(loadActivityPage);
 const ignore = () => {};
 
 /** Resolve access using a public projection before mounting any owner data hooks. */
@@ -31,6 +32,9 @@ function PublicActivityDetailRoute() {
   const [state, setState] = useState<{ owner: typeof user; client: typeof client; key: string; detail?: PublicActivityDetail; failed?: boolean; ownerFallback?: boolean; accessDenied?: boolean; finish: (outcome: JourneyOutcome) => void } | null>(null);
   useEffect(() => {
     if (!activityId || authLoading) return;
+    // Start access resolution and the heavy map/chart module together. The
+    // route shell must not download the full detail page before calling the API.
+    void loadActivityPage().catch(() => {});
     let active = true;
     const finish = startJourneyMeasurement("activity_detail_ready", "web_public_activity", "detail");
     const hidden = () => { if (document.visibilityState === "hidden") finish("cancelled"); };
@@ -56,8 +60,10 @@ function PublicActivityDetailRoute() {
     return () => { active = false; finish("cancelled"); document.removeEventListener("visibilitychange", hidden); };
   }, [activityId, authLoading, client, key, attempt, uid, user, services]);
   const current = !authLoading && state?.key === key && state.owner === user && state.client === client ? state : null;
-  if (current?.ownerFallback) return <Suspense fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} loading />}><OwnerActivityPage key={key} detailMeasurement={current.finish} detailRetry={() => setAttempt(value => value + 1)} /></Suspense>;
+  if (current?.ownerFallback) return <Suspense fallback={<ActivityDetailLoading />}><OwnerActivityPage key={key} detailMeasurement={current.finish} detailRetry={() => setAttempt(value => value + 1)} /></Suspense>;
+  if (activityId && !current?.failed && !current?.detail) return <ActivityDetailLoading />;
   if (!activityId || !current?.detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={!!activityId && !current?.failed} message={current?.accessDenied ? t("publicDetail.accessDenied") : undefined} onRetry={() => setAttempt(value => value + 1)} />;
-  if (uid && !user?.isAnonymous && current.detail.activity.userId === uid) return <Suspense fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} loading />}><OwnerActivityPage key={key} detailMeasurement={current.finish} detailRetry={() => setAttempt(value => value + 1)} /></Suspense>;
-  return <PublicActivitySurface key={key} activityId={activityId} retryKey={0} initialDetail={current.detail} detailMeasurement={current.finish} onDetailRetry={() => setAttempt(value => value + 1)} onReady={ignore} onError={ignore} />;
+  const fallback = <ActivityDetailLoading activity={current.detail.activity} />;
+  if (uid && !user?.isAnonymous && current.detail.activity.userId === uid) return <Suspense fallback={fallback}><OwnerActivityPage key={key} initialOwnerActivity={current.detail.activity} detailMeasurement={current.finish} detailRetry={() => setAttempt(value => value + 1)} /></Suspense>;
+  return <Suspense fallback={fallback}><OwnerActivityPage key={key} publicAccess={{ activityId, retryKey: 0, initialDetail: current.detail, detailMeasurement: current.finish, onDetailRetry: () => setAttempt(value => value + 1), onReady: ignore, onError: ignore }} /></Suspense>;
 }
