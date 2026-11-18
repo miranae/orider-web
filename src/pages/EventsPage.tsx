@@ -250,12 +250,16 @@ export default function EventsPage() {
   const [coursePolylines, setCoursePolylines] = useState<Record<string, string>>({});
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
   const viewer = services.auth.currentUser;
-  const [participation, setParticipation] = useState<{ viewer: typeof viewer; key: string; ids: Set<string> } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [pageCursor, setPageCursor] = useState<string>();
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pageError, setPageError] = useState(false);
   const [pageAttempt, setPageAttempt] = useState(0);
+  const pageScope = useMemo(() => ({ services, viewer, pageCursor, pageAttempt }), [services, viewer, pageCursor, pageAttempt]);
+  const pageScopeRef = useRef(pageScope);
+  pageScopeRef.current = pageScope;
+  const [resolvedPageScope, setResolvedPageScope] = useState<typeof pageScope | null>(null);
+  const loading = resolvedPageScope !== pageScope;
+  const [participation, setParticipation] = useState<{ scope: typeof pageScope; key: string; ids: Set<string> } | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | EventStatus>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [regionFilter, setRegionFilter] = useState<string>("ALL");
@@ -273,7 +277,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const current = () => !cancelled && pageScopeRef.current === pageScope && services.auth.currentUser === viewer;
     setEvents([]);
     setParticipation(null);
     setCoursePolylines({});
@@ -283,7 +287,7 @@ export default function EventsPage() {
     (async () => {
       try {
         const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES], pageCursor, services);
-        if (cancelled) return;
+        if (!current()) return;
         setNextCursor(snap.nextCursor);
         const list: EventInfo[] = [];
         snap.forEach((doc) => {
@@ -323,7 +327,7 @@ export default function EventsPage() {
         });
         setEvents(list);
         // 기본 목록은 지도 미리보기와 내 참가 여부를 기다리지 않는다.
-        setLoading(false);
+        setResolvedPageScope(pageScope);
 
         // courseGpx가 URL인 이벤트 — 비동기 fetch 후 inlinePolyline 채워 setEvents 업데이트
         const urlGpxEvents = snap.docs.filter((d) => {
@@ -341,7 +345,7 @@ export default function EventsPage() {
                 return { id: d.id, polyline: poly };
               })
             );
-            if (cancelled) return;
+            if (!current()) return;
             const polyMap = new Map(updates.filter((u) => u.polyline).map((u) => [u.id, u.polyline as string]));
             if (polyMap.size > 0) {
               setEvents((prev) =>
@@ -380,41 +384,42 @@ export default function EventsPage() {
               }
             })
           );
-          if (cancelled) return;
+          if (!current()) return;
           setCoursePolylines(polyMap);
           setCourseThumbs(thumbMap);
         }
 
 
       } catch (err) {
-        if (cancelled) return;
+        if (!current()) return;
         logClientError("EventsPage.loadEvents", err);
         setPageError(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (current()) setResolvedPageScope(pageScope);
       }
     })();
     return () => { cancelled = true; };
-  }, [firestore, services, viewer, pageCursor, pageAttempt]);
+  }, [firestore, services, viewer, pageCursor, pageScope]);
 
-  const participationKey = events.map(event => event.id).join("|");
+  const participationKey = JSON.stringify(events.map(event => event.id));
   useEffect(() => {
     let cancelled = false;
     if (!user || user.isAnonymous || viewer?.uid !== user.uid || loading) return;
-    const ids = participationKey ? participationKey.split("|") : [];
+    const ids = JSON.parse(participationKey) as string[];
+    const current = () => !cancelled && pageScopeRef.current === pageScope && services.auth.currentUser === viewer;
     void Promise.all(ids.map(async eventId => {
       const snapshot = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
       return snapshot.exists() ? eventId : null;
     })).then(joined => {
-      if (!cancelled && services.auth.currentUser === viewer) {
-        setParticipation({ viewer, key: participationKey, ids: new Set(joined.filter((id): id is string => id !== null)) });
+      if (current()) {
+        setParticipation({ scope: pageScope, key: participationKey, ids: new Set(joined.filter((id): id is string => id !== null)) });
       }
     }).catch(error => {
-      if (!cancelled && services.auth.currentUser === viewer) logClientError("EventsPage.loadMyEvents", error);
+      if (current()) logClientError("EventsPage.loadMyEvents", error);
     });
     return () => { cancelled = true; };
-  }, [firestore, services, user, viewer, participationKey, loading]);
-  const myEventIds = !loading && participation?.viewer === viewer && participation.key === participationKey ? participation.ids : null;
+  }, [firestore, services, user, viewer, participationKey, loading, pageScope]);
+  const myEventIds = !loading && participation?.scope === pageScope && participation.key === participationKey ? participation.ids : null;
 
   const filtered = useMemo(() => {
     return events

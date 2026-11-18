@@ -105,14 +105,15 @@ it("replaces all cache proof and masks data after same-UID SDK replacement", asy
 });
 
 
-it("loads an explicit year before calendar discovery and retains it when calendar discovery fails", async () => {
+it("waits for calendar bounds and can still load an explicit year after calendar failure", async () => {
   let rejectCalendar!: (error: Error) => void;
   vi.mocked(readRecapYears).mockReturnValueOnce(new Promise((_, reject) => { rejectCalendar = reject; }));
   const h = renderHook(() => useYearActivities("owner", 2025));
-  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
-  expect(h.result.current.loading).toBe(false);
+  expect(readYearActivities).not.toHaveBeenCalled();
+  expect(h.result.current.loading).toBe(true);
   expect(h.result.current.years).toEqual([]);
   await act(async () => rejectCalendar(new Error("calendar offline")));
+  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
   expect(h.result.current.calendarError).toBe(true);
   expect(h.result.current.error).toBe(false);
   expect(h.result.current.activities[0]?.id).toBe("ride");

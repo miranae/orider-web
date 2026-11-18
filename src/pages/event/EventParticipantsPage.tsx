@@ -164,7 +164,9 @@ export default function EventParticipantsPage() {
   const { t } = useTranslation("event");
   const dialog = useDialog();
 
-  const scope = useMemo(() => ({ eventId, user, owner: services.auth.currentUser }), [eventId, user, services.auth.currentUser]);
+  const scope = useMemo(() => ({ eventId, user, firestore, owner: services.auth.currentUser }), [eventId, user, firestore, services.auth.currentUser]);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
   const loadGeneration = useRef(0);
   const [loadedScope, setLoadedScope] = useState<typeof scope | null>(null);
   const [event, setEvent] = useState<EventHead | null>(null);
@@ -193,7 +195,7 @@ export default function EventParticipantsPage() {
   const load = useCallback(async () => {
     if (!eventId) return;
     const generation = ++loadGeneration.current;
-    const current = () => generation === loadGeneration.current && services.auth.currentUser === scope.owner;
+    const current = () => generation === loadGeneration.current && scopeRef.current === scope && services.auth.currentUser === scope.owner;
     setLoading(true);
     setLoadError(null);
     setParticipants([]);

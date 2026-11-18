@@ -54,6 +54,7 @@ import {
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../components/redesign";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { useSignInResolve } from "../hooks/useSignInResolve";
 import { revealFocusTarget } from "../services/focusTarget";
 import { Button, Card, Chip, IconButton, Text, buttonClass, Input, Textarea, DropdownSelect } from "../theme/components";
@@ -1032,7 +1033,7 @@ function CoursePageContent() {
       {/* 폴리라인이 없는 코스도 제목이 떠 있지 않게 배경을 깔아둔다. */}
       {!course.polyline && <div className="course-hero-fallback" />}
       {course.polyline && (
-        <Suspense fallback={<LoadingSkeleton kind="chart" />}><RouteMap
+        <ErrorBoundary key={course.id} fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><RouteMap
           polyline={course.polyline}
           height="h-80"
           fallbackHeight="h-40 sm:h-48"
@@ -1063,7 +1064,7 @@ function CoursePageContent() {
               caption: p.caption ?? p.uploaderNickname,
             })),
         ]}
-        /></Suspense>
+        /></Suspense></ErrorBoundary>
       )}
         <div className="course-hero-overlay" aria-hidden="true" />
         <div className="course-hero-content">
@@ -1214,10 +1215,10 @@ function CoursePageContent() {
       {/* Elevation Chart */}
       {course.elevationProfile && course.elevationProfile.length > 0 && (
         <Card style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
-          <Suspense fallback={<LoadingSkeleton kind="chart" />}><CourseStageProfile
+          <ErrorBoundary key={course.id} fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><CourseStageProfile
             data={course.elevationProfile.map((p) => ({ distance: p.d, elevation: p.e }))}
             onHoverIndex={handleElevHover}
-          /></Suspense>
+          /></Suspense></ErrorBoundary>
           {waypointLaneRows.length > 0 && (
             <div className="course-lanes">
               {waypointLaneRows.map((group) => (

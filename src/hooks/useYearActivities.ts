@@ -47,9 +47,9 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
     return () => { cancelled = true; globalThis.clearTimeout(timer); };
   }, [uid, calendarRetry, session]);
 
-  const calendarReady = calendar.session === session && calendar.uid === uid && !calendar.loading && !calendar.error;
-  // 선택한 연도는 이미 알고 있으므로 연도 목록 조회를 기다리지 않는다.
-  const ready = selectedYear !== undefined || calendarReady;
+  const calendarSettled = calendar.session === session && calendar.uid === uid && !calendar.loading;
+  // Calendar bounds can satisfy a short history without a separate range query.
+  const ready = calendarSettled && (selectedYear !== undefined || !calendar.error);
   useEffect(() => {
     if (!uid || !ready) return;
     let cancelled = false;

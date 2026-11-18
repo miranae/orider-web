@@ -27,6 +27,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import { Course } from "@shared/types";
 import type { WaypointMarker } from "../../components/RouteMap";
 import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { useToast } from "../../contexts/ToastContext";
 import { localeTag } from "../../utils/localeDate";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
@@ -703,14 +704,14 @@ export default function EventDetailPage() {
       <div data-testid="D4-0" className="site-shell event-detail-hero">
         <Card padding="none" style={{ padding: 0, overflow: "hidden" }}>
           {courseData && courseData.latlng.length > 1 && (
-            <Suspense fallback={<LoadingSkeleton kind="chart" />}><RouteMap
+            <ErrorBoundary key={event.id} fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><RouteMap
               latlng={courseData.latlng}
               height="h-80"
               interactive={false}
               rounded={false}
               waypoints={mapWaypoints}
               flyToPosition={flyToPos}
-            /></Suspense>
+            /></Suspense></ErrorBoundary>
           )}
           <div className="event-detail-hero-content">
             {/* 칩 행 */}
@@ -939,7 +940,7 @@ export default function EventDetailPage() {
                 </div>
               ) : (
                 <>
-                  <Suspense fallback={<LoadingSkeleton kind="chart" />}><ElevationChart
+                  <ErrorBoundary key={event.id} fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><ElevationChart
                     data={elevationData}
                     height={200}
                     colorByGrade
@@ -950,7 +951,7 @@ export default function EventDetailPage() {
                       label: marker.name,
                       active: activeWpIdx === index,
                     }))}
-                  /></Suspense>
+                  /></Suspense></ErrorBoundary>
                   {profileMarkers.length > 0 && (
                     <div className="event-lanes" style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
                       {LANE_ORDER.map((lane) => {
