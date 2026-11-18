@@ -112,7 +112,7 @@ jobs:
         run: npm ci
       - name: Build production artifact
         env:
-          VITE_EXPECTED_BUNDLED_PROFILE: ${{ env.ORIDER_FUNCTIONS_TRANSPORT == 'production' && 'bundled-production' || '' }}
+          VITE_REQUIRE_BUNDLED_RUNTIME: ${{ env.ORIDER_FUNCTIONS_TRANSPORT == 'production' && 'true' || '' }}
         run: npm run build
       - name: Write production runtime config
         run: |

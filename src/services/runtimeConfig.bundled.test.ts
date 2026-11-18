@@ -23,28 +23,33 @@ afterEach(async () => {
   vi.unstubAllEnvs(); vi.unstubAllGlobals(); resetRuntimeConfigForTests({});
   await Promise.all(getApps().map(deleteApp));
 });
-it.each(["missing", "network", "bad json", "legacy"] as const)("bundled builds reject %s runtime config before initialization", async failure => {
-  vi.stubEnv("VITE_EXPECTED_BUNDLED_PROFILE", "bundled-production");
+it.each([
+  ["missing", "http-404"], ["unavailable", "http-503"], ["network", "network"], ["bad json", "json"], ["legacy", "profile"],
+] as const)("bundled builds diagnose %s runtime config before initialization", async (failure, reason) => {
+  vi.stubEnv("VITE_REQUIRE_BUNDLED_RUNTIME", "true");
   vi.stubEnv("VITE_USE_BUILD_ENV_FALLBACK", "true");
   vi.stubEnv("VITE_FIREBASE_API_KEY", "build-fallback");
   resetRuntimeConfigForTests();
   const fetchRuntime = vi.fn(async () => {
     if (failure === "network") throw new Error("offline");
     if (failure === "missing") return new Response(null, { status: 404 });
+    if (failure === "unavailable") return new Response(null, { status: 503 });
     if (failure === "legacy") return Response.json({ firebaseApiKey: "legacy" });
     return new Response("<html>");
   });
   vi.stubGlobal("fetch", fetchRuntime);
-  await expect(loadRuntimeConfig()).rejects.toThrow("bundled/runtime-config-required");
-  await expect(loadRuntimeConfig()).rejects.toThrow("bundled/runtime-config-required");
+  await expect(loadRuntimeConfig()).rejects.toThrow(`bundled/runtime-config-${reason}`);
+  await expect(loadRuntimeConfig()).rejects.toThrow(`bundled/runtime-config-${reason}`);
   expect(fetchRuntime).toHaveBeenCalledTimes(1);
 });
 
-it("loads a runtime config that matches the bundled build", async () => {
-  vi.stubEnv("VITE_EXPECTED_BUNDLED_PROFILE", "bundled-development");
-  resetRuntimeConfigForTests();
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(config("development"))));
-  await expect(loadRuntimeConfig()).resolves.toMatchObject({ deploymentProfile: "bundled-development" });
+it("loads either bundled environment with the same build flag", async () => {
+  vi.stubEnv("VITE_REQUIRE_BUNDLED_RUNTIME", "true");
+  for (const environment of ["development", "production"] as const) {
+    resetRuntimeConfigForTests();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(config(environment))));
+    await expect(loadRuntimeConfig()).resolves.toMatchObject({ deploymentProfile: `bundled-${environment}` });
+  }
 });
 
 it.each(["development", "production"] as const)("%s keeps SDK callable paths and App Check on the same reviewed gateway", async environment => {

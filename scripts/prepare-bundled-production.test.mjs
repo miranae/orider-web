@@ -84,7 +84,8 @@ test("bundled production rejects a missing social callable before Hosting", asyn
   const f = fixture();
   try {
     await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
-    await assert.rejects(verifyBundledProduction(f.directory, url => url.endsWith("/healthz") ? f.fetcher(url) : Promise.resolve(Response.json({}, { status: 404 }))), /bundled (callable|missing-route control)/);
+    await assert.rejects(verifyBundledProduction(f.directory, (url, options) => url.endsWith("/socialAuthStart")
+      ? Promise.resolve(Response.json({}, { status: 404 })) : f.fetcher(url, options)), /bundled callable socialAuthStart browser preflight rejected/);
   } finally { f.cleanup(); }
 });
 

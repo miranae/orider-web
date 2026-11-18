@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   deploy-stage:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     environment: stage
     env:
@@ -95,7 +95,7 @@ jobs:
         run: npm run check:deploy-config
       - name: Build selected source
         env:
-          VITE_EXPECTED_BUNDLED_PROFILE: ${{ inputs.transport == 'bundled-development' && 'bundled-development' || '' }}
+          VITE_REQUIRE_BUNDLED_RUNTIME: ${{ inputs.transport == 'bundled-development' && 'true' || '' }}
         run: npm run build
       - name: Write selected runtime config
         run: npm run write:runtime-config

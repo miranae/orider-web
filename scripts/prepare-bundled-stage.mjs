@@ -51,6 +51,7 @@ export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash
   for (const origin of ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"]) {
     await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin, fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher });
+    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "socialAuthStart", fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
     await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
   }

@@ -66,7 +66,7 @@ let runtimeConfig: RuntimeConfig = readBuildFallbackConfig();
 let runtimeLoad: Promise<RuntimeConfig> | undefined;
 
 function readBuildFallbackConfig(): RuntimeConfig {
-  const allowBuildFallback = !import.meta.env.VITE_EXPECTED_BUNDLED_PROFILE && (
+  const allowBuildFallback = import.meta.env.VITE_REQUIRE_BUNDLED_RUNTIME !== "true" && (
     import.meta.env.DEV ||
     import.meta.env.MODE === "test" ||
     import.meta.env.VITE_USE_EMULATORS === "true" ||
@@ -145,23 +145,37 @@ function withoutEmptyValues(config: RuntimeConfig): RuntimeConfig {
 }
 
 async function fetchRuntimeConfig(): Promise<RuntimeConfig> {
-  const expected = import.meta.env.VITE_EXPECTED_BUNDLED_PROFILE;
-  let remote: RuntimeConfig | undefined;
-  if (typeof window !== "undefined") {
-    try {
-      const response = await fetch(`/runtime-config.json?v=${Date.now()}`, {
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      if (response.ok) remote = withoutEmptyValues((await response.json()) as RuntimeConfig);
-    } catch {
-      // Local dev and tests may rely on the Vite env fallback.
-    }
+  const requireBundled = import.meta.env.VITE_REQUIRE_BUNDLED_RUNTIME === "true";
+  if (typeof window === "undefined") {
+    if (requireBundled) throw new Error("bundled/runtime-config-browser-required");
+    return runtimeConfig;
   }
-  if (expected && (!remote || remote.deploymentProfile !== expected || !bundledFunctionsBase(remote))) {
-    throw new Error("bundled/runtime-config-required");
+
+  let response: Response;
+  try {
+    response = await fetch(`/runtime-config.json?v=${Date.now()}`, {
+      cache: "no-store", credentials: "same-origin",
+    });
+  } catch (error) {
+    if (requireBundled) throw Object.assign(new Error("bundled/runtime-config-network"), { cause: error });
+    return runtimeConfig;
   }
-  if (remote) runtimeConfig = { ...runtimeConfig, ...remote };
+  if (!response.ok) {
+    if (requireBundled) throw new Error(`bundled/runtime-config-http-${response.status}`);
+    return runtimeConfig;
+  }
+
+  let remote: RuntimeConfig;
+  try {
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new TypeError("Expected a runtime config object");
+    remote = withoutEmptyValues(payload as RuntimeConfig);
+  } catch (error) {
+    if (requireBundled) throw Object.assign(new Error("bundled/runtime-config-json"), { cause: error instanceof Error ? error.name : undefined });
+    return runtimeConfig;
+  }
+  if (requireBundled && !bundledFunctionsBase(remote)) throw new Error("bundled/runtime-config-profile");
+  runtimeConfig = { ...runtimeConfig, ...remote };
   return runtimeConfig;
 }
 
