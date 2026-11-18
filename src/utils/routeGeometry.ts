@@ -3,14 +3,14 @@ export type RouteSlot = RoutePosition | null;
 
 /** Stream JSON can contain missing samples despite its static tuple-array type. */
 export function isRoutePosition(value: unknown): value is RoutePosition {
-  return Array.isArray(value) && value.length === 2
+  return Array.isArray(value) && value.length >= 2
     && typeof value[0] === "number" && Number.isFinite(value[0]) && Math.abs(value[0]) <= 90
     && typeof value[1] === "number" && Number.isFinite(value[1]) && Math.abs(value[1]) <= 180;
 }
 
 /** Keep every source slot: map selections and sensor samples use these indices. */
 export function routeSlots(value: unknown): RouteSlot[] {
-  return Array.isArray(value) ? Array.from(value, point => isRoutePosition(point) ? point : null) : [];
+  return Array.isArray(value) ? Array.from(value, point => isRoutePosition(point) ? [point[0], point[1]] : null) : [];
 }
 
 export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []) {

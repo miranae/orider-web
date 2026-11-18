@@ -1,6 +1,10 @@
 import { act, fireEvent, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import RouteMap from "./RouteMap";
+import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
+import { buildSampledData } from "../features/activity/detail/activityDetailDerived";
+import type { ActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
+import { routeFixtureActivity, routeFixtureStreams } from "../../e2e/fixtures/routeSensorExpansionData";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 
@@ -89,6 +93,25 @@ describe("RouteMap", () => {
     expect(path.match(/L/g)).toHaveLength(2);
   });
 
+  it("keeps the real chart selection model, power samples and map indices aligned after a GPS gap", () => {
+    const streams = routeFixtureStreams();
+    const sampled = buildSampledData(streams);
+    const model = { activity: routeFixtureActivity, streams, effectiveStreams: streams, serverMetrics: { metrics: null }, authorizedActivityAccess: true } as unknown as ActivityAnalysisModel;
+    function Analysis() {
+      const selection = useActivityRangeSelection(model, sampled);
+      return <><button onClick={() => selection.selectChart([3,4])}>Select chart range</button>
+        <output>{JSON.stringify({ range: selection.routeRange, power: sampled.slice(selection.chartRange?.[0] ?? 0, (selection.chartRange?.[1] ?? 4) + 1).map(point => point.power) })}</output>
+        <RouteMap latlng={streams.latlng} highlightRange={selection.routeRange} /></>;
+    }
+    renderWithProviders(<Analysis />);
+    expect(screen.getByRole("status")).toHaveTextContent('"power":[100,110,120,130,140]');
+    fireEvent.click(screen.getByRole("button", {name:"Select chart range"}));
+    expect(screen.getByRole("status")).toHaveTextContent('"range":{"startIndex":3,"endIndex":4},"power":[130,140]');
+    expect(mapProps.sources.at(-1)).toMatchObject({geometry:{coordinates:[[127.02,37.02],[127.022,37.022]]}});
+    expect(streams.latlng?.[2]).toBeNull();
+    expect(streams.watts).toEqual([100,110,120,130,140]);
+  });
+
   it("returns original source indices when dragging after a missing sample", () => {
     const onChange = vi.fn();
     const latlng = [[37,127], [37.01,127], null, [38,128], [38.01,128]] as unknown as [number,number][];
@@ -104,6 +127,15 @@ describe("RouteMap", () => {
     renderWithProviders(<RouteMap latlng={latlng} markerPosition={[NaN,127]} flyToRange={{startIndex:1,endIndex:1}} />);
     expect(api.fitBounds).toHaveBeenCalledTimes(1); // Full valid bounds only.
     expect(mapProps.sources.some(source => (source as {geometry?:{type:string}}).geometry?.type === "Point")).toBe(false);
+  });
+
+  it("recovers all-missing streams with the thumbnail without applying sensor indices", () => {
+    renderWithProviders(<RouteMap latlng={[null, {}, null] as unknown as [number,number][]}
+      polyline="37,127;37.01,127.01" highlightRange={{startIndex:1,endIndex:2}} markerPosition={[50,140]} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(mapProps.sources).toHaveLength(1);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[127.01,37.01]]}});
+    expect(mapProps.markers).toHaveLength(0);
   });
 
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {

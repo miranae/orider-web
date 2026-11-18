@@ -22,8 +22,12 @@ describe("route geometry at the untrusted stream boundary", () => {
     ]);
   });
 
+  it("retains legacy segment coordinates with trailing elevation", () => {
+    expect(routeSlots([[37,127,42], [38,128,43]])).toEqual([[37,127], [38,128]]);
+  });
+
   it("rejects invalid geographic values and returns no bounds for an empty route", () => {
-    expect(routeSlots([[], [91, 0], [0, 181], [NaN, 0], [0, Infinity], ["37", 127], [37,127,1], {}, null])).toEqual(Array(9).fill(null));
+    expect(routeSlots([[], [91, 0], [0, 181], [NaN, 0], [0, Infinity], ["37", 127], {}, null])).toEqual(Array(8).fill(null));
     expect(routeSlots({})).toEqual([]);
     expect(routeBounds([null, undefined, [NaN, 0]])).toBeNull();
     expect(routeGeometry([]).geometry.coordinates).toEqual([]);

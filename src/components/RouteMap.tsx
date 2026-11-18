@@ -266,12 +266,12 @@ export default function RouteMap({
   height = "h-48",
   interactive = false,
   rounded = true,
-  markerPosition,
+  markerPosition: rawMarkerPosition,
   photos,
   waypoints,
-  highlightRange,
-  onHighlightRangeChange,
-  flyToRange,
+  highlightRange: rawHighlightRange,
+  onHighlightRangeChange: rawOnHighlightRangeChange,
+  flyToRange: rawFlyToRange,
   flyToPosition,
   onLoad,
   loadingPlaceholder,
@@ -292,7 +292,7 @@ export default function RouteMap({
   const [mapReady, setMapReady] = useState(false);
   const [webglSupported] = useState(() => supportsWebGL());
 
-  const { positions, segmentStarts } = useMemo(() => {
+  const { positions, segmentStarts, streamFallback = false } = useMemo(() => {
     const positions: RouteSlot[] = [];
     const segmentStarts: number[] = [];
     if (Array.isArray(routeParts)) {
@@ -300,10 +300,18 @@ export default function RouteMap({
         segmentStarts.push(positions.length);
         for (const point of routeSlots(part)) positions.push(point);
       }
-    } else if (Array.isArray(latlng) && latlng.length > 0) return { positions: routeSlots(latlng), segmentStarts };
-    else if (polyline) return { positions: routeSlots(decodeTrack(polyline)), segmentStarts };
+    } else {
+      const streamPositions = routeSlots(latlng);
+      if (streamPositions.some(isRoutePosition)) return { positions: streamPositions, segmentStarts };
+      if (polyline) return { positions: routeSlots(decodeTrack(polyline)), segmentStarts, streamFallback: streamPositions.length > 0 };
+    }
     return { positions, segmentStarts };
   }, [polyline, latlng, routeParts]);
+  // A thumbnail has its own sampling axis; raw sensor indices cannot select it.
+  const highlightRange = streamFallback ? undefined : rawHighlightRange;
+  const onHighlightRangeChange = streamFallback ? undefined : rawOnHighlightRangeChange;
+  const flyToRange = streamFallback ? undefined : rawFlyToRange;
+  const markerPosition = streamFallback ? null : rawMarkerPosition;
 
   useEffect(() => {
     setMapFailed(false);
