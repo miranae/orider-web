@@ -445,23 +445,21 @@ export default function EventDetailPage() {
     }
   }, [courseDataMap, eventId]);
 
+  const currentEvent = event?.id === eventId ? event : null;
+  const gpxIndex = currentEvent?.courses?.length ? selectedCourseIdx : 0;
+  const gpxUrl = currentEvent?.courses?.length ? currentEvent.courses[gpxIndex]?.gpxUrl : currentEvent?.courseGpx;
   useEffect(() => {
-    if (!event || event.id !== eventId) return;
-    if (event.courses && event.courses.length > 0) {
-      const c = event.courses[selectedCourseIdx];
-      if (c) fetchCourse(c.gpxUrl, selectedCourseIdx);
-    } else if (event.courseGpx) {
-      fetchCourse(event.courseGpx, 0);
-    }
-  }, [event, eventId, selectedCourseIdx, fetchCourse]);
+    if (gpxUrl) void fetchCourse(gpxUrl, gpxIndex);
+  }, [gpxUrl, gpxIndex, fetchCourse]);
 
   // 연결 코스는 GPX가 없는 이벤트의 요약에도 쓰므로 이전 문맥의 결과를 섞지 않는다.
+  const linkedCourseIds = currentEvent?.courseIds;
   useEffect(() => {
     let cancelled = false;
     setLinkedCourses([]);
-    if (!event?.courseIds?.length || event.id !== eventId) return;
+    if (!linkedCourseIds?.length) return;
     const context = participantContext.current;
-    void Promise.all(event.courseIds.map(id => getDoc(doc(firestore, "courses", id))))
+    void Promise.resolve().then(() => Promise.all(linkedCourseIds.map(id => getDoc(doc(firestore, "courses", id)))))
       .then(courseDocs => {
         if (cancelled || participantContext.current !== context) return;
         setLinkedCourses(courseDocs.filter(snapshot => snapshot.exists())
@@ -471,7 +469,7 @@ export default function EventDetailPage() {
         if (!cancelled && participantContext.current === context) logClientError("EventDetailPage.loadLinkedCourses", error, { eventId });
       });
     return () => { cancelled = true; };
-  }, [event, eventId, user?.uid]);
+  }, [linkedCourseIds, eventId, user?.uid]);
 
   // 서버가 정렬한 5명만 읽고 늦은 응답은 현재 이벤트/SDK 세션에 적용하지 않는다.
   useEffect(() => {

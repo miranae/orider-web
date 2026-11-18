@@ -63,7 +63,7 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
     const fail = (err: unknown, canRetryWithCalendar: boolean) => {
       if (cancelled) return;
       cancelled = true;
-      const needsCalendarCoverage = err instanceof Error && err.message === "year-read-budget-exceeded";
+      const needsCalendarCoverage = err instanceof Error && ["year-read-budget-exceeded", "year-activities-read-timeout"].includes(err.message);
       setState({ session, uid, year, activities: [], loading: false, error: true,
         startedBeforeCalendar: startedBeforeCalendar && (canRetryWithCalendar || needsCalendarCoverage), needsCalendarCoverage });
       logClientError("useYearActivities.load", err, { uid, year });

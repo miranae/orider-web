@@ -146,7 +146,7 @@ export default function EventResultsPage() {
   const { user, loading: authLoading } = useAuth();
   const dialog = useDialog();
 
-  const [resultScope, setResultScope] = useState<{ eventId: string; owner: typeof auth.currentUser } | null>(null);
+  const [resultScope, setResultScope] = useState<{ eventId: string; owner: typeof auth.currentUser; services: typeof services } | null>(null);
   const [eventHead, setEventHead] = useState<EventHead | null>(null);
   const [results, setResults] = useState<ResultEntry[]>([]);
   const [reload, setReload] = useState(0);
@@ -185,8 +185,9 @@ export default function EventResultsPage() {
   useEffect(() => {
     if (!eventId || authLoading) return;
     let cancelled = false;
+    let profileFlush: ReturnType<typeof setTimeout> | undefined;
     const owner = auth.currentUser;
-    setResultScope({ eventId, owner });
+    setResultScope({ eventId, owner, services });
     nextPage.current = null;
     setComplete(false);
     setPageLoading(false);
@@ -194,6 +195,7 @@ export default function EventResultsPage() {
     setPageError(null);
     setResults([]);
     setEventHead(null);
+    setEventDateStr("");
     (async () => {
       setLoading(true);
       setLoadError(null);
@@ -264,12 +266,21 @@ export default function EventResultsPage() {
         const profileQueue: string[] = [];
         const requestedProfiles = new Set<string>();
         let profileWorkers = 0;
+        const flushProfiles = () => {
+          clearTimeout(profileFlush);
+          profileFlush = undefined;
+          if (!current()) return;
+          setResults(previous => previous.map(entry => entry.displayName === "—" && profileNames.get(entry.userId)
+            ? { ...entry, displayName: profileNames.get(entry.userId)! } : entry));
+        };
         const hydrateProfiles = () => {
           while (current() && profileWorkers < 4 && profileQueue.length) {
             const uid = profileQueue.shift()!;
             profileWorkers++;
             void withReadDeadline(getPublicUserProfile(uid, services.firestore), t("readTimeout")).then(profile => {
-              if (current()) profileNames.set(uid, profile?.nickname ?? "");
+              if (!current() || !profile?.nickname) return;
+              profileNames.set(uid, profile.nickname);
+              profileFlush ??= setTimeout(flushProfiles, 32);
             }).catch(error => {
               logClientError("EventResultsPage.loadPublicProfiles", error, { eventId }, services, owner);
             }).finally(() => {
@@ -277,9 +288,7 @@ export default function EventResultsPage() {
               if (!current()) return;
               if (profileQueue.length) hydrateProfiles();
               else if (profileWorkers === 0) {
-                // 한 사람마다 전체 결과를 재생성하지 않고, 준비된 이름을 묶어 반영한다.
-                setResults(previous => previous.map(entry => entry.displayName === "—" && profileNames.get(entry.userId)
-                  ? { ...entry, displayName: profileNames.get(entry.userId)! } : entry));
+                if (profileFlush !== undefined) flushProfiles();
                 setProfileNamesPending(false);
               }
             });
@@ -397,8 +406,8 @@ export default function EventResultsPage() {
         if (!cancelled && auth.currentUser === owner) setLoading(false);
       }
     })();
-    return () => { cancelled = true; nextPage.current = null; pausePages.current = null; };
-  }, [eventId, user, authLoading, t, reload]);
+    return () => { cancelled = true; clearTimeout(profileFlush); nextPage.current = null; pausePages.current = null; };
+  }, [eventId, user, authLoading, t, reload, services, auth, db]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -480,7 +489,7 @@ export default function EventResultsPage() {
   }, [finishHistogram, myResult]);
 
   const navigation = eventId ? <div className="site-shell"><EventDetailNavigation eventId={eventId} live={eventHead?.status === "LIVE"} results={eventHead?.status === "LIVE" || eventHead?.status === "FINISHED"} /></div> : null;
-  if (loading || authLoading || resultScope?.eventId !== eventId || resultScope?.owner !== auth.currentUser) {
+  if (loading || authLoading || resultScope?.eventId !== eventId || resultScope?.owner !== auth.currentUser || resultScope.services !== services) {
     return (
       <>{navigation}<div className="max-w-3xl mx-auto py-8">
         <LoadingSkeleton kind="chart" />
@@ -1060,7 +1069,7 @@ export default function EventResultsPage() {
                 >
                   <Link2 size={ICON_SIZE.sm} aria-hidden="true" />
                 </Button>
-                {complete && myResult.verifiedFinisher && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} onClick={async () => {
+                {complete && myResult.verifiedFinisher && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} disabled={profileNamesPending && myResult.displayName === "—"} onClick={async () => {
                   try {
                     const file = await createEventShareImage({ eventName: eventHead.name, riderName: myResult.displayName, date: eventHead.date, kind: "finished", result: formatDuration(myResult.finishTime), rank: t("resultsView.myRankDetail", { rank1: myResult.overallRank, cat: myResult.category, rank2: myResult.rank }) });
                     const result = await shareEventImage(file, eventHead.name);

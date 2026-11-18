@@ -193,7 +193,7 @@ export default function EventParticipantsPage() {
   }, [toast]);
 
   const load = useCallback(async () => {
-    if (!eventId) return;
+    if (!eventId || scopeRef.current !== scope || services.auth.currentUser !== scope.owner) return;
     const generation = ++loadGeneration.current;
     const current = () => generation === loadGeneration.current && scopeRef.current === scope && services.auth.currentUser === scope.owner;
     setLoading(true);
