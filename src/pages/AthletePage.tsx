@@ -224,20 +224,25 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       .catch(error => { if (!cancelled) { logClientError("AthletePage.ensureAthleteProfile", error, { userId }, services); setTotalsError(true); } });
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, totalsAttempt, readIdentity, liveTotals?.epoch]);
-  const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; value: PublicAthleteTotals } | null>(null);
+  const accessRevision = (currentProfile as unknown as { activitySocialAccessRevision?: string } | null)?.activitySocialAccessRevision;
+  const publicTotalsScopeRef = useRef({ identity: readIdentity, accessRevision });
+  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.accessRevision !== accessRevision)
+    publicTotalsScopeRef.current = { identity: readIdentity, accessRevision };
+  const publicTotalsScope = publicTotalsScopeRef.current;
+  const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; value: PublicAthleteTotals } | null>(null);
   const [publicTotalsError, setPublicTotalsError] = useState(false);
   useEffect(() => {
     let cancelled = false;
     setPublicTotals(null); setPublicTotalsError(false);
     if (isOwnProfile || !userId) return;
-    void loadPublicAthleteTotals(services, userId, () => !cancelled && profileReadIdentity.current === readIdentity)
-      .then(value => { if (!cancelled) setPublicTotals({ identity: readIdentity, value }); })
+    void loadPublicAthleteTotals(services, userId, () => !cancelled && publicTotalsScopeRef.current === publicTotalsScope)
+      .then(value => { if (!cancelled && publicTotalsScopeRef.current === publicTotalsScope) setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, value }); })
       .catch(error => {
         if (!(error instanceof Error && error.message === "athlete-profile-session-changed")) logClientError("AthletePage.publicTotals", error, {}, services);
         if (!cancelled) setPublicTotalsError(true);
       });
     return () => { cancelled = true; };
-  }, [userId, isOwnProfile, readIdentity, totalsAttempt, profileForPage?.athleteTotalsSignal]);
+  }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, profileForPage?.athleteTotalsSignal]);
   useEffect(() => {
     if (isOwnProfile || !userId) return;
     const refresh = () => { if (document.visibilityState !== "hidden") setTotalsAttempt(value => value + 1); };
@@ -796,7 +801,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const acceptedChartActivities = useMemo(() => acceptedStatsActivities(chartActivities.filter(activity => activity.userId === userId)), [chartActivities, userId]);
   const acceptedLoadActivities = useMemo(() => isOwnProfile ? acceptedTrainingActivities(chartActivities.filter(activity => activity.userId === userId)) : [], [chartActivities, userId, isOwnProfile]);
-  const summaryTotals = isOwnProfile ? ownerTotals : publicTotals?.identity === readIdentity ? publicTotals.value : null;
+  const summaryTotals = isOwnProfile ? ownerTotals : publicTotals?.identity === readIdentity && publicTotals.scope === publicTotalsScope ? publicTotals.value : null;
   const summaryError = isOwnProfile ? totalsError : publicTotalsError;
   const stats = { count: summaryTotals?.count ?? 0, distance: summaryTotals?.distance ?? 0, time: summaryTotals?.timeDisplayMillis ?? 0, elevation: summaryTotals?.elevation ?? 0 };
   const statsReady = summaryTotals?.state === "ready" && !summaryError;
@@ -852,7 +857,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         </div>
         {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
         {!isOwnProfile && !statsReady && <p role="status">{t(summaryError || summaryTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Button size="sm" onClick={() => setTotalsAttempt(value => value + 1)}>{t("profile.reloadTotals")}</Button></p>}
-        <Text as="p" variant="caption" tone="secondary" className="mt-2">{t("stats.scopeOwn")}</Text>
+        <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
         {!isOwnProfile && statsReady && <Button size="sm" variant="ghost" onClick={() => setTotalsAttempt(value => value + 1)}>{t("profile.reloadTotals")}</Button>}
       </section>
   );
@@ -901,7 +906,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           </div>
           {currentUser && !relationshipLoading && (
             <div className="mt-5 flex justify-center gap-2">
-              {friendStatus === "none" && canSendFriendRequest && (
+              {!relationshipLoading && friendStatus === "none" && canSendFriendRequest && (
                 <Button size="sm"
                   onClick={handleSendFriendRequest}
                   disabled={friendLoading}
@@ -910,10 +915,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   {friendLoading ? t("friend.requesting") : t("friend.request")}
                 </Button>
               )}
-              {friendStatus === "request_sent" && (
+              {!relationshipLoading && friendStatus === "request_sent" && (
                 <Button size="sm" variant="secondary" onClick={handleCancelRequest} disabled={friendLoading}>{friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}</Button>
               )}
-              {friendStatus === "request_received" && (
+              {!relationshipLoading && friendStatus === "request_received" && (
                 <Button size="sm"
                   onClick={handleAcceptRequest}
                   disabled={friendLoading}
@@ -961,10 +966,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={isOwnProfile ? [] : chartActivities} /></div>
           )}
         </div>
-        {!isMe && currentUser && !relationshipLoading && (
+        {!isMe && currentUser && (
           <div data-testid="P0-0-4" className="athlete-friend-actions">
             <ActivitySubscriptionButton targetUid={userId} services={services} size="sm" />
-            {friendStatus === "none" && canSendFriendRequest && (
+            {!relationshipLoading && friendStatus === "none" && canSendFriendRequest && (
               <Button size="sm"
                 onClick={handleSendFriendRequest}
                 disabled={friendLoading}
@@ -973,10 +978,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 {friendLoading ? t("friend.requesting") : t("friend.request")}
               </Button>
             )}
-            {friendStatus === "request_sent" && (
+            {!relationshipLoading && friendStatus === "request_sent" && (
               <Button size="sm" variant="secondary" onClick={handleCancelRequest} disabled={friendLoading}>{friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}</Button>
             )}
-            {friendStatus === "request_received" && (
+            {!relationshipLoading && friendStatus === "request_received" && (
               <Button size="sm"
                 onClick={handleAcceptRequest}
                 disabled={friendLoading}
@@ -985,7 +990,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 {friendLoading ? t("friend.accepting") : t("friend.accept")}
               </Button>
             )}
-            {friendStatus === "friends" && (
+            {!relationshipLoading && friendStatus === "friends" && (
               <Button size="sm" variant="secondary" onClick={async () => {
                 if (!(await dialog.confirm(t("friend.confirmRemove", { nickname }), { destructive: true }))) return;
                 handleRemoveFriend();

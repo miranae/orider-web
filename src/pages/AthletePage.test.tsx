@@ -1,3 +1,5 @@
+import i18n from "i18next";
+import enAthlete from "../i18n/resources/en/athlete.json";
 import { httpsCallable } from "firebase/functions";
 import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import * as errorLogger from "../services/errorLogger";
@@ -858,4 +860,37 @@ it("keeps private summary visible while waiting for relationship status without 
   expect(screen.queryByRole("button", { name: "친구 요청", exact: true })).not.toBeInTheDocument();
   view.unmount(); resolve?.({ exists: () => true });
   vi.mocked(getDoc).mockImplementation(original);
+});
+
+it("invalidates cached and in-flight totals when the same viewer receives a bilateral block revision", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Blocked rider", profilePublic: false });
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" }, profile: { activitySocialAccessRevision: "before" } });
+  const totals = await screen.findByRole("region", { name: "활동 누적 기록" });
+  await waitFor(() => expect(within(totals).getByText("5회")).toBeInTheDocument());
+  let release!: (value: unknown) => void;
+  let calls = 0;
+  setCallableImplementation("getPublicAthleteTotals", async () => {
+    if (++calls === 1) return await new Promise(resolve => { release = resolve; });
+    throw Object.assign(new Error("not available"), { code: "functions/not-found" });
+  });
+  act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "changed-one" }));
+  await waitFor(() => expect(calls).toBe(1));
+  expect(within(totals).queryByText("5회")).not.toBeInTheDocument();
+  act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "changed-two" }));
+  await waitFor(() => expect(calls).toBe(2));
+  await act(async () => release({ data: totalsFixture({ count: 99 }) }));
+  await waitFor(() => expect(within(totals).getByRole("status")).toHaveTextContent("누적 기록 확인이 중단되었습니다."));
+  expect(within(totals).queryByText("99회")).not.toBeInTheDocument();
+  expect(within(totals).getAllByText("—")).toHaveLength(4);
+});
+
+ it("attributes another athlete's whole-history summary correctly in English", async () => {
+  i18n.addResourceBundle("en", "athlete", enAthlete, true, true);
+  await i18n.changeLanguage("en");
+  try {
+    setDocData("users_public/athlete-1", { nickname: "Other rider", profilePublic: false });
+    renderWithProviders(<AthletePage />, { route: "/en/athlete/athlete-1" });
+    await screen.findByText("Based on all activity records");
+    expect(screen.queryByText("Based on your full activity history")).not.toBeInTheDocument();
+  } finally { await act(async () => { await i18n.changeLanguage("ko"); }); }
 });
