@@ -62,7 +62,7 @@ test("boolean VITE flags read at runtime are all emitted by the writer", () => {
   const reader = readFileSync("src/services/runtimeConfig.ts", "utf8");
   const writer = readFileSync("scripts/write-runtime-config.mjs", "utf8");
   // 빌드 시점에만 의미가 있는 스위치 — runtime-config.json 에 실릴 값이 아니다.
-  const buildOnly = new Set(["VITE_USE_BUILD_ENV_FALLBACK"]);
+  const buildOnly = new Set(["VITE_USE_BUILD_ENV_FALLBACK", "VITE_REQUIRE_BUNDLED_RUNTIME"]);
   const readerFlags = new Set(
     [...reader.matchAll(/import\.meta\.env\.(VITE_[A-Z0-9_]+) === "true"/g)]
       .map((m) => m[1])

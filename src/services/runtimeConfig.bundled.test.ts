@@ -12,6 +12,9 @@ import { redeemHandoffCode } from "./handoffRedeem";
 import { analysisCapabilityAvailable, matchesAnalysisCapability } from "./analysisCapability";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 
+const { captureRuntimeError } = vi.hoisted(() => ({ captureRuntimeError: vi.fn() }));
+vi.mock("./sentry", () => ({ captureError: captureRuntimeError }));
+
 function config(environment: "development" | "production"): RuntimeConfig {
   const base = BUNDLED_FUNCTIONS_BASES[environment];
   return { appEnvironment: "production", deploymentProfile: `bundled-${environment}`, firebaseFunctionsBase: base,
@@ -21,6 +24,7 @@ function config(environment: "development" | "production"): RuntimeConfig {
 }
 afterEach(async () => {
   vi.unstubAllEnvs(); vi.unstubAllGlobals(); resetRuntimeConfigForTests({});
+  captureRuntimeError.mockClear();
   await Promise.all(getApps().map(deleteApp));
 });
 it.each([
@@ -41,6 +45,15 @@ it.each([
   await expect(loadRuntimeConfig()).rejects.toThrow(`bundled/runtime-config-${reason}`);
   await expect(loadRuntimeConfig()).rejects.toThrow(`bundled/runtime-config-${reason}`);
   expect(fetchRuntime).toHaveBeenCalledTimes(1);
+});
+
+it.each([null, []])("records malformed legacy JSON and still uses build defaults (%j)", async payload => {
+  vi.stubEnv("VITE_REQUIRE_BUNDLED_RUNTIME", "false");
+  resetRuntimeConfigForTests({ firebaseApiKey: "legacy-fallback" });
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json(payload)));
+  await expect(loadRuntimeConfig()).resolves.toMatchObject({ firebaseApiKey: "legacy-fallback" });
+  await vi.waitFor(() => expect(captureRuntimeError).toHaveBeenCalledWith(new Error("legacy/runtime-config-json"),
+    { tags: { source: "runtime-config" } }));
 });
 
 it("loads either bundled environment with the same build flag", async () => {

@@ -172,6 +172,9 @@ async function fetchRuntimeConfig(): Promise<RuntimeConfig> {
     remote = withoutEmptyValues(payload as RuntimeConfig);
   } catch (error) {
     if (requireBundled) throw Object.assign(new Error("bundled/runtime-config-json"), { cause: error instanceof Error ? error.name : undefined });
+    void import("./sentry").then(({ captureError }) => {
+      captureError(new Error("legacy/runtime-config-json"), { tags: { source: "runtime-config" } });
+    }).catch(() => {});
     return runtimeConfig;
   }
   if (requireBundled && !bundledFunctionsBase(remote)) throw new Error("bundled/runtime-config-profile");

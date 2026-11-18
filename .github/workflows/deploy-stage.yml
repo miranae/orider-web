@@ -157,18 +157,23 @@ jobs:
           ok=0
           for i in $(seq 1 10); do
             live=""
+            runtime_status=missing
             if curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' "https://orider-dev.web.app/?cacheBust=${FRONTEND_SOURCE}-$i" -o "$RUNNER_TEMP/live-index.html"; then
               live=$(entry "$RUNNER_TEMP/live-index.html" || true)
             fi
-            echo "Attempt $i: expected=$built actual=${live:-<missing>}"
-            if [ "$live" = "$built" ]; then ok=1; break; fi
-            sleep 10
+            if [ "$live" = "$built" ] && curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' "https://orider-dev.web.app/runtime-config.json?cacheBust=${FRONTEND_SOURCE}-$i" -o "$RUNNER_TEMP/live-runtime-config.json"; then
+              runtime_status=mismatch
+              if cmp -s dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; then
+                ok=1
+                break
+              fi
+            fi
+            echo "Attempt $i: expected=$built actual=${live:-<missing>} runtime=$runtime_status"
+            if [ "$i" -lt 10 ]; then sleep 10; fi
           done
-          if [ "$ok" != 1 ]; then echo "::error::Development entry mismatch: expected=$built actual=${live:-<missing>}"; exit 1; fi
-          curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' "https://orider-dev.web.app/runtime-config.json?cacheBust=${FRONTEND_SOURCE}" -o "$RUNNER_TEMP/live-runtime-config.json"
-          if ! cmp -s dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; then
-            echo "::error::Development runtime differs from built runtime"
-            sha256sum dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; exit 1
+          if [ "$ok" != 1 ]; then
+            echo "::error::Development entry or runtime mismatch: expected=$built actual=${live:-<missing>} runtime=$runtime_status"
+            exit 1
           fi
           # 일반 브라우저의 상세 URL도 같은 개발 번들을 반환해야 한다.
           detail_url="https://orider-dev.web.app/ko/course/nonexistent?cacheBust=${FRONTEND_SOURCE}"
