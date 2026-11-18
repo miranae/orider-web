@@ -699,9 +699,11 @@ export default function EmbeddedBootstrapRoot({
     try {
       bridge.send(type, payload, requestId);
     } catch {
-      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type });
+      const viewer = controlServices.auth.currentUser;
+      const approvedViewer = viewer?.isAnonymous !== true && (viewer?.uid === acceptedUid.current || viewer?.uid === authorizedUid.current) ? viewer : null;
+      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type }, controlServices, approvedViewer);
     }
-  }, [bridge]);
+  }, [bridge, controlServices]);
 
   const handleTrainingShellReady = useCallback((
     surface: TrainingSurfaceKind,

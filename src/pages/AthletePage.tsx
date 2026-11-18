@@ -24,7 +24,6 @@ import { useTranslation } from "react-i18next";
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
 import { logClientError } from "../services/errorLogger";
-import { captureError } from "../services/sentry";
 import { useDocument } from "../hooks/useFirestore";
 import { useMyGroups } from "../hooks/useGroup";
 import { cancelFriendRequest, sendFriendRequest } from "../hooks/useFriends";
@@ -258,10 +257,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           return { ...current, [kind]: signal };
         });
       }, error => {
+        logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer);
         if (current()) {
-          logClientError("AthletePage.totalsSignal", error, { kind }, services);
           setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity ? previous : { identity: readIdentity }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
-        } else captureError(error, { tags: { source: "AthletePage.totalsSignal", kind } });
+        }
       });
     const stopPublic = watch("public", "users_public", userId, "athleteTotalsSignal");
     const viewer = currentUser?.uid;
@@ -295,12 +294,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       })
       .catch(error => {
         if (error instanceof Error && error.message === "athlete-profile-session-changed") return;
-        if (!current()) {
-          captureError(error, { tags: { source: "AthletePage.publicTotals" } });
-          return;
-        }
-        logClientError("AthletePage.publicTotals", error, {}, services);
-        setPublicTotalsError(true);
+        logClientError("AthletePage.publicTotals", error, {}, services, readIdentity.viewer);
+        if (current()) setPublicTotalsError(true);
       });
     return () => { receipt.active = false; clearTimeout(expiry); };
   }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, currentSignals, publicTotalsAuthorized, networkOnline]);
@@ -515,11 +510,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
         setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
       } catch (err) {
+        if (!(err instanceof Error && err.message === "account_changed"))
+          logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile }, services, readIdentity.viewer);
         if (!cancelled && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer) {
-          logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile }, services);
           setActivityReadError(true); setHasMoreActivities(false);
-        } else if (!(err instanceof Error && err.message === "account_changed")) {
-          captureError(err, { tags: { source: "AthletePage.loadActivities" } });
         }
       } finally {
         if (!cancelled) setActivitiesLoading(false);
@@ -658,12 +652,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
       setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
     } catch (err) {
+      if (!(err instanceof Error && err.message === "account_changed"))
+        logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile }, services, identity.viewer);
       if (current()) {
-        logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile }, services);
         setActivityReadError(true);
         if (!isOwnProfile) { setDisplayActivities([]); setPublicActivityCursor(null); setHasMoreActivities(false); }
-      } else if (!(err instanceof Error && err.message === "account_changed")) {
-        captureError(err, { tags: { source: "AthletePage.loadMoreActivities" } });
       }
     } finally {
       if (current()) setLoadingMore(false);
@@ -704,6 +697,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }
 
     let active = true;
+    const viewer = services.auth.currentUser;
     setRelationshipLoading(true); setRelationshipError(false); setFriendStatus("none");
     // 1. 이미 친구인지 확인
     getDoc(doc(services.firestore, "friends", currentUser.uid, "users", userId))
@@ -729,10 +723,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               });
           });
       })
-      .catch((err) => { logClientError("AthletePage.relationship", err, { userId, operation: "friendship-read" }, services); if (active) setRelationshipError(true); })
+      .catch((err) => { logClientError("AthletePage.relationship", err, { userId, operation: "friendship-read" }, services, viewer); if (active) setRelationshipError(true); })
       .finally(() => { if (active) setRelationshipLoading(false); });
     return () => { active = false; };
-  }, [currentUser, userId, services.firestore, relationshipAttempt]);
+  }, [currentUser, userId, services, relationshipAttempt]);
 
   // Handle auto-friend request from invite link
   useEffect(() => {
@@ -1281,7 +1275,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </Card>
             ) : (
               <>
-                {(hasLocalFilter && (!isOwnProfile || selectedPeriod) ? filteredActivities.slice(0, periodLimit) : filteredActivities).map((activity, index) => <CompactActivityCard key={activity.id} activity={activity} priority={index === 0} />)}
+                {(hasLocalFilter && (!isOwnProfile || selectedPeriod) ? filteredActivities.slice(0, periodLimit) : filteredActivities).map((activity, index) => <CompactActivityCard key={activity.id} activity={activity} priority={index === 0} authorNickname={profileForPage?.nickname ?? null} />)}
                 {(!hasLocalFilter || isOwnProfile && !selectedPeriod) && !isSearchActive && hasMoreActivities && (
                   <Card variant="bare" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
                     <Button size="sm" variant="ghost" block

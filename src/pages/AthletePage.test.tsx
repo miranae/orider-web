@@ -3,7 +3,6 @@ import enAthlete from "../i18n/resources/en/athlete.json";
 import { httpsCallable } from "firebase/functions";
 import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import * as errorLogger from "../services/errorLogger";
-import * as sentry from "../services/sentry";
 import { installActivityQueryFake } from "../__tests__/fixtures/activityQueryFake";
 import { getDoc, getDocs, onSnapshot } from "firebase/firestore";
 import { auth } from "../services/firebase";
@@ -63,7 +62,7 @@ describe("AthletePage", () => {
     setCollectionDocs("activities", [{id: "memo-ride", ...createMockActivity({ deletedAt: null,id: "memo-ride", userId: "athlete-1"})}]);
     renderWithProviders(<AthletePage />);
     const input = await screen.findByPlaceholderText("활동 검색... (Enter)");
-    await waitFor(() => expect(screen.getByText("한강 라이더")).toBeInTheDocument());
+    await screen.findByRole("heading", { name: "한강 라이더" });
     const count = acceptance.mock.calls.length;
     fireEvent.change(input, {target: {value: "a"}});
     fireEvent.change(input, {target: {value: "ab"}});
@@ -826,14 +825,11 @@ it("records a real public request failure after unmount without updating abandon
   setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
   setCallableImplementation("getPublicAthleteTotals", () => new Promise((_, fail) => { reject = fail; }));
   const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
-  const capture = vi.spyOn(sentry, "captureError").mockImplementation(() => {});
   const view = renderWithProviders(<AthletePage />);
   await waitFor(() => expect(reject).toBeTypeOf("function"));
   view.unmount();
   await act(async () => { reject(failure); await Promise.resolve(); });
-  expect(capture).toHaveBeenCalledWith(failure, { tags: { source: "AthletePage.publicTotals" } });
-  expect(log).not.toHaveBeenCalledWith("AthletePage.publicTotals", expect.anything(), expect.anything(), expect.anything());
-  capture.mockRestore();
+  expect(log).toHaveBeenCalledWith("AthletePage.publicTotals", failure, {}, expect.anything(), null);
   log.mockRestore();
 });
 it("does not use whole-history count as the remaining authorized list count", async () => {
@@ -988,13 +984,15 @@ it.each(["users_public/athlete-1", "users/viewer"])("invalidates previous totals
     const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
     const update = updates.get(path)!;
     const snapshot = (fromCache: boolean) => ({ exists: () => true, data: () => ({ athleteTotalsSignal: "one" }), metadata: { fromCache } });
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 7 }) });
     act(() => update(snapshot(true)));
     expect(screen.queryByText("5회")).not.toBeInTheDocument();
-    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+    await screen.findByText("7회");
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1);
     setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
     act(() => update(snapshot(false)));
     await screen.findByText("9회");
-    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1);
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 2);
   } finally { clearTimer.mockRestore(); timer.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
 });
 
