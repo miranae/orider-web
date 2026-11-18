@@ -49,6 +49,8 @@ interface RouteMapProps {
   onHighlightRangeChange?: (startIndex: number, endIndex: number) => void;
   /** Increment requestId to repeat a camera request for the same indices. */
   flyToRange?: { startIndex: number; endIndex: number; requestId?: number } | null;
+  /** Range indices refer to raw samples even while the measured stream is unavailable. */
+  rangeUsesRawSamples?: boolean;
   flyToPosition?: [number, number] | null;
   onLoad?: () => void;
   /** 피드에서 배경 타일이 준비되기 전 보여줄 플레이스홀더 */
@@ -77,6 +79,13 @@ function toPointGeoJSON(lat: number, lng: number): GeoJSON.Feature<GeoJSON.Point
     properties: {},
     geometry: { type: "Point", coordinates: [lng, lat] },
   };
+}
+
+function sameRouteSlots(first: RouteSlot[], second: RouteSlot[]): boolean {
+  return first === second || first.length === second.length && first.every((point, index) => {
+    const other = second[index];
+    return point === other || point != null && other != null && point[0] === other[0] && point[1] === other[1];
+  });
 }
 
 export { routeBounds as getBounds } from "../utils/routeGeometry";
@@ -389,6 +398,7 @@ export default function RouteMap({
   highlightRange: rawHighlightRange,
   onHighlightRangeChange: rawOnHighlightRangeChange,
   flyToRange: rawFlyToRange,
+  rangeUsesRawSamples = false,
   flyToPosition,
   onLoad,
   loadingPlaceholder,
@@ -424,15 +434,16 @@ export default function RouteMap({
       return { routePositions: parts, sourcePositions: parts, segmentStarts, streamFallback: false };
     }
     const measured = routeSlots(latlng);
+    const useMeasuredIndices = rangeUsesRawSamples || measured.length > 0;
     if (hasRouteLine(measured)) return { routePositions: measured, sourcePositions: measured, segmentStarts, streamFallback: false };
     const thumbnail = polyline ? routeTrackSlots(polyline) : [];
     if (hasRouteLine(thumbnail)) return { routePositions: thumbnail,
-      sourcePositions: measured.length ? measured : thumbnail, segmentStarts, streamFallback: measured.length > 0 };
+      sourcePositions: useMeasuredIndices ? measured : thumbnail, segmentStarts, streamFallback: useMeasuredIndices };
     const useThumbnailPoint = !measured.some(isRoutePosition) && thumbnail.some(isRoutePosition);
     const positions = useThumbnailPoint ? thumbnail : measured.length ? measured : thumbnail;
-    return { routePositions: positions, sourcePositions: measured.length ? measured : positions, segmentStarts,
-      streamFallback: useThumbnailPoint && measured.length > 0 };
-  }, [polyline, latlng, routeParts]);
+    return { routePositions: positions, sourcePositions: useMeasuredIndices ? measured : positions, segmentStarts,
+      streamFallback: useMeasuredIndices && positions !== measured };
+  }, [polyline, latlng, routeParts, rangeUsesRawSamples]);
   // Geometry has its own thumbnail clock; point interactions retain the measured source clock.
   const positions = useMemo(() => drawableRouteSlots(routePositions, segmentStarts), [routePositions, segmentStarts]);
   const highlightRange = rawHighlightRange;
@@ -474,6 +485,17 @@ export default function RouteMap({
     [firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
   const mapScopeRef = useRef(mapScope);
   mapScopeRef.current = mapScope;
+  const mapInstance = useRef({ routePositions, segmentStarts, firebaseServices, mapViewer, generation: 0 });
+  const previousMap = mapInstance.current;
+  if (previousMap.routePositions !== routePositions || previousMap.segmentStarts !== segmentStarts
+    || previousMap.firebaseServices !== firebaseServices || previousMap.mapViewer !== mapViewer) {
+    const sameGeometry = sameRouteSlots(previousMap.routePositions, routePositions)
+      && previousMap.segmentStarts.length === segmentStarts.length
+      && previousMap.segmentStarts.every((value, index) => value === segmentStarts[index]);
+    const sameSession = previousMap.firebaseServices === firebaseServices && previousMap.mapViewer === mapViewer;
+    mapInstance.current = { routePositions, segmentStarts, firebaseServices, mapViewer,
+      generation: previousMap.generation + (sameGeometry && sameSession ? 0 : 1) };
+  }
   useEffect(() => {
     mapErrorLogged.current = false;
     setMapFailed(false);
@@ -605,7 +627,7 @@ export default function RouteMap({
   return (
     <div className={`${containerClass} relative`}>
       {loadingPlaceholder && !mapReady && <div data-map-thumbnail-loading className="absolute inset-0 z-10">{loadingPlaceholder}</div>}
-      <ErrorBoundary key={hasRecordedPosition ? "recorded-route" : "location-only"} fallback={() => fallback} onError={error => handleMapError({ error })}>
+      <ErrorBoundary key={mapInstance.current.generation} fallback={() => fallback} onError={error => handleMapError({ error })}>
         <Map
           mapboxAccessToken={mapboxToken}
           mapStyle={MAP_STYLE}

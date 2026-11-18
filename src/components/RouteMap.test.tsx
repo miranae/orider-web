@@ -551,6 +551,17 @@ describe("RouteMap", () => {
     expect(document.querySelector("svg path")?.getAttribute("d")?.match(/M/g)).toHaveLength(2);
   });
 
+  it("never applies raw selection indices to a thumbnail after the measured stream is cleared", () => {
+    const props = { polyline: "37,127;37.01,127;37.02,127", rangeUsesRawSamples: true, flyToRange: { startIndex: 1, endIndex: 1 } };
+    const view = renderWithProviders(<RouteMap {...props} latlng={[[38,128],[38.01,128],[38.02,128]]} />);
+    expect(mapProps.layers.has("route-selected-point")).toBe(true);
+    mapProps.layers.clear();
+    view.rerender(<RouteMap {...props} latlng={[]} />);
+    expect(mapProps.layers.has("route-selected-point")).toBe(false);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(document.querySelector("[data-route-static-selection]")).toBeNull();
+  });
+
   it("preserves a separate single GPS target alongside the highlighted track in the static preview", () => {
     renderWithProviders(<RouteMap latlng={[[37, 127], [37.01, 127], null, [38, 128]] as unknown as [number, number][]}
       highlightRange={{ startIndex: 0, endIndex: 1 }} flyToRange={{ startIndex: 3, endIndex: 3 }} />);

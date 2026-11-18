@@ -94,6 +94,7 @@ export function ActivityMediaPanel({
                 .map((p) => ({ id: `upload-${p.id}`, url: p.url, nativePhoto: p.nativePhoto, location: p.location!, caption: null as string | null })),
             ]}
             flyToRange={publicRouteParts || independentRoute ? undefined : selectedSegmentRange}
+            rangeUsesRawSamples
             flyToPosition={independentRoute || selectedSegmentRange ? undefined : flyToPosition}
             fallbackImageUrl={publicRouteParts ? null : activity.mapImageUrl}
           />
