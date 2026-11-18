@@ -18,7 +18,7 @@ function assertSource(workspace, expected = head(workspace)) {
   return expected;
 }
 async function health(runtime, fetcher, expected) {
-  const url = `${runtime.firebaseFunctionsBase}/healthz`;
+  const url = `${runtime.firebaseFunctionsBase}/readyz`;
   let response;
   try { response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled production health transport failed at ${url}`); }
