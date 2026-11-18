@@ -9,6 +9,8 @@ import { MapNavigation, MapControlButton } from "../theme/components";
 import type { LngLatBoundsLike } from "mapbox-gl";
 // 컨트롤/팝업 스타일. 메인 entry 가 아닌 RouteMap chunk 와 함께 로드 (홈 진입 시 1.6MB 절약).
 import "mapbox-gl/dist/mapbox-gl.css";
+import { logClientError } from "../services/errorLogger";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { buildStaticRoutePath } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
@@ -221,6 +223,11 @@ function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds }: {
     if (range) {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
+      if (positions.length > 1 && lo === 0 && hi === positions.length - 1) {
+        map.fitBounds(fullBounds, { padding: 20 });
+        prevRange.current = null;
+        return;
+      }
       const slice = positions.slice(lo, hi + 1);
       const segment = lo === hi ? slice : drawableRouteSlots(slice, segmentStarts.map(index => index - lo));
       const bounds = getBounds(segment);
@@ -288,6 +295,8 @@ export default function RouteMap({
   fallbackHeight,
 }: RouteMapProps) {
   const { t } = useTranslation("common");
+  const firebaseServices = useFirebaseServices();
+  const mapErrorLogged = useRef(false);
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const selectedPhoto = photos?.find(photo => photo.id === selectedPhotoId);
   const [mapFailed, setMapFailed] = useState(false);
@@ -320,6 +329,7 @@ export default function RouteMap({
   const markerPosition = rawMarkerPosition;
 
   useEffect(() => {
+    mapErrorLogged.current = false;
     setMapFailed(false);
   }, [polyline, latlng, routeParts, fallbackImageUrl]);
 
@@ -331,19 +341,32 @@ export default function RouteMap({
     const valid = (streamFallback ? routePositions : sourcePositions).filter(isRoutePosition);
     return showRouteEndpoints && valid.length >= 2 ? [valid[0]!, valid[valid.length - 1]!] : [];
   }, [sourcePositions, routePositions, streamFallback, showRouteEndpoints]);
-  const pointPositions = useMemo(() => {
-    const points: [number, number][] = [...endpoints];
+  const activePoints = useMemo(() => {
+    const points: [number, number][] = [];
     const add = (point: unknown) => { if (isRoutePosition(point)) points.push([point[0], point[1]]); };
-    if (Array.isArray(photos)) photos.forEach(photo => add(photo?.location));
-    if (Array.isArray(waypoints)) waypoints.forEach(point => add([point?.lat, point?.lon]));
     add(markerPosition); add(flyToPosition);
     if (highlightRange) { add(sourcePositions[highlightRange.startIndex]); add(sourcePositions[highlightRange.endIndex]); }
-    if (flyToRange) { add(sourcePositions[flyToRange.startIndex]); add(sourcePositions[flyToRange.endIndex]); }
+    if (flyToRange && flyToRange.startIndex === flyToRange.endIndex) add(sourcePositions[flyToRange.startIndex]);
     return points;
-  }, [endpoints, photos, waypoints, markerPosition, flyToPosition, highlightRange, flyToRange, sourcePositions]);
-  // Route endpoints are part of the full route view, even when their fragment has no line.
+  }, [markerPosition, flyToPosition, highlightRange, flyToRange, sourcePositions]);
+  const hasSourcePosition = useMemo(() => sourcePositions.some(isRoutePosition), [sourcePositions]);
+  const pointPositions = useMemo(() => {
+    const points: [number, number][] = [...endpoints, ...activePoints];
+    const add = (point: unknown) => { if (isRoutePosition(point)) points.push([point[0], point[1]]); };
+    // Passive attachments must not replace a saved route image or create a map request on their own.
+    if (hasSourcePosition || activePoints.length > 0) {
+      if (Array.isArray(photos)) photos.forEach(photo => add(photo?.location));
+      if (Array.isArray(waypoints)) waypoints.forEach(point => add([point?.lat, point?.lon]));
+    }
+    return points;
+  }, [endpoints, activePoints, hasSourcePosition, photos, waypoints]);
   const routeBounds = useMemo(() => getBounds([...positions, ...endpoints]), [positions, endpoints]);
-  const bounds = useMemo(() => routeBounds ?? getBounds(pointPositions), [routeBounds, pointPositions]);
+  const bounds = useMemo(() => {
+    if (!routeBounds) return getBounds(pointPositions);
+    const expanded = getBounds([[routeBounds[0][1], routeBounds[0][0]], [routeBounds[1][1], routeBounds[1][0]], ...activePoints]);
+    return !expanded || expanded[0][0] === routeBounds[0][0] && expanded[0][1] === routeBounds[0][1]
+      && expanded[1][0] === routeBounds[1][0] && expanded[1][1] === routeBounds[1][1] ? routeBounds : expanded;
+  }, [routeBounds, activePoints, pointPositions]);
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
@@ -382,6 +405,22 @@ export default function RouteMap({
     const idx = findNearestIndex(sourcePositions, e.lngLat.lat, e.lngLat.lng);
     if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
   }, [sourcePositions, onHighlightRangeChange, highlightRange]);
+
+  const handleMapError = useCallback((event: { error?: unknown } = {}) => {
+    if (!mapErrorLogged.current) {
+      mapErrorLogged.current = true;
+      const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
+      const status = typeof detail.status === "number" && Number.isInteger(detail.status) && detail.status >= 100 && detail.status <= 599 ? detail.status : null;
+      const message = typeof detail.message === "string" ? detail.message.toLowerCase() : "";
+      const kind = status != null && status >= 400 ? "http" : /webgl|context lost|gpu/.test(message) ? "webgl"
+        : /geojson|coordinate|bounds/.test(message) ? "geometry" : /network|fetch|load/.test(message) ? "network" : "sdk";
+      logClientError("RouteMap.mapbox", new Error(`mapbox_${kind}_failure${status == null ? "" : `_${status}`}`), {
+        stage: "mapbox_render_or_request", kind, status, routeSlotCount: sourcePositions.length,
+        pointCount: pointPositions.length, hasSavedImage: Boolean(fallbackImageUrl), hasRouteLine: drawable,
+      }, firebaseServices);
+    }
+    setMapFailed(true);
+  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices]);
 
   if (!bounds) {
     if (fallbackImageUrl) {
@@ -431,7 +470,7 @@ export default function RouteMap({
             if (onLoad) { e.target.once("idle", onLoad); }
           }}
           onIdle={loadingPlaceholder ? () => setMapReady(true) : undefined}
-          onError={() => setMapFailed(true)}
+          onError={handleMapError}
           interactive={interactive}
           cooperativeGestures={interactive}
           scrollZoom={interactive}

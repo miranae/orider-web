@@ -8,6 +8,9 @@ import { routeFixtureActivity, routeFixtureStreams } from "../../e2e/fixtures/ro
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 
+const mapErrors = vi.hoisted(() => vi.fn());
+vi.mock("../services/errorLogger", async importOriginal => ({ ...await importOriginal<typeof import("../services/errorLogger")>(), logClientError: mapErrors }));
+
 const mapProps = vi.hoisted(() => ({
   api: null as null | { fitBounds: ReturnType<typeof vi.fn>; resize: ReturnType<typeof vi.fn>; zoomIn: ReturnType<typeof vi.fn>; zoomOut: ReturnType<typeof vi.fn>; getContainer: () => HTMLElement },
   latest: null as null | {
@@ -15,6 +18,7 @@ const mapProps = vi.hoisted(() => ({
     dragPan?: boolean;
     scrollZoom?: boolean;
     onIdle?: () => void;
+    onError?: (event?: {error?:unknown}) => void;
     onLoad?: (event: { target: Record<string, unknown> }) => void;
   },
   layers: new Map<string, Record<string, unknown>>(),
@@ -41,14 +45,14 @@ vi.mock("react-map-gl/mapbox", () => ({
     onIdle,
   }: {
     children: ReactNode;
-    onError?: () => void;
+    onError?: (event?: {error?:unknown}) => void;
     cooperativeGestures?: boolean;
     dragPan?: boolean;
     scrollZoom?: boolean;
     onIdle?: () => void;
     onLoad?: (event: { target: Record<string, unknown> }) => void;
   }) => {
-    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom, onLoad, onIdle };
+    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom, onLoad, onIdle, onError };
     return (
       <div data-testid="mock-map" onClick={event => { if (event.target === event.currentTarget) onError?.(); }}>
         {children}
@@ -74,6 +78,7 @@ vi.mock("react-map-gl/mapbox", () => ({
 describe("RouteMap", () => {
   beforeEach(() => {
     mapProps.api = null;
+    mapErrors.mockClear();
     mapProps.layers.clear();
     mapProps.sources.length = 0;
     mapProps.markers.length = 0;
@@ -262,6 +267,7 @@ describe("RouteMap", () => {
     const onChange = vi.fn();
     renderWithProviders(<RouteMap latlng={[[60,150],null] as unknown as [number,number][]} polyline="37,127;37.01,127"
       markerPosition={[60,150]} flyToRange={{startIndex:0,endIndex:0}} highlightRange={{startIndex:0,endIndex:0}} onHighlightRangeChange={onChange} />);
+    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[150,60]]);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
     expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[150,60]}}));
     expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[127,37.01]]}});
@@ -286,6 +292,32 @@ describe("RouteMap", () => {
     renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} />);
     expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
     expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
+  });
+
+  it("preserves a saved route image when only passive photo coordinates are present", () => {
+    renderWithProviders(<RouteMap fallbackImageUrl="https://example.test/route.png" photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
+    expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/route.png");
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+  });
+
+  it("fits the complete course including a singleton start fragment when the full range is requested", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[60,150]],[[37,127],[37.01,127]]]} showRouteEndpoints flyToRange={{startIndex:0,endIndex:2}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[150,60]]);
+  });
+
+  it("logs a bounded SDK failure once without recording request URLs, tokens or coordinates", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} />);
+    const onError = mapProps.latest?.onError;
+    const error = Object.assign(new Error("https://example.test/37,127?access_token=fake"), { status:401 });
+    act(() => { onError?.({error}); onError?.({error}); });
+    const failures = mapErrors.mock.calls.filter(call => call[0] === "RouteMap.mapbox");
+    expect(failures).toHaveLength(1);
+    expect((failures[0]![1] as Error).message).toBe("mapbox_http_failure_401");
+    expect(failures[0]![2]).toEqual({stage:"mapbox_render_or_request",kind:"http",status:401,routeSlotCount:2,pointCount:0,hasSavedImage:false,hasRouteLine:true});
+    expect(failures[0]![3]).toEqual(expect.objectContaining({auth:expect.anything(),functions:expect.anything()}));
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
   });
 
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
