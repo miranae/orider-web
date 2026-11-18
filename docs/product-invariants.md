@@ -25,6 +25,11 @@ This file lists product decisions that a single PR can silently break. The merge
 
 *Whole-history cumulative count, distance, exercise duration and elevation are public for every viewer, including private activities and single-activity accounts. Only these totals and readiness/version/completeness metadata are public; individual activity access and account/block restrictions still apply.*
 
+
+이슈 #1725의 기존 계정 일괄 백필·초기화·통계 원장 보정은 2026-11-18 사용자의 명시적 지시에 따라 제외합니다. 정본 집계가 아직 없거나 준비/복구 중이면 수치를0으로 만들지 않고 pending/failed 상태를 제공합니다. 이는 공개 범위에 따른 집계 차등이 아니며, 기존 계정의 미준비 상태 자체를 공개 정책 위반으로 간주해 백필을 요구하지 않습니다. 공개 조회에서 초기화를 시작하지 않습니다.
+
+*For #1725, existing-account bulk backfill, initialization and ledger repair are explicitly excluded by the user. Missing/unready canonical aggregates may return pending/failed without numbers; this readiness state is not an audience-based privacy restriction. Public reads must not start initialization.*
+
 ### P2. 기본값: 프로필 공개, 활동 나만 보기
 프로필은 설정하지 않았으면 공개입니다. 활동은 기본 「나만 보기」입니다. 기본값을 바꾸는 변경(초기값, 미설정 해석, 폴백)은 원칙 변경입니다.
 *Profiles default to public; activities default to private ("only me").*
