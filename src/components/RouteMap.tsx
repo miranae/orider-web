@@ -462,10 +462,17 @@ export default function RouteMap({
   const [readyFor, setReadyFor] = useState<object | null>(null);
   const [webglSupported] = useState(() => supportsWebGL());
   const mapViewer = firebaseServices.auth?.currentUser;
-  const [, observeMapViewer] = useState(mapViewer);
+  const tokenVersion = useRef(0);
+  const [mapTokenVersion, observeMapViewer] = useState(0);
   useEffect(() => {
     const auth = firebaseServices.auth;
-    if (auth) return onIdTokenChanged(auth, observeMapViewer);
+    if (!auth) return;
+    let initial = true;
+    return onIdTokenChanged(auth, () => {
+      if (initial) { initial = false; return; }
+      tokenVersion.current++;
+      observeMapViewer(tokenVersion.current);
+    });
   }, [firebaseServices.auth]);
 
   const { routePositions, sourcePositions, segmentStarts, streamFallback } = useMemo(() => {
@@ -530,8 +537,8 @@ export default function RouteMap({
   }), [standalonePositions]);
   const hasRecordedPosition = useMemo(() => sourcePositions.some(isRoutePosition) || routePositions.some(isRoutePosition), [sourcePositions, routePositions]);
   const locationCommand = hasRecordedPosition ? null : photoCommand;
-  const mapScope = useMemo(() => ({ firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand }),
-    [firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
+  const mapScope = useMemo(() => ({ firebaseServices, mapViewer, mapTokenVersion, polyline, latlng, routeParts, fallbackImageUrl, locationCommand }),
+    [firebaseServices, mapViewer, mapTokenVersion, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
   const hasLocatedAttachment = hasRecordedPosition && (photos?.some(photo => isRoutePosition(photo?.location))
     || waypoints?.some(point => isRoutePosition([point?.lat, point?.lon])));
   const attachmentPositions = useMemo(() => {
@@ -574,7 +581,19 @@ export default function RouteMap({
     if (!isRoutePosition(markerPosition)) return null;
     return toPointGeoJSON(markerPosition[0], markerPosition[1]);
   }, [markerPosition]);
-  const selectedPoint = flyToRange && flyToRange.startIndex === flyToRange.endIndex ? sourcePositions[flyToRange.startIndex] : null;
+  const selectedPoint = useMemo(() => {
+    if (!flyToRange) return null;
+    const start = Math.max(0, Math.min(flyToRange.startIndex, flyToRange.endIndex));
+    const end = Math.min(sourcePositions.length - 1, Math.max(flyToRange.startIndex, flyToRange.endIndex));
+    let selected: RouteSlot = null;
+    for (let index = start; index <= end; index++) {
+      const point = sourcePositions[index];
+      if (!isRoutePosition(point)) continue;
+      if (selected) return null;
+      selected = point;
+    }
+    return selected;
+  }, [flyToRange, sourcePositions]);
   const selectedPointGeoJSON = useMemo(() => isRoutePosition(selectedPoint) ? toPointGeoJSON(selectedPoint[0], selectedPoint[1]) : null, [selectedPoint]);
 
   const endpointGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point> | null>(() => {
@@ -621,7 +640,8 @@ export default function RouteMap({
   const mounted = useMapMounted();
   const handleMapError = useCallback((event: { error?: unknown } = {}) => {
     const sameMap = () => mounted.current && mapContextRef.current === mapContext;
-    const isCurrent = () => sameMap() && firebaseServices.auth?.currentUser === mapScope.mapViewer;
+    const isCurrent = () => sameMap() && firebaseServices.auth?.currentUser === mapScope.mapViewer
+      && tokenVersion.current === mapScope.mapTokenVersion;
     if (!mapErrorLogged.current.has(mapContext)) {
       mapErrorLogged.current.add(mapContext);
       const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};

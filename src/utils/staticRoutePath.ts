@@ -33,8 +33,19 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
     return [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))] as const;
   };
   const projected = Array.from(hasLine ? lines : normalized, point => project(point, true));
-  if (selectedIndex != null && selectedIndex >= 0 && selectedIndex < projected.length && !projected[selectedIndex]) {
-    projected[selectedIndex] = project(normalized[selectedIndex], false);
+  const isolatedSelection = new Set<number>();
+  if (hasLine && range && Number.isInteger(range.startIndex) && Number.isInteger(range.endIndex)) {
+    let start = Math.max(0, Math.min(range.startIndex, range.endIndex));
+    let end = Math.min(normalized.length - 1, Math.max(range.startIndex, range.endIndex));
+    while (start <= end && !normalized[start]) start++;
+    while (end >= start && !normalized[end]) end--;
+    if (start <= end) {
+      for (const index of [start, end]) {
+        if (projected[index]) continue;
+        projected[index] = project(normalized[index], false);
+        isolatedSelection.add(index);
+      }
+    }
   }
   const selectedProjected = project(selectedPosition, false);
   let count = 0, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -69,7 +80,8 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
     const selection = pixels.map((point, index) => index >= lo && index <= hi && (!selected || selected[index - lo]) ? point : null);
     geometry.selectionPath = hasLine && selectedIndex == null ? trace(selection, starts) : null;
     geometry.selectionPoints = selectedIndex != null ? pixels[selectedIndex] ? [pixels[selectedIndex]!] : []
-      : hasLine ? [] : selection.filter((point): point is Pixel => point !== null);
+      : hasLine ? [...isolatedSelection].map(index => pixels[index]!).filter((point): point is Pixel => point !== null)
+        : selection.filter((point): point is Pixel => point !== null);
   }
   const selectedPixel = toPixel(selectedProjected);
   if (selectedPixel) {
