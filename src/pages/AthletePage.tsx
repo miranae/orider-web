@@ -151,7 +151,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const isOwnProfile = currentUser?.uid === userId && services.auth.currentUser?.uid === userId;
   const { groups: ownGroups, loading: groupsLoading, error: groupsError, retry: retryGroups } = useMyGroups(isOwnProfile ? userId : undefined);
 
-  const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
+  const { data: firestoreProfile, loading: profileLoading, error: profileError } = useDocument<PublicUserProfile>("users_public", userId);
   const { pdc } = usePdc(isOwnProfile ? userId : null);
   const ownProfileFallback: PublicUserProfile | null = useMemo(() => (
     isOwnProfile && currentProfile && userId
@@ -225,9 +225,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, totalsAttempt, readIdentity, liveTotals?.epoch]);
   const accessRevision = (currentProfile as unknown as { activitySocialAccessRevision?: string } | null)?.activitySocialAccessRevision;
-  const publicTotalsScopeRef = useRef({ identity: readIdentity, accessRevision });
-  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.accessRevision !== accessRevision)
-    publicTotalsScopeRef.current = { identity: readIdentity, accessRevision };
+  const publicTotalsScopeRef = useRef({ identity: readIdentity, accessRevision, projection: firestoreProfile, error: profileError });
+  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.accessRevision !== accessRevision || publicTotalsScopeRef.current.projection !== firestoreProfile || publicTotalsScopeRef.current.error !== profileError)
+    publicTotalsScopeRef.current = { identity: readIdentity, accessRevision, projection: firestoreProfile, error: profileError };
   const publicTotalsScope = publicTotalsScopeRef.current;
   const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; value: PublicAthleteTotals } | null>(null);
   const [publicTotalsError, setPublicTotalsError] = useState(false);
@@ -241,8 +241,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       .then(value => {
         if (cancelled || publicTotalsScopeRef.current !== publicTotalsScope) return;
         setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, value });
-        // A missing public projection cannot signal deletion. Expire displayed authorization without polling.
-        expiry = setTimeout(() => { cancelled = true; setPublicTotals(null); setPublicTotalsExpired(true); }, 60_000);
+        // Healthy projections signal changes. Missing/failed/legacy projections need bounded re-authorization.
+        if (!firestoreProfile?.athleteTotalsSignal || profileError) expiry = setTimeout(() => {
+          cancelled = true; setPublicTotals(null); setPublicTotalsExpired(true);
+          if (document.visibilityState !== "hidden") setTotalsAttempt(attempt => attempt + 1);
+        }, 60_000);
       })
       .catch(error => {
         if (!(error instanceof Error && error.message === "athlete-profile-session-changed")) logClientError("AthletePage.publicTotals", error, {}, services);

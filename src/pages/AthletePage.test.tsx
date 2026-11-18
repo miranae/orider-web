@@ -895,7 +895,7 @@ it("invalidates cached and in-flight totals when the same viewer receives a bila
   } finally { await act(async () => { await i18n.changeLanguage("ko"); }); }
 });
 
-it("expires displayed totals when a missing public projection cannot signal account deletion, without polling", async () => {
+it("re-authorizes expired totals when a missing public projection cannot signal account deletion", async () => {
   const expiry: Array<() => void> = [];
   const original = globalThis.setTimeout;
   const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: () => void, delay?: number, ...args: unknown[]) => {
@@ -908,12 +908,10 @@ it("expires displayed totals when a missing public projection cannot signal acco
     await screen.findByText("5회");
     expect(expiry).toHaveLength(1);
     const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+    setCallableImplementation("getPublicAthleteTotals", () => { throw Object.assign(new Error("deleted"), { code: "functions/not-found" }); });
     act(() => expiry[0]!());
     expect(screen.queryByText("5회")).not.toBeInTheDocument();
-    expect(screen.getByText("누적 기록을 다시 확인해 주세요.")).toBeInTheDocument();
-    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
-    setCallableImplementation("getPublicAthleteTotals", () => { throw Object.assign(new Error("deleted"), { code: "functions/not-found" }); });
-    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1));
     await screen.findByText("누적 기록 확인이 중단되었습니다.");
     expect(screen.queryByText("5회")).not.toBeInTheDocument();
   } finally { timer.mockRestore(); }
@@ -935,4 +933,24 @@ it("does not offer friend writes after relationship failure and retries the fail
     await screen.findByRole("button", { name: "친구 요청", exact: true });
     expect(attempts).toBe(2);
   } finally { vi.mocked(getDoc).mockImplementation(original); }
+});
+
+it("invalidates both displayed totals and late responses on public projection deletion", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Deleted rider", athleteTotalsSignal: "one" });
+  renderWithProviders(<AthletePage />);
+  await screen.findByText("5회");
+  let release!: (value: unknown) => void;
+  let requests = 0;
+  setCallableImplementation("getPublicAthleteTotals", async () => {
+    if (++requests === 1) return await new Promise(resolve => { release = resolve; });
+    throw Object.assign(new Error("deleted"), { code: "functions/not-found" });
+  });
+  act(() => setDocData("users_public/athlete-1", { nickname: "Deleted rider", athleteTotalsSignal: "two" }));
+  await waitFor(() => expect(requests).toBe(1));
+  act(() => setDocData("users_public/athlete-1", null as never));
+  await waitFor(() => expect(requests).toBe(2));
+  await act(async () => release({ data: totalsFixture({ count: 99 }) }));
+  await screen.findByText("누적 기록 확인이 중단되었습니다.");
+  expect(screen.queryByText("5회")).not.toBeInTheDocument();
+  expect(screen.queryByText("99회")).not.toBeInTheDocument();
 });
