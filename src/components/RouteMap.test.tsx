@@ -220,14 +220,14 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[127,37.01]]);
   });
 
-  it("restores full context when a new selection contains no drawable line", () => {
+  it("fits the selected valid fixes without joining a GPS gap", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
     const latlng = [[37,127],[37.01,127],null,[80,170],[80.01,170]] as unknown as [number,number][];
     const { rerender } = renderWithProviders(<RouteMap latlng={latlng} flyToRange={{startIndex:0,endIndex:1}} />);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
     rerender(<RouteMap latlng={latlng} flyToRange={{startIndex:1,endIndex:3}} />);
-    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[170,80.01]]);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[170,80]]);
   });
 
   it("retains isolated measured fixes for single-point navigation and draggable boundaries", () => {
@@ -724,6 +724,8 @@ describe("RouteMap", () => {
     view.rerender(<RouteMapFallback {...props} imageUrl="https://example.test/static.png" highlightRange={{ startIndex: 1, endIndex: 3 }} />);
     expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
     expect(view.container.querySelector("img")).toBeNull();
+    view.rerender(<RouteMapFallback {...props} highlightRange={{ startIndex: 1, endIndex: 9 }} />);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(2);
   });
 
   it("fits isolated dateline points into the same narrow viewport", () => {
@@ -782,6 +784,13 @@ describe("RouteMap", () => {
       highlightRange={{ startIndex: 1, endIndex: 2 }} flyToRange={{ startIndex: 1, endIndex: 2 }} />);
     expect(mapProps.sources).toContainEqual(expect.objectContaining({ geometry: { type: "LineString", coordinates: [[190, 0], [10, 0]] } }));
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[10, 0], [190, 0]]);
+  });
+
+  it("keeps distant disconnected samples out of dateline line framing", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, 178], [0, 179], null, [0, -179], [0, -178], null, [0, -1], null, [0, 0]] as unknown as [number, number][]}/>);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[178, 0], [182, 0]]);
   });
 
   it("shows a selected photo point on the static map without recorded GPS", () => {

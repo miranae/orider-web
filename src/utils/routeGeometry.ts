@@ -60,7 +60,9 @@ export function drawableRouteSlots(positions: readonly RouteSlot[], segmentStart
 /** Use one longitude placement for every sample before deriving route subranges. */
 export function projectRouteSlots(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []): RouteSlot[] {
   const starts = new Set(segmentStarts);
-  const shifted = routeBounds(positions, true)?.[0][0] !== routeBounds(positions)?.[0][0];
+  const lineSlots = drawableRouteSlots(positions, segmentStarts);
+  const fitSlots = lineSlots.some(Boolean) ? lineSlots : positions;
+  const shifted = routeBounds(fitSlots, true)?.[0][0] !== routeBounds(fitSlots)?.[0][0];
   let previous: number | undefined;
   return positions.map((point, index) => {
     if (!point || starts.has(index)) previous = undefined;
@@ -122,7 +124,8 @@ export function routeBounds(positions: readonly unknown[], wrapDateline = false)
 /** Fit the exact emitted line, adding nearby world copies of explicitly included points. */
 export function routeGeometryBounds(
   geometry: GeoJSON.LineString | GeoJSON.MultiLineString,
-  includedPoints: readonly unknown[] = [],
+  includedPoints: readonly RouteSlot[] = [],
+  pointsAreProjected = false,
 ): [[number, number], [number, number]] | null {
   const parts = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
   let west = Infinity, east = -Infinity, south = Infinity, north = -Infinity;
@@ -131,7 +134,11 @@ export function routeGeometryBounds(
     south = Math.min(south, lat); north = Math.max(north, lat);
   };
   for (const part of parts) for (const [lng, lat] of part) include(lng!, lat!);
-  if (!Number.isFinite(west)) return routeBounds(includedPoints, true);
+  if (!Number.isFinite(west)) {
+    if (!pointsAreProjected) return routeBounds(includedPoints, true);
+    for (const point of includedPoints) if (point) include(point[1], point[0]);
+    return Number.isFinite(west) ? [[west, south], [east, north]] : null;
+  }
   const center = (west + east) / 2;
   for (const point of includedPoints) {
     if (isRoutePosition(point)) include(center + shortestLongitudeDelta(point[1] - center), point[0]);

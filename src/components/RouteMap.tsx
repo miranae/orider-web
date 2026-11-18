@@ -114,6 +114,16 @@ export function supportsWebGL(): boolean {
   }
 }
 
+function firstIndexAtOrAfter(values: readonly number[], target: number): number {
+  let first = 0, last = values.length;
+  while (first < last) {
+    const mid = Math.floor((first + last) / 2);
+    if (values[mid]! < target) first = mid + 1;
+    else last = mid;
+  }
+  return first;
+}
+
 function useMapMounted() {
   const mounted = useRef(true);
   useEffect(() => {
@@ -205,15 +215,10 @@ export function RouteMapFallback({
     const boundaries: number[] = [];
     if (range) {
       const min = Math.min(range.startIndex, range.endIndex), max = Math.max(range.startIndex, range.endIndex);
-      let first = 0, last = sample.valid.length;
-      while (first < last) {
-        const mid = Math.floor((first + last) / 2);
-        if (sample.valid[mid]! < min) first = mid + 1;
-        else last = mid;
-      }
-      const selected = sample.valid[first];
-      if (selected !== undefined && selected <= max) boundaries.push(selected);
-      if (max !== selected && isRoutePosition(positions[max])) boundaries.push(max);
+      const first = sample.valid[firstIndexAtOrAfter(sample.valid, min)];
+      const last = sample.valid[firstIndexAtOrAfter(sample.valid, max + 1) - 1];
+      if (first !== undefined && first <= max) boundaries.push(first);
+      if (last !== undefined && last !== first && last >= min) boundaries.push(last);
     }
     const indices = [...new Set([...sample.preview, ...boundaries])].sort((first, second) => first - second);
     const from = range ? indices.findIndex(index => index >= Math.min(range.startIndex, range.endIndex)) : -1;
@@ -375,9 +380,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       }
       const slice = positions.slice(lo, hi + 1);
       const geometry = routeGeometry(slice, segmentStarts.map(index => index - lo)).geometry;
-      const point = lo === hi ? slice[0] : null;
-      const bounds = point ? [[point[1], point[0]], [point[1], point[0]]] as [[number, number], [number, number]]
-        : routeGeometryBounds(geometry);
+      const bounds = routeGeometryBounds(geometry) ?? routeGeometryBounds(geometry, slice, true);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
       else map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevRange.current = bounds ? range : null;
