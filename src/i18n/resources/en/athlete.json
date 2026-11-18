@@ -139,6 +139,7 @@
     "moreCachedPhotos": "Show 6 more photos",
     "moreCachedHighlights": "Show 12 more highlights",
     "olderHighlightActivities": "Inspect 12 more activities for highlights",
+    "publicActivitiesReadError": "Could not load the activity list. Reload it from the beginning.",
     "activitiesReadError": "The activity page could not load. Results are incomplete; retry from the saved position.",
     "noMatchesInLoaded": "No matching records in loaded activities. Load more to check older activities.",
     "history": "Activity history",

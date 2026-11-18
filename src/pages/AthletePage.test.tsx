@@ -1072,11 +1072,60 @@ it("keeps whole totals while a failed initial public list remains unknown and ca
   }) as typeof loadActivityDiscovery);
   try {
     renderWithProviders(<AthletePage />);
-    const retry = await screen.findByRole("button", { name: "활동 목록을 불러오지 못했습니다. 전체 결과가 아니며 같은 위치에서 다시 시도할 수 있습니다." });
+    const retry = await screen.findByRole("button", { name: "활동 목록을 불러오지 못했습니다. 목록을 처음부터 다시 불러올 수 있습니다." });
     expect(screen.getByText("5회")).toBeInTheDocument();
     expect(screen.queryByText("공개된 활동이 없습니다.")).not.toBeInTheDocument();
     fireEvent.click(retry);
     await waitFor(() => expect(attempts).toBe(2));
     await screen.findByText("공개된 활동이 없습니다.");
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
+it.each(["functions/permission-denied", "functions/failed-precondition"])("discards prior public details on %s and restarts without the rejected cursor", async code => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  const cursors: Array<string | undefined> = [];
+  vi.mocked(loadActivityDiscovery).mockImplementation((async (services, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
+    cursors.push(request.cursor);
+    if (request.cursor) throw Object.assign(new Error("rejected continuation"), { code });
+    return { expiresAt: Date.now() + 600000, items: [createMockActivity({ id: `page-${cursors.length}`, userId: "athlete-1", description: cursors.length === 1 ? "Prior public detail" : "Recovered public detail" })], nextCursor: "next", exhausted: false };
+  }) as typeof loadActivityDiscovery);
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("Prior public detail");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    const retry = await screen.findByRole("button", { name: "활동 목록을 불러오지 못했습니다. 목록을 처음부터 다시 불러올 수 있습니다." });
+    expect(screen.queryByText("Prior public detail")).not.toBeInTheDocument();
+    fireEvent.click(retry);
+    await screen.findByText("Recovered public detail");
+    expect(cursors).toEqual([undefined, "next", undefined]);
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
+it("releases an old continuation's busy state when the injected app changes", async () => {
+  const services = () => ({ auth: { currentUser: null }, firestore: {}, functions: {}, ensureAppCheckReady: async () => {}, getAppCheckToken: async () => null }) as unknown as FirebaseServices;
+  const first = services(), next = services();
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let release!: (value: Awaited<ReturnType<typeof loadActivityDiscovery>>) => void;
+  vi.mocked(loadActivityDiscovery).mockImplementation((async (activeServices, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(activeServices, request);
+    if (activeServices === first && request.cursor) return await new Promise(resolve => { release = resolve; });
+    return { expiresAt: Date.now() + 600000, items: [createMockActivity({ id: activeServices === first ? "old" : request.cursor ? "continued" : "new", userId: "athlete-1", description: activeServices === first ? "Old app page" : request.cursor ? "Current app continuation" : "Current app page" })], nextCursor: request.cursor ? null : "next", exhausted: Boolean(request.cursor) };
+  }) as typeof loadActivityDiscovery);
+  try {
+    const view = renderWithProviders(<FirebaseServicesProvider services={first}><AthletePage /></FirebaseServicesProvider>);
+    await screen.findByText("Old app page");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    await waitFor(() => expect(release).toBeDefined());
+    view.rerender(<FirebaseServicesProvider services={next}><AthletePage /></FirebaseServicesProvider>);
+    await screen.findByText("Current app page");
+    const more = screen.getByRole("button", { name: /더 보기|더보기/ });
+    expect(more).not.toBeDisabled();
+    fireEvent.click(more);
+    await screen.findByText("Current app continuation");
+    await act(async () => release({ expiresAt: Date.now() + 600000, items: [createMockActivity({ id: "late", userId: "athlete-1", description: "Rejected old app result" })] as never, nextCursor: null, exhausted: true }));
+    expect(screen.queryByText("Rejected old app result")).not.toBeInTheDocument();
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });

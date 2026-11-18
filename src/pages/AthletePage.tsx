@@ -457,6 +457,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     const load = async () => {
       setActivitiesLoading(true);
+      setLoadingMore(false);
       setActivityReadError(false);
       setDisplayActivities([]);
       setLastActivityDoc(null);
@@ -627,7 +628,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
     } catch (err) {
       logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile }, services);
-      if (profileReadIdentity.current === identity) setActivityReadError(true);
+      if (profileReadIdentity.current === identity) {
+        setActivityReadError(true);
+        if (!isOwnProfile) { setDisplayActivities([]); setPublicActivityCursor(null); setHasMoreActivities(false); }
+      }
     } finally {
       if (profileReadIdentity.current === identity) setLoadingMore(false);
     }
@@ -1215,7 +1219,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             </div>}
           </div>
 
-          {!isSearchActive && activityReadError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t("profile.activitiesReadError")}</Resolvable></Text></div>}
+          {!isSearchActive && activityReadError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t(isOwnProfile ? "profile.activitiesReadError" : "profile.publicActivitiesReadError")}</Resolvable></Text></div>}
           
           <div className="relative z-0 space-y-4">
             {(activitiesLoading || searchLoading) ? (

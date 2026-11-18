@@ -139,6 +139,7 @@
     "moreCachedPhotos": "사진 6개 더 보기",
     "moreCachedHighlights": "하이라이트 12개 더 보기",
     "olderHighlightActivities": "하이라이트 활동 12개 더 검사",
+    "publicActivitiesReadError": "활동 목록을 불러오지 못했습니다. 목록을 처음부터 다시 불러올 수 있습니다.",
     "activitiesReadError": "활동 목록을 불러오지 못했습니다. 전체 결과가 아니며 같은 위치에서 다시 시도할 수 있습니다.",
     "noMatchesInLoaded": "지금까지 불러온 활동에는 일치하는 기록이 없습니다. 더 보기로 이전 활동을 확인할 수 있습니다.",
     "history": "활동 기록",
