@@ -56,7 +56,7 @@ export default function YearRecapPage() {
   const [params, setParams] = useSearchParams();
   const queryYear = Number(params.get("year"));
   const selectedYear = params.has("year") && Number.isInteger(queryYear) && queryYear >= 2000 && queryYear <= new Date().getFullYear() ? queryYear : undefined;
-  const { activities: allActivities, year, years, loading, error, calendarError, retry } = useYearActivities(user?.uid, selectedYear);
+  const { activities: allActivities, year, years, loading, error, retry } = useYearActivities(user?.uid, selectedYear);
   const lifetime = useLifetimeRecapActivities(user?.uid);
   const sport = params.get("sport");
   const discipline: SportDiscipline = sport && isSportUiEnabled(sport) && (sport === "run" || sport === "swim" || sport === "bike") ? sport : "tri";
@@ -140,7 +140,6 @@ export default function YearRecapPage() {
         )}
       </div>
 
-      {selectedYear !== undefined && calendarError && <ErrorState title={t("calendarError")} onRetry={retry} />}
       <div data-testid="P2-0-1"><DisciplineTabs includeTri value={discipline} onChange={(value) => { const next = new URLSearchParams(params); next.set("sport", value); setParams(next); }} /></div>
       {discipline === "run" && <details className="recap-disclosure"><summary>{t("section.runningRecords")}</summary><div data-testid="P2-1"><div data-testid="P2-1-1"><RunRecordsBoard run={run} /></div></div><div data-testid="P2-2"><div data-testid="P2-2-1"><MilestonesGrid achieved={milestones} /></div></div></details>}
       {pendingMilestone && <MilestoneCelebration milestoneId={pendingMilestone.id} onClose={() => { void markCelebrated(pendingMilestone.id); setDismissedMilestones((previous) => new Set(previous).add(pendingMilestone.id)); }} />}

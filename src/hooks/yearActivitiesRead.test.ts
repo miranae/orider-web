@@ -252,16 +252,6 @@ it.each(["earliest", "latest"] as const)("reports a failure from the %s calendar
   expect(report.mock.calls).toEqual([[endpoint, failure]]);
 });
 
-it("can use cached activity ranges offline, and rejects cached ranges as complete while online", async () => {
-  const cached = { docs: [doc(ride("cached", new Date(2025, 0, 2).getTime()))], metadata: { fromCache: true } } as never;
-  vi.mocked(getDocs).mockResolvedValueOnce(cached).mockResolvedValueOnce(cached);
-  const online = createYearReadSession("owner");
-  await expect(readYearActivities("owner", 2025, () => false, undefined, online)).rejects.toThrow("year-read-cache-incomplete");
-  expect(online.coverage).toEqual([]);
-  const offline = { ...createYearReadSession("owner"), online: false };
-  await expect(readYearActivities("owner", 2025, () => false, undefined, offline)).resolves.toEqual([expect.objectContaining({ id: "cached" })]);
-});
-
 it("does not cache a cancelled page or one completed after same-UID SDK replacement", async () => {
   auth.currentUser = { uid: "owner" } as never;
   const session = createYearReadSession("owner");

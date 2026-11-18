@@ -1,6 +1,5 @@
 import { planCalendarDate } from "@shared/training/planDate";
 import SportFilterTabs from "../components/mobile/SportFilterTabs";
-import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { createYearReadSession } from "../hooks/yearActivitiesRead";
 import { parseAthleteProfile, callAthleteProfile, loadAthleteProfilePreview, type AthleteProfileTotals, type AthletePreview, type AthleteHighlight, type AthletePreviewCursor } from "../services/athleteProfile";
 import type { AthletePhoto } from "../components/athlete/AthletePhotoGallery";
@@ -194,9 +193,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const [chartAttempt, setChartAttempt] = useState(0);
   const [chartYear, setChartYear] = useState(() => planCalendarDate(Date.now()).getUTCFullYear());
-  const chartOnline = useOnlineStatus();
   const chartSessionRef = useRef(createYearReadSession(userId ?? "", services));
-  if (chartSessionRef.current.uid !== (userId ?? "") || chartSessionRef.current.owner !== services.auth.currentUser || chartSessionRef.current.auth !== services.auth || chartSessionRef.current.firestore !== services.firestore || chartSessionRef.current.online !== chartOnline || !chartSessionRef.current.valid) {
+  if (chartSessionRef.current.uid !== (userId ?? "") || chartSessionRef.current.owner !== services.auth.currentUser || chartSessionRef.current.auth !== services.auth || chartSessionRef.current.firestore !== services.firestore || !chartSessionRef.current.valid) {
     chartSessionRef.current.valid = false;
     chartSessionRef.current = createYearReadSession(userId ?? "", services);
   }

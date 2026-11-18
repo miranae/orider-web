@@ -19,8 +19,8 @@ export function localYearBounds(year: number) {
 
 /** 이전 전체 snapshot과 같은 mount 수명. 전역/영구 캐시가 아니며 인증 교체 뒤 재사용하지 않는다. */
 export function createYearReadSession(uid: string, services: Pick<FirebaseServices, "auth" | "firestore"> = { auth, firestore }) {
-  return { uid, online: typeof navigator === "undefined" || navigator.onLine, auth: services.auth, firestore: services.firestore, owner: services.auth.currentUser, valid: true, docs: new Map<string, QueryDocumentSnapshot>(),
-    coverage: [] as Interval[], calendarCoverage: [] as Interval[], calendarRows: [] as { id: string; startTime: number }[],
+  return { uid, auth: services.auth, firestore: services.firestore, owner: services.auth.currentUser, valid: true, docs: new Map<string, QueryDocumentSnapshot>(),
+    coverage: [] as Interval[],
     queries: new Map<string, PageState>(), years: null as number[] | null, duration: null as number | null, crossings: new Map<string, number>() };
 }
 export type YearReadSession = ReturnType<typeof createYearReadSession>;
@@ -68,7 +68,6 @@ function reader(uid: string, cancelled: () => boolean, budget = YEAR_READ_BUDGET
     const snapshot = await getDocs(query(collection(session.firestore, "activities"),
       where("userId", "==", uid), where("deletedAt", "==", null), ...constraints, limit(count)));
     current();
-    if (session.online && snapshot.metadata?.fromCache) throw new Error("year-read-cache-incomplete");
     charged += Math.max(1, snapshot.docs.length);
     for (const doc of snapshot.docs) {
       const data = doc.data();
@@ -130,26 +129,24 @@ export async function readRecapYears(uid: string, cancelled: () => boolean, sess
     .catch(error => reportFailure("earliest", error));
   const tail = await read.read([orderBy("startTime", "desc"), orderBy("__name__", "desc")], 2)
     .catch(error => reportFailure("latest", error));
-  const calendarRows = [...(first ? [first] : []), ...tail.docs].map(doc => ({ id: doc.id, startTime: doc.data().startTime as number }));
-  if (calendarRows.some(row => !Number.isFinite(row.startTime))) throw new Error("year-read-invalid-calendar");
+  if ([...(first ? [first] : []), ...tail.docs].some(doc => !Number.isFinite(doc.data().startTime))) throw new Error("year-read-invalid-calendar");
   const currentYear = new Date().getFullYear();
   const complete = first ? tail.docs.length === 1 && tail.docs[0]?.id === first.id : tail.docs.length === 0;
   if (complete && session.docs.size !== tail.docs.length) {
     session.valid = false;
     throw new Error("year-read-inventory-changed");
   }
-  if (complete) session.calendarCoverage = [{ start: -Infinity, end: Infinity }];
+  if (complete) cover(session, { start: -Infinity, end: Infinity });
   else if (first && tail.docs.length >= 2) {
     const firstTime = first.data().startTime;
     const lastTime = tail.docs[tail.docs.length - 1]!.data().startTime;
     if (!Number.isFinite(firstTime) || !Number.isFinite(lastTime)) throw new Error("year-read-invalid-calendar");
-    session.calendarCoverage = [{ start: -Infinity, end: firstTime }, { start: afterTimestamp(lastTime), end: Infinity }];
+    cover(session, { start: -Infinity, end: firstTime });
+    cover(session, { start: afterTimestamp(lastTime), end: Infinity });
   }
-  for (const interval of session.calendarCoverage) cover(session, interval);
   const earliest = first ? Math.max(2000, new Date(first.data().startTime).getFullYear()) : currentYear;
   const latest = tail.docs[0] ? Math.min(currentYear, new Date(tail.docs[0].data().startTime).getFullYear()) : currentYear;
   if (!Number.isFinite(earliest) || !Number.isFinite(latest)) throw new Error("year-read-invalid-calendar");
-  session.calendarRows = calendarRows;
   session.years = earliest > latest ? [currentYear] : Array.from({ length: latest - earliest + 1 }, (_, index) => latest - index);
   return session.years;
 }
