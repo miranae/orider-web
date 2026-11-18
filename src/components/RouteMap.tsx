@@ -224,8 +224,8 @@ function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds, photoP
 
   useEffect(() => {
     if (!map) return;
-    const rangeChanged = requestedRange.current !== range;
-    requestedRange.current = range;
+    const rangeChanged = requestedRange.current?.startIndex !== range?.startIndex || requestedRange.current?.endIndex !== range?.endIndex;
+    requestedRange.current = range ? { startIndex: range.startIndex, endIndex: range.endIndex } : range;
     const photo = isRoutePosition(photoPosition) ? photoPosition : null;
     const previous = previousPhoto.current;
     if (photo && (!previous || photo[0] !== previous[0] || photo[1] !== previous[1])) prevRange.current = null;

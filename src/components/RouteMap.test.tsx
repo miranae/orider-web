@@ -382,6 +382,8 @@ describe("RouteMap", () => {
     const position: [number,number] = [60,150];
     view.rerender(<RouteMap latlng={latlng} flyToRange={range} flyToPosition={position} />);
     api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{...range}} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
     view.rerender(<RouteMap latlng={latlng} flyToPosition={position} />);
     expect(api.fitBounds).not.toHaveBeenCalled();
     view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2}} />);
