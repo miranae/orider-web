@@ -43,10 +43,22 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
       }
     }
   }
-  const reference = worldSlots.find((point, index) => point !== null && (!hasLine || lines[index]))?.[1];
-  const selectedProjected = isRoutePosition(selectedPosition) ? project([
-    selectedPosition[0], reference === undefined ? selectedPosition[1] : unwrapLongitudeNear(selectedPosition[1], reference),
-  ]) : null;
+  let selectedProjected: ReturnType<typeof project> = null;
+  if (isRoutePosition(selectedPosition)) {
+    const [latitude, longitude] = selectedPosition;
+    const longitudeScale = Math.cos(latitude * Math.PI / 180);
+    let nearest = Infinity, selectedLongitude = longitude;
+    worldSlots.forEach((point, index) => {
+      if (!point || (hasLine && !lines[index])) return;
+      const candidate = unwrapLongitudeNear(longitude, point[1]);
+      const distance = (latitude - point[0]) ** 2 + ((candidate - point[1]) * longitudeScale) ** 2;
+      if (distance < nearest) {
+        nearest = distance;
+        selectedLongitude = candidate;
+      }
+    });
+    selectedProjected = project([latitude, selectedLongitude]);
+  }
   let count = 0, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const point of projected) {
     if (!point) continue;

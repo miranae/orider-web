@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { createInstance } from "i18next";
 import { getMapboxToken } from "../../src/utils/mapbox";
 import { resetRuntimeConfigForTests } from "../../src/services/runtimeConfig";
-import { debugLog } from "../../src/services/errorLogger";
+import { debugLog, logClientError } from "../../src/services/errorLogger";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { ActivityMediaPanel } from "../../src/features/activity/detail/ActivityMediaPanel";
 import { ErrorBoundary } from "../../src/components/ErrorBoundary";
@@ -26,6 +26,11 @@ import "../../src/pages/activity/activity-detail-page.css";
 import "../../src/theme/generated.css";
 import "../../src/theme/components/components.css";
 
+function reportFixtureError(source: string, message: string, diagnostics: Record<string, unknown> = {}): void {
+  debugLog(source, { message, ...diagnostics });
+  logClientError(source, new Error(message), diagnostics);
+}
+
 let fixtureConfigFailure = false;
 let configStage = "request";
 let configStatus: number | null = null;
@@ -41,8 +46,7 @@ try {
   resetRuntimeConfigForTests({ mapboxToken: "mapboxToken" in remote ? remote.mapboxToken as string : undefined });
 } catch (error) {
   fixtureConfigFailure = true;
-  debugLog("RouteSensorExpansionFixture.config", {
-    message: "fixture/runtime-config-unavailable",
+  reportFixtureError("RouteSensorExpansionFixture.config", "fixture/runtime-config-unavailable", {
     stage: configStage, status: configStatus,
     reason: error instanceof DOMException && /AbortError|TimeoutError/.test(error.name) ? "timeout" : configStage,
   });
@@ -57,7 +61,7 @@ await new Promise<void>((resolve, reject) => {
     resources: { ko: { common, activity } }, interpolation: { escapeValue: false } }, error => {
     if (error) {
       const failure = new Error("fixture/i18n-resources-unavailable");
-      debugLog("RouteSensorExpansionFixture.i18n", { message: failure.message });
+      reportFixtureError("RouteSensorExpansionFixture.i18n", failure.message);
       reject(failure);
     } else resolve();
   });

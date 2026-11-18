@@ -95,7 +95,7 @@ export function logClientError(
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
   const stack = error instanceof Error ? error.stack : undefined;
 
-  if (services && (!services.auth || !services.functions)) return;
+  if (services ? !services.auth || !services.functions : !functions) return;
   // Report late failures to Sentry, but never send them through a different account's callable.
   if ((services && services.auth.currentUser !== user) || isRequestCurrent?.() === false) return;
   void (async () => {

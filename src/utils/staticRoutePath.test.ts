@@ -30,6 +30,14 @@ describe("buildStaticRoutePath", () => {
     expect(geometry.selectionPoints?.flat().every(Number.isFinite)).toBe(true);
   });
 
+  it("places a selected photo on the same world copy as the matching end of a wide route", () => {
+    const positions: [number, number][] = [[0, 0], [0, -179], [0, 179], [0, 178]];
+    const selected = buildStaticRouteGeometry(positions, [], { selectedPosition: [0, 178] });
+    expect(selected.path).toBe(buildStaticRoutePath(positions));
+    const last = [...selected.path!.matchAll(/[ML] ([\d.-]+) ([\d.-]+)/g)].at(-1)!;
+    expect(selected.selectionPoints).toEqual([[Number(last[1]), Number(last[2])]]);
+  });
+
   it("keeps finite visible geometry for selected coordinates above the Mercator view limit", () => {
     const geometry = buildStaticRouteGeometry([[85,127],[86,127]], [], {range:{startIndex:0,endIndex:1}});
     expect(geometry.selectionPath?.match(/L/g)).toHaveLength(1);
