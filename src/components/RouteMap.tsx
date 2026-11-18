@@ -1,4 +1,4 @@
-import { onIdTokenChanged } from "firebase/auth";
+import { observeFirebaseSignIn } from "../utils/firebaseSignIn";
 import { NativeActivityPhotoImage } from "./activity/NativeActivityPhotoImage";
 import type { NativePhotoReference } from "../services/nativeActivityPhoto";
 import type { ReactNode, CSSProperties } from "react";
@@ -467,9 +467,7 @@ export default function RouteMap({
   useEffect(() => {
     const auth = firebaseServices.auth;
     if (!auth) return;
-    let initial = true;
-    return onIdTokenChanged(auth, () => {
-      if (initial) { initial = false; return; }
+    return observeFirebaseSignIn(auth, () => {
       tokenVersion.current++;
       observeMapViewer(tokenVersion.current);
     });

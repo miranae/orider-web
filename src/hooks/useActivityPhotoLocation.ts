@@ -1,4 +1,5 @@
-import { onIdTokenChanged, type Auth } from "firebase/auth";
+import type { Auth } from "firebase/auth";
+import { observeFirebaseSignIn } from "../utils/firebaseSignIn";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isRoutePosition, type RoutePosition } from "../utils/routeGeometry";
 
@@ -9,9 +10,7 @@ export function useActivityPhotoLocation(identity: string, services?: unknown, a
   const [, observeViewer] = useState(0);
   useEffect(() => {
     if (!auth) return;
-    let initial = true;
-    return onIdTokenChanged(auth as Auth, () => {
-      if (initial) { initial = false; return; }
+    return observeFirebaseSignIn(auth as Auth, () => {
       tokenVersion.current++;
       observeViewer(tokenVersion.current);
     });
