@@ -13,7 +13,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { buildStaticRoutePath } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
-import { isRoutePosition, hasRouteLine, routeTrackSlots, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
+import { isRoutePosition, hasRouteLine, drawableRouteSlots, routeTrackSlots, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface PhotoMarker {
@@ -291,7 +291,7 @@ export default function RouteMap({
   const [mapReady, setMapReady] = useState(false);
   const [webglSupported] = useState(() => supportsWebGL());
 
-  const { positions, segmentStarts, streamFallback = false } = useMemo(() => {
+  const { positions: sourcePositions, segmentStarts, streamFallback = false } = useMemo(() => {
     const positions: RouteSlot[] = [];
     const segmentStarts: number[] = [];
     if (Array.isArray(routeParts)) {
@@ -308,6 +308,7 @@ export default function RouteMap({
     }
     return { positions, segmentStarts };
   }, [polyline, latlng, routeParts]);
+  const positions = useMemo(() => drawableRouteSlots(sourcePositions, segmentStarts), [sourcePositions, segmentStarts]);
   // A thumbnail has its own sampling axis; raw sensor indices cannot select it.
   const highlightRange = streamFallback ? undefined : rawHighlightRange;
   const onHighlightRangeChange = streamFallback ? undefined : rawOnHighlightRangeChange;
@@ -363,7 +364,7 @@ export default function RouteMap({
     if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
   }, [positions, onHighlightRangeChange, highlightRange]);
 
-  if (!bounds || (!drawable && fallbackImageUrl)) {
+  if (!bounds || !drawable) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}

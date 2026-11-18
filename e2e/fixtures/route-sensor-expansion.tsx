@@ -8,11 +8,13 @@ import { ErrorBoundary } from "../../src/components/ErrorBoundary";
 import { Button, Card, Text } from "../../src/theme/components";
 import { OriderThemeProvider } from "../../src/theme";
 import { ThemeProvider } from "../../src/contexts/ThemeContext";
-import { buildSampledData } from "../../src/features/activity/detail/activityDetailDerived";
+import { buildSampledData, buildSummaryStats, buildChartOverlays } from "../../src/features/activity/detail/activityDetailDerived";
 import { useActivityRangeSelection } from "../../src/hooks/useActivityRangeSelection";
 import type { ActivityAnalysisModel } from "../../src/hooks/useActivityAnalysisModel";
 import { visualRouteSelection } from "../../src/features/activity/detail/activityRangeSelection";
-import ElevationChart from "../../src/components/ElevationChart";
+import ActivityPerformanceCharts from "../../src/features/activity/detail/ActivityPerformanceCharts";
+import { getPerformanceOverlays } from "../../src/features/activity/detail/activityPerformancePresentation";
+import { LocaleProvider } from "../../src/contexts/LocaleContext";
 import { routeFixtureActivity as subject, routeFixtureStreams, routeFixtureParts } from "./routeSensorExpansionData";
 import common from "../../src/i18n/resources/ko/common.json";
 import activity from "../../src/i18n/resources/ko/activity.json";
@@ -31,6 +33,8 @@ function Fixture() {
   const sampled = useMemo(() => buildSampledData(streams), [streams]);
   const model = { activity: subject, streams, effectiveStreams: streams, serverMetrics: { metrics: null }, authorizedActivityAccess: true } as unknown as ActivityAnalysisModel;
   const selection = useActivityRangeSelection(model, sampled);
+  const available = getPerformanceOverlays(sampled, "ride", "metric", null, "rpm");
+  const active = new Set(available.map(config => config.key));
   const routeRange = visualRouteSelection(visualRange, sampled, streams.latlng, selection.routeRange);
   const selectedSamples = selection.chartRange ? sampled.slice(selection.chartRange[0], selection.chartRange[1] + 1) : sampled;
   return <main className="site-shell space-y-4">
@@ -44,13 +48,16 @@ function Fixture() {
       selectedRunRange={routeRange ?? undefined} publicRouteParts={kind === "parts" ? routeFixtureParts : undefined}
       flyToPosition={null} t={t} />
       <Card><Text as="p">파워 센서 차트 · 드래그로 구간 선택</Text>
-        <ElevationChart data={sampled.map(point => ({ distance: point.distance, elevation: point.altitude }))}
-          overlays={[{ label: "Power", data: sampled.map(point => point.power), color: "#008986", yAxisID: "power", unit: "W" }]}
-          rangeMode range={selection.chartRange ?? [0, sampled.length - 1]} onRangeChange={range => { setVisualRange(range); selection.selectChart(range); }}
-          elapsedAxisSec={selection.sampledAxis ?? undefined} xAxis="elapsed" />
+        <ActivityPerformanceCharts analysisStyle chartIdentity={kind} rawStreams={streams} sourceIndices={sampled.map(point => point.sourceIndex!)}
+          rawElapsedAxis={selection.axis} elapsedAxisSec={selection.sampledAxis ?? undefined} xAxis="elapsed"
+          elevData={sampled.map(point => ({ distance: point.distance, elevation: point.altitude }))}
+          availableOverlays={available} activeOverlays={active} focusedOverlayKey={null} toggleOverlay={() => {}}
+          chartOverlays={buildChartOverlays(available, active, sampled, label => label)}
+          summaryStats={buildSummaryStats(streams, null)} hoverPoint={null} sport="ride" recordedRunCadenceUnit={null} metrics={null} hasElevation
+          visualRange={visualRange} onVisualRangeChange={range => { setVisualRange(range); if (range) selection.selectChart(range); else selection.clear(); }} />
         <output>선택 표본: {selectedSamples.map(point => point.power ?? "—").join(" · ")} W · 원본 인덱스 {selection.routeRange ? `${selection.routeRange.startIndex}~${selection.routeRange.endIndex}` : "없음"}</output>
       </Card>
     </ErrorBoundary>}
   </main>;
 }
-createRoot(document.getElementById("root")!).render(<I18nextProvider i18n={i18next}><ThemeProvider><OriderThemeProvider><Fixture /></OriderThemeProvider></ThemeProvider></I18nextProvider>);
+createRoot(document.getElementById("root")!).render(<I18nextProvider i18n={i18next}><ThemeProvider><OriderThemeProvider><LocaleProvider userId={null}><Fixture /></LocaleProvider></OriderThemeProvider></ThemeProvider></I18nextProvider>);

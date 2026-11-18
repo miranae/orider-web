@@ -128,8 +128,8 @@ describe("RouteMap", () => {
   it("does not fit a wholly missing selection or emit invalid hover markers", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
-    const latlng = [[37,127], null, [38,128]] as unknown as [number,number][];
-    renderWithProviders(<RouteMap latlng={latlng} markerPosition={[NaN,127]} flyToRange={{startIndex:1,endIndex:1}} />);
+    const latlng = [[37,127], [37.01,127], null, [38,128], [38.01,128]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} markerPosition={[NaN,127]} flyToRange={{startIndex:2,endIndex:2}} />);
     expect(api.fitBounds).toHaveBeenCalledTimes(1); // Full valid bounds only.
     expect(mapProps.sources.some(source => (source as {geometry?:{type:string}}).geometry?.type === "Point")).toBe(false);
   });
@@ -175,6 +175,19 @@ describe("RouteMap", () => {
     renderWithProviders(<RouteMap latlng={[null] as unknown as [number,number][]} polyline={polyline as string} fallbackImageUrl="https://example.test/map.png" />);
     expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/map.png");
     expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+  });
+
+  it("fits only the rendered line, excluding distant isolated fixes", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[80,170]] as unknown as [number,number][]} flyToRange={{startIndex:0,endIndex:3}} />);
+    expect(api.fitBounds.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify([[127,37],[127,37.01]]))).toBe(true);
+  });
+
+  it("shows no-route guidance rather than an empty map for isolated GPS without a fallback", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} showRouteEndpoints />);
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
   });
 
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {

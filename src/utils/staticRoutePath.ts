@@ -1,11 +1,11 @@
-import { isRoutePosition, type RouteSlot } from "./routeGeometry";
+import { isRoutePosition, routeSlots, drawableRouteSlots, type RouteSlot } from "./routeGeometry";
 
 /** 지도와 같은 투영 및 단일 배율로 대체 경로의 실제 비율을 유지한다. */
 export function buildStaticRoutePath(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []): string | null {
   if (positions.length < 2) return null;
   const starts = new Set(segmentStarts);
   let previousLongitude: number | null = null;
-  const projected = Array.from(positions, point => {
+  const projected = Array.from(drawableRouteSlots(routeSlots(positions), segmentStarts), point => {
     if (!isRoutePosition(point)) return null;
     const [lat, lng] = point;
     // 잘못된 좌표를 건너뛸 때 서로 떨어진 구간을 연결하지 않는다.

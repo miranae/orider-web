@@ -48,6 +48,15 @@ export function hasRouteLine(positions: readonly unknown[], segmentStarts: reado
   return false;
 }
 
+/** Remove only drawable geometry, never source slots: isolated fixes are not route lines. */
+export function drawableRouteSlots(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []): RouteSlot[] {
+  const starts = new Set(segmentStarts);
+  return positions.map((point, index) => point && (
+    index > 0 && !starts.has(index) && positions[index - 1]
+    || index + 1 < positions.length && !starts.has(index + 1) && positions[index + 1]
+  ) ? point : null);
+}
+
 export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []) {
   const starts = new Set(segmentStarts);
   const parts: RoutePosition[][] = [];

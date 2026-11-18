@@ -41,7 +41,7 @@ describe("buildStaticRoutePath", () => {
   it("독립 구간과 잘못된 좌표 양옆을 연결하지 않는다", () => {
     expect(buildStaticRoutePath([[37, 127], [37.001, 127], [37.002, 127], [37.003, 127]], [2])?.match(/M/g)).toHaveLength(2);
     const path = buildStaticRoutePath([[37, 127], [37.001, 127], [NaN, 127], [37.003, 127]]);
-    expect(path?.match(/M/g)).toHaveLength(2);
+    expect(path?.match(/M/g)).toHaveLength(1);
     expect(path).not.toMatch(/NaN|Infinity/);
     expect(buildStaticRoutePath([])).toBeNull();
     expect(buildStaticRoutePath([[NaN, 127], [91, 127]])).toBeNull();
