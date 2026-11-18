@@ -16,18 +16,36 @@ import { ensureAppCheckReady, functions } from "./firebase";
 let _logClientErrorFn: HttpsCallable<unknown, unknown> | null = null;
 const RECENT_ERROR_WINDOW_MS = 10_000;
 const MAX_RECENT_ERROR_KEYS = 200;
-const recentClientErrors = new Map<string, number>();
+type ErrorTimes = Map<string, number>;
+const recentClientErrors: ErrorTimes = new Map();
+let scopedClientErrors = new WeakMap<object, { guest: ErrorTimes; users: WeakMap<object, ErrorTimes> }>();
 
-function shouldSuppressClientError(source: string, message: string, scope: string, now = Date.now()): boolean {
+function recentErrorsFor(services: object | undefined, user: object | null | undefined): ErrorTimes {
+  if (!services) return recentClientErrors;
+  let scope = scopedClientErrors.get(services);
+  if (!scope) {
+    scope = { guest: new Map(), users: new WeakMap() };
+    scopedClientErrors.set(services, scope);
+  }
+  if (!user) return scope.guest;
+  let times = scope.users.get(user);
+  if (!times) {
+    times = new Map();
+    scope.users.set(user, times);
+  }
+  return times;
+}
+
+function shouldSuppressClientError(times: ErrorTimes, source: string, message: string, scope: string, now = Date.now()): boolean {
   const key = `${source}\u0000${message}\u0000${scope}`;
-  const previousAt = recentClientErrors.get(key);
+  const previousAt = times.get(key);
   if (previousAt != null && now - previousAt < RECENT_ERROR_WINDOW_MS) return true;
 
-  recentClientErrors.set(key, now);
-  if (recentClientErrors.size > MAX_RECENT_ERROR_KEYS) {
-    for (const [candidate, seenAt] of recentClientErrors) {
-      if (now - seenAt >= RECENT_ERROR_WINDOW_MS || recentClientErrors.size > MAX_RECENT_ERROR_KEYS) {
-        recentClientErrors.delete(candidate);
+  times.set(key, now);
+  if (times.size > MAX_RECENT_ERROR_KEYS) {
+    for (const [candidate, seenAt] of times) {
+      if (now - seenAt >= RECENT_ERROR_WINDOW_MS || times.size > MAX_RECENT_ERROR_KEYS) {
+        times.delete(candidate);
       }
     }
   }
@@ -37,6 +55,7 @@ function shouldSuppressClientError(source: string, message: string, scope: strin
 /** 테스트 간 모듈 전역 중복 방지 상태를 격리한다. */
 export function __resetClientErrorDedupeForTests(): void {
   recentClientErrors.clear();
+  scopedClientErrors = new WeakMap();
 }
 
 function getLogClientErrorFn(): HttpsCallable<unknown, unknown> | null {
@@ -61,7 +80,8 @@ export function logClientError(
   isRequestCurrent?: () => boolean,
 ) {
   const message = error instanceof Error ? error.message : String(error);
-  if (shouldSuppressClientError(source, message, dedupeScope)) return;
+  const user = requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
+  if (shouldSuppressClientError(recentErrorsFor(services, user), source, message, dedupeScope)) return;
 
   // Sentry 에 전송 (lazy-loaded, init 전이면 큐에 저장 → load 시 flush)
   captureError(
@@ -76,7 +96,6 @@ export function logClientError(
   const stack = error instanceof Error ? error.stack : undefined;
 
   if (services && (!services.auth || !services.functions)) return;
-  const user = requestViewer === undefined ? services?.auth.currentUser : requestViewer;
   // Report late failures to Sentry, but never send them through a different account's callable.
   if ((services && services.auth.currentUser !== user) || isRequestCurrent?.() === false) return;
   void (async () => {

@@ -487,11 +487,6 @@ export default function RouteMap({
   const locationCommand = hasRecordedPosition ? null : photoCommand;
   const mapScope = useMemo(() => ({ firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand }),
     [firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
-  const mapScopeRef = useRef(mapScope);
-  mapScopeRef.current = mapScope;
-  useEffect(() => {
-    setMapFailed(false);
-  }, [mapScope]);
   useEffect(() => { setMapReady(false); }, [polyline, latlng, routeParts, locationCommand]);
   const hasLocatedAttachment = hasRecordedPosition && (photos?.some(photo => isRoutePosition(photo?.location))
     || waypoints?.some(point => isRoutePosition([point?.lat, point?.lon])));
@@ -563,11 +558,22 @@ export default function RouteMap({
     if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
   }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
+  const mapOpenedFor = useRef<typeof mapScope | null>(null);
+  if (activePoints.length > 0) mapOpenedFor.current = mapScope;
+  const hasRouteBounds = Boolean(bounds) && !(!drawable && standalonePositions.length !== 1
+    && !(Array.isArray(routeParts) && endpoints.length > 0) && fallbackImageUrl && mapOpenedFor.current !== mapScope && !hasLocatedAttachment);
+  const mapboxToken = getMapboxToken();
+  const mapDisplayable = hasRouteBounds && Boolean(mapboxToken) && webglSupported;
+  const mapGeneration = mapInstance.current.generation;
+  const mapContext = useMemo(() => ({ mapScope, mapGeneration, mapDisplayable }), [mapScope, mapGeneration, mapDisplayable]);
+  const mapContextRef = useRef(mapContext);
+  mapContextRef.current = mapContext;
+  useEffect(() => { setMapFailed(false); }, [mapContext]);
   const mounted = useMapMounted();
   const handleMapError = useCallback((event: { error?: unknown } = {}) => {
-    const isCurrent = () => mounted.current && mapScopeRef.current === mapScope && firebaseServices.auth?.currentUser === mapScope.mapViewer;
-    if (!mapErrorLogged.current.has(mapScope)) {
-      mapErrorLogged.current.add(mapScope);
+    const isCurrent = () => mounted.current && mapContextRef.current === mapContext && firebaseServices.auth?.currentUser === mapScope.mapViewer;
+    if (!mapErrorLogged.current.has(mapContext)) {
+      mapErrorLogged.current.add(mapContext);
       const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
       const status = typeof detail.status === "number" && Number.isInteger(detail.status) && detail.status >= 100 && detail.status <= 599 ? detail.status : null;
       const message = typeof detail.message === "string" ? detail.message.toLowerCase() : "";
@@ -579,7 +585,7 @@ export default function RouteMap({
       }, firebaseServices, mapScope.mapViewer, isCurrent() ? "" : "superseded", isCurrent);
     }
     if (isCurrent()) setMapFailed(true);
-  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope, mounted]);
+  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope, mapContext, mounted]);
 
   const previewRange = highlightRange ?? flyToRange;
   const selectedMeasuredPoint = streamFallback && previewRange?.startIndex === previewRange?.endIndex
@@ -587,10 +593,7 @@ export default function RouteMap({
   const pointAlreadyInPreview = !streamFallback && previewRange?.startIndex === flyToRange?.startIndex && previewRange?.endIndex === flyToRange?.endIndex;
   const fallbackPhoto = cameraIntent.current.full || cameraIntent.current.rangeAfterPhoto ? null : flyToPosition;
   const fallbackSelectedPosition = [fallbackPhoto, pointAlreadyInPreview ? null : selectedPoint, selectedMeasuredPoint, drawable ? null : markerPosition].find(isRoutePosition);
-  const mapOpenedFor = useRef<typeof mapScope | null>(null);
-  if (activePoints.length > 0) mapOpenedFor.current = mapScope;
-
-  if (!bounds || (!drawable && standalonePositions.length !== 1 && !(Array.isArray(routeParts) && endpoints.length > 0) && fallbackImageUrl && mapOpenedFor.current !== mapScope && !hasLocatedAttachment)) {
+  if (!hasRouteBounds || !bounds) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined} selectedPosition={fallbackSelectedPosition} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
@@ -605,7 +608,6 @@ export default function RouteMap({
   }
 
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
-  const mapboxToken = getMapboxToken();
   const fallback = (
     <RouteMapFallback
       positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined} selectedPosition={fallbackSelectedPosition}

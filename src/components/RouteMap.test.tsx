@@ -731,6 +731,22 @@ describe("RouteMap", () => {
     expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.mapbox")).toHaveLength(1);
   });
 
+  it("ignores a former map instance's error after a photo reopens the map", () => {
+    const props = { latlng: [[37, 127], null, [38, 128]] as unknown as [number, number][],
+      fallbackImageUrl: "https://example.test/route.png" };
+    const photos = [{ id: "photo", url: "https://example.test/photo.jpg", location: [37, 127] as [number, number] }];
+    const view = renderWithProviders(<RouteMap {...props} photos={photos} />);
+    const firstMap = screen.getByTestId("mock-map"), firstError = mapProps.latest?.onError;
+    view.rerender(<RouteMap {...props} photos={[]} />);
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    view.rerender(<RouteMap {...props} photos={photos} />);
+    const currentMap = screen.getByTestId("mock-map");
+    expect(currentMap).not.toBe(firstMap);
+    act(() => firstError?.({ error: new Error("network") }));
+    expect(screen.getByTestId("mock-map")).toBe(currentMap);
+    expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.mapbox")).toHaveLength(1);
+  });
+
   it("allows selecting the same photo again after a location-only map failed", () => {
     const photo: [number, number] = [37, 127];
     const view = renderWithProviders(<RouteMap flyToPosition={photo} />);
