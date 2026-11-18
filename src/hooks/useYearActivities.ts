@@ -3,13 +3,15 @@ import { logClientError } from "../services/errorLogger";
 import type { Activity } from "@shared/types";
 import { auth } from "../services/firebase";
 import { createYearReadSession, localYearBounds, readRecapYears, readYearActivities } from "./yearActivitiesRead";
+import { useOnlineStatus } from "./useOnlineStatus";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
 /** 연도 목록은 계정별 point query 두 번, 활동은 선택한 로컬 연도만 조회한다. */
 export function useYearActivities(uid: string | null | undefined, selectedYear?: number) {
   const services = useFirebaseServices();
+  const online = useOnlineStatus();
   const sessionRef = useRef(createYearReadSession(uid ?? ""));
-  if (sessionRef.current.uid !== (uid ?? "") || sessionRef.current.owner !== auth.currentUser || !sessionRef.current.valid) {
+  if (sessionRef.current.uid !== (uid ?? "") || sessionRef.current.owner !== auth.currentUser || sessionRef.current.online !== online || !sessionRef.current.valid) {
     sessionRef.current.valid = false;
     sessionRef.current = createYearReadSession(uid ?? "");
   }

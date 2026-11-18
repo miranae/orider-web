@@ -243,14 +243,23 @@ it("does not infer complete coverage from different records in the one-record en
   expect((await readYearActivities("owner", 2025, () => false, undefined, session)).map(row => row.id)).toEqual(["early", "middle", "late"]);
 });
 
-it("reports both calendar endpoint failures even if the later failure arrives after rejection", async () => {
-  const earliest = new Error("earliest read failed"), latest = new Error("latest read failed");
-  let failLatest!: (error: Error) => void;
-  vi.mocked(getDocs).mockRejectedValueOnce(earliest).mockReturnValueOnce(new Promise((_, reject) => { failLatest = reject; }));
+it.each(["earliest", "latest"] as const)("reports a failure from the %s calendar endpoint", async endpoint => {
+  const failure = new Error("calendar read failed");
+  if (endpoint === "latest") vi.mocked(getDocs).mockResolvedValueOnce({ docs: [] } as never);
+  vi.mocked(getDocs).mockRejectedValueOnce(failure);
   const report = vi.fn();
-  await expect(readRecapYears("owner", () => false, createYearReadSession("owner"), report)).rejects.toBe(earliest);
-  failLatest(latest);
-  await vi.waitFor(() => expect(report.mock.calls).toEqual([["earliest", earliest], ["latest", latest]]));
+  await expect(readRecapYears("owner", () => false, createYearReadSession("owner"), report)).rejects.toBe(failure);
+  expect(report.mock.calls).toEqual([[endpoint, failure]]);
+});
+
+it("can use cached activity ranges offline, and rejects cached ranges as complete while online", async () => {
+  const cached = { docs: [doc(ride("cached", new Date(2025, 0, 2).getTime()))], metadata: { fromCache: true } } as never;
+  vi.mocked(getDocs).mockResolvedValueOnce(cached).mockResolvedValueOnce(cached);
+  const online = createYearReadSession("owner");
+  await expect(readYearActivities("owner", 2025, () => false, undefined, online)).rejects.toThrow("year-read-cache-incomplete");
+  expect(online.coverage).toEqual([]);
+  const offline = { ...createYearReadSession("owner"), online: false };
+  await expect(readYearActivities("owner", 2025, () => false, undefined, offline)).resolves.toEqual([expect.objectContaining({ id: "cached" })]);
 });
 
 it("does not cache a cancelled page or one completed after same-UID SDK replacement", async () => {
