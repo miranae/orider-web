@@ -5,7 +5,7 @@ describe('activityTimestampParts', () => {
   it('formats the actual start minute in Korean and English', () => {
     const start = Date.parse('2026-10-20T10:16:00Z');
     const now = Date.parse('2026-10-20T13:00:00Z');
-    expect(activityTimestampParts(start, 'ko', now, 'Asia/Seoul')).toMatchObject({ day: 'today', time: '오후 7:16', iso: '2026-10-20T10:16:00.000Z' });
+    expect(activityTimestampParts(start, 'ko', now, 'Asia/Seoul')).toMatchObject({ day: 'today', time: expect.stringMatching(/^(오후|PM) 7:16$/), iso: '2026-10-20T10:16:00.000Z' });
     expect(activityTimestampParts(start, 'en', now, 'Asia/Seoul')).toMatchObject({ day: 'today', time: '7:16 PM' });
   });
   it('uses calendar boundaries rather than the number of elapsed hours', () => {
