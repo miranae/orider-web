@@ -427,6 +427,13 @@ export default function EventsPage() {
 
   const { live: liveCount, open: openCount } = useMemo(() => eventAvailability(events, now), [events, now]);
   const myCount = myEventIds.size;
+  // 로그아웃 방문자에게 "내 이벤트 0" 은 의미가 없고, 진행·모집이 모두 0 이면 아래 안내 문구가 같은 사실을 말한다.
+  const summaryItems = [
+    { lbl: t("status.live"), val: liveCount, sub: t("summary.liveNow"), dot: "var(--lime)" },
+    { lbl: t("status.open"), val: openCount, sub: t("summary.canRegister"), dot: "var(--aqua)" },
+    ...(user ? [{ lbl: t(isMobile ? "summary.myEventsShort" : "summary.myEvents"), val: myCount, sub: t("summary.thisSeason"), dot: "var(--ink-2)" }] : []),
+  ];
+  const showSummary = events.length > 0 && (!!user || liveCount + openCount > 0);
   const activeAdvancedCount = [typeFilter, regionFilter, datePreset, difficultyFilter].filter((value) => value !== "ALL").length;
   const calendarCells = useMemo(() => buildMonthCells(filtered, calendarMonth), [calendarMonth, filtered]);
   const monthEvents = useMemo(() => calendarCells.filter(cell => cell.inMonth).flatMap(cell => cell.events), [calendarCells]);
@@ -526,13 +533,13 @@ export default function EventsPage() {
         </Card>
       )}
 
-      {/* 요약 strip — 3컬럼 (진행중/모집중/내 참가) */}
-      {events.length > 0 && (
+      {/* 요약 strip — 진행중/모집중 (+로그인 시 내 참가) */}
+      {showSummary && (
         <div
           className="event-summary"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateColumns: `repeat(${summaryItems.length}, 1fr)`,
             gap: 1,
             background: "var(--line-soft)",
             border: "1px solid var(--line-soft)",
@@ -540,11 +547,7 @@ export default function EventsPage() {
             overflow: "hidden",
           }}
         >
-          {[
-            { lbl: t("status.live"), val: liveCount, sub: t("summary.liveNow"), dot: "var(--lime)" },
-            { lbl: t("status.open"), val: openCount, sub: t("summary.canRegister"), dot: "var(--aqua)" },
-            { lbl: t(isMobile ? "summary.myEventsShort" : "summary.myEvents"), val: myCount, sub: t("summary.thisSeason"), dot: "var(--ink-2)" },
-          ].map((s) => (
+          {summaryItems.map((s) => (
             <div
               key={s.lbl}
               style={{

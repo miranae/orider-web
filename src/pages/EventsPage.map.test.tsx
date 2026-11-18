@@ -192,3 +192,40 @@ describe("앱 임베드 탐색 이벤트 (#1485)", () => {
     }
   });
 });
+
+describe("event summary strip", () => {
+  const future = Date.now() + 86_400_000;
+  const myEventLabels = [eventStrings["summary.myEvents"], eventStrings["summary.myEventsShort"]];
+
+  it("hides the all-zero strip from guests and leaves the availability note", async () => {
+    setCollectionDocs("events", [
+      { id: "done", info: { name: "Finished ride", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000 } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Finished ride", { exact: true })).toBeInTheDocument();
+    expect(container.querySelector(".event-summary")).toBeNull();
+    expect(screen.getByText(new RegExp(eventStrings["availability.title"]))).toBeInTheDocument();
+  });
+
+  it("shows guests live and open counts without a my-events column", async () => {
+    setCollectionDocs("events", [
+      { id: "open", info: { name: "Open ride", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: future } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Open ride", { exact: true })).toBeInTheDocument();
+    const summary = container.querySelector(".event-summary");
+    expect(summary).not.toBeNull();
+    expect(summary?.children).toHaveLength(2);
+    for (const label of myEventLabels) expect(summary?.textContent).not.toContain(label);
+  });
+
+  it("keeps all three columns, including my events, for signed-in riders", async () => {
+    setCollectionDocs("events", [
+      { id: "done", info: { name: "Finished ride", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000 } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events", authenticated: true });
+    expect(await screen.findByText("Finished ride", { exact: true })).toBeInTheDocument();
+    const summary = await waitFor(() => { const el = container.querySelector(".event-summary"); expect(el).not.toBeNull(); return el; });
+    expect(summary?.children).toHaveLength(3);
+  });
+});
