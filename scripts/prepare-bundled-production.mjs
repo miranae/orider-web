@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { classifyCallableProbe } from "./lib/social-callable-contract.mjs";
+import { verifyBundledCallable } from "./lib/bundled-callable-probe.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -18,11 +18,15 @@ function assertSource(workspace, expected = head(workspace)) {
   return expected;
 }
 async function health(runtime, fetcher, expected) {
-  const response = await fetcher(`${runtime.firebaseFunctionsBase}/healthz`, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) });
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled production gateway is unavailable: expected=HTTP200 actual=HTTP${response.status}`); }
-  const value = await response.json();
+  const url = `${runtime.firebaseFunctionsBase}/healthz`;
+  let response;
+  try { response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
+  catch { throw new Error(`bundled production health transport failed at ${url}`); }
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled production gateway is unavailable at ${url} HTTP ${response.status}`); }
+  let value;
+  try { value = await response.json(); } catch { throw new Error(`bundled production health invalid JSON at ${url}`); }
   if (value.status !== "ok" || value.exposure !== "public" || !/^[a-f0-9]{40}$/u.test(value.sourceSha || "")
-    || !/^[a-f0-9]{64}$/u.test(value.topologyHash || "")) throw new Error("bundled production gateway identity missing");
+    || !/^[a-f0-9]{64}$/u.test(value.topologyHash || "")) throw new Error(`bundled production gateway identity missing at ${url}`);
   const identity = { sourceSha: value.sourceSha, topologyHash: value.topologyHash };
   if (expected && !isDeepStrictEqual(expected, identity)) throw new Error(`bundled production backend changed during frontend build: expected source=${expected.sourceSha} topology=${expected.topologyHash}; actual source=${identity.sourceSha} topology=${identity.topologyHash}`);
   return identity;
@@ -64,12 +68,7 @@ export async function verifyBundledProduction(directory, fetcher = fetch) {
   await health(expected, fetcher, receipt.backend);
   const manifest = json(new URL("./contracts/social-callables.json", import.meta.url));
   for (const { name } of manifest.callables) {
-    const response = await fetcher(`${expected.firebaseFunctionsBase}/${name}`, { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: {} }), redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) });
-    let payload;
-    try { payload = await response.json(); } catch { throw new Error(`bundled social callable ${name} returned invalid JSON`); }
-    const result = classifyCallableProbe(response.status, payload);
-    if (!result.ok) throw new Error(`bundled social callable ${name} rejected its unauthenticated contract: expected=401/UNAUTHENTICATED actual=HTTP${response.status}/${result.kind}`);
+    await verifyBundledCallable({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", name, fetcher });
   }
   await health(expected, fetcher, receipt.backend);
   if (hash(readFileSync(receipt.hostingPath)) !== receipt.hostingHash

@@ -9,6 +9,7 @@ import { isDeepStrictEqual } from "node:util";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
 import { stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
+import { verifyBundledCallable } from "./lib/bundled-callable-probe.mjs";
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const SHA = /^[a-f0-9]{40}$/u;
@@ -30,9 +31,11 @@ function assertSource(workspace, expected) {
 }
 
 async function requestJson(url, fetcher) {
-  const response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) });
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled stage public metadata unavailable HTTP ${response.status}`); }
-  return response.json();
+  let response;
+  try { response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
+  catch { throw new Error(`bundled stage metadata transport failed at ${url}`); }
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled stage public metadata unavailable at ${url} HTTP ${response.status}`); }
+  try { return await response.json(); } catch { throw new Error(`bundled stage metadata invalid JSON at ${url}`); }
 }
 export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
   if (!SHA.test(sourceSha || "")) throw new Error("bundled development backend source SHA required");
@@ -41,6 +44,7 @@ export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash
     || !/^[a-f0-9]{64}$/u.test(health.topologyHash || "") || topologyHash && health.topologyHash !== topologyHash) {
     throw new Error("bundled development backend source/topology mismatch");
   }
+  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "getActivityDiscovery", fetcher });
   return health.topologyHash;
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {

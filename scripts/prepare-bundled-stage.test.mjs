@@ -26,6 +26,7 @@ function fixture() {
     calls.push(url);
     if (url === "https://orider.co.kr/runtime-config.json") return Response.json(source);
     if (url.endsWith("/healthz")) return Response.json(health);
+    if (url.endsWith("/getActivityDiscovery")) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider-dev.web.app", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401, headers: { "access-control-allow-origin": "https://orider-dev.web.app" } });
     if (url.endsWith("/publicClubs?size=1")) {
       assert.equal(options.credentials, "omit");
       return Response.json({ clubs: [], nextCursor: null }, { headers: { "Access-Control-Allow-Origin": "https://orider-dev.web.app", "Cache-Control": "no-store" } });
@@ -129,5 +130,15 @@ test("development workflow is manual-only and seals the selected artifact before
   assert.match(workflow, /steps\.source\.outputs\.sha/);
   assert.doesNotMatch(workflow, /--token/);
   assert.match(workflow, /orider-dev\.web\.app\/ko\/course\/nonexistent/);
+  assert.match(workflow, /curl -fsS -A 'Mozilla\/5\.0 ORiderStageAcceptance'/);
+  assert.doesNotMatch(workflow, /curl -fsSL -A/);
+  assert.match(workflow, /Built entry is missing/);
+  assert.match(workflow, /Development detail response mismatch/);
   assert.match(workflow, /Development detail entry mismatch: expected=\$built actual=/);
+});
+
+test("development metadata failures identify the failing endpoint", async () => {
+  const f = fixture();
+  try { await assert.rejects(f.prepare({ fetcher: async () => new Response(null, { status: 503 }) }), /https:\/\/orider.co.kr\/runtime-config.json HTTP 503/); }
+  finally { f.cleanup(); }
 });

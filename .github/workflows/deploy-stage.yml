@@ -116,7 +116,7 @@ jobs:
           FRONTEND_SOURCE: ${{ steps.source.outputs.sha }}
         run: |
           set -euo pipefail
-          built=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1)
+          built=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1 || true)
           if [ -z "$built" ]; then echo "::error::Built entry is missing"; exit 1; fi
           echo "Expected development entry: $built"
           ok=0
@@ -133,8 +133,9 @@ jobs:
             sha256sum dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; exit 1
           fi
           # 일반 브라우저의 상세 URL도 같은 개발 번들을 반환해야 한다.
-          curl -fsSL -A 'Mozilla/5.0 ORiderStageAcceptance' -H 'Cache-Control: no-cache' "https://orider-dev.web.app/ko/course/nonexistent?cacheBust=${FRONTEND_SOURCE}" -o "$RUNNER_TEMP/live-detail.html"
-          detail=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' "$RUNNER_TEMP/live-detail.html" | head -1)
+          detail_status=$(curl -fsS -A 'Mozilla/5.0 ORiderStageAcceptance' -H 'Cache-Control: no-cache' "https://orider-dev.web.app/ko/course/nonexistent?cacheBust=${FRONTEND_SOURCE}" -o "$RUNNER_TEMP/live-detail.html" -w '%{http_code}')
+          if [ "$detail_status" != 200 ]; then echo "::error::Development detail response mismatch: expected=HTTP200 actual=HTTP$detail_status"; exit 1; fi
+          detail=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' "$RUNNER_TEMP/live-detail.html" | head -1 || true)
           if [ "$detail" != "$built" ]; then echo "::error::Development detail entry mismatch: expected=$built actual=${detail:-<missing>}"; exit 1; fi
           if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
       - name: Retain verified bundled client artifact
