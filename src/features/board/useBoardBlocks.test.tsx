@@ -5,12 +5,23 @@ import { setCollectionDocs } from '../../__tests__/mocks/firebase';
 import { setBoardAuthorBlocked, useBoardBlocks } from './useBoardBlocks';
 import { functions } from '../../services/firebase';
 import { resetRuntimeConfigForTests, STAGE_PARITY_GATEWAY } from '../../services/runtimeConfig';
-const mocks = vi.hoisted(() => ({ uid: 'owner', call: vi.fn(), getFunctions: vi.fn(() => ({})), connect: vi.fn(), emulator: false }));
+const mocks = vi.hoisted(() => ({ uid: 'owner', call: vi.fn(), getFunctions: vi.fn(() => ({})), connect: vi.fn(), log: vi.fn(), emulator: false }));
+vi.mock('../../services/errorLogger', () => ({logClientError:mocks.log}));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.uid ? { uid: mocks.uid } : null }) }));
 vi.mock('../../services/firebase', () => ({ ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn(), auth: {}, storage: {}, firestore: {}, functions: { app: { name: 'test' } } }));
 vi.mock('firebase/functions', () => ({ getFunctions: mocks.getFunctions, httpsCallable: vi.fn(() => mocks.call), connectFunctionsEmulator: mocks.connect }));
 vi.mock('../../services/runtimeConfig', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../services/runtimeConfig')>()), isEmulatorRuntime: () => mocks.emulator }));
-beforeEach(() => { mocks.uid = 'owner'; mocks.emulator = false; mocks.getFunctions.mockClear(); mocks.connect.mockReset(); mocks.call.mockReset().mockResolvedValue({ data: {} }); resetRuntimeConfigForTests({}); });
+beforeEach(() => { mocks.uid = 'owner'; mocks.emulator = false; mocks.log.mockReset(); mocks.getFunctions.mockClear(); mocks.connect.mockReset(); mocks.call.mockReset().mockResolvedValue({ data: {} }); resetRuntimeConfigForTests({}); });
+it('logs redacted block failures without replacing the original request error', async () => {
+  const failure=Object.assign(new Error('private target and request token'),{code:'functions/unavailable'});
+  mocks.call.mockRejectedValueOnce(failure);
+  await expect(setBoardAuthorBlocked('private-target',true,functions)).rejects.toBe(failure);
+  expect(mocks.log).toHaveBeenCalledWith('Board.authorBlock',expect.any(Error),{operation:'setActivitySocialBlock',blocked:true,errorCode:'functions/unavailable'});
+  expect(mocks.log.mock.calls[0][1].message).not.toContain('private');
+  expect(JSON.stringify(mocks.log.mock.calls)).not.toContain('private-target');
+  mocks.log.mockImplementationOnce(()=>{throw Error('logger unavailable');});mocks.call.mockRejectedValueOnce(failure);
+  await expect(setBoardAuthorBlocked('private-target',false,functions)).rejects.toBe(failure);
+});
 it('retains the supplied parity compute client instead of rebuilding a production regional client', async () => {
   resetRuntimeConfigForTests({appEnvironment:'production',deploymentProfile:'production-parity-stage',firebaseFunctionsBase:STAGE_PARITY_GATEWAY});
   try {

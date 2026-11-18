@@ -32,12 +32,12 @@ const allowedTools = ["firebase.stage.json", "docs/STAGE_PRODUCTION_PARITY.md", 
   "scripts/lib/isolated-stage-config.mjs", "scripts/lib/public-club-deploy-config.mjs", "scripts/lib/stage-production-parity.mjs",
   "scripts/lib/production-release-attestation.mjs", "scripts/prepare-stage-production-parity.mjs", "scripts/write-runtime-config.mjs",
   "scripts/write-runtime-config.test.mjs"];
-const changed = execFileSync("git", ["diff", "--no-renames", "--name-only", sourceSha], { encoding: "utf8" }).trim().split("\n").filter(Boolean);
+const changed = execFileSync("git", ["diff", "--no-renames", "--name-only", sourceSha, reviewedHead], { encoding: "utf8" }).trim().split("\n").filter(Boolean);
 const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { encoding: "utf8" }).trim();
 if (untracked) throw new Error(`untracked build inputs are not allowed: ${untracked}`);
 const unexpected = changed.filter(path => !transportPaths.includes(path) && !allowedTools.includes(path) && !/^src\/.*\.test\.tsx?$/.test(path));
 if (unexpected.length) throw new Error(`application source differs from pinned production: ${unexpected.join(", ")}`);
-const transportPatch = execFileSync("git", ["diff", "--no-renames", sourceSha, "--", ...transportPaths], { encoding: "utf8" });
+const transportPatch = execFileSync("git", ["diff", "--no-renames", sourceSha, reviewedHead, "--", ...transportPaths], { encoding: "utf8" });
 function assertReviewedSource() {
   const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
   const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { encoding: "utf8" }).trim();
@@ -55,7 +55,8 @@ write("production-runtime-config.json", source);
 write("runtime-config.json", runtime);
 write("production-release.json", release);
 const buildEnv = { ...stageProductionParityBuildEnv(source), STAGE_PARITY_PRODUCTION_RUNTIME_PATH: sourcePath, PRODUCTION_RUNTIME_CONFIG_PATH: "",
-  STAGE_PARITY_SOURCE_SHA: sourceSha, STAGE_PARITY_HOSTING_VERSION: release.version };
+  STAGE_PARITY_SOURCE_SHA: sourceSha, STAGE_PARITY_HOSTING_VERSION: release.version,
+  STAGE_PARITY_BUILD_RECEIPT_PATH: resolve(directory, "build.json"), STAGE_PARITY_REVIEWED_HEAD: reviewedHead, NODE_ENV: "production" };
 write("build-env.json", buildEnv);
 write("preparation.json", {
   sourceSha, reviewedHead, preparedAt: new Date().toISOString(),
@@ -75,7 +76,7 @@ if (args.includes("--build")) {
   // git archive는 무시된 .env 파일을 포함하지 않는다. 호출자의 VITE 변수도 상속하지 않는다.
   const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("VITE_"))), ...buildEnv };
   delete env.SENTRY_AUTH_TOKEN;
-  execFileSync("npm", ["ci", "--no-audit", "--no-fund"], { cwd: buildSource, env, stdio: "inherit" });
+  execFileSync("npm", ["ci", "--include=dev", "--no-audit", "--no-fund"], { cwd: buildSource, env, stdio: "inherit" });
   execFileSync("npm", ["run", "build"], { cwd: buildSource, env, stdio: "inherit" });
   execFileSync(process.execPath, ["scripts/write-runtime-config.mjs"], { cwd: buildSource, env, stdio: "inherit" });
   assertReviewedSource();
@@ -85,6 +86,7 @@ if (args.includes("--build")) {
   if (!entry) throw new Error("built entry not found");
   write("build.json", {
     sourceSha, reviewedHead, builtAt: new Date().toISOString(), entry, artifactDirectory, deploymentDirectory: buildSource,
+    indexSha256: createHash("sha256").update(html).digest("hex"),
     entrySha256: createHash("sha256").update(readFileSync(resolve(artifactDirectory, entry))).digest("hex"),
     runtimeSha256: createHash("sha256").update(readFileSync(resolve(artifactDirectory, "runtime-config.json"))).digest("hex"),
   });

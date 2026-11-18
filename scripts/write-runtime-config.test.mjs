@@ -1,7 +1,7 @@
 import { PUBLIC_CLUB_ENDPOINT, publicClubEndpoint, withPublicClubEndpoint, verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { productionDataConfig, productionBuildEnv, resolveProductionBuildFlags, verifyProductionDataCors } from "./lib/production-data-config.mjs";
 import { stageProductionParityConfig, stageProductionParityBuildEnv, STAGE_FUNCTIONS, STAGE_AI_API, STAGE_PERSONAL_API } from "./lib/stage-production-parity.mjs";
@@ -190,7 +190,7 @@ test("parity source attestation rejects modified entry HTML and untracked build 
     const sha = git(["rev-parse", "HEAD"]).trim();
     const run = () => execFileSync(process.execPath, [join(process.cwd(), "scripts/prepare-stage-production-parity.mjs"), "--source-sha", sha, "--reviewed-head", sha, "--out", directory + "-output"], { cwd: directory, stdio: "pipe" });
     writeFileSync(join(directory, "index.html"), "unreleased entry");
-    assert.throws(run, /application source differs.*index.html/s);
+    assert.throws(run, /reviewed source HEAD, clean state or transport patch changed/);
     git(["checkout", "--", "index.html"]); writeFileSync(join(directory, "injected.js"), "unreleased input");
     assert.throws(run, /untracked build inputs.*injected.js/s);
     rmSync(join(directory,"injected.js")); writeFileSync(join(directory,"firebase.stage.json"),"changed allowed path");
@@ -333,4 +333,18 @@ test("parity public club read logs bounded operation context for transport and J
     assert.equal(events.length,2);assert.ok(events.every(event=>event.operation==="verify-public-club-api"&&event.method==="GET"&&event.target===`${STAGE_FUNCTIONS}/publicClubs?size=1`));
     assert.ok(!JSON.stringify(events).includes("sensitive"));
   } finally {console.error=original;}
+});
+
+test("Hosting predeploy rejects a replaced app bundle before consulting live production", () => {
+  const directory=realpathSync(mkdtempSync(join(tmpdir(),"orider-stage-artifact-")));
+  try {
+    const source=join(directory,"source.json"),runtime=JSON.stringify(stageProductionParityConfig(productionFixture(),{sourceSha:"a".repeat(40),hostingVersion:"sites/miranae-orider-g1/versions/abc"}));
+    mkdirSync(join(directory,"dist/assets"),{recursive:true});
+    writeFileSync(source,JSON.stringify(productionFixture()));writeFileSync(join(directory,"firebase.stage.json"),readFileSync("firebase.stage.json"));
+    const html='<script src="assets/index-fixture.js"></script>';
+    writeFileSync(join(directory,"dist/index.html"),html);writeFileSync(join(directory,"dist/assets/index-fixture.js"),"replaced bundle");writeFileSync(join(directory,"dist/runtime-config.json"),runtime);
+    const hash=value=>createHash("sha256").update(value).digest("hex"),receipt=join(directory,"build.json");
+    writeFileSync(receipt,JSON.stringify({sourceSha:"a".repeat(40),reviewedHead:"b".repeat(40),artifactDirectory:join(directory,"dist"),deploymentDirectory:directory,entry:"assets/index-fixture.js",indexSha256:hash(html),entrySha256:hash("reviewed bundle"),runtimeSha256:hash(runtime)}));
+    assert.throws(()=>execFileSync(process.execPath,[join(process.cwd(),"scripts/check-isolated-stage.mjs")],{cwd:directory,env:{...process.env,PRODUCTION_RUNTIME_CONFIG_PATH:"",STAGE_PARITY_PRODUCTION_RUNTIME_PATH:source,STAGE_PARITY_SOURCE_SHA:"a".repeat(40),STAGE_PARITY_HOSTING_VERSION:"sites/miranae-orider-g1/versions/abc",STAGE_PARITY_REVIEWED_HEAD:"b".repeat(40),STAGE_PARITY_BUILD_RECEIPT_PATH:receipt},stdio:"pipe"}),/prepared artifact differs/);
+  }finally{rmSync(directory,{recursive:true,force:true});}
 });

@@ -5,12 +5,24 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import type { Functions } from 'firebase/functions';
 import { useFirebaseServices } from '../../contexts/FirebaseServicesContext';
 import { isEmulatorRuntime, isStageComputeRuntime, getRuntimeConfig } from '../../services/runtimeConfig';
+import { logClientError } from '../../services/errorLogger';
 
 /** `functions` 는 호출부의 useFirebaseServices() 인스턴스 — 임베드는 별도 Firebase app 이다(#847). */
 export async function setBoardAuthorBlocked(targetUid: string, blocked: boolean, functions: Functions) {
   const socialFunctions = isStageComputeRuntime(getRuntimeConfig()) ? functions : getFunctions(functions.app, 'asia-northeast3');
   if (isEmulatorRuntime()) connectFunctionsEmulator(socialFunctions, 'localhost', Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
-  await httpsCallable(socialFunctions, 'setActivitySocialBlock')({ targetUid, blocked });
+  try {
+    await httpsCallable(socialFunctions, 'setActivitySocialBlock')({ targetUid, blocked });
+  } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    try {
+      logClientError('Board.authorBlock', new Error('게시판 작성자 차단 요청 실패'), {
+        operation: 'setActivitySocialBlock', blocked,
+        errorCode: typeof code === 'string' && /^[a-z0-9/_-]{1,64}$/i.test(code) ? code : 'unknown',
+      });
+    } catch { /* 로거의 동기 실패로 원래 요청 오류를 바꾸지 않는다. */ }
+    throw error;
+  }
 }
 
 export function useBoardBlocks() {

@@ -36,6 +36,7 @@ node scripts/prepare-stage-production-parity.mjs \
 HEAD가 이 값과 다르거나 작업 트리가 더러우면 중단하며, 네트워크 조회 전·빌드 전후 같은 상태인지 다시 검사한다.
 빌드는 이 커밋의 `git archive`와 `npm ci`로 만든 새 전용 디렉터리에서 수행한다. 기존 `node_modules`를 연결하지 않는다.
 무시된 로컬 `.env*`와 호출자의 `VITE_*`를 상속하지 않는다. 기존 작업 디렉터리나 `dist`를 삭제하지 않는다.
+호출자의 `NODE_ENV`도 사용하지 않고 production으로 고정한다. `npm ci --include=dev`로 잠금 파일의 빌드 도구를 설치한다.
 운영 Hosting 버전·파일 해시와 성공한 GitHub Deployment SHA/배포 시간 구간을 대조한다.
 현재 운영 실행의 `production-hosting-evidence` artifact는 보존돼 있지 않다.
 따라서 GitHub SHA와 Hosting 버전의 관계는 관측한 성공 배포와 시간 구간의 상관관계이며, 소스→빌드의 암호학적 증명으로 표현하지 않는다.
@@ -58,6 +59,7 @@ firebase deploy --config firebase.stage.json --project orider-dev --only hosting
 배포 후 라이브 entry SHA256·runtime 설정이 준비 결과와 같고 운영 Hosting 버전이 그대로인지 확인한다.
 준비한 SHA·Hosting 버전 메타데이터 없이 snapshot 경로만 writer에 넘기면 중단한다.
 Hosting predeploy는 현재 운영 릴리스/설정도 다시 조회해 오래된 snapshot의 게시를 막는다.
+게시 직전의 HTML·entry·runtime 해시와 디렉터리/리뷰 SHA가 준비 단계의 build receipt와 일치해야 한다.
 라이브 runtime의 `deploymentProfile`, `sourceVersion`, `sourceHostingVersion`으로 사용한 기준을 확인할 수 있다.
 로그인·활동 조회·분석·차트·지도와 허용된 테스트 데이터의 쓰기/복구를 별도로 검증한다.
 공개 HTTP 200 또는 인증 없는 callable 오류는 전체 기능 검증 통과로 기록하지 않는다.
