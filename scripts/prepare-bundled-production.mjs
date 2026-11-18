@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import { classifyCallableProbe } from "./lib/social-callable-contract.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/stage-production-parity.mjs";
 
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -26,13 +27,14 @@ async function health(runtime, fetcher, expected) {
   if (expected && !isDeepStrictEqual(expected, identity)) throw new Error("bundled production backend changed during frontend build");
   return identity;
 }
-export async function prepareBundledProduction({ source, workspace = process.cwd(), directory, githubEnv, fetcher = fetch }) {
+export async function prepareBundledProduction({ source, workspace = process.cwd(), directory, githubEnv, fetcher = fetch, backendSourceSha, backendTopologyHash }) {
   workspace = resolve(workspace); directory = resolve(directory);
   if (source.deploymentProfile !== undefined || source.socialAuthFunctionsBase) throw new Error("production profile requires normal release flags, not a stage runtime");
   if (directory === workspace || directory.startsWith(`${workspace}/`)) throw new Error("private production preparation directory must be outside source");
   const frontendSourceSha = assertSource(workspace);
   const runtime = bundledFunctionsConfig(source, "production");
-  const backend = await health(runtime, fetcher);
+  if (!/^[a-f0-9]{40}$/u.test(backendSourceSha || "") || !/^[a-f0-9]{64}$/u.test(backendTopologyHash || "")) throw new Error("reviewed production backend source and topology pins required");
+  const backend = await health(runtime, fetcher, { sourceSha: backendSourceSha, topologyHash: backendTopologyHash });
   const hosting = bundledHostingConfig(json(resolve(workspace, "firebase.json")), "production");
   delete hosting.hosting.target;
   hosting.hosting.site = "miranae-orider-g1";
@@ -60,6 +62,15 @@ export async function verifyBundledProduction(directory, fetcher = fetch) {
   const actual = json(resolve(receipt.workspace, "dist/runtime-config.json"));
   if (!isDeepStrictEqual(actual, expected)) throw new Error("built production runtime differs from normal release flags");
   await health(expected, fetcher, receipt.backend);
+  const manifest = json(new URL("./contracts/social-callables.json", import.meta.url));
+  for (const { name } of manifest.callables) {
+    const response = await fetcher(`${expected.firebaseFunctionsBase}/${name}`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: {} }), redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) });
+    let payload;
+    try { payload = await response.json(); } catch { throw new Error(`bundled social callable ${name} returned invalid JSON`); }
+    if (!classifyCallableProbe(response.status, payload).ok) throw new Error(`bundled social callable ${name} rejected its unauthenticated contract`);
+  }
+  await health(expected, fetcher, receipt.backend);
   if (hash(readFileSync(receipt.hostingPath)) !== receipt.hostingHash
     || !isDeepStrictEqual(json(resolve(receipt.workspace, "dist/runtime-config.json")), expected)) throw new Error("production output changed during verification");
   return receipt;
@@ -75,7 +86,7 @@ async function main() {
   const phase = args["--phase"], directory = args["--directory"] || process.env.BUNDLED_PRODUCTION_DIRECTORY;
   if (!["prepare", "verify"].includes(phase) || !directory || phase === "prepare" && !args["--source"]
     || phase === "verify" && args["--source"]) throw new Error("production phase/source/directory required");
-  const receipt = phase === "prepare" ? await prepareBundledProduction({ source: json(resolve(args["--source"])), directory, githubEnv: process.env.GITHUB_ENV })
+  const receipt = phase === "prepare" ? await prepareBundledProduction({ source: json(resolve(args["--source"])), directory, githubEnv: process.env.GITHUB_ENV, backendSourceSha: process.env.BUNDLED_BACKEND_SOURCE_SHA, backendTopologyHash: process.env.BUNDLED_BACKEND_TOPOLOGY_HASH })
     : await verifyBundledProduction(directory);
   console.log(JSON.stringify({ phase, frontendSourceSha: receipt.frontendSourceSha, backendSourceSha: receipt.backend.sourceSha, backendTopologyHash: receipt.backend.topologyHash }));
 }

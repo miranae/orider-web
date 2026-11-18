@@ -108,5 +108,8 @@ test("development workflow is manual-only and seals the selected artifact before
   assert.match(workflow, /steps\.source\.outputs\.sha/);
   assert.doesNotMatch(workflow, /--token/);
   assert.match(workflow, /orider-dev\.web\.app\/ko\/course\/nonexistent/);
-  assert.match(workflow, /test "\$detail" = "\$built"/);
+  assert.match(workflow, /Development detail entry mismatch/);
+  assert.match(workflow, /git merge-base --is-ancestor "\$selected_sha" origin\/dev/);
+  assert.match(workflow, /git merge-base --is-ancestor "\$selected_sha" origin\/main/);
+  assert.ok(workflow.indexOf("Selected source is not an approved") < workflow.indexOf("node scripts/prepare-bundled-stage.mjs"));
 });

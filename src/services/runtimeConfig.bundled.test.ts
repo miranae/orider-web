@@ -68,3 +68,28 @@ it("bundled handoff uses the new gateway with an isolated SDK context and no Aut
   expect(url).toBe(`${runtime.firebaseFunctionsBase}/webHandoffRedeem`);
   expect(options.headers).toEqual({ "Content-Type": "application/json" });
 });
+
+it.each(["development", "production"] as const)("%s discovery uses the injected callable for both pages and rejects an old account response", async environment => {
+  const runtime = config(environment); resetRuntimeConfigForTests(runtime);
+  const app = initializeApp({ projectId: "miranae-orider-g1", apiKey: "public", appId: runtime.firebaseAppId }, `discovery-${environment}`);
+  const context = { app, currentUser: { uid: "viewer" } };
+  const services = { auth: context, functions: getFunctions(app, runtime.firebaseFunctionsBase), ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices;
+  const page = (nextCursor: string | null) => ({ items: [], nextCursor, exhausted: nextCursor === null, expiresAt: Date.now() + 60_000,
+    totalCount: null, consistency: "current_authorized_seek_pages", scannedCount: 0, order: "startTime_desc", includesUndated: false });
+  const request = vi.fn().mockResolvedValueOnce({ status: 200, json: async () => ({ result: page("ad1.next") }) })
+    .mockResolvedValueOnce({ status: 200, json: async () => ({ result: page(null) }) });
+  vi.stubGlobal("fetch", request);
+  const { loadActivityDiscovery } = await import("./activityDiscovery");
+  const first = await loadActivityDiscovery(services, { scope: "athlete", targetUid: "author" });
+  await loadActivityDiscovery(services, { scope: "athlete", targetUid: "author", cursor: first.nextCursor! });
+  expect(request.mock.calls.map(([url]) => url)).toEqual([`${runtime.firebaseFunctionsBase}/getActivityDiscovery`, `${runtime.firebaseFunctionsBase}/getActivityDiscovery`]);
+  expect(JSON.parse(request.mock.calls[1]![1].body).data.cursor).toBe("ad1.next");
+  let finish!: (response: unknown) => void;
+  request.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const pending = loadActivityDiscovery(services, { scope: "athlete", targetUid: "author" });
+  await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(3));
+  context.currentUser = { uid: "replacement" };
+  const rejected = expect(pending).rejects.toThrow("account_changed");
+  finish({ status: 200, json: async () => ({ result: page(null) }) });
+  await rejected;
+});

@@ -18,8 +18,8 @@ function fixture() {
   const git = (...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "fixture"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.test"); git("add", "."); git("commit", "-m", "fixture");
   let health = { status: "ok", exposure: "public", sourceSha: "b".repeat(40), topologyHash: "c".repeat(64) };
-  const calls = [], fetcher = async url => { calls.push(url); return Response.json(health); };
-  const prepare = (patch = {}) => prepareBundledProduction({ source, workspace, directory, fetcher, ...patch });
+  const calls = [], fetcher = async url => { calls.push(url); return url.endsWith("/healthz") ? Response.json(health) : Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401 }); };
+  const prepare = (patch = {}) => prepareBundledProduction({ source, workspace, directory, fetcher, backendSourceSha: "b".repeat(40), backendTopologyHash: "c".repeat(64), ...patch });
   const build = runtime => { mkdirSync(resolve(workspace, "dist")); writeFileSync(resolve(workspace, "dist/runtime-config.json"), JSON.stringify(runtime)); };
   return { workspace, directory, prepare, fetcher, calls, build, setHealth: next => { health = next; }, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
@@ -35,7 +35,8 @@ test("production opt-in derives routing from normal release flags and keeps cano
     assert.equal(config.site, "miranae-orider-g1"); assert.ok(config.rewrites.filter(rule => rule.run).every(rule => rule.run.serviceId === "orider-bundle-default-api"));
     assert.match(config.predeploy, /predeploy-guard/); assert.match(config.predeploy, /prepare-bundled-production\.mjs --phase verify/);
     await verifyBundledProduction(f.directory, f.fetcher);
-    assert.ok(f.calls.every(url => url === `${runtime.firebaseFunctionsBase}/healthz`));
+    assert.equal(f.calls.filter(url => !url.endsWith("/healthz")).length, 41);
+    assert.ok(f.calls.includes(`${runtime.firebaseFunctionsBase}/getActivityDiscovery`));
   } finally { f.cleanup(); }
 });
 test("a development snapshot is not a valid production release configuration source", async () => {
@@ -62,4 +63,18 @@ test("production workflow remains tag-only and routing changes are explicit defa
   assert.match(workflow, /startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.ok(workflow.indexOf("Verify release commit is on main") < workflow.indexOf("Prepare selected production transport"));
   assert.ok(workflow.indexOf("prepare-bundled-production.mjs --phase verify") < workflow.indexOf("firebase deploy --config"));
+});
+
+test("production preparation rejects absent or mismatched approved backend pins", async () => {
+  for (const pins of [{ backendSourceSha: undefined }, { backendTopologyHash: undefined }, { backendSourceSha: "d".repeat(40) }]) {
+    const f = fixture();
+    try { await assert.rejects(f.prepare(pins), /pins required|backend changed/); } finally { f.cleanup(); }
+  }
+});
+test("bundled production rejects a missing social callable before Hosting", async () => {
+  const f = fixture();
+  try {
+    await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
+    await assert.rejects(verifyBundledProduction(f.directory, url => url.endsWith("/healthz") ? f.fetcher(url) : Promise.resolve(Response.json({}, { status: 404 }))), /social callable/);
+  } finally { f.cleanup(); }
 });
