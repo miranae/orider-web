@@ -15,6 +15,7 @@ const mapProps = vi.hoisted(() => ({
   },
   layers: new Map<string, Record<string, unknown>>(),
   sources: [] as unknown[],
+  markers: [] as { longitude: number; latitude: number; draggable?: boolean; onDragEnd?: (event: { lngLat: { lat: number; lng: number } }) => void }[],
 }));
 
 vi.mock("./activity/NativeActivityPhotoImage", () => ({ NativeActivityPhotoImage: ({nativePhoto,alt}: {nativePhoto:{activityId:string;photoId:string};alt:string}) => <img src="blob:authorized" alt={alt} data-native-reference={`${nativePhoto.activityId}/${nativePhoto.photoId}`} /> }));
@@ -58,7 +59,10 @@ vi.mock("react-map-gl/mapbox", () => ({
     mapProps.layers.set(id, paint);
     return null;
   },
-  Marker: ({ children, onClick }: { children: ReactNode; onClick?: (event: {originalEvent: MouseEvent}) => void }) => <div data-testid="map-marker" onClick={event => onClick?.({originalEvent:event.nativeEvent})}>{children}</div>,
+  Marker: ({ children, onClick, ...props }: { children: ReactNode; onClick?: (event: {originalEvent: MouseEvent}) => void; longitude: number; latitude: number; draggable?: boolean; onDragEnd?: (event: { lngLat: { lat: number; lng: number } }) => void }) => {
+    mapProps.markers.push(props);
+    return <div data-testid="map-marker" onClick={event => onClick?.({originalEvent:event.nativeEvent})}>{children}</div>;
+  },
   Popup: ({ children }: { children: ReactNode }) => <div data-testid="map-popup">{children}</div>,
   useMap: () => ({ current: mapProps.api }),
 }));
@@ -68,6 +72,46 @@ describe("RouteMap", () => {
     mapProps.api = null;
     mapProps.layers.clear();
     mapProps.sources.length = 0;
+    mapProps.markers.length = 0;
+  });
+
+  it("renders sparse stream coordinates without joining gaps or shifting selection indices", () => {
+    const latlng = [[37, 127], [37.01, 127], null, [38, 128], [38.01, 128]] as unknown as [number, number][];
+    renderWithProviders(<RouteMap latlng={latlng} highlightRange={{ startIndex: 3, endIndex: 4 }} />);
+    const sources = mapProps.sources as { geometry?: { type: string; coordinates: unknown } }[];
+    expect(sources[0]?.geometry?.coordinates).toEqual([[[127, 37], [127, 37.01]], [[128, 38], [128, 38.01]]]);
+    expect(sources[1]?.geometry?.coordinates).toEqual([[128, 38], [128, 38.01]]);
+    expect(latlng).toHaveLength(5);
+    expect(latlng[2]).toBeNull();
+    fireEvent.click(screen.getByTestId("mock-map"));
+    const path = document.querySelector("svg path")?.getAttribute("d") ?? "";
+    expect(path.match(/M/g)).toHaveLength(2);
+    expect(path.match(/L/g)).toHaveLength(2);
+  });
+
+  it("returns original source indices when dragging after a missing sample", () => {
+    const onChange = vi.fn();
+    const latlng = [[37,127], [37.01,127], null, [38,128], [38.01,128]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} highlightRange={{startIndex:0,endIndex:4}} onHighlightRangeChange={onChange} />);
+    act(() => mapProps.markers.find(marker => marker.draggable)?.onDragEnd?.({lngLat:{lat:38,lng:128}}));
+    expect(onChange).toHaveBeenCalledWith(3, 4);
+  });
+
+  it("does not fit a wholly missing selection or emit invalid hover markers", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127], null, [38,128]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} markerPosition={[NaN,127]} flyToRange={{startIndex:1,endIndex:1}} />);
+    expect(api.fitBounds).toHaveBeenCalledTimes(1); // Full valid bounds only.
+    expect(mapProps.sources.some(source => (source as {geometry?:{type:string}}).geometry?.type === "Point")).toBe(false);
+  });
+
+  it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
+    const invalid = [null, {}, [NaN, 127], [91, 127], [37, Infinity], [37], ["37", 127]] as unknown as [number, number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={invalid} />);
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    rerender(<RouteMap latlng={[[37, 127], [38, 128]]} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
   });
 
   it("renders a saved map image without route positions", () => {

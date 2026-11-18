@@ -14,6 +14,7 @@ import { decodeTrack } from "../utils/polyline";
 import { buildStaticRoutePath } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
+import { isRoutePosition, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface PhotoMarker {
@@ -68,17 +69,6 @@ interface RouteMapProps {
   fallbackHeight?: string;
 }
 
-function toGeoJSON(positions: [number, number][]): GeoJSON.Feature<GeoJSON.LineString> {
-  return {
-    type: "Feature",
-    properties: {},
-    geometry: {
-      type: "LineString",
-      coordinates: positions.map(([lat, lng]) => [lng, lat]),
-    },
-  };
-}
-
 function toPointGeoJSON(lat: number, lng: number): GeoJSON.Feature<GeoJSON.Point> {
   return {
     type: "Feature",
@@ -87,23 +77,16 @@ function toPointGeoJSON(lat: number, lng: number): GeoJSON.Feature<GeoJSON.Point
   };
 }
 
-export function getBounds(positions: [number, number][]): LngLatBoundsLike {
-  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
-  for (const [lat, lng] of positions) {
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-    if (lng < minLng) minLng = lng;
-    if (lng > maxLng) maxLng = lng;
-  }
-  return [[minLng, minLat], [maxLng, maxLat]];
-}
+export { routeBounds as getBounds } from "../utils/routeGeometry";
 
-function findNearestIndex(positions: [number, number][], lat: number, lng: number): number {
+function findNearestIndex(positions: RouteSlot[], lat: number, lng: number): number {
   let minDist = Infinity;
-  let minIdx = 0;
+  let minIdx = -1;
   for (let i = 0; i < positions.length; i++) {
-    const dlat = (positions[i]?.[0] ?? 0) - lat;
-    const dlng = (positions[i]?.[1] ?? 0) - lng;
+    const point = positions[i];
+    if (!point) continue;
+    const dlat = point[0] - lat;
+    const dlng = point[1] - lng;
     const dist = dlat * dlat + dlng * dlng;
     if (dist < minDist) {
       minDist = dist;
@@ -136,7 +119,7 @@ export function RouteMapFallback({
   title,
   description,
 }: {
-  positions: [number, number][];
+  positions: RouteSlot[];
   segmentStarts?: number[];
   imageUrl?: string | null;
   imageAlt: string;
@@ -226,7 +209,7 @@ function FitBoundsOnLoad({ bounds }: { bounds: LngLatBoundsLike }) {
 }
 
 function FlyToSegmentRange({ positions, range, fullBounds }: {
-  positions: [number, number][];
+  positions: RouteSlot[];
   range: { startIndex: number; endIndex: number } | null | undefined;
   fullBounds: LngLatBoundsLike;
 }) {
@@ -239,9 +222,8 @@ function FlyToSegmentRange({ positions, range, fullBounds }: {
       const lo = Math.min(range.startIndex, range.endIndex);
       const hi = Math.max(range.startIndex, range.endIndex);
       const segment = positions.slice(lo, hi + 1);
-      if (segment.length > 0) {
-        map.fitBounds(getBounds(segment), { padding: 40, maxZoom: 15 });
-      }
+      const bounds = getBounds(segment);
+      if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
       prevRange.current = range;
     } else if (prevRange.current) {
       map.fitBounds(fullBounds, { padding: 20 });
@@ -261,7 +243,7 @@ function FlyToPositionControl({ position, fullBounds }: {
 
   useEffect(() => {
     if (!map) return;
-    if (position) {
+    if (isRoutePosition(position)) {
       // 같은 좌표면 재실행 금지 — fullBounds 참조가 매 렌더(예: 고도표 호버)마다 새로 생겨도
       // effect 가 재실행되어 마지막 사진으로 반복 flyTo 되는 버그 방지.
       const prev = prevPosition.current;
@@ -310,11 +292,17 @@ export default function RouteMap({
   const [mapReady, setMapReady] = useState(false);
   const [webglSupported] = useState(() => supportsWebGL());
 
-  const positions: [number, number][] = useMemo(() => {
-    if (routeParts) return routeParts.flat();
-    if (latlng && latlng.length > 0) return latlng;
-    if (polyline && polyline.length > 0) return decodeTrack(polyline) as [number, number][];
-    return [];
+  const { positions, segmentStarts } = useMemo(() => {
+    const positions: RouteSlot[] = [];
+    const segmentStarts: number[] = [];
+    if (Array.isArray(routeParts)) {
+      for (const part of routeParts) {
+        segmentStarts.push(positions.length);
+        for (const point of routeSlots(part)) positions.push(point);
+      }
+    } else if (Array.isArray(latlng) && latlng.length > 0) return { positions: routeSlots(latlng), segmentStarts };
+    else if (polyline) return { positions: routeSlots(decodeTrack(polyline)), segmentStarts };
+    return { positions, segmentStarts };
   }, [polyline, latlng, routeParts]);
 
   useEffect(() => {
@@ -326,37 +314,24 @@ export default function RouteMap({
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
   const bounds = useMemo(() => getBounds(positions), [positions]);
-  const fullRouteGeoJSON = useMemo<GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>>(() => routeParts ? ({
-    type: "Feature", properties: {}, geometry: {type: "MultiLineString", coordinates: routeParts.filter(part => part.length >= 2).map(part => part.map(([lat, lon]) => [lon, lat]))},
-  }) : toGeoJSON(positions), [positions, routeParts]);
-  const segmentStarts = useMemo(() => {
-    let offset = 0;
-    return routeParts?.map(part => { const start = offset; offset += part.length; return start; });
-  }, [routeParts]);
-
+  const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
     if (!highlightRange || positions.length === 0) return null;
-    const lo = Math.min(highlightRange.startIndex, highlightRange.endIndex);
+    const lo = Math.max(0, Math.min(highlightRange.startIndex, highlightRange.endIndex));
     const hi = Math.max(highlightRange.startIndex, highlightRange.endIndex);
-    if (!routeParts) return toGeoJSON(positions.slice(lo, hi + 1));
-    let offset = 0;
-    const parts = routeParts.map(part => {
-      const sliced = part.slice(Math.max(0, lo - offset), Math.max(0, Math.min(part.length, hi - offset + 1)));
-      offset += part.length;
-      return sliced;
-    }).filter(part => part.length >= 2);
-    return {type: "Feature" as const, properties: {}, geometry: {type: "MultiLineString" as const, coordinates: parts.map(part => part.map(([lat, lon]) => [lon, lat]))}};
-  }, [positions, highlightRange, routeParts]);
+    return routeGeometry(positions.slice(lo, hi + 1), segmentStarts.map(index => index - lo));
+  }, [positions, highlightRange, segmentStarts]);
 
   const markerGeoJSON = useMemo(() => {
-    if (!markerPosition) return null;
+    if (!isRoutePosition(markerPosition)) return null;
     return toPointGeoJSON(markerPosition[0], markerPosition[1]);
   }, [markerPosition]);
 
   const endpointGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point> | null>(() => {
-    if (!showRouteEndpoints || positions.length < 2) return null;
-    const start = positions[0]!;
-    const end = positions[positions.length - 1]!;
+    const valid = positions.filter(isRoutePosition);
+    if (!showRouteEndpoints || valid.length < 2) return null;
+    const start = valid[0]!;
+    const end = valid[valid.length - 1]!;
     return {
       type: "FeatureCollection",
       features: [
@@ -369,16 +344,16 @@ export default function RouteMap({
   const handleStartDrag = useCallback((e: { lngLat: { lat: number; lng: number } }) => {
     if (!onHighlightRangeChange || !highlightRange) return;
     const idx = findNearestIndex(positions, e.lngLat.lat, e.lngLat.lng);
-    onHighlightRangeChange(idx, highlightRange.endIndex);
+    if (idx >= 0) onHighlightRangeChange(idx, highlightRange.endIndex);
   }, [positions, onHighlightRangeChange, highlightRange]);
 
   const handleEndDrag = useCallback((e: { lngLat: { lat: number; lng: number } }) => {
     if (!onHighlightRangeChange || !highlightRange) return;
     const idx = findNearestIndex(positions, e.lngLat.lat, e.lngLat.lng);
-    onHighlightRangeChange(highlightRange.startIndex, idx);
+    if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
   }, [positions, onHighlightRangeChange, highlightRange]);
 
-  if (positions.length === 0) {
+  if (!bounds) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
@@ -503,7 +478,7 @@ export default function RouteMap({
         )}
 
         {/* Photo markers */}
-        {photos?.map((photo) => (
+        {photos?.filter(photo => isRoutePosition(photo.location)).map((photo) => (
           <Marker
             key={photo.id}
             longitude={photo.location[1]}
@@ -523,7 +498,7 @@ export default function RouteMap({
           </Marker>
         ))}
         {/* Waypoint markers */}
-        {waypoints?.map((wp, i) => (
+        {waypoints?.filter(wp => isRoutePosition([wp.lat, wp.lon])).map((wp, i) => (
           <Marker
             key={`wp-${i}`}
             longitude={wp.lon}
@@ -559,7 +534,7 @@ export default function RouteMap({
           </Marker>
         ))}
 
-        {selectedPhoto && (
+        {selectedPhoto && isRoutePosition(selectedPhoto.location) && (
           <Popup
             longitude={selectedPhoto.location[1]}
             latitude={selectedPhoto.location[0]}
