@@ -374,7 +374,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       }
       const slice = positions.slice(lo, hi + 1);
       const segment = lo === hi ? slice : drawableRouteSlots(slice, segmentStarts.map(index => index - lo));
-      const bounds = getBounds(segment);
+      const bounds = getBounds(segment, true);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
       else map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevRange.current = bounds ? range : null;
@@ -531,13 +531,26 @@ export default function RouteMap({
   }, [hasRecordedPosition, activePoints.length, photos, waypoints]);
   const pointPositions = useMemo(() => [...standalonePositions, ...endpoints, ...activePoints, ...attachmentPositions],
     [standalonePositions, endpoints, activePoints, attachmentPositions]);
-  const routeBounds = useMemo(() => getBounds([...positions, ...endpoints]), [positions, endpoints]);
-  const standaloneBounds = useMemo(() => standalonePositions.length ? getBounds([...standalonePositions, ...attachmentPositions]) : null,
+  const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
+  const routeBounds = useMemo(() => {
+    const bounds = getBounds([...positions, ...endpoints], true);
+    if (!bounds) return null;
+    const line = fullRouteGeoJSON.geometry;
+    const segments = line.type === "LineString" ? [line.coordinates] : line.coordinates;
+    for (const segment of segments) {
+      for (const [lng] of segment) {
+        bounds[0][0] = Math.min(bounds[0][0], lng!);
+        bounds[1][0] = Math.max(bounds[1][0], lng!);
+      }
+    }
+    return bounds;
+  }, [positions, endpoints, fullRouteGeoJSON]);
+  const standaloneBounds = useMemo(() => standalonePositions.length ? getBounds([...standalonePositions, ...attachmentPositions], true) : null,
     [standalonePositions, attachmentPositions]);
-  const pointBounds = useMemo(() => getBounds(pointPositions), [pointPositions]);
+  const pointBounds = useMemo(() => getBounds(pointPositions, true), [pointPositions]);
   // Hover/highlight points do not define the recorded route's camera. Explicit point
   // navigation has its own controller; route fit remains stable after photo navigation.
-  const recordedBounds = useMemo(() => routeBounds ?? getBounds(standalonePositions), [routeBounds, standalonePositions]);
+  const recordedBounds = useMemo(() => routeBounds ?? getBounds(standalonePositions, true), [routeBounds, standalonePositions]);
   const bounds = cameraIntent.current.full && recordedBounds ? recordedBounds : routeBounds ?? standaloneBounds ?? pointBounds;
   const fullRouteBounds = recordedBounds ?? bounds;
   const routeBoundsKey = recordedBounds?.flat().join(",") ?? "";
@@ -547,7 +560,6 @@ export default function RouteMap({
     mapInstance.current = { routeBoundsKey, firebaseServices, mapViewer, generation: previousMap.generation + 1 };
   }
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
-  const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
     if (streamFallback || !highlightRange || positions.length === 0) return null;
     const lo = Math.max(0, Math.min(highlightRange.startIndex, highlightRange.endIndex));
@@ -605,7 +617,8 @@ export default function RouteMap({
   useEffect(() => { setMapFailed(false); }, [mapContext]);
   const mounted = useMapMounted();
   const handleMapError = useCallback((event: { error?: unknown } = {}) => {
-    const isCurrent = () => mounted.current && mapContextRef.current === mapContext && firebaseServices.auth?.currentUser === mapScope.mapViewer;
+    const sameMap = () => mounted.current && mapContextRef.current === mapContext;
+    const isCurrent = () => sameMap() && firebaseServices.auth?.currentUser === mapScope.mapViewer;
     if (!mapErrorLogged.current.has(mapContext)) {
       mapErrorLogged.current.add(mapContext);
       const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
@@ -618,7 +631,7 @@ export default function RouteMap({
         pointCount: pointPositions.length, hasSavedImage: Boolean(fallbackImageUrl), hasRouteLine: drawable,
       }, firebaseServices, mapScope.mapViewer, isCurrent() ? "" : "superseded", isCurrent);
     }
-    if (isCurrent()) setMapFailed(true);
+    if (sameMap() && firebaseServices.auth?.currentUser?.uid === mapScope.mapViewer?.uid) setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope, mapContext, mounted]);
 
   const previewRange = highlightRange ?? flyToRange;

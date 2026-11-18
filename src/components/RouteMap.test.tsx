@@ -743,6 +743,13 @@ describe("RouteMap", () => {
     expect(onChange).toHaveBeenCalledWith(1, 1);
   });
 
+  it("includes the unwrapped line in the recorded map viewport", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, -120], [0, 0], [0, 120], [0, -120]]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[-120, 0], [240, 0]]);
+  });
+
   it("shows a selected photo point on the static map without recorded GPS", () => {
     renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
     fireEvent.click(screen.getByTestId("mock-map"));

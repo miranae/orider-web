@@ -125,7 +125,7 @@ it("does not suppress the first identical error from a new injected app", () => 
   __resetClientErrorDedupeForTests();
   vi.mocked(captureError).mockClear();
   const first = { auth: { currentUser: null }, functions: {}, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
-  const next = { ...first, functions: {}, ensureAppCheckReady: vi.fn() };
+  const next = { ...first, functions: {} as FirebaseServices["functions"], ensureAppCheckReady: vi.fn() };
   const error = new Error("same map failure");
   logClientError("map.sdk", error, {}, first, null, "", () => false);
   logClientError("map.sdk", error, {}, next, null, "", () => true);

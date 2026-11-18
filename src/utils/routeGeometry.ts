@@ -67,7 +67,7 @@ export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: re
     if (point) part.push(point);
   });
   flush();
-  const shiftedLongitude = (routeBounds(positions)?.[1][0] ?? 0) > 180;
+  const shiftedLongitude = (routeBounds(positions, true)?.[1][0] ?? 0) > 180;
   const coordinates = parts.map(segment => {
     let previous: number | undefined;
     return segment.map(([lat, lon]) => {
@@ -92,7 +92,7 @@ export function shortestLongitudeDelta(delta: number): number {
   return Math.abs(delta) <= 180 ? delta : ((delta + 180) % 360 + 360) % 360 - 180;
 }
 
-export function routeBounds(positions: readonly unknown[]): [[number, number], [number, number]] | null {
+export function routeBounds(positions: readonly unknown[], wrapDateline = false): [[number, number], [number, number]] | null {
   let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
   let minShiftedLng = Infinity, maxShiftedLng = -Infinity;
   for (const point of positions) {
@@ -104,7 +104,7 @@ export function routeBounds(positions: readonly unknown[]): [[number, number], [
     minShiftedLng = Math.min(minShiftedLng, shifted); maxShiftedLng = Math.max(maxShiftedLng, shifted);
   }
   if (!Number.isFinite(minLat)) return null;
-  if (maxShiftedLng - minShiftedLng < maxLng - minLng)
+  if (wrapDateline && maxShiftedLng - minShiftedLng < maxLng - minLng)
     return [[minShiftedLng, minLat], [maxShiftedLng, maxLat]];
   return [[minLng, minLat], [maxLng, maxLat]];
 }
