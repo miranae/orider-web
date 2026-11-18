@@ -931,6 +931,7 @@
   "src/utils/preserveActionPosition.ts",
   "src/utils/recordShare.ts",
   "src/utils/regionName.ts",
+  "src/utils/routeGeometry.ts",
   "src/utils/runRecords.ts",
   "src/utils/runningCadence.ts",
   "src/utils/samePhysicalRide.ts",
