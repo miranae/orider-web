@@ -20,6 +20,7 @@
 ## 안전한 반복 배포
 
 최신 운영 Hosting 버전·GitHub production Deployment SHA·운영 공개 설정을 먼저 대조한다.
+출력 경로는 소스 작업 트리 바깥의 아직 존재하지 않는 새 디렉터리여야 한다. 기존 경로·심볼릭 링크는 거부한다.
 아래 SHA를 최신 개발 브랜치 SHA로 바꾸면 안 된다. 개발 브랜치의 미출시 업무 기능은 자동으로 포함하지 않는다.
 사용하는 워크트리는 확인한 운영 SHA와 배포 도구 수정만 포함해야 한다.
 
@@ -33,7 +34,8 @@ node scripts/prepare-stage-production-parity.mjs \
 이 명령은 배포하지 않는다. 운영 공개 설정의 기능 스위치를 모두 보존하고 개발 실행 URL로만 바꾼다.
 `REVIEWED_STAGE_COMMIT`은 독립 리뷰를 마친 앱/전송 패치의 전체 커밋 SHA로 지정한다.
 HEAD가 이 값과 다르거나 작업 트리가 더러우면 중단하며, 네트워크 조회 전·빌드 전후 같은 상태인지 다시 검사한다.
-빌드는 이 커밋의 `git archive` 전용 디렉터리에서 수행한다. 무시된 로컬 `.env*`와 호출자의 `VITE_*`를 상속하지 않는다.
+빌드는 이 커밋의 `git archive`와 `npm ci`로 만든 새 전용 디렉터리에서 수행한다. 기존 `node_modules`를 연결하지 않는다.
+무시된 로컬 `.env*`와 호출자의 `VITE_*`를 상속하지 않는다. 기존 작업 디렉터리나 `dist`를 삭제하지 않는다.
 운영 Hosting 버전·파일 해시와 성공한 GitHub Deployment SHA/배포 시간 구간을 대조한다.
 현재 운영 실행의 `production-hosting-evidence` artifact는 보존돼 있지 않다.
 따라서 GitHub SHA와 Hosting 버전의 관계는 관측한 성공 배포와 시간 구간의 상관관계이며, 소스→빌드의 암호학적 증명으로 표현하지 않는다.
@@ -49,10 +51,13 @@ BE의 운영 이미지 digest 일치, SDK callable 프로토콜, Auth/App Check,
 아래 명령을 사용한다. JSON 파일을 shell 코드로 `source`하지 않는다.
 
 ```sh
+# 준비 결과 build.json의 deploymentDirectory에서 실행한다.
 firebase deploy --config firebase.stage.json --project orider-dev --only hosting --non-interactive
 ```
 
 배포 후 라이브 entry SHA256·runtime 설정이 준비 결과와 같고 운영 Hosting 버전이 그대로인지 확인한다.
+준비한 SHA·Hosting 버전 메타데이터 없이 snapshot 경로만 writer에 넘기면 중단한다.
+Hosting predeploy는 현재 운영 릴리스/설정도 다시 조회해 오래된 snapshot의 게시를 막는다.
 라이브 runtime의 `deploymentProfile`, `sourceVersion`, `sourceHostingVersion`으로 사용한 기준을 확인할 수 있다.
 로그인·활동 조회·분석·차트·지도와 허용된 테스트 데이터의 쓰기/복구를 별도로 검증한다.
 공개 HTTP 200 또는 인증 없는 callable 오류는 전체 기능 검증 통과로 기록하지 않는다.

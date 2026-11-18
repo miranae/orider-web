@@ -170,9 +170,9 @@ test("stage parity runtime writer ignores conflicting local and production route
     const source = join(directory, "source.json"), output = join(directory, "runtime.json");
     writeFileSync(source, JSON.stringify(productionFixture()));
     execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], {
-      env: { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source, VITE_MODE: "production", VITE_FIREBASE_FUNCTIONS_BASE: "https://evil.example" }, stdio: "pipe",
+      env: { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source, STAGE_PARITY_SOURCE_SHA: "a".repeat(40), STAGE_PARITY_HOSTING_VERSION: "sites/miranae-orider-g1/versions/abc", VITE_MODE: "production", VITE_FIREBASE_FUNCTIONS_BASE: "https://evil.example" }, stdio: "pipe",
     });
-    assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), stageProductionParityConfig(productionFixture()));
+    assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), stageProductionParityConfig(productionFixture(), {sourceSha:"a".repeat(40),hostingVersion:"sites/miranae-orider-g1/versions/abc"}));
     for (const conflicting of [{ env: { PRODUCTION_RUNTIME_CONFIG_PATH: source }, args: [] }, { env: {}, args: ["--production-source", source] }]) {
       assert.throws(() => execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output, ...conflicting.args], {
         env: { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source, ...conflicting.env }, stdio: "pipe",
@@ -188,7 +188,7 @@ test("parity source attestation rejects modified entry HTML and untracked build 
     git(["init"]); writeFileSync(join(directory, "index.html"), "production entry"); writeFileSync(join(directory, "firebase.stage.json"), "{}"); git(["add", "."]);
     git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "fixture"]);
     const sha = git(["rev-parse", "HEAD"]).trim();
-    const run = () => execFileSync(process.execPath, [join(process.cwd(), "scripts/prepare-stage-production-parity.mjs"), "--source-sha", sha, "--reviewed-head", sha, "--out", join(directory, "output")], { cwd: directory, stdio: "pipe" });
+    const run = () => execFileSync(process.execPath, [join(process.cwd(), "scripts/prepare-stage-production-parity.mjs"), "--source-sha", sha, "--reviewed-head", sha, "--out", directory + "-output"], { cwd: directory, stdio: "pipe" });
     writeFileSync(join(directory, "index.html"), "unreleased entry");
     assert.throws(run, /application source differs.*index.html/s);
     git(["checkout", "--", "index.html"]); writeFileSync(join(directory, "injected.js"), "unreleased input");
