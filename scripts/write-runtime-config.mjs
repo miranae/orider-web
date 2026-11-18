@@ -17,8 +17,11 @@ const args = process.argv.slice(2);
 const outIndex = args.indexOf("--out");
 const outputPath = resolve(outIndex >= 0 ? args[outIndex + 1] : "dist/runtime-config.json");
 const stageSource = process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH;
+if (stageSource && (args.includes("--production-source") || process.env.PRODUCTION_RUNTIME_CONFIG_PATH)) throw new Error("stage parity and production runtime sources are mutually exclusive");
 if (stageSource) {
-  const config = stageProductionParityConfig(JSON.parse(readFileSync(resolve(stageSource), "utf8")));
+  const metadata = process.env.STAGE_PARITY_SOURCE_SHA || process.env.STAGE_PARITY_HOSTING_VERSION
+    ? { sourceSha: process.env.STAGE_PARITY_SOURCE_SHA, hostingVersion: process.env.STAGE_PARITY_HOSTING_VERSION } : {};
+  const config = stageProductionParityConfig(JSON.parse(readFileSync(resolve(stageSource), "utf8")), metadata);
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(config, null, 2)}\n`);
   console.log(`[write-runtime-config] pinned production version with development compute ${outputPath}`);

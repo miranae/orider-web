@@ -15,7 +15,7 @@ export function withPublicClubEndpoint(source, override) {
 
 /** GET으로 제한한 배포 전 점검. 응답 원문·소개 문자열·식별자는 로그하지 않는다. */
 export async function verifyPublicClubApi(config, origin, fetcher = fetch) {
-  const stage = config.appEnvironment === "stage";
+  const stage = config.appEnvironment === "stage" || config.deploymentProfile === "production-parity-stage";
   const endpoint = publicClubEndpoint(config.publicClubApiUrl, stage);
   if (!endpoint) throw new Error("public club endpoint is not configured");
   if (!["https://orider.co.kr", "https://orider-dev.web.app"].includes(origin)) throw new Error("unapproved public club origin");

@@ -57,6 +57,8 @@ export interface RuntimeConfig {
   canonicalRolloutEnabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
+  /** 운영 UI/계산 경로를 유지하면서 개발 실행 주소만 선택하는 배포 프로필. */
+  deploymentProfile?: "production-parity-stage";
   useEmulators?: boolean;
 }
 
@@ -177,19 +179,37 @@ export function resetRuntimeConfigForTests(config: RuntimeConfig = {}): void {
   loaded = false;
 }
 
+export const STAGE_PARITY_GATEWAY = "https://stage-parity-default-818364001341.asia-northeast3.run.app";
+export const STAGE_PARITY_AI = "https://stage-parity-ai-818364001341.asia-northeast3.run.app";
+export function isStageParityRuntime(config: RuntimeConfig = getRuntimeConfig()): boolean {
+  return config.appEnvironment === "production" && config.deploymentProfile === "production-parity-stage"
+    && config.firebaseFunctionsBase === STAGE_PARITY_GATEWAY;
+}
+/** 업무 기능은 appEnvironment를 계속 사용하고 실행 클라이언트만 이 프로필을 따른다. */
+export function isStageComputeRuntime(config: RuntimeConfig = getRuntimeConfig()): boolean {
+  return config.appEnvironment === "stage" || isStageParityRuntime(config);
+}
+
 /** Shared data is intentional; analysis stays isolated and Auth needs an explicit reviewed exception. */
 export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = globalThis.location?.hostname, origin = globalThis.location?.origin): void {
   const developmentHost = hostname === "orider-dev.web.app" || hostname === "orider-dev.firebaseapp.com";
+  const parity = isStageParityRuntime(config);
+  if (config.deploymentProfile !== undefined && (!parity || !developmentHost || origin !== `https://${hostname}`)) {
+    throw new Error("stage/parity-profile-mismatch");
+  }
   if (developmentHost && config.appEnvironment === "production") {
     if (origin !== `https://${hostname}` || config.firebaseProjectId !== "miranae-orider-g1"
       || config.firebaseAuthDomain !== "miranae-orider-g1.firebaseapp.com"
       || !/^miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)$/.test(config.firebaseStorageBucket ?? "")
       || config.firebaseAppId !== "1:289663940841:web:ba08cdae154286e6499878"
       || config.firebaseMessagingSenderId !== "289663940841" || config.firebaseFunctionsRegion !== "asia-northeast3"
-      || config.useEmulators === true || config.socialAuthFunctionsBase
-      || (config.firebaseFunctionsBase && config.firebaseFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")
-      || config.personalApiBase !== "https://orider.co.kr"
-      || config.aiApiBase !== "https://orider-ai-api-h5zqzw3n4a-du.a.run.app") throw new Error("development/production-data-profile-mismatch");
+      || config.useEmulators === true
+      || (parity ? config.socialAuthFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net" : Boolean(config.socialAuthFunctionsBase))
+      || (parity ? config.firebaseFunctionsBase !== STAGE_PARITY_GATEWAY : config.firebaseFunctionsBase && config.firebaseFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")
+      || config.personalApiBase !== (parity ? STAGE_PARITY_GATEWAY : "https://orider.co.kr")
+      || config.aiApiBase !== (parity ? STAGE_PARITY_AI : "https://orider-ai-api-h5zqzw3n4a-du.a.run.app")
+      || parity && config.publicClubApiUrl !== `${STAGE_PARITY_GATEWAY}/publicClubs`
+      || parity && config.stravaRedirectUri !== "https://orider-strava.web.app/strava/callback") throw new Error("development/production-data-profile-mismatch");
     return;
   }
   if (config.socialAuthFunctionsBase && (config.appEnvironment !== "stage" || origin !== "https://orider-dev.web.app"

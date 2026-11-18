@@ -6,10 +6,11 @@ export const STAGE_PERSONAL_API = STAGE_FUNCTIONS;
 export const STAGE_AI_API = "https://stage-parity-ai-818364001341.asia-northeast3.run.app";
 
 /** 운영 기능 스위치와 공유 데이터 identity를 보존하고 실행 경로만 개발로 옮긴다. */
-export function stageProductionParityConfig(source) {
+export function stageProductionParityConfig(source, metadata = {}) {
   const config = {
     ...productionDataConfig(source),
-    appEnvironment: "stage",
+    appEnvironment: "production",
+    deploymentProfile: "production-parity-stage",
     firebaseFunctionsBase: STAGE_FUNCTIONS,
     socialAuthFunctionsBase: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net",
     personalApiBase: STAGE_PERSONAL_API,
@@ -19,6 +20,11 @@ export function stageProductionParityConfig(source) {
     stravaRedirectUri: source.stravaRedirectUri,
     useEmulators: false,
   };
+  if (metadata.sourceSha !== undefined || metadata.hostingVersion !== undefined) {
+    if (!/^[a-f0-9]{40}$/.test(metadata.sourceSha ?? "") || !/^sites\/miranae-orider-g1\/versions\/[a-f0-9]+$/.test(metadata.hostingVersion ?? "")) throw new Error("stage parity source metadata mismatch");
+    config.sourceVersion = metadata.sourceSha;
+    config.sourceHostingVersion = metadata.hostingVersion;
+  }
   checkIsolatedStageConfig(config);
   return config;
 }
@@ -27,7 +33,7 @@ export function stageProductionParityBuildEnv(source) {
   const config = stageProductionParityConfig(source);
   return {
     ...productionBuildEnv(config),
-    VITE_MODE: "stage",
+    VITE_MODE: "production",
     VITE_SOCIAL_AUTH_FUNCTIONS_BASE: config.socialAuthFunctionsBase,
     VITE_STRAVA_REDIRECT_URI: config.stravaRedirectUri,
     VITE_ORIDER_PERSONAL_API_BASE: config.personalApiBase,

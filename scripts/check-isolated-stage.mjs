@@ -6,6 +6,7 @@ import { stageProductionParityConfig } from "./lib/stage-production-parity.mjs";
 if (process.env.STAGE_FIREBASE_PROJECT_ID && process.env.STAGE_FIREBASE_PROJECT_ID !== "orider-dev") throw new Error("stage Hosting project must be orider-dev");
 const hosting = JSON.parse(readFileSync("firebase.stage.json", "utf8")).hosting;
 if (hosting.site !== "orider-dev" || hosting.rewrites.some(rule => rule.function || rule.run)) throw new Error("isolated stage Hosting must have no server rewrites");
+if (process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH && process.env.PRODUCTION_RUNTIME_CONFIG_PATH) throw new Error("stage parity and production runtime sources are mutually exclusive");
 if (process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH) {
   stageProductionParityConfig(JSON.parse(readFileSync(process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH, "utf8")));
   console.log("[development-hosting] production version, shared data and isolated compute verified");

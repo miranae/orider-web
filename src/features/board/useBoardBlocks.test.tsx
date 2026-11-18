@@ -4,12 +4,21 @@ import { onSnapshot } from 'firebase/firestore';
 import { setCollectionDocs } from '../../__tests__/mocks/firebase';
 import { setBoardAuthorBlocked, useBoardBlocks } from './useBoardBlocks';
 import { functions } from '../../services/firebase';
+import { resetRuntimeConfigForTests, STAGE_PARITY_GATEWAY } from '../../services/runtimeConfig';
 const mocks = vi.hoisted(() => ({ uid: 'owner', call: vi.fn(), getFunctions: vi.fn(() => ({})), connect: vi.fn(), emulator: false }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.uid ? { uid: mocks.uid } : null }) }));
 vi.mock('../../services/firebase', () => ({ ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn(), auth: {}, storage: {}, firestore: {}, functions: { app: { name: 'test' } } }));
 vi.mock('firebase/functions', () => ({ getFunctions: mocks.getFunctions, httpsCallable: vi.fn(() => mocks.call), connectFunctionsEmulator: mocks.connect }));
 vi.mock('../../services/runtimeConfig', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../services/runtimeConfig')>()), isEmulatorRuntime: () => mocks.emulator }));
-beforeEach(() => { mocks.uid = 'owner'; mocks.emulator = false; mocks.connect.mockReset(); mocks.call.mockReset().mockResolvedValue({ data: {} }); });
+beforeEach(() => { mocks.uid = 'owner'; mocks.emulator = false; mocks.getFunctions.mockClear(); mocks.connect.mockReset(); mocks.call.mockReset().mockResolvedValue({ data: {} }); resetRuntimeConfigForTests({}); });
+it('retains the supplied parity compute client instead of rebuilding a production regional client', async () => {
+  resetRuntimeConfigForTests({appEnvironment:'production',deploymentProfile:'production-parity-stage',firebaseFunctionsBase:STAGE_PARITY_GATEWAY});
+  try {
+    await setBoardAuthorBlocked('target', true, functions);
+    expect(mocks.getFunctions).not.toHaveBeenCalled();
+    expect(mocks.call).toHaveBeenCalledWith({targetUid:'target',blocked:true});
+  } finally {resetRuntimeConfigForTests({});}
+});
 it('uses canonical regional server block mutation for both block and undo', async () => {
   await setBoardAuthorBlocked('target', true, functions);
   await setBoardAuthorBlocked('target', false, functions);

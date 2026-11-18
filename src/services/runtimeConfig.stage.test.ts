@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { assertIsolatedStageRuntime, getRuntimeConfig, resetRuntimeConfigForTests, type RuntimeConfig } from "./runtimeConfig";
+import { assertIsolatedStageRuntime, getRuntimeConfig, resetRuntimeConfigForTests, isStageComputeRuntime, isStageParityRuntime, STAGE_PARITY_GATEWAY, STAGE_PARITY_AI, type RuntimeConfig } from "./runtimeConfig";
 const stage: RuntimeConfig = {
   appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878",
@@ -13,6 +13,19 @@ it("uses the production data profile on development Hosting without allowing arb
     expect(() => assertIsolatedStageRuntime({ ...productionData, ...patch }, "orider-dev.web.app", "https://orider-dev.web.app")).toThrow("development/production-data-profile-mismatch");
   }
   expect(() => assertIsolatedStageRuntime(productionData, "orider-dev.web.app", "http://orider-dev.web.app")).toThrow();
+});
+
+it("keeps production feature branches while selecting parity compute on both development hosts", () => {
+  const config: RuntimeConfig = { ...productionData, deploymentProfile: "production-parity-stage", firebaseFunctionsBase: STAGE_PARITY_GATEWAY,
+    personalApiBase: STAGE_PARITY_GATEWAY, aiApiBase: STAGE_PARITY_AI, publicClubApiUrl: `${STAGE_PARITY_GATEWAY}/publicClubs`,
+    socialAuthFunctionsBase: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net", stravaRedirectUri: "https://orider-strava.web.app/strava/callback" };
+  expect(config.appEnvironment).toBe("production"); expect(isStageParityRuntime(config)).toBe(true); expect(isStageComputeRuntime(config)).toBe(true);
+  for (const hostname of ["orider-dev.web.app", "orider-dev.firebaseapp.com"]) expect(() => assertIsolatedStageRuntime(config, hostname, `https://${hostname}`)).not.toThrow();
+  for (const hostname of ["orider.co.kr", "evil.example"]) expect(() => assertIsolatedStageRuntime(config, hostname, `https://${hostname}`)).toThrow("stage/parity-profile-mismatch");
+  for (const patch of [{ deploymentProfile: undefined }, { personalApiBase: "https://orider.co.kr" }, { aiApiBase: STAGE_PARITY_GATEWAY }, { socialAuthFunctionsBase: undefined }, { publicClubApiUrl: "https://evil.example" }]) {
+    expect(() => assertIsolatedStageRuntime({ ...config, ...patch }, "orider-dev.web.app", "https://orider-dev.web.app")).toThrow();
+  }
+  expect(isStageComputeRuntime({ ...productionData })).toBe(false);
 });
 describe("isolated stage Firebase identity", () => {
   it("requires the served runtime opt-in instead of retaining a compiled fallback after disable", () => {

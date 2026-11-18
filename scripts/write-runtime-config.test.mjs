@@ -5,6 +5,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { productionDataConfig, productionBuildEnv, resolveProductionBuildFlags, verifyProductionDataCors } from "./lib/production-data-config.mjs";
 import { stageProductionParityConfig, stageProductionParityBuildEnv, STAGE_FUNCTIONS, STAGE_AI_API, STAGE_PERSONAL_API } from "./lib/stage-production-parity.mjs";
+import { readPinnedProductionRuntime, checkedJsonFetch } from "./lib/production-release-attestation.mjs";
+import { gzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -144,7 +146,8 @@ test("stage parity preserves production data and every flag while routing execut
   for (const [key, value] of Object.entries(source)) {
     if (key.endsWith("Enabled") || key === "activitySubscriptionsBackendReady" || key.startsWith("firebase") && !["firebaseFunctionsBase"].includes(key)) assert.equal(stage[key], value, key);
   }
-  assert.equal(stage.appEnvironment, "stage");
+  assert.equal(stage.appEnvironment, "production");
+  assert.equal(stage.deploymentProfile, "production-parity-stage");
   assert.equal(stage.firebaseFunctionsBase, STAGE_FUNCTIONS);
   assert.equal(stage.aiApiBase, STAGE_AI_API);
   assert.equal(stage.personalApiBase, STAGE_PERSONAL_API);
@@ -153,7 +156,7 @@ test("stage parity preserves production data and every flag while routing execut
   assert.equal(stage.stravaRedirectUri, source.stravaRedirectUri);
   assert.equal(source.appEnvironment, "production");
   const env = stageProductionParityBuildEnv(source);
-  assert.equal(env.VITE_MODE, "stage");
+  assert.equal(env.VITE_MODE, "production");
   assert.equal(env.VITE_FIREBASE_FUNCTIONS_BASE, STAGE_FUNCTIONS);
   assert.equal(env.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED, "true");
   assert.equal(env.VITE_ACTIVITY_SUBSCRIPTIONS_ENABLED, "true");
@@ -170,7 +173,51 @@ test("stage parity runtime writer ignores conflicting local and production route
       env: { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source, VITE_MODE: "production", VITE_FIREBASE_FUNCTIONS_BASE: "https://evil.example" }, stdio: "pipe",
     });
     assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), stageProductionParityConfig(productionFixture()));
+    for (const conflicting of [{ env: { PRODUCTION_RUNTIME_CONFIG_PATH: source }, args: [] }, { env: {}, args: ["--production-source", source] }]) {
+      assert.throws(() => execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output, ...conflicting.args], {
+        env: { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source, ...conflicting.env }, stdio: "pipe",
+      }), /mutually exclusive/);
+    }
   } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("parity source attestation rejects modified entry HTML and untracked build inputs before reading cloud state", () => {
+  const directory = mkdtempSync(join(tmpdir(), "orider-stage-source-"));
+  try {
+    const git = args => execFileSync("git", ["-c", "core.hooksPath=/dev/null", ...args], { cwd: directory, encoding: "utf8", stdio: "pipe" });
+    git(["init"]); writeFileSync(join(directory, "index.html"), "production entry"); git(["add", "."]);
+    git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "fixture"]);
+    const sha = git(["rev-parse", "HEAD"]).trim();
+    const run = () => execFileSync(process.execPath, [join(process.cwd(), "scripts/prepare-stage-production-parity.mjs"), "--source-sha", sha, "--out", join(directory, "output")], { cwd: directory, stdio: "pipe" });
+    writeFileSync(join(directory, "index.html"), "unreleased entry");
+    assert.throws(run, /application source differs.*index.html/s);
+    git(["checkout", "--", "index.html"]); writeFileSync(join(directory, "injected.js"), "unreleased input");
+    assert.throws(run, /untracked build inputs.*injected.js/s);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("parity runtime binds live bytes to a successful production SHA and unchanged Hosting version", async () => {
+  const sha = "a".repeat(40), runtime = JSON.stringify(productionFixture()), html = '<script src="/assets/index-fixture.js"></script>', asset = "production bundle";
+  const files = { "/runtime-config.json": runtime, "/index.html": html, "/assets/index-fixture.js": asset };
+  const release = { version: "sites/miranae-orider-g1/versions/abc", releaseTime: "2026-11-17T00:01:00Z",
+    fileHashes: Object.fromEntries(Object.entries(files).map(([path, bytes]) => [path, createHash("sha256").update(gzipSync(bytes, { level: 9 })).digest("hex")])) };
+  const deployment = { sourceSha: sha, startedAt: "2026-11-17T00:00:00Z", succeededAt: "2026-11-17T00:02:00Z" };
+  const options = { readRelease: async () => release, readDeployment: async () => deployment,
+    readFile: async path => ({ raw: gzipSync(files[path], { level: 9 }), body: Buffer.from(files[path]) }) };
+  const actual = await readPinnedProductionRuntime(sha, options);
+  assert.deepEqual(actual.source, productionFixture()); assert.equal(actual.release.version, release.version);
+  await assert.rejects(readPinnedProductionRuntime("b".repeat(40), options), /does not bind/);
+  await assert.rejects(readPinnedProductionRuntime(sha, { ...options, readFile: async () => ({ raw: Buffer.from("{}"), body: Buffer.from("{}") }) }), /pinned Hosting version|entry missing/);
+  let calls = 0;
+  await assert.rejects(readPinnedProductionRuntime(sha, { ...options, readRelease: async () => ++calls === 1 ? release : { ...release, version: "other" } }), /Hosting changed/);
+  const original = console.error, events = [];
+  console.error = value => events.push(JSON.parse(value));
+  try {
+    await assert.rejects(checkedJsonFetch("read-production-runtime-config", "https://orider.co.kr/runtime-config.json", {}, async () => { throw new TypeError("network unavailable"); }), /read-production-runtime-config failed/);
+    await assert.rejects(checkedJsonFetch("read-production-runtime-config", "https://orider.co.kr/runtime-config.json", {}, async () => new Response("invalid json")), /read-production-runtime-config failed/);
+    assert.equal(events.length, 2); assert.ok(events.every(event => event.operation === "read-production-runtime-config" && event.target === "https://orider.co.kr/runtime-config.json"));
+    assert.ok(events.every(event => !Object.keys(event).some(key => /token|header|body/i.test(key))));
+  } finally { console.error = original; }
 });
 
 test("pins production read/write routes and all flags through runtime writer despite conflicting stage env", () => {

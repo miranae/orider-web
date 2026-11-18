@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
 import { auth, getAppCheckToken } from "./firebase";
-import { resetRuntimeConfigForTests } from "./runtimeConfig";
+import { resetRuntimeConfigForTests, STAGE_PARITY_GATEWAY } from "./runtimeConfig";
 import {
   createPersonalApiKey,
   getActivityStreams,
@@ -185,4 +185,16 @@ it("does not dispatch a protected stage request without a token", async () => {
   await expect(listPersonalApiKeys()).rejects.toThrow("app-check/empty-token");
   expect(fetchMock).not.toHaveBeenCalled();
   resetRuntimeConfigForTests(); vi.unstubAllGlobals();
+});
+
+it("uses the production REST stream response through parity compute with App Check", async () => {
+  resetRuntimeConfigForTests({appEnvironment:"production",deploymentProfile:"production-parity-stage",firebaseFunctionsBase:STAGE_PARITY_GATEWAY,personalApiBase:STAGE_PARITY_GATEWAY});
+  mockAuth.currentUser={uid:"owner",getIdToken:vi.fn(async()=>"id")};
+  vi.mocked(getAppCheckToken).mockReset().mockResolvedValue("parity-app-check");
+  const streams={time:[0,1],watts:[100,110]};
+  const fetchMock=vi.fn(async()=>responseJson({data:streams}));vi.stubGlobal("fetch",fetchMock);
+  try {
+    expect(await getActivityStreams("activity-1")).toEqual(streams);
+    expect(fetchMock).toHaveBeenCalledWith(`${STAGE_PARITY_GATEWAY}/api/v1/activities/activity-1/streams`,expect.objectContaining({headers:expect.objectContaining({"X-Firebase-AppCheck":"parity-app-check",Authorization:"Bearer id"})}));
+  } finally {resetRuntimeConfigForTests({});vi.unstubAllGlobals();}
 });
