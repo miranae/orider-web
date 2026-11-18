@@ -8,6 +8,7 @@ import { routeFixtureActivity, routeFixtureStreams } from "../../e2e/fixtures/ro
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
+import { simulateTokenChange } from "../__tests__/mocks/firebase";
 
 const mapErrors = vi.hoisted(() => vi.fn());
 vi.mock("../services/errorLogger", async importOriginal => ({ ...await importOriginal<typeof import("../services/errorLogger")>(), logClientError: mapErrors }));
@@ -761,6 +762,19 @@ describe("RouteMap", () => {
     expect(screen.getByTestId("mock-map")).toBe(firstMap);
   });
 
+  it("recreates the map after the SDK reuses the signed-in user for a new session", () => {
+    const user = { uid: "viewer", metadata: { lastSignInTime: "before" } };
+    const services = { auth: { currentUser: user } } as unknown as FirebaseServices;
+    renderWithProviders(<FirebaseServicesProvider services={services}><RouteMap latlng={[[37, 127], [38, 128]]} /></FirebaseServicesProvider>);
+    const oldMap = screen.getByTestId("mock-map");
+    user.metadata.lastSignInTime = "after";
+    act(() => simulateTokenChange(services.auth));
+    const currentMap = screen.getByTestId("mock-map");
+    expect(currentMap).not.toBe(oldMap);
+    fireEvent.click(oldMap);
+    expect(currentMap).toBeInTheDocument();
+  });
+
   it("fits the emitted dateline edge at exactly 180 degrees", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
@@ -810,11 +824,14 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150, 60], [150, 60]]);
   });
 
-  it("shows a selected photo point on the static map without recorded GPS", () => {
+  it("retains the saved route image while the unprojectable photo point has no coordinates to anchor it", () => {
     renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
     fireEvent.click(screen.getByTestId("mock-map"));
+    const savedImage = screen.getByRole("img");
+    expect(savedImage).toHaveAttribute("src", "https://example.test/thumb.png");
+    expect(document.querySelector("circle[data-route-static-selection]")).not.toBeInTheDocument();
+    fireEvent.error(savedImage);
     expect(document.querySelector("circle[data-route-static-selection]")).toBeInTheDocument();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
   it("reports a late SDK error without replacing the current route", () => {

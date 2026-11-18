@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { createInstance } from "i18next";
 import { getMapboxToken } from "../../src/utils/mapbox";
 import { resetRuntimeConfigForTests } from "../../src/services/runtimeConfig";
-import { logClientError } from "../../src/services/errorLogger";
+import { debugLog } from "../../src/services/errorLogger";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { ActivityMediaPanel } from "../../src/features/activity/detail/ActivityMediaPanel";
 import { ErrorBoundary } from "../../src/components/ErrorBoundary";
@@ -41,17 +41,23 @@ try {
   resetRuntimeConfigForTests({ mapboxToken: "mapboxToken" in remote ? remote.mapboxToken as string : undefined });
 } catch (error) {
   fixtureConfigFailure = true;
-  logClientError("RouteSensorExpansionFixture.config", new Error("fixture/runtime-config-unavailable"), {stage:configStage,status:configStatus,reason:error instanceof DOMException && /AbortError|TimeoutError/.test(error.name) ? "timeout" : configStage});
+  debugLog("RouteSensorExpansionFixture.config", {
+    message: "fixture/runtime-config-unavailable",
+    stage: configStage, status: configStatus,
+    reason: error instanceof DOMException && /AbortError|TimeoutError/.test(error.name) ? "timeout" : configStage,
+  });
 }
 const fixtureMapAvailable = Boolean(getMapboxToken());
-if (!fixtureMapAvailable) logClientError("RouteSensorExpansionFixture.config", new Error("fixture/mapbox-token-unavailable"), {stage:"runtime_config", mode:"static_fallback"});
+if (!fixtureMapAvailable) debugLog("RouteSensorExpansionFixture.config", {
+  message: "fixture/mapbox-token-unavailable", stage: "runtime_config", mode: "static_fallback",
+});
 const fixtureI18n = createInstance();
 await new Promise<void>((resolve, reject) => {
   void fixtureI18n.init({ lng: "ko", fallbackLng: "ko", ns: ["common", "activity"], defaultNS: "common",
     resources: { ko: { common, activity } }, interpolation: { escapeValue: false } }, error => {
     if (error) {
       const failure = new Error("fixture/i18n-resources-unavailable");
-      logClientError("RouteSensorExpansionFixture.i18n", failure);
+      debugLog("RouteSensorExpansionFixture.i18n", { message: failure.message });
       reject(failure);
     } else resolve();
   });

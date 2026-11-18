@@ -241,7 +241,8 @@ export function RouteMapFallback({
     });
   }, [positions, segmentStarts, pointsOnly, startIndex, endIndex, selectedLatitude, selectedLongitude, sample]);
   const hasSelection = Boolean(selectionPath || selectionPoints.length);
-  if (imageUrl && failedImage !== currentScope && !hasSelection) {
+  // An image without recorded coordinates has no projection for a photo pin.
+  if (imageUrl && failedImage !== currentScope && (!hasSelection || (!path && points.length === 0))) {
     return (
       <div className={containerClass} style={{ background: "var(--bg-1)" }}>
         <img
@@ -577,10 +578,12 @@ export default function RouteMap({
   const bounds = cameraIntent.current.full && recordedBounds ? recordedBounds : routeBounds ?? standaloneBounds ?? pointBounds;
   const fullRouteBounds = recordedBounds ?? bounds;
   const routeBoundsKey = recordedBounds?.flat().join(",") ?? "";
-  const mapInstance = useRef({ routeBoundsKey, firebaseServices, mapViewer, generation: 0 });
+  const mapInstance = useRef({ routeBoundsKey, firebaseServices, mapViewer, mapSignedInAt, mapTokenVersion, generation: 0 });
   const previousMap = mapInstance.current;
-  if (previousMap.routeBoundsKey !== routeBoundsKey || previousMap.firebaseServices !== firebaseServices || previousMap.mapViewer !== mapViewer) {
-    mapInstance.current = { routeBoundsKey, firebaseServices, mapViewer, generation: previousMap.generation + 1 };
+  if (previousMap.routeBoundsKey !== routeBoundsKey || previousMap.firebaseServices !== firebaseServices
+    || previousMap.mapViewer !== mapViewer || previousMap.mapSignedInAt !== mapSignedInAt
+    || previousMap.mapTokenVersion !== mapTokenVersion) {
+    mapInstance.current = { routeBoundsKey, firebaseServices, mapViewer, mapSignedInAt, mapTokenVersion, generation: previousMap.generation + 1 };
   }
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
