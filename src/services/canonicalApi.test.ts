@@ -10,7 +10,7 @@ vi.mock("./firebase", () => ({
   ensureAppCheckReady,
   getAppCheckToken,
 }));
-vi.mock("./runtimeConfig", () => ({
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(),
   getRuntimeConfig: () => runtimeConfig,
 }));
 

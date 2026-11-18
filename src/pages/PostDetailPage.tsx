@@ -141,7 +141,7 @@ const PostDetailPage: React.FC = () => {
     if (!user || !post || user.uid === post.userId) return;
     if (!(await dialog.confirm(t("block.confirm", { nickname: post.nickname }), { destructive: true }))) return;
     try {
-      await setBoardAuthorBlocked(post.userId, true, firebaseServices.functions);
+      await setBoardAuthorBlocked(post.userId, true, firebaseServices);
       showToast(t("block.done", { nickname: post.nickname }));
       navigate(boardReturnTo, { replace: true });
     } catch {
