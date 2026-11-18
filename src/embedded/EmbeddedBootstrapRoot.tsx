@@ -694,7 +694,7 @@ export default function EmbeddedBootstrapRoot({
     try {
       bridge.send(type, payload, requestId);
     } catch {
-      // Native transport availability is non-sensitive; never log message payloads.
+      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type });
     }
   }, [bridge]);
 
@@ -1227,6 +1227,9 @@ export default function EmbeddedBootstrapRoot({
   }, [handleTrainingSurfaceReady, surfaceSelection]);
 
   // 단일 현재 표면만 유지한다. 다른 표면·계정 전환은 기존 교체 경계를 따른다.
+  const sdkViewer = services.auth.currentUser;
+  const approvedSession = sessionAccepted.current && sdkViewer?.isAnonymous !== true
+    && (sdkViewer?.uid ?? null) === acceptedUid.current;
 
   return (
     <div
@@ -1235,12 +1238,12 @@ export default function EmbeddedBootstrapRoot({
       data-testid="embedded-bootstrap-root"
       onClickCapture={handleNavigation}
     >
-      {session && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
+      {session && approvedSession && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
         <RetainedSurfaceActivity foreground={hostForeground}
           contentVisible={isStandaloneSurfaceKind(surfaceKind) || selectedTrainingSurface !== null}
           scrollKey={surfaceScrollKey}>
         <AuthorizedSurface
-          key={services.auth.currentUser?.uid ?? "signed-out"}
+          key={sdkViewer?.uid ?? "signed-out"}
           activityId={activityId}
           bridge={bridge}
           mountedTrainingSurface={isStandaloneSurfaceKind(surfaceKind) ? null : surfaceSelection.mounted}

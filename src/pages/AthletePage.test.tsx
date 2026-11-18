@@ -3,6 +3,7 @@ import enAthlete from "../i18n/resources/en/athlete.json";
 import { httpsCallable } from "firebase/functions";
 import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import * as errorLogger from "../services/errorLogger";
+import * as sentry from "../services/sentry";
 import { installActivityQueryFake } from "../__tests__/fixtures/activityQueryFake";
 import { getDoc, getDocs, onSnapshot } from "firebase/firestore";
 import { auth } from "../services/firebase";
@@ -825,11 +826,14 @@ it("records a real public request failure after unmount without updating abandon
   setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
   setCallableImplementation("getPublicAthleteTotals", () => new Promise((_, fail) => { reject = fail; }));
   const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+  const capture = vi.spyOn(sentry, "captureError").mockImplementation(() => {});
   const view = renderWithProviders(<AthletePage />);
   await waitFor(() => expect(reject).toBeTypeOf("function"));
   view.unmount();
   await act(async () => { reject(failure); await Promise.resolve(); });
-  expect(log).toHaveBeenCalledWith("AthletePage.publicTotals", failure, {}, expect.anything());
+  expect(capture).toHaveBeenCalledWith(failure, { tags: { source: "AthletePage.publicTotals" } });
+  expect(log).not.toHaveBeenCalledWith("AthletePage.publicTotals", expect.anything(), expect.anything(), expect.anything());
+  capture.mockRestore();
   log.mockRestore();
 });
 it("does not use whole-history count as the remaining authorized list count", async () => {

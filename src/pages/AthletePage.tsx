@@ -24,6 +24,7 @@ import { useTranslation } from "react-i18next";
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
 import { logClientError } from "../services/errorLogger";
+import { captureError } from "../services/sentry";
 import { useDocument } from "../hooks/useFirestore";
 import { useMyGroups } from "../hooks/useGroup";
 import { cancelFriendRequest, sendFriendRequest } from "../hooks/useFriends";
@@ -139,6 +140,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   useEffect(() => {
     const online = () => setNetworkOnline(true), offline = () => setNetworkOnline(false);
     window.addEventListener("online", online); window.addEventListener("offline", offline);
+    setNetworkOnline(navigator.onLine);
     return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
   }, []);
   const location = useLocation();
@@ -275,9 +277,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     let expiry: ReturnType<typeof setTimeout> | undefined;
     setPublicTotals(null); setPublicTotalsError(false); setPublicTotalsExpired(false);
     if (isOwnProfile || !userId || !sessionAuthorized || !networkOnline) return;
-    void loadPublicAthleteTotals(services, userId, () => !cancelled && publicTotalsScopeRef.current === publicTotalsScope)
+    const current = () => !cancelled && publicTotalsScopeRef.current === publicTotalsScope && services.auth.currentUser === readIdentity.viewer;
+    void loadPublicAthleteTotals(services, userId, current)
       .then(value => {
-        if (cancelled || publicTotalsScopeRef.current !== publicTotalsScope) return;
+        if (!current()) return;
         // Values always come from a fresh server-authorized callable, never a cached Firestore snapshot.
         // Like existing public detail reads, authorization is checked at read time (P3).
         setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, readAt: Date.now(), value });
@@ -287,8 +290,13 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         }, 60_000);
       })
       .catch(error => {
-        if (!(error instanceof Error && error.message === "athlete-profile-session-changed")) logClientError("AthletePage.publicTotals", error, {}, services);
-        if (!cancelled) setPublicTotalsError(true);
+        if (error instanceof Error && error.message === "athlete-profile-session-changed") return;
+        if (!current()) {
+          captureError(error, { tags: { source: "AthletePage.publicTotals" } });
+          return;
+        }
+        logClientError("AthletePage.publicTotals", error, {}, services);
+        setPublicTotalsError(true);
       });
     return () => { cancelled = true; clearTimeout(expiry); };
   }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, currentSignals, sessionAuthorized, networkOnline]);
@@ -619,7 +627,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     setActivityReadError(false);
     const identity = profileReadIdentity.current;
     const generation = activityGeneration.current;
-    const current = () => profileReadIdentity.current === identity && activityGeneration.current === generation;
+    const current = () => profileReadIdentity.current === identity && activityGeneration.current === generation && services.auth.currentUser === identity.viewer;
     try {
       if (!isOwnProfile) {
         const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, limit: 20, ...(publicActivityCursor ? { cursor: publicActivityCursor } : {}) });
@@ -642,8 +650,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
       setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
     } catch (err) {
-      logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile }, services);
       if (current()) {
+        logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile }, services);
         setActivityReadError(true);
         if (!isOwnProfile) { setDisplayActivities([]); setPublicActivityCursor(null); setHasMoreActivities(false); }
       }
