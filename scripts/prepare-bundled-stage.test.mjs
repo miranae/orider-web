@@ -28,7 +28,7 @@ function fixture() {
   const fetcher = async (url, options) => {
     calls.push(url);
     if (url === "https://orider.co.kr/runtime-config.json") return Response.json(source);
-    if (url.endsWith("/healthz")) return Response.json(health);
+    if (url.endsWith("/readyz")) return Response.json(health);
     if (/\/oriderReadinessMissing[a-f0-9]+$/u.test(url)) return Response.json({ error: "unknown-bundle-function" }, { status: 404 });
     if (/\/(getActivityDiscovery|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider-dev.web.app", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": "https://orider-dev.web.app" } });
     if (url.endsWith("/api/v1/profile")) return Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 });
@@ -191,7 +191,7 @@ test("null development health identifies the gateway instead of throwing an unsc
   const f = fixture();
   try {
     f.setHealth(null);
-    await assert.rejects(f.prepare(), /source\/topology mismatch at https:\/\/dev-bundle-default-api-818364001341.asia-northeast3.run.app\/healthz/);
+    await assert.rejects(f.prepare(), /source\/topology mismatch at https:\/\/dev-bundle-default-api-818364001341.asia-northeast3.run.app\/readyz/);
   } finally { f.cleanup(); }
 });
 

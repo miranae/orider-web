@@ -39,10 +39,10 @@ async function requestJson(url, fetcher) {
 }
 async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
   if (!SHA.test(sourceSha || "")) throw new Error("bundled development backend source SHA required");
-  const health = await requestJson(`${runtime.firebaseFunctionsBase}/healthz`, fetcher);
+  const health = await requestJson(`${runtime.firebaseFunctionsBase}/readyz`, fetcher);
   if (!health || typeof health !== "object" || Array.isArray(health) || health.status !== "ok" || health.sourceSha !== sourceSha || health.exposure !== "public"
     || typeof health.topologyHash !== "string" || !/^[a-f0-9]{64}$/u.test(health.topologyHash) || topologyHash && health.topologyHash !== topologyHash) {
-    throw new Error(`bundled development backend source/topology mismatch at ${runtime.firebaseFunctionsBase}/healthz`);
+    throw new Error(`bundled development backend source/topology mismatch at ${runtime.firebaseFunctionsBase}/readyz`);
   }
   return health.topologyHash;
 }
