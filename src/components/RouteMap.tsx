@@ -133,19 +133,30 @@ function useMapMounted() {
   return mounted;
 }
 
+function useImageSignIn(services: ReturnType<typeof useFirebaseServices>) {
+  const [, notify] = useState(0);
+  useEffect(() => {
+    if (services.auth) return observeFirebaseSignIn(services.auth, () => notify(version => version + 1));
+  }, [services.auth]);
+  return services.auth?.currentUser?.metadata?.lastSignInTime;
+}
+
 function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { photo: PhotoMarker; style: CSSProperties; retryable?: boolean; onRetry?: () => void }) {
   const { t } = useTranslation("activity");
   const services = useFirebaseServices();
   const viewer = services.auth?.currentUser;
+  const signedInAt = useImageSignIn(services);
   const mounted = useMapMounted();
-  const scope = useRef({ services, viewer, generation: 0 });
-  if (scope.current.services !== services || scope.current.viewer !== viewer) scope.current = { services, viewer, generation: scope.current.generation + 1 };
+  const scope = useRef({ services, viewer, signedInAt, generation: 0 });
+  if (scope.current.services !== services || scope.current.viewer !== viewer || scope.current.signedInAt !== signedInAt)
+    scope.current = { services, viewer, signedInAt, generation: scope.current.generation + 1 };
   const currentScope = scope.current;
   const [failedFor, setFailedFor] = useState<typeof currentScope | null>(null);
   const logged = useRef(new WeakSet<typeof currentScope>());
   const failed = failedFor === currentScope;
   const onError = () => {
-    const isCurrent = () => mounted.current && scope.current === currentScope && services.auth?.currentUser === viewer;
+    const isCurrent = () => mounted.current && scope.current === currentScope && services.auth?.currentUser === viewer
+              && services.auth?.currentUser?.metadata?.lastSignInTime === signedInAt;
     if (isCurrent()) setFailedFor(currentScope);
     if (logged.current.has(currentScope)) return;
     logged.current.add(currentScope);
@@ -189,10 +200,11 @@ export function RouteMapFallback({
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
   const services = useFirebaseServices();
   const viewer = services.auth?.currentUser;
+  const signedInAt = useImageSignIn(services);
   const mounted = useMapMounted();
-  const scope = useRef({ services, viewer, imageUrl, generation: 0 });
-  if (scope.current.services !== services || scope.current.viewer !== viewer || scope.current.imageUrl !== imageUrl) {
-    scope.current = { services, viewer, imageUrl, generation: scope.current.generation + 1 };
+  const scope = useRef({ services, viewer, signedInAt, imageUrl, generation: 0 });
+  if (scope.current.services !== services || scope.current.viewer !== viewer || scope.current.signedInAt !== signedInAt || scope.current.imageUrl !== imageUrl) {
+    scope.current = { services, viewer, signedInAt, imageUrl, generation: scope.current.generation + 1 };
   }
   const currentScope = scope.current;
   const [failedImage, setFailedImage] = useState<typeof currentScope | null>(null);
@@ -239,7 +251,8 @@ export function RouteMapFallback({
           className="h-full w-full object-cover"
           loading="lazy"
           onError={() => {
-            const isCurrent = () => mounted.current && scope.current === currentScope && services.auth?.currentUser === viewer;
+            const isCurrent = () => mounted.current && scope.current === currentScope && services.auth?.currentUser === viewer
+              && services.auth?.currentUser?.metadata?.lastSignInTime === signedInAt;
             if (isCurrent()) setFailedImage(currentScope);
             if (loggedImage.current.has(currentScope)) return;
             loggedImage.current.add(currentScope);
@@ -341,8 +354,9 @@ function RouteCameraControls({ bounds, navigationBounds, autoFitKey, disabled, p
   }} /> : null;
 }
 
-function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition, fullPadding, fullRouteRequested, rangeAfterPhoto }: {
+function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition, fullPadding, fullRouteRequested, rangeAfterPhoto, rangesFollowDisplayedRoute }: {
   positions: RouteSlot[];
+  rangesFollowDisplayedRoute: boolean;
   segmentStarts: readonly number[];
   range: { startIndex: number; endIndex: number; requestId?: number } | null | undefined;
   fullBounds: LngLatBoundsLike;
@@ -373,7 +387,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
     if (range) {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
-      if (positions.length > 1 && lo === 0 && hi === positions.length - 1) {
+      if (rangesFollowDisplayedRoute && positions.length > 1 && lo === 0 && hi === positions.length - 1) {
         map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
         prevRange.current = range;
         return;
@@ -388,7 +402,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevRange.current = null;
     }
-  }, [map, positions, segmentStarts, range, fullBounds, photoPosition, fullPadding, fullRouteRequested, rangeAfterPhoto]);
+  }, [map, positions, segmentStarts, range, fullBounds, photoPosition, fullPadding, fullRouteRequested, rangeAfterPhoto, rangesFollowDisplayedRoute]);
 
   return null;
 }
@@ -935,7 +949,7 @@ export default function RouteMap({
         <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds}
           autoFitKey={JSON.stringify(recordedBounds ?? bounds)} disabled={(isRoutePosition(flyToPosition) || (!drawable && isRoutePosition(selectedPoint))) && !cameraIntent.current.full}
           padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />
-        <FlyToSegmentRange positions={mapRangeSlots} segmentStarts={segmentStarts} range={flyToRange} fullBounds={fullRouteBounds ?? bounds}
+        <FlyToSegmentRange rangesFollowDisplayedRoute={!streamFallback} positions={mapRangeSlots} segmentStarts={segmentStarts} range={flyToRange} fullBounds={fullRouteBounds ?? bounds}
           photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full}
           rangeAfterPhoto={cameraIntent.current.rangeAfterPhoto} />
         {flyToPosition !== undefined && (

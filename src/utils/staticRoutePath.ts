@@ -1,4 +1,4 @@
-import { unwrapLongitudeNear, isRoutePosition, routeSlots, drawableRouteSlots, type RouteSlot } from "./routeGeometry";
+import { unwrapLongitudeNear, isRoutePosition, routeSlots, drawableRouteSlots, projectRouteSlots, type RouteSlot } from "./routeGeometry";
 
 type Pixel = [number, number];
 type Range = { startIndex: number; endIndex: number };
@@ -23,16 +23,13 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
   const hasLine = lines.some(isRoutePosition);
   const selectedIndex = range && Number.isInteger(range.startIndex) && range.startIndex === range.endIndex ? range.startIndex : null;
   const starts = new Set(segmentStarts);
-  let previousLongitude: number | null = null;
-  const project = (coordinate: unknown, followsRoute: boolean) => {
-    if (!isRoutePosition(coordinate)) return null;
-    const latitude = Math.max(-85.0511, Math.min(85.0511, coordinate[0]));
-    let longitude = coordinate[1];
-    if (previousLongitude !== null) longitude = unwrapLongitudeNear(longitude, previousLongitude);
-    if (followsRoute) previousLongitude = longitude;
-    return [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))] as const;
+  const worldSlots = projectRouteSlots(normalized, pointsOnly ? normalized.map((_, index) => index) : segmentStarts);
+  const project = (point: RouteSlot) => {
+    if (!point) return null;
+    const latitude = Math.max(-85.0511, Math.min(85.0511, point[0]));
+    return [point[1] * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))] as const;
   };
-  const projected = Array.from(hasLine ? lines : normalized, point => project(point, true));
+  const projected = worldSlots.map((point, index) => project(!hasLine || lines[index] ? point : null));
   const selectedEdges = new Set<number>();
   if (hasLine && range && Number.isInteger(range.startIndex) && Number.isInteger(range.endIndex)) {
     let start = Math.max(0, Math.min(range.startIndex, range.endIndex));
@@ -42,11 +39,14 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
     if (start <= end) {
       for (const index of [start, end]) {
         selectedEdges.add(index);
-        if (!projected[index]) projected[index] = project(normalized[index], false);
+        if (!projected[index]) projected[index] = project(worldSlots[index] ?? null);
       }
     }
   }
-  const selectedProjected = project(selectedPosition, false);
+  const reference = worldSlots.find(point => point !== null)?.[1];
+  const selectedProjected = isRoutePosition(selectedPosition) ? project([
+    selectedPosition[0], reference === undefined ? selectedPosition[1] : unwrapLongitudeNear(selectedPosition[1], reference),
+  ]) : null;
   let count = 0, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const point of projected) {
     if (!point) continue;

@@ -802,6 +802,14 @@ describe("RouteMap", () => {
     expect(view.container.querySelector("img")).toBeNull();
   });
 
+  it("fits a full raw selection around its measured point when using a thumbnail line", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap polyline="37,127;37.01,127" latlng={[[60, 150], null] as unknown as [number, number][]}
+      flyToRange={{ startIndex: 0, endIndex: 1 }} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150, 60], [150, 60]]);
+  });
+
   it("shows a selected photo point on the static map without recorded GPS", () => {
     renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
     fireEvent.click(screen.getByTestId("mock-map"));
