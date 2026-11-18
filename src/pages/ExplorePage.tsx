@@ -16,6 +16,7 @@ import ExplorationGridLayer from "../components/explore/ExplorationGridLayer";
 import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
+import { isEnterSubmit } from "../utils/isEnterSubmit";
 import { decodePolyline } from "../utils/polyline";
 import { isImplausibleSegmentElevation } from "../utils/activitySanity";
 import { fetchStaticJson } from "../utils/staticJson";
@@ -561,7 +562,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
 
   const handleSearch = () => setSearchQuery(inputValue.trim());
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (isEnterSubmit(e.nativeEvent)) handleSearch();
   };
   // 실시간 검색(#488) — 입력 디바운스 250ms 로 검색어 반영(Enter/버튼은 즉시).
   useEffect(() => {
@@ -746,7 +747,8 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
               </svg>
             </button>
             <Input data-testid="E2-2-1"
-              type="text"
+              type="search"
+              enterKeyHint="search"
               aria-label={t("search.label")}
               placeholder={t("search.placeholder")}
               value={inputValue}
