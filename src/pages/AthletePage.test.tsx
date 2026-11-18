@@ -56,6 +56,12 @@ beforeEach(() => {
   setCallableResult("getAthleteProfilePreview", { data: { items: [], scope: "recent", complete: true, nextCursor: null } });
 });
 
+it("keeps a fractional kilometer in the public lifetime distance", async () => {
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 1, distance: 400 }) });
+  renderWithProviders(<AthletePage />);
+  await waitFor(() => expect(screen.getByTestId("P0-1")).toHaveTextContent("0.4 km"));
+});
+
 describe("AthletePage", () => {
   it("검색 입력만 바뀌면 전체 이력 대표를 다시 계산하지 않는다", async () => {
     const acceptance = vi.spyOn(activityAcceptance, "acceptedPhysicalActivities");
