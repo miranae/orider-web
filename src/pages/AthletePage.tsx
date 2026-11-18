@@ -15,7 +15,7 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
   collection, query, where, orderBy, getDocs, limit, startAfter,
-  doc, getDoc,
+  doc, getDoc, onSnapshot,
   type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -151,7 +151,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const isOwnProfile = currentUser?.uid === userId && services.auth.currentUser?.uid === userId;
   const { groups: ownGroups, loading: groupsLoading, error: groupsError, retry: retryGroups } = useMyGroups(isOwnProfile ? userId : undefined);
 
-  const { data: firestoreProfile, loading: profileLoading, error: profileError } = useDocument<PublicUserProfile>("users_public", userId);
+  const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
   const { pdc } = usePdc(isOwnProfile ? userId : null);
   const ownProfileFallback: PublicUserProfile | null = useMemo(() => (
     isOwnProfile && currentProfile && userId
@@ -224,10 +224,35 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       .catch(error => { if (!cancelled) { logClientError("AthletePage.ensureAthleteProfile", error, { userId }, services); setTotalsError(true); } });
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, totalsAttempt, readIdentity, liveTotals?.epoch]);
-  const accessRevision = (currentProfile as unknown as { activitySocialAccessRevision?: string } | null)?.activitySocialAccessRevision;
-  const publicTotalsScopeRef = useRef({ identity: readIdentity, accessRevision, projection: firestoreProfile, error: profileError });
-  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.accessRevision !== accessRevision || publicTotalsScopeRef.current.projection !== firestoreProfile || publicTotalsScopeRef.current.error !== profileError)
-    publicTotalsScopeRef.current = { identity: readIdentity, accessRevision, projection: firestoreProfile, error: profileError };
+  type TotalsSignal = { present: boolean; fromCache: boolean; error: boolean; revision: string };
+  const [totalsSignals, setTotalsSignals] = useState<{ identity: typeof readIdentity; public?: TotalsSignal; viewer?: TotalsSignal } | null>(null);
+  useEffect(() => {
+    if (isOwnProfile || !userId) return;
+    let active = true;
+    const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
+      doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
+        if (!active) return;
+        const revision: unknown = snapshot.data()?.[field];
+        const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "" };
+        setTotalsSignals(previous => {
+          const current = previous?.identity === readIdentity ? previous : { identity: readIdentity };
+          const prior = current[kind];
+          if (prior && prior.present === signal.present && prior.fromCache === signal.fromCache && prior.error === signal.error && prior.revision === signal.revision) return previous;
+          return { ...current, [kind]: signal };
+        });
+      }, error => {
+        logClientError("AthletePage.totalsSignal", error, { kind }, services);
+        if (active) setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity ? previous : { identity: readIdentity }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
+      });
+    const stopPublic = watch("public", "users_public", userId, "athleteTotalsSignal");
+    const viewer = services.auth.currentUser?.uid;
+    const stopViewer = viewer ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
+    return () => { active = false; stopPublic(); stopViewer?.(); };
+  }, [isOwnProfile, userId, readIdentity, services]);
+  const currentSignals = totalsSignals?.identity === readIdentity ? totalsSignals : null;
+  const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals });
+  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals)
+    publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals };
   const publicTotalsScope = publicTotalsScopeRef.current;
   const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; value: PublicAthleteTotals } | null>(null);
   const [publicTotalsError, setPublicTotalsError] = useState(false);
@@ -236,15 +261,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     let cancelled = false;
     let expiry: ReturnType<typeof setTimeout> | undefined;
     setPublicTotals(null); setPublicTotalsError(false); setPublicTotalsExpired(false);
-    if (isOwnProfile || !userId) return;
+    if (isOwnProfile || !userId || !currentSignals?.public || services.auth.currentUser && !currentSignals.viewer || currentSignals.public.fromCache || currentSignals.viewer?.fromCache) return;
     void loadPublicAthleteTotals(services, userId, () => !cancelled && publicTotalsScopeRef.current === publicTotalsScope)
       .then(value => {
         if (cancelled || publicTotalsScopeRef.current !== publicTotalsScope) return;
         setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, value });
-        // Healthy projections signal changes. Missing/failed/legacy projections need bounded re-authorization.
-        if (!firestoreProfile?.athleteTotalsSignal || profileError) expiry = setTimeout(() => {
+        // Live server snapshots revoke cached authorization on disconnection. Missing/failed signals get a one-shot lease.
+        if (!currentSignals.public!.present || currentSignals.public!.error || currentSignals.viewer?.error) expiry = setTimeout(() => {
           cancelled = true; setPublicTotals(null); setPublicTotalsExpired(true);
-          if (document.visibilityState !== "hidden") setTotalsAttempt(attempt => attempt + 1);
         }, 60_000);
       })
       .catch(error => {
@@ -252,7 +276,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         if (!cancelled) setPublicTotalsError(true);
       });
     return () => { cancelled = true; clearTimeout(expiry); };
-  }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, Boolean(profileForPage), profileForPage?.athleteTotalsSignal]);
+  }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, currentSignals]);
   useEffect(() => {
     if (isOwnProfile || !userId) return;
     const refresh = () => { if (document.visibilityState !== "hidden") setTotalsAttempt(value => value + 1); };
@@ -661,7 +685,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               });
           });
       })
-      .catch((err) => { logClientError("AthletePage.relationship", err, {}); if (active) setRelationshipError(true); })
+      .catch((err) => { logClientError("AthletePage.relationship", err, { userId, operation: "friendship-read" }, services); if (active) setRelationshipError(true); })
       .finally(() => { if (active) setRelationshipLoading(false); });
     return () => { active = false; };
   }, [currentUser, userId, services.firestore, relationshipAttempt]);

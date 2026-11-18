@@ -4,7 +4,7 @@ import { httpsCallable } from "firebase/functions";
 import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import * as errorLogger from "../services/errorLogger";
 import { installActivityQueryFake } from "../__tests__/fixtures/activityQueryFake";
-import { getDoc, getDocs } from "firebase/firestore";
+import { getDoc, getDocs, onSnapshot } from "firebase/firestore";
 import { auth } from "../services/firebase";
 import * as activityAcceptance from "../utils/estimateTSS";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -911,6 +911,8 @@ it("re-authorizes expired totals when a missing public projection cannot signal 
     setCallableImplementation("getPublicAthleteTotals", () => { throw Object.assign(new Error("deleted"), { code: "functions/not-found" }); });
     act(() => expiry[0]!());
     expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
     await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1));
     await screen.findByText("누적 기록 확인이 중단되었습니다.");
     expect(screen.queryByText("5회")).not.toBeInTheDocument();
@@ -953,4 +955,30 @@ it("invalidates both displayed totals and late responses on public projection de
   await screen.findByText("누적 기록 확인이 중단되었습니다.");
   expect(screen.queryByText("5회")).not.toBeInTheDocument();
   expect(screen.queryByText("99회")).not.toBeInTheDocument();
+});
+
+it.each(["users_public/athlete-1", "users/viewer"])("revokes cached totals on offline metadata from %s and restores them only after server revalidation", async path => {
+  setDocData("users_public/athlete-1", { nickname: "Connected rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  const updates = new Map<string, (snapshot: unknown) => void>();
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (options && typeof options === "object" && "includeMetadataChanges" in options) updates.set(ref.path, next as (snapshot: unknown) => void);
+    return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+  }) as never);
+  const timer = vi.spyOn(globalThis, "setTimeout");
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("5회");
+    expect(timer.mock.calls.filter(call => call[1] === 60_000)).toHaveLength(0);
+    const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+    const update = updates.get(path)!;
+    const snapshot = (fromCache: boolean) => ({ exists: () => true, data: () => ({ athleteTotalsSignal: "one" }), metadata: { fromCache } });
+    act(() => update(snapshot(true)));
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
+    act(() => update(snapshot(false)));
+    await screen.findByText("9회");
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1);
+  } finally { timer.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
 });
