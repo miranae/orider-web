@@ -39,6 +39,7 @@
   "identity.stamina": "Stamina",
   "identity.gearRemaining": "{{name}} service in {{distance}} km",
   "identity.gearOverdue": "{{name}} service overdue by {{distance}} km",
+  "friend.relationshipFailed": "Could not confirm the friendship status.",
   "friend.request": "Add Friend",
   "friend.requesting": "Requesting...",
   "friend.cancelRequest": "Cancel Request",
@@ -104,6 +105,7 @@
   "dateLocale": "en-US",
   "profile": {
     "identityUnavailable": "Profile information is unavailable.",
+    "totalsExpired": "Refresh to confirm the current totals.",
     "reloadTotals": "Reload cumulative records",
     "recentPhotos": "Activity photos",
     "openPhoto": "Open activity photos",

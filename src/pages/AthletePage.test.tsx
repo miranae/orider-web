@@ -894,3 +894,45 @@ it("invalidates cached and in-flight totals when the same viewer receives a bila
     expect(screen.queryByText("Based on your full activity history")).not.toBeInTheDocument();
   } finally { await act(async () => { await i18n.changeLanguage("ko"); }); }
 });
+
+it("expires displayed totals when a missing public projection cannot signal account deletion, without polling", async () => {
+  const expiry: Array<() => void> = [];
+  const original = globalThis.setTimeout;
+  const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: () => void, delay?: number, ...args: unknown[]) => {
+    if (delay === 60_000) expiry.push(callback);
+    return original(callback, delay, ...args);
+  }) as typeof setTimeout);
+  try {
+    setDocData("users_public/athlete-1", null as never);
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("5회");
+    expect(expiry).toHaveLength(1);
+    const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+    act(() => expiry[0]!());
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    expect(screen.getByText("누적 기록을 다시 확인해 주세요.")).toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+    setCallableImplementation("getPublicAthleteTotals", () => { throw Object.assign(new Error("deleted"), { code: "functions/not-found" }); });
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await screen.findByText("누적 기록 확인이 중단되었습니다.");
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+  } finally { timer.mockRestore(); }
+});
+
+it("does not offer friend writes after relationship failure and retries the failed check", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Private rider", profilePublic: false });
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let attempts = 0;
+  vi.mocked(getDoc).mockImplementation(((ref: { path?: string }) => {
+    if (ref.path === "friends/viewer/users/athlete-1" && ++attempts === 1) return Promise.reject(new Error("offline"));
+    return original(ref as never);
+  }) as never);
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    const retry = await screen.findByRole("button", { name: "친구 관계를 확인하지 못했습니다." });
+    expect(screen.queryByRole("button", { name: "친구 요청", exact: true })).not.toBeInTheDocument();
+    fireEvent.click(retry);
+    await screen.findByRole("button", { name: "친구 요청", exact: true });
+    expect(attempts).toBe(2);
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
+});

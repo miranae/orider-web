@@ -39,6 +39,7 @@
   "identity.stamina": "지구력",
   "identity.gearRemaining": "{{name}} 정비까지 {{distance}} km",
   "identity.gearOverdue": "{{name}} 정비 권장 {{distance}} km 초과",
+  "friend.relationshipFailed": "친구 관계를 확인하지 못했습니다.",
   "friend.request": "친구 요청",
   "friend.requesting": "요청 중...",
   "friend.cancelRequest": "요청 취소",
@@ -104,6 +105,7 @@
   "dateLocale": "ko-KR",
   "profile": {
     "identityUnavailable": "프로필 정보를 불러오지 못했습니다.",
+    "totalsExpired": "누적 기록을 다시 확인해 주세요.",
     "reloadTotals": "누적 기록 다시 불러오기",
     "recentPhotos": "활동 사진",
     "openPhoto": "활동 사진 보기",
