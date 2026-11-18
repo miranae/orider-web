@@ -9,12 +9,12 @@ import AthleteRecentSummary from "./AthleteRecentSummary";
 import type { AthletePeriod } from "./athleteProfilePeriods";
 import { acceptedStatsActivities } from "../../utils/estimateTSS";
 
-export default function AthletePublicPeriodExplorer({ targetUid, accessRevision }: { targetUid: string; accessRevision?: object | null }) {
+export default function AthletePublicPeriodExplorer({ targetUid }: { targetUid: string }) {
   const { t } = useTranslation("athlete"), [params, setParams] = useSearchParams();
   const today = planDayStartMs(Date.now()), defaultFrom = planDayKey(today - 27 * 86400000), defaultTo = planDayKey(today);
   const from = params.get("profileFrom") ?? defaultFrom, to = params.get("profileTo") ?? defaultTo;
   const [draftFrom, setFrom] = useState(from), [draftTo, setTo] = useState(to), [selected, setSelected] = useState<AthletePeriod | null>(null);
-  const query = useAthletePublicPeriod(targetUid, from, to, true, false, accessRevision);
+  const query = useAthletePublicPeriod(targetUid, from, to);
   const accepted = acceptedStatsActivities(query.items);
   useEffect(() => { setFrom(from); setTo(to); setSelected(null); }, [from, to, targetUid]);
   useEffect(() => { setSelected(null); }, [query.generation]);
