@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import type { Activity } from "@shared/types";
+import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
+import { logClientError } from "../services/errorLogger";
 
 export function publicPeriodBounds(from: string, to: string) {
   const start = Date.parse(`${from}T00:00:00+09:00`), last = Date.parse(`${to}T00:00:00+09:00`);
@@ -14,6 +16,8 @@ const empty = (): Result => ({ items: [], cursor: null, expiresAt: 0, authorized
 /** One explicit page per action. No public activity payload or cursor is persisted. */
 export function useAthletePublicPeriod(targetUid: string, from: string, to: string, enabled = true, global = false) {
   const services = useFirebaseServices(), auth = services.auth, sdkUser = auth.currentUser, app = auth.app;
+  const { user: hostUser } = useAuth();
+  const approvedViewer = services.scope === "embedded" ? hostUser : undefined;
   const scope = `${targetUid}|${from}|${to}|${enabled}|${global}`, generation = useRef(0), busy = useRef(false);
   const identity = useRef({ scope, services, sdkUser, app });
   const session = useRef<Result>(empty()), controller = useRef<AbortController | null>(null);
@@ -27,6 +31,8 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
   }, []);
   const read = useCallback(async (fresh = false) => {
     if (!enabled || busy.current || document.visibilityState === "hidden") return;
+    const user = auth.currentUser;
+    if (approvedViewer !== undefined && (user !== approvedViewer || user?.isAnonymous)) return;
     const bounds = publicPeriodBounds(from, to);
     if (!global && !bounds) return;
     if (fresh) clear();
@@ -34,7 +40,7 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
     if (previous.authorizedUntil && Date.now() >= previous.authorizedUntil) {
       clear(); session.current = { ...empty(), status: "stale" }; setState({ generation: generation.current, result: session.current }); return;
     }
-    const seq = generation.current, user = auth.currentUser;
+    const seq = generation.current;
     const current = () => seq === generation.current && identity.current.services === services && auth.currentUser === user && auth.app === app;
     if (previous.cursor && Date.now() >= previous.expiresAt) {
       session.current = { ...empty(), status: "restart" }; setState({ generation: seq, result: session.current }); return;
@@ -53,6 +59,7 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
       session.current = { items: [...items.values()], cursor: page.nextCursor, expiresAt: page.expiresAt, authorizedUntil: previous.authorizedUntil || requestedAt + 30000, pages: previous.pages + 1, status: page.exhausted ? "complete" : global && previous.pages + 1 >= 10 ? "limit" : "partial" };
     } catch (error) {
       if (!current()) return;
+      logClientError("useAthletePublicPeriod.read", error, { targetUid, global, continuation: Boolean(previous.cursor) }, services, user);
       const code = String((error as {code?: string}).code ?? (error as Error).message);
       const restart = /permission-denied|unauthenticated|not-found|failed-precondition|invalid-argument|account_changed|invalid_activity_discovery/.test(code);
       session.current = restart ? { ...empty(), status: "restart" } : { ...previous, status: "error" };
@@ -60,7 +67,7 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
       clearTimeout(deadline);
       if (current()) { busy.current = false; setState({ generation: seq, result: session.current }); }
     }
-  }, [services, auth, app, scope, targetUid, from, to, enabled, global, clear]);
+  }, [services, auth, app, scope, targetUid, from, to, enabled, global, clear, approvedViewer]);
   useEffect(() => {
     clear(); void read();
     let currentUser = auth.currentUser;

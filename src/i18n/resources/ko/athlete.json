@@ -134,6 +134,7 @@
     "continueTotals": "누적 기록 계속 확인",
     "restartTotals": "누적 기록 다시 검사",
     "totalsRestartScope": "기록의 무결성을 다시 확인합니다. 새 검사로 시작하며 한 번에 최대 100페이지를 처리합니다.",
+    "publicMediaLimit": "사진·하이라이트 탐색은 공개 기록 200개까지 지원합니다.",
     "morePublicMediaActivities": "사진·하이라이트가 있는 기록 더 찾아보기",
     "noMediaInPages": "지금까지 검사한 활동에서 표시할 항목이 없습니다.",
     "olderPhotoActivities": "사진 활동 6개 더 검사",

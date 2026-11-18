@@ -1183,8 +1183,16 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           </nav>
           {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("photos") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
           {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("highlights") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
-          {!isOwnProfile && (profileTab === "photos" || profileTab === "achievements") && publicGlobal.status === "partial" &&
-            <Button size="sm" onClick={publicGlobal.more}>{t("profile.morePublicMediaActivities")}</Button>}
+          {!isOwnProfile && (profileTab === "photos" || profileTab === "achievements") && publicGlobal.status !== "complete" &&
+            <div className="athlete-query-status">
+              {publicGlobal.status !== "partial" && <Text as="p" role="status">
+                {t(publicGlobal.status === "limit" ? "profile.publicMediaLimit" : `publicGlobal.${publicGlobal.status}`)}
+              </Text>}
+              {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("profile.morePublicMediaActivities")}</Button>}
+              {["error", "restart", "stale"].includes(publicGlobal.status) && <Button size="sm" onClick={publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>
+                {t("common:button.retry")}
+              </Button>}
+            </div>}
           {segmentsMore && <button type="button" disabled={segmentsBusy} onClick={loadMoreSegments}>{t("common:button.more")}</button>}
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
@@ -1216,6 +1224,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             {publicFiltersApplied && publicGlobal.status !== "complete" && <div className="athlete-query-status">
               <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>
               {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}
+              {["error", "restart", "stale"].includes(publicGlobal.status) && <Button size="sm" onClick={publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>
+                {t("common:button.retry")}
+              </Button>}
             </div>}
             {isSearchActive && <p className="athlete-section-note">{t("profile.searchScope")}</p>}
             {/* Search bar */}
