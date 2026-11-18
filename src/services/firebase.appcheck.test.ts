@@ -92,6 +92,21 @@ describe("ensureAppCheckReady", () => {
     };
   });
 
+  it.each(["development", "production"] as const)("initializes the main SDK factory with the explicit %s bundled gateway", async environment => {
+    const { BUNDLED_FUNCTIONS_BASES, BUNDLED_AI_BASES } = await import("./runtimeConfig");
+    const base = BUNDLED_FUNCTIONS_BASES[environment];
+    const hostname = environment === "development" ? "orider-dev.web.app" : "orider.co.kr";
+    mocks.runtimeConfig = { ...mocks.runtimeConfig, appEnvironment: "production", deploymentProfile: `bundled-${environment}`,
+      firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
+      firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878",
+      firebaseMessagingSenderId: "289663940841", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: base,
+      socialAuthFunctionsBase: base, personalApiBase: base, publicClubApiUrl: `${base}/publicClubs`, aiApiBase: BUNDLED_AI_BASES[environment] };
+    vi.stubGlobal("location", { hostname, origin: `https://${hostname}` });
+    await loadFirebase();
+    const { getFunctions } = await import("firebase/functions");
+    expect(getFunctions).toHaveBeenLastCalledWith(expect.objectContaining({ options: expect.objectContaining({ projectId: "miranae-orider-g1" }) }), base);
+  });
+
   it("isolates explicit local demo sessions without using or migrating browser persistence", async () => {
     mocks.emulatorRuntime = true; mocks.runtimeConfig.firebaseProjectId = "demo-isolated-review";
     const authSdk = await import("firebase/auth"), firestoreSdk = await import("firebase/firestore");

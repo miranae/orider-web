@@ -1,11 +1,21 @@
 name: Deploy (Hosting → stage)
 
-# 개발 코드는 orider-dev Hosting에 배포하며 데이터·기능 기본값은 현재 운영 snapshot을 사용한다.
+# dev 브랜치 통합과 개발 서버 배포를 분리한다. 선택한 소스와 backend만 수동으로 배포한다.
 on:
-  push:
-    branches:
-      - dev
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Reviewed branch/SHA with selected transport tooling (resolved and pinned before building)
+        required: true
+        default: main
+      transport:
+        description: Development transport profile
+        type: choice
+        options: [bundled-development, legacy]
+        default: bundled-development
+      backend_source_sha:
+        description: Validated bundled backend full SHA (required for bundled-development)
+        required: false
 
 permissions:
   contents: read
@@ -13,47 +23,84 @@ permissions:
 
 concurrency:
   group: deploy-hosting-stage
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy-stage:
-    # 수동 실행도 dev로 제한하고 일회성 GitHub 러너를 사용한다.
-    if: github.ref == 'refs/heads/dev'
-    # dev 코드를 운영 전용 러너에서 실행하지 않는다.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: stage
     env:
       VITE_MODE: production
-      # 개발 Hosting도 운영 데이터다. 공개 GET endpoint만 명시적으로 준비한다.
+      STAGE_FIREBASE_PROJECT_ID: orider-dev
+      ORIDER_STAGE_HOSTING_SERIALIZED_WRITES: ${{ vars.ORIDER_STAGE_HOSTING_SERIALIZED_WRITES }}
       VITE_PUBLIC_CLUB_API_URL: ${{ vars.VITE_PUBLIC_CLUB_API_URL }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           package-manager-cache: false
-      - name: Set production runtime snapshot path
+      - name: Pin selected frontend source
+        id: source
+        env:
+          REQUESTED_SOURCE: ${{ inputs.source_ref }}
+          SELECTED_TRANSPORT: ${{ inputs.transport }}
+          BACKEND_SOURCE: ${{ inputs.backend_source_sha }}
+        run: |
+          set -euo pipefail
+          node -e 'if(!/^[A-Za-z0-9._/-]+$/.test(process.env.REQUESTED_SOURCE||"")||!["legacy","bundled-development"].includes(process.env.SELECTED_TRANSPORT))throw Error("invalid selected source/profile");if(process.env.SELECTED_TRANSPORT==="bundled-development"&&!/^[a-f0-9]{40}$/.test(process.env.BACKEND_SOURCE||""))throw Error("validated backend full SHA required");'
+          if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then
+            echo "::error::Development Hosting requires ORIDER_STAGE_HOSTING_SERIALIZED_WRITES=true and serialized CI as the only supported live writer"; exit 1
+          fi
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main +refs/heads/dev:refs/remotes/origin/dev
+          selected_sha=$(git rev-parse HEAD)
+          if ! git merge-base --is-ancestor "$selected_sha" origin/main && ! git merge-base --is-ancestor "$selected_sha" origin/dev; then
+            echo "::error::Selected frontend source $selected_sha must be an ancestor of reviewed origin/main or origin/dev"; exit 1
+          fi
+          if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
+            for required in scripts/prepare-bundled-stage.mjs scripts/lib/bundled-callable-probe.mjs scripts/bundled-stage-hosting-release.mjs scripts/stage-html-entry.mjs scripts/verify-bundled-hosting.mjs; do
+              if [ ! -f "$required" ]; then
+                echo "::error::Selected source $selected_sha does not support bundled transport: missing $required. Select a reviewed commit with bundled tooling or explicit legacy transport."; exit 1
+              fi
+            done
+          fi
+          echo "sha=$selected_sha" >> "$GITHUB_OUTPUT"
+      - name: Prepare bundled development runtime and Hosting pair
+        if: inputs.transport == 'bundled-development'
+        env:
+          BACKEND_SOURCE: ${{ inputs.backend_source_sha }}
+        run: node scripts/prepare-bundled-stage.mjs --phase prepare --directory "$RUNNER_TEMP/bundled-stage" --backend-source "$BACKEND_SOURCE"
+      - name: Set legacy production runtime snapshot path
+        if: inputs.transport == 'legacy'
         env:
           PRODUCTION_RUNTIME_CONFIG_PATH: ${{ runner.temp }}/orider-production-runtime-config.json
         run: echo "PRODUCTION_RUNTIME_CONFIG_PATH=$PRODUCTION_RUNTIME_CONFIG_PATH" >> "$GITHUB_ENV"
-      - name: Pin production data runtime and verify backend CORS
+      - name: Pin legacy production data runtime and verify backend CORS
+        if: inputs.transport == 'legacy'
         run: node scripts/prepare-production-data-runtime.mjs
-      - name: Verify public club API before development Hosting deployment
+      - name: Verify legacy public club API
+        if: inputs.transport == 'legacy'
         run: node scripts/verify-public-club-api.mjs --runtime "$PRODUCTION_RUNTIME_CONFIG_PATH" --origin https://orider-dev.web.app
-      - name: Check development Hosting and production data identity
-        env:
-          STAGE_FIREBASE_PROJECT_ID: ${{ vars.STAGE_FIREBASE_PROJECT_ID }}
+      - name: Check legacy development Hosting boundary
+        if: inputs.transport == 'legacy'
         run: node scripts/check-isolated-stage.mjs
       - name: Check canonical deploy flags
         run: node scripts/check-canonical-deploy-env.mjs
       - run: npm ci
       - name: Check deploy config
         run: npm run check:deploy-config
-      - name: Build
+      - name: Build selected source
         run: npm run build
-      - name: Write stage runtime config
+      - name: Write selected runtime config
         run: npm run write:runtime-config
-      - name: Auth (Workload Identity Federation)
+      - name: Seal actual bundled build artifact
+        if: inputs.transport == 'bundled-development'
+        run: node scripts/prepare-bundled-stage.mjs --phase seal
+      - name: Auth (development Hosting only)
         id: auth
         uses: google-github-actions/auth@v3
         with:
@@ -61,43 +108,106 @@ jobs:
           service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
           token_format: access_token
           create_credentials_file: true
+      - name: Snapshot development live release before publishing
+        id: hosting_snapshot
+        if: inputs.transport == 'bundled-development'
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          HOSTING_DEPLOYMENT_MARKER: bundled-stage:${{ steps.source.outputs.sha }}:${{ github.run_id }}:${{ github.run_attempt }}
+        run: node scripts/bundled-stage-hosting-release.mjs --phase snapshot --file "$RUNNER_TEMP/bundled-stage-hosting.json"
       - name: Deploy stage Hosting only
+        id: deploy
+        env:
+          SELECTED_TRANSPORT: ${{ inputs.transport }}
+          FRONTEND_SOURCE: ${{ steps.source.outputs.sha }}
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
           set -euo pipefail
+          config=firebase.stage.json
+          if [ "$SELECTED_TRANSPORT" = bundled-development ]; then config=firebase.bundled-stage.json; fi
           npm install -g firebase-tools
+          if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
+            node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/bundled-stage-hosting.json"
+          fi
           set +e
-          firebase deploy \
-            --config firebase.stage.json \
-            --only hosting \
-            --project "${{ vars.STAGE_FIREBASE_PROJECT_ID }}" \
-            --non-interactive \
-            --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-stage-deploy.log
+          firebase deploy --config "$config" --only hosting --project orider-dev --non-interactive --message "bundled-stage:${FRONTEND_SOURCE}:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT" 2>&1 | tee firebase-stage-deploy.log
           status=${PIPESTATUS[0]}
           set -e
-          if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-stage-deploy.log; then
-            echo "Firebase Hosting stage version is already active; treating deploy as idempotent success."
-            exit 0
-          fi
-          exit "$status"
-      - name: Verify stage deploy
+          if [ "$status" -ne 0 ] && ! grep -q "is the current active version" firebase-stage-deploy.log; then exit "$status"; fi
+          # 동일한 활성 버전 응답도 다음 단계의 실제 entry/runtime 대조를 통과해야 한다.
+      - name: Verify served entry and runtime
+        env:
+          SELECTED_TRANSPORT: ${{ inputs.transport }}
+          FRONTEND_SOURCE: ${{ steps.source.outputs.sha }}
         run: |
           set -euo pipefail
-          built=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1)
-          if [ -z "$built" ]; then echo "::error::빌드 index.html 에서 entry 청크를 못 찾음"; exit 1; fi
-          echo "built entry: $built"
+          entry() {
+            if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
+              node scripts/stage-html-entry.mjs "$1"
+            else
+              # 명시적 legacy는 이전에 검토된 SHA의 도구 추가 전 검증 방식을 유지한다.
+              grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' "$1" | head -1 || true
+            fi
+          }
+          built=$(entry dist/index.html)
+          if [ -z "$built" ]; then echo "::error::Built entry is missing"; exit 1; fi
+          echo "Expected development entry: $built"
           ok=0
           for i in $(seq 1 10); do
-            live=$(curl -fsSL -H 'Cache-Control: no-cache' "https://orider-dev.web.app/?cacheBust=${GITHUB_SHA}-$i" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1 || true)
-            echo "attempt $i: stage entry = ${live:-<none>}"
+            live=""
+            if curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' "https://orider-dev.web.app/?cacheBust=${FRONTEND_SOURCE}-$i" -o "$RUNNER_TEMP/live-index.html"; then
+              live=$(entry "$RUNNER_TEMP/live-index.html" || true)
+            fi
+            echo "Attempt $i: expected=$built actual=${live:-<missing>}"
             if [ "$live" = "$built" ]; then ok=1; break; fi
-            sleep 15
+            sleep 10
           done
-          if [ "$ok" != "1" ]; then
-            echo "::error::stage가 방금 빌드한 번들($built)을 서빙하지 않음 — stale 배포/캐시."
-            exit 1
-          fi
-          curl -fsSL -H 'Cache-Control: no-cache' "https://orider-dev.web.app/runtime-config.json?cacheBust=${GITHUB_SHA}" -o "$RUNNER_TEMP/live-runtime-config.json"
+          if [ "$ok" != 1 ]; then echo "::error::Development entry mismatch: expected=$built actual=${live:-<missing>}"; exit 1; fi
+          curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' "https://orider-dev.web.app/runtime-config.json?cacheBust=${FRONTEND_SOURCE}" -o "$RUNNER_TEMP/live-runtime-config.json"
           if ! cmp -s dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; then
-            echo "::error::개발 사이트의 runtime 설정이 고정한 운영 snapshot과 다릅니다."
-            exit 1
+            echo "::error::Development runtime differs from built runtime"
+            sha256sum dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; exit 1
           fi
+          # 일반 브라우저의 상세 URL도 같은 개발 번들을 반환해야 한다.
+          detail_url="https://orider-dev.web.app/ko/course/nonexistent?cacheBust=${FRONTEND_SOURCE}"
+          if ! detail_status=$(curl -sS --connect-timeout 10 --max-time 30 -A 'Mozilla/5.0 ORiderStageAcceptance' -H 'Cache-Control: no-cache' "$detail_url" -o "$RUNNER_TEMP/live-detail.html" -w '%{http_code}'); then
+            echo "::error::Development detail transport failed: url=$detail_url expected=HTTP200 actual=${detail_status:-transport-error}"; exit 1
+          fi
+          if [ "$detail_status" != 200 ]; then echo "::error::Development detail response mismatch: url=$detail_url expected=HTTP200 actual=HTTP$detail_status"; exit 1; fi
+          detail=$(entry "$RUNNER_TEMP/live-detail.html" || true)
+          if [ "$detail" != "$built" ]; then echo "::error::Development detail entry mismatch: expected=$built actual=${detail:-<missing>}"; exit 1; fi
+          if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
+      - name: Verify bundled development Hosting entry bytes and HTTP aliases
+        if: inputs.transport == 'bundled-development'
+        run: node scripts/verify-bundled-hosting.mjs --environment development
+      - name: Restore previous development release after failed publication verification
+        timeout-minutes: 3
+        if: always() && (failure() || cancelled()) && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success' && steps.deploy.outcome != 'skipped'
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/bundled-stage-hosting.json"
+      - name: Retain development release recovery receipt
+        if: always() && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success'
+        timeout-minutes: 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-recovery-${{ steps.source.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          path: ${{ runner.temp }}/bundled-stage-hosting.json
+      - name: Retain verified bundled client artifact
+        if: inputs.transport == 'bundled-development'
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-client-${{ steps.source.outputs.sha }}
+          retention-days: 7
+          path: |
+            dist
+            firebase.bundled-stage.json
+            ${{ env.BUNDLED_STAGE_DIRECTORY }}/build.json
+      - name: Record selected source and transport
+        env:
+          FRONTEND_SOURCE: ${{ steps.source.outputs.sha }}
+          BACKEND_SOURCE: ${{ inputs.backend_source_sha }}
+          SELECTED_TRANSPORT: ${{ inputs.transport }}
+        run: |
+          printf 'Frontend source: `%s`\nBackend source: `%s`\nTransport: `%s`\nDevelopment Hosting only; production not deployed.\n' "$FRONTEND_SOURCE" "$BACKEND_SOURCE" "$SELECTED_TRANSPORT" >> "$GITHUB_STEP_SUMMARY"

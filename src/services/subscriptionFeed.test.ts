@@ -3,7 +3,7 @@ import { admitSubscriptionActivities } from "./subscriptionFeed";
 const state = vi.hoisted(() => ({ user: { uid: "viewer", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, call: vi.fn(), factory: vi.fn(), regional: {}, region: vi.fn() }));
 vi.mock("./firebase", () => ({ auth: { get currentUser() { return state.user; } }, ensureAppCheckReady: async () => {}, functions: { app: { name: "subscription-test" } } }));
 vi.mock("../config/activitySubscriptions", () => ({ ACTIVITY_SUBSCRIPTIONS_ENABLED: true, activitySubscriptionsBackendReady: () => true }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
+vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false, isFunctionsGatewayRuntime: () => false }));
 vi.mock("firebase/functions", () => ({
   httpsCallable: (...args: unknown[]) => { state.factory(...args); return state.call; },
   getFunctions: (...args: unknown[]) => { state.region(...args); return state.regional; },

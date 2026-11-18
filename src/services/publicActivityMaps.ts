@@ -1,7 +1,7 @@
 import { withActivityMapDeadline } from "./activityMapDeadline";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { isFunctionsGatewayRuntime, isEmulatorRuntime } from "./runtimeConfig";
 export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; imageUrl: string | null; squareImageUrl?: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
 type Pending = { resolve: (value: PublicActivityMap | null) => void; reject: (reason: unknown) => void };
 type Session = { viewer: FirebaseServices["auth"]["currentUser"]; requests: Map<string, Promise<PublicActivityMap | null>>; queue: Map<string, Pending[]>; scheduled: boolean };
@@ -24,7 +24,7 @@ export function loadPublicActivityMap(services: FirebaseServices, activityId: st
         const { data } = await withActivityMapDeadline(async assertLive => {
         const current = () => { assertLive(); if (services.auth.currentUser !== viewer) throw Error("account_changed"); };
         current(); await services.ensureAppCheckReady(); current();
-        const functions = getRuntimeConfig().appEnvironment === "stage" ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
+        const functions = isFunctionsGatewayRuntime() ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
         if (isEmulatorRuntime() && !connected.has(functions)) { connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001)); connected.add(functions); }
         const result = await httpsCallable<object, { items: (PublicActivityMap | { activityId: string; unavailable: true })[] }>(functions, "getActivityPublicMaps", { timeout: 10000 })({ activityIds: ids }); current();
         return result;

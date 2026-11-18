@@ -2,7 +2,7 @@ import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/
 import type { Notification } from "@shared/types";
 import type { ActivityFeedComment } from "@shared/types/activity-feed-content";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { isFunctionsGatewayRuntime, isEmulatorRuntime } from "./runtimeConfig";
 export interface NotificationPreferences { push: boolean; kudos: boolean; comment: boolean; weeklyDigestEmail: boolean }
 const connected = new WeakSet<object>();
 export function createWebNotificationClient(services: FirebaseServices) {
@@ -13,7 +13,7 @@ export function createWebNotificationClient(services: FirebaseServices) {
   };
   async function call<T>(name: string, payload: object): Promise<T> {
     assertAccount(); await services.ensureAppCheckReady(); assertAccount();
-    const functions = getRuntimeConfig().appEnvironment === "stage" ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
+    const functions = isFunctionsGatewayRuntime() ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
     if (isEmulatorRuntime() && !connected.has(functions)) {
       connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001)); connected.add(functions);
     }

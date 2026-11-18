@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
 import { publicClubEndpoint } from "./lib/public-club-deploy-config.mjs";
+import { bundledFunctionsConfig } from "./lib/bundled-functions-config.mjs";
 import { productionDataConfig } from "./lib/production-data-config.mjs";
 
 const args = process.argv.slice(2);
@@ -18,6 +19,18 @@ const outputPath = resolve(outIndex >= 0 ? args[outIndex + 1] : "dist/runtime-co
 const sourceIndex = args.indexOf("--production-source");
 if (sourceIndex >= 0 && (!args[sourceIndex + 1] || args[sourceIndex + 1].startsWith("--"))) throw new Error("--production-source requires a snapshot file");
 const productionSource = sourceIndex >= 0 ? args[sourceIndex + 1] : process.env.PRODUCTION_RUNTIME_CONFIG_PATH;
+const bundledSource = process.env.BUNDLED_RUNTIME_CONFIG_PATH;
+const bundledEnvironment = process.env.BUNDLED_FUNCTIONS_ENVIRONMENT;
+const bundledRequested = bundledSource !== undefined || bundledEnvironment !== undefined;
+if (bundledRequested && (!bundledSource?.trim() || !bundledEnvironment?.trim())) throw new Error("bundled runtime requires both nonempty source and environment");
+if (bundledRequested) {
+  if (productionSource || process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH) throw new Error("mixed bundled deployment sources");
+  const config = bundledFunctionsConfig(JSON.parse(readFileSync(resolve(bundledSource), "utf8")), bundledEnvironment);
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, `${JSON.stringify(config, null, 2)}\n`);
+  console.log(`[write-runtime-config] wrote bundled runtime ${outputPath}`);
+  process.exit(0);
+}
 if (productionSource) {
   const config = productionDataConfig(JSON.parse(readFileSync(resolve(productionSource), "utf8")));
   mkdirSync(dirname(outputPath), { recursive: true });
