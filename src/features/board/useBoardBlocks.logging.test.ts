@@ -29,6 +29,7 @@ it("does not attribute a delayed failure to a replacement embedded account",asyn
   const {setBoardAuthorBlocked}=await import("./useBoardBlocks");
   const auth={app:m.app,currentUser:m.user};
   const services={auth,functions:m.functions,ensureAppCheckReady:m.ready} as unknown as Pick<FirebaseServices,"auth"|"functions"|"ensureAppCheckReady">;
+  const localDiagnostic=vi.spyOn(console,"error").mockImplementation(()=>{});
   const failure=new Error("original request failure");
   let rejectRequest!:(error:Error)=>void;
   m.block.mockImplementationOnce(()=>new Promise((_,reject)=>{rejectRequest=reject;}));
@@ -37,4 +38,8 @@ it("does not attribute a delayed failure to a replacement embedded account",asyn
   rejectRequest(failure);
   await expect(pending).rejects.toBe(failure);
   expect(m.log).not.toHaveBeenCalled();expect(m.capture).not.toHaveBeenCalled();expect(m.ready).not.toHaveBeenCalled();
+  expect(localDiagnostic).toHaveBeenCalledWith("[Board.authorBlock] 계정 변경 후 요청 실패",{operation:"setActivitySocialBlock",blocked:false,errorCode:"unknown"});
+  expect(JSON.stringify(localDiagnostic.mock.calls)).not.toContain("private-target");
+  expect(JSON.stringify(localDiagnostic.mock.calls)).not.toContain("original request failure");
+  localDiagnostic.mockRestore();
 });

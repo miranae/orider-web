@@ -18,7 +18,11 @@ export async function setBoardAuthorBlocked(targetUid: string, blocked: boolean,
     const code = (error as { code?: unknown } | null)?.code;
     const context = { operation: 'setActivitySocialBlock', blocked,
       errorCode: typeof code === 'string' && /^[a-z0-9/_-]{1,64}$/i.test(code) ? code : 'unknown' };
-    if (services.auth.currentUser !== requestUser) throw error;
+    if (services.auth.currentUser !== requestUser) {
+      // eslint-disable-next-line no-console -- 교체된 계정으로 전송하지 않고 민감 정보 없는 로컬 진단만 남긴다.
+      console.error('[Board.authorBlock] 계정 변경 후 요청 실패', context);
+      throw error;
+    }
     try {
       logClientError('Board.authorBlock', new Error('게시판 작성자 차단 요청 실패'), context, { ...services, functions: socialFunctions });
     } catch {
