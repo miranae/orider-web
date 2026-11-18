@@ -267,7 +267,7 @@ describe("RouteMap", () => {
     const onChange = vi.fn();
     renderWithProviders(<RouteMap latlng={[[60,150],null] as unknown as [number,number][]} polyline="37,127;37.01,127"
       markerPosition={[60,150]} flyToRange={{startIndex:0,endIndex:0}} highlightRange={{startIndex:0,endIndex:0}} onHighlightRangeChange={onChange} />);
-    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[150,60]]);
+    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[127,37.01]]);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
     expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[150,60]}}));
     expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[127,37.01]]}});
@@ -304,6 +304,24 @@ describe("RouteMap", () => {
     expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[150,60]}}));
     rerender(<RouteMap latlng={latlng} markerPosition={null} />);
     expect(api.fitBounds).toHaveBeenCalledTimes(fits);
+  });
+
+  it("fits drawn geometry when a chart highlights the full raw range ending in an isolated point", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[80,170]] as unknown as [number,number][]}
+      highlightRange={{startIndex:0,endIndex:3}} flyToRange={{startIndex:0,endIndex:3}} />);
+    expect(api.fitBounds.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify([[127,37],[127,37.01]]))).toBe(true);
+  });
+
+  it("fits only the recorded route after navigating to a distant photo", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} flyToPosition={[80,170]}
+      navigationLabels={{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}} />);
+    expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[170,80]}));
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
   });
 
   it("preserves a saved route image when only passive photo coordinates are present", () => {
