@@ -19,7 +19,7 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
   const [calendar, setCalendar] = useState<{ session: typeof session; uid: typeof uid; years: number[]; loading: boolean; error: boolean }>({ session, uid, years: [], loading: !!uid, error: false });
   const years = calendar.session === session && calendar.uid === uid ? calendar.years : [];
   const year = selectedYear ?? years[0] ?? new Date().getFullYear();
-  const [state, setState] = useState<{ session: typeof session; uid: typeof uid; year: number; activities: Activity[]; loading: boolean; error: boolean }>({ session, uid, year, activities: [], loading: !!uid, error: false });
+  const [state, setState] = useState<{ session: typeof session; uid: typeof uid; year: number; activities: Activity[]; loading: boolean; error: boolean; startedBeforeCalendar?: boolean }>({ session, uid, year, activities: [], loading: !!uid, error: false });
   const [retryGeneration, setRetryGeneration] = useState(0);
   const [calendarRetry, setCalendarRetry] = useState(0);
   const retry = useCallback(() => {
@@ -47,29 +47,36 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
     return () => { cancelled = true; globalThis.clearTimeout(timer); };
   }, [uid, calendarRetry, session]);
 
-  const calendarSettled = calendar.session === session && calendar.uid === uid && !calendar.loading;
-  // Calendar bounds can satisfy a short history without a separate range query.
-  const ready = calendarSettled && (selectedYear !== undefined || !calendar.error);
+  const calendarReady = calendar.session === session && calendar.uid === uid && !calendar.loading && !calendar.error;
+  const calendarReadyRef = useRef(calendarReady);
+  calendarReadyRef.current = calendarReady;
+  const ready = selectedYear !== undefined || calendarReady;
   useEffect(() => {
     if (!uid || !ready) return;
     let cancelled = false;
     setState({ session, uid, year, activities: [], loading: true, error: false });
-    const fail = (err: unknown) => {
+    const startedBeforeCalendar = !calendarReadyRef.current;
+    const fail = (err: unknown, canRetryWithCalendar: boolean) => {
       if (cancelled) return;
       cancelled = true;
-      setState({ session, uid, year, activities: [], loading: false, error: true });
+      setState({ session, uid, year, activities: [], loading: false, error: true, startedBeforeCalendar: startedBeforeCalendar && canRetryWithCalendar });
       logClientError("useYearActivities.load", err, { uid, year });
     };
-    const timer = globalThis.setTimeout(() => fail(new Error("year-activities-read-timeout")), 12_000);
+    const timer = globalThis.setTimeout(() => fail(new Error("year-activities-read-timeout"), false), 12_000);
     void readYearActivities(uid, year, () => cancelled, undefined, session).then((activities) => {
       if (!cancelled) setState({ session, uid, year, activities, loading: false, error: false });
-    }, fail).finally(() => globalThis.clearTimeout(timer));
+    }, err => fail(err, !(err instanceof Error && err.message.startsWith("year-read-"))))
+      .finally(() => globalThis.clearTimeout(timer));
     return () => { cancelled = true; globalThis.clearTimeout(timer); };
   }, [uid, year, ready, retryGeneration, session]);
 
   const current = state.session === session && state.uid === uid && state.year === year;
   const calendarError = !!uid && calendar.session === session && calendar.uid === uid && calendar.error;
-  const error = !!uid && ((selectedYear === undefined && calendarError) || (current && state.error));
-  const loading = !!uid && !error && (!ready || !current || state.loading);
+  const retryWithCalendar = current && state.error && state.startedBeforeCalendar === true && calendarReady;
+  useEffect(() => {
+    if (retryWithCalendar) setRetryGeneration(generation => generation + 1);
+  }, [retryWithCalendar]);
+  const error = !!uid && ((selectedYear === undefined && calendarError) || (current && state.error && !retryWithCalendar));
+  const loading = !!uid && !error && (!ready || !current || state.loading || retryWithCalendar);
   return { year, years, activities: uid && current && !loading && !error ? state.activities : [], loading, error, calendarError, retry };
 }

@@ -105,19 +105,30 @@ it("replaces all cache proof and masks data after same-UID SDK replacement", asy
 });
 
 
-it("waits for calendar bounds and can still load an explicit year after calendar failure", async () => {
+it("loads an explicit year before calendar discovery and retains it when calendar discovery fails", async () => {
   let rejectCalendar!: (error: Error) => void;
   vi.mocked(readRecapYears).mockReturnValueOnce(new Promise((_, reject) => { rejectCalendar = reject; }));
   const h = renderHook(() => useYearActivities("owner", 2025));
-  expect(readYearActivities).not.toHaveBeenCalled();
-  expect(h.result.current.loading).toBe(true);
+  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
+  expect(h.result.current.loading).toBe(false);
   expect(h.result.current.years).toEqual([]);
   await act(async () => rejectCalendar(new Error("calendar offline")));
-  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
   expect(h.result.current.calendarError).toBe(true);
   expect(h.result.current.error).toBe(false);
   expect(h.result.current.activities[0]?.id).toBe("ride");
   act(() => h.result.current.retry());
   await waitFor(() => expect(h.result.current.calendarError).toBe(false));
   expect(h.result.current.years).toEqual([2026, 2025, 2024]);
+});
+
+it("recovers a failed explicit-year read when calendar bounds become available", async () => {
+  let resolveCalendar!: (years: number[]) => void;
+  vi.mocked(readRecapYears).mockReturnValueOnce(new Promise(resolve => { resolveCalendar = resolve; }));
+  vi.mocked(readYearActivities).mockRejectedValueOnce(new Error("range failed"));
+  const h = renderHook(() => useYearActivities("owner", 2025));
+  await waitFor(() => expect(h.result.current.error).toBe(true));
+  expect(readYearActivities).toHaveBeenCalledTimes(1);
+  await act(async () => resolveCalendar([2025]));
+  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
+  expect(readYearActivities).toHaveBeenCalledTimes(2);
 });

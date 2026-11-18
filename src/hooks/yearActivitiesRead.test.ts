@@ -233,6 +233,16 @@ it("does not use a changed raw cardinality as an inventory-completeness proof", 
   expect(session.valid).toBe(false);
 });
 
+it("does not infer complete coverage from different records in the one-record endpoints", async () => {
+  records = [ride("early", Date.UTC(2025, 0, 3)), ride("middle", Date.UTC(2025, 1, 3)), ride("late", Date.UTC(2025, 2, 3))];
+  vi.mocked(getDocs)
+    .mockResolvedValueOnce({ docs: [doc(records[0]!)] } as never)
+    .mockResolvedValueOnce({ docs: [doc(records[2]!)] } as never);
+  const session = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, session);
+  expect((await readYearActivities("owner", 2025, () => false, undefined, session)).map(row => row.id)).toEqual(["early", "middle", "late"]);
+});
+
 it("does not cache a cancelled page or one completed after same-UID SDK replacement", async () => {
   auth.currentUser = { uid: "owner" } as never;
   const session = createYearReadSession("owner");
