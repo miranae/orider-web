@@ -369,9 +369,11 @@ describe("RouteMap", () => {
     const view = renderWithProviders(<RouteMap flyToPosition={position} />);
     expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[150,60]}));
     api.fitBounds.mockClear();
+    api.flyTo.mockClear();
     view.rerender(<RouteMap latlng={[[37,127],[37.01,127]]} flyToPosition={position} />);
     expect(api.fitBounds).not.toHaveBeenCalled();
     expect(api.flyTo).toHaveBeenCalledTimes(1);
+    expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[150,60]}));
   });
 
   it("preserves photo navigation on range removal while accepting a new explicit chart range", () => {
@@ -624,12 +626,23 @@ describe("RouteMap", () => {
 
   it("ignores a late SDK error from an earlier route", () => {
     const view = renderWithProviders(<RouteMap flyToPosition={[37, 127]} />);
+    const previousMap = screen.getByTestId("mock-map");
     const previousError = mapProps.latest?.onError;
     view.rerender(<RouteMap latlng={[[38, 128], [38.01, 128]]} />);
     const error = { error: new Error("network") };
     act(() => previousError?.(error));
-    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(screen.getByTestId("mock-map")).not.toBe(previousMap);
     expect(mapErrors.mock.calls.some(call => call[0] === "RouteMap.mapbox")).toBe(false);
+  });
+
+  it("allows selecting the same photo again after a location-only map failed", () => {
+    const photo: [number, number] = [37, 127];
+    const view = renderWithProviders(<RouteMap flyToPosition={photo} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    view.rerender(<RouteMap flyToPosition={null} />);
+    view.rerender(<RouteMap flyToPosition={photo} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
   });
 
   it.each([0,3])("preserves a single GPS selection at raw index %s in the static fallback", index => {

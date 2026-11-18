@@ -411,10 +411,6 @@ export default function RouteMap({
   const [mapReady, setMapReady] = useState(false);
   const [webglSupported] = useState(() => supportsWebGL());
   const mapViewer = firebaseServices.auth?.currentUser;
-  const mapScope = useMemo(() => ({ firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl }),
-    [firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl]);
-  const mapScopeRef = useRef(mapScope);
-  mapScopeRef.current = mapScope;
 
   const { routePositions, sourcePositions, segmentStarts, streamFallback } = useMemo(() => {
     const parts: RouteSlot[] = [];
@@ -450,13 +446,6 @@ export default function RouteMap({
     cameraIntent.current = { photoCommand, rangeCommand, full: false, rangeAfterPhoto };
   }
 
-  useEffect(() => {
-    mapErrorLogged.current = false;
-    setMapFailed(false);
-  }, [mapScope]);
-
-  useEffect(() => { setMapReady(false); }, [polyline, latlng, routeParts]);
-
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
   const endpoints = useMemo(() => {
@@ -479,6 +468,16 @@ export default function RouteMap({
     })),
   }), [standalonePositions]);
   const hasRecordedPosition = useMemo(() => sourcePositions.some(isRoutePosition) || routePositions.some(isRoutePosition), [sourcePositions, routePositions]);
+  const locationCommand = hasRecordedPosition ? null : photoCommand;
+  const mapScope = useMemo(() => ({ firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand }),
+    [firebaseServices, mapViewer, polyline, latlng, routeParts, fallbackImageUrl, locationCommand]);
+  const mapScopeRef = useRef(mapScope);
+  mapScopeRef.current = mapScope;
+  useEffect(() => {
+    mapErrorLogged.current = false;
+    setMapFailed(false);
+  }, [mapScope]);
+  useEffect(() => { setMapReady(false); }, [polyline, latlng, routeParts, locationCommand]);
   const hasLocatedAttachment = hasRecordedPosition && (photos?.some(photo => isRoutePosition(photo?.location))
     || waypoints?.some(point => isRoutePosition([point?.lat, point?.lon])));
   const attachmentPositions = useMemo(() => {
@@ -602,7 +601,7 @@ export default function RouteMap({
   return (
     <div className={`${containerClass} relative`}>
       {loadingPlaceholder && !mapReady && <div data-map-thumbnail-loading className="absolute inset-0 z-10">{loadingPlaceholder}</div>}
-      <ErrorBoundary fallback={() => fallback} onError={error => handleMapError({ error })}>
+      <ErrorBoundary key={hasRecordedPosition ? "recorded-route" : "location-only"} fallback={() => fallback} onError={error => handleMapError({ error })}>
         <Map
           mapboxAccessToken={mapboxToken}
           mapStyle={MAP_STYLE}
