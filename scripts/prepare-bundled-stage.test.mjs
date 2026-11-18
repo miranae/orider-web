@@ -28,7 +28,7 @@ function fixture() {
     if (url === "https://orider.co.kr/runtime-config.json") return Response.json(source);
     if (url.endsWith("/healthz")) return Response.json(health);
     if (/\/oriderReadinessMissing[a-f0-9]+$/u.test(url)) return Response.json({ error: "unknown-bundle-function" }, { status: 404 });
-    if (url.endsWith("/getActivityDiscovery")) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider-dev.web.app", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401, headers: { "access-control-allow-origin": "https://orider-dev.web.app" } });
+    if (/\/(getActivityDiscovery|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider-dev.web.app", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": "https://orider-dev.web.app" } });
     if (url.endsWith("/publicClubs?size=1")) {
       assert.equal(options.credentials, "omit");
       return Response.json({ clubs: [], nextCursor: null }, { headers: { "Access-Control-Allow-Origin": "https://orider-dev.web.app", "Cache-Control": "no-store" } });
@@ -58,7 +58,7 @@ test("manual development preparation binds paired runtime/Hosting, source and ac
     assert.match(environment, /BUNDLED_RUNTIME_CONFIG_PATH=/); assert.match(environment, /BUNDLED_FUNCTIONS_ENVIRONMENT=development/);
     const gatewayOrigin = "https://dev-bundle-default-api-818364001341.asia-northeast3.run.app";
     assert.equal(runtime.firebaseFunctionsBase, gatewayOrigin);
-    assert.deepEqual([...new Set(f.calls.map(url => new URL(url).origin))].sort(), ["https://orider.co.kr", gatewayOrigin].sort());
+    assert.deepEqual([...new Set(f.calls.map(url => new URL(url).origin))].sort(), ["https://orider.co.kr", gatewayOrigin, "https://dev-bundle-ai-api-818364001341.asia-northeast3.run.app"].sort());
     const connectSources = hosting.headers.flatMap(row => row.headers).filter(header => header.key === "Content-Security-Policy")
       .flatMap(header => header.value.split(";").flatMap(directive => {
         const [name, ...sources] = directive.trim().split(/\s+/u);
@@ -214,6 +214,15 @@ test("failed development release restores only its own marker to the exact previ
   } });
   assert.equal(uncertain.restored, true); assert.equal(uncertain.requestOutcome, "readback-confirmed-after-error");
   assert.match(uncertain.requestDiagnostic, /POST transport failed/); assert.doesNotMatch(uncertain.requestDiagnostic, /PRIVATE_TIMEOUT/);
+  active = next; message = marker;
+  for (const readbackFails of [false, true]) {
+    let channelReads = 0;
+    await assert.rejects(rollbackStageHosting(snapshot, { token: "fixture", fetcher: async (url, options) => {
+      if (options.method === "POST") return new Response(null, { status: 403 });
+      if (url.endsWith("/channels/live") && ++channelReads > 1 && readbackFails) throw new Error("PRIVATE_GET_FAILURE");
+      return fetcher(url, options);
+    } }), error => /POST.*HTTP403/u.test(error.message) && (readbackFails ? /GET transport failed/u : /readback mismatch/u).test(error.message) && !/PRIVATE_GET_FAILURE/u.test(error.message));
+  }
   active = next; message = "another operator deployment"; calls.length = 0;
   await assert.rejects(rollbackStageHosting(snapshot, { token: "fixture", fetcher }), /not this deployment/);
   assert.equal(calls.some(call => call.method === "POST"), false);
@@ -225,4 +234,14 @@ test("development rollback is wired after the live checks and before artifact pu
   assert.ok(workflow.indexOf("--phase rollback") > workflow.indexOf("Development detail response mismatch"));
   assert.ok(workflow.indexOf("--phase rollback") < workflow.indexOf("Retain verified bundled client artifact"));
   assert.match(workflow, /if: failure\(\).*steps\.hosting_snapshot\.outcome == 'success'/);
+});
+
+test("missing handoff or AI browser routes block development before publication without exchanging a code or invoking AI", async () => {
+  for (const path of ["/webHandoffRedeem", "/v1/activity-narrative"]) {
+    const f = fixture();
+    try {
+      await assert.rejects(f.prepare({ fetcher: (url, options) => url.endsWith(path)
+        ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options) }), new RegExp(path));
+    } finally { f.cleanup(); }
+  }
 });

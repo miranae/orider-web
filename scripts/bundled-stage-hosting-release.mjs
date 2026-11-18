@@ -43,8 +43,10 @@ export async function rollbackStageHosting(snapshot, { token, fetcher = fetch })
   try { await request(fetcher, token, "POST", `${API}${CHANNEL}/releases?versionName=${encodeURIComponent(snapshot.previousVersion)}`,
     { message: `Automatic development rollback after ${snapshot.marker}` }); }
   catch (error) { requestFailure = error.message; } // 응답 유실도 live 포인터를 다시 읽어 실제 복구 여부로 판정한다.
-  const actual = currentVersion(await request(fetcher, token, "GET", API + CHANNEL));
-  if (actual !== snapshot.previousVersion) throw new Error(`development Hosting GET ${API}${CHANNEL}: rollback readback mismatch: expected=${snapshot.previousVersion} actual=${actual}`);
+  let actual;
+  try { actual = currentVersion(await request(fetcher, token, "GET", API + CHANNEL)); }
+  catch (error) { throw new Error(`${requestFailure ? `${requestFailure}; ` : ""}${error.message}`); }
+  if (actual !== snapshot.previousVersion) throw new Error(`${requestFailure ? `${requestFailure}; ` : ""}development Hosting GET ${API}${CHANNEL}: rollback readback mismatch: expected=${snapshot.previousVersion} actual=${actual}`);
   return { restored: true, unchanged: false, version: actual, ...(requestFailure ? { requestOutcome: "readback-confirmed-after-error", requestDiagnostic: requestFailure } : {}) };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
