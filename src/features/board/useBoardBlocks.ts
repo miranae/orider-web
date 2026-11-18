@@ -4,11 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { collection, onSnapshot } from 'firebase/firestore';
 import type { Functions } from 'firebase/functions';
 import { useFirebaseServices } from '../../contexts/FirebaseServicesContext';
-import { isEmulatorRuntime } from '../../services/runtimeConfig';
+import { bundledFunctionsBase, isEmulatorRuntime } from '../../services/runtimeConfig';
 
 /** `functions` 는 호출부의 useFirebaseServices() 인스턴스 — 임베드는 별도 Firebase app 이다(#847). */
 export async function setBoardAuthorBlocked(targetUid: string, blocked: boolean, functions: Functions) {
-  const socialFunctions = getFunctions(functions.app, 'asia-northeast3');
+  const socialFunctions = bundledFunctionsBase() ? functions : getFunctions(functions.app, 'asia-northeast3');
   if (isEmulatorRuntime()) connectFunctionsEmulator(socialFunctions, 'localhost', Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
   await httpsCallable(socialFunctions, 'setActivitySocialBlock')({ targetUid, blocked });
 }

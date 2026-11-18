@@ -25,7 +25,7 @@ import {
   ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
-import { assertIsolatedStageRuntime, getRuntimeConfig } from "../services/runtimeConfig";
+import { assertIsolatedStageRuntime, getRuntimeConfig, isFunctionsGatewayRuntime } from "../services/runtimeConfig";
 import { clearActivityDerivedDocumentCache } from "../features/fitness/activityDerivedDocumentCache";
 import { trainingSurfaceCacheScope } from "./trainingSurfaceCache";
 import { verifySelectedAuthPersistence } from "./authPersistence";
@@ -225,7 +225,7 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
   embeddedFirestore = createEmbeddedFirestore(embeddedApp);
   embeddedFunctions = getFunctions(
     embeddedApp,
-    runtimeConfig.appEnvironment === "stage" ? runtimeConfig.firebaseFunctionsBase : runtimeConfig.firebaseFunctionsRegion || "us-central1",
+    isFunctionsGatewayRuntime(runtimeConfig) ? runtimeConfig.firebaseFunctionsBase : runtimeConfig.firebaseFunctionsRegion || "us-central1",
   );
 
   if (emulatorRuntime) {

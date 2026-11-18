@@ -2,7 +2,7 @@ import { resolveFriendInvitePreview } from "./friendInvitePreview";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 const m = vi.hoisted(() => ({ call: vi.fn(), ready: vi.fn(), fn: {} }));
 vi.mock("firebase/functions", () => ({ getFunctions: () => m.fn, connectFunctionsEmulator: vi.fn(), httpsCallable: () => m.call }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
+vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false, isFunctionsGatewayRuntime: () => false }));
 const profile = { userId: "inviter", nickname: "Inviter", photoURL: null };
 function services() { return { auth: { currentUser: null }, functions: { app: {} }, ensureAppCheckReady: m.ready } as unknown as FirebaseServices; }
 beforeEach(() => { vi.clearAllMocks(); m.ready.mockResolvedValue(undefined); m.call.mockResolvedValue({ data: { profile } }); });
