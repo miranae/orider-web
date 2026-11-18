@@ -1,4 +1,5 @@
-import { JSDOM } from "jsdom";
+import { createRequire } from "node:module";
+const requireDependency = createRequire(import.meta.url);
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -34,6 +35,8 @@ export async function verifyStageArtifacts(directory, expected, verifyRemote) {
 
 export function stageHtmlEntry(html, label = "stage HTML") {
   // DOM으로 읽어 주석·preload·template·JSON script의 파일명을 실행 entry로 오인하지 않는다.
+  // prepare는 npm ci 전에 실행된다. 빌드 이후 HTML 검사에서만 설치된 parser를 읽는다.
+  const { JSDOM } = requireDependency("jsdom");
   const dom = new JSDOM(html);
   try {
     for (const script of dom.window.document.querySelectorAll("script[src]")) {

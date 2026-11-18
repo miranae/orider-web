@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSync } from "node:fs";
+import { mkdtempSync, existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSync, cpSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -317,4 +317,14 @@ test("served HTML requires an executable script rather than a comment, preload o
   assert.match(workflow, /detail=\$\(node scripts\/stage-html-entry.mjs/);
   assert.match(workflow, /always\(\) && \(failure\(\) \|\| cancelled\(\)\)/);
   assert.ok(workflow.split("\n").filter(line => line.includes("curl ")).every(line => line.includes("--connect-timeout 10 --max-time 30")));
+});
+
+test("fresh pre-install preparation loads without jsdom or node_modules", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "bundled-preinstall-"));
+  try {
+    cpSync(new URL("./", import.meta.url), resolve(root, "scripts"), { recursive: true });
+    const actual = spawnSync(process.execPath, ["--input-type=module", "-e", 'import { createRequire } from "node:module"; try { createRequire(process.argv[1]).resolve("jsdom"); throw Error("fixture unexpectedly resolves jsdom"); } catch (error) { if (error.code !== "MODULE_NOT_FOUND") throw error; } await import(process.argv[1]); console.log("preinstall import ready")', new URL(`file://${resolve(root, "scripts/prepare-bundled-stage.mjs")}`).href], { cwd: root, encoding: "utf8", env: { ...process.env, NODE_PATH: "" } });
+    assert.equal(actual.status, 0, actual.stderr); assert.match(actual.stdout, /preinstall import ready/);
+    assert.equal(existsSync(resolve(root, "node_modules")), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
