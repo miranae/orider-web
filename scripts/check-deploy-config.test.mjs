@@ -98,7 +98,7 @@ test("development CSP preserves the production Cloud Functions policy", () => {
   }
 });
 
-test("development publication is manual-only and rejects an unasserted writer contract before auth", () => {
+test("manual-only development intentionally freezes publication for missing/false assertion before auth", () => {
   const workflow = readFileSync(join(root, ".github/workflows/deploy-stage.yml"), "utf8");
   const events = workflow.split("\npermissions:")[0].match(/^  [a-z_]+:/gm)?.map(value => value.trim());
   assert.deepEqual(events, ["workflow_dispatch:"]);

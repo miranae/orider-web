@@ -30,6 +30,8 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      # missing/false는 의도적인 게시 동결이다. 머지 자체는 활성화가 필요하지 않다.
+      # 운영자가 remote dev의 수동 트리거·취소 없는 lock을 확인한 뒤 별도 단계로 true를 설정한다.
       - name: Require serialized CI development Hosting writes
         run: |
           set -euo pipefail
