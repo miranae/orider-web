@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import RouteMap from "./RouteMap";
 import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
@@ -26,7 +26,7 @@ const mapProps = vi.hoisted(() => ({
   markers: [] as { longitude: number; latitude: number; draggable?: boolean; onDragEnd?: (event: { lngLat: { lat: number; lng: number } }) => void }[],
 }));
 
-vi.mock("./activity/NativeActivityPhotoImage", () => ({ NativeActivityPhotoImage: ({nativePhoto,alt}: {nativePhoto:{activityId:string;photoId:string};alt:string}) => <img src="blob:authorized" alt={alt} data-native-reference={`${nativePhoto.activityId}/${nativePhoto.photoId}`} /> }));
+vi.mock("./activity/NativeActivityPhotoImage", () => ({ NativeActivityPhotoImage: ({nativePhoto,alt,onError}: {nativePhoto:{activityId:string;photoId:string};alt:string;onError?:()=>void}) => <img src="blob:authorized" alt={alt} onError={onError} data-native-reference={`${nativePhoto.activityId}/${nativePhoto.photoId}`} /> }));
 
 vi.mock("../utils/mapbox", () => ({
   getMapboxToken: () => "test-token",
@@ -277,10 +277,10 @@ describe("RouteMap", () => {
     expect(onChange).toHaveBeenCalledWith(0,0);
   });
 
-  it("shows endpoints for single-fix parts without connecting them", () => {
+  it.each([undefined,"https://example.test/route.png"])("shows endpoints for single-fix parts without connecting them with image %s", fallbackImageUrl => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
-    renderWithProviders(<RouteMap routeParts={[[[37,127]],[[38,128]]]} showRouteEndpoints />);
+    renderWithProviders(<RouteMap routeParts={[[[37,127]],[[38,128]]]} showRouteEndpoints fallbackImageUrl={fallbackImageUrl} />);
     expect(screen.getByTestId("mock-map")).toBeInTheDocument();
     expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
     expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[128,38]]);
@@ -491,6 +491,17 @@ describe("RouteMap", () => {
     expect(failures).toHaveLength(1);
     expect((failures[0]![1] as Error).message).toBe("map_photo_image_load_failed");
     expect(failures[0]![2]).toEqual({stage:"photo_image",native:false});
+  });
+
+  it("allows a failed native photo popup image to be retried", () => {
+    const photo = {id:"photo",url:"",nativePhoto:{activityId:"ride",photoId:"native"},location:[37,127] as [number,number],caption:"네이티브 사진"};
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} photos={[photo]} />);
+    fireEvent.click(screen.getByTestId("map-marker"));
+    const popup = within(screen.getByTestId("map-popup"));
+    fireEvent.error(popup.getByRole("img", {name:photo.caption}));
+    const retry = popup.getByRole("button", {name:"다시 시도"});
+    fireEvent.click(retry);
+    expect(popup.getByRole("img", {name:photo.caption})).toHaveAttribute("data-native-reference","ride/native");
   });
 
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {

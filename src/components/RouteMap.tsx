@@ -5,7 +5,7 @@ import { useMemo, useEffect, useRef, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
 import { ImageOff, LocateFixed, Minus, Plus } from "lucide-react";
-import { MapNavigation, MapControlButton } from "../theme/components";
+import { Button, MapNavigation, MapControlButton } from "../theme/components";
 import type { LngLatBoundsLike } from "mapbox-gl";
 // 컨트롤/팝업 스타일. 메인 entry 가 아닌 RouteMap chunk 와 함께 로드 (홈 진입 시 1.6MB 절약).
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -122,9 +122,10 @@ function RouteMapPhotoImage({ photo, style, retryable = false }: { photo: PhotoM
     logged.current = true;
     logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services);
   };
-  if (failed) return <span role="img" aria-label={t("publicDetail.photosFailed")} data-map-photo-failed style={{ ...style, display:"flex", alignItems:"center", justifyContent:"center", minHeight:"var(--space-8)" }}>
-    <ImageOff size={ICON_SIZE.sm} aria-hidden="true" />
-  </span>;
+  if (failed) return <div data-map-photo-failed style={{ ...style, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"var(--space-8)" }}>
+    <span role="img" aria-label={t("publicDetail.photosFailed")}><ImageOff size={ICON_SIZE.sm} aria-hidden="true" /></span>
+    {retryable && <Button size="sm" variant="outline" onClick={() => { logged.current = false; setFailed(false); }}>{t("page.retry")}</Button>}
+  </div>;
   return photo.nativePhoto
     ? <NativeActivityPhotoImage nativePhoto={photo.nativePhoto} retryable={retryable} alt={photo.caption || ""} style={style} onError={onError} />
     : <img src={photo.url} alt={photo.caption || ""} loading="lazy" decoding="async" style={style} onError={onError} />;
@@ -485,7 +486,7 @@ export default function RouteMap({
     setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices]);
 
-  if (!bounds || (!drawable && standalonePositions.length !== 1 && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
+  if (!bounds || (!drawable && standalonePositions.length !== 1 && !(Array.isArray(routeParts) && endpoints.length > 0) && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={drawable ? positions : standalonePositions} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
