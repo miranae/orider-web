@@ -111,20 +111,23 @@ export function supportsWebGL(): boolean {
   }
 }
 
-function RouteMapPhotoImage({ photo, style, retryable = false }: { photo: PhotoMarker; style: CSSProperties; retryable?: boolean }) {
+function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { photo: PhotoMarker; style: CSSProperties; retryable?: boolean; onRetry?: () => void }) {
   const { t } = useTranslation("activity");
   const services = useFirebaseServices();
-  const [failed, setFailed] = useState(false);
-  const logged = useRef(false);
+  const viewer = services.auth?.currentUser;
+  type Scope = { services: typeof services; viewer: typeof viewer };
+  const [failedFor, setFailedFor] = useState<Scope | null>(null);
+  const logged = useRef<Scope | null>(null);
+  const failed = failedFor?.services === services && failedFor.viewer === viewer;
   const onError = () => {
-    setFailed(true);
-    if (logged.current) return;
-    logged.current = true;
+    setFailedFor({ services, viewer });
+    if (logged.current?.services === services && logged.current.viewer === viewer) return;
+    logged.current = { services, viewer };
     logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services);
   };
   if (failed) return <div data-map-photo-failed style={{ ...style, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"var(--space-8)" }}>
     <span role="img" aria-label={t("publicDetail.photosFailed")}><ImageOff size={ICON_SIZE.sm} aria-hidden="true" /></span>
-    {retryable && <Button size="sm" variant="outline" onClick={() => { logged.current = false; setFailed(false); }}>{t("page.retry")}</Button>}
+    {retryable && <Button size="sm" variant="outline" onClick={() => { logged.current = null; setFailedFor(null); onRetry?.(); }}>{t("page.retry")}</Button>}
   </div>;
   return photo.nativePhoto
     ? <NativeActivityPhotoImage nativePhoto={photo.nativePhoto} retryable={retryable} alt={photo.caption || ""} style={style} onError={onError} />
@@ -135,6 +138,7 @@ export function RouteMapFallback({
   positions,
   segmentStarts,
   pointsOnly,
+  highlightRange,
   imageUrl,
   imageAlt,
   height,
@@ -145,6 +149,7 @@ export function RouteMapFallback({
   positions: RouteSlot[];
   segmentStarts?: number[];
   pointsOnly?: boolean;
+  highlightRange?: RouteMapProps["highlightRange"];
   imageUrl?: string | null;
   imageAlt: string;
   height: string;
@@ -158,7 +163,12 @@ export function RouteMapFallback({
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const loggedImage = useRef<string | null>(null);
   useEffect(() => { setFailedImage(null); loggedImage.current = null; }, [imageUrl]);
-  if (imageUrl && failedImage !== imageUrl) {
+  const startIndex = highlightRange?.startIndex, endIndex = highlightRange?.endIndex;
+  const { path, points, selectionPath, selectionPoints = [] } = useMemo(() => buildStaticRouteGeometry(positions, segmentStarts, {
+    pointsOnly, range: startIndex != null && endIndex != null ? { startIndex, endIndex } : undefined,
+  }), [positions, segmentStarts, pointsOnly, startIndex, endIndex]);
+  const hasSelection = Boolean(selectionPath || selectionPoints.length);
+  if (imageUrl && failedImage !== imageUrl && !hasSelection) {
     return (
       <div className={containerClass} style={{ background: "var(--bg-1)" }}>
         <img
@@ -179,7 +189,6 @@ export function RouteMapFallback({
     );
   }
 
-  const { path, points } = buildStaticRouteGeometry(positions, segmentStarts, { pointsOnly });
   return (
     <div
       className={`${containerClass} relative`}
@@ -193,9 +202,11 @@ export function RouteMapFallback({
     >
       {(path || points.length > 0) && (
         <svg viewBox="0 0 320 160" className="absolute inset-0 h-full w-full" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
-          {points.map(([x,y], index) => <circle key={index} cx={x} cy={y} r="4" fill="var(--lime)" stroke="var(--bg-1)" strokeWidth="2" />)}
+          {points.map(([x,y], index) => <circle key={index} cx={x} cy={y} r="4" fill={hasSelection ? "var(--ink-3)" : "var(--lime)"} stroke="var(--bg-1)" strokeWidth="2" />)}
           {path && <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />}
-          {path && <path d={path} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+          {path && <path d={path} fill="none" stroke={hasSelection ? "var(--ink-3)" : "var(--lime)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+          {selectionPath && <path data-route-static-selection d={selectionPath} fill="none" stroke="var(--lime)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+          {selectionPoints.map(([x,y], index) => <circle data-route-static-selection key={index} cx={x} cy={y} r="6" fill="var(--lime)" stroke="var(--ink-0)" strokeWidth="2" />)}
         </svg>
       )}
       <div
@@ -211,10 +222,11 @@ export function RouteMapFallback({
   );
 }
 
-function RouteNavigation({ labels, bounds, padding }: {
+function RouteNavigation({ labels, bounds, padding, onFit }: {
   labels: NonNullable<RouteMapProps["navigationLabels"]>;
   bounds: LngLatBoundsLike;
   padding: number;
+  onFit: () => void;
 }) {
   const { current: map } = useMap();
   useEffect(() => {
@@ -228,7 +240,7 @@ function RouteNavigation({ labels, bounds, padding }: {
   return <MapNavigation aria-label={labels.fitRoute}>
     <MapControlButton iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
     <MapControlButton iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
-    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => map?.fitBounds(bounds, { padding, duration: motion() })}><LocateFixed size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
+    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => { onFit(); map?.fitBounds(bounds, { padding, duration: motion(), maxZoom: 15 }); }}><LocateFixed size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
   </MapNavigation>;
 }
 
@@ -239,20 +251,21 @@ function FitBoundsOnLoad({ bounds, disabled, padding }: { bounds: LngLatBoundsLi
     if (disabled) return;
     const key = JSON.stringify(bounds);
     if (fittedKey.current !== key && map) {
-      map.fitBounds(bounds, { padding, duration: 0 });
+      map.fitBounds(bounds, { padding, duration: 0, maxZoom: 15 });
       fittedKey.current = key;
     }
   }, [map, bounds, disabled, padding]);
   return null;
 }
 
-function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition, fullPadding }: {
+function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition, fullPadding, fullRouteRequested }: {
   positions: RouteSlot[];
   segmentStarts: readonly number[];
   range: { startIndex: number; endIndex: number; requestId?: number } | null | undefined;
   fullBounds: LngLatBoundsLike;
   photoPosition?: [number, number] | null;
   fullPadding: number;
+  fullRouteRequested: boolean;
 }) {
   const { current: map } = useMap();
   const startIndex = rawRange?.startIndex, endIndex = rawRange?.endIndex, requestId = rawRange?.requestId;
@@ -271,7 +284,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
     previousPhoto.current = photo ? [photo[0], photo[1]] : null;
     // New chart selections may move the camera, but background route updates may
     // not override a photo the user has already located.
-    if (photo && !rangeChanged && !prevRange.current) return;
+    if (fullRouteRequested && !rangeChanged || photo && !rangeChanged && !prevRange.current) return;
     if (range) {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
@@ -284,13 +297,13 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       const segment = lo === hi ? slice : drawableRouteSlots(slice, segmentStarts.map(index => index - lo));
       const bounds = getBounds(segment);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
-      else map.fitBounds(fullBounds, { padding: fullPadding });
+      else map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
       prevRange.current = bounds ? range : null;
     } else if (prevRange.current) {
-      map.fitBounds(fullBounds, { padding: fullPadding });
+      map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
       prevRange.current = null;
     }
-  }, [map, positions, segmentStarts, range, fullBounds, photoPosition, fullPadding]);
+  }, [map, positions, segmentStarts, range, fullBounds, photoPosition, fullPadding, fullRouteRequested]);
 
   return null;
 }
@@ -352,6 +365,7 @@ export default function RouteMap({
   const firebaseServices = useFirebaseServices();
   const mapErrorLogged = useRef(false);
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const [photoRetryVersions, setPhotoRetryVersions] = useState<Record<string, number>>({});
   const selectedPhoto = photos?.find(photo => photo.id === selectedPhotoId);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -383,6 +397,9 @@ export default function RouteMap({
   const onHighlightRangeChange = rawOnHighlightRangeChange;
   const flyToRange = rawFlyToRange;
   const markerPosition = rawMarkerPosition;
+  const cameraIntent = useRef({ command: "", full: false });
+  const cameraCommand = JSON.stringify([flyToPosition?.[0], flyToPosition?.[1], flyToRange?.startIndex, flyToRange?.endIndex, flyToRange?.requestId]);
+  if (cameraIntent.current.command !== cameraCommand) cameraIntent.current = { command: cameraCommand, full: false };
 
   useEffect(() => {
     mapErrorLogged.current = false;
@@ -488,7 +505,7 @@ export default function RouteMap({
 
   if (!bounds || (!drawable && standalonePositions.length !== 1 && !(Array.isArray(routeParts) && endpoints.length > 0) && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
-      return <RouteMapFallback positions={drawable ? positions : standalonePositions} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
+      return <RouteMapFallback positions={drawable ? positions : routePositions} highlightRange={streamFallback ? undefined : highlightRange} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
         height={fallbackHeight ?? height} rounded={rounded}
         title={t("map.unavailableTitle")} description={t("map.unavailableDescription")} />;
@@ -504,7 +521,7 @@ export default function RouteMap({
   const mapboxToken = getMapboxToken();
   const fallback = (
     <RouteMapFallback
-      positions={drawable ? positions : standalonePositions}
+      positions={drawable ? positions : routePositions} highlightRange={streamFallback ? undefined : highlightRange}
       pointsOnly={!drawable}
       segmentStarts={segmentStarts}
       imageUrl={fallbackImageUrl}
@@ -528,7 +545,7 @@ export default function RouteMap({
           mapboxAccessToken={mapboxToken}
           mapStyle={MAP_STYLE}
           preserveDrawingBuffer={preserveDrawingBuffer}
-          initialViewState={{ bounds, fitBoundsOptions: { padding: fitPadding } }}
+          initialViewState={{ bounds, fitBoundsOptions: { padding: fitPadding, maxZoom: 15 } }}
           onLoad={(e) => {
             applyKoreaCyclingStyle(e.target);
             if (pixelRatio) resizeMapAtPixelRatio(e.target, pixelRatio);
@@ -627,7 +644,7 @@ export default function RouteMap({
               width: 36, height: 36, borderRadius: "50%", border: "3px solid var(--ink-0)",
               boxShadow: "0 2px 6px color-mix(in srgb, var(--bg-0) 30%, transparent)", overflow: "hidden", background: "var(--bg-3)", cursor: "pointer",
             }}>
-              <RouteMapPhotoImage key={photo.nativePhoto ? `${photo.nativePhoto.activityId}:${photo.nativePhoto.photoId}` : photo.url} photo={photo} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <RouteMapPhotoImage key={`${photo.nativePhoto ? `${photo.nativePhoto.activityId}:${photo.nativePhoto.photoId}` : photo.url}:${photoRetryVersions[photo.id] ?? 0}`} photo={photo} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
           </Marker>
         ))}
@@ -706,7 +723,7 @@ export default function RouteMap({
                   <path d="M2 2 L8 8 M8 2 L2 8" />
                 </svg>
               </button>
-              <RouteMapPhotoImage key={selectedPhoto.nativePhoto ? `${selectedPhoto.nativePhoto.activityId}:${selectedPhoto.nativePhoto.photoId}` : selectedPhoto.url} photo={selectedPhoto} retryable style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: "var(--r-sm)" }} />
+              <RouteMapPhotoImage key={`${selectedPhoto.nativePhoto ? `${selectedPhoto.nativePhoto.activityId}:${selectedPhoto.nativePhoto.photoId}` : selectedPhoto.url}:${photoRetryVersions[selectedPhoto.id] ?? 0}`} photo={selectedPhoto} retryable onRetry={() => setPhotoRetryVersions(previous => ({ ...previous, [selectedPhoto.id]: (previous[selectedPhoto.id] ?? 0) + 1 }))} style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: "var(--r-sm)" }} />
               {selectedPhoto.caption && (
                 <p style={{ margin: "8px 0 0", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{selectedPhoto.caption}</p>
               )}
@@ -748,9 +765,9 @@ export default function RouteMap({
           </Source>
         )}
 
-        {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
-        <FitBoundsOnLoad bounds={bounds} disabled={isRoutePosition(flyToPosition)} padding={fitPadding} />
-        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} photoPosition={flyToPosition} fullPadding={fitPadding} />
+        {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />}
+        <FitBoundsOnLoad bounds={bounds} disabled={isRoutePosition(flyToPosition) && !cameraIntent.current.full} padding={fitPadding} />
+        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full} />
         {flyToPosition !== undefined && (
           <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)} />
         )}

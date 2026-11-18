@@ -14,6 +14,13 @@ describe("buildStaticRoutePath", () => {
     expect(geometry.points).toEqual([[160,144],[160,16]]);
   });
 
+  it("projects selected sparse samples using the complete route frame and original indices", () => {
+    const geometry = buildStaticRouteGeometry([[37,127],[37.01,127],null,[38,128],[38.01,128]], [], {range:{startIndex:3,endIndex:4}});
+    expect(geometry.path?.match(/M/g)).toHaveLength(2);
+    expect(geometry.selectionPath).toBe(geometry.path?.slice(geometry.path.lastIndexOf("M")));
+    expect(geometry.selectionPath?.match(/L/g)).toHaveLength(1);
+  });
+
   it("실제 정사각형 경로를 가로 카드에서도 정사각형으로 유지한다", () => {
     const longitudeSpan = 0.003 / Math.cos(37.0015 * Math.PI / 180);
     const points = pixels([[37, 127], [37, 127 + longitudeSpan], [37.003, 127 + longitudeSpan], [37.003, 127]]);

@@ -6,6 +6,7 @@ import { buildSampledData, buildAlignedActivityChartChannels } from "../features
 import type { ActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { routeFixtureActivity, routeFixtureStreams } from "../../e2e/fixtures/routeSensorExpansionData";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
+import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 
 const mapErrors = vi.hoisted(() => vi.fn());
@@ -463,7 +464,7 @@ describe("RouteMap", () => {
     const failures = mapErrors.mock.calls.filter(call => call[0] === "RouteMap.image");
     expect(failures).toHaveLength(1);
     expect((failures[0]![1] as Error).message).toBe("route_image_load_failed");
-    expect(failures[0]![2]).toEqual({stage:"static_image",routeSlotCount:2});
+    expect(failures[0]![2]).toEqual({stage:"static_image",routeSlotCount:3});
   });
 
   it("renders endpoint colors above standalone point circles", () => {
@@ -496,12 +497,56 @@ describe("RouteMap", () => {
   it("allows a failed native photo popup image to be retried", () => {
     const photo = {id:"photo",url:"",nativePhoto:{activityId:"ride",photoId:"native"},location:[37,127] as [number,number],caption:"네이티브 사진"};
     renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} photos={[photo]} />);
+    fireEvent.error(screen.getByRole("img", {name:photo.caption}));
     fireEvent.click(screen.getByTestId("map-marker"));
     const popup = within(screen.getByTestId("map-popup"));
     fireEvent.error(popup.getByRole("img", {name:photo.caption}));
     const retry = popup.getByRole("button", {name:"다시 시도"});
     fireEvent.click(retry);
     expect(popup.getByRole("img", {name:photo.caption})).toHaveAttribute("data-native-reference","ride/native");
+    expect(screen.getAllByRole("img", {name:photo.caption})).toHaveLength(2);
+  });
+
+  it("retries a failed marker when the Firebase session changes while photo identity stays the same", () => {
+    const first = {auth:{currentUser:{uid:"owner"}},functions:{},firestore:{},ensureAppCheckReady:vi.fn(),getAppCheckToken:vi.fn()} as unknown as FirebaseServices;
+    const second = {...first,functions:{}} as FirebaseServices;
+    const latlng: [number,number][] = [[37,127],[37.01,127]];
+    const photos = [{id:"photo",url:"https://example.test/photo.jpg",location:[37,127] as [number,number],caption:"세션 사진"}];
+    const view = renderWithProviders(<FirebaseServicesProvider services={first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    fireEvent.error(screen.getByRole("img", {name:"세션 사진"}));
+    expect(document.querySelector("[data-map-photo-failed]")).toBeInTheDocument();
+    view.rerender(<FirebaseServicesProvider services={second}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    expect(screen.getByRole("img", {name:"세션 사진"})).toBeInTheDocument();
+    expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
+  });
+
+  it("shows the selected raw interval in a static preview instead of an unannotated saved image", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[38,128],[38.01,128]] as unknown as [number,number][]}
+      highlightRange={{startIndex:3,endIndex:4}} fallbackImageUrl="https://example.test/route.png" />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    const selected = document.querySelector("[data-route-static-selection]");
+    expect(selected?.getAttribute("d")?.match(/M/g)).toHaveLength(1);
+    expect(selected?.getAttribute("d")?.match(/L/g)).toHaveLength(1);
+    expect(document.querySelector("svg path")?.getAttribute("d")?.match(/M/g)).toHaveLength(2);
+  });
+
+  it("keeps a full-route toolbar request active when native GPS arrives after photo navigation", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {polyline:"37,127;37.01,127",navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const photo: [number,number] = [60,150];
+    const view = renderWithProviders(<RouteMap {...props} flyToPosition={photo} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    const latlng: [number,number][] = [[40,130],[40.01,130]];
+    view.rerender(<RouteMap {...props} latlng={latlng} flyToPosition={photo} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[130,40],[130,40.01]]);
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({maxZoom:15});
+    const nextPhoto: [number,number] = [70,160];
+    view.rerender(<RouteMap {...props} latlng={latlng} flyToPosition={nextPhoto} />);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} latlng={[[41,131],[41.01,131]]} flyToPosition={nextPhoto} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
   });
 
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
