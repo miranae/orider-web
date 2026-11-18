@@ -136,7 +136,7 @@
     "restartTotals": "Restart lifetime record check",
     "totalsRestartScope": "Check record integrity with a fresh inspection. Each action processes at most 100 pages.",
     "publicMediaLimit": "Photo search covers up to 200 public activities.",
-    "morePublicMediaActivities": "Search more activities for photos",
+    "morePublicMediaActivities": "Load more public records",
     "noMediaInPages": "No displayable items in the activities inspected so far.",
     "olderPhotoActivities": "Inspect 6 more activities for photos",
     "moreCachedPhotos": "Show 6 more photos",

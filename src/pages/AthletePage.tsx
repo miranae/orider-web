@@ -1198,7 +1198,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           </nav>
           {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("photos") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
           {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("highlights") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
-          {!isOwnProfile && (profileTab === "overview" || profileTab === "photos" || (profileTab === "achievements" && (highlights.length > 0 || ["error", "restart", "stale"].includes(publicGlobal.status)))) && publicGlobal.status !== "complete" &&
+          {!isOwnProfile && (profileTab === "overview" || profileTab === "photos" || profileTab === "achievements") && publicGlobal.status !== "complete" &&
             <div className="athlete-query-status">
               {publicGlobal.status !== "partial" && <Text as="p" role="status">
                 {t(publicGlobal.status === "limit" ? "profile.publicMediaLimit" : `publicGlobal.${publicGlobal.status}`)}
@@ -1289,7 +1289,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             ) : (!isSearchActive || isOwnProfile) && activityReadError && filteredActivities.length === 0 ? null : filteredActivities.length === 0 ? (
               <Card padding="none" className="text-center py-12 rounded-[var(--r-xl)]">
                 <p className="text-[var(--ink-3)]">
-                  {isSearchActive ? t("activities.emptySearch") : (isOwnProfile && !selectedPeriod && hasMoreActivities) || (publicFiltersApplied && publicGlobal.status !== "complete")
+                  {isSearchActive ? t("activities.emptySearch") : (isOwnProfile && !selectedPeriod && hasMoreActivities) || (publicFiltersApplied && publicGlobal.status !== "complete") || (!isOwnProfile && !hasLocalFilter && publicActivityCursor !== null)
                     ? t("profile.noMatchesInLoaded")
                     // 내 프로필의 「아직 활동 내역이 없어요」 → 활동 가져오기 창.
                     : <Resolvable resolve={isOwnProfile && !selectedPeriod ? { to: "/athlete/me/activities?import=1" } : undefined}>{t(isOwnProfile ? "activities.empty" : "activities.emptyPublic")}</Resolvable>}
@@ -1328,7 +1328,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           </div>
           {!isOwnProfile && isSearchActive && publicSearchError && <Text role="alert">{t("monthly.error")}</Text>}
           {!isOwnProfile && isSearchActive && publicSearchCursor && <Button size="sm" variant="ghost" disabled={searchLoading} onClick={() => void loadMorePublicSearch()}>{t("activities.loadMore")}</Button>}
-          {!isSearchActive && (!hasLocalFilter || isOwnProfile && !selectedPeriod) && filteredActivities.length === 0 && hasMoreActivities && <Button size="sm" variant="ghost" disabled={loadingMore} onClick={() => void handleLoadMoreActivities()}>{t("activities.loadMore")}</Button>}
+          {!activitiesLoading && !isSearchActive && (!hasLocalFilter || isOwnProfile && !selectedPeriod) && filteredActivities.length === 0 &&
+            (isOwnProfile ? Boolean(lastActivityDoc) && hasMoreActivities : publicActivityCursor !== null) && <Button size="sm" variant="ghost" disabled={loadingMore} onClick={() => void handleLoadMoreActivities()}>{t("activities.loadMore")}</Button>}
           {hasLocalFilter && (!isOwnProfile || selectedPeriod) && filteredActivities.length > periodLimit && <Button size="sm" variant="ghost" onClick={() => setPeriodLimit(count => count + 20)}>{t("activities.loadMore")}</Button>}
           </>}
         </div>

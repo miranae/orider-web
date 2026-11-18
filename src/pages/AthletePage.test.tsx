@@ -56,6 +56,21 @@ beforeEach(() => {
   setCallableResult("getAthleteProfilePreview", { data: { items: [], scope: "recent", complete: true, nextCursor: null } });
 });
 
+it("keeps the next public activity page available after an empty first page", async () => {
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
+    const next = Boolean(request.cursor);
+    return { items: next ? [createMockActivity({ id: "next", userId: "athlete-1", description: "Visible on the next page" })] : [],
+      nextCursor: next ? null : "ad1.empty-first", exhausted: next, expiresAt: Date.now() + 600000 } as never;
+  });
+  try {
+    renderWithProviders(<AthletePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }));
+    expect(await screen.findByRole("link", { name: "Visible on the next page" })).toBeInTheDocument();
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
 it("keeps a fractional kilometer in the public lifetime distance", async () => {
   setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 1, distance: 400 }) });
   renderWithProviders(<AthletePage />);
