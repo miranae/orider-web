@@ -52,8 +52,15 @@ test("manual development preparation binds paired runtime/Hosting, source and ac
     assert.equal(hosting.site, "orider-dev"); assert.ok(hosting.rewrites.filter(rule => rule.run).every(rule => rule.run.serviceId === "dev-bundle-default-api"));
     const environment = readFileSync(env, "utf8");
     assert.match(environment, /BUNDLED_RUNTIME_CONFIG_PATH=/); assert.match(environment, /BUNDLED_FUNCTIONS_ENVIRONMENT=development/);
-    assert.ok(f.calls.every(url => !url.includes("cloudfunctions.net")));
-    assert.ok(hosting.headers.flatMap(row => row.headers).some(header => header.key === "Content-Security-Policy" && header.value.includes("https://dev-bundle-default-api-818364001341.asia-northeast3.run.app")));
+    const gatewayOrigin = "https://dev-bundle-default-api-818364001341.asia-northeast3.run.app";
+    assert.equal(runtime.firebaseFunctionsBase, gatewayOrigin);
+    assert.deepEqual([...new Set(f.calls.map(url => new URL(url).origin))].sort(), ["https://orider.co.kr", gatewayOrigin].sort());
+    const connectSources = hosting.headers.flatMap(row => row.headers).filter(header => header.key === "Content-Security-Policy")
+      .flatMap(header => header.value.split(";").flatMap(directive => {
+        const [name, ...sources] = directive.trim().split(/\s+/u);
+        return name === "connect-src" ? sources : [];
+      }));
+    assert.ok(new Set(connectSources).has(gatewayOrigin));
   } finally { f.cleanup(); }
 });
 test("seal and predeploy verify the actual dist runtime and every artifact file", async () => {
