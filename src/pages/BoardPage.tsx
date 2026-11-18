@@ -19,6 +19,7 @@ import { BoardImage } from "../features/board/BoardImage";
 import { LocalizedLink } from "../components/LocalizedLink";
 import "./BoardList.css";
 import { ICON_SIZE } from "../theme/tokens/icon";
+import { isEnterSubmit } from "../utils/isEnterSubmit";
 
 /** 글 종류 태그 색 — 작업일지는 초록(G16), 문의는 청록, 자료실은 주황, 인기는 빨강. */
 const BOARD_TYPE_CHIP: Partial<Record<BoardType, ChipVariant>> = {
@@ -253,7 +254,7 @@ const BoardPage: React.FC = () => {
                 placeholder={t("placeholder.search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSearch(); }}
+                onKeyDown={(e) => { if (isEnterSubmit(e.nativeEvent)) handleSearch(); }}
                 className="board-search-input w-full"
               />
             </div>

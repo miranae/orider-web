@@ -11,6 +11,7 @@ import type { LngLatBounds } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { getMapboxToken } from "../utils/mapbox";
+import { isEnterSubmit } from "../utils/isEnterSubmit";
 import { ChevronDown } from "lucide-react";
 import { ErrorState, LoadingSkeleton, Resolvable } from "../components/redesign";
 import { Button, buttonClass, Chip, Text, Input } from "../theme/components";
@@ -233,7 +234,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
     setSearchParams(nextParams, { replace: true });
   };
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.nativeEvent.isComposing) applySearch(inputValue.trim());
+    if (isEnterSubmit(e.nativeEvent)) applySearch(inputValue.trim());
   };
 
   const scrollToCard = useCallback((id: string) => {

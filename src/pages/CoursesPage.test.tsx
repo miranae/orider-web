@@ -108,6 +108,7 @@ describe("CoursesPage mobile layout", () => {
     try {
       fireEvent.change(input, { target: { value: "남한강" } });
       fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+      fireEvent.keyDown(input, { key: "Enter", keyCode: 229, isComposing: false });
       await act(async () => { await vi.advanceTimersByTimeAsync(500); });
       expect(searchVisibleCoursesPage).not.toHaveBeenCalled();
     } finally {
