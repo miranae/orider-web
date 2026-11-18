@@ -14,16 +14,16 @@ export function publicPeriodBounds(from: string, to: string) {
 type Result = { items: Activity[]; cursor: string | null; expiresAt: number; authorizedUntil: number; pages: number; status: "loading" | "partial" | "complete" | "error" | "restart" | "stale" | "limit" };
 const empty = (): Result => ({ items: [], cursor: null, expiresAt: 0, authorizedUntil: 0, pages: 0, status: "loading" });
 /** One explicit page per action. No public activity payload or cursor is persisted. */
-export function useAthletePublicPeriod(targetUid: string, from: string, to: string, enabled = true, global = false) {
+export function useAthletePublicPeriod(targetUid: string, from: string, to: string, enabled = true, global = false, accessRevision?: object | null) {
   const services = useFirebaseServices(), auth = services.auth, sdkUser = auth.currentUser, app = auth.app;
   const { user: hostUser } = useAuth();
   const approvedViewer = services.scope === "embedded" ? hostUser : undefined;
   const scope = `${targetUid}|${from}|${to}|${enabled}|${global}`, generation = useRef(0), busy = useRef(false);
-  const identity = useRef({ scope, services, sdkUser, app });
+  const identity = useRef({ scope, services, sdkUser, app, accessRevision });
   const session = useRef<Result>(empty()), controller = useRef<AbortController | null>(null);
   const [state, setState] = useState<{ generation: number; result: Result }>();
-  if (identity.current.scope !== scope || identity.current.services !== services || identity.current.sdkUser !== sdkUser || identity.current.app !== app) {
-    controller.current?.abort(); identity.current = { scope, services, sdkUser, app }; generation.current++; busy.current = false; session.current = empty();
+  if (identity.current.scope !== scope || identity.current.services !== services || identity.current.sdkUser !== sdkUser || identity.current.app !== app || identity.current.accessRevision !== accessRevision) {
+    controller.current?.abort(); identity.current = { scope, services, sdkUser, app, accessRevision }; generation.current++; busy.current = false; session.current = empty();
   }
   const clear = useCallback(() => {
     controller.current?.abort(); controller.current = null; generation.current++; busy.current = false; session.current = empty();
@@ -41,7 +41,7 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
       clear(); session.current = { ...empty(), status: "stale" }; setState({ generation: generation.current, result: session.current }); return;
     }
     const seq = generation.current;
-    const current = () => seq === generation.current && identity.current.services === services && auth.currentUser === user && auth.app === app;
+    const current = () => seq === generation.current && identity.current.services === services && auth.currentUser === user && auth.app === app && identity.current.accessRevision === accessRevision;
     if (previous.cursor && Date.now() >= previous.expiresAt) {
       session.current = { ...empty(), status: "restart" }; setState({ generation: seq, result: session.current }); return;
     }
@@ -69,7 +69,7 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
       clearTimeout(deadline);
       if (current()) { busy.current = false; setState({ generation: seq, result: session.current }); }
     }
-  }, [services, auth, app, scope, targetUid, from, to, enabled, global, clear, approvedViewer]);
+  }, [services, auth, app, scope, targetUid, from, to, enabled, global, clear, approvedViewer, accessRevision]);
   useEffect(() => {
     clear(); void read();
     let currentUser = auth.currentUser;

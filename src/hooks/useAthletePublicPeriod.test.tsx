@@ -59,6 +59,17 @@ it("does not dispatch discovery with an SDK user the host has not approved", asy
   expect(mocks.load).toHaveBeenCalledTimes(2);
 });
 
+it("discards buffered rows when a live access signal changes", async () => {
+  mocks.load.mockResolvedValueOnce(page(["buffered"], "ad1.next")).mockResolvedValueOnce(page([]));
+  const { result, rerender } = renderHook(({ revision }) => useAthletePublicPeriod("target", "", "", true, true, revision),
+    { initialProps: { revision: { viewer: "before" } } });
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["buffered"]));
+  rerender({ revision: { viewer: "after" } });
+  expect(result.current.items).toEqual([]);
+  await waitFor(() => expect(result.current.status).toBe("complete"));
+  expect(mocks.load.mock.calls[1][1]).not.toHaveProperty("cursor");
+});
+
 it("hides old rows while backgrounded and refreshes on return", async () => {
  mocks.load.mockResolvedValueOnce(page(["a"])).mockResolvedValueOnce(page([]));
  const {result}=renderHook(()=>useAthletePublicPeriod("target","2026-01-01","2026-01-31"));

@@ -276,6 +276,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return () => { active = false; if (signalGeneration.current === generation) signalGeneration.current++; stopPublic(); stopViewer?.(); };
   }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity && totalsSignals.generation === signalGeneration.current ? totalsSignals : null;
+  const publicAccessRevision = currentSignals?.public?.revision ?? "0";
+  const viewerAccessRevision = currentSignals?.viewer?.revision ?? "0";
+  const accessRevision = useMemo(() => ({ publicAccessRevision, viewerAccessRevision }), [publicAccessRevision, viewerAccessRevision]);
   const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized });
   if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline || publicTotalsScopeRef.current.publicTotalsAuthorized !== publicTotalsAuthorized)
     publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized };
@@ -430,7 +433,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
   const profileReadReady = sessionAuthorized && (isOwnProfile || !profileLoading);
   const activityAccessAllowed = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
-  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true);
+  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true, accessRevision);
   const chartCurrent = chartScope?.identity === readIdentity && chartScope.year === chartYear;
   const chartActivities = isOwnProfile ? chartCurrent ? ownChartActivities : [] : publicGlobal.items;
   const chartLoading = isOwnProfile ? ownChartLoading || !chartCurrent && !ownChartError : publicGlobal.status === "loading";
@@ -438,6 +441,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const chartLimited = !isOwnProfile && publicGlobal.status === "limit";
 
   const [relationshipLoading, setRelationshipLoading] = useState(true);
+  const [relationshipScope, setRelationshipScope] = useState<typeof readIdentity | null>(null);
   const [relationshipError, setRelationshipError] = useState(false);
   const [relationshipAttempt, setRelationshipAttempt] = useState(0);
   const [friendLoading, setFriendLoading] = useState(false);
@@ -720,6 +724,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === viewer
       && services.isSessionApproved?.(viewer) !== false;
     if (!sessionAuthorized || !current()) return;
+    setRelationshipScope(null);
     setRelationshipLoading(true); setRelationshipError(false); setFriendStatus("none");
     // 1. 이미 친구인지 확인
     getDoc(doc(services.firestore, "friends", currentUser.uid, "users", userId))
@@ -746,7 +751,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           });
       })
       .catch((err) => { logClientError("AthletePage.relationship", err, { userId, operation: "friendship-read" }, services, viewer); if (current()) setRelationshipError(true); })
-      .finally(() => { if (current()) setRelationshipLoading(false); });
+      .finally(() => { if (current()) { setRelationshipScope(readIdentity); setRelationshipLoading(false); } });
     return () => { active = false; };
   }, [currentUser, userId, services, relationshipAttempt, readIdentity, sessionAuthorized]);
 
@@ -759,6 +764,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       searchParams.get("action") !== "invite" ||
       profileForPage?.friendRequestsAllowed === false ||
       friendStatus !== "none" ||
+      relationshipScope !== readIdentity || services.auth.currentUser !== readIdentity.viewer ||
+      services.isSessionApproved?.(readIdentity.viewer) === false ||
       relationshipLoading || relationshipError ||
       friendLoading
     ) return;
@@ -772,7 +779,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         showToast(t("friend.autoSent"));
       }
     });
-  }, [currentUser, userId, profileForPage?.friendRequestsAllowed, friendStatus, relationshipLoading, relationshipError, friendLoading, searchParams, t]);
+  }, [currentUser, userId, profileForPage?.friendRequestsAllowed, friendStatus, relationshipScope, relationshipLoading, relationshipError, friendLoading, readIdentity, services, searchParams, t]);
 
   // Fetch friend list + count
   useEffect(() => {
@@ -920,7 +927,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     });
   }, [chartActivities, userId, isOwnProfile, ownerPhotoItems]);
   const recentPhotos = profilePhotos.slice(0, mediaVisible.photos);
-  const publicPhotosBuffered = !isOwnProfile && profilePhotos.length > mediaVisible.photos;
+  const publicPhotosBuffered = !isOwnProfile && Date.now() < publicGlobal.authorizedUntil && profilePhotos.length > mediaVisible.photos;
   const highlights = useMemo(() => isOwnProfile ? ownerHighlightItems.slice(0, mediaVisible.highlights) : [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime).flatMap(activity => (activity.topAchievements ?? []).slice(0, 3).map(achievement => ({ ...achievement, activityId: activity.id }))).slice(0, 12), [acceptedChartActivities, isOwnProfile, ownerHighlights, mediaCurrent, mediaVisible.highlights]);
 
   // 검색 활성 시: 서버 검색 결과 사용
@@ -1212,8 +1219,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 {t(publicGlobal.status === "limit" ? "profile.publicMediaLimit" : `publicGlobal.${publicGlobal.status}`)}
               </Text>}
               {(publicPhotosBuffered || publicGlobal.status === "partial") && <Button size="sm" onClick={() => {
-                setMediaVisible(visible => ({ ...visible, photos: visible.photos + 6 }));
-                if (!publicPhotosBuffered) void publicGlobal.more();
+                if (Date.now() < publicGlobal.authorizedUntil) setMediaVisible(visible => ({ ...visible, photos: visible.photos + 6 }));
+                if (!publicPhotosBuffered || Date.now() >= publicGlobal.authorizedUntil) void publicGlobal.more();
               }}>{t(publicPhotosBuffered ? "profile.moreCachedPhotos" : "profile.morePublicMediaActivities")}</Button>}
               {["error", "restart", "stale"].includes(publicGlobal.status) && <Button size="sm" onClick={publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>
                 {t("common:button.retry")}
@@ -1224,7 +1231,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {(profileTab === "overview" || profileTab === "activities") && <>
           {/* 종목 선택은 운동일지·코치와 같은 종목 탭으로 그린다(드롭다운 X). */}
           <div className="athlete-section-heading"><SportFilterTabs value={sport} onChange={setSport} /></div>
-          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p><Resolvable resolve={chartLimited ? undefined : { onClick: retryChart }}>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</Resolvable></p></div> : <AthleteActivityChart selectedYear={chartYear} availableYears={athleteProfileYears(chartSession, chartYear)} onYearChange={setChartYear} loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
+          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} accessRevision={accessRevision} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p><Resolvable resolve={chartLimited ? undefined : { onClick: retryChart }}>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</Resolvable></p></div> : <AthleteActivityChart selectedYear={chartYear} availableYears={athleteProfileYears(chartSession, chartYear)} onYearChange={setChartYear} loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
       {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
         { to: "/athlete/me", label: t("self.overview"), end: true },
