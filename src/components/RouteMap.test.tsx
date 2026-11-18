@@ -568,9 +568,34 @@ describe("RouteMap", () => {
     expect(api.flyTo).not.toHaveBeenCalled();
   });
 
+  it("does not refit unchanged bounds on chart hover after a toolbar fit", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {polyline:"37,127;37.01,127",flyToPosition:[60,150] as [number,number],
+      navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const view = renderWithProviders(<RouteMap {...props} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} markerPosition={[37,127]} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("includes a located photo in the initial bounds of a single-fix route", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png"
+      photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[128,38]]);
+    expect(screen.getByTestId("map-marker")).toBeInTheDocument();
+  });
+
   it.each([0,3])("preserves a single GPS selection at raw index %s in the static fallback", index => {
     renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[60,150]] as unknown as [number,number][]}
       flyToRange={{startIndex:index,endIndex:index}} fallbackImageUrl="https://example.test/route.png" />);
+    expect(mapProps.layers.has("route-selected-point")).toBe(true);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({
+      geometry: {type:"Point", coordinates:index === 0 ? [127,37] : [150,60]},
+    }));
     fireEvent.click(screen.getByTestId("mock-map"));
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     const selected = document.querySelector("[data-route-static-selection]");

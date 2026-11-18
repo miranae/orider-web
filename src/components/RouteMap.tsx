@@ -253,11 +253,21 @@ function RouteNavigation({ labels, bounds, padding, onFit }: {
   return <MapNavigation aria-label={labels.fitRoute}>
     <MapControlButton iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
     <MapControlButton iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
-    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => { onFit(); map?.fitBounds(bounds, routeFitOptions(bounds, padding, motion())); }}><LocateFixed size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
+    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => {
+      if (!map) return;
+      map.fitBounds(bounds, routeFitOptions(bounds, padding, motion()));
+      onFit();
+    }}><LocateFixed size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
   </MapNavigation>;
 }
 
-function FitBoundsOnLoad({ bounds, disabled, padding }: { bounds: LngLatBoundsLike; disabled?: boolean; padding: number }) {
+function RouteCameraControls({ bounds, disabled, padding, labels, onFit }: {
+  bounds: LngLatBoundsLike;
+  disabled: boolean;
+  padding: number;
+  labels: RouteMapProps["navigationLabels"];
+  onFit: () => void;
+}) {
   const { current: map } = useMap();
   const fittedKey = useRef<string | null>(null);
   useEffect(() => {
@@ -268,7 +278,10 @@ function FitBoundsOnLoad({ bounds, disabled, padding }: { bounds: LngLatBoundsLi
       fittedKey.current = key;
     }
   }, [map, bounds, disabled, padding]);
-  return null;
+  return labels ? <RouteNavigation labels={labels} bounds={bounds} padding={padding} onFit={() => {
+    fittedKey.current = JSON.stringify(bounds);
+    onFit();
+  }} /> : null;
 }
 
 function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition, fullPadding, fullRouteRequested }: {
@@ -450,8 +463,8 @@ export default function RouteMap({
   const hasRecordedPosition = useMemo(() => sourcePositions.some(isRoutePosition) || routePositions.some(isRoutePosition), [sourcePositions, routePositions]);
   const hasLocatedAttachment = hasRecordedPosition && (photos?.some(photo => isRoutePosition(photo?.location))
     || waypoints?.some(point => isRoutePosition([point?.lat, point?.lon])));
-  const pointPositions = useMemo(() => {
-    const points: [number, number][] = [...standalonePositions, ...endpoints, ...activePoints];
+  const attachmentPositions = useMemo(() => {
+    const points: [number, number][] = [];
     const add = (point: unknown) => { if (isRoutePosition(point)) points.push([point[0], point[1]]); };
     // Passive attachments must not replace a saved route image or create a map request on their own.
     if (hasRecordedPosition || activePoints.length > 0) {
@@ -459,9 +472,12 @@ export default function RouteMap({
       if (Array.isArray(waypoints)) waypoints.forEach(point => add([point?.lat, point?.lon]));
     }
     return points;
-  }, [standalonePositions, endpoints, activePoints, hasRecordedPosition, photos, waypoints]);
+  }, [hasRecordedPosition, activePoints.length, photos, waypoints]);
+  const pointPositions = useMemo(() => [...standalonePositions, ...endpoints, ...activePoints, ...attachmentPositions],
+    [standalonePositions, endpoints, activePoints, attachmentPositions]);
   const routeBounds = useMemo(() => getBounds([...positions, ...endpoints]), [positions, endpoints]);
-  const standaloneBounds = useMemo(() => getBounds(standalonePositions), [standalonePositions]);
+  const standaloneBounds = useMemo(() => standalonePositions.length ? getBounds([...standalonePositions, ...attachmentPositions]) : null,
+    [standalonePositions, attachmentPositions]);
   const pointBounds = useMemo(() => getBounds(pointPositions), [pointPositions]);
   // Hover/highlight points do not define the recorded route's camera. Explicit point
   // navigation has its own controller; route fit remains stable after photo navigation.
@@ -479,6 +495,8 @@ export default function RouteMap({
     if (!isRoutePosition(markerPosition)) return null;
     return toPointGeoJSON(markerPosition[0], markerPosition[1]);
   }, [markerPosition]);
+  const selectedPoint = flyToRange && flyToRange.startIndex === flyToRange.endIndex ? sourcePositions[flyToRange.startIndex] : null;
+  const selectedPointGeoJSON = useMemo(() => isRoutePosition(selectedPoint) ? toPointGeoJSON(selectedPoint[0], selectedPoint[1]) : null, [selectedPoint]);
 
   const endpointGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point> | null>(() => {
     if (endpoints.length < 2) return null;
@@ -754,6 +772,16 @@ export default function RouteMap({
           </Popup>
         )}
 
+        {selectedPointGeoJSON && (
+          <Source type="geojson" data={selectedPointGeoJSON}>
+            <Layer id="route-selected-point" type="circle" paint={{
+              "circle-radius": 7,
+              "circle-color": RECORDED_TRACK_COLOR,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 3,
+            }} />
+          </Source>
+        )}
         {/* Hover marker from chart interaction */}
         {markerGeoJSON && (
           <Source type="geojson" data={markerGeoJSON}>
@@ -788,8 +816,8 @@ export default function RouteMap({
           </Source>
         )}
 
-        {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />}
-        <FitBoundsOnLoad bounds={bounds} disabled={isRoutePosition(flyToPosition) && !cameraIntent.current.full} padding={fitPadding} />
+        <RouteCameraControls labels={navigationLabels} bounds={bounds} disabled={isRoutePosition(flyToPosition) && !cameraIntent.current.full}
+          padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />
         <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full} />
         {flyToPosition !== undefined && (
           <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)} fullRouteRequested={cameraIntent.current.full} />
