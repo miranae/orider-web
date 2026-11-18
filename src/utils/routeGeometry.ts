@@ -57,6 +57,24 @@ export function drawableRouteSlots(positions: readonly RouteSlot[], segmentStart
   ) ? point : null);
 }
 
+/** Find the midpoint of the shortest circular span by omitting its largest empty gap. */
+function longitudeCenter(slots: readonly RouteSlot[], west: number, east: number): number {
+  if (east - west <= 180) return (west + east) / 2;
+  const longitudes = slots.flatMap(point => point ? [point[1] < 0 ? point[1] + 360 : point[1]] : []);
+  longitudes.sort((first, second) => first - second);
+  let largestGap = -1;
+  let center = (west + east) / 2;
+  for (let index = 0; index < longitudes.length; index++) {
+    const previous = longitudes[index]!;
+    const next = longitudes[index + 1] ?? longitudes[0]! + 360;
+    const gap = next - previous;
+    if (gap <= largestGap) continue;
+    largestGap = gap;
+    center = (next + previous + 360) / 2;
+  }
+  return unwrapLongitudeNear(center, (west + east) / 2);
+}
+
 /** Use one longitude placement for every sample before deriving route subranges. */
 export function projectRouteSlots(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []): RouteSlot[] {
   const starts = new Set(segmentStarts);
@@ -64,7 +82,7 @@ export function projectRouteSlots(positions: readonly RouteSlot[], segmentStarts
   const fitSlots = lineSlots.some(Boolean) ? lineSlots : positions;
   const bounds = routeBounds(fitSlots, true);
   if (!bounds) return positions.slice();
-  const center = (bounds[0][0] + bounds[1][0]) / 2;
+  const center = longitudeCenter(fitSlots, bounds[0][0], bounds[1][0]);
   const projected: RouteSlot[] = [];
   let start = 0;
   while (start < positions.length) {

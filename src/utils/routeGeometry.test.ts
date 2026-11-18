@@ -25,9 +25,19 @@ describe("route geometry at the untrusted stream boundary", () => {
   it("places disconnected segments on the same world copy regardless of direction", () => {
     const slots = routeSlots([[0, 179.99], [0, -179.99], null, [0, -1], [0, 1], [0, 1], [0, -1]]);
     const projected = projectRouteSlots(slots, [5]);
-    expect(projected.slice(3)).toEqual([[0, -1], [0, 1], [0, 1], [0, -1]]);
-    const bounds = routeGeometryBounds(routeGeometry(projected.slice(3), [2]).geometry);
-    expect(bounds).toEqual([[-1, 0], [1, 0]]);
+    expect(projected[3]).toEqual(projected[6]);
+    expect(projected[4]).toEqual(projected[5]);
+    const [[west], [east]] = routeGeometryBounds(routeGeometry(projected.slice(3), [2]).geometry)!;
+    expect(east - west).toBe(2);
+  });
+
+  it("keeps adjacent dateline parts together when another part crosses the opposite meridian", () => {
+    const slots = routeSlots([[0, 178], [0, 179], [0, -179], [0, -178], [0, -1], [0, 0]]);
+    const boundaries = [2, 4];
+    const projected = projectRouteSlots(slots, boundaries);
+    const [[west], [east]] = routeGeometryBounds(routeGeometry(projected, boundaries).geometry)!;
+    expect(Math.abs(projected[1]![1] - projected[2]![1])).toBe(2);
+    expect(east - west).toBe(182);
   });
 
   it("retains legacy segment coordinates with trailing elevation", () => {

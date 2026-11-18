@@ -37,6 +37,22 @@ describe("logClientError", () => {
     } finally { runtime.mockRestore(); }
   });
 
+  it("keeps a new sign-in's first error when Firebase reuses the same User object", async () => {
+    let finishOldAppCheck!: () => void;
+    const user = { uid: "owner", metadata: { lastSignInTime: "old" } };
+    const appCheck = vi.fn().mockResolvedValue(undefined)
+      .mockReturnValueOnce(new Promise<void>(resolve => { finishOldAppCheck = resolve; }));
+    const services = { auth: { currentUser: user }, functions: {}, ensureAppCheckReady: appCheck } as unknown as FirebaseServices;
+    const error = new Error("map image failed");
+    logClientError("map.image.signed-in", error, {}, services);
+    user.metadata.lastSignInTime = "new";
+    logClientError("map.image.signed-in", error, {}, services);
+    finishOldAppCheck();
+
+    expect(captureError).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "logClientError")).toHaveLength(1));
+  });
+
   it("sends an identical immediate error only once", async () => {
     const error = new Error("INTERNAL ASSERTION FAILED: Unexpected state");
 
