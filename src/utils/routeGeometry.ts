@@ -13,6 +13,14 @@ export function routeSlots(value: unknown): RouteSlot[] {
   return Array.isArray(value) ? Array.from(value, point => isRoutePosition(point) ? [point[0], point[1]] : null) : [];
 }
 
+/** A line needs adjacent measured samples; isolated points must never be bridged. */
+export function hasRouteLine(positions: readonly unknown[]): boolean {
+  for (let index = 1; index < positions.length; index++) {
+    if (isRoutePosition(positions[index - 1]) && isRoutePosition(positions[index])) return true;
+  }
+  return false;
+}
+
 export function routeGeometry(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []) {
   const starts = new Set(segmentStarts);
   const parts: RoutePosition[][] = [];

@@ -14,7 +14,7 @@ import { decodeTrack } from "../utils/polyline";
 import { buildStaticRoutePath } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
-import { isRoutePosition, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
+import { isRoutePosition, hasRouteLine, routeSlots, routeGeometry, routeBounds as getBounds, type RouteSlot } from "../utils/routeGeometry";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface PhotoMarker {
@@ -302,8 +302,10 @@ export default function RouteMap({
       }
     } else {
       const streamPositions = routeSlots(latlng);
-      if (streamPositions.some(isRoutePosition)) return { positions: streamPositions, segmentStarts };
-      if (polyline) return { positions: routeSlots(decodeTrack(polyline)), segmentStarts, streamFallback: streamPositions.length > 0 };
+      if (hasRouteLine(streamPositions)) return { positions: streamPositions, segmentStarts };
+      const thumbnail = polyline ? routeSlots(decodeTrack(polyline)) : [];
+      if (hasRouteLine(thumbnail)) return { positions: thumbnail, segmentStarts, streamFallback: streamPositions.length > 0 };
+      return { positions: streamPositions.length ? streamPositions : thumbnail, segmentStarts };
     }
     return { positions, segmentStarts };
   }, [polyline, latlng, routeParts]);
@@ -622,9 +624,7 @@ export default function RouteMap({
 
         {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
         <FitBoundsOnLoad bounds={bounds} />
-        {flyToRange !== undefined && (
-          <FlyToSegmentRange positions={positions} range={flyToRange} fullBounds={bounds} />
-        )}
+        <FlyToSegmentRange positions={positions} range={flyToRange} fullBounds={bounds} />
         {flyToPosition !== undefined && (
           <FlyToPositionControl position={flyToPosition} fullBounds={bounds} />
         )}

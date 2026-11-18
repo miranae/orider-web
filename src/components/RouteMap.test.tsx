@@ -99,7 +99,7 @@ describe("RouteMap", () => {
     const model = { activity: routeFixtureActivity, streams, effectiveStreams: streams, serverMetrics: { metrics: null }, authorizedActivityAccess: true } as unknown as ActivityAnalysisModel;
     function Analysis() {
       const selection = useActivityRangeSelection(model, sampled);
-      return <><button onClick={() => selection.selectChart([3,4])}>Select chart range</button>
+      return <><button onClick={() => selection.selectChart([3,4])}>Select chart range</button><button onClick={() => selection.selectChart([0,4])}>Select across gap</button>
         <output>{JSON.stringify({ range: selection.routeRange, power: sampled.slice(selection.chartRange?.[0] ?? 0, (selection.chartRange?.[1] ?? 4) + 1).map(point => point.power) })}</output>
         <RouteMap latlng={streams.latlng} highlightRange={selection.routeRange} /></>;
     }
@@ -108,6 +108,9 @@ describe("RouteMap", () => {
     fireEvent.click(screen.getByRole("button", {name:"Select chart range"}));
     expect(screen.getByRole("status")).toHaveTextContent('"range":{"startIndex":3,"endIndex":4},"power":[130,140]');
     expect(mapProps.sources.at(-1)).toMatchObject({geometry:{coordinates:[[127.02,37.02],[127.022,37.022]]}});
+    fireEvent.click(screen.getByRole("button", {name:"Select across gap"}));
+    expect(screen.getByRole("status")).toHaveTextContent('"range":{"startIndex":0,"endIndex":4},"power":[100,110,120,130,140]');
+    expect(mapProps.sources.at(-1)).toMatchObject({geometry:{type:"MultiLineString",coordinates:[[[127,37],[127.002,37.002]],[[127.02,37.02],[127.022,37.022]]]}});
     expect(streams.latlng?.[2]).toBeNull();
     expect(streams.watts).toEqual([100,110,120,130,140]);
   });
@@ -136,6 +139,23 @@ describe("RouteMap", () => {
     expect(mapProps.sources).toHaveLength(1);
     expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[127.01,37.01]]}});
     expect(mapProps.markers).toHaveLength(0);
+  });
+
+  it("uses the thumbnail for isolated GPS samples without joining them", () => {
+    const latlng = [[37,127], null, [38,128], null, [39,129]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} polyline="37,127;39,129" highlightRange={{startIndex:0,endIndex:4}} />);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[129,39]]}});
+    expect(mapProps.sources).toHaveLength(1);
+  });
+
+  it("restores the whole thumbnail after a selected stream becomes unavailable with identical bounds", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127], [37.01,127], null, [38,128], [38.01,128]] as unknown as [number,number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={latlng} polyline="37,127;38.01,128" flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+    rerender(<RouteMap latlng={[null, null] as unknown as [number,number][]} polyline="37,127;38.01,128" flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[128,38.01]]);
   });
 
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
