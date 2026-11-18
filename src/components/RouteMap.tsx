@@ -221,10 +221,12 @@ function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds }: {
     if (range) {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
-      const segment = drawableRouteSlots(positions.slice(lo, hi + 1), segmentStarts.map(index => index - lo));
+      const slice = positions.slice(lo, hi + 1);
+      const segment = lo === hi ? slice : drawableRouteSlots(slice, segmentStarts.map(index => index - lo));
       const bounds = getBounds(segment);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
-      prevRange.current = range;
+      else map.fitBounds(fullBounds, { padding: 20 });
+      prevRange.current = bounds ? range : null;
     } else if (prevRange.current) {
       map.fitBounds(fullBounds, { padding: 20 });
       prevRange.current = null;

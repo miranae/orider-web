@@ -1,7 +1,8 @@
 // Local-only synthetic regression surface. No auth provider or activity API reads.
 import { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import i18next from "i18next";
+import { createInstance } from "i18next";
+import { logClientError } from "../../src/services/errorLogger";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { ActivityMediaPanel } from "../../src/features/activity/detail/ActivityMediaPanel";
 import { ErrorBoundary } from "../../src/components/ErrorBoundary";
@@ -23,7 +24,17 @@ import "../../src/pages/activity/activity-detail-page.css";
 import "../../src/theme/generated.css";
 import "../../src/theme/components/components.css";
 
-await i18next.init({ lng: "ko", resources: { ko: { common, activity } }, interpolation: { escapeValue: false } });
+const fixtureI18n = createInstance();
+await new Promise<void>((resolve, reject) => {
+  void fixtureI18n.init({ lng: "ko", fallbackLng: "ko", ns: ["common", "activity"], defaultNS: "common",
+    resources: { ko: { common, activity } }, interpolation: { escapeValue: false } }, error => {
+    if (error) {
+      const failure = new Error("fixture/i18n-resources-unavailable");
+      logClientError("RouteSensorExpansionFixture.i18n", failure);
+      reject(failure);
+    } else resolve();
+  });
+});
 function Fixture() {
   const { t } = useTranslation("activity");
   const [opened, setOpened] = useState(false);
@@ -60,4 +71,4 @@ function Fixture() {
     </ErrorBoundary>}
   </main>;
 }
-createRoot(document.getElementById("root")!).render(<I18nextProvider i18n={i18next}><ThemeProvider><OriderThemeProvider><LocaleProvider userId={null}><Fixture /></LocaleProvider></OriderThemeProvider></ThemeProvider></I18nextProvider>);
+createRoot(document.getElementById("root")!).render(<I18nextProvider i18n={fixtureI18n}><ThemeProvider><OriderThemeProvider><LocaleProvider userId={null}><Fixture /></LocaleProvider></OriderThemeProvider></ThemeProvider></I18nextProvider>);

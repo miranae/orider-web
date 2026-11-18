@@ -130,7 +130,7 @@ describe("RouteMap", () => {
     mapProps.api = api;
     const latlng = [[37,127], [37.01,127], null, [38,128], [38.01,128]] as unknown as [number,number][];
     renderWithProviders(<RouteMap latlng={latlng} markerPosition={[NaN,127]} flyToRange={{startIndex:2,endIndex:2}} />);
-    expect(api.fitBounds).toHaveBeenCalledTimes(1); // Full valid bounds only.
+    expect(api.fitBounds.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify([[127,37],[128,38.01]]))).toBe(true); // Full valid bounds only.
     expect(mapProps.sources.some(source => (source as {geometry?:{type:string}}).geometry?.type === "Point")).toBe(false);
   });
 
@@ -205,6 +205,23 @@ describe("RouteMap", () => {
     mapProps.api = api;
     renderWithProviders(<RouteMap routeParts={[[[37,127],[37.01,127]],[[80,170],[80.01,170]]]} flyToRange={{startIndex:0,endIndex:2}} />);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+  });
+
+  it("still fits a valid single-sample location", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} flyToRange={{startIndex:1,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[127,37.01]]);
+  });
+
+  it("restores full context when a new selection contains no drawable line", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127],[37.01,127],null,[80,170],[80.01,170]] as unknown as [number,number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={latlng} flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+    rerender(<RouteMap latlng={latlng} flyToRange={{startIndex:1,endIndex:3}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[170,80.01]]);
   });
 
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
