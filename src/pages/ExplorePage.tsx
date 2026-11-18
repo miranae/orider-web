@@ -725,9 +725,9 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
       <div className="flex-shrink-0 pb-4 space-y-4 border-b border-[var(--line-soft)]">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <Text as="h1" variant="pageTitle" className="explore-page-title"><GlossaryText>{t("title")}</GlossaryText></Text>
+            <Text as="h1" variant="pageTitle" className="explore-page-title">{t("title")}</Text>
             <p className="text-[var(--ink-2)] text-[length:var(--ft-body-size)] mt-1">
-              {t("subtitle")}
+              <GlossaryText>{t("subtitle")}</GlossaryText>
             </p>
           </div>
           {user && <LocalizedLink data-testid="E2-0-1" className={buttonClass({ variant: "primary", size: "sm" })} to="/segment/create">{t("leaderboardPage.create")}</LocalizedLink>}
