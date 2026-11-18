@@ -244,6 +244,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (isOwnProfile || !userId || !publicTotalsAuthorized) return;
     let active = true;
     const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer;
+    if (!current()) return;
     const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
       doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
         if (!current()) return;
@@ -263,8 +264,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         }
       });
     const stopPublic = watch("public", "users_public", userId, "athleteTotalsSignal");
-    const viewer = currentUser?.uid;
-    const stopViewer = viewer ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
+    const viewer = readIdentity.viewer?.uid;
+    const stopViewer = viewer && current() ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
     return () => { active = false; stopPublic(); stopViewer?.(); };
   }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity ? totalsSignals : null;
@@ -909,6 +910,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   }, [isSearchActive, activities, searchResults, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
 
   const hasLocalFilter = !!selectedPeriod || sport !== "all" || filterType !== "all";
+  const publicFiltersApplied = !isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all");
   const filteredActivities = baseActivities.filter((a) => {
     // 측정 오류로 보이는 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
     if (isTrivialActivity(a)) return false;
@@ -1181,6 +1183,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           </nav>
           {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("photos") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
           {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("highlights") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
+          {!isOwnProfile && (profileTab === "photos" || profileTab === "achievements") && publicGlobal.status === "partial" &&
+            <Button size="sm" onClick={publicGlobal.more}>{t("profile.morePublicMediaActivities")}</Button>}
           {segmentsMore && <button type="button" disabled={segmentsBusy} onClick={loadMoreSegments}>{t("common:button.more")}</button>}
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
@@ -1209,11 +1213,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </div>}
             </div>
 
-            {!isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all") && <div className="athlete-query-status">
-        {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
-        {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}
-      </div>}
-            {!isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all") && publicGlobal.status !== "complete" && <div><Text as="p">{t("publicPeriod.filterPartial")}</Text></div>}
+            {publicFiltersApplied && publicGlobal.status !== "complete" && <div className="athlete-query-status">
+              <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>
+              {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}
+            </div>}
             {isSearchActive && <p className="athlete-section-note">{t("profile.searchScope")}</p>}
             {/* Search bar */}
             {!isOwnProfile && <div className="flex items-center gap-2">
@@ -1260,7 +1263,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             ) : (!isSearchActive || isOwnProfile) && activityReadError && filteredActivities.length === 0 ? null : filteredActivities.length === 0 ? (
               <Card padding="none" className="text-center py-12 rounded-[var(--r-xl)]">
                 <p className="text-[var(--ink-3)]">
-                  {isSearchActive ? t("activities.emptySearch") : isOwnProfile && !selectedPeriod && hasMoreActivities ? t("profile.noMatchesInLoaded")
+                  {isSearchActive ? t("activities.emptySearch") : (isOwnProfile && !selectedPeriod && hasMoreActivities) || (publicFiltersApplied && publicGlobal.status !== "complete")
+                    ? t("profile.noMatchesInLoaded")
                     // 내 프로필의 「아직 활동 내역이 없어요」 → 활동 가져오기 창.
                     : <Resolvable resolve={isOwnProfile && !selectedPeriod ? { to: "/athlete/me/activities?import=1" } : undefined}>{t(isOwnProfile ? "activities.empty" : "activities.emptyPublic")}</Resolvable>}
                 </p>

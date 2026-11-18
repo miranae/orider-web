@@ -32,7 +32,7 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   simulateLogout();
   setDocData("users_public/rider-1", { ...createMockProfile(), nickname: "Isolated rider", profilePublic: true });
   const getOtherFunctions = vi.mocked(getFunctions).getMockImplementation()!;
-  vi.mocked(getFunctions).mockImplementation((app, region) => app?.name === isolated.functions.app.name
+  vi.mocked(getFunctions).mockImplementation((app, region) => app?.name === isolated.functions.app.name && region === "asia-northeast3"
     ? isolated.functions as unknown as ReturnType<typeof getFunctions>
     : getOtherFunctions(app, region));
   const discoveryItem = (id: string, description: string, source: "orider" | "strava" = "orider"): ActivityDiscoveryItem => ({
@@ -83,7 +83,7 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   await emit("host.authorize", { contractVersion: 1 });
   await waitFor(() => expect(send).toHaveBeenCalledWith("auth.state", { uid: null }, undefined));
   await emit("host.sessionAccepted", { theme: { mode: "light" }, locale: "ko", safeInsets: { top: 0, bottom: 0 } });
-  await screen.findByText("Isolated rider");
+  await screen.findByRole("heading", { name: "Isolated rider" });
   await screen.findByText("42회");
   const totalValues = [...screen.getByTestId("P0-1").querySelectorAll("strong")].map(value => value.textContent?.trim());
   expect(totalValues).toEqual(["42회", "125 km", expect.stringContaining("1"), "650 m"]);
