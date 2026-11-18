@@ -108,24 +108,26 @@ function validSnapshot(surface: TrainingCacheSurface, value: unknown, uid: strin
       && Array.isArray(week.days) && week.days.every(isRecord));
 }
 
-function storage(): Storage | null {
+function storage(onError?: (error: unknown) => void): Storage | null {
   try {
     return typeof window === "undefined" ? null : window.localStorage;
-  } catch {
+  } catch (error) {
+    onError?.(error);
     return null;
   }
 }
 
-function purgeDisk(): void {
+function purgeDisk(onError?: (error: unknown) => void): void {
   try {
-    const disk = storage();
+    const disk = storage(onError);
     if (!disk) return;
     for (let index = disk.length - 1; index >= 0; index -= 1) {
       const key = disk.key(index);
       if (key?.startsWith(STORAGE_PREFIX)) disk.removeItem(key);
     }
-  } catch {
+  } catch (error) {
     // 저장소 차단·용량 오류는 메모리 캐시나 원본 조회를 막지 않는다.
+    onError?.(error);
   }
 }
 
@@ -246,11 +248,11 @@ export function removeTrainingSurfaceCacheForSport(uid: string, sport: string): 
   persist();
 }
 
-export function clearTrainingSurfaceCache(): void {
+export function clearTrainingSurfaceCache(onError?: (error: unknown) => void): void {
   entries.clear();
   ownerUid = null;
   ownerScope = null;
-  purgeDisk();
+  purgeDisk(onError);
 }
 
 if (typeof window !== "undefined") {

@@ -242,12 +242,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   // Document listeners observe its first field insertion, so existing accounts need no counter backfill.
   type TotalsSignal = { present: boolean; fromCache: boolean; error: boolean; revision: string };
   const [signalAttempt, setSignalAttempt] = useState(0);
-  const [totalsSignals, setTotalsSignals] = useState<{ identity: typeof readIdentity; public?: TotalsSignal; viewer?: TotalsSignal } | null>(null);
+  const signalGeneration = useRef(0);
+  const [totalsSignals, setTotalsSignals] = useState<{ identity: typeof readIdentity; generation: number; public?: TotalsSignal; viewer?: TotalsSignal } | null>(null);
   useEffect(() => {
     if (isOwnProfile || !userId || !publicTotalsAuthorized) return;
     let active = true;
     const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer;
     if (!current()) return;
+    const generation = ++signalGeneration.current;
+    setTotalsSignals(null);
     const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
       doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
         if (!current()) return;
@@ -255,7 +258,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         const revision: unknown = snapshot.data()?.[field];
         const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
         setTotalsSignals(previous => {
-          const current = previous?.identity === readIdentity ? previous : { identity: readIdentity };
+          const current = previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation };
           const prior = current[kind];
           if (prior && prior.present === signal.present && prior.fromCache === signal.fromCache && prior.error === signal.error && prior.revision === signal.revision) return previous;
           return { ...current, [kind]: signal };
@@ -263,15 +266,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       }, error => {
         logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer);
         if (current()) {
-          setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity ? previous : { identity: readIdentity }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
+          setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
         }
       });
     const stopPublic = watch("public", "users_public", userId, "athleteTotalsSignal");
     const viewer = readIdentity.viewer?.uid;
     const stopViewer = viewer && current() ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
-    return () => { active = false; stopPublic(); stopViewer?.(); };
+    return () => { active = false; if (signalGeneration.current === generation) signalGeneration.current++; stopPublic(); stopViewer?.(); };
   }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
-  const currentSignals = totalsSignals?.identity === readIdentity ? totalsSignals : null;
+  const currentSignals = totalsSignals?.identity === readIdentity && totalsSignals.generation === signalGeneration.current ? totalsSignals : null;
   const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized });
   if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline || publicTotalsScopeRef.current.publicTotalsAuthorized !== publicTotalsAuthorized)
     publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized };
@@ -293,7 +296,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         // Like existing public detail reads, authorization is checked at read time (P3).
         setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, receipt, readAt: Date.now(), value });
         // Signal changes discard old results. Missing/failed/cached signals only allow a short, server-authorized snapshot.
-        if (!currentSignals?.public?.present || currentSignals.public.error || currentSignals.public.fromCache || services.auth.currentUser && !currentSignals.viewer?.present || currentSignals.viewer?.error || currentSignals.viewer?.fromCache) expiry = setTimeout(() => {
+        if (currentSignals?.generation !== signalGeneration.current || !currentSignals?.public?.present || currentSignals.public.error || currentSignals.public.fromCache || services.auth.currentUser && !currentSignals.viewer?.present || currentSignals.viewer?.error || currentSignals.viewer?.fromCache) expiry = setTimeout(() => {
           receipt.active = false; setPublicTotals(null); setPublicTotalsExpired(true);
         }, 60_000);
       })
@@ -1278,7 +1281,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             </div>}
           </div>
 
-          {(!isSearchActive || isOwnProfile) && activityReadError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t(isOwnProfile ? "profile.activitiesReadError" : "profile.publicActivitiesReadError")}</Resolvable></Text></div>}
+          {(!isSearchActive || isOwnProfile) && !publicFiltersApplied && activityReadError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t(isOwnProfile ? "profile.activitiesReadError" : "profile.publicActivitiesReadError")}</Resolvable></Text></div>}
           
           <div className="relative z-0 space-y-4">
             {(activitiesLoading || searchLoading) ? (
@@ -1287,7 +1290,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   <Card key={i} padding="none" className="h-40 rounded-[var(--r-xl)] animate-pulse" />
                 ))}
               </div>
-            ) : (!isSearchActive || isOwnProfile) && activityReadError && filteredActivities.length === 0 ? null : filteredActivities.length === 0 ? (
+            ) : (!isSearchActive || isOwnProfile) && !publicFiltersApplied && activityReadError && filteredActivities.length === 0 ? null : filteredActivities.length === 0 ? (
               <Card padding="none" className="text-center py-12 rounded-[var(--r-xl)]">
                 <p className="text-[var(--ink-3)]">
                   {isSearchActive ? t("activities.emptySearch") : (isOwnProfile && !selectedPeriod && hasMoreActivities) || (publicFiltersApplied && publicGlobal.status !== "complete") || (!isOwnProfile && !hasLocalFilter && publicActivityCursor !== null)

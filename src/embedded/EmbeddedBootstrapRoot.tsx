@@ -675,13 +675,13 @@ export default function EmbeddedBootstrapRoot({
     getAppCheckToken: getEmbeddedAppCheckToken,
   }), [embedded.auth, embedded.functions]);
   const [firestore, setFirestore] = useState(() => embedded.firestore);
+  const [, observeSdkViewer] = useState(embedded.auth.currentUser);
+  const isSessionApproved = useCallback((viewer: FirebaseServices["auth"]["currentUser"]) =>
+    sessionAccepted.current && viewer === controlServices.auth.currentUser
+    && viewer?.isAnonymous !== true && (viewer?.uid ?? null) === acceptedUid.current, [controlServices.auth]);
   const services = useMemo<FirebaseServices>(
-    () => ({
-      ...controlServices, firestore, scope: "embedded",
-      isSessionApproved: (viewer) => sessionAccepted.current && viewer === controlServices.auth.currentUser
-        && viewer?.isAnonymous !== true && (viewer?.uid ?? null) === acceptedUid.current,
-    }),
-    [controlServices, firestore],
+    () => ({ ...controlServices, firestore, scope: "embedded", isSessionApproved }),
+    [controlServices, firestore, isSessionApproved],
   );
   // 로그아웃·계정 변경 뒤 이전 계정 데이터를 버리는 요청. 표면이 언마운트된(리스너가 닫힌)
   // 다음 커밋의 effect 에서 처리한다.
@@ -705,9 +705,10 @@ export default function EmbeddedBootstrapRoot({
     } catch {
       const viewer = controlServices.auth.currentUser;
       const approvedViewer = viewer?.isAnonymous !== true && (viewer?.uid === acceptedUid.current || viewer?.uid === authorizedUid.current) ? viewer : null;
-      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type }, controlServices, approvedViewer);
+      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type }, controlServices, approvedViewer,
+        () => isSessionApproved(approvedViewer));
     }
-  }, [bridge, controlServices]);
+  }, [bridge, controlServices, isSessionApproved]);
 
   const handleTrainingShellReady = useCallback((
     surface: TrainingSurfaceKind,
@@ -1126,10 +1127,13 @@ export default function EmbeddedBootstrapRoot({
 
     const unsubscribe = bridge.subscribe(handleMessage);
     const unsubscribeAuth = onAuthStateChanged(controlServices.auth, (user) => {
+      observeSdkViewer(user);
+      const onCacheError = (error: unknown) =>
+        logClientError("embedded.authChangeCacheReset", error, {}, controlServices, user, () => false);
       const lockedUid = acceptedUid.current;
       if (user?.isAnonymous === true) {
         const requestId = activeSelectionRequestId.current;
-        clearTrainingSurfaceCache();
+        clearTrainingSurfaceCache(onCacheError);
         authorizationAttempt.current += 1;
         acceptedUid.current = null;
         authorizedUid.current = null;
@@ -1144,7 +1148,7 @@ export default function EmbeddedBootstrapRoot({
       }
       if (lockedUid ? user?.uid === lockedUid : !sessionAccepted.current || !guestAuthorized.current || user === null) return;
       const requestId = activeSelectionRequestId.current;
-      clearTrainingSurfaceCache();
+      clearTrainingSurfaceCache(onCacheError);
       authorizationAttempt.current += 1;
       acceptedUid.current = null;
       authorizedUid.current = null;
