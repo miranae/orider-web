@@ -294,6 +294,18 @@ describe("RouteMap", () => {
     expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
   });
 
+  it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127],[37.01,127],null,[60,150]] as unknown as [number,number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={latlng} markerPosition={null} />);
+    const fits = api.fitBounds.mock.calls.length;
+    rerender(<RouteMap latlng={latlng} markerPosition={[60,150]} />);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[150,60]}}));
+    rerender(<RouteMap latlng={latlng} markerPosition={null} />);
+    expect(api.fitBounds).toHaveBeenCalledTimes(fits);
+  });
+
   it("preserves a saved route image when only passive photo coordinates are present", () => {
     renderWithProviders(<RouteMap fallbackImageUrl="https://example.test/route.png" photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
     expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/route.png");

@@ -17,6 +17,14 @@ describe("logClientError", () => {
     vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
   });
 
+  it("keeps Sentry diagnostics without touching uninitialized injected Firebase services", () => {
+    const services = { auth: undefined, functions: undefined, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+    expect(() => logClientError("fixture.mapbox", new Error("mapbox_http_failure_401"), {}, services)).not.toThrow();
+    expect(captureError).toHaveBeenCalledOnce();
+    expect(services.ensureAppCheckReady).not.toHaveBeenCalled();
+    expect(mockCallableInvocations.filter(({ name }) => name === "logClientError")).toHaveLength(0);
+  });
+
   it("stage retains deduplicated Sentry diagnostics without a server backup request", async () => {
     const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), appEnvironment: "stage" });
     try {

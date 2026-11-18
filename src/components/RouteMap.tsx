@@ -341,14 +341,15 @@ export default function RouteMap({
     const valid = (streamFallback ? routePositions : sourcePositions).filter(isRoutePosition);
     return showRouteEndpoints && valid.length >= 2 ? [valid[0]!, valid[valid.length - 1]!] : [];
   }, [sourcePositions, routePositions, streamFallback, showRouteEndpoints]);
-  const activePoints = useMemo(() => {
+  const navigationPoints = useMemo(() => {
     const points: [number, number][] = [];
     const add = (point: unknown) => { if (isRoutePosition(point)) points.push([point[0], point[1]]); };
-    add(markerPosition); add(flyToPosition);
+    add(flyToPosition);
     if (highlightRange) { add(sourcePositions[highlightRange.startIndex]); add(sourcePositions[highlightRange.endIndex]); }
     if (flyToRange && flyToRange.startIndex === flyToRange.endIndex) add(sourcePositions[flyToRange.startIndex]);
     return points;
-  }, [markerPosition, flyToPosition, highlightRange, flyToRange, sourcePositions]);
+  }, [flyToPosition, highlightRange, flyToRange, sourcePositions]);
+  const activePoints = useMemo(() => isRoutePosition(markerPosition) ? [...navigationPoints, markerPosition] : navigationPoints, [navigationPoints, markerPosition]);
   const hasSourcePosition = useMemo(() => sourcePositions.some(isRoutePosition), [sourcePositions]);
   const pointPositions = useMemo(() => {
     const points: [number, number][] = [...endpoints, ...activePoints];
@@ -361,12 +362,14 @@ export default function RouteMap({
     return points;
   }, [endpoints, activePoints, hasSourcePosition, photos, waypoints]);
   const routeBounds = useMemo(() => getBounds([...positions, ...endpoints]), [positions, endpoints]);
-  const bounds = useMemo(() => {
-    if (!routeBounds) return getBounds(pointPositions);
-    const expanded = getBounds([[routeBounds[0][1], routeBounds[0][0]], [routeBounds[1][1], routeBounds[1][0]], ...activePoints]);
+  const pointBounds = useMemo(() => getBounds(pointPositions), [pointPositions]);
+  const expandedRouteBounds = useMemo(() => {
+    if (!routeBounds) return null;
+    const expanded = getBounds([[routeBounds[0][1], routeBounds[0][0]], [routeBounds[1][1], routeBounds[1][0]], ...navigationPoints]);
     return !expanded || expanded[0][0] === routeBounds[0][0] && expanded[0][1] === routeBounds[0][1]
       && expanded[1][0] === routeBounds[1][0] && expanded[1][1] === routeBounds[1][1] ? routeBounds : expanded;
-  }, [routeBounds, activePoints, pointPositions]);
+  }, [routeBounds, navigationPoints]);
+  const bounds = expandedRouteBounds ?? pointBounds;
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
