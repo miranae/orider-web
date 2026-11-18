@@ -210,7 +210,7 @@ function FitBoundsOnLoad({ bounds, disabled }: { bounds: LngLatBoundsLike; disab
   return null;
 }
 
-function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds, photoPosition }: {
+function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBounds, photoPosition }: {
   positions: RouteSlot[];
   segmentStarts: readonly number[];
   range: { startIndex: number; endIndex: number } | null | undefined;
@@ -218,6 +218,8 @@ function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds, photoP
   photoPosition?: [number, number] | null;
 }) {
   const { current: map } = useMap();
+  const startIndex = rawRange?.startIndex, endIndex = rawRange?.endIndex;
+  const range = useMemo(() => startIndex != null && endIndex != null ? { startIndex, endIndex } : null, [startIndex, endIndex]);
   const requestedRange = useRef(range);
   const previousPhoto = useRef<RouteSlot>(null);
   const prevRange = useRef<{ startIndex: number; endIndex: number } | null>(null);
@@ -232,7 +234,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds, photoP
     previousPhoto.current = photo ? [photo[0], photo[1]] : null;
     // New chart selections may move the camera, but background route updates may
     // not override a photo the user has already located.
-    if (photo && !rangeChanged) return;
+    if (photo && !rangeChanged && !prevRange.current) return;
     if (range) {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);

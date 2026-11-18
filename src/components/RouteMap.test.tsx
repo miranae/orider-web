@@ -389,8 +389,12 @@ describe("RouteMap", () => {
     view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2}} />);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[127,37.02]]);
     api.fitBounds.mockClear();
-    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={null} />);
-    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.02]]);
+    const updated: [number,number][] = [[38,128],[38.01,128],[38.02,128]];
+    view.rerender(<RouteMap latlng={updated} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128,38.01],[128,38.02]]);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={updated} flyToPosition={position} flyToRange={null} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128,38],[128,38.02]]);
   });
 
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
