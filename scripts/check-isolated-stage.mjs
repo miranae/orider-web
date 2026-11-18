@@ -4,6 +4,7 @@ import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
 import { productionDataConfig } from "./lib/production-data-config.mjs";
 import { stageProductionParityConfig } from "./lib/stage-production-parity.mjs";
 import { readPinnedProductionRuntime } from "./lib/production-release-attestation.mjs";
+import { verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
 import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
@@ -25,8 +26,10 @@ if (process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH) {
   if (hash(html) !== receipt.indexSha256 || html.toString("utf8").match(/assets\/index-[A-Za-z0-9_-]+\.js/)?.[0] !== receipt.entry
     || hash(readFileSync(resolve(artifactDirectory, receipt.entry))) !== receipt.entrySha256
     || hash(readFileSync(resolve(artifactDirectory, "runtime-config.json"))) !== receipt.runtimeSha256) throw new Error("stage parity prepared artifact differs from the build receipt");
-  const live = await readPinnedProductionRuntime(process.env.STAGE_PARITY_SOURCE_SHA);
-  if (live.release.version !== process.env.STAGE_PARITY_HOSTING_VERSION || !isDeepStrictEqual(source, live.source)) throw new Error("prepared production runtime or Hosting version is stale");
+  await verifyStageArtifacts(artifactDirectory, receipt.artifactManifest, async () => {
+    const live = await readPinnedProductionRuntime(process.env.STAGE_PARITY_SOURCE_SHA);
+    if (live.release.version !== process.env.STAGE_PARITY_HOSTING_VERSION || !isDeepStrictEqual(source, live.source)) throw new Error("prepared production runtime or Hosting version is stale");
+  });
   console.log("[development-hosting] production version, shared data and isolated compute verified");
   process.exit(0);
 }
