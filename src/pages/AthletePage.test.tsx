@@ -851,7 +851,8 @@ it("records a real public request failure after unmount without updating abandon
   await waitFor(() => expect(reject).toBeTypeOf("function"));
   view.unmount();
   await act(async () => { reject(failure); await Promise.resolve(); });
-  expect(log).toHaveBeenCalledWith("AthletePage.publicTotals", failure, {}, expect.anything(), null);
+  expect(log).toHaveBeenCalledWith("AthletePage.publicTotals", failure, { targetUid: "athlete-1" }, expect.anything(), null, expect.any(Function));
+  expect(log.mock.calls.find(([source]) => source === "AthletePage.publicTotals")?.[5]?.()).toBe(false);
   log.mockRestore();
 });
 it("does not use whole-history count as the remaining authorized list count", async () => {

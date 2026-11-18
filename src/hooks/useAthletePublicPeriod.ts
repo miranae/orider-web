@@ -5,7 +5,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import { logClientError } from "../services/errorLogger";
-import { captureError } from "../services/sentry";
 
 export function publicPeriodBounds(from: string, to: string) {
   const start = Date.parse(`${from}T00:00:00+09:00`), last = Date.parse(`${to}T00:00:00+09:00`);
@@ -61,13 +60,9 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
     } catch (error) {
       const code = String((error as {code?: string})?.code ?? (error as Error)?.message ?? error);
       const context = { targetUid, global, continuation: Boolean(previous.cursor) };
-      const source = "useAthletePublicPeriod.read";
-      if (!current()) {
-        if (!/account_changed|abort/i.test(code) && (error as Error)?.name !== "AbortError")
-          captureError(error instanceof Error ? error : new Error(code), { tags: { source }, extra: context });
-        return;
-      }
-      logClientError(source, error, context, services, user);
+      if (code !== "account_changed" && (error as Error)?.name !== "AbortError")
+        logClientError("useAthletePublicPeriod.read", error, context, services, user, current);
+      if (!current()) return;
       const restart = /permission-denied|unauthenticated|not-found|failed-precondition|invalid-argument|account_changed|invalid_activity_discovery/.test(code);
       session.current = restart ? { ...empty(), status: "restart" } : { ...previous, status: "error" };
     } finally {

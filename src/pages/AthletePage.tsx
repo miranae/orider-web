@@ -284,7 +284,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     let expiry: ReturnType<typeof setTimeout> | undefined;
     setPublicTotals(null); setPublicTotalsError(false); setPublicTotalsExpired(false);
     if (isOwnProfile || !userId || !publicTotalsAuthorized || !networkOnline) return;
-    const current = () => receipt.active && publicTotalsScopeRef.current === publicTotalsScope && services.auth.currentUser === readIdentity.viewer;
+    const current = () => receipt.active && publicTotalsScopeRef.current === publicTotalsScope && services.auth.currentUser === readIdentity.viewer
+      && services.isSessionApproved?.(readIdentity.viewer) !== false;
     void loadPublicAthleteTotals(services, userId, current)
       .then(value => {
         if (!current()) return;
@@ -298,7 +299,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       })
       .catch(error => {
         if (error instanceof Error && error.message === "athlete-profile-session-changed") return;
-        logClientError("AthletePage.publicTotals", error, {}, services, readIdentity.viewer);
+        logClientError("AthletePage.publicTotals", error, { targetUid: userId }, services, readIdentity.viewer, current);
         if (current()) setPublicTotalsError(true);
       });
     return () => { receipt.active = false; clearTimeout(expiry); };
@@ -1292,6 +1293,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   {isSearchActive ? t("activities.emptySearch") : (isOwnProfile && !selectedPeriod && hasMoreActivities) || (publicFiltersApplied && publicGlobal.status !== "complete") || (!isOwnProfile && !hasLocalFilter && publicActivityCursor !== null)
                     ? t("profile.noMatchesInLoaded")
                     // 내 프로필의 「아직 활동 내역이 없어요」 → 활동 가져오기 창.
+                    : publicFiltersApplied ? t("publicPeriod.noFilterMatches")
                     : <Resolvable resolve={isOwnProfile && !selectedPeriod ? { to: "/athlete/me/activities?import=1" } : undefined}>{t(isOwnProfile ? "activities.empty" : "activities.emptyPublic")}</Resolvable>}
                 </p>
                 {isSearchActive && (

@@ -676,7 +676,11 @@ export default function EmbeddedBootstrapRoot({
   }), [embedded.auth, embedded.functions]);
   const [firestore, setFirestore] = useState(() => embedded.firestore);
   const services = useMemo<FirebaseServices>(
-    () => ({ ...controlServices, firestore, scope: "embedded" }),
+    () => ({
+      ...controlServices, firestore, scope: "embedded",
+      isSessionApproved: (viewer) => sessionAccepted.current && viewer === controlServices.auth.currentUser
+        && viewer?.isAnonymous !== true && (viewer?.uid ?? null) === acceptedUid.current,
+    }),
     [controlServices, firestore],
   );
   // 로그아웃·계정 변경 뒤 이전 계정 데이터를 버리는 요청. 표면이 언마운트된(리스너가 닫힌)

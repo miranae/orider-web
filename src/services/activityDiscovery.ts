@@ -39,7 +39,7 @@ export async function loadActivityDiscovery(services:FirebaseServices,request:Ac
 async function readActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,assertActive:()=>void):Promise<DiscoveryPage>{
  const viewer=services.auth.currentUser;
  const app=services.auth.app;
- const assertCurrent=()=>{assertActive();if(services.auth.app!==app||services.auth.currentUser!==viewer)throw Error('account_changed');};
+ const assertCurrent=()=>{assertActive();if(services.auth.app!==app||services.auth.currentUser!==viewer||services.isSessionApproved?.(viewer)===false)throw Error('account_changed');};
  assertCurrent();await services.ensureAppCheckReady();assertCurrent();
  const functions=isFunctionsGatewayRuntime()?services.functions:getFunctions(services.functions.app,'asia-northeast3');
  if(isEmulatorRuntime()&&!connected.has(functions)){connectFunctionsEmulator(functions,'localhost',Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT||5001));connected.add(functions);}

@@ -8,6 +8,7 @@
   "stale": "Please reload activities."
 },
   "publicPeriod": {
+  "noFilterMatches": "No public activities match the selected filters.",
   "filterPartial": "Showing loaded activities.",
   "globalComplete": "Reached the last page of the public-statistics query ({{count}} records collected). Changes during the query may not be reflected.",
   "globalMore": "Load more activities for these filters",
