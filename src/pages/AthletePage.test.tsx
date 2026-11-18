@@ -957,7 +957,7 @@ it("invalidates both displayed totals and late responses on public projection de
   expect(screen.queryByText("99회")).not.toBeInTheDocument();
 });
 
-it.each(["users_public/athlete-1", "users/viewer"])("revokes cached totals on offline metadata from %s and restores them only after server revalidation", async path => {
+it.each(["users_public/athlete-1", "users/viewer"])("invalidates previous totals on offline metadata from %s and restores only fresh callable results", async path => {
   setDocData("users_public/athlete-1", { nickname: "Connected rider", athleteTotalsSignal: "one" });
   const original = vi.mocked(onSnapshot).getMockImplementation()!;
   const updates = new Map<string, (snapshot: unknown) => void>();
@@ -981,4 +981,27 @@ it.each(["users_public/athlete-1", "users/viewer"])("revokes cached totals on of
     await screen.findByText("9회");
     expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1);
   } finally { timer.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it.each(["cache", "error"])("shows a freshly authorized callable snapshot even when signal state is %s, and manual retry reconnects signals", async initial => {
+  setDocData("users_public/athlete-1", { nickname: "Callable rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  let phase = initial;
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (!options || typeof options !== "object" || !("includeMetadataChanges" in options))
+      return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+    if (phase === "error") { (error as (failure: Error) => void)(new Error("signal unavailable")); return () => {}; }
+    return (original as (...args: unknown[]) => () => void)(ref, options, (snapshot: { metadata: object }) => {
+      (next as (value: unknown) => void)({ ...snapshot, metadata: { ...snapshot.metadata, fromCache: phase === "cache" } });
+    }, error);
+  }) as never);
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("5회");
+    expect(screen.getByText(/조회 시각 .*의 누적 기록/)).toBeInTheDocument();
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
+    phase = "server";
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await screen.findByText("9회");
+  } finally { vi.mocked(onSnapshot).mockImplementation(original); }
 });

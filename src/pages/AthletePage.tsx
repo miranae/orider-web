@@ -225,6 +225,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, totalsAttempt, readIdentity, liveTotals?.epoch]);
   type TotalsSignal = { present: boolean; fromCache: boolean; error: boolean; revision: string };
+  const [signalAttempt, setSignalAttempt] = useState(0);
   const [totalsSignals, setTotalsSignals] = useState<{ identity: typeof readIdentity; public?: TotalsSignal; viewer?: TotalsSignal } | null>(null);
   useEffect(() => {
     if (isOwnProfile || !userId) return;
@@ -248,26 +249,28 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     const viewer = services.auth.currentUser?.uid;
     const stopViewer = viewer ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
     return () => { active = false; stopPublic(); stopViewer?.(); };
-  }, [isOwnProfile, userId, readIdentity, services]);
+  }, [isOwnProfile, userId, readIdentity, services, signalAttempt]);
   const currentSignals = totalsSignals?.identity === readIdentity ? totalsSignals : null;
   const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals });
   if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals)
     publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals };
   const publicTotalsScope = publicTotalsScopeRef.current;
-  const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; value: PublicAthleteTotals } | null>(null);
+  const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; readAt: number; value: PublicAthleteTotals } | null>(null);
   const [publicTotalsError, setPublicTotalsError] = useState(false);
   const [publicTotalsExpired, setPublicTotalsExpired] = useState(false);
   useEffect(() => {
     let cancelled = false;
     let expiry: ReturnType<typeof setTimeout> | undefined;
     setPublicTotals(null); setPublicTotalsError(false); setPublicTotalsExpired(false);
-    if (isOwnProfile || !userId || !currentSignals?.public || services.auth.currentUser && !currentSignals.viewer || currentSignals.public.fromCache || currentSignals.viewer?.fromCache) return;
+    if (isOwnProfile || !userId) return;
     void loadPublicAthleteTotals(services, userId, () => !cancelled && publicTotalsScopeRef.current === publicTotalsScope)
       .then(value => {
         if (cancelled || publicTotalsScopeRef.current !== publicTotalsScope) return;
-        setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, value });
-        // Live server snapshots revoke cached authorization on disconnection. Missing/failed signals get a one-shot lease.
-        if (!currentSignals.public!.present || currentSignals.public!.error || currentSignals.viewer?.error) expiry = setTimeout(() => {
+        // Values always come from a fresh server-authorized callable, never a cached Firestore snapshot.
+        // Like existing public detail reads, authorization is checked at read time (P3).
+        setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, readAt: Date.now(), value });
+        // Signal changes discard old results. Missing/failed/cached signals only allow a short, server-authorized snapshot.
+        if (!currentSignals?.public?.present || currentSignals.public.error || currentSignals.public.fromCache || currentSignals.viewer?.error || currentSignals.viewer?.fromCache) expiry = setTimeout(() => {
           cancelled = true; setPublicTotals(null); setPublicTotalsExpired(true);
         }, 60_000);
       })
@@ -283,6 +286,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     window.addEventListener("focus", refresh); document.addEventListener("visibilitychange", refresh);
     return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, [isOwnProfile, userId, readIdentity]);
+  const retryPublicTotals = () => {
+    if (currentSignals?.public?.error || currentSignals?.viewer?.error) setSignalAttempt(value => value + 1);
+    else setTotalsAttempt(value => value + 1);
+  };
   const [ownerPhotos, setOwnerPhotos] = useState<AthletePhoto[]>([]);
   const [ownerHighlights, setOwnerHighlights] = useState<AthleteHighlight[]>([]);
   const [photoCursor, setPhotoCursor] = useState<AthletePreviewCursor | null>(null);
@@ -892,9 +899,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={ICON_SIZE.md} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
         </div>
         {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
-        {!isOwnProfile && !statsReady && <p role="status">{t(summaryError || summaryTotals?.state === "failed" ? "profile.totalsFailed" : publicTotalsExpired ? "profile.totalsExpired" : "profile.totalsPending")}<Button size="sm" onClick={() => setTotalsAttempt(value => value + 1)}>{t("profile.reloadTotals")}</Button></p>}
+        {!isOwnProfile && !statsReady && <p role="status">{t(summaryError || summaryTotals?.state === "failed" ? "profile.totalsFailed" : publicTotalsExpired ? "profile.totalsExpired" : "profile.totalsPending")}<Button size="sm" onClick={retryPublicTotals}>{t("profile.reloadTotals")}</Button></p>}
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
-        {!isOwnProfile && statsReady && <Button size="sm" variant="ghost" onClick={() => setTotalsAttempt(value => value + 1)}>{t("profile.reloadTotals")}</Button>}
+        {!isOwnProfile && publicTotals && publicTotals.scope === publicTotalsScope && <Text as="p" variant="caption" tone="secondary">{t("profile.totalsAsOf", { time: new Intl.DateTimeFormat(i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(publicTotals.readAt) })}</Text>}
+        {!isOwnProfile && statsReady && <Button size="sm" variant="ghost" onClick={retryPublicTotals}>{t("profile.reloadTotals")}</Button>}
       </section>
   );
 
