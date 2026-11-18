@@ -188,10 +188,27 @@ export function RouteMapFallback({
   const loggedImage = useRef(new WeakSet<typeof currentScope>());
   const startIndex = highlightRange?.startIndex, endIndex = highlightRange?.endIndex;
   const selectedLatitude = selectedPosition?.[0], selectedLongitude = selectedPosition?.[1];
-  const { path, points, selectionPath, selectionPoints = [] } = useMemo(() => buildStaticRouteGeometry(positions, segmentStarts, {
-    pointsOnly, range: startIndex != null && endIndex != null ? { startIndex, endIndex } : undefined,
-    selectedPosition: selectedLatitude != null && selectedLongitude != null ? [selectedLatitude, selectedLongitude] : undefined,
-  }), [positions, segmentStarts, pointsOnly, startIndex, endIndex, selectedLatitude, selectedLongitude]);
+  // Static point-only previews keep interactive targets without mounting every valid sample.
+  const sampledIndices = useMemo(() => {
+    if (!pointsOnly || positions.length <= 256) return null;
+    const valid: number[] = [];
+    positions.forEach((point, index) => { if (isRoutePosition(point)) valid.push(index); });
+    if (valid.length <= 256) return valid;
+    return Array.from({ length: 256 }, (_, index) => valid[Math.round(index * (valid.length - 1) / 255)]!);
+  }, [positions, pointsOnly]);
+  const { path, points, selectionPath, selectionPoints = [] } = useMemo(() => {
+    const range = startIndex != null && endIndex != null ? { startIndex, endIndex } : undefined;
+    const target = selectedLatitude != null && selectedLongitude != null ? [selectedLatitude, selectedLongitude] as [number, number] : undefined;
+    if (!sampledIndices) return buildStaticRouteGeometry(positions, segmentStarts, { pointsOnly, range, selectedPosition: target });
+    const boundaries = range && [range.startIndex, range.endIndex].filter(index => isRoutePosition(positions[index]));
+    const indices = [...new Set([...sampledIndices, ...(boundaries || [])])].sort((first, second) => first - second);
+    const from = range ? indices.findIndex(index => index >= Math.min(range.startIndex, range.endIndex)) : -1;
+    const reverseEnd = range ? [...indices].reverse().findIndex(index => index <= Math.max(range.startIndex, range.endIndex)) : -1;
+    const to = reverseEnd >= 0 ? indices.length - 1 - reverseEnd : -1;
+    return buildStaticRouteGeometry(indices.map(index => positions[index]!), [], {
+      pointsOnly: true, range: from >= 0 && to >= from ? { startIndex: from, endIndex: to } : undefined, selectedPosition: target,
+    });
+  }, [positions, segmentStarts, pointsOnly, startIndex, endIndex, selectedLatitude, selectedLongitude, sampledIndices]);
   const hasSelection = Boolean(selectionPath || selectionPoints.length);
   if (imageUrl && failedImage !== currentScope && !hasSelection) {
     return (

@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import RouteMap from "./RouteMap";
+import RouteMap, { RouteMapFallback } from "./RouteMap";
 import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
 import { buildSampledData, buildAlignedActivityChartChannels } from "../features/activity/detail/activityDetailDerived";
 import type { ActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
@@ -711,6 +711,16 @@ describe("RouteMap", () => {
     expect(api.zoomIn).toHaveBeenCalledTimes(1);
     expect(api.fitBounds).not.toHaveBeenCalled();
     expect(JSON.stringify(mapProps.sources)).toContain("[127.3,37.8]");
+  });
+
+  it("bounds isolated-point DOM rendering and preserves the raw selected point", () => {
+    const positions = Array.from({ length: 150_000 }, (_, index) => index % 2 ? null : [37 + index / 1_000_000, 127] as [number, number]);
+    const props = { positions, pointsOnly: true, title: "Static map", description: "Route preview", imageAlt: "Route", height: "normal", rounded: true };
+    const view = renderWithProviders(<RouteMapFallback {...props} highlightRange={{ startIndex: 32, endIndex: 32 }} />);
+    expect(view.container.querySelectorAll("svg circle").length).toBeLessThan(260);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    view.rerender(<RouteMapFallback {...props} highlightRange={{ startIndex: 140_002, endIndex: 140_002 }} />);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
   });
 
   it("shows a selected photo point on the static map without recorded GPS", () => {
