@@ -1,11 +1,12 @@
 import { PUBLIC_CLUB_ENDPOINT, publicClubEndpoint, withPublicClubEndpoint, verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { productionDataConfig, productionBuildEnv, resolveProductionBuildFlags, verifyProductionDataCors } from "./lib/production-data-config.mjs";
 import { stageProductionParityConfig, stageProductionParityBuildEnv, STAGE_FUNCTIONS, STAGE_AI_API, STAGE_PERSONAL_API } from "./lib/stage-production-parity.mjs";
 import { readPinnedProductionRuntime, checkedJsonFetch } from "./lib/production-release-attestation.mjs";
+import { stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
 import { gzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -347,4 +348,46 @@ test("Hosting predeploy rejects a replaced app bundle before consulting live pro
     writeFileSync(receipt,JSON.stringify({sourceSha:"a".repeat(40),reviewedHead:"b".repeat(40),artifactDirectory:join(directory,"dist"),deploymentDirectory:directory,entry:"assets/index-fixture.js",indexSha256:hash(html),entrySha256:hash("reviewed bundle"),runtimeSha256:hash(runtime)}));
     assert.throws(()=>execFileSync(process.execPath,[join(process.cwd(),"scripts/check-isolated-stage.mjs")],{cwd:directory,env:{...process.env,PRODUCTION_RUNTIME_CONFIG_PATH:"",STAGE_PARITY_PRODUCTION_RUNTIME_PATH:source,STAGE_PARITY_SOURCE_SHA:"a".repeat(40),STAGE_PARITY_HOSTING_VERSION:"sites/miranae-orider-g1/versions/abc",STAGE_PARITY_REVIEWED_HEAD:"b".repeat(40),STAGE_PARITY_BUILD_RECEIPT_PATH:receipt},stdio:"pipe"}),/prepared artifact differs/);
   }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+test("parity artifact manifest checks every file and rejects missing, added or linked chunks before remote validation", async () => {
+  for (const change of ["replaced", "missing", "added", "symlink", "directory-symlink"]) {
+    const directory = mkdtempSync(join(tmpdir(), "orider-stage-manifest-"));
+    try {
+      mkdirSync(join(directory, "assets"));
+      writeFileSync(join(directory, "index.html"), '<script src="assets/index-fixture.js"></script>');
+      writeFileSync(join(directory, "assets/index-fixture.js"), "unchanged entry");
+      const chunk = join(directory, "assets/lazy-fixture.js");
+      writeFileSync(chunk, "reviewed dynamic chunk");
+      const manifest = stageArtifactManifest(directory);
+      assert.deepEqual(manifest.map(([path]) => path), ["assets/index-fixture.js", "assets/lazy-fixture.js", "index.html"]);
+      assert.deepEqual(stageArtifactManifest(directory), manifest);
+      let calls = 0;
+      await verifyStageArtifacts(directory, manifest, async () => { calls++; });
+      assert.equal(calls, 1);
+      if (change === "replaced") writeFileSync(chunk, "unreviewed dynamic chunk");
+      if (change === "missing") rmSync(chunk);
+      if (change === "added") writeFileSync(join(directory, "assets/injected.js"), "unexpected");
+      if (change === "symlink") { rmSync(chunk); symlinkSync("index-fixture.js", chunk); }
+      if (change === "directory-symlink") symlinkSync("assets", join(directory, "linked-assets"));
+      await assert.rejects(verifyStageArtifacts(directory, manifest, async () => { calls++; }), /prepared artifact/);
+      assert.equal(calls, 1, "invalid local artifacts must fail before remote checks");
+      assert.equal(readFileSync(join(directory, "assets/index-fixture.js"), "utf8"), "unchanged entry");
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  }
+});
+
+test("parity predeploy rechecks all artifacts after awaiting remote metadata", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "orider-stage-race-"));
+  try {
+    writeFileSync(join(directory, "index.html"), "unchanged entry");
+    const chunk = join(directory, "lazy.js");
+    writeFileSync(chunk, "reviewed chunk");
+    const manifest = stageArtifactManifest(directory);
+    await assert.rejects(verifyStageArtifacts(directory, manifest, async () => {
+      await Promise.resolve();
+      writeFileSync(chunk, "changed during remote validation");
+    }), /prepared artifact differs/);
+    assert.equal(readFileSync(join(directory, "index.html"), "utf8"), "unchanged entry");
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });

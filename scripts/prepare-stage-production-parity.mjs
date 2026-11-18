@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, realpathSync, stat
 import { resolve, dirname, basename, relative } from "node:path";
 import { stageProductionParityConfig, stageProductionParityBuildEnv } from "./lib/stage-production-parity.mjs";
 import { readPinnedProductionRuntime } from "./lib/production-release-attestation.mjs";
+import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 
 const args = process.argv.slice(2);
 const read = name => args[args.indexOf(name) + 1];
@@ -26,11 +27,11 @@ const transportPaths = [
   "src/services/accountDeletion.ts", "src/services/activityMapPrivacy.ts", "src/services/activitySocialFunctions.ts",
   "src/services/publicActivityMaps.ts", "src/services/webNotifications.ts", "src/services/publicActivityDetail.ts",
   "src/features/group/groupCalendar.ts", "src/features/board/useBoardBlocks.ts", "src/services/analysisCapability.ts",
-  "src/services/personalDataApi.ts", "src/services/canonicalApi.ts",
+  "src/services/personalDataApi.ts", "src/services/canonicalApi.ts", "src/pages/PostDetailPage.tsx",
 ];
 const allowedTools = ["firebase.stage.json", "docs/STAGE_PRODUCTION_PARITY.md", "scripts/check-isolated-stage.mjs",
   "scripts/lib/isolated-stage-config.mjs", "scripts/lib/public-club-deploy-config.mjs", "scripts/lib/stage-production-parity.mjs",
-  "scripts/lib/production-release-attestation.mjs", "scripts/prepare-stage-production-parity.mjs", "scripts/write-runtime-config.mjs",
+  "scripts/lib/production-release-attestation.mjs", "scripts/lib/stage-artifact-manifest.mjs", "scripts/prepare-stage-production-parity.mjs", "scripts/write-runtime-config.mjs",
   "scripts/write-runtime-config.test.mjs"];
 const changed = execFileSync("git", ["diff", "--no-renames", "--name-only", sourceSha, reviewedHead], { encoding: "utf8" }).trim().split("\n").filter(Boolean);
 const untracked = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { encoding: "utf8" }).trim();
@@ -86,6 +87,7 @@ if (args.includes("--build")) {
   if (!entry) throw new Error("built entry not found");
   write("build.json", {
     sourceSha, reviewedHead, builtAt: new Date().toISOString(), entry, artifactDirectory, deploymentDirectory: buildSource,
+    artifactManifest: stageArtifactManifest(artifactDirectory),
     indexSha256: createHash("sha256").update(html).digest("hex"),
     entrySha256: createHash("sha256").update(readFileSync(resolve(artifactDirectory, entry))).digest("hex"),
     runtimeSha256: createHash("sha256").update(readFileSync(resolve(artifactDirectory, "runtime-config.json"))).digest("hex"),
