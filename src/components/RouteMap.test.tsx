@@ -614,6 +614,24 @@ describe("RouteMap", () => {
     expect(document.querySelector("svg path")?.getAttribute("d")?.match(/L/g)).toHaveLength(1);
   });
 
+  it.each(["services","account"])("isolates pending image errors across a %s change", mode => {
+    const auth = {currentUser:{uid:"owner"}};
+    const first = {auth,functions:{},firestore:{},ensureAppCheckReady:vi.fn(),getAppCheckToken:vi.fn()} as unknown as FirebaseServices;
+    const second = {...first,functions:{}} as FirebaseServices;
+    const latlng: [number,number][] = [[37,127],[37.01,127]];
+    const photos = [{id:"photo",url:"https://example.test/photo.jpg",location:[37,127] as [number,number],caption:"로딩 사진"}];
+    const view = renderWithProviders(<FirebaseServicesProvider services={first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    const pending = screen.getByRole("img", {name:"로딩 사진"});
+    if (mode === "account") auth.currentUser = {uid:"other"};
+    view.rerender(<FirebaseServicesProvider services={mode === "services" ? second : first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    const current = screen.getByRole("img", {name:"로딩 사진"});
+    expect(current).not.toBe(pending);
+    fireEvent.error(pending);
+    expect(screen.getByRole("img", {name:"로딩 사진"})).toBe(current);
+    expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
+    expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.photo")).toHaveLength(0);
+  });
+
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;

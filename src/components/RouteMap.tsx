@@ -115,13 +115,14 @@ function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { phot
   const { t } = useTranslation("activity");
   const services = useFirebaseServices();
   const viewer = services.auth?.currentUser;
-  const scope = useRef({ services, viewer });
-  if (scope.current.services !== services || scope.current.viewer !== viewer) scope.current = { services, viewer };
+  const scope = useRef({ services, viewer, generation: 0 });
+  if (scope.current.services !== services || scope.current.viewer !== viewer) scope.current = { services, viewer, generation: scope.current.generation + 1 };
   const currentScope = scope.current;
   const [failedFor, setFailedFor] = useState<typeof currentScope | null>(null);
   const logged = useRef<typeof currentScope | null>(null);
   const failed = failedFor === currentScope;
   const onError = () => {
+    if (scope.current !== currentScope) return;
     setFailedFor(currentScope);
     if (logged.current === currentScope) return;
     logged.current = currentScope;
@@ -132,8 +133,8 @@ function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { phot
     {retryable && <Button size="sm" variant="outline" onClick={() => { logged.current = null; setFailedFor(null); onRetry?.(); }}>{t("page.retry")}</Button>}
   </div>;
   return photo.nativePhoto
-    ? <NativeActivityPhotoImage nativePhoto={photo.nativePhoto} retryable={retryable} alt={photo.caption || ""} style={style} onError={onError} />
-    : <img src={photo.url} alt={photo.caption || ""} loading="lazy" decoding="async" style={style} onError={onError} />;
+    ? <NativeActivityPhotoImage key={currentScope.generation} nativePhoto={photo.nativePhoto} retryable={retryable} alt={photo.caption || ""} style={style} onError={onError} />
+    : <img key={currentScope.generation} src={photo.url} alt={photo.caption || ""} loading="lazy" decoding="async" style={style} onError={onError} />;
 }
 
 export function RouteMapFallback({
