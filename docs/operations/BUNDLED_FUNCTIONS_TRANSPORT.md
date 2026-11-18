@@ -117,3 +117,9 @@ is reported as **unverified**, not restored: the original request may still fini
 The recovery snapshot/marker is uploaded on failure/cancellation when cleanup can
 run, allowing an operator to retry after inspecting live state. It contains only
 Hosting release/version identities. No async-completion guarantee is inferred.
+
+For an explicit legacy tag release, inactive bundled environment variables are
+removed from both the initial runtime writer and the Firebase CLI process, so
+Hosting predeploy descendants inherit the same legacy environment. Nonempty
+bundled sources still fail the legacy preparation guard; the strict writer's
+paired-variable validation is unchanged.

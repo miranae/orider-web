@@ -1,7 +1,7 @@
 import { PUBLIC_CLUB_ENDPOINT, publicClubEndpoint, withPublicClubEndpoint, verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { productionDataConfig, productionBuildEnv, resolveProductionBuildFlags, verifyProductionDataCors } from "./lib/production-data-config.mjs";
 import { tmpdir } from "node:os";
@@ -306,4 +306,21 @@ test("legacy workflow explicitly removes empty inherited bundle variables before
   assert.match(workflow, /env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT node scripts\/write-runtime-config.mjs/);
   const config = render({ BUNDLED_RUNTIME_CONFIG_PATH: "", BUNDLED_FUNCTIONS_ENVIRONMENT: "" }, true);
   assert.equal(config.deploymentProfile, undefined); assert.equal(config.firebaseProjectId, requiredEnv.VITE_FIREBASE_PROJECT_ID);
+});
+
+test("legacy Firebase CLI environment also strips empty bundle variables from the actual Hosting predeploy hook", () => {
+  const workflow = readFileSync(".github/workflows/deploy.yml", "utf8");
+  const start = workflow.indexOf("          deploy_env=(env)");
+  const end = workflow.indexOf('          "${deploy_env[@]}" firebase deploy', start);
+  assert.ok(start >= 0 && end > start);
+  const predeploy = JSON.parse(readFileSync("firebase.json", "utf8")).hosting.predeploy;
+  const directory = mkdtempSync(join(tmpdir(), "orider-predeploy-env-"));
+  try {
+    cpSync("scripts", join(directory, "scripts"), { recursive: true });
+    execFileSync("bash", ["-euc", `${workflow.slice(start, end)}\n"\${deploy_env[@]}" sh -c "$HOSTING_PREDEPLOY"`], {
+      cwd: directory, stdio: "pipe", env: { ...process.env, ...requiredEnv, GITHUB_ACTIONS: "true", MODE: "production", ORIDER_FUNCTIONS_TRANSPORT: "legacy", BUNDLED_RUNTIME_CONFIG_PATH: "", BUNDLED_FUNCTIONS_ENVIRONMENT: "", HOSTING_PREDEPLOY: predeploy },
+    });
+    const actual = JSON.parse(readFileSync(join(directory, "dist/runtime-config.json"), "utf8"));
+    assert.equal(actual.deploymentProfile, undefined); assert.equal(actual.firebaseProjectId, requiredEnv.VITE_FIREBASE_PROJECT_ID);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });
