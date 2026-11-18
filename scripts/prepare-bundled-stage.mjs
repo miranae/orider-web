@@ -3,12 +3,13 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/stage-production-parity.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
-import { stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
+import { assertStageEntryArtifact, stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
+import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const SHA = /^[a-f0-9]{40}$/u;
@@ -18,22 +19,41 @@ const git = (workspace, ...args) => execFileSync("git", args, { cwd: workspace, 
 const save = (path, value) => writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, flag: "wx" });
 
 function assertSource(workspace, expected) {
-  if (!SHA.test(expected || "") || git(workspace, "rev-parse", "HEAD") !== expected
-    || git(workspace, "status", "--porcelain", "--untracked-files=normal")) throw new Error("bundled stage requires the pinned clean source");
+  const actual = git(workspace, "rev-parse", "HEAD");
+  if (!SHA.test(expected || "") || actual !== expected || git(workspace, "status", "--porcelain", "--untracked-files=normal")) {
+    throw new Error(`bundled stage requires the pinned clean source: expected=${expected} actual=${actual}`);
+  }
+  const reviewed = ["origin/main", "origin/dev"].some(ref => {
+    const result = spawnSync("git", ["merge-base", "--is-ancestor", actual, ref], { cwd: workspace, stdio: "ignore" });
+    return !result.error && result.status === 0;
+  });
+  if (!reviewed) throw new Error(`bundled stage requires reviewed source: expected=ancestor of origin/main or origin/dev actual=${actual}`);
 }
+
 async function requestJson(url, fetcher) {
-  const response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) });
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled stage public metadata unavailable HTTP ${response.status}`); }
-  return response.json();
+  let response;
+  try { response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
+  catch { throw new Error(`bundled stage metadata transport failed at ${url}`); }
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled stage public metadata unavailable at ${url} HTTP ${response.status}`); }
+  try { return await response.json(); } catch { throw new Error(`bundled stage metadata invalid JSON at ${url}`); }
 }
-export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
+async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
   if (!SHA.test(sourceSha || "")) throw new Error("bundled development backend source SHA required");
   const health = await requestJson(`${runtime.firebaseFunctionsBase}/healthz`, fetcher);
-  if (health.status !== "ok" || health.sourceSha !== sourceSha || health.exposure !== "public"
-    || !/^[a-f0-9]{64}$/u.test(health.topologyHash || "") || topologyHash && health.topologyHash !== topologyHash) {
-    throw new Error("bundled development backend source/topology mismatch");
+  if (!health || typeof health !== "object" || Array.isArray(health) || health.status !== "ok" || health.sourceSha !== sourceSha || health.exposure !== "public"
+    || typeof health.topologyHash !== "string" || !/^[a-f0-9]{64}$/u.test(health.topologyHash) || topologyHash && health.topologyHash !== topologyHash) {
+    throw new Error(`bundled development backend source/topology mismatch at ${runtime.firebaseFunctionsBase}/healthz`);
   }
   return health.topologyHash;
+}
+export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
+  const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
+  await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", fetcher });
+  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "getActivityDiscovery", fetcher });
+  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
+  await verifyBundledCallable({ base: runtime.aiApiBase, origin: "https://orider-dev.web.app", name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
+  return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
   workspace = resolve(workspace); directory = resolve(directory);
@@ -86,6 +106,7 @@ function readPrepared(directory) {
 export async function sealBundledStage(directory, fetcher = fetch) {
   const state = readPrepared(directory), { prepared, runtime } = state;
   if (hash(readFileSync(resolve(prepared.artifactDirectory, "runtime-config.json"))) !== prepared.runtimeHash) throw new Error("built runtime differs from the prepared development profile");
+  assertStageEntryArtifact(prepared.artifactDirectory);
   const manifest = stageArtifactManifest(prepared.artifactDirectory);
   await verifyStageArtifacts(prepared.artifactDirectory, manifest, () => verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher));
   readPrepared(directory);
@@ -97,9 +118,11 @@ export async function verifyBundledStage(directory, fetcher = fetch) {
   const { prepared, runtime } = readPrepared(directory), receipt = json(resolve(directory, "build.json"));
   if (receipt.complete !== true || Object.entries(prepared).some(([key, value]) => !isDeepStrictEqual(receipt[key], value))
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
+  assertStageEntryArtifact(prepared.artifactDirectory);
   await verifyStageArtifacts(prepared.artifactDirectory, receipt.artifactManifest, async () => {
     await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
     await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+    await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   });
   readPrepared(directory);
   return receipt;

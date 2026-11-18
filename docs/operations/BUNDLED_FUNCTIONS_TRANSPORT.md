@@ -35,7 +35,7 @@ its source/topology/digests before activating either profile.
 
 
 Development Hosting is deployed only by explicit `Deploy (Hosting → stage)`
-dispatch. Merging `dev` does not deploy it. Select `source_ref`, transport and the
+dispatch. Merging `dev` does not deploy it. The source defaults to `main` to preserve production feature parity. Select an explicitly reviewed full SHA in `source_ref`, transport and the
 validated bundled backend's full SHA. The job resolves the frontend ref to a full
 SHA, checks the live gateway source/topology, prepares a matching runtime and
 Hosting/CSP configuration, and seals the actual built `dist` artifact. Predeploy
@@ -54,3 +54,71 @@ Hosting deployment. The existing production tag, main-ancestry and environment
 approval gates still apply. No variable or production deployment is changed by
 this preparation. The production AI address remains the existing canonical
 `orider-ai-api-h5zqzw3n4a-du.a.run.app` service.
+
+The canonical development deployment selects reviewed main source for production business-feature parity. Keeping this tooling in the DEV source branch does not deploy that branch or promote its unreleased features.
+
+Production opt-in also requires the independently reviewed repository pins
+`ORIDER_BUNDLED_BACKEND_SOURCE_SHA` (40 hex) and `ORIDER_BUNDLED_TOPOLOGY_HASH`
+(64 hex). The first health response must match both; later readbacks stay pinned.
+The bundled predeploy checks all 41 canonical social callables on the selected
+gateway for HTTP401/UNAUTHENTICATED, then checks backend identity again.
+Development source must be an ancestor of reviewed `origin/main` or `origin/dev`
+before any selected source script, install or cloud authentication runs.
+
+Readiness also requires a randomized missing callable to return the router's
+HTTP404/unknown-bundle-function response; blanket HTTP401 authentication alone
+cannot establish route readiness. The development artifact must contain a
+nonempty HTML entry and its referenced JS chunk before it can be sealed or published.
+
+Before bundled development publication, the job snapshots the exact finalized
+`orider-dev` live Hosting version. If publication or live entry/detail verification
+fails, it restores that version only when the current release carries this run's
+unique deployment marker, then checks the live pointer. A different observed release identity aborts the job's publication or recovery. A recovered release still leaves the job failed
+for investigation. This recovery is fixed to development and does not publish
+or roll back production.
+
+Development live publication supports serialized CI writers only. Before enabling
+it, audit all normal writer paths to use the same repository workflow concurrency
+`deploy-hosting-stage` with cancellation disabled, then set repository variable
+`ORIDER_STAGE_HOSTING_SERIALIZED_WRITES=true`. Missing/false rejects before cloud
+authentication; the Hosting helpers also reject before requests. Publication
+rechecks the snapshotted release name/version twice, and compensation rechecks
+its own marker/name/version immediately before POST.
+
+This variable is an operator assertion, not IAM enforcement. Firebase Hosting's
+release API provides no compare-and-swap/ETag precondition; these reads are not
+atomic with publication. Concurrent out-of-band Console/manual publication is
+unsupported. Break-glass changes require stopping/awaiting the active workflow,
+then inspecting the current live release before resuming CI. An unconstrained
+owner publishing during the last read-to-write gap remains a platform limit.
+
+Both release profiles verify handoff's malformed-code rejection and the AI API's
+anonymous-auth rejection with browser Origin/preflight headers; these probes do
+not exchange a handoff code or invoke a model. Development identity is re-read
+after callable probes and again after the final public API probe. For the bundled profile, served root
+and detail HTML must contain the actual executable entry script, not merely its
+filename in a preload, comment or inert element. HTTP reads have bounded timeouts.
+Executable entry URLs must be root-absolute and resolve to the development origin, including when the document contains a base element. Explicit historical `legacy` releases retain their earlier inline entry inspection without requiring new bundled tools absent from that source.
+The compensating release step also runs on workflow cancellation when the runner
+can execute cleanup; a forcibly terminated runner still requires live-state
+inspection before the next manual/break-glass operation.
+
+After publication, the bundled profile fetches the actual entry chunk, requires a
+JavaScript MIME type and compares bytes with the sealed local artifact. REST
+`/api/v1/profile` and webhook `/api/strava/webhook` aliases are checked through the
+gateway before publication and the fixed Hosting origin afterward, using only
+anonymous GET rejections (no user read or webhook event). Handoff preflight uses
+Content-Type only, matching its separate app without Auth/App Check.
+
+If a failed/cancelled publication still shows the original release, compensation
+makes four fresh observations over a bounded six seconds. An unchanged pointer
+is reported as **unverified**, not restored: the original request may still finish.
+The recovery snapshot/marker is uploaded on failure/cancellation when cleanup can
+run, allowing an operator to retry after inspecting live state. It contains only
+Hosting release/version identities. No async-completion guarantee is inferred.
+
+For an explicit legacy tag release, inactive bundled environment variables are
+removed from both the initial runtime writer and the Firebase CLI process, so
+Hosting predeploy descendants inherit the same legacy environment. Nonempty
+bundled sources still fail the legacy preparation guard; the strict writer's
+paired-variable validation is unchanged.

@@ -102,7 +102,7 @@ jobs:
           if [ "$ORIDER_FUNCTIONS_TRANSPORT" = production ]; then
             # 릴리스 변수의 정상 플래그를 새로 쓴다. 개발 snapshot과 이전 프로필은 상속하지 않는다.
             unset BUNDLED_RUNTIME_CONFIG_PATH BUNDLED_FUNCTIONS_ENVIRONMENT PRODUCTION_RUNTIME_CONFIG_PATH STAGE_PARITY_PRODUCTION_RUNTIME_PATH
-            printf 'PRODUCTION_RUNTIME_CONFIG_PATH=\nSTAGE_PARITY_PRODUCTION_RUNTIME_PATH=\n' >> "$GITHUB_ENV"
+            printf '%s\n' 'PRODUCTION_RUNTIME_CONFIG_PATH=' 'STAGE_PARITY_PRODUCTION_RUNTIME_PATH=' 'BUNDLED_RUNTIME_CONFIG_PATH=' 'BUNDLED_FUNCTIONS_ENVIRONMENT=' >> "$GITHUB_ENV"
             node scripts/write-runtime-config.mjs --out "$RUNNER_TEMP/normal-production-runtime.json"
             node scripts/prepare-bundled-production.mjs --phase prepare --source "$RUNNER_TEMP/normal-production-runtime.json" --directory "$RUNNER_TEMP/bundled-production"
           elif [ -n "${BUNDLED_RUNTIME_CONFIG_PATH:-}${BUNDLED_FUNCTIONS_ENVIRONMENT:-}" ]; then
@@ -113,7 +113,12 @@ jobs:
       - name: Build production artifact
         run: npm run build
       - name: Write production runtime config
-        run: node scripts/write-runtime-config.mjs
+        run: |
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = legacy ]; then
+            env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT node scripts/write-runtime-config.mjs
+          else
+            node scripts/write-runtime-config.mjs
+          fi
       - name: Verify public club API before Hosting deployment
         run: node scripts/verify-public-club-api.mjs --runtime dist/runtime-config.json --origin https://orider.co.kr
       - name: Verify bundled production runtime and gateway
@@ -141,7 +146,11 @@ jobs:
           set +e
           config=firebase.json
           if [ "$ORIDER_FUNCTIONS_TRANSPORT" = production ]; then config=firebase.bundled-production.json; fi
-          firebase deploy --config "$config" --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-deploy.log
+          deploy_env=(env)
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = legacy ]; then
+            deploy_env=(env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT)
+          fi
+          "${deploy_env[@]}" firebase deploy --config "$config" --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-deploy.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-deploy.log; then
@@ -151,6 +160,9 @@ jobs:
           exit "$status"
 
       # 배포 후 라이브 검증 — "Deploy success인데 옛 번들 서빙" 사고 차단 (백엔드 #728~731 포팅)
+      - name: Verify bundled production Hosting entry bytes and HTTP aliases
+        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
+        run: node scripts/verify-bundled-hosting.mjs --environment production
       - name: Verify live deploy (no stale HTML / asset cache intact)
         id: live-verify
         run: |
