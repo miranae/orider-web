@@ -61,12 +61,13 @@ it.each(["development", "production"] as const)("%s keeps SDK callable paths and
   initializeAppCheck(app, { provider: new CustomProvider({ getToken: async () => ({ token: "reviewed-appcheck-token", expireTimeMillis: Date.now() + 3600_000 }) }) });
   const auth = initializeAuth(app, { persistence: inMemoryPersistence });
   resetRuntimeConfigForTests({ ...runtime, activityAnalysisExpansionEnabled: true, trainingAnalysisPeriodsEnabled: true });
-  const services = { auth, functions: getFunctions(app, base) } as FirebaseServices;
-  expect(analysisCapabilityAvailable("routes")).toBe(true);
-  expect(matchesAnalysisCapability(services, "routes")).toBe(true);
+
 
   const request = vi.fn().mockResolvedValue({ status: 200, json: async () => ({ result: { ok: true } }) });
   vi.stubGlobal("fetch", request);
+  const services = { auth, functions: getFunctions(app, base) } as FirebaseServices;
+  expect(analysisCapabilityAvailable("routes")).toBe(true);
+  expect(matchesAnalysisCapability(services, "routes")).toBe(true);
   for (const name of ["getActivityOverview", "getCourse", "stravaGetTokens", "socialAuthStart"]) {
     expect((await httpsCallable(getFunctions(app, base), name)({ id: "fixture" })).data).toEqual({ ok: true });
     const [url, options] = request.mock.calls.at(-1)!;
@@ -102,12 +103,13 @@ it.each(["development", "production"] as const)("%s discovery uses the injected 
   const runtime = config(environment); resetRuntimeConfigForTests(runtime);
   const app = initializeApp({ projectId: "miranae-orider-g1", apiKey: "public", appId: runtime.firebaseAppId }, `discovery-${environment}`);
   const context = { app, currentUser: { uid: "viewer" } };
-  const services = { auth: context, functions: getFunctions(app, runtime.firebaseFunctionsBase), ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices;
+
   const page = (nextCursor: string | null) => ({ items: [], nextCursor, exhausted: nextCursor === null, expiresAt: Date.now() + 60_000,
     totalCount: null, consistency: "current_authorized_seek_pages", scannedCount: 0, order: "startTime_desc", includesUndated: false });
   const request = vi.fn().mockResolvedValueOnce({ status: 200, json: async () => ({ result: page("ad1.next") }) })
     .mockResolvedValueOnce({ status: 200, json: async () => ({ result: page(null) }) });
   vi.stubGlobal("fetch", request);
+  const services = { auth: context, functions: getFunctions(app, runtime.firebaseFunctionsBase), ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices;
   const { loadActivityDiscovery } = await import("./activityDiscovery");
   const first = await loadActivityDiscovery(services, { scope: "athlete", targetUid: "author" });
   await loadActivityDiscovery(services, { scope: "athlete", targetUid: "author", cursor: first.nextCursor! });
