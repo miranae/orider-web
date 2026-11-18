@@ -106,3 +106,17 @@ it("uses injected logging transport and drops a stale SDK user after AppCheck", 
   logClientError("named.current", new Error("current"), {}, services);
   await vi.waitFor(() => expect(httpsCallable).toHaveBeenCalledWith(services.functions, "logClientError"));
 });
+
+it("keeps diagnostics but skips the old callable when its request scope expires during App Check", async () => {
+  let resolveReady!: () => void;
+  const services = { auth: { currentUser: { uid: "owner" } }, functions: { app: { name: "old-map" } },
+    ensureAppCheckReady: vi.fn(() => new Promise<void>(resolve => { resolveReady = resolve; })) } as unknown as FirebaseServices;
+  let current = true;
+  logClientError("map.superseded", new Error("map failure"), {}, services, services.auth.currentUser, "", () => current);
+  current = false;
+  resolveReady();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(captureError).toHaveBeenCalled();
+  expect(httpsCallable).not.toHaveBeenCalledWith(services.functions, "logClientError");
+});

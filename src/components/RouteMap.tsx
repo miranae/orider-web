@@ -113,10 +113,20 @@ export function supportsWebGL(): boolean {
   }
 }
 
+function useMapMounted() {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  return mounted;
+}
+
 function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { photo: PhotoMarker; style: CSSProperties; retryable?: boolean; onRetry?: () => void }) {
   const { t } = useTranslation("activity");
   const services = useFirebaseServices();
   const viewer = services.auth?.currentUser;
+  const mounted = useMapMounted();
   const scope = useRef({ services, viewer, generation: 0 });
   if (scope.current.services !== services || scope.current.viewer !== viewer) scope.current = { services, viewer, generation: scope.current.generation + 1 };
   const currentScope = scope.current;
@@ -124,11 +134,11 @@ function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { phot
   const logged = useRef(new WeakSet<typeof currentScope>());
   const failed = failedFor === currentScope;
   const onError = () => {
-    const current = scope.current === currentScope && services.auth?.currentUser === viewer;
-    if (current) setFailedFor(currentScope);
+    const isCurrent = () => mounted.current && scope.current === currentScope && services.auth?.currentUser === viewer;
+    if (isCurrent()) setFailedFor(currentScope);
     if (logged.current.has(currentScope)) return;
     logged.current.add(currentScope);
-    logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services, viewer, current ? "" : "superseded");
+    logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services, viewer, isCurrent() ? "" : "superseded", isCurrent);
   };
   if (failed) return <div data-map-photo-failed style={{ ...style, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"var(--space-8)" }}>
     <span role="img" aria-label={t("publicDetail.photosFailed")}><ImageOff size={ICON_SIZE.sm} aria-hidden="true" /></span>
@@ -168,6 +178,7 @@ export function RouteMapFallback({
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
   const services = useFirebaseServices();
   const viewer = services.auth?.currentUser;
+  const mounted = useMapMounted();
   const scope = useRef({ services, viewer, imageUrl, generation: 0 });
   if (scope.current.services !== services || scope.current.viewer !== viewer || scope.current.imageUrl !== imageUrl) {
     scope.current = { services, viewer, imageUrl, generation: scope.current.generation + 1 };
@@ -192,13 +203,13 @@ export function RouteMapFallback({
           className="h-full w-full object-cover"
           loading="lazy"
           onError={() => {
-            const current = scope.current === currentScope && services.auth?.currentUser === viewer;
-            if (current) setFailedImage(currentScope);
+            const isCurrent = () => mounted.current && scope.current === currentScope && services.auth?.currentUser === viewer;
+            if (isCurrent()) setFailedImage(currentScope);
             if (loggedImage.current.has(currentScope)) return;
             loggedImage.current.add(currentScope);
             logClientError("RouteMap.image", new Error("route_image_load_failed"), {
               stage: "static_image", routeSlotCount: positions.length,
-            }, services, viewer, current ? "" : "superseded");
+            }, services, viewer, isCurrent() ? "" : "superseded", isCurrent);
           }}
         />
       </div>
@@ -270,9 +281,10 @@ function RouteNavigation({ labels, bounds, padding, onFit }: {
   </MapNavigation>;
 }
 
-function RouteCameraControls({ bounds, navigationBounds, disabled, padding, labels, onFit }: {
+function RouteCameraControls({ bounds, navigationBounds, autoFitKey, disabled, padding, labels, onFit }: {
   bounds: LngLatBoundsLike;
   navigationBounds: LngLatBoundsLike;
+  autoFitKey: string;
   disabled: boolean;
   padding: number;
   labels: RouteMapProps["navigationLabels"];
@@ -282,14 +294,13 @@ function RouteCameraControls({ bounds, navigationBounds, disabled, padding, labe
   const fittedKey = useRef<string | null>(null);
   useEffect(() => {
     if (disabled) { fittedKey.current = null; return; }
-    const key = JSON.stringify(bounds);
-    if (fittedKey.current !== key && map) {
+    if (fittedKey.current !== autoFitKey && map) {
       map.fitBounds(bounds, routeFitOptions(bounds, padding, 0));
-      fittedKey.current = key;
+      fittedKey.current = autoFitKey;
     }
-  }, [map, bounds, disabled, padding]);
+  }, [map, bounds, autoFitKey, disabled, padding]);
   return labels ? <RouteNavigation labels={labels} bounds={navigationBounds} padding={padding} onFit={() => {
-    fittedKey.current = JSON.stringify(navigationBounds);
+    fittedKey.current = autoFitKey;
     onFit();
   }} /> : null;
 }
@@ -552,8 +563,9 @@ export default function RouteMap({
     if (idx >= 0) onHighlightRangeChange(highlightRange.startIndex, idx);
   }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
+  const mounted = useMapMounted();
   const handleMapError = useCallback((event: { error?: unknown } = {}) => {
-    const current = mapScopeRef.current === mapScope && firebaseServices.auth?.currentUser === mapScope.mapViewer;
+    const isCurrent = () => mounted.current && mapScopeRef.current === mapScope && firebaseServices.auth?.currentUser === mapScope.mapViewer;
     if (!mapErrorLogged.current.has(mapScope)) {
       mapErrorLogged.current.add(mapScope);
       const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
@@ -564,16 +576,17 @@ export default function RouteMap({
       logClientError("RouteMap.mapbox", new Error(`mapbox_${kind}_failure${status == null ? "" : `_${status}`}`), {
         stage: "mapbox_render_or_request", kind, status, routeSlotCount: sourcePositions.length,
         pointCount: pointPositions.length, hasSavedImage: Boolean(fallbackImageUrl), hasRouteLine: drawable,
-      }, firebaseServices, mapScope.mapViewer, current ? "" : "superseded");
+      }, firebaseServices, mapScope.mapViewer, isCurrent() ? "" : "superseded", isCurrent);
     }
-    if (current) setMapFailed(true);
-  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope]);
+    if (isCurrent()) setMapFailed(true);
+  }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope, mounted]);
 
   const previewRange = highlightRange ?? flyToRange;
   const selectedMeasuredPoint = streamFallback && previewRange?.startIndex === previewRange?.endIndex
     && previewRange ? sourcePositions[previewRange.startIndex] : null;
   const pointAlreadyInPreview = !streamFallback && previewRange?.startIndex === flyToRange?.startIndex && previewRange?.endIndex === flyToRange?.endIndex;
-  const fallbackSelectedPosition = [hasRecordedPosition ? null : flyToPosition, pointAlreadyInPreview ? null : selectedPoint, selectedMeasuredPoint, drawable ? null : markerPosition].find(isRoutePosition);
+  const fallbackPhoto = cameraIntent.current.full || cameraIntent.current.rangeAfterPhoto ? null : flyToPosition;
+  const fallbackSelectedPosition = [fallbackPhoto, pointAlreadyInPreview ? null : selectedPoint, selectedMeasuredPoint, drawable ? null : markerPosition].find(isRoutePosition);
   const mapOpenedFor = useRef<typeof mapScope | null>(null);
   if (activePoints.length > 0) mapOpenedFor.current = mapScope;
 
@@ -849,7 +862,8 @@ export default function RouteMap({
           </Source>
         )}
 
-        <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds} disabled={(isRoutePosition(flyToPosition) || (!drawable && isRoutePosition(selectedPoint))) && !cameraIntent.current.full}
+        <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds}
+          autoFitKey={JSON.stringify(recordedBounds ?? bounds)} disabled={(isRoutePosition(flyToPosition) || (!drawable && isRoutePosition(selectedPoint))) && !cameraIntent.current.full}
           padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />
         <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={fullRouteBounds ?? bounds}
           photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full}

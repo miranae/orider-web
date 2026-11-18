@@ -58,6 +58,7 @@ export function logClientError(
   services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">,
   requestViewer?: FirebaseServices["auth"]["currentUser"],
   dedupeScope = "",
+  isRequestCurrent?: () => boolean,
 ) {
   const message = error instanceof Error ? error.message : String(error);
   if (shouldSuppressClientError(source, message, dedupeScope)) return;
@@ -77,11 +78,11 @@ export function logClientError(
   if (services && (!services.auth || !services.functions)) return;
   const user = requestViewer === undefined ? services?.auth.currentUser : requestViewer;
   // Report late failures to Sentry, but never send them through a different account's callable.
-  if (services && services.auth.currentUser !== user) return;
+  if ((services && services.auth.currentUser !== user) || isRequestCurrent?.() === false) return;
   void (async () => {
     try {
       await (services?.ensureAppCheckReady ?? ensureAppCheckReady)();
-      if (services && services.auth.currentUser !== user) return;
+      if ((services && services.auth.currentUser !== user) || isRequestCurrent?.() === false) return;
       const fn = services ? httpsCallable(services.functions, "logClientError") : getLogClientErrorFn();
       if (!fn) return; // initFirebase 전 — 서버 로깅 skip (Sentry 큐로 충분)
       await fn({ source, message, stack, context });

@@ -443,10 +443,11 @@ describe("RouteMap", () => {
       photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[60,150]}]}
       waypoints={[{lat:50,lon:140,name:"Waypoint",icon:null}]} />);
     fireEvent.click(screen.getByTestId("mock-map"));
-    const points = document.querySelectorAll("svg circle");
+    const points = document.querySelectorAll("svg circle:not([data-route-static-selection])");
     expect(points).toHaveLength(1);
-    expect(points[0]).toHaveAttribute("cx","160");
-    expect(points[0]).toHaveAttribute("cy","80");
+    const photo = document.querySelector("circle[data-route-static-selection]");
+    expect(photo).toBeInTheDocument();
+    expect(photo?.getAttribute("cx")).not.toBe(points[0]?.getAttribute("cx"));
     expect(document.querySelector("svg path")).toBeNull();
   });
 
@@ -669,6 +670,17 @@ describe("RouteMap", () => {
     expect(screen.getByTestId("map-marker")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show entire route" }));
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37]]);
+  });
+
+  it("keeps a manually moved camera when passive photos arrive on a single GPS fix", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = { latlng: [[37, 127]] as [number, number][], navigationLabels: { zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show route" } };
+    const view = renderWithProviders(<RouteMap {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} photos={[{ id: "distant", url: "https://example.test/photo.jpg", location: [52, 145] }]} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
   });
 
   it.each([
