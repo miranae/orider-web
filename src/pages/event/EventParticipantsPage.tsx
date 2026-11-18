@@ -1,3 +1,4 @@
+import { withReadDeadline } from "../../utils/withReadDeadline";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -56,6 +57,7 @@ interface ParticipantRow {
   bib: number | null;
   realName: string;
   nickname: string;
+  identityPending: boolean;
   category: string | null;
   age: number | null;
   gender: "M" | "F" | "X" | null;
@@ -256,6 +258,7 @@ export default function EventParticipantsPage() {
           bib: typeof data.bib === "number" ? data.bib : null,
           realName: data.realName || t("participantsView.defaultRider"),
           nickname: t("participantsView.defaultRider"),
+          identityPending: !data.realName && typeof data.bib !== "number",
           category: data.category ?? null,
           age: data.birth ? ageFromBirth(data.birth) : null,
           gender: data.gender ?? null,
@@ -288,7 +291,7 @@ export default function EventParticipantsPage() {
         while (current() && nextProfile < partsSnap.docs.length) {
           const participant = partsSnap.docs[nextProfile++]!;
           try {
-            const profile = await getPublicUserProfile(participant.id, services.firestore);
+            const profile = await withReadDeadline(getPublicUserProfile(participant.id, services.firestore), t("readTimeout"));
             if (!current()) return;
             const nickname = profile?.nickname || t("participantsView.defaultRider");
             profiles.set(participant.id, { nickname, team: profile?.team || "—" });
@@ -301,9 +304,9 @@ export default function EventParticipantsPage() {
         if (!current()) return;
         const enrich = (row: ParticipantRow) => {
           const profile = profiles.get(row.userId);
-          return profile ? { ...row, ...profile,
+          return profile ? { ...row, ...profile, identityPending: false,
             realName: !canonicalNames.has(row.userId) && row.realName === t("participantsView.defaultRider") ? profile.nickname : row.realName,
-          } : row;
+          } : { ...row, identityPending: false };
         };
         setParticipants(previous => previous.map(enrich));
         setDrawer(previous => previous ? enrich(previous) : previous);
@@ -325,13 +328,14 @@ export default function EventParticipantsPage() {
   const isHost = !!event && !!user && (user.uid === event.creatorId || event.hostIds.includes(user.uid));
 
   const filtered = useMemo(() => {
-    let r = participants;
+    let r = participants.filter(participant => !participant.identityPending);
     const q = search.trim().toLowerCase();
+    const defaultName = t("participantsView.defaultRider");
     if (q) {
       r = r.filter(
         (p) =>
-          p.realName.toLowerCase().includes(q) ||
-          p.nickname.toLowerCase().includes(q) ||
+          (p.realName !== defaultName && p.realName.toLowerCase().includes(q)) ||
+          (p.nickname !== defaultName && p.nickname.toLowerCase().includes(q)) ||
           String(p.bib ?? "").includes(q) ||
           p.phone.includes(q)
       );
@@ -347,7 +351,7 @@ export default function EventParticipantsPage() {
       }
       return a.status.localeCompare(b.status);
     });
-  }, [participants, search, categoryFilter, statusFilter, sortBy]);
+  }, [participants, search, categoryFilter, statusFilter, sortBy, t]);
 
   const stats = useMemo(() => {
     const total = participants.length;

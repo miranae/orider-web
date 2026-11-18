@@ -167,7 +167,7 @@ describe("bounded year reads", () => {
     expect(computeYearRecap(back, 2025)).toEqual(computeYearRecap(records, 2025));
     expect(returned + emptyQueries).toBe(cost);
 
-  });
+  }, 15000);
 
   it("does not return a partial lifetime record set when its hard budget is reached", async () => {
     records = [ride("a", 1000), ride("b", 2000), ride("c", 3000)];

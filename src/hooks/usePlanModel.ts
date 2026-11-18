@@ -192,11 +192,12 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
           return;
         }
 
-        // The confirmed goal can be read before its plan. Cached goal/week pairs
-        // stay together until the new pair is complete; no old weeks join a new goal.
-        if (cached === null) {
+        // Keep cached weeks only while the confirmed goal still matches them.
+        if (cached?.goal?.id !== nextGoal.id) {
           setGoal(nextGoal);
+          setWeeks([]);
           setGoalLoading(false);
+          setPlanLoading(true);
         }
         try {
           const planSnap = await getDocs(

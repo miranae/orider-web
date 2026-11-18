@@ -875,7 +875,7 @@ function CoursePageContent() {
   // ── Edit ───────────────────────────────────────────────────────────
 
   const startEditing = () => {
-    if (!course) return;
+    if (!course || !canEdit) return;
     setEditName(course.name);
     setEditDesc(course.description || "");
     setEditing(true);
@@ -929,11 +929,12 @@ function CoursePageContent() {
 
   const officialCourse = course ? isOfficialCourse(course) : false;
   const creatorName = officialCourse ? t("creator.official") : course?.creatorNickname ?? "";
-  const isOwner = user?.uid === course?.creatorId && !officialCourse;
+  const isOwner = Boolean(user && user.uid === course?.creatorId && !officialCourse);
+  const canEdit = isOwner && course?.trackLoadState !== "loading";
   const isAdmin = tokenAdmin || profileHasAdminFlag(profile);
   useEffect(() => {
-    if (detailTab === "edit" && isOwner && course && !editing) { setEditing(true); setEditName(course.name); setEditDesc(course.description || ""); }
-  }, [detailTab, isOwner, course, editing]);
+    if (detailTab === "edit" && canEdit && course && !editing) { setEditing(true); setEditName(course.name); setEditDesc(course.description || ""); }
+  }, [detailTab, canEdit, course, editing]);
 
   const courseUnavailable = !course || course.deletedAt || (course.hidden === true && !isAdmin);
 
@@ -1072,7 +1073,7 @@ function CoursePageContent() {
           {/* 코스 편집은 제목 옆 연필 아이콘으로 — 통계 줄의 큰 버튼 대신 편집 대상 곁에 둔다. */}
           <div className="flex items-start" style={{ gap: "var(--space-1)" }}>
             <h1 data-testid="D2-0" className="course-hero-title flex-1 min-w-0">{course.name}</h1>
-            {isOwner && !editing && (
+            {canEdit && !editing && (
               <IconButton variant="ghost" size="sm" aria-label={t("button.edit")} title={t("button.edit")}
                 icon={<Pencil size={ICON_SIZE.sm} />} onClick={startEditing} />
             )}
@@ -1119,12 +1120,12 @@ function CoursePageContent() {
       </div>
       </div>
 
-      <TabNav tabs={[{ id: "overview", label: t("detailTabs.overview"), specId: "D2-T" }, ...(canPrepare ? [{ id: "prepare", label: t("detailTabs.prepare"), specId: "D2-T" }] : []), ...(isOwner ? [{ id: "edit", label: t("button.edit"), specId: "D2-T" }] : [])]} activeTab={detailTab === "edit" && !isOwner ? "overview" : detailTab} onChange={(tab) => { setDetailTab(tab); if (tab === "edit" && isOwner) startEditing(); else setEditing(false); }} />
+      <TabNav tabs={[{ id: "overview", label: t("detailTabs.overview"), specId: "D2-T" }, ...(canPrepare ? [{ id: "prepare", label: t("detailTabs.prepare"), specId: "D2-T" }] : []), ...(canEdit ? [{ id: "edit", label: t("button.edit"), specId: "D2-T" }] : [])]} activeTab={detailTab === "edit" && !canEdit ? "overview" : detailTab} onChange={(tab) => { setDetailTab(tab); if (tab === "edit" && canEdit) startEditing(); else setEditing(false); }} />
       {canPrepare && detailTab === "prepare" && climbSection && <Card data-testid="D2-2">{climbSection}</Card>}
       {canPrepare && detailTab === "prepare" && <ErrorBoundary fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="card" />}><LabPage presetCourseId={courseId ?? course.id} embedded /></Suspense></ErrorBoundary>}
       {/* 본문 2단 — 넓은 열에 프로필·경유지·사진, 좁은 열에 정보와 액션. */}
       <div data-testid="D2-1" className="course-body">
-        <div data-testid="D2-1" className="course-col" style={canPrepare && detailTab === "prepare" || (detailTab === "edit" && isOwner) ? { display: "none" } : undefined}>
+        <div data-testid="D2-1" className="course-col" style={canPrepare && detailTab === "prepare" || (detailTab === "edit" && canEdit) ? { display: "none" } : undefined}>
       {/* Photo Gallery */}
       {((course.photos && course.photos.length > 0) || userPhotos.length > 0 || user) && (
         <Card>

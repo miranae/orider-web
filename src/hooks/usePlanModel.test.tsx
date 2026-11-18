@@ -318,7 +318,7 @@ describe("usePlanModel", () => {
     getDocsMock.mockImplementation(originalImplementation);
   });
 
-  it("preserves the cached goal and weeks when only the fresh plan request fails", async () => {
+  it("keeps the confirmed new goal and hides old weeks when its plan request fails", async () => {
     const cacheKey = {
       uid: "owner",
       surface: "plan" as const,
@@ -343,8 +343,8 @@ describe("usePlanModel", () => {
     const hook = renderHook(() => usePlanModel("bike"), { wrapper });
     await waitFor(() => expect(getDocsMock).toHaveBeenCalledTimes(2));
 
-    expect(hook.result.current.goal?.id).toBe("cached-goal");
-    expect(hook.result.current.weeks[0]?.id).toBe("cached-week");
+    expect(hook.result.current.goal?.id).toBe("fresh-goal");
+    expect(hook.result.current.weeks).toEqual([]);
     expect(getTrainingSurfaceCache<typeof cachedTuple>(cacheKey)).toEqual(cachedTuple);
     await waitFor(() => expect(hook.result.current.planError).toEqual(new Error("plan offline")));
     expect(hook.result.current.loadError).toEqual(new Error("plan offline"));
