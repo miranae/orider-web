@@ -121,18 +121,17 @@ function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { phot
   if (scope.current.services !== services || scope.current.viewer !== viewer) scope.current = { services, viewer, generation: scope.current.generation + 1 };
   const currentScope = scope.current;
   const [failedFor, setFailedFor] = useState<typeof currentScope | null>(null);
-  const logged = useRef<typeof currentScope | null>(null);
+  const logged = useRef(new WeakSet<typeof currentScope>());
   const failed = failedFor === currentScope;
   const onError = () => {
-    if (scope.current !== currentScope || services.auth?.currentUser !== viewer) return;
-    setFailedFor(currentScope);
-    if (logged.current === currentScope) return;
-    logged.current = currentScope;
-    logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services);
+    if (scope.current === currentScope && services.auth?.currentUser === viewer) setFailedFor(currentScope);
+    if (logged.current.has(currentScope)) return;
+    logged.current.add(currentScope);
+    logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services, viewer);
   };
   if (failed) return <div data-map-photo-failed style={{ ...style, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"var(--space-8)" }}>
     <span role="img" aria-label={t("publicDetail.photosFailed")}><ImageOff size={ICON_SIZE.sm} aria-hidden="true" /></span>
-    {retryable && <Button size="sm" variant="outline" onClick={() => { logged.current = null; setFailedFor(null); onRetry?.(); }}>{t("page.retry")}</Button>}
+    {retryable && <Button size="sm" variant="outline" onClick={() => { logged.current.delete(currentScope); setFailedFor(null); onRetry?.(); }}>{t("page.retry")}</Button>}
   </div>;
   return photo.nativePhoto
     ? <NativeActivityPhotoImage key={currentScope.generation} nativePhoto={photo.nativePhoto} retryable={retryable} alt={photo.caption || ""} style={style} onError={onError} />
@@ -174,7 +173,7 @@ export function RouteMapFallback({
   }
   const currentScope = scope.current;
   const [failedImage, setFailedImage] = useState<typeof currentScope | null>(null);
-  const loggedImage = useRef<typeof currentScope | null>(null);
+  const loggedImage = useRef(new WeakSet<typeof currentScope>());
   const startIndex = highlightRange?.startIndex, endIndex = highlightRange?.endIndex;
   const selectedLatitude = selectedPosition?.[0], selectedLongitude = selectedPosition?.[1];
   const { path, points, selectionPath, selectionPoints = [] } = useMemo(() => buildStaticRouteGeometry(positions, segmentStarts, {
@@ -192,13 +191,12 @@ export function RouteMapFallback({
           className="h-full w-full object-cover"
           loading="lazy"
           onError={() => {
-            if (scope.current !== currentScope || services.auth?.currentUser !== viewer) return;
-            setFailedImage(currentScope);
-            if (loggedImage.current === currentScope) return;
-            loggedImage.current = currentScope;
+            if (scope.current === currentScope && services.auth?.currentUser === viewer) setFailedImage(currentScope);
+            if (loggedImage.current.has(currentScope)) return;
+            loggedImage.current.add(currentScope);
             logClientError("RouteMap.image", new Error("route_image_load_failed"), {
               stage: "static_image", routeSlotCount: positions.length,
-            }, services);
+            }, services, viewer);
           }}
         />
       </div>
@@ -407,7 +405,7 @@ export default function RouteMap({
 }: RouteMapProps) {
   const { t } = useTranslation("common");
   const firebaseServices = useFirebaseServices();
-  const mapErrorLogged = useRef(false);
+  const mapErrorLogged = useRef(new WeakSet<object>());
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [photoRetryVersions, setPhotoRetryVersions] = useState<Record<string, number>>({});
   const selectedPhoto = photos?.find(photo => photo.id === selectedPhotoId);
@@ -479,7 +477,6 @@ export default function RouteMap({
   const mapScopeRef = useRef(mapScope);
   mapScopeRef.current = mapScope;
   useEffect(() => {
-    mapErrorLogged.current = false;
     setMapFailed(false);
   }, [mapScope]);
   useEffect(() => { setMapReady(false); }, [polyline, latlng, routeParts, locationCommand]);
@@ -554,9 +551,8 @@ export default function RouteMap({
   }, [sourcePositions, onHighlightRangeChange, highlightRange]);
 
   const handleMapError = useCallback((event: { error?: unknown } = {}) => {
-    if (mapScopeRef.current !== mapScope || firebaseServices.auth?.currentUser !== mapScope.mapViewer) return;
-    if (!mapErrorLogged.current) {
-      mapErrorLogged.current = true;
+    if (!mapErrorLogged.current.has(mapScope)) {
+      mapErrorLogged.current.add(mapScope);
       const detail = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
       const status = typeof detail.status === "number" && Number.isInteger(detail.status) && detail.status >= 100 && detail.status <= 599 ? detail.status : null;
       const message = typeof detail.message === "string" ? detail.message.toLowerCase() : "";
@@ -565,9 +561,9 @@ export default function RouteMap({
       logClientError("RouteMap.mapbox", new Error(`mapbox_${kind}_failure${status == null ? "" : `_${status}`}`), {
         stage: "mapbox_render_or_request", kind, status, routeSlotCount: sourcePositions.length,
         pointCount: pointPositions.length, hasSavedImage: Boolean(fallbackImageUrl), hasRouteLine: drawable,
-      }, firebaseServices);
+      }, firebaseServices, mapScope.mapViewer);
     }
-    setMapFailed(true);
+    if (mapScopeRef.current === mapScope && firebaseServices.auth?.currentUser === mapScope.mapViewer) setMapFailed(true);
   }, [sourcePositions.length, pointPositions.length, fallbackImageUrl, drawable, firebaseServices, mapScope]);
 
   const previewRange = highlightRange ?? flyToRange;
@@ -850,7 +846,7 @@ export default function RouteMap({
           </Source>
         )}
 
-        <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds} disabled={isRoutePosition(flyToPosition) && !cameraIntent.current.full}
+        <RouteCameraControls labels={navigationLabels} bounds={bounds} navigationBounds={fullRouteBounds ?? bounds} disabled={(isRoutePosition(flyToPosition) || (!drawable && standalonePositions.length === 1 && isRoutePosition(selectedPoint))) && !cameraIntent.current.full}
           padding={fitPadding} onFit={() => { cameraIntent.current.full = true; }} />
         <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={fullRouteBounds ?? bounds}
           photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full}

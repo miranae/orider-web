@@ -671,6 +671,17 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37]]);
   });
 
+  it("keeps a selected single GPS fix in view when a distant photo arrives", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = { latlng: [[37, 127]] as [number, number][], flyToRange: { startIndex: 0, endIndex: 0 } };
+    const view = renderWithProviders(<RouteMap {...props} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127, 37], [127, 37]]);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} photos={[{ id: "distant", url: "https://example.test/photo.jpg", location: [52, 145] }]} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
   it("preserves the user camera when raw GPS adds points inside the thumbnail bounds", () => {
     const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
@@ -687,7 +698,7 @@ describe("RouteMap", () => {
     expect(JSON.stringify(mapProps.sources)).toContain("[127.3,37.8]");
   });
 
-  it("ignores a late SDK error from an earlier route", () => {
+  it("reports a late SDK error without replacing the current route", () => {
     const view = renderWithProviders(<RouteMap flyToPosition={[37, 127]} />);
     const previousMap = screen.getByTestId("mock-map");
     const previousError = mapProps.latest?.onError;
@@ -695,7 +706,7 @@ describe("RouteMap", () => {
     const error = { error: new Error("network") };
     act(() => previousError?.(error));
     expect(screen.getByTestId("mock-map")).not.toBe(previousMap);
-    expect(mapErrors.mock.calls.some(call => call[0] === "RouteMap.mapbox")).toBe(false);
+    expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.mapbox")).toHaveLength(1);
   });
 
   it("allows selecting the same photo again after a location-only map failed", () => {
@@ -777,7 +788,7 @@ describe("RouteMap", () => {
     fireEvent.error(pending);
     expect(screen.getByRole("img", {name:"로딩 사진"})).toBe(current);
     expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
-    expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.photo")).toHaveLength(0);
+    expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.photo")).toHaveLength(mode === "account" ? 1 : 0);
   });
 
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
