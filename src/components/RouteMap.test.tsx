@@ -560,10 +560,15 @@ describe("RouteMap", () => {
   });
 
   it("shows a hovered GPS fix even when a saved image accompanies isolated fixes", () => {
-    renderWithProviders(<RouteMap latlng={[[37, 127], null, [38, 128]] as unknown as [number, number][]}
-      markerPosition={[38, 128]} fallbackImageUrl="https://example.test/route.png" />);
+    const props = { latlng: [[37, 127], null, [38, 128]] as unknown as [number, number][], fallbackImageUrl: "https://example.test/route.png" };
+    const view = renderWithProviders(<RouteMap {...props} markerPosition={[38, 128]} />);
     expect(mapProps.layers.has("hover-marker-outer")).toBe(true);
-    fireEvent.click(screen.getByTestId("mock-map"));
+    const map = screen.getByTestId("mock-map");
+    view.rerender(<RouteMap {...props} markerPosition={null} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    view.rerender(<RouteMap {...props} markerPosition={[37, 127]} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    fireEvent.click(map);
     expect(document.querySelector("circle[data-route-static-selection]")).not.toBeNull();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
