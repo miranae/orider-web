@@ -563,9 +563,10 @@ export default function RouteMap({
   const previewRange = highlightRange ?? flyToRange;
   const selectedMeasuredPoint = streamFallback && previewRange?.startIndex === previewRange?.endIndex
     && previewRange ? sourcePositions[previewRange.startIndex] : null;
-  const fallbackSelectedPosition = isRoutePosition(selectedMeasuredPoint) ? selectedMeasuredPoint : undefined;
+  const pointAlreadyInPreview = !streamFallback && previewRange?.startIndex === flyToRange?.startIndex && previewRange?.endIndex === flyToRange?.endIndex;
+  const fallbackSelectedPosition = [pointAlreadyInPreview ? null : selectedPoint, selectedMeasuredPoint, drawable ? null : markerPosition].find(isRoutePosition);
 
-  if (!bounds || (!drawable && standalonePositions.length !== 1 && !(Array.isArray(routeParts) && endpoints.length > 0) && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
+  if (!bounds || (!drawable && standalonePositions.length !== 1 && !(Array.isArray(routeParts) && endpoints.length > 0) && fallbackImageUrl && activePoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
       return <RouteMapFallback positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined} selectedPosition={fallbackSelectedPosition} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}

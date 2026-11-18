@@ -551,6 +551,23 @@ describe("RouteMap", () => {
     expect(document.querySelector("svg path")?.getAttribute("d")?.match(/M/g)).toHaveLength(2);
   });
 
+  it("preserves a separate single GPS target alongside the highlighted track in the static preview", () => {
+    renderWithProviders(<RouteMap latlng={[[37, 127], [37.01, 127], null, [38, 128]] as unknown as [number, number][]}
+      highlightRange={{ startIndex: 0, endIndex: 1 }} flyToRange={{ startIndex: 3, endIndex: 3 }} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(document.querySelector("path[data-route-static-selection]")).not.toBeNull();
+    expect(document.querySelector("circle[data-route-static-selection]")).not.toBeNull();
+  });
+
+  it("shows a hovered GPS fix even when a saved image accompanies isolated fixes", () => {
+    renderWithProviders(<RouteMap latlng={[[37, 127], null, [38, 128]] as unknown as [number, number][]}
+      markerPosition={[38, 128]} fallbackImageUrl="https://example.test/route.png" />);
+    expect(mapProps.layers.has("hover-marker-outer")).toBe(true);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(document.querySelector("circle[data-route-static-selection]")).not.toBeNull();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
   it("keeps a full-route toolbar request active when native GPS arrives after photo navigation", () => {
     const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
