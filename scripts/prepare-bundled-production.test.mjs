@@ -19,7 +19,7 @@ function fixture() {
   const git = (...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "fixture"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.test"); git("add", "."); git("commit", "-m", "fixture");
   let health = { status: "ok", exposure: "public", sourceSha: "b".repeat(40), topologyHash: "c".repeat(64) };
-  const calls = [], fetcher = async (url, options) => { calls.push(url); return url.endsWith("/healthz") ? Response.json(health) : /\/oriderReadinessMissing[a-f0-9]+$/u.test(url) ? Response.json({ error: "unknown-bundle-function" }, { status: 404 }) : options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider.co.kr", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": "https://orider.co.kr" } }); };
+  const calls = [], fetcher = async (url, options) => { calls.push(url); return url.endsWith("/api/v1/profile") ? Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 }) : url.endsWith("/api/strava/webhook") ? new Response("Forbidden", { status: 403 }) : url.endsWith("/healthz") ? Response.json(health) : /\/oriderReadinessMissing[a-f0-9]+$/u.test(url) ? Response.json({ error: "unknown-bundle-function" }, { status: 404 }) : options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider.co.kr", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": "https://orider.co.kr" } }); };
   const prepare = (patch = {}) => prepareBundledProduction({ source, workspace, directory, fetcher, backendSourceSha: "b".repeat(40), backendTopologyHash: "c".repeat(64), ...patch });
   const build = runtime => { mkdirSync(resolve(workspace, "dist")); writeFileSync(resolve(workspace, "dist/runtime-config.json"), JSON.stringify(runtime)); };
   return { workspace, directory, prepare, fetcher, calls, build, setHealth: next => { health = next; }, cleanup: () => rmSync(root, { recursive: true, force: true }) };
@@ -36,7 +36,7 @@ test("production opt-in derives routing from normal release flags and keeps cano
     assert.equal(config.site, "miranae-orider-g1"); assert.ok(config.rewrites.filter(rule => rule.run).every(rule => rule.run.serviceId === "orider-bundle-default-api"));
     assert.match(config.predeploy, /predeploy-guard/); assert.match(config.predeploy, /prepare-bundled-production\.mjs --phase verify/);
     await verifyBundledProduction(f.directory, f.fetcher);
-    assert.equal(f.calls.filter(url => !url.endsWith("/healthz")).length, 87);
+    assert.equal(f.calls.filter(url => !url.endsWith("/healthz")).length, 89);
     assert.ok(f.calls.includes(`${runtime.firebaseFunctionsBase}/getActivityDiscovery`));
   } finally { f.cleanup(); }
 });
@@ -126,4 +126,15 @@ test("production publication rejects missing handoff and AI browser routes too",
         ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options)), new RegExp(path));
     } finally { f.cleanup(); }
   }
+});
+
+test("handoff preflight models its separate no-Auth/no-AppCheck SDK app", async () => {
+  await verifyBundledCallable({ base: "https://gateway.example", origin: "https://orider.co.kr", name: "webHandoffRedeem", requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" }, fetcher: async (_url, options) => {
+    if (options.method === "OPTIONS") {
+      assert.equal(options.headers["Access-Control-Request-Headers"], "content-type");
+      return new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider.co.kr", "access-control-allow-methods": "POST", "access-control-allow-headers": "content-type" } });
+    }
+    assert.deepEqual(JSON.parse(options.body), { data: {} });
+    return Response.json({ error: { status: "INVALID_ARGUMENT" } }, { status: 400, headers: { "access-control-allow-origin": "https://orider.co.kr" } });
+  } });
 });

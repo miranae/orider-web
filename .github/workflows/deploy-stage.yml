@@ -62,7 +62,7 @@ jobs:
             echo "::error::Selected frontend source $selected_sha must be an ancestor of reviewed origin/main or origin/dev"; exit 1
           fi
           if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
-            for required in scripts/prepare-bundled-stage.mjs scripts/lib/bundled-callable-probe.mjs scripts/bundled-stage-hosting-release.mjs scripts/stage-html-entry.mjs; do
+            for required in scripts/prepare-bundled-stage.mjs scripts/lib/bundled-callable-probe.mjs scripts/bundled-stage-hosting-release.mjs scripts/stage-html-entry.mjs scripts/verify-bundled-hosting.mjs; do
               if [ ! -f "$required" ]; then
                 echo "::error::Selected source $selected_sha does not support bundled transport: missing $required. Select a reviewed commit with bundled tooling or explicit legacy transport."; exit 1
               fi
@@ -177,12 +177,23 @@ jobs:
           detail=$(entry "$RUNNER_TEMP/live-detail.html" || true)
           if [ "$detail" != "$built" ]; then echo "::error::Development detail entry mismatch: expected=$built actual=${detail:-<missing>}"; exit 1; fi
           if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
+      - name: Verify bundled development Hosting entry bytes and HTTP aliases
+        if: inputs.transport == 'bundled-development'
+        run: node scripts/verify-bundled-hosting.mjs --environment development
       - name: Restore previous development release after failed publication verification
         timeout-minutes: 3
         if: always() && (failure() || cancelled()) && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success' && steps.deploy.outcome != 'skipped'
         env:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/bundled-stage-hosting.json"
+      - name: Retain development release recovery receipt
+        if: always() && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success'
+        timeout-minutes: 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-recovery-${{ steps.source.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          path: ${{ runner.temp }}/bundled-stage-hosting.json
       - name: Retain verified bundled client artifact
         if: inputs.transport == 'bundled-development'
         uses: actions/upload-artifact@v4
@@ -192,7 +203,6 @@ jobs:
           path: |
             dist
             firebase.bundled-stage.json
-            ${{ runner.temp }}/bundled-stage-hosting.json
             ${{ env.BUNDLED_STAGE_DIRECTORY }}/build.json
       - name: Record selected source and transport
         env:

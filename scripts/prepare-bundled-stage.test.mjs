@@ -4,6 +4,7 @@ import { mkdtempSync, existsSync, mkdirSync, writeFileSync, readFileSync, rmSync
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
+import { verifyBundledHosting } from "./verify-bundled-hosting.mjs";
 import { stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
 import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
@@ -30,6 +31,8 @@ function fixture() {
     if (url.endsWith("/healthz")) return Response.json(health);
     if (/\/oriderReadinessMissing[a-f0-9]+$/u.test(url)) return Response.json({ error: "unknown-bundle-function" }, { status: 404 });
     if (/\/(getActivityDiscovery|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider-dev.web.app", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": "https://orider-dev.web.app" } });
+    if (url.endsWith("/api/v1/profile")) return Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 });
+    if (url.endsWith("/api/strava/webhook")) return new Response("Forbidden", { status: 403 });
     if (url.endsWith("/publicClubs?size=1")) {
       assert.equal(options.credentials, "omit");
       return Response.json({ clubs: [], nextCursor: null }, { headers: { "Access-Control-Allow-Origin": "https://orider-dev.web.app", "Cache-Control": "no-store" } });
@@ -160,7 +163,7 @@ test("reviewed historical sources without bundled tooling are rejected before a 
     const run = () => spawnSync("bash", ["-euc", check], { cwd: root, encoding: "utf8", env: { ...process.env, SELECTED_TRANSPORT: "bundled-development", selected_sha: "a".repeat(40) } });
     const missing = run();
     assert.equal(missing.status, 1); assert.match(missing.stdout, /does not support bundled transport: missing/);
-    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs", "scripts/stage-html-entry.mjs"]) {
+    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs", "scripts/stage-html-entry.mjs", "scripts/verify-bundled-hosting.mjs"]) {
       mkdirSync(resolve(root, path, ".."), { recursive: true }); writeFileSync(resolve(root, path), "// capability fixture");
     }
     assert.equal(run().status, 0);
@@ -342,4 +345,43 @@ test("explicit historical legacy verification never invokes a bundled-only sourc
     assert.equal(actual.status, 0, actual.stderr); assert.equal(actual.stdout.trim(), "assets/index-historical.js");
     assert.equal(existsSync(resolve(root, "scripts/stage-html-entry.mjs")), false);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("published entry requires matching JavaScript bytes and live REST/webhook alias contracts", async () => {
+  const f = fixture();
+  try {
+    await f.prepare(); f.build();
+    const calls = [];
+    const fetcher = async (url, options) => {
+      calls.push({ url, options });
+      if (url.endsWith("/assets/index-fixture.js")) return new Response("export {};", { headers: { "content-type": "text/javascript; charset=utf-8" } });
+      return f.fetcher(url, options);
+    };
+    assert.equal((await verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher })).verified, true);
+    assert.ok(calls.some(({ url }) => url === "https://orider-dev.web.app/api/v1/profile"));
+    assert.ok(calls.some(({ url }) => url === "https://orider-dev.web.app/api/strava/webhook"));
+    assert.ok(calls.every(({ options }) => options.method !== "POST"));
+    for (const [status, mime, body] of [[404, "text/javascript", "missing"], [200, "text/html", "<html>fallback</html>"], [200, "application/javascript", "wrong bytes"]]) {
+      await assert.rejects(verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher: async () => new Response(body, { status, headers: { "content-type": mime } }) }), /https:\/\/orider-dev.web.app\/assets\/index-fixture.js/);
+    }
+    await assert.rejects(verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher: (url, options) => url.endsWith("/api/strava/webhook") ? Promise.resolve(new Response("not found", { status: 404 })) : fetcher(url, options) }), /HTTP alias GET rejected/);
+  } finally { f.cleanup(); }
+});
+test("uncertain same-run publication is observed boundedly and never reported restored merely from the old pointer", async () => {
+  const previous = "sites/orider-dev/versions/previous", next = "sites/orider-dev/versions/new";
+  const marker = `bundled-stage:${"a".repeat(40)}:123:1`;
+  const snapshot = { schemaVersion: 1, site: "orider-dev", channel: "live", previousVersion: previous, previousRelease: "sites/orider-dev/releases/previous", marker };
+  let reads = 0, pauses = 0, writes = 0, active = previous;
+  const fetcher = async (url, options) => {
+    if (url.endsWith("/channels/live")) { reads++; return Response.json({ name: "sites/orider-dev/channels/live", release: { name: `sites/orider-dev/releases/${active.split("/").at(-1)}`, version: { name: active }, message: active === next ? marker : "previous" } }); }
+    if (options.method === "POST") { writes++; active = previous; return Response.json({}); }
+    return Response.json({ name: previous, status: "FINALIZED" });
+  };
+  await assert.rejects(rollbackStageHosting(snapshot, { serializedWrites: "true", token: "fixture", fetcher, pause: async () => { pauses++; } }), /outcome unverified.*bounded observations.*retain the snapshot/);
+  assert.equal(reads, 4); assert.equal(pauses, 3); assert.equal(writes, 0);
+  reads = 0; pauses = 0;
+  assert.equal((await rollbackStageHosting(snapshot, { serializedWrites: "true", token: "fixture", fetcher, pause: async () => { pauses++; active = next; } })).restored, true);
+  assert.equal(pauses, 1); assert.equal(writes, 1);
+  const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
+  assert.match(workflow, /Retain development release recovery receipt\n        if: always\(\)/);
 });

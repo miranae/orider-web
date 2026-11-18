@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { verifyBundledCallable, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
+import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -71,8 +71,9 @@ export async function verifyBundledProduction(directory, fetcher = fetch) {
   for (const { name } of manifest.callables) {
     await verifyBundledCallable({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", name, fetcher });
   }
-  await verifyBundledCallable({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "webHandoffRedeem", fetcher, responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
+  await verifyBundledCallable({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
   await verifyBundledCallable({ base: expected.aiApiBase, origin: "https://orider.co.kr", name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  await verifyBundledHttpAliases({ base: expected.firebaseFunctionsBase, fetcher });
   await health(expected, fetcher, receipt.backend);
   if (hash(readFileSync(receipt.hostingPath)) !== receipt.hostingHash
     || !isDeepStrictEqual(json(resolve(receipt.workspace, "dist/runtime-config.json")), expected)) throw new Error("production output changed during verification");

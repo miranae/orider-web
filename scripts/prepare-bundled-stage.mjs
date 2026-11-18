@@ -9,7 +9,7 @@ import { isDeepStrictEqual } from "node:util";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
 import { assertStageEntryArtifact, stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
-import { verifyBundledCallable, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
+import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const SHA = /^[a-f0-9]{40}$/u;
@@ -50,8 +50,9 @@ export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash
   const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
   await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", fetcher });
   await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "getActivityDiscovery", fetcher });
-  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "webHandoffRedeem", fetcher, responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
+  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
   await verifyBundledCallable({ base: runtime.aiApiBase, origin: "https://orider-dev.web.app", name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
   return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {

@@ -103,3 +103,17 @@ Executable entry URLs must be root-absolute and resolve to the development origi
 The compensating release step also runs on workflow cancellation when the runner
 can execute cleanup; a forcibly terminated runner still requires live-state
 inspection before the next manual/break-glass operation.
+
+After publication, the bundled profile fetches the actual entry chunk, requires a
+JavaScript MIME type and compares bytes with the sealed local artifact. REST
+`/api/v1/profile` and webhook `/api/strava/webhook` aliases are checked through the
+gateway before publication and the fixed Hosting origin afterward, using only
+anonymous GET rejections (no user read or webhook event). Handoff preflight uses
+Content-Type only, matching its separate app without Auth/App Check.
+
+If a failed/cancelled publication still shows the original release, compensation
+makes four fresh observations over a bounded six seconds. An unchanged pointer
+is reported as **unverified**, not restored: the original request may still finish.
+The recovery snapshot/marker is uploaded on failure/cancellation when cleanup can
+run, allowing an operator to retry after inspecting live state. It contains only
+Hosting release/version identities. No async-completion guarantee is inferred.

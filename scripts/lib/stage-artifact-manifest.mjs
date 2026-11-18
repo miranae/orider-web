@@ -58,4 +58,5 @@ export function assertStageEntryArtifact(directory) {
   try {
     if (!lstatSync(entryPath).isFile() || readFileSync(entryPath).length === 0) throw new Error("not a nonempty file");
   } catch { throw new Error(`stage entry asset missing or invalid at ${entryPath}`); }
+  return entry;
 }

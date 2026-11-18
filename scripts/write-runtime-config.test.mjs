@@ -15,11 +15,11 @@ const requiredEnv = {
   VITE_STRAVA_REDIRECT_URI: "https://example.test/callback", VITE_MAPBOX_TOKEN: "map", VITE_ORIDER_AI_API_BASE: "https://ai.example",
 };
 
-function render(extraEnv = {}) {
+function render(extraEnv = {}, stripBundledEnvironment = false) {
   const directory = mkdtempSync(join(tmpdir(), "orider-runtime-config-"));
   const output = join(directory, "runtime-config.json");
   try {
-    execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], {
+    execFileSync(stripBundledEnvironment ? "env" : process.execPath, [...(stripBundledEnvironment ? ["-u", "BUNDLED_RUNTIME_CONFIG_PATH", "-u", "BUNDLED_FUNCTIONS_ENVIRONMENT", process.execPath] : []), "scripts/write-runtime-config.mjs", "--out", output], {
       cwd: process.cwd(), env: { ...process.env, ...requiredEnv, ...extraEnv }, stdio: "pipe",
     });
     return JSON.parse(readFileSync(output, "utf8"));
@@ -299,4 +299,11 @@ test("public club transport failures identify profile and endpoint without leaki
       assert.match(error.message, /transport failed/); assert.doesNotMatch(error.message, /PRIVATE_DNS/); return true;
     });
   }
+});
+
+test("legacy workflow explicitly removes empty inherited bundle variables before the strict writer", () => {
+  const workflow = readFileSync(".github/workflows/deploy.yml", "utf8");
+  assert.match(workflow, /env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT node scripts\/write-runtime-config.mjs/);
+  const config = render({ BUNDLED_RUNTIME_CONFIG_PATH: "", BUNDLED_FUNCTIONS_ENVIRONMENT: "" }, true);
+  assert.equal(config.deploymentProfile, undefined); assert.equal(config.firebaseProjectId, requiredEnv.VITE_FIREBASE_PROJECT_ID);
 });

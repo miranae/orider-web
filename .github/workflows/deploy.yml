@@ -113,7 +113,12 @@ jobs:
       - name: Build production artifact
         run: npm run build
       - name: Write production runtime config
-        run: node scripts/write-runtime-config.mjs
+        run: |
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = legacy ]; then
+            env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT node scripts/write-runtime-config.mjs
+          else
+            node scripts/write-runtime-config.mjs
+          fi
       - name: Verify public club API before Hosting deployment
         run: node scripts/verify-public-club-api.mjs --runtime dist/runtime-config.json --origin https://orider.co.kr
       - name: Verify bundled production runtime and gateway
@@ -151,6 +156,9 @@ jobs:
           exit "$status"
 
       # 배포 후 라이브 검증 — "Deploy success인데 옛 번들 서빙" 사고 차단 (백엔드 #728~731 포팅)
+      - name: Verify bundled production Hosting entry bytes and HTTP aliases
+        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
+        run: node scripts/verify-bundled-hosting.mjs --environment production
       - name: Verify live deploy (no stale HTML / asset cache intact)
         id: live-verify
         run: |

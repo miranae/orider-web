@@ -238,7 +238,7 @@ requireIncludes(deployWorkflow, "git rev-list -n 1 \"$GITHUB_REF\"", "deploy.yml
 requireIncludes(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "deploy.yml main provenance gate");
 requireBefore(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "npm ci", "deploy.yml main provenance gate");
 requireBefore(deployWorkflow, "npm ci", "npm run build", "deploy.yml production build");
-requireBefore(deployWorkflow, "npm run build", "run: node scripts/write-runtime-config.mjs\n", "deploy.yml built runtime config");
+requireBefore(deployWorkflow, "npm run build", "      - name: Write production runtime config\n", "deploy.yml built runtime config");
 requireIncludes(deployWorkflow, "node scripts/verify-social-callables.mjs", "deploy.yml backend contract gate");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_PROJECT_ID', "deploy.yml backend contract project");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_FUNCTIONS_REGION', "deploy.yml backend contract region");
