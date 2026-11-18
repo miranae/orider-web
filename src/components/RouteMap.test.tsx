@@ -312,6 +312,15 @@ describe("RouteMap", () => {
     expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[]}});
   });
 
+  it("retains a single thumbnail point after an all-missing raw stream arrives", () => {
+    const view = renderWithProviders(<RouteMap polyline="37,127" />);
+    const map = screen.getByTestId("mock-map");
+    view.rerender(<RouteMap polyline="37,127" latlng={[null,null] as unknown as [number,number][]} highlightRange={{startIndex:0,endIndex:1}} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(mapProps.sources.at(-1)).toMatchObject({features:[{geometry:{type:"Point",coordinates:[127,37]}}]});
+    expect(mapProps.markers.filter(marker => marker.draggable)).toHaveLength(0);
+  });
+
   it("caps full-range selection zoom for a stationary recording", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;

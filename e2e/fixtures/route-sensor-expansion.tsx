@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createInstance } from "i18next";
 import { getMapboxToken } from "../../src/utils/mapbox";
-import { loadRuntimeConfig } from "../../src/services/runtimeConfig";
+import { resetRuntimeConfigForTests } from "../../src/services/runtimeConfig";
 import { logClientError } from "../../src/services/errorLogger";
 import { I18nextProvider, useTranslation } from "react-i18next";
 import { ActivityMediaPanel } from "../../src/features/activity/detail/ActivityMediaPanel";
@@ -26,7 +26,23 @@ import "../../src/pages/activity/activity-detail-page.css";
 import "../../src/theme/generated.css";
 import "../../src/theme/components/components.css";
 
-await loadRuntimeConfig();
+let fixtureConfigFailure = false;
+let configStage = "request";
+let configStatus: number | null = null;
+try {
+  const response = await fetch("/runtime-config.json", {cache:"no-store", credentials:"same-origin"});
+  configStage = "http"; configStatus = response.status;
+  if (!response.ok) throw new Error("fixture/runtime-config-http");
+  configStage = "json";
+  const remote: unknown = await response.json();
+  configStage = "shape";
+  if (!remote || typeof remote !== "object" || Array.isArray(remote)
+    || ("mapboxToken" in remote && typeof remote.mapboxToken !== "string")) throw new Error("fixture/runtime-config-shape");
+  resetRuntimeConfigForTests({ mapboxToken: "mapboxToken" in remote ? remote.mapboxToken as string : undefined });
+} catch {
+  fixtureConfigFailure = true;
+  logClientError("RouteSensorExpansionFixture.config", new Error("fixture/runtime-config-unavailable"), {stage:configStage,status:configStatus});
+}
 const fixtureMapAvailable = Boolean(getMapboxToken());
 if (!fixtureMapAvailable) logClientError("RouteSensorExpansionFixture.config", new Error("fixture/mapbox-token-unavailable"), {stage:"runtime_config", mode:"static_fallback"});
 const fixtureI18n = createInstance();
@@ -55,6 +71,7 @@ function Fixture() {
   const selectedSamples = selection.chartRange ? sampled.slice(selection.chartRange[0], selection.chartRange[1] + 1) : sampled;
   return <main className="site-shell space-y-4">
     <h1>활동 분석 지도·센서 회귀 검증</h1>
+    {fixtureConfigFailure && <Text as="p" role="status">런타임 설정 요청 실패: 빌드 기본 설정을 사용합니다. 진단 로그를 확인하세요.</Text>}
     {!fixtureMapAvailable && <Text as="p" role="status">지도 토큰 없음: 정적 대체 경로 모드입니다. 실제 지도 하이라이트 검증은 사용할 수 없습니다.</Text>}
     <Text as="p">합성 활동 · 센서 5개 · 실제 계정·활동 데이터 사용 없음</Text>
     <Card><Text as="p">분석 요약: 40 m · 4초</Text></Card>

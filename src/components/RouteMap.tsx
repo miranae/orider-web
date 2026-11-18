@@ -318,8 +318,10 @@ export default function RouteMap({
     const thumbnail = polyline ? routeTrackSlots(polyline) : [];
     if (hasRouteLine(thumbnail)) return { routePositions: thumbnail,
       sourcePositions: measured.length ? measured : thumbnail, segmentStarts, streamFallback: measured.length > 0 };
-    const positions = measured.length ? measured : thumbnail;
-    return { routePositions: positions, sourcePositions: positions, segmentStarts, streamFallback: false };
+    const useThumbnailPoint = !measured.some(isRoutePosition) && thumbnail.some(isRoutePosition);
+    const positions = useThumbnailPoint ? thumbnail : measured.length ? measured : thumbnail;
+    return { routePositions: positions, sourcePositions: measured.length ? measured : positions, segmentStarts,
+      streamFallback: useThumbnailPoint && measured.length > 0 };
   }, [polyline, latlng, routeParts]);
   // Geometry has its own thumbnail clock; point interactions retain the measured source clock.
   const positions = useMemo(() => drawableRouteSlots(routePositions, segmentStarts), [routePositions, segmentStarts]);
@@ -350,7 +352,7 @@ export default function RouteMap({
     return points;
   }, [flyToPosition, highlightRange, flyToRange, sourcePositions]);
   const activePoints = useMemo(() => isRoutePosition(markerPosition) ? [...navigationPoints, markerPosition] : navigationPoints, [navigationPoints, markerPosition]);
-  const standalonePositions = useMemo(() => hasRouteLine(positions, segmentStarts) ? [] : sourcePositions.filter(isRoutePosition), [positions, segmentStarts, sourcePositions]);
+  const standalonePositions = useMemo(() => hasRouteLine(positions, segmentStarts) ? [] : routePositions.filter(isRoutePosition), [positions, segmentStarts, routePositions]);
   const standaloneGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => ({
     type: "FeatureCollection", features: standalonePositions.map(point => ({
       type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [point[1], point[0]] },
