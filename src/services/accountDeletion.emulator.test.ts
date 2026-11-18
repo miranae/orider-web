@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   deletionFunctions: { region: "asia-northeast3" },
 }));
 vi.mock("./firebase", () => ({ auth: { currentUser: null }, ensureAppCheckReady: vi.fn(), functions: { app: { options: { projectId: "demo-orider-lab" } } }, getAppCheckToken: mocks.appCheck, googleProvider: {} }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "e2e" }), isEmulatorRuntime: () => true }));
+vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "e2e" }), isEmulatorRuntime: () => true, isFunctionsGatewayRuntime: () => false }));
 vi.mock("firebase/functions", () => ({ getFunctions: () => mocks.deletionFunctions, connectFunctionsEmulator: mocks.connect, httpsCallable: vi.fn() }));
 vi.mock("firebase/auth", () => ({ reauthenticateWithPopup: vi.fn() }));
 vi.mock("./socialAuth", () => ({ startSocialAuth: vi.fn(), listSocialLinks: vi.fn() }));
