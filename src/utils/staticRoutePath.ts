@@ -21,11 +21,13 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
   const normalized = routeSlots(positions);
   const lines = pointsOnly ? [] : drawableRouteSlots(normalized, segmentStarts);
   const hasLine = lines.some(isRoutePosition);
+  const selectedIndex = range && Number.isInteger(range.startIndex) && range.startIndex === range.endIndex ? range.startIndex : null;
   const starts = new Set(segmentStarts);
   let previousLongitude: number | null = null;
-  const projected = Array.from(hasLine ? lines : normalized, point => {
-    if (!isRoutePosition(point)) return null;
-    const [lat, lng] = point;
+  const projected = Array.from(hasLine ? lines : normalized, (point, index) => {
+    const coordinate = index === selectedIndex ? normalized[index] : point;
+    if (!isRoutePosition(coordinate)) return null;
+    const [lat, lng] = coordinate;
     if (Math.abs(lat) > 85.0511) return null;
     let longitude = lng;
     if (previousLongitude !== null) {
@@ -52,15 +54,16 @@ export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmen
     const y = Number.isFinite(scale) ? height / 2 + (point[1] - (minY + maxY) / 2) * scale : height / 2;
     return [Number(x.toFixed(1)), Number(y.toFixed(1))];
   });
-  const geometry: StaticGeometry = hasLine ? { path: trace(pixels, starts), points: [] }
+  const geometry: StaticGeometry = hasLine ? { path: trace(pixels.map((point, index) => lines[index] ? point : null), starts), points: [] }
     : { path: null, points: pixels.filter((point): point is Pixel => point !== null) };
   if (range && Number.isInteger(range.startIndex) && Number.isInteger(range.endIndex)) {
     const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
     const hi = Math.min(pixels.length - 1, Math.max(range.startIndex, range.endIndex));
     const selected = hasLine ? drawableRouteSlots(normalized.slice(lo, hi + 1), segmentStarts.map(index => index - lo)) : null;
     const selection = pixels.map((point, index) => index >= lo && index <= hi && (!selected || selected[index - lo]) ? point : null);
-    geometry.selectionPath = hasLine ? trace(selection, starts) : null;
-    geometry.selectionPoints = hasLine ? [] : selection.filter((point): point is Pixel => point !== null);
+    geometry.selectionPath = hasLine && selectedIndex == null ? trace(selection, starts) : null;
+    geometry.selectionPoints = selectedIndex != null ? pixels[selectedIndex] ? [pixels[selectedIndex]!] : []
+      : hasLine ? [] : selection.filter((point): point is Pixel => point !== null);
   }
   return geometry;
 }

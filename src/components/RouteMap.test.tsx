@@ -518,6 +518,9 @@ describe("RouteMap", () => {
     view.rerender(<FirebaseServicesProvider services={second}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
     expect(screen.getByRole("img", {name:"세션 사진"})).toBeInTheDocument();
     expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
+    view.rerender(<FirebaseServicesProvider services={first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    expect(screen.getByRole("img", {name:"세션 사진"})).toBeInTheDocument();
+    expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
   });
 
   it("shows the selected raw interval in a static preview instead of an unannotated saved image", () => {
@@ -547,6 +550,32 @@ describe("RouteMap", () => {
     api.fitBounds.mockClear();
     view.rerender(<RouteMap {...props} latlng={[[41,131],[41.01,131]]} flyToPosition={nextPhoto} />);
     expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("preserves full-route intent across an SDK fallback and map remount", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {polyline:"37,127;37.01,127",flyToPosition:[60,150] as [number,number],
+      navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const view = renderWithProviders(<RouteMap {...props} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    api.fitBounds.mockClear(); api.flyTo.mockClear();
+    view.rerender(<RouteMap {...props} latlng={[[40,130],[40.01,130]]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[130,40],[130,40.01]]);
+    expect(api.flyTo).not.toHaveBeenCalled();
+  });
+
+  it.each([0,3])("preserves a single GPS selection at raw index %s in the static fallback", index => {
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[60,150]] as unknown as [number,number][]}
+      flyToRange={{startIndex:index,endIndex:index}} fallbackImageUrl="https://example.test/route.png" />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    const selected = document.querySelector("[data-route-static-selection]");
+    expect(selected?.tagName).toBe("circle");
+    expect(Number(selected?.getAttribute("cx"))).toBeGreaterThanOrEqual(16);
+    expect(Number(selected?.getAttribute("cx"))).toBeLessThanOrEqual(304);
   });
 
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {

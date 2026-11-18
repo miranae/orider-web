@@ -21,6 +21,15 @@ describe("buildStaticRoutePath", () => {
     expect(geometry.selectionPath?.match(/L/g)).toHaveLength(1);
   });
 
+  it("keeps an isolated selected GPS fix visible without adding a false line segment", () => {
+    const geometry = buildStaticRouteGeometry([[37,127],[37.01,127],null,[60,150]], [], {range:{startIndex:3,endIndex:3}});
+    expect(geometry.path?.match(/M/g)).toHaveLength(1);
+    expect(geometry.path?.match(/L/g)).toHaveLength(1);
+    expect(geometry.selectionPath).toBeNull();
+    expect(geometry.selectionPoints).toHaveLength(1);
+    expect(geometry.selectionPoints?.flat().every(Number.isFinite)).toBe(true);
+  });
+
   it("실제 정사각형 경로를 가로 카드에서도 정사각형으로 유지한다", () => {
     const longitudeSpan = 0.003 / Math.cos(37.0015 * Math.PI / 180);
     const points = pixels([[37, 127], [37, 127 + longitudeSpan], [37.003, 127 + longitudeSpan], [37.003, 127]]);

@@ -115,14 +115,16 @@ function RouteMapPhotoImage({ photo, style, retryable = false, onRetry }: { phot
   const { t } = useTranslation("activity");
   const services = useFirebaseServices();
   const viewer = services.auth?.currentUser;
-  type Scope = { services: typeof services; viewer: typeof viewer };
-  const [failedFor, setFailedFor] = useState<Scope | null>(null);
-  const logged = useRef<Scope | null>(null);
-  const failed = failedFor?.services === services && failedFor.viewer === viewer;
+  const scope = useRef({ services, viewer });
+  if (scope.current.services !== services || scope.current.viewer !== viewer) scope.current = { services, viewer };
+  const currentScope = scope.current;
+  const [failedFor, setFailedFor] = useState<typeof currentScope | null>(null);
+  const logged = useRef<typeof currentScope | null>(null);
+  const failed = failedFor === currentScope;
   const onError = () => {
-    setFailedFor({ services, viewer });
-    if (logged.current?.services === services && logged.current.viewer === viewer) return;
-    logged.current = { services, viewer };
+    setFailedFor(currentScope);
+    if (logged.current === currentScope) return;
+    logged.current = currentScope;
     logClientError("RouteMap.photo", new Error("map_photo_image_load_failed"), { stage: "photo_image", native: Boolean(photo.nativePhoto) }, services);
   };
   if (failed) return <div data-map-photo-failed style={{ ...style, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"var(--space-8)" }}>
@@ -308,17 +310,22 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
   return null;
 }
 
-function FlyToPositionControl({ position, fullBounds, fullPadding, rangeActive }: {
+function FlyToPositionControl({ position, fullBounds, fullPadding, rangeActive, fullRouteRequested }: {
   position: [number, number] | null | undefined;
   fullBounds: LngLatBoundsLike;
   fullPadding: number;
   rangeActive: boolean;
+  fullRouteRequested: boolean;
 }) {
   const { current: map } = useMap();
   const prevPosition = useRef<[number, number] | null>(null);
 
   useEffect(() => {
     if (!map) return;
+    if (fullRouteRequested) {
+      prevPosition.current = isRoutePosition(position) ? [position[0], position[1]] : null;
+      return;
+    }
     if (isRoutePosition(position)) {
       // 같은 좌표면 재실행 금지 — fullBounds 참조가 매 렌더(예: 고도표 호버)마다 새로 생겨도
       // effect 가 재실행되어 마지막 사진으로 반복 flyTo 되는 버그 방지.
@@ -330,7 +337,7 @@ function FlyToPositionControl({ position, fullBounds, fullPadding, rangeActive }
       if (!rangeActive) map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
       prevPosition.current = null;
     }
-  }, [map, position, fullBounds, fullPadding, rangeActive]);
+  }, [map, position, fullBounds, fullPadding, rangeActive, fullRouteRequested]);
 
   return null;
 }
@@ -505,7 +512,7 @@ export default function RouteMap({
 
   if (!bounds || (!drawable && standalonePositions.length !== 1 && !(Array.isArray(routeParts) && endpoints.length > 0) && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
-      return <RouteMapFallback positions={drawable ? positions : routePositions} highlightRange={streamFallback ? undefined : highlightRange} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
+      return <RouteMapFallback positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
         height={fallbackHeight ?? height} rounded={rounded}
         title={t("map.unavailableTitle")} description={t("map.unavailableDescription")} />;
@@ -521,7 +528,7 @@ export default function RouteMap({
   const mapboxToken = getMapboxToken();
   const fallback = (
     <RouteMapFallback
-      positions={drawable ? positions : routePositions} highlightRange={streamFallback ? undefined : highlightRange}
+      positions={routePositions} highlightRange={streamFallback ? undefined : highlightRange ?? flyToRange ?? undefined}
       pointsOnly={!drawable}
       segmentStarts={segmentStarts}
       imageUrl={fallbackImageUrl}
@@ -769,7 +776,7 @@ export default function RouteMap({
         <FitBoundsOnLoad bounds={bounds} disabled={isRoutePosition(flyToPosition) && !cameraIntent.current.full} padding={fitPadding} />
         <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} photoPosition={flyToPosition} fullPadding={fitPadding} fullRouteRequested={cameraIntent.current.full} />
         {flyToPosition !== undefined && (
-          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)} />
+          <FlyToPositionControl position={flyToPosition} fullBounds={bounds} fullPadding={fitPadding} rangeActive={Boolean(flyToRange)} fullRouteRequested={cameraIntent.current.full} />
         )}
         </Map>
       </ErrorBoundary>
