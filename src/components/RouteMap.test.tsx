@@ -414,7 +414,8 @@ describe("RouteMap", () => {
     mapProps.api = api;
     const latlng: [number,number][] = [[37,127],[37.01,127]];
     const view = renderWithProviders(<RouteMap latlng={latlng} fitPadding={40} flyToRange={{startIndex:0,endIndex:1,requestId:1}} />);
-    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40,maxZoom:15});
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40});
+    expect(api.fitBounds.mock.lastCall?.[1]).not.toHaveProperty("maxZoom");
     view.rerender(<RouteMap latlng={latlng} fitPadding={40} flyToRange={null} />);
     expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40});
   });
@@ -544,7 +545,7 @@ describe("RouteMap", () => {
     const latlng: [number,number][] = [[40,130],[40.01,130]];
     view.rerender(<RouteMap {...props} latlng={latlng} flyToPosition={photo} />);
     expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[130,40],[130,40.01]]);
-    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({maxZoom:15});
+    expect(api.fitBounds.mock.lastCall?.[1]).not.toHaveProperty("maxZoom");
     const nextPhoto: [number,number] = [70,160];
     view.rerender(<RouteMap {...props} latlng={latlng} flyToPosition={nextPhoto} />);
     api.fitBounds.mockClear();
@@ -576,6 +577,31 @@ describe("RouteMap", () => {
     expect(selected?.tagName).toBe("circle");
     expect(Number(selected?.getAttribute("cx"))).toBeGreaterThanOrEqual(16);
     expect(Number(selected?.getAttribute("cx"))).toBeLessThanOrEqual(304);
+  });
+
+  it("refits a thumbnail after full view even when that thumbnail was auto-fitted before photo navigation", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {polyline:"37,127;37.01,127",navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const photo: [number,number] = [60,150];
+    const view = renderWithProviders(<RouteMap {...props} flyToPosition={null} />);
+    view.rerender(<RouteMap {...props} flyToPosition={photo} />);
+    view.rerender(<RouteMap {...props} flyToPosition={photo} latlng={[[40,130],[40.01,130]]} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} flyToPosition={photo} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+  });
+
+  it("fits a distinct short route freely while capping stationary full views", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const view = renderWithProviders(<RouteMap {...props} latlng={[[37,127],[37.00036,127]]} flyToRange={{startIndex:0,endIndex:1}} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    expect(api.fitBounds.mock.calls.every(call => !("maxZoom" in call[1]))).toBe(true);
+    view.rerender(<RouteMap {...props} latlng={[[37,127],[37,127]]} flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({maxZoom:15});
   });
 
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {

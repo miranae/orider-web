@@ -224,6 +224,12 @@ export function RouteMapFallback({
   );
 }
 
+function routeFitOptions(bounds: LngLatBoundsLike, padding: number, duration?: number) {
+  const isPoint = Array.isArray(bounds) && Array.isArray(bounds[0]) && Array.isArray(bounds[1])
+    && bounds[0][0] === bounds[1][0] && bounds[0][1] === bounds[1][1];
+  return { padding, ...(duration == null ? {} : { duration }), ...(isPoint ? { maxZoom: 15 } : {}) };
+}
+
 function RouteNavigation({ labels, bounds, padding, onFit }: {
   labels: NonNullable<RouteMapProps["navigationLabels"]>;
   bounds: LngLatBoundsLike;
@@ -242,7 +248,7 @@ function RouteNavigation({ labels, bounds, padding, onFit }: {
   return <MapNavigation aria-label={labels.fitRoute}>
     <MapControlButton iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
     <MapControlButton iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
-    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => { onFit(); map?.fitBounds(bounds, { padding, duration: motion(), maxZoom: 15 }); }}><LocateFixed size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
+    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => { onFit(); map?.fitBounds(bounds, routeFitOptions(bounds, padding, motion())); }}><LocateFixed size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
   </MapNavigation>;
 }
 
@@ -250,10 +256,10 @@ function FitBoundsOnLoad({ bounds, disabled, padding }: { bounds: LngLatBoundsLi
   const { current: map } = useMap();
   const fittedKey = useRef<string | null>(null);
   useEffect(() => {
-    if (disabled) return;
+    if (disabled) { fittedKey.current = null; return; }
     const key = JSON.stringify(bounds);
     if (fittedKey.current !== key && map) {
-      map.fitBounds(bounds, { padding, duration: 0, maxZoom: 15 });
+      map.fitBounds(bounds, routeFitOptions(bounds, padding, 0));
       fittedKey.current = key;
     }
   }, [map, bounds, disabled, padding]);
@@ -291,7 +297,7 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
       if (positions.length > 1 && lo === 0 && hi === positions.length - 1) {
-        map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
+        map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
         prevRange.current = range;
         return;
       }
@@ -299,10 +305,10 @@ function FlyToSegmentRange({ positions, segmentStarts, range: rawRange, fullBoun
       const segment = lo === hi ? slice : drawableRouteSlots(slice, segmentStarts.map(index => index - lo));
       const bounds = getBounds(segment);
       if (bounds) map.fitBounds(bounds, { padding: 40, maxZoom: 15 });
-      else map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
+      else map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevRange.current = bounds ? range : null;
     } else if (prevRange.current) {
-      map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
+      map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevRange.current = null;
     }
   }, [map, positions, segmentStarts, range, fullBounds, photoPosition, fullPadding, fullRouteRequested]);
@@ -334,7 +340,7 @@ function FlyToPositionControl({ position, fullBounds, fullPadding, rangeActive, 
       map.flyTo({ center: [position[1], position[0]], zoom: 15, duration: 800 });
       prevPosition.current = position;
     } else if (prevPosition.current) {
-      if (!rangeActive) map.fitBounds(fullBounds, { padding: fullPadding, maxZoom: 15 });
+      if (!rangeActive) map.fitBounds(fullBounds, routeFitOptions(fullBounds, fullPadding));
       prevPosition.current = null;
     }
   }, [map, position, fullBounds, fullPadding, rangeActive, fullRouteRequested]);
@@ -552,7 +558,7 @@ export default function RouteMap({
           mapboxAccessToken={mapboxToken}
           mapStyle={MAP_STYLE}
           preserveDrawingBuffer={preserveDrawingBuffer}
-          initialViewState={{ bounds, fitBoundsOptions: { padding: fitPadding, maxZoom: 15 } }}
+          initialViewState={{ bounds, fitBoundsOptions: routeFitOptions(bounds, fitPadding) }}
           onLoad={(e) => {
             applyKoreaCyclingStyle(e.target);
             if (pixelRatio) resizeMapAtPixelRatio(e.target, pixelRatio);
