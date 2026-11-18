@@ -915,6 +915,7 @@
   "src/utils/exportGpx.ts",
   "src/utils/exportTcx.ts",
   "src/utils/firebaseErrors.ts",
+  "src/utils/firebaseSignIn.ts",
   "src/utils/firestoreSessionRecovery.ts",
   "src/utils/fitnessMetrics.ts",
   "src/utils/goalCountdown.ts",
