@@ -106,6 +106,7 @@
   "profile": {
     "identityUnavailable": "Profile information is unavailable.",
     "totalsAsOf": "Cumulative totals retrieved at {{time}}",
+    "totalsOffline": "Public lifetime totals will refresh when the internet connection returns.",
     "totalsExpired": "Refresh to confirm the current totals.",
     "reloadTotals": "Reload cumulative records",
     "recentPhotos": "Activity photos",

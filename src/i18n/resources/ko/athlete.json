@@ -106,6 +106,7 @@
   "profile": {
     "identityUnavailable": "프로필 정보를 불러오지 못했습니다.",
     "totalsAsOf": "조회 시각 {{time}}의 누적 기록",
+    "totalsOffline": "인터넷에 연결되면 공개 누적 기록을 다시 확인합니다.",
     "totalsExpired": "누적 기록을 다시 확인해 주세요.",
     "reloadTotals": "누적 기록 다시 불러오기",
     "recentPhotos": "활동 사진",
