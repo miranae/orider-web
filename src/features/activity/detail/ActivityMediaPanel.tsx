@@ -29,7 +29,9 @@ type ActivityMediaPanelProps = {
   summary: Activity["summary"];
   markerPosition: [number, number] | null;
   hoveredSegment: SegmentEffortData | null;
+  /** Chart highlight only, including split/peak ranges; never an imperative camera request. */
   selectedRunRange?: { startIndex: number; endIndex: number };
+  /** Explicit segment camera command. requestId distinguishes repeated clicks on the same range. */
   selectedSegmentRange?: { startIndex: number; endIndex: number; requestId?: number } | null;
   photos: StreamPhoto[];
   uploadedPhotos: UploadedPhoto[];
