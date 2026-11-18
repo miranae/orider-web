@@ -568,7 +568,9 @@ export default function RouteMap({
   const pointPositions = useMemo(() => [...standalonePositions, ...endpoints, ...activePoints, ...attachmentPositions],
     [standalonePositions, endpoints, activePoints, attachmentPositions]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(mapLineSlots, segmentStarts), [mapLineSlots, segmentStarts]);
-  const routeBounds = useMemo(() => routeGeometryBounds(fullRouteGeoJSON.geometry, endpoints), [endpoints, fullRouteGeoJSON]);
+  const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
+  const routeBounds = useMemo(() => drawable ? routeGeometryBounds(fullRouteGeoJSON.geometry, endpoints) : null,
+    [drawable, endpoints, fullRouteGeoJSON]);
   const standaloneBounds = useMemo(() => standalonePositions.length ? getBounds([...standalonePositions, ...attachmentPositions], true) : null,
     [standalonePositions, attachmentPositions]);
   const pointBounds = useMemo(() => getBounds(pointPositions, true), [pointPositions]);
@@ -585,7 +587,6 @@ export default function RouteMap({
     || previousMap.mapTokenVersion !== mapTokenVersion) {
     mapInstance.current = { routeBoundsKey, firebaseServices, mapViewer, mapSignedInAt, mapTokenVersion, generation: previousMap.generation + 1 };
   }
-  const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
     if (streamFallback || !highlightRange || positions.length === 0) return null;
     const lo = Math.max(0, Math.min(highlightRange.startIndex, highlightRange.endIndex));

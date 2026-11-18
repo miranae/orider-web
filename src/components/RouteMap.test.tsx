@@ -191,6 +191,15 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify([[127,37],[127,37.01]]))).toBe(true);
   });
 
+  it("fits all isolated route parts with endpoint markers enabled", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[37, 127]], [[42, 132]], [[38, 128]]]} showRouteEndpoints
+      navigationLabels={{ zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show entire route" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Show entire route" }));
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127, 37], [132, 42]]);
+  });
+
   it("keeps measured endpoint navigation and explains that isolated GPS has no route line", () => {
     renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} showRouteEndpoints />);
     expect(screen.getByTestId("mock-map")).toBeInTheDocument();
