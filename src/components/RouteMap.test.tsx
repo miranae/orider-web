@@ -455,21 +455,42 @@ describe("RouteMap", () => {
   });
 
   it("falls back to recorded GPS and logs safely when the saved image fails", () => {
-    renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png?token=fake" />);
+    renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} fallbackImageUrl="https://example.test/route.png?token=fake" />);
     const image = screen.getByRole("img");
     fireEvent.error(image);
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(document.querySelectorAll("svg circle")).toHaveLength(1);
+    expect(document.querySelectorAll("svg circle")).toHaveLength(2);
     const failures = mapErrors.mock.calls.filter(call => call[0] === "RouteMap.image");
     expect(failures).toHaveLength(1);
     expect((failures[0]![1] as Error).message).toBe("route_image_load_failed");
-    expect(failures[0]![2]).toEqual({stage:"static_image",routeSlotCount:1});
+    expect(failures[0]![2]).toEqual({stage:"static_image",routeSlotCount:2});
   });
 
   it("renders endpoint colors above standalone point circles", () => {
     renderWithProviders(<RouteMap routeParts={[[[37,127]],[[38,128]]]} showRouteEndpoints />);
     const layers = [...mapProps.layers.keys()];
     expect(layers.indexOf("route-standalone-points")).toBeLessThan(layers.indexOf("route-endpoint-core"));
+  });
+
+  it("retains the single-fix map and chart marker alongside a saved route image", () => {
+    const latlng: [number,number][] = [[37,127]];
+    const view = renderWithProviders(<RouteMap latlng={latlng} fallbackImageUrl="https://example.test/route.png" />);
+    const map = screen.getByTestId("mock-map");
+    view.rerender(<RouteMap latlng={latlng} fallbackImageUrl="https://example.test/route.png" markerPosition={[37,127]} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[127,37]}}));
+    view.rerender(<RouteMap latlng={latlng} fallbackImageUrl="https://example.test/route.png" markerPosition={null} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+  });
+
+  it("shows a visible photo placeholder and sanitized diagnostic after marker image failure", () => {
+    renderWithProviders(<RouteMap flyToPosition={[38,128]} photos={[{id:"photo",url:"https://example.test/photo.jpg?token=fake",location:[38,128],caption:"지도 사진"}]} />);
+    fireEvent.error(screen.getByRole("img"));
+    expect(document.querySelector("[data-map-photo-failed]")).toBeInTheDocument();
+    const failures = mapErrors.mock.calls.filter(call => call[0] === "RouteMap.photo");
+    expect(failures).toHaveLength(1);
+    expect((failures[0]![1] as Error).message).toBe("map_photo_image_load_failed");
+    expect(failures[0]![2]).toEqual({stage:"photo_image",native:false});
   });
 
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
