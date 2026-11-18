@@ -19,6 +19,19 @@ describe("useActivityPhotoLocation", () => {
     act(() => vi.advanceTimersByTime(10));
     expect(view.result.current.flyToPosition).toEqual([39,129]);
   });
+  it("drops pending and applied navigation when service scope changes with the same activity and UID", () => {
+    const first = {}, second = {};
+    const view = renderHook(({session}) => useActivityPhotoLocation("activity:owner", session), {initialProps:{session:first}});
+    act(() => view.result.current.locate([37,127]));
+    act(() => vi.advanceTimersByTime(10));
+    expect(view.result.current.flyToPosition).toEqual([37,127]);
+    act(() => view.result.current.locate([38,128]));
+    view.rerender({session:second});
+    act(() => vi.runAllTimers());
+    expect(view.result.current.flyToPosition).toBeNull();
+    view.rerender({session:first});
+    expect(view.result.current.flyToPosition).toBeNull();
+  });
   it("cancels superseded requests and unmount timers", () => {
     const view = renderHook(() => useActivityPhotoLocation("activity:owner"));
     act(() => { view.result.current.locate([37,127]); view.result.current.locate([38,128]); });

@@ -372,10 +372,11 @@ export default function RouteMap({
     return points;
   }, [standalonePositions, endpoints, activePoints, hasSourcePosition, photos, waypoints]);
   const routeBounds = useMemo(() => getBounds([...positions, ...endpoints]), [positions, endpoints]);
+  const standaloneBounds = useMemo(() => getBounds(standalonePositions), [standalonePositions]);
   const pointBounds = useMemo(() => getBounds(pointPositions), [pointPositions]);
   // Hover/highlight points do not define the recorded route's camera. Explicit point
   // navigation has its own controller; route fit remains stable after photo navigation.
-  const bounds = routeBounds ?? pointBounds;
+  const bounds = routeBounds ?? standaloneBounds ?? pointBounds;
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {

@@ -336,6 +336,20 @@ describe("RouteMap", () => {
     expect(screen.getByTestId("map-popup")).toBeInTheDocument();
   });
 
+  it("preserves a selected photo camera when new located photos arrive on a single-fix route", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127]];
+    const photos = [{id:"a",url:"https://example.test/a.jpg",location:[38,128] as [number,number]}];
+    const position: [number,number] = [38,128];
+    const view = renderWithProviders(<RouteMap latlng={latlng} photos={photos} flyToPosition={position} />);
+    const fits = api.fitBounds.mock.calls.length;
+    view.rerender(<RouteMap latlng={latlng} photos={[...photos,{id:"b",url:"https://example.test/b.jpg",location:[60,150]}]} flyToPosition={position} />);
+    expect(api.fitBounds).toHaveBeenCalledTimes(fits);
+    expect(api.flyTo).toHaveBeenCalledTimes(1);
+    expect(mapProps.markers).toContainEqual(expect.objectContaining({latitude:60,longitude:150}));
+  });
+
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;
