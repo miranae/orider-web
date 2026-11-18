@@ -20,7 +20,8 @@ export function localYearBounds(year: number) {
 /** 이전 전체 snapshot과 같은 mount 수명. 전역/영구 캐시가 아니며 인증 교체 뒤 재사용하지 않는다. */
 export function createYearReadSession(uid: string, services: Pick<FirebaseServices, "auth" | "firestore"> = { auth, firestore }) {
   return { uid, auth: services.auth, firestore: services.firestore, owner: services.auth.currentUser, valid: true, docs: new Map<string, QueryDocumentSnapshot>(),
-    coverage: [] as Interval[], calendarCoverage: [] as Interval[], queries: new Map<string, PageState>(), years: null as number[] | null, duration: null as number | null, crossings: new Map<string, number>() };
+    coverage: [] as Interval[], calendarCoverage: [] as Interval[], calendarRows: [] as { id: string; startTime: number }[],
+    queries: new Map<string, PageState>(), years: null as number[] | null, duration: null as number | null, crossings: new Map<string, number>() };
 }
 export type YearReadSession = ReturnType<typeof createYearReadSession>;
 function missing(coverage: Interval[], requested: Interval): Interval[] {
@@ -114,15 +115,21 @@ function reader(uid: string, cancelled: () => boolean, budget = YEAR_READ_BUDGET
 }
 
 /** 전체 원본을 버리지 않고 달력 endpoint와 조회한 외곽 구간의 증거로 보관한다. */
-export async function readRecapYears(uid: string, cancelled: () => boolean, session = createYearReadSession(uid)): Promise<number[]> {
+export async function readRecapYears(uid: string, cancelled: () => boolean, session = createYearReadSession(uid),
+  onEndpointError?: (endpoint: "earliest" | "latest", error: unknown) => void): Promise<number[]> {
   const read = reader(uid, cancelled, { documents: 3, requests: 2, pageSize: 2 }, session);
   read.current();
   if (session.years) return session.years;
+  const reportFailure = (endpoint: "earliest" | "latest", error: unknown): never => {
+    if (!(error instanceof Error && error.message === "year-read-cancelled")) onEndpointError?.(endpoint, error);
+    throw error;
+  };
   const [first, tail] = await Promise.all([
-    read.point("calendar:first", [orderBy("startTime", "asc"), orderBy("__name__", "asc")]),
-    read.read([orderBy("startTime", "desc"), orderBy("__name__", "desc")], 2),
+    read.point("calendar:first", [orderBy("startTime", "asc"), orderBy("__name__", "asc")]).catch(error => reportFailure("earliest", error)),
+    read.read([orderBy("startTime", "desc"), orderBy("__name__", "desc")], 2).catch(error => reportFailure("latest", error)),
   ]);
-  if ([...(first ? [first] : []), ...tail.docs].some(doc => !Number.isFinite(doc.data().startTime))) throw new Error("year-read-invalid-calendar");
+  const calendarRows = [...(first ? [first] : []), ...tail.docs].map(doc => ({ id: doc.id, startTime: doc.data().startTime as number }));
+  if (calendarRows.some(row => !Number.isFinite(row.startTime))) throw new Error("year-read-invalid-calendar");
   const currentYear = new Date().getFullYear();
   const complete = first ? tail.docs.length === 1 && tail.docs[0]?.id === first.id : tail.docs.length === 0;
   if (complete && session.docs.size !== tail.docs.length) {
@@ -140,6 +147,7 @@ export async function readRecapYears(uid: string, cancelled: () => boolean, sess
   const earliest = first ? Math.max(2000, new Date(first.data().startTime).getFullYear()) : currentYear;
   const latest = tail.docs[0] ? Math.min(currentYear, new Date(tail.docs[0].data().startTime).getFullYear()) : currentYear;
   if (!Number.isFinite(earliest) || !Number.isFinite(latest)) throw new Error("year-read-invalid-calendar");
+  session.calendarRows = calendarRows;
   session.years = earliest > latest ? [currentYear] : Array.from({ length: latest - earliest + 1 }, (_, index) => latest - index);
   return session.years;
 }

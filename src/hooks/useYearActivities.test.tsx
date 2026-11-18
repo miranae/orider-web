@@ -148,3 +148,19 @@ it("retries a budget-limited year only when the calendar supplies coverage for t
   await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
   expect(readYearActivities).toHaveBeenCalledTimes(2);
 });
+
+it("refreshes an empty early year when a later calendar endpoint finds an activity", async () => {
+  let finishCalendar!: () => void;
+  vi.mocked(readRecapYears).mockImplementationOnce((_uid, _cancelled, session) => new Promise(resolve => {
+    finishCalendar = () => {
+      session!.calendarRows = [{ id: "ride", startTime: new Date(2025, 6, 1).getTime() }];
+      resolve([2026, 2025]);
+    };
+  }));
+  vi.mocked(readYearActivities).mockResolvedValueOnce([]);
+  const h = renderHook(() => useYearActivities("owner", 2025));
+  await waitFor(() => expect(h.result.current.loading).toBe(false));
+  expect(h.result.current.activities).toEqual([]);
+  await act(async () => finishCalendar());
+  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("ride"));
+});

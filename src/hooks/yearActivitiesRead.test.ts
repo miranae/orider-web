@@ -243,6 +243,16 @@ it("does not infer complete coverage from different records in the one-record en
   expect((await readYearActivities("owner", 2025, () => false, undefined, session)).map(row => row.id)).toEqual(["early", "middle", "late"]);
 });
 
+it("reports both calendar endpoint failures even if the later failure arrives after rejection", async () => {
+  const earliest = new Error("earliest read failed"), latest = new Error("latest read failed");
+  let failLatest!: (error: Error) => void;
+  vi.mocked(getDocs).mockRejectedValueOnce(earliest).mockReturnValueOnce(new Promise((_, reject) => { failLatest = reject; }));
+  const report = vi.fn();
+  await expect(readRecapYears("owner", () => false, createYearReadSession("owner"), report)).rejects.toBe(earliest);
+  failLatest(latest);
+  await vi.waitFor(() => expect(report.mock.calls).toEqual([["earliest", earliest], ["latest", latest]]));
+});
+
 it("does not cache a cancelled page or one completed after same-UID SDK replacement", async () => {
   auth.currentUser = { uid: "owner" } as never;
   const session = createYearReadSession("owner");
