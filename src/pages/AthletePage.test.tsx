@@ -839,7 +839,11 @@ it("records a real public request failure after unmount without updating abandon
 it("does not use whole-history count as the remaining authorized list count", async () => {
   setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
   setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 100 }) });
-  const visible = Array.from({ length: 21 }, (_, i) => createMockActivity({ id: `visible-${i}`, userId: "athlete-1", deletedAt: null, visibility: "everyone" }));
+  const visible = Array.from({ length: 21 }, (_, i) => ({
+    ...createMockActivity({ id: `visible-${i}`, userId: "athlete-1", deletedAt: null, visibility: "everyone" }),
+    activityRevision: "current",
+    discoveryFacts: { status: "ready", metrics: null },
+  }));
   vi.mocked(loadActivityDiscovery).mockImplementation(async () => ({ expiresAt: Date.now() + 600000, items: visible.slice(0, 20), nextCursor: "next", exhausted: false }));
   renderWithProviders(<AthletePage />);
   await screen.findByText("100회", {}, { timeout: 1000 });

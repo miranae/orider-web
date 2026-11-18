@@ -244,9 +244,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   useEffect(() => {
     if (isOwnProfile || !userId || !publicTotalsAuthorized) return;
     let active = true;
+    const current = () => active && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer;
     const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
       doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
-        if (!active) return;
+        if (!current()) return;
         // An absent counter is version zero: the live document listener observes its first insertion too.
         const revision: unknown = snapshot.data()?.[field];
         const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
@@ -257,8 +258,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           return { ...current, [kind]: signal };
         });
       }, error => {
-        logClientError("AthletePage.totalsSignal", error, { kind }, services);
-        if (active) setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity ? previous : { identity: readIdentity }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
+        if (current()) {
+          logClientError("AthletePage.totalsSignal", error, { kind }, services);
+          setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity ? previous : { identity: readIdentity }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
+        } else captureError(error, { tags: { source: "AthletePage.totalsSignal", kind } });
       });
     const stopPublic = watch("public", "users_public", userId, "athleteTotalsSignal");
     const viewer = currentUser?.uid;
@@ -270,24 +273,24 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline || publicTotalsScopeRef.current.publicTotalsAuthorized !== publicTotalsAuthorized)
     publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized };
   const publicTotalsScope = publicTotalsScopeRef.current;
-  const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; readAt: number; value: PublicAthleteTotals } | null>(null);
+  const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; receipt: { active: boolean }; readAt: number; value: PublicAthleteTotals } | null>(null);
   const [publicTotalsError, setPublicTotalsError] = useState(false);
   const [publicTotalsExpired, setPublicTotalsExpired] = useState(false);
   useEffect(() => {
-    let cancelled = false;
+    const receipt = { active: true };
     let expiry: ReturnType<typeof setTimeout> | undefined;
     setPublicTotals(null); setPublicTotalsError(false); setPublicTotalsExpired(false);
     if (isOwnProfile || !userId || !publicTotalsAuthorized || !networkOnline) return;
-    const current = () => !cancelled && publicTotalsScopeRef.current === publicTotalsScope && services.auth.currentUser === readIdentity.viewer;
+    const current = () => receipt.active && publicTotalsScopeRef.current === publicTotalsScope && services.auth.currentUser === readIdentity.viewer;
     void loadPublicAthleteTotals(services, userId, current)
       .then(value => {
         if (!current()) return;
         // Values always come from a fresh server-authorized callable, never a cached Firestore snapshot.
         // Like existing public detail reads, authorization is checked at read time (P3).
-        setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, readAt: Date.now(), value });
+        setPublicTotals({ identity: readIdentity, scope: publicTotalsScope, receipt, readAt: Date.now(), value });
         // Signal changes discard old results. Missing/failed/cached signals only allow a short, server-authorized snapshot.
         if (!currentSignals?.public?.present || currentSignals.public.error || currentSignals.public.fromCache || services.auth.currentUser && !currentSignals.viewer?.present || currentSignals.viewer?.error || currentSignals.viewer?.fromCache) expiry = setTimeout(() => {
-          cancelled = true; setPublicTotals(null); setPublicTotalsExpired(true);
+          receipt.active = false; setPublicTotals(null); setPublicTotalsExpired(true);
         }, 60_000);
       })
       .catch(error => {
@@ -299,7 +302,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         logClientError("AthletePage.publicTotals", error, {}, services);
         setPublicTotalsError(true);
       });
-    return () => { cancelled = true; clearTimeout(expiry); };
+    return () => { receipt.active = false; clearTimeout(expiry); };
   }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, currentSignals, publicTotalsAuthorized, networkOnline]);
   useEffect(() => {
     if (isOwnProfile || !userId) return;
@@ -512,8 +515,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
         setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
       } catch (err) {
-        logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile }, services);
-        if (!cancelled) { setActivityReadError(true); setHasMoreActivities(false); }
+        if (!cancelled && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer) {
+          logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile }, services);
+          setActivityReadError(true); setHasMoreActivities(false);
+        } else if (!(err instanceof Error && err.message === "account_changed")) {
+          captureError(err, { tags: { source: "AthletePage.loadActivities" } });
+        }
       } finally {
         if (!cancelled) setActivitiesLoading(false);
       }
@@ -874,7 +881,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const acceptedChartActivities = useMemo(() => acceptedStatsActivities(chartActivities.filter(activity => activity.userId === userId)), [chartActivities, userId]);
   const acceptedLoadActivities = useMemo(() => isOwnProfile ? acceptedTrainingActivities(chartActivities.filter(activity => activity.userId === userId)) : [], [chartActivities, userId, isOwnProfile]);
-  const summaryTotals = isOwnProfile ? ownerTotals : publicTotals?.identity === readIdentity && publicTotals.scope === publicTotalsScope ? publicTotals.value : null;
+  const currentPublicTotals = publicTotals?.identity === readIdentity && publicTotals.scope === publicTotalsScope && publicTotals.receipt.active ? publicTotals : null;
+  const summaryTotals = isOwnProfile ? ownerTotals : currentPublicTotals?.value ?? null;
   const summaryError = isOwnProfile ? totalsError : publicTotalsError;
   const stats = { count: summaryTotals?.count ?? 0, distance: summaryTotals?.distance ?? 0, time: summaryTotals?.timeDisplayMillis ?? 0, elevation: summaryTotals?.elevation ?? 0 };
   const statsReady = summaryTotals?.state === "ready" && !summaryError;
@@ -931,7 +939,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
         {!isOwnProfile && !statsReady && <p role="status">{t(summaryError || summaryTotals?.state === "failed" ? "profile.totalsFailed" : publicTotalsExpired ? "profile.totalsExpired" : "profile.totalsPending")}<Button size="sm" onClick={retryPublicTotals}>{t("profile.reloadTotals")}</Button></p>}
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
-        {!isOwnProfile && publicTotals && publicTotals.scope === publicTotalsScope && <Text as="p" variant="caption" tone="secondary">{t("profile.totalsAsOf", { time: new Intl.DateTimeFormat(i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(publicTotals.readAt) })}</Text>}
+        {!isOwnProfile && currentPublicTotals && <Text as="p" variant="caption" tone="secondary">{t("profile.totalsAsOf", { time: new Intl.DateTimeFormat(i18n.language, { dateStyle: "short", timeStyle: "medium" }).format(currentPublicTotals.readAt) })}</Text>}
         {!isOwnProfile && statsReady && <Button size="sm" variant="ghost" onClick={retryPublicTotals}>{t("profile.reloadTotals")}</Button>}
       </section>
   );

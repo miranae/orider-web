@@ -834,8 +834,9 @@ export default function EmbeddedBootstrapRoot({
           ensureAppCheckReady: controlServices.ensureAppCheckReady,
         }).then(() => controlServices.auth.authStateReady()).then(() => {
           if (authorizationAttempt.current !== attempt) return;
-          const uid = controlServices.auth.currentUser?.uid ?? null;
-          authorizedUid.current = uid !== null && uid === authorization.expectedUid ? uid : null;
+          const viewer = controlServices.auth.currentUser;
+          const uid = viewer?.uid ?? null;
+          authorizedUid.current = viewer?.isAnonymous !== true && uid !== null && uid === authorization.expectedUid ? uid : null;
           // 허브 표면은 로그인 인계가 없거나 실패해도(웹 세션 없음) 공개 목록을 게스트로 연다.
           // 다른 계정으로 로그인된 상태(uid 불일치)는 지금처럼 거절한다.
           guestAuthorized.current = (isHubSurfaceKind(surfaceKind) || isPublicMenuPage(surfaceKind)) && uid === null;
@@ -844,7 +845,7 @@ export default function EmbeddedBootstrapRoot({
             // 이전 계정의 Firestore 문서도 다음 승인까지 메모리에 두지 않는다(표면은 위에서 내렸다).
             setAccountReleaseRequest((request) => request + 1);
           }
-          safeSend("auth.state", { uid }, message.requestId);
+          safeSend("auth.state", { uid: viewer?.isAnonymous === true ? null : uid }, message.requestId);
         }).catch(() => {
           if (authorizationAttempt.current !== attempt) return;
           authorizedUid.current = null;
@@ -881,7 +882,7 @@ export default function EmbeddedBootstrapRoot({
           });
           return;
         }
-        if (!authorizedUid.current || authorizedUid.current !== currentUid) {
+        if (controlServices.auth.currentUser?.isAnonymous === true || !authorizedUid.current || authorizedUid.current !== currentUid) {
           clearTrainingSurfaceCache();
           surfaceLoadingFlow.current = null;
           activeSelectionRequestId.current = undefined;
