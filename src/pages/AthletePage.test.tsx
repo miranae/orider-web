@@ -972,10 +972,15 @@ it.each(["users_public/athlete-1", "users/viewer"])("invalidates previous totals
     return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
   }) as never);
   const timer = vi.spyOn(globalThis, "setTimeout");
+  const clearTimer = vi.spyOn(globalThis, "clearTimeout");
   try {
     renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
     await screen.findByText("5회");
-    expect(timer.mock.calls.filter(call => call[1] === 60_000)).toHaveLength(0);
+    await waitFor(() => {
+      const cleared = clearTimer.mock.calls.map(([id]) => id);
+      const pending = timer.mock.calls.flatMap((call, index) => call[1] === 60_000 && !cleared.includes(timer.mock.results[index]?.value) ? [call] : []);
+      expect(pending).toHaveLength(0);
+    });
     const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
     const update = updates.get(path)!;
     const snapshot = (fromCache: boolean) => ({ exists: () => true, data: () => ({ athleteTotalsSignal: "one" }), metadata: { fromCache } });
@@ -986,7 +991,7 @@ it.each(["users_public/athlete-1", "users/viewer"])("invalidates previous totals
     act(() => update(snapshot(false)));
     await screen.findByText("9회");
     expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1);
-  } finally { timer.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
+  } finally { clearTimer.mockRestore(); timer.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
 });
 
 it.each(["cache", "error"])("shows a freshly authorized callable snapshot even when signal state is %s, and manual retry reconnects signals", async initial => {

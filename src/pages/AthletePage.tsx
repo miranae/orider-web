@@ -136,6 +136,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const userId = requestedUserId && requestedUserId.length <= 512 && !requestedUserId.includes("/") && requestedUserId !== "." && requestedUserId !== ".." ? requestedUserId : undefined;
   const { user: currentUser, profile: currentProfile, loading: authLoading } = useAuth();
   const sessionAuthorized = (currentUser?.uid ?? null) === (services.auth.currentUser?.uid ?? null);
+  const publicTotalsAuthorized = sessionAuthorized && !authLoading;
   const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine);
   useEffect(() => {
     const online = () => setNetworkOnline(true), offline = () => setNetworkOnline(false);
@@ -241,7 +242,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [signalAttempt, setSignalAttempt] = useState(0);
   const [totalsSignals, setTotalsSignals] = useState<{ identity: typeof readIdentity; public?: TotalsSignal; viewer?: TotalsSignal } | null>(null);
   useEffect(() => {
-    if (isOwnProfile || !userId || !sessionAuthorized) return;
+    if (isOwnProfile || !userId || !publicTotalsAuthorized) return;
     let active = true;
     const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
       doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
@@ -263,11 +264,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     const viewer = currentUser?.uid;
     const stopViewer = viewer ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
     return () => { active = false; stopPublic(); stopViewer?.(); };
-  }, [isOwnProfile, userId, readIdentity, services, signalAttempt, sessionAuthorized, currentUser?.uid]);
+  }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity ? totalsSignals : null;
-  const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline });
-  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline)
-    publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline };
+  const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized });
+  if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline || publicTotalsScopeRef.current.publicTotalsAuthorized !== publicTotalsAuthorized)
+    publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized };
   const publicTotalsScope = publicTotalsScopeRef.current;
   const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; scope: typeof publicTotalsScope; readAt: number; value: PublicAthleteTotals } | null>(null);
   const [publicTotalsError, setPublicTotalsError] = useState(false);
@@ -276,7 +277,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     let cancelled = false;
     let expiry: ReturnType<typeof setTimeout> | undefined;
     setPublicTotals(null); setPublicTotalsError(false); setPublicTotalsExpired(false);
-    if (isOwnProfile || !userId || !sessionAuthorized || !networkOnline) return;
+    if (isOwnProfile || !userId || !publicTotalsAuthorized || !networkOnline) return;
     const current = () => !cancelled && publicTotalsScopeRef.current === publicTotalsScope && services.auth.currentUser === readIdentity.viewer;
     void loadPublicAthleteTotals(services, userId, current)
       .then(value => {
@@ -299,7 +300,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         setPublicTotalsError(true);
       });
     return () => { cancelled = true; clearTimeout(expiry); };
-  }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, currentSignals, sessionAuthorized, networkOnline]);
+  }, [userId, isOwnProfile, readIdentity, publicTotalsScope, totalsAttempt, currentSignals, publicTotalsAuthorized, networkOnline]);
   useEffect(() => {
     if (isOwnProfile || !userId) return;
     const refresh = () => { if (document.visibilityState !== "hidden") setTotalsAttempt(value => value + 1); };
@@ -654,6 +655,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile }, services);
         setActivityReadError(true);
         if (!isOwnProfile) { setDisplayActivities([]); setPublicActivityCursor(null); setHasMoreActivities(false); }
+      } else if (!(err instanceof Error && err.message === "account_changed")) {
+        captureError(err, { tags: { source: "AthletePage.loadMoreActivities" } });
       }
     } finally {
       if (current()) setLoadingMore(false);
@@ -1243,7 +1246,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             </div>}
           </div>
 
-          {!isSearchActive && activityReadError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t(isOwnProfile ? "profile.activitiesReadError" : "profile.publicActivitiesReadError")}</Resolvable></Text></div>}
+          {(!isSearchActive || isOwnProfile) && activityReadError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t(isOwnProfile ? "profile.activitiesReadError" : "profile.publicActivitiesReadError")}</Resolvable></Text></div>}
           
           <div className="relative z-0 space-y-4">
             {(activitiesLoading || searchLoading) ? (
@@ -1252,7 +1255,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   <Card key={i} padding="none" className="h-40 rounded-[var(--r-xl)] animate-pulse" />
                 ))}
               </div>
-            ) : !isSearchActive && activityReadError && filteredActivities.length === 0 ? null : filteredActivities.length === 0 ? (
+            ) : (!isSearchActive || isOwnProfile) && activityReadError && filteredActivities.length === 0 ? null : filteredActivities.length === 0 ? (
               <Card padding="none" className="text-center py-12 rounded-[var(--r-xl)]">
                 <p className="text-[var(--ink-3)]">
                   {isSearchActive ? t("activities.emptySearch") : isOwnProfile && !selectedPeriod && hasMoreActivities ? t("profile.noMatchesInLoaded")

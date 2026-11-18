@@ -339,6 +339,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession, liveDark
 
 function AuthorizedSurface({
   activityId,
+  approvedUid,
   bridge,
   mountedTrainingSurface,
   onTrainingShellReady,
@@ -354,6 +355,7 @@ function AuthorizedSurface({
   trainingSurfaceVisible,
 }: {
   activityId?: string;
+  approvedUid: string | null;
   bridge: EmbeddedBridge;
   mountedTrainingSurface: TrainingSurfaceKind | null;
   onTrainingShellReady: () => void;
@@ -384,9 +386,11 @@ function AuthorizedSurface({
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } },
   }));
-  const user = services.auth.currentUser;
+  const sdkViewer = services.auth.currentUser;
+  const approved = sdkViewer?.isAnonymous !== true && (sdkViewer?.uid ?? null) === approvedUid;
+  const user = approved ? sdkViewer : null;
   const trainingSurface = mountedTrainingSurface !== null;
-  const trainingShellVisible = trainingSurface && trainingSurfaceVisible;
+  const trainingShellVisible = approved && trainingSurface && trainingSurfaceVisible;
   const [warmupFinished, setWarmupFinished] = useState(false);
   useEffect(() => {
     setWarmupFinished(false);
@@ -402,7 +406,7 @@ function AuthorizedSurface({
   selectionRequestIdRef.current = selectionRequestId;
 
   useEffect(() => {
-    if (!subscriptionsActive || !user) return undefined;
+    if (!subscriptionsActive || !user || services.auth.currentUser !== user) return undefined;
     return onSnapshot(
       doc(services.firestore, "users", user.uid),
       (snapshot) => {
@@ -419,7 +423,7 @@ function AuthorizedSurface({
         );
       },
     );
-  }, [bridge, services.firestore, subscriptionsActive, surfaceKind, user]);
+  }, [bridge, services.auth, services.firestore, subscriptionsActive, surfaceKind, user]);
 
   const logout = useCallback(async () => {
     await signOut(services.auth);
@@ -479,6 +483,7 @@ function AuthorizedSurface({
     return () => window.cancelAnimationFrame(frame);
   }, [onTrainingShellReady, trainingShellVisible]);
 
+  if (!approved) return null;
   if (surfaceGateLoading && !trainingSurface) {
     return (
       <div className="orider-embedded-status" role="status" aria-label="Loading profile">
@@ -1245,6 +1250,7 @@ export default function EmbeddedBootstrapRoot({
         <AuthorizedSurface
           key={sdkViewer?.uid ?? "signed-out"}
           activityId={activityId}
+          approvedUid={acceptedUid.current}
           bridge={bridge}
           mountedTrainingSurface={isStandaloneSurfaceKind(surfaceKind) ? null : surfaceSelection.mounted}
           onTrainingShellReady={trainingShellReady}
