@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { productionDataConfig, productionBuildEnv, resolveProductionBuildFlags, verifyProductionDataCors } from "./lib/production-data-config.mjs";
+import { stageProductionParityConfig, stageProductionParityBuildEnv, STAGE_FUNCTIONS, STAGE_AI_API, STAGE_PERSONAL_API } from "./lib/stage-production-parity.mjs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -136,6 +137,41 @@ function productionFixture() {
     activitySubscriptionsEnabled: true, activitySubscriptionsBackendReady: true, futureFeatureEnabled: true,
   };
 }
+
+test("stage parity preserves production data and every flag while routing execution to development", () => {
+  const source = productionFixture();
+  const stage = stageProductionParityConfig(source);
+  for (const [key, value] of Object.entries(source)) {
+    if (key.endsWith("Enabled") || key === "activitySubscriptionsBackendReady" || key.startsWith("firebase") && !["firebaseFunctionsBase"].includes(key)) assert.equal(stage[key], value, key);
+  }
+  assert.equal(stage.appEnvironment, "stage");
+  assert.equal(stage.firebaseFunctionsBase, STAGE_FUNCTIONS);
+  assert.equal(stage.aiApiBase, STAGE_AI_API);
+  assert.equal(stage.personalApiBase, STAGE_PERSONAL_API);
+  assert.equal(stage.publicClubApiUrl, `${STAGE_FUNCTIONS}/publicClubs`);
+  assert.equal(stage.socialAuthFunctionsBase, "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net");
+  assert.equal(stage.stravaRedirectUri, source.stravaRedirectUri);
+  assert.equal(source.appEnvironment, "production");
+  const env = stageProductionParityBuildEnv(source);
+  assert.equal(env.VITE_MODE, "stage");
+  assert.equal(env.VITE_FIREBASE_FUNCTIONS_BASE, STAGE_FUNCTIONS);
+  assert.equal(env.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED, "true");
+  assert.equal(env.VITE_ACTIVITY_SUBSCRIPTIONS_ENABLED, "true");
+  assert.equal(env.VITE_CANONICAL_ROLLOUT_ENABLED, "false");
+  for (const patch of [{ appEnvironment: "stage" }, { firebaseProjectId: "orider-dev" }, { useEmulators: true }]) assert.throws(() => stageProductionParityConfig({ ...source, ...patch }));
+});
+
+test("stage parity runtime writer ignores conflicting local and production routes", () => {
+  const directory = mkdtempSync(join(tmpdir(), "orider-stage-parity-"));
+  try {
+    const source = join(directory, "source.json"), output = join(directory, "runtime.json");
+    writeFileSync(source, JSON.stringify(productionFixture()));
+    execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], {
+      env: { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source, VITE_MODE: "production", VITE_FIREBASE_FUNCTIONS_BASE: "https://evil.example" }, stdio: "pipe",
+    });
+    assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), stageProductionParityConfig(productionFixture()));
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
 
 test("pins production read/write routes and all flags through runtime writer despite conflicting stage env", () => {
   const directory = mkdtempSync(join(tmpdir(), "orider-production-data-"));

@@ -85,3 +85,21 @@ it("allows only the exact reviewed AI API origin for its own config key", () => 
     expect(() => assertIsolatedStageRuntime({ ...stage, aiApiBase })).toThrow("stage/service-origin-mismatch");
   }
 });
+
+it("accepts the pinned parity gateway and canonical OAuth proxy without opening other compute origins", () => {
+  const gateway = "https://stage-parity-default-818364001341.asia-northeast3.run.app";
+  const ai = "https://stage-parity-ai-818364001341.asia-northeast3.run.app";
+  const config = { ...stage, firebaseFunctionsBase: gateway, personalApiBase: gateway, aiApiBase: ai,
+    socialAuthFunctionsBase: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net",
+    stravaRedirectUri: "https://orider-strava.web.app/strava/callback" };
+  const check = (value: RuntimeConfig) => assertIsolatedStageRuntime(value, "orider-dev.web.app", "https://orider-dev.web.app");
+  expect(() => check(config)).not.toThrow();
+  for (const firebaseFunctionsBase of [gateway + "/path", gateway + ".evil.example", gateway.replace("818364001341", "289663940841")]) {
+    expect(() => check({ ...config, firebaseFunctionsBase })).toThrow("stage/callable-endpoint-mismatch");
+  }
+  for (const patch of [{ personalApiBase: ai }, { aiApiBase: gateway }, { personalApiBase: gateway + "/api" },
+    { stravaRedirectUri: "https://orider-strava.web.app/other" }, { stravaRedirectUri: config.stravaRedirectUri + "?x=1" },
+    { socialAuthFunctionsBase: undefined }]) {
+    expect(() => check({ ...config, ...patch })).toThrow();
+  }
+});

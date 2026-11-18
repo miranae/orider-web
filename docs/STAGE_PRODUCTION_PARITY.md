@@ -1,0 +1,48 @@
+# 개발 Hosting과 운영 버전 기준 검증
+
+개발 웹은 운영 Auth·Firestore·Storage를 공유한다. 개발에서 수정·삭제한 데이터는 운영 데이터이며,
+운영 Firestore 트리거가 처리할 수 있다. callable·REST·공개 클럽 API·AI 실행은 `orider-dev`로 분리한다.
+운영 데이터에 연결된 개발 Eventarc/Scheduler 복제는 이 절차의 범위가 아니다.
+
+## 버전과 연결 계약
+
+- 초기 앱 기준: 운영 배포 SHA `2e5bf8e5c08493c69121710da26173fcea77e8ea`.
+- 앱 업무 코드는 이 SHA와 같다. 허용된 앱 차이는 `runtimeConfig.ts`의 정확한 개발 URL 검증과 그 테스트다.
+- `stage-parity-default`가 callable `/{name}`, REST `/api/v1/**`, 공개 `/publicClubs`를 받는다.
+- `stage-parity-course`, `stage-parity-strava`, `stage-parity-strava-ingress`는 같은 운영 이미지의 다른 코드베이스다.
+- AI는 `stage-parity-ai`를 사용한다. 기존 개별 Coach QA 서비스와 구분한다.
+- Auth 소셜 핸들러는 운영 Firebase Auth의 정본 경로를 명시적으로 사용한다.
+- Strava는 등록된 운영 OAuth 프록시가 `state`의 개발 returnOrigin으로 복귀한다. 동의·코드 교환은 별도 검증한다.
+- 지도/히트맵 등 공유 Storage의 공개 정적 데이터는 운영 저장소를 유지한다.
+
+## 안전한 반복 배포
+
+최신 운영 Hosting 버전·GitHub production Deployment SHA·운영 공개 설정을 먼저 대조한다.
+아래 SHA를 최신 개발 브랜치 SHA로 바꾸면 안 된다. 개발 브랜치의 미출시 업무 기능은 자동으로 포함하지 않는다.
+사용하는 워크트리는 확인한 운영 SHA와 배포 도구 수정만 포함해야 한다.
+
+```sh
+node scripts/prepare-stage-production-parity.mjs \
+  --source-sha 2e5bf8e5c08493c69121710da26173fcea77e8ea \
+  --out /tmp/orider-stage-parity-prepared --build
+```
+
+이 명령은 배포하지 않는다. 운영 공개 설정의 기능 스위치를 모두 보존하고 개발 실행 URL로만 바꾼다.
+앱 업무 소스 차이가 있으면 중단하며, 비공개 출력 디렉터리에 설정·빌드 환경·운영 SHA·전송 설정 패치 해시를 남긴다.
+`PRODUCTION_RUNTIME_CONFIG_PATH`의 기존 운영 실행 경로로 폴백하지 않는다.
+
+BE의 운영 이미지 digest 일치, SDK callable 프로토콜, Auth/App Check, 공유 데이터 접근,
+개발 origin CORS를 독립 검증한 뒤에만 Hosting을 게시한다. 개발 Hosting의 이전 버전과 설정도 먼저 보존한다.
+배포 계정은 `orider-dev` Hosting 권한으로 한정한다. 준비한 `build-env.json`을 프로세스 환경에 주입한 상태에서
+아래 명령을 사용한다. JSON 파일을 shell 코드로 `source`하지 않는다.
+
+```sh
+firebase deploy --config firebase.stage.json --project orider-dev --only hosting --non-interactive
+```
+
+배포 후 라이브 entry SHA256·runtime 설정이 준비 결과와 같고 운영 Hosting 버전이 그대로인지 확인한다.
+로그인·활동 조회·분석·차트·지도와 허용된 테스트 데이터의 쓰기/복구를 별도로 검증한다.
+공개 HTTP 200 또는 인증 없는 callable 오류는 전체 기능 검증 통과로 기록하지 않는다.
+
+기존 `deploy-stage.yml`은 별도 정비 전까지 비활성 상태를 유지한다. 이 문서는 활성화 승인이 아니다.
+문제 시 사전에 보존한 `orider-dev` Hosting 버전을 다시 release하고, 운영 Hosting은 변경하지 않는다.
