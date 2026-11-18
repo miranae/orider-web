@@ -1,9 +1,10 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import type { CourseData } from "../features/courses/courseSnapshot";
 import CoursesPage from "./CoursesPage";
+import { searchVisibleCoursesPage } from "../features/courses/useCourseCatalog";
 
 const { mockLogClientError } = vi.hoisted(() => ({
   mockLogClientError: vi.fn(),
@@ -97,6 +98,23 @@ vi.mock("../features/courses/CoursesMap", () => ({
 describe("CoursesPage mobile layout", () => {
   beforeEach(() => {
     mockLogClientError.mockClear();
+  });
+
+  it("queries the server only after the user submits the course search", async () => {
+    vi.mocked(searchVisibleCoursesPage).mockClear();
+    renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
+    const input = screen.getByRole("searchbox");
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(input, { target: { value: "남한강" } });
+      fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(searchVisibleCoursesPage).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(searchVisibleCoursesPage).toHaveBeenCalledTimes(1));
   });
 
   it("applies menu surface and difficulty filters, external updates, reset, and history on the mounted page", async () => {

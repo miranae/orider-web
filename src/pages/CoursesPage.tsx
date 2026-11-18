@@ -234,16 +234,6 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
     else nextParams.delete("q");
     setSearchParams(nextParams, { replace: true });
   };
-  useEffect(() => {
-    if (inputValue.trim() === queryParam) return;
-    const timer = setTimeout(() => {
-      const next = new URLSearchParams(searchParams);
-      const q = inputValue.trim();
-      if (q) next.set("q", q); else next.delete("q");
-      setSearchParams(next, { replace: true });
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [inputValue, queryParam, searchParams, setSearchParams]);
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSearch();
   };
