@@ -37,18 +37,22 @@ async function requestJson(url, fetcher) {
   if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled stage public metadata unavailable at ${url} HTTP ${response.status}`); }
   try { return await response.json(); } catch { throw new Error(`bundled stage metadata invalid JSON at ${url}`); }
 }
-export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
+async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
   if (!SHA.test(sourceSha || "")) throw new Error("bundled development backend source SHA required");
   const health = await requestJson(`${runtime.firebaseFunctionsBase}/healthz`, fetcher);
   if (!health || typeof health !== "object" || Array.isArray(health) || health.status !== "ok" || health.sourceSha !== sourceSha || health.exposure !== "public"
     || typeof health.topologyHash !== "string" || !/^[a-f0-9]{64}$/u.test(health.topologyHash) || topologyHash && health.topologyHash !== topologyHash) {
     throw new Error(`bundled development backend source/topology mismatch at ${runtime.firebaseFunctionsBase}/healthz`);
   }
+  return health.topologyHash;
+}
+export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
+  const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
   await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", fetcher });
   await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "getActivityDiscovery", fetcher });
   await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider-dev.web.app", name: "webHandoffRedeem", fetcher, responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
   await verifyBundledCallable({ base: runtime.aiApiBase, origin: "https://orider-dev.web.app", name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
-  return health.topologyHash;
+  return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
   workspace = resolve(workspace); directory = resolve(directory);
@@ -117,6 +121,7 @@ export async function verifyBundledStage(directory, fetcher = fetch) {
   await verifyStageArtifacts(prepared.artifactDirectory, receipt.artifactManifest, async () => {
     await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
     await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+    await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   });
   readPrepared(directory);
   return receipt;

@@ -92,3 +92,13 @@ atomic with publication. Concurrent out-of-band Console/manual publication is
 unsupported. Break-glass changes require stopping/awaiting the active workflow,
 then inspecting the current live release before resuming CI. An unconstrained
 owner publishing during the last read-to-write gap remains a platform limit.
+
+Both release profiles verify handoff's malformed-code rejection and the AI API's
+anonymous-auth rejection with browser Origin/preflight headers; these probes do
+not exchange a handoff code or invoke a model. Development identity is re-read
+after callable probes and again after the final public API probe. Served root
+and detail HTML must contain the actual executable entry script, not merely its
+filename in a preload, comment or inert element. HTTP reads have bounded timeouts.
+The compensating release step also runs on workflow cancellation when the runner
+can execute cleanup; a forcibly terminated runner still requires live-state
+inspection before the next manual/break-glass operation.

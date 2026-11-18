@@ -62,7 +62,7 @@ jobs:
             echo "::error::Selected frontend source $selected_sha must be an ancestor of reviewed origin/main or origin/dev"; exit 1
           fi
           if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
-            for required in scripts/prepare-bundled-stage.mjs scripts/lib/bundled-callable-probe.mjs scripts/bundled-stage-hosting-release.mjs; do
+            for required in scripts/prepare-bundled-stage.mjs scripts/lib/bundled-callable-probe.mjs scripts/bundled-stage-hosting-release.mjs scripts/stage-html-entry.mjs; do
               if [ ! -f "$required" ]; then
                 echo "::error::Selected source $selected_sha does not support bundled transport: missing $required. Select a reviewed commit with bundled tooling or explicit legacy transport."; exit 1
               fi
@@ -140,33 +140,37 @@ jobs:
           FRONTEND_SOURCE: ${{ steps.source.outputs.sha }}
         run: |
           set -euo pipefail
-          built=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1 || true)
+          built=$(node scripts/stage-html-entry.mjs dist/index.html)
           if [ -z "$built" ]; then echo "::error::Built entry is missing"; exit 1; fi
           echo "Expected development entry: $built"
           ok=0
           for i in $(seq 1 10); do
-            live=$(curl -fsSL -H 'Cache-Control: no-cache' "https://orider-dev.web.app/?cacheBust=${FRONTEND_SOURCE}-$i" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1 || true)
+            live=""
+            if curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' "https://orider-dev.web.app/?cacheBust=${FRONTEND_SOURCE}-$i" -o "$RUNNER_TEMP/live-index.html"; then
+              live=$(node scripts/stage-html-entry.mjs "$RUNNER_TEMP/live-index.html" || true)
+            fi
             echo "Attempt $i: expected=$built actual=${live:-<missing>}"
             if [ "$live" = "$built" ]; then ok=1; break; fi
             sleep 10
           done
           if [ "$ok" != 1 ]; then echo "::error::Development entry mismatch: expected=$built actual=${live:-<missing>}"; exit 1; fi
-          curl -fsSL -H 'Cache-Control: no-cache' "https://orider-dev.web.app/runtime-config.json?cacheBust=${FRONTEND_SOURCE}" -o "$RUNNER_TEMP/live-runtime-config.json"
+          curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' "https://orider-dev.web.app/runtime-config.json?cacheBust=${FRONTEND_SOURCE}" -o "$RUNNER_TEMP/live-runtime-config.json"
           if ! cmp -s dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; then
             echo "::error::Development runtime differs from built runtime"
             sha256sum dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; exit 1
           fi
           # 일반 브라우저의 상세 URL도 같은 개발 번들을 반환해야 한다.
           detail_url="https://orider-dev.web.app/ko/course/nonexistent?cacheBust=${FRONTEND_SOURCE}"
-          if ! detail_status=$(curl -sS -A 'Mozilla/5.0 ORiderStageAcceptance' -H 'Cache-Control: no-cache' "$detail_url" -o "$RUNNER_TEMP/live-detail.html" -w '%{http_code}'); then
+          if ! detail_status=$(curl -sS --connect-timeout 10 --max-time 30 -A 'Mozilla/5.0 ORiderStageAcceptance' -H 'Cache-Control: no-cache' "$detail_url" -o "$RUNNER_TEMP/live-detail.html" -w '%{http_code}'); then
             echo "::error::Development detail transport failed: url=$detail_url expected=HTTP200 actual=${detail_status:-transport-error}"; exit 1
           fi
           if [ "$detail_status" != 200 ]; then echo "::error::Development detail response mismatch: url=$detail_url expected=HTTP200 actual=HTTP$detail_status"; exit 1; fi
-          detail=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' "$RUNNER_TEMP/live-detail.html" | head -1 || true)
+          detail=$(node scripts/stage-html-entry.mjs "$RUNNER_TEMP/live-detail.html" || true)
           if [ "$detail" != "$built" ]; then echo "::error::Development detail entry mismatch: expected=$built actual=${detail:-<missing>}"; exit 1; fi
           if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
       - name: Restore previous development release after failed publication verification
-        if: failure() && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success' && steps.deploy.outcome != 'skipped'
+        timeout-minutes: 3
+        if: always() && (failure() || cancelled()) && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success' && steps.deploy.outcome != 'skipped'
         env:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/bundled-stage-hosting.json"

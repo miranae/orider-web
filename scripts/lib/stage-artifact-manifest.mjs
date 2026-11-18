@@ -1,3 +1,4 @@
+import { JSDOM } from "jsdom";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -31,13 +32,25 @@ export async function verifyStageArtifacts(directory, expected, verifyRemote) {
   return result;
 }
 
+export function stageHtmlEntry(html, label = "stage HTML") {
+  // DOM으로 읽어 주석·preload·template·JSON script의 파일명을 실행 entry로 오인하지 않는다.
+  const dom = new JSDOM(html);
+  try {
+    for (const script of dom.window.document.querySelectorAll("script[src]")) {
+      if (script.namespaceURI !== "http://www.w3.org/1999/xhtml" || script.hasAttribute("nomodule") || script.closest("noscript") || !["", "module", "text/javascript", "application/javascript"].includes((script.getAttribute("type") || "").toLowerCase())) continue;
+      const entry = script.getAttribute("src").match(/^\/?(assets\/index-[A-Za-z0-9_-]+\.js)$/u)?.[1];
+      if (entry) return entry;
+    }
+    throw new Error(`stage entry script missing in ${label}`);
+  } finally { dom.window.close(); }
+}
+
 /** 앱을 시작할 HTML과 실제 entry 청크가 없는 산출물은 게시 전에 거부한다. */
 export function assertStageEntryArtifact(directory) {
   const htmlPath = join(directory, "index.html");
   let html;
   try { html = readFileSync(htmlPath, "utf8"); } catch { throw new Error(`stage entry HTML missing at ${htmlPath}`); }
-  const entry = html.match(/<script\b[^>]*\bsrc=["']\/?(assets\/index-[A-Za-z0-9_-]+\.js)["'][^>]*>/u)?.[1];
-  if (!entry) throw new Error(`stage entry script missing in ${htmlPath}`);
+  const entry = stageHtmlEntry(html, htmlPath);
   const entryPath = join(directory, entry);
   try {
     if (!lstatSync(entryPath).isFile() || readFileSync(entryPath).length === 0) throw new Error("not a nonempty file");

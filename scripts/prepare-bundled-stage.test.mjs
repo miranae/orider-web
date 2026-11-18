@@ -4,6 +4,7 @@ import { mkdtempSync, existsSync, mkdirSync, writeFileSync, readFileSync, rmSync
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
+import { stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
 import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
@@ -132,7 +133,7 @@ test("development workflow is manual-only and seals the selected artifact before
   assert.match(workflow, /steps\.source\.outputs\.sha/);
   assert.doesNotMatch(workflow, /--token/);
   assert.match(workflow, /orider-dev\.web\.app\/ko\/course\/nonexistent/);
-  assert.match(workflow, /curl -sS -A 'Mozilla\/5\.0 ORiderStageAcceptance'/);
+  assert.match(workflow, /curl -sS --connect-timeout 10 --max-time 30 -A 'Mozilla\/5\.0 ORiderStageAcceptance'/);
   assert.doesNotMatch(workflow, /curl -fsSL -A/);
   assert.match(workflow, /Built entry is missing/);
   assert.match(workflow, /Development detail response mismatch/);
@@ -159,7 +160,7 @@ test("reviewed historical sources without bundled tooling are rejected before a 
     const run = () => spawnSync("bash", ["-euc", check], { cwd: root, encoding: "utf8", env: { ...process.env, SELECTED_TRANSPORT: "bundled-development", selected_sha: "a".repeat(40) } });
     const missing = run();
     assert.equal(missing.status, 1); assert.match(missing.stdout, /does not support bundled transport: missing/);
-    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs"]) {
+    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs", "scripts/stage-html-entry.mjs"]) {
       mkdirSync(resolve(root, path, ".."), { recursive: true }); writeFileSync(resolve(root, path), "// capability fixture");
     }
     assert.equal(run().status, 0);
@@ -234,7 +235,7 @@ test("development rollback is wired after the live checks and before artifact pu
   assert.ok(workflow.indexOf("--phase snapshot") < workflow.indexOf("firebase deploy --config"));
   assert.ok(workflow.indexOf("--phase rollback") > workflow.indexOf("Development detail response mismatch"));
   assert.ok(workflow.indexOf("--phase rollback") < workflow.indexOf("Retain verified bundled client artifact"));
-  assert.match(workflow, /if: failure\(\).*steps\.hosting_snapshot\.outcome == 'success'/);
+  assert.match(workflow, /if: always\(\) && \(failure\(\) \|\| cancelled\(\)\).*steps\.hosting_snapshot\.outcome == 'success'/);
 });
 
 test("missing handoff or AI browser routes block development before publication without exchanging a code or invoking AI", async () => {
@@ -289,4 +290,31 @@ test("observed intervening release changes abort publication and compensating ro
   }
   const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
   assert.ok(workflow.indexOf("--phase check-publish") < workflow.indexOf("firebase deploy --config"));
+});
+
+test("development backend identity is re-read after callable probes and after the final public API probe", async () => {
+  for (const finalPath of ["/v1/activity-narrative", "/publicClubs?size=1"]) {
+    const f = fixture();
+    const drift = async (url, options) => {
+      const response = await f.fetcher(url, options);
+      if (url.endsWith(finalPath) && (options.method === "POST" || finalPath.includes("publicClubs"))) f.setHealth({ status: "ok", exposure: "public", sourceSha: "d".repeat(40), topologyHash: topology });
+      return response;
+    };
+    try {
+      if (finalPath.includes("publicClubs")) {
+        await f.prepare(); f.build(); await sealBundledStage(f.directory, f.fetcher);
+        await assert.rejects(verifyBundledStage(f.directory, drift), /source\/topology mismatch/);
+      } else await assert.rejects(f.prepare({ fetcher: drift }), /source\/topology mismatch/);
+    } finally { f.cleanup(); }
+  }
+});
+test("served HTML requires an executable script rather than a comment, preload or inert script", () => {
+  for (const html of ['<!-- <script src="/assets/index-fixture.js"></script> -->', '<link rel="preload" href="/assets/index-fixture.js">', '<script type="application/json" src="/assets/index-fixture.js"></script>', '<template><script src="/assets/index-fixture.js"></script></template>', '<script nomodule src="/assets/index-fixture.js"></script>', '<svg><script src="/assets/index-fixture.js"></script></svg>']) {
+    assert.throws(() => stageHtmlEntry(html, "fixture URL"), /script missing in fixture URL/);
+  }
+  assert.equal(stageHtmlEntry('<script type="module" crossorigin src="/assets/index-fixture.js"></script>'), "assets/index-fixture.js");
+  const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
+  assert.match(workflow, /detail=\$\(node scripts\/stage-html-entry.mjs/);
+  assert.match(workflow, /always\(\) && \(failure\(\) \|\| cancelled\(\)\)/);
+  assert.ok(workflow.split("\n").filter(line => line.includes("curl ")).every(line => line.includes("--connect-timeout 10 --max-time 30")));
 });
