@@ -361,6 +361,33 @@ describe("RouteMap", () => {
     expect(mapProps.markers).toContainEqual(expect.objectContaining({latitude:60,longitude:150}));
   });
 
+  it("retains the located photo when GPS arrives after the photo-only map", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const position: [number,number] = [60,150];
+    const view = renderWithProviders(<RouteMap flyToPosition={position} />);
+    expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[150,60]}));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={[[37,127],[37.01,127]]} flyToPosition={position} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+    expect(api.flyTo).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves photo navigation on range removal while accepting a new explicit chart range", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127],[37.01,127],[37.02,127]];
+    const range = {startIndex:0,endIndex:1};
+    const view = renderWithProviders(<RouteMap latlng={latlng} flyToRange={range} />);
+    const position: [number,number] = [60,150];
+    view.rerender(<RouteMap latlng={latlng} flyToRange={range} flyToPosition={position} />);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[127,37.02]]);
+  });
+
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;

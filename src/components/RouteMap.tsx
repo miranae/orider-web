@@ -196,30 +196,38 @@ function RouteNavigation({ labels, bounds, padding }: {
   </MapNavigation>;
 }
 
-function FitBoundsOnLoad({ bounds }: { bounds: LngLatBoundsLike }) {
+function FitBoundsOnLoad({ bounds, disabled }: { bounds: LngLatBoundsLike; disabled?: boolean }) {
   const { current: map } = useMap();
   const fittedKey = useRef<string | null>(null);
   useEffect(() => {
+    if (disabled) return;
     const key = JSON.stringify(bounds);
     if (fittedKey.current !== key && map) {
       map.fitBounds(bounds, { padding: 20, duration: 0 });
       fittedKey.current = key;
     }
-  }, [map, bounds]);
+  }, [map, bounds, disabled]);
   return null;
 }
 
-function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds }: {
+function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds, preservePosition }: {
   positions: RouteSlot[];
   segmentStarts: readonly number[];
   range: { startIndex: number; endIndex: number } | null | undefined;
   fullBounds: LngLatBoundsLike;
+  preservePosition?: boolean;
 }) {
   const { current: map } = useMap();
+  const requestedRange = useRef(range);
   const prevRange = useRef<{ startIndex: number; endIndex: number } | null>(null);
 
   useEffect(() => {
     if (!map) return;
+    const rangeChanged = requestedRange.current !== range;
+    requestedRange.current = range;
+    // New chart selections may move the camera, but background route updates may
+    // not override a photo the user has already located.
+    if (preservePosition && !rangeChanged) return;
     if (range) {
       const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
       const hi = Math.max(range.startIndex, range.endIndex);
@@ -235,10 +243,10 @@ function FlyToSegmentRange({ positions, segmentStarts, range, fullBounds }: {
       else map.fitBounds(fullBounds, { padding: 20 });
       prevRange.current = bounds ? range : null;
     } else if (prevRange.current) {
-      map.fitBounds(fullBounds, { padding: 20 });
+      if (!preservePosition) map.fitBounds(fullBounds, { padding: 20 });
       prevRange.current = null;
     }
-  }, [map, positions, segmentStarts, range, fullBounds]);
+  }, [map, positions, segmentStarts, range, fullBounds, preservePosition]);
 
   return null;
 }
@@ -698,8 +706,8 @@ export default function RouteMap({
           }} />
         </Source>}
         {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
-        <FitBoundsOnLoad bounds={bounds} />
-        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} />
+        <FitBoundsOnLoad bounds={bounds} disabled={isRoutePosition(flyToPosition)} />
+        <FlyToSegmentRange positions={sourcePositions} segmentStarts={segmentStarts} range={flyToRange} fullBounds={bounds} preservePosition={isRoutePosition(flyToPosition)} />
         {flyToPosition !== undefined && (
           <FlyToPositionControl position={flyToPosition} fullBounds={bounds} />
         )}
