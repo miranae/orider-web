@@ -19,8 +19,8 @@ const outputPath = resolve(outIndex >= 0 ? args[outIndex + 1] : "dist/runtime-co
 const stageSource = process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH;
 if (stageSource && (args.includes("--production-source") || process.env.PRODUCTION_RUNTIME_CONFIG_PATH)) throw new Error("stage parity and production runtime sources are mutually exclusive");
 if (stageSource) {
-  const metadata = process.env.STAGE_PARITY_SOURCE_SHA || process.env.STAGE_PARITY_HOSTING_VERSION
-    ? { sourceSha: process.env.STAGE_PARITY_SOURCE_SHA, hostingVersion: process.env.STAGE_PARITY_HOSTING_VERSION } : {};
+  if (!process.env.STAGE_PARITY_SOURCE_SHA || !process.env.STAGE_PARITY_HOSTING_VERSION) throw new Error("stage parity requires the prepared production SHA and Hosting version");
+  const metadata = { sourceSha: process.env.STAGE_PARITY_SOURCE_SHA, hostingVersion: process.env.STAGE_PARITY_HOSTING_VERSION };
   const config = stageProductionParityConfig(JSON.parse(readFileSync(resolve(stageSource), "utf8")), metadata);
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(config, null, 2)}\n`);

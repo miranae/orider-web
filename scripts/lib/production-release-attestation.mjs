@@ -43,7 +43,7 @@ export async function checkedJsonFetch(operation, target, init = {}, fetcher = f
 export async function readProductionHostingRelease() {
   let token;
   try {
-    token = execFileSync("gcloud", ["auth", "print-access-token", "--account=ansrudska@gmail.com"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    token = execFileSync("gcloud", ["auth", "print-access-token", ...(process.env.STAGE_PARITY_GCLOUD_ACCOUNT ? [`--account=${process.env.STAGE_PARITY_GCLOUD_ACCOUNT}`] : [])], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   } catch (error) {
     console.error(JSON.stringify({ operation: "read-production-hosting-credential", target: "gcloud auth print-access-token", errorClass: error?.name ?? "Error", errorCode: error?.status ?? "unknown" }));
     throw new Error("production Hosting credential acquisition failed");
@@ -74,11 +74,14 @@ export function readSuccessfulProductionDeployment() {
       throw new Error(`production GitHub Deployment read failed: ${path}`);
     }
   };
-  const deployments = gh("repos/miranae/orider-web/deployments?environment=production&per_page=10");
-  for (const deployment of deployments) {
-    const statuses = gh(`repos/miranae/orider-web/deployments/${deployment.id}/statuses`);
-    const success = statuses.find(status => status.state === "success");
-    if (success) return { id: deployment.id, sourceSha: deployment.sha, startedAt: deployment.created_at, succeededAt: success.created_at };
+  for (let page = 1; ; page++) {
+    const deployments = gh(`repos/miranae/orider-web/deployments?environment=production&per_page=100&page=${page}`);
+    if (!deployments.length) break;
+    for (const deployment of deployments) {
+      const statuses = gh(`repos/miranae/orider-web/deployments/${deployment.id}/statuses`);
+      const success = statuses.find(status => status.state === "success");
+      if (success) return { id: deployment.id, sourceSha: deployment.sha, startedAt: deployment.created_at, succeededAt: success.created_at };
+    }
   }
   throw new Error("successful production GitHub Deployment missing");
 }
@@ -89,7 +92,9 @@ export async function readPinnedProductionRuntime(sourceSha, {
   const before = await readRelease();
   const deployment = await readDeployment();
   const released = Date.parse(before.releaseTime);
-  if (deployment.sourceSha !== sourceSha || released < Date.parse(deployment.startedAt) || released > Date.parse(deployment.succeededAt)) {
+  const started = Date.parse(deployment.startedAt), succeeded = Date.parse(deployment.succeededAt);
+  if (![released, started, succeeded].every(Number.isFinite) || started > succeeded
+    || deployment.sourceSha !== sourceSha || released < started || released > succeeded) {
     throw new Error("production source SHA does not bind to the observed Deployment and Hosting release window");
   }
   const runtimeFile = await readFile("/runtime-config.json");
