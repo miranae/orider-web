@@ -418,6 +418,20 @@ describe("RouteMap", () => {
     expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40});
   });
 
+  it("does not label distant photos or waypoints as recorded GPS in the static preview", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127]]} flyToPosition={[60,150]}
+      photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[60,150]}]}
+      waypoints={[{lat:50,lon:140,name:"Waypoint",icon:null}]} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    const points = document.querySelectorAll("svg circle");
+    expect(points).toHaveLength(1);
+    expect(points[0]).toHaveAttribute("cx","160");
+    expect(points[0]).toHaveAttribute("cy","80");
+    expect(document.querySelector("svg path")).toBeNull();
+  });
+
   it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
     const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
     mapProps.api = api;

@@ -455,7 +455,7 @@ export default function RouteMap({
 
   if (!bounds || (!drawable && fallbackImageUrl && navigationPoints.length === 0 && !hasLocatedAttachment)) {
     if (fallbackImageUrl) {
-      return <RouteMapFallback positions={drawable ? positions : pointPositions} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
+      return <RouteMapFallback positions={drawable ? positions : standalonePositions} pointsOnly={!drawable} imageUrl={fallbackImageUrl}
         imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
         height={fallbackHeight ?? height} rounded={rounded}
         title={t("map.unavailableTitle")} description={t("map.unavailableDescription")} />;
@@ -471,7 +471,7 @@ export default function RouteMap({
   const mapboxToken = getMapboxToken();
   const fallback = (
     <RouteMapFallback
-      positions={drawable ? positions : pointPositions}
+      positions={drawable ? positions : standalonePositions}
       pointsOnly={!drawable}
       segmentStarts={segmentStarts}
       imageUrl={fallbackImageUrl}
