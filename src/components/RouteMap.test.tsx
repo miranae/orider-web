@@ -136,7 +136,7 @@ describe("RouteMap", () => {
 
   it("recovers all-missing streams with the thumbnail without applying sensor indices", () => {
     renderWithProviders(<RouteMap latlng={[null, {}, null] as unknown as [number,number][]}
-      polyline="37,127;37.01,127.01" highlightRange={{startIndex:1,endIndex:2}} markerPosition={[50,140]} />);
+      polyline="37,127;37.01,127.01" highlightRange={{startIndex:1,endIndex:2}} />);
     expect(screen.getByTestId("mock-map")).toBeInTheDocument();
     expect(mapProps.sources).toHaveLength(1);
     expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[127.01,37.01]]}});
@@ -254,6 +254,21 @@ describe("RouteMap", () => {
     expect(screen.getByTestId("mock-map")).toBeInTheDocument();
     expect(mapProps.markers).toContainEqual(expect.objectContaining({latitude:38,longitude:128}));
     expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[128,38]}));
+  });
+
+  it("retains measured point markers and navigation when the line comes from a thumbnail", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const onChange = vi.fn();
+    renderWithProviders(<RouteMap latlng={[[60,150],null] as unknown as [number,number][]} polyline="37,127;37.01,127"
+      markerPosition={[60,150]} flyToRange={{startIndex:0,endIndex:0}} highlightRange={{startIndex:0,endIndex:0}} onHighlightRangeChange={onChange} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[150,60]}}));
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[127,37.01]]}});
+    const handles = mapProps.markers.filter(marker => marker.draggable);
+    expect(handles).toHaveLength(2);
+    act(() => handles[0]!.onDragEnd?.({lngLat:{lat:60,lng:150}}));
+    expect(onChange).toHaveBeenCalledWith(0,0);
   });
 
   it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {

@@ -294,30 +294,30 @@ export default function RouteMap({
   const [mapReady, setMapReady] = useState(false);
   const [webglSupported] = useState(() => supportsWebGL());
 
-  const { positions: sourcePositions, segmentStarts, streamFallback = false } = useMemo(() => {
-    const positions: RouteSlot[] = [];
+  const { routePositions, sourcePositions, segmentStarts, streamFallback } = useMemo(() => {
+    const parts: RouteSlot[] = [];
     const segmentStarts: number[] = [];
     if (Array.isArray(routeParts)) {
       for (const part of routeParts) {
-        segmentStarts.push(positions.length);
-        for (const point of routeSlots(part)) positions.push(point);
+        segmentStarts.push(parts.length);
+        for (const point of routeSlots(part)) parts.push(point);
       }
-    } else {
-      const streamPositions = routeSlots(latlng);
-      if (hasRouteLine(streamPositions)) return { positions: streamPositions, segmentStarts };
-      const thumbnail = polyline ? routeTrackSlots(polyline) : [];
-      if (hasRouteLine(thumbnail)) return { positions: thumbnail, segmentStarts, streamFallback: streamPositions.length > 0 };
-      return { positions: streamPositions.length ? streamPositions : thumbnail, segmentStarts };
+      return { routePositions: parts, sourcePositions: parts, segmentStarts, streamFallback: false };
     }
-    return { positions, segmentStarts };
+    const measured = routeSlots(latlng);
+    if (hasRouteLine(measured)) return { routePositions: measured, sourcePositions: measured, segmentStarts, streamFallback: false };
+    const thumbnail = polyline ? routeTrackSlots(polyline) : [];
+    if (hasRouteLine(thumbnail)) return { routePositions: thumbnail,
+      sourcePositions: measured.length ? measured : thumbnail, segmentStarts, streamFallback: measured.length > 0 };
+    const positions = measured.length ? measured : thumbnail;
+    return { routePositions: positions, sourcePositions: positions, segmentStarts, streamFallback: false };
   }, [polyline, latlng, routeParts]);
-  // Lines and their bounds exclude isolated fixes; handles and point navigation retain all valid source slots.
-  const positions = useMemo(() => drawableRouteSlots(sourcePositions, segmentStarts), [sourcePositions, segmentStarts]);
-  // A thumbnail has its own sampling axis; raw sensor indices cannot select it.
-  const highlightRange = streamFallback ? undefined : rawHighlightRange;
-  const onHighlightRangeChange = streamFallback ? undefined : rawOnHighlightRangeChange;
-  const flyToRange = streamFallback ? undefined : rawFlyToRange;
-  const markerPosition = streamFallback ? null : rawMarkerPosition;
+  // Geometry has its own thumbnail clock; point interactions retain the measured source clock.
+  const positions = useMemo(() => drawableRouteSlots(routePositions, segmentStarts), [routePositions, segmentStarts]);
+  const highlightRange = rawHighlightRange;
+  const onHighlightRangeChange = rawOnHighlightRangeChange;
+  const flyToRange = rawFlyToRange;
+  const markerPosition = rawMarkerPosition;
 
   useEffect(() => {
     setMapFailed(false);
@@ -337,11 +337,11 @@ export default function RouteMap({
   const drawable = useMemo(() => hasRouteLine(positions, segmentStarts), [positions, segmentStarts]);
   const fullRouteGeoJSON = useMemo(() => routeGeometry(positions, segmentStarts), [positions, segmentStarts]);
   const highlightGeoJSON = useMemo(() => {
-    if (!highlightRange || positions.length === 0) return null;
+    if (streamFallback || !highlightRange || positions.length === 0) return null;
     const lo = Math.max(0, Math.min(highlightRange.startIndex, highlightRange.endIndex));
     const hi = Math.max(highlightRange.startIndex, highlightRange.endIndex);
     return routeGeometry(positions.slice(lo, hi + 1), segmentStarts.map(index => index - lo));
-  }, [positions, highlightRange, segmentStarts]);
+  }, [positions, highlightRange, segmentStarts, streamFallback]);
 
   const markerGeoJSON = useMemo(() => {
     if (!isRoutePosition(markerPosition)) return null;
@@ -349,7 +349,7 @@ export default function RouteMap({
   }, [markerPosition]);
 
   const endpointGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point> | null>(() => {
-    const valid = sourcePositions.filter(isRoutePosition);
+    const valid = (streamFallback ? routePositions : sourcePositions).filter(isRoutePosition);
     if (!showRouteEndpoints || valid.length < 2) return null;
     const start = valid[0]!;
     const end = valid[valid.length - 1]!;
@@ -360,7 +360,7 @@ export default function RouteMap({
         { type: "Feature", properties: { endpoint: "end" }, geometry: { type: "Point", coordinates: [end[1], end[0]] } },
       ],
     };
-  }, [sourcePositions, showRouteEndpoints]);
+  }, [sourcePositions, routePositions, streamFallback, showRouteEndpoints]);
 
   const handleStartDrag = useCallback((e: { lngLat: { lat: number; lng: number } }) => {
     if (!onHighlightRangeChange || !highlightRange) return;

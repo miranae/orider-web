@@ -16,7 +16,7 @@ import { visualRouteSelection } from "../../src/features/activity/detail/activit
 import ActivityPerformanceCharts from "../../src/features/activity/detail/ActivityPerformanceCharts";
 import { getPerformanceOverlays } from "../../src/features/activity/detail/activityPerformancePresentation";
 import { LocaleProvider } from "../../src/contexts/LocaleContext";
-import { routeFixtureActivity as subject, routeFixtureStreams, routeFixtureParts } from "./routeSensorExpansionData";
+import { routeFixtureActivity as subject, routeFixtureStreams } from "./routeSensorExpansionData";
 import common from "../../src/i18n/resources/ko/common.json";
 import activity from "../../src/i18n/resources/ko/activity.json";
 import "../../src/index.css";
@@ -52,11 +52,11 @@ function Fixture() {
     <h1>활동 분석 지도·센서 회귀 검증</h1>
     <Text as="p">합성 활동 · 센서 5개 · 실제 계정·활동 데이터 사용 없음</Text>
     <Card><Text as="p">분석 요약: 40 m · 4초</Text></Card>
-    <div className="flex flex-wrap gap-2">{[["sparse","결측 좌표"],["normal","정상 좌표"],["missing","좌표 없음"],["parts","분리 경로"]].map(([key,label]) => <Button key={key} variant="outline" onClick={() => { setKind(key!); selection.clear(); setVisualRange(null); }}>{label}</Button>)}</div>
+    <div className="flex flex-wrap gap-2">{[["sparse","결측 좌표"],["normal","정상 좌표"],["missing","좌표 없음"]].map(([key,label]) => <Button key={key} variant="outline" onClick={() => { setKind(key!); selection.clear(); setVisualRange(null); }}>{label}</Button>)}</div>
     <Button aria-expanded={opened} onClick={() => setOpened(value => !value)}>{t("analysisReading.exploration")}</Button>
     {opened && <ErrorBoundary><ActivityMediaPanel activity={subject} allowOwnerPreview={false} streams={streams}
       sport="ride" hasTrack summary={subject.summary} markerPosition={null} hoveredSegment={null} photos={[]} uploadedPhotos={[]}
-      selectedRunRange={routeRange ?? undefined} publicRouteParts={kind === "parts" ? routeFixtureParts : undefined}
+      selectedRunRange={routeRange ?? undefined}
       flyToPosition={null} t={t} />
       <Card><Text as="p">파워 센서 차트 · 드래그로 구간 선택</Text>
         <ActivityPerformanceCharts analysisStyle chartIdentity={kind} rawStreams={streams} sourceIndices={sampled.map(point => point.sourceIndex!)}
