@@ -285,6 +285,10 @@ requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime
 requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "node scripts/check-canonical-deploy-env.mjs", "deploy-stage.yml canonical runtime source");
 requireIncludes(stageDeployWorkflow, "workflow_dispatch:", "deploy-stage.yml manual trigger");
 if (/^  (?:push|pull_request):/m.test(stageDeployWorkflow)) fail("deploy-stage.yml must not automatically deploy merged development code");
+requireIncludes(stageDeployWorkflow, "group: deploy-hosting-stage", "deploy-stage.yml shared writer lock");
+requireIncludes(stageDeployWorkflow, "cancel-in-progress: false", "deploy-stage.yml serialized writer");
+requireIncludes(stageDeployWorkflow, 'if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then', "deploy-stage.yml operator contract");
+requireBefore(stageDeployWorkflow, 'if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then', "google-github-actions/auth", "deploy-stage.yml pre-auth writer contract");
 requireIncludes(stageDeployWorkflow, "source_ref:", "deploy-stage.yml explicit source");
 requireIncludes(stageDeployWorkflow, "backend_source_sha:", "deploy-stage.yml pinned backend");
 requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase prepare", "deploy-stage.yml bundled preparation");
