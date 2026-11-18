@@ -11,11 +11,20 @@ import { dirname, resolve } from "node:path";
 import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
 import { publicClubEndpoint } from "./lib/public-club-deploy-config.mjs";
 import { productionDataConfig } from "./lib/production-data-config.mjs";
-import { stageProductionParityConfig } from "./lib/stage-production-parity.mjs";
+import { bundledFunctionsConfig, stageProductionParityConfig } from "./lib/stage-production-parity.mjs";
 
 const args = process.argv.slice(2);
 const outIndex = args.indexOf("--out");
 const outputPath = resolve(outIndex >= 0 ? args[outIndex + 1] : "dist/runtime-config.json");
+const bundledSource = process.env.BUNDLED_RUNTIME_CONFIG_PATH;
+if (bundledSource) {
+  if (process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH || process.env.PRODUCTION_RUNTIME_CONFIG_PATH || args.includes("--production-source")) throw new Error("bundled runtime source cannot be mixed with legacy deployment sources");
+  const config = bundledFunctionsConfig(JSON.parse(readFileSync(resolve(bundledSource), "utf8")), process.env.BUNDLED_FUNCTIONS_ENVIRONMENT);
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, `${JSON.stringify(config, null, 2)}\n`);
+  console.log(`[write-runtime-config] bundled runtime ${outputPath}`);
+  process.exit(0);
+}
 const stageSource = process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH;
 if (stageSource && (args.includes("--production-source") || process.env.PRODUCTION_RUNTIME_CONFIG_PATH)) throw new Error("stage parity and production runtime sources are mutually exclusive");
 if (stageSource) {

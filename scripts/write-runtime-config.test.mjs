@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { productionDataConfig, productionBuildEnv, resolveProductionBuildFlags, verifyProductionDataCors } from "./lib/production-data-config.mjs";
-import { stageProductionParityConfig, stageProductionParityBuildEnv, STAGE_FUNCTIONS, STAGE_AI_API, STAGE_PERSONAL_API } from "./lib/stage-production-parity.mjs";
+import { bundledFunctionsConfig, bundledHostingConfig, BUNDLED_FUNCTIONS, BUNDLED_AI, stageProductionParityConfig, stageProductionParityBuildEnv, STAGE_FUNCTIONS, STAGE_AI_API, STAGE_PERSONAL_API } from "./lib/stage-production-parity.mjs";
 import { readPinnedProductionRuntime, checkedJsonFetch } from "./lib/production-release-attestation.mjs";
 import { stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
 import { gzipSync } from "node:zlib";
@@ -389,5 +389,48 @@ test("parity predeploy rechecks all artifacts after awaiting remote metadata", a
       writeFileSync(chunk, "changed during remote validation");
     }), /prepared artifact differs/);
     assert.equal(readFileSync(join(directory, "index.html"), "utf8"), "unchanged entry");
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+
+test("bundled client promotion changes reviewed addresses while preserving all feature flags", () => {
+  const source = productionFixture();
+  const development = bundledFunctionsConfig(source, "development");
+  const production = bundledFunctionsConfig(development, "production");
+  for (const [environment, config] of [["development", development], ["production", production]]) {
+    assert.equal(config.firebaseFunctionsBase, BUNDLED_FUNCTIONS[environment]);
+    assert.equal(config.socialAuthFunctionsBase, BUNDLED_FUNCTIONS[environment]);
+    assert.equal(config.personalApiBase, BUNDLED_FUNCTIONS[environment]);
+    assert.equal(config.aiApiBase, BUNDLED_AI[environment]);
+    assert.equal(config.publicClubApiUrl, `${BUNDLED_FUNCTIONS[environment]}/publicClubs`);
+    for (const [key, value] of Object.entries(source)) if (typeof value === "boolean") assert.equal(config[key], value);
+  }
+  assert.throws(() => bundledFunctionsConfig(source, "other"), /unapproved/);
+  assert.throws(() => bundledFunctionsConfig({ ...development, socialAuthFunctionsBase: "https://other.example" }, "production"), /identity/);
+});
+
+test("bundled Hosting preparation replaces every legacy function binding and preserves request paths", () => {
+  const source = JSON.parse(readFileSync("firebase.json", "utf8"));
+  for (const environment of ["development", "production"]) {
+    const prepared = bundledHostingConfig(source, environment);
+    assert.equal(prepared.hosting.rewrites.some(rewrite => rewrite.function), false);
+    assert.deepEqual(prepared.hosting.rewrites.map(rewrite => rewrite.source), source.hosting.rewrites.map(rewrite => rewrite.source));
+    assert.ok(prepared.hosting.rewrites.filter(rewrite => rewrite.run).every(rewrite => rewrite.run.serviceId === (environment === "development" ? "dev-bundle-default-api" : "orider-bundle-default-api")));
+  }
+  const promoted = bundledHostingConfig(bundledHostingConfig(source, "development"), "production");
+  assert.ok(promoted.hosting.rewrites.filter(rewrite => rewrite.run).every(rewrite => rewrite.run.serviceId === "orider-bundle-default-api"));
+  const unknown = structuredClone(source); unknown.hosting.rewrites[0].function.functionId = "unmapped";
+  assert.throws(() => bundledHostingConfig(unknown, "production"), /unmapped/);
+});
+
+test("bundled runtime writer is explicit and rejects mixed deployment sources", () => {
+  const directory = mkdtempSync(join(tmpdir(), "orider-bundled-runtime-"));
+  try {
+    const source = join(directory, "source.json"), output = join(directory, "runtime.json");
+    writeFileSync(source, JSON.stringify(productionFixture()));
+    const env = { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: "", PRODUCTION_RUNTIME_CONFIG_PATH: "", BUNDLED_RUNTIME_CONFIG_PATH: source, BUNDLED_FUNCTIONS_ENVIRONMENT: "development" };
+    execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], { env, stdio: "pipe" });
+    assert.equal(JSON.parse(readFileSync(output)).deploymentProfile, "bundled-development");
+    assert.throws(() => execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], { env: { ...env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source }, stdio: "pipe" }), /mixed/);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });

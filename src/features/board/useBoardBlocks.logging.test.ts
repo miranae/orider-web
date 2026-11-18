@@ -9,7 +9,7 @@ vi.mock("../../contexts/AuthContext",()=>({useAuth:()=>({user:m.user})}));
 vi.mock("../../contexts/FirebaseServicesContext",()=>({useFirebaseServices:()=>({})}));
 vi.mock("../../services/firebase",()=>({auth:{currentUser:{uid:"global-user"}},functions:{app:{name:"global-app"}},ensureAppCheckReady:m.globalReady}));
 vi.mock("../../services/sentry",()=>({captureError:m.capture}));
-vi.mock("../../services/runtimeConfig",()=>({getRuntimeConfig:()=>({appEnvironment:"production"}),isStageComputeRuntime:()=>true,isEmulatorRuntime:()=>false}));
+vi.mock("../../services/runtimeConfig",()=>({getRuntimeConfig:()=>({appEnvironment:"production"}),isFunctionsGatewayRuntime:()=>true,isEmulatorRuntime:()=>false}));
 vi.mock("firebase/functions",()=>({getFunctions:vi.fn(),connectFunctionsEmulator:vi.fn(),httpsCallable:(client:unknown,name:string)=>{
   m.callable(client,name);return name==="setActivitySocialBlock"?m.block:m.log;
 }}));
