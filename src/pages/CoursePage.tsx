@@ -1213,7 +1213,7 @@ function CoursePageContent() {
       {course.trackLoadState === "loading" && <LoadingSkeleton kind="chart" />}
       {course.trackLoadState === "error" && <ErrorState title={t("error.trackLoadFailed")} onRetry={retryCourse} />}
       {/* Elevation Chart */}
-      {course.elevationProfile && course.elevationProfile.length > 0 && (
+      {Array.isArray(course.elevationProfile) && course.elevationProfile.length > 0 && (
         <Card style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
           <ErrorBoundary key={course.id} fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><CourseStageProfile
             data={course.elevationProfile.map((p) => ({ distance: p.d, elevation: p.e }))}

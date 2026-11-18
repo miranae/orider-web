@@ -116,10 +116,10 @@ import { ICON_SIZE } from "../theme/tokens/icon";
 /** 숨김 목록이 없을 때 매 렌더 같은 배열을 쓰도록 둔다(임시 값 비교가 참조로 흔들리지 않게). */
 const NO_HIDDEN_PROVIDER_IDS: string[] = [];
 
-export default function ActivityPage({ publicAccess, initialOwnerActivity, detailMeasurement, detailRetry }: { publicAccess?: PublicActivitySessionOptions; initialOwnerActivity?: PublicActivityDetail["activity"]; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void } = {}) {
-  return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent initialOwnerActivity={initialOwnerActivity} detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
+export default function ActivityPage({ publicAccess, initialOwnerActivity, initialOwnerActivityVerifiedAt, detailMeasurement, detailRetry }: { publicAccess?: PublicActivitySessionOptions; initialOwnerActivity?: PublicActivityDetail["activity"]; initialOwnerActivityVerifiedAt?: number; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void } = {}) {
+  return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent initialOwnerActivity={initialOwnerActivity} initialOwnerActivityVerifiedAt={initialOwnerActivityVerifiedAt} detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
 }
-function ActivityPageContent({ publicAccess, initialOwnerActivity, detailMeasurement, detailRetry }: { publicAccess?: ActivityPublicAccessState; initialOwnerActivity?: PublicActivityDetail["activity"]; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void }) {
+function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerActivityVerifiedAt, detailMeasurement, detailRetry }: { publicAccess?: ActivityPublicAccessState; initialOwnerActivity?: PublicActivityDetail["activity"]; initialOwnerActivityVerifiedAt?: number; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void }) {
   const { firestore } = useFirebaseServices();
   const { t, i18n } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -899,7 +899,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, detailMeasure
   if (loadingActivity) {
     // Display only: owner actions require the canonical activity read.
     return <ActivityDetailLoading activity={!authLoading && initialOwnerActivity && initialOwnerActivity.id === activityId
-      && initialOwnerActivity.userId === user?.uid ? initialOwnerActivity : undefined} />;
+      && initialOwnerActivity.userId === user?.uid ? initialOwnerActivity : undefined} verifiedAt={initialOwnerActivityVerifiedAt} />;
   }
 
   if (activityLoadError) {

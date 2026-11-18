@@ -20,6 +20,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
+import { captureError } from "../../services/sentry";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField, TimeField } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
@@ -252,6 +253,7 @@ export default function EventEditPage() {
         }).catch(err => {
           if (generation === loadGeneration.current && services.auth.currentUser === owner)
             logClientError("EventEditPage.loadCourse", err, { eventId, courseId: firstCourseId });
+          else captureError(err, { tags: { source: "EventEditPage.loadCourse" } });
         });
       }
     } catch (err) {

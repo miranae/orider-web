@@ -66,7 +66,7 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
     };
     const timer = globalThis.setTimeout(() => fail(new Error("year-activities-read-timeout"), false), 12_000);
     void readYearActivities(uid, year, () => cancelled, undefined, session).then((activities) => {
-      if (!cancelled) setState({ session, uid, year, activities, loading: false, error: false });
+      if (!cancelled) setState({ session, uid, year, activities, loading: false, error: false, startedBeforeCalendar });
     }, err => fail(err, !(err instanceof Error && err.message.startsWith("year-read-"))))
       .finally(() => globalThis.clearTimeout(timer));
     return () => { cancelled = true; globalThis.clearTimeout(timer); };
@@ -78,7 +78,7 @@ export function useYearActivities(uid: string | null | undefined, selectedYear?:
   const yearBounds = localYearBounds(year);
   const calendarOverlapsYear = session.calendarCoverage.some(({ start, end }) => start < yearBounds.end && end > yearBounds.start);
   const retryWithCalendar = current && state.startedBeforeCalendar === true && calendarReady
-    && (state.error && (!state.needsCalendarCoverage || calendarOverlapsYear) || state.loading && completeCalendar);
+    && (state.error && (!state.needsCalendarCoverage || calendarOverlapsYear) || !state.error && completeCalendar);
   useEffect(() => {
     if (retryWithCalendar) setRetryGeneration(generation => generation + 1);
   }, [retryWithCalendar]);

@@ -1,14 +1,25 @@
 import { useTranslation } from "react-i18next";
+import { useEffect, useState } from "react";
 import type { PublicActivityDetail } from "../../../services/publicActivityDetail";
 import { useLocale } from "../../../contexts/LocaleContext";
 import LoadingSkeleton from "../../../components/redesign/states/LoadingSkeleton";
 import { Stack, Stat, Text } from "../../../theme/components";
 import { formatDistance } from "../../../utils/units";
+import { PUBLIC_ACCESS_VERIFIED_TTL_MS } from "../../../hooks/usePublicActivitySession";
 
 /** Only a current, ACL-authorized projection may appear before the full detail module. */
-export default function ActivityDetailLoading({ activity }: { activity?: PublicActivityDetail["activity"] }) {
+export default function ActivityDetailLoading({ activity: preview, verifiedAt }: { activity?: PublicActivityDetail["activity"]; verifiedAt?: number }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
+  const [expiredVerification, setExpiredVerification] = useState<number>();
+  useEffect(() => {
+    if (verifiedAt === undefined) return;
+    const remaining = verifiedAt + PUBLIC_ACCESS_VERIFIED_TTL_MS - Date.now();
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => setExpiredVerification(verifiedAt), remaining);
+    return () => clearTimeout(timer);
+  }, [verifiedAt]);
+  const activity = verifiedAt === undefined || expiredVerification !== verifiedAt && Date.now() - verifiedAt < PUBLIC_ACCESS_VERIFIED_TTL_MS ? preview : undefined;
   const metrics = activity?.effectiveFacts?.metrics;
   const distanceKm = metrics?.distanceKm;
   const durationSec = metrics?.durationSec;

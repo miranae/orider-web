@@ -183,14 +183,14 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
           const code = (fallbackError as { code?: string })?.code;
           if (code === "permission-denied" || code === "unauthenticated") throw fallbackError;
           logClientError("CourseDetail.assetFallbackRead", fallbackError, { courseId: id });
-          onData({ ...metadata, id, trackLoadState: "error" }); return;
+          onData({ ...metadata, elevationProfile: undefined, id, trackLoadState: "error" }); return;
         }
         if (!active()) return;
         if (!snapshot.exists()) { onData(null); return; }
         const latest = snapshot.data();
         if (latest.deletedAt != null || latest.hidden === true) { onData(null); return; }
         if (!Array.isArray(latest.elevationProfile)) {
-          onData({ ...latest, id, trackLoadState: "error" }); return;
+          onData({ ...latest, elevationProfile: undefined, id, trackLoadState: "error" }); return;
         }
         onData({ ...latest, id, trackLoadState: "ready" }); return;
       }

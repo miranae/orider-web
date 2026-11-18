@@ -17,6 +17,7 @@ import { doc, getDoc, collection, getDocs, query, orderBy, documentId, startAfte
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { getEventPublicParticipantsPage, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import { logClientError } from "../../services/errorLogger";
+import { captureError } from "../../services/sentry";
 import { isEventHost } from "../../features/event/eventHost";
 import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
@@ -238,6 +239,7 @@ export default function EventResultsPage() {
             } : current);
           }).catch(error => {
             if (!cancelled && auth.currentUser === owner) logClientError("EventResultsPage.loadCourse", error, { eventId });
+            else captureError(error, { tags: { source: "EventResultsPage.loadCourse" } });
           });
         }
 
