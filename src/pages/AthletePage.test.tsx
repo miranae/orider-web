@@ -48,6 +48,7 @@ beforeEach(() => {
   activityQueries = installActivityQueryFake();
   setCallableResult("getPublicSegmentMetadata", { data: { items: [], cursor: null, hasMore: false } });
   setCallableResult("ensureAthleteProfile", { data: totalsFixture() });
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture() });
   setCallableResult("getAthleteProfilePreview", { data: { items: [], scope: "recent", complete: true, nextCursor: null } });
 });
 
@@ -167,7 +168,7 @@ describe("AthletePage", () => {
     await waitFor(() => expect(loadActivityDiscovery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({scope:"athlete",targetUid:"athlete-1",limit:20})));
   });
 
-  it("uses public activity aggregates for other athletes instead of private profile totals", async () => {
+  it("uses whole server totals for other athletes independently of visible activity aggregates", async () => {
     const profile = createMockProfile({
       nickname: "한강 라이더",
       stats: {
@@ -214,8 +215,8 @@ describe("AthletePage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("공개 활동")).toBeInTheDocument();
-      expect(screen.getByText("3회")).toBeInTheDocument();
+      expect(screen.getByText("전체 활동")).toBeInTheDocument();
+      expect(screen.getByText("5회")).toBeInTheDocument();
     });
     expect(screen.queryByText("3745회")).not.toBeInTheDocument();
   });
@@ -779,4 +780,26 @@ it("re-reads my clubs when the clubs failure text is pressed", async () => {
   await waitFor(() => expect(clubReads).toBe(2));
   await waitFor(() => expect(screen.queryByText("클럽을 불러오지 못했습니다.")).not.toBeInTheDocument());
   vi.mocked(getDocs).mockImplementation(original);
+});
+
+
+it.each([false, true])("shows whole totals on a private profile to guest/authenticated=%s without exposing details", async authenticated => {
+  setDocData("users_public/athlete-1", { nickname: "Private rider", profilePublic: false });
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 7 }) });
+  setCollectionDocs("activities", [{ id: "secret", ...createMockActivity({ userId: "athlete-1", visibility: "private", description: "PRIVATE ACTIVITY" }) }]);
+  renderWithProviders(<AthletePage />, { authenticated, user: { uid: "viewer" } });
+  const totals = await screen.findByRole("region", { name: "활동 누적 기록" });
+  await waitFor(() => expect(within(totals).getByText("7회")).toBeInTheDocument());
+  expect(within(totals).getByText("전체 활동 기록 기준")).toBeInTheDocument();
+  expect(screen.getByTestId("P0.private")).toBeInTheDocument();
+  expect(screen.queryByText("PRIVATE ACTIVITY")).not.toBeInTheDocument();
+});
+it.each(["pending", "failed"])("does not replace public %s totals with activity-list zero", async state => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  setCallableResult("getPublicAthleteTotals", { data: { schemaVersion: 1, state, revision: 0 } });
+  renderWithProviders(<AthletePage />);
+  const totals = await screen.findByRole("region", { name: "활동 누적 기록" });
+  await waitFor(() => expect(within(totals).getByRole("status")).toHaveTextContent(state === "failed" ? "누적 기록 확인이 중단되었습니다." : "누적 기록을 확인하고 있습니다."));
+  expect(within(totals).queryByText("0회")).not.toBeInTheDocument();
+  expect(within(totals).getAllByText("—")).toHaveLength(4);
 });

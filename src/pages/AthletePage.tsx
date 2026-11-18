@@ -1,7 +1,7 @@
 import { planCalendarDate } from "@shared/training/planDate";
 import SportFilterTabs from "../components/mobile/SportFilterTabs";
 import { createYearReadSession } from "../hooks/yearActivitiesRead";
-import { parseAthleteProfile, callAthleteProfile, loadAthleteProfilePreview, type AthleteProfileTotals, type AthletePreview, type AthleteHighlight, type AthletePreviewCursor } from "../services/athleteProfile";
+import { loadPublicAthleteTotals, type PublicAthleteTotals, parseAthleteProfile, callAthleteProfile, loadAthleteProfilePreview, type AthleteProfileTotals, type AthletePreview, type AthleteHighlight, type AthletePreviewCursor } from "../services/athleteProfile";
 import type { AthletePhoto } from "../components/athlete/AthletePhotoGallery";
 import { useAthletePublicPeriod } from "../hooks/useAthletePublicPeriod";
 import AthletePublicPeriodExplorer from "../components/athlete/AthletePublicPeriodExplorer";
@@ -36,7 +36,6 @@ import AthletePhotoGallery, { athletePhotoIdentity } from "../components/athlete
 import AthleteRecentSummary from "../components/athlete/AthleteRecentSummary";
 import { activityFeedSourceRevision, boundedFeedContent } from "../services/activityFeedContent";
 import { isTrivialActivity } from "../utils/activityFilter";
-import { resolveDuration } from "../utils/activityTime";
 import { loadAthleteChartActivities, athleteProfileYears } from "../services/athleteMonthlyActivities";
 import ActivitySubscriptionButton from "../components/profile/ActivitySubscriptionButton";
 import Avatar from "../components/Avatar";
@@ -225,6 +224,17 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       .catch(error => { if (!cancelled) { logClientError("AthletePage.ensureAthleteProfile", error, { userId }, services); setTotalsError(true); } });
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, totalsAttempt, readIdentity, liveTotals?.epoch]);
+  const [publicTotals, setPublicTotals] = useState<{ identity: typeof readIdentity; value: PublicAthleteTotals } | null>(null);
+  const [publicTotalsError, setPublicTotalsError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setPublicTotals(null); setPublicTotalsError(false);
+    if (isOwnProfile || !userId) return;
+    void loadPublicAthleteTotals(services, userId, () => !cancelled && profileReadIdentity.current === readIdentity)
+      .then(value => { if (!cancelled) setPublicTotals({ identity: readIdentity, value }); })
+      .catch(error => { if (!cancelled) { logClientError("AthletePage.publicTotals", error, {}, services); setPublicTotalsError(true); } });
+    return () => { cancelled = true; };
+  }, [userId, isOwnProfile, readIdentity, totalsAttempt]);
   const [ownerPhotos, setOwnerPhotos] = useState<AthletePhoto[]>([]);
   const [ownerHighlights, setOwnerHighlights] = useState<AthleteHighlight[]>([]);
   const [photoCursor, setPhotoCursor] = useState<AthletePreviewCursor | null>(null);
@@ -344,7 +354,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const chartError = isOwnProfile ? ownChartError : publicGlobal.status !== "complete";
   const chartLimited = !isOwnProfile && publicGlobal.status === "limit";
 
-  const [relationshipLoading, setRelationshipLoading] = useState(true);
+  const [, setRelationshipLoading] = useState(true);
   const [friendLoading, setFriendLoading] = useState(false);
   const autoInviteAttemptRef = useRef<string | null>(null);
   const [friendCount, setFriendCount] = useState(0);
@@ -374,19 +384,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       .map((d) => ({ id: d.id, ...d.data() }) as Activity)
       .filter((a) => a.summary != null);
 
-  // 월간 누적 로더(loadAthleteChartActivities)는 summary 가 없는 활동도 건수에 넣어 돌려주므로
-  // 합계는 summary 가 있는 활동만 더한다. 본인 프로필(/athlete/me)에서 실제로 크래시가 났던 지점.
-  const aggregateActivityStats = (items: Activity[]) => {
-    return {
-      count: items.length,
-      distance: items.reduce((sumDistance, a) => sumDistance + (Number.isFinite(a.summary?.distance) ? a.summary.distance : 0), 0),
-      time: items.reduce((sumTime, a) => {
-        const duration = a.summary ? resolveDuration(a.summary).displayMs : NaN;
-        return sumTime + (Number.isFinite(duration) ? duration : 0);
-      }, 0),
-      elevation: items.reduce((sumElevation, a) => sumElevation + (Number.isFinite(a.summary?.elevationGain) ? a.summary.elevationGain : 0), 0),
-    };
-  };
 
   useEffect(() => {
     if (!userId) return;
@@ -784,9 +781,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const acceptedChartActivities = useMemo(() => acceptedStatsActivities(chartActivities.filter(activity => activity.userId === userId)), [chartActivities, userId]);
   const acceptedLoadActivities = useMemo(() => isOwnProfile ? acceptedTrainingActivities(chartActivities.filter(activity => activity.userId === userId)) : [], [chartActivities, userId, isOwnProfile]);
-  const scopedStats = useMemo(() => aggregateActivityStats(acceptedChartActivities), [acceptedChartActivities]);
-  const stats = isOwnProfile && ownerTotals ? { count: ownerTotals.count, distance: ownerTotals.distance, time: ownerTotals.timeDisplayMillis, elevation: ownerTotals.elevation } : scopedStats;
-  const statsReady = isOwnProfile ? ownerTotals?.state === "ready" && !totalsError : !chartLoading && !chartError;
+  const summaryTotals = isOwnProfile ? ownerTotals : publicTotals?.identity === readIdentity ? publicTotals.value : null;
+  const summaryError = isOwnProfile ? totalsError : publicTotalsError;
+  const stats = { count: summaryTotals?.count ?? 0, distance: summaryTotals?.distance ?? 0, time: summaryTotals?.timeDisplayMillis ?? 0, elevation: summaryTotals?.elevation ?? 0 };
+  const statsReady = summaryTotals?.state === "ready" && !summaryError;
   const ownerPhotoItems = useMemo(() => uniquePhotos(mediaCurrent ? ownerPhotos : []), [mediaCurrent, ownerPhotos]);
   const ownerHighlightItems = mediaCurrent ? ownerHighlights : [];
   const photosBuffered = isOwnProfile && ownerPhotoItems.length > mediaVisible.photos;
@@ -826,6 +824,23 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return filterType === "strava" ? isStrava : !isStrava;
   });
 
+  const totalsSection = (
+      <section aria-label={t("stats.title")}>
+        <h2 className="athlete-sidebar-title">{t("stats.title")}</h2>
+        <div data-testid="P0-1" className="athlete-stats">
+          {[
+            { label: t("stats.activities"), value: statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—", Icon: ActivityIcon },
+            { label: t("stats.distance"), value: statsReady && summaryTotals?.unknownDistanceCount === 0 ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
+            { label: t("stats.time"), value: statsReady && summaryTotals?.unknownTimeCount === 0 ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
+            { label: t("stats.elevation"), value: statsReady && summaryTotals?.unknownElevationCount === 0 ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
+          ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={ICON_SIZE.md} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
+        </div>
+        {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
+        {!isOwnProfile && !statsReady && <p role="status">{t(summaryError || summaryTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Button size="sm" onClick={() => setTotalsAttempt(value => value + 1)}>{t("profile.reloadTotals")}</Button></p>}
+        <Text as="p" variant="caption" tone="secondary" className="mt-2">{t("stats.scopeOwn")}</Text>
+      </section>
+  );
+
   if (viewIdentity !== readIdentity || profileLoading && !ownProfileFallback) {
     return (
       <div data-testid="P0.loading" className="space-y-6">
@@ -835,16 +850,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             <Card key={i} padding="none" className="rounded-[var(--r-lg)] p-4 h-20 animate-pulse" />
           ))}
         </div>
-      </div>
-    );
-  }
-
-  if (profileForPage?.profilePublic === false && !canViewProfile && relationshipLoading) {
-    return (
-      <div className="space-y-6">
-        <Card padding="none" className="rounded-[var(--r-lg)] p-8 text-center text-[var(--ink-3)]">
-          {t("privacy.checking")}
-        </Card>
       </div>
     );
   }
@@ -860,6 +865,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   if (!canViewProfile) {
     return (
       <div data-testid="P0.private" className="space-y-6">
+        {totalsSection}
         <Card padding="none" className="rounded-[var(--r-lg)] p-8 text-center">
           {/* 사진·닉네임은 기본 공개 — 누구의 프로필인지는 보여 준다 */}
           {nickname && <div data-testid="P0.private-identity" className="mb-4 flex flex-col items-center gap-2">
@@ -971,25 +977,13 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       {isOwnProfile && !chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} onRetry={retryChart} />}
 
       </div>
-      <div className="athlete-profile-layout">
-      <aside className="athlete-profile-sidebar">
-      <section aria-label={t("stats.title")}>
-        <h2 className="athlete-sidebar-title">{t("stats.title")}</h2>
-        <div data-testid="P0-1" className="athlete-stats">
-          {[
-            { label: t(isOwnProfile ? "stats.activities" : "stats.publicActivities"), value: statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—", Icon: ActivityIcon },
-            { label: t("stats.distance"), value: statsReady && (isOwnProfile ? ownerTotals?.unknownDistanceCount === 0 : acceptedChartActivities.every(a => Number.isFinite(a.summary?.distance))) ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
-            { label: t("stats.time"), value: statsReady && (isOwnProfile ? ownerTotals?.unknownTimeCount === 0 : acceptedChartActivities.every(a => Number.isFinite(resolveDuration(a.summary ?? {}).displayMs))) ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
-            { label: t("stats.elevation"), value: statsReady && (isOwnProfile ? ownerTotals?.unknownElevationCount === 0 : acceptedChartActivities.every(a => Number.isFinite(a.summary?.elevationGain))) ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
-          ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={ICON_SIZE.md} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
-        </div>
       {!isOwnProfile && <div className="athlete-query-status">
         {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
         {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}
       </div>}
-        {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
-        <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
-      </section>
+      <div className="athlete-profile-layout">
+      <aside className="athlete-profile-sidebar">
+      {totalsSection}
           {isOwnProfile && <section><h2 className="athlete-sidebar-title">{t("profile.clubs")}</h2>{groupsLoading ? <p role="status">{t("activities.loading")}</p> : groupsError ? <div role="alert"><p><Resolvable resolve={{ onClick: retryGroups }}>{t("profile.clubsError")}</Resolvable></p></div> : <div className="athlete-clubs">{ownGroups.map(group => <Link key={group.id} to={`/club/${group.id}`}><span className="athlete-club-badge">{group.badge || group.name.slice(0, 3)}</span><span>{group.name}</span></Link>)}{!ownGroups.length && <Link to="/clubs">{t("profile.findClubs")}</Link>}</div>}</section>}
           {/* Friends List */}
           {canViewFriends && <Card data-testid="P0-4" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
@@ -1161,7 +1155,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 <p className="text-[var(--ink-3)]">
                   {isSearchActive ? t("activities.emptySearch") : isOwnProfile && !selectedPeriod && hasMoreActivities ? t("profile.noMatchesInLoaded")
                     // 내 프로필의 「아직 활동 내역이 없어요」 → 활동 가져오기 창.
-                    : <Resolvable resolve={isOwnProfile && !selectedPeriod ? { to: "/athlete/me/activities?import=1" } : undefined}>{t("activities.empty")}</Resolvable>}
+                    : <Resolvable resolve={isOwnProfile && !selectedPeriod ? { to: "/athlete/me/activities?import=1" } : undefined}>{t(isOwnProfile ? "activities.empty" : "activities.emptyPublic")}</Resolvable>}
                 </p>
                 {isSearchActive && (
                   <Button size="sm" variant="ghost"
