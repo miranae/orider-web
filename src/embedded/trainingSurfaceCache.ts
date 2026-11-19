@@ -187,10 +187,11 @@ function restore(uid: string): void {
       rejectSnapshot(new RangeError("Training snapshot exceeds the storage limit"));
       return;
     }
-    let envelope: unknown;
-    try { envelope = JSON.parse(encoded); }
+    let decoded: unknown;
+    try { decoded = JSON.parse(encoded); }
     catch (error) { rejectSnapshot(error); return; }
-    const currentOwner = isRecord(envelope) && envelope.uid === uid && envelope.scope === scope;
+    const envelope: Record<string, unknown> = isRecord(decoded) ? decoded : {};
+    const currentOwner = envelope.uid === uid && envelope.scope === scope;
     if (!currentOwner || envelope.schema !== TRAINING_SURFACE_CACHE_SCHEMA_VERSION
       || !Array.isArray(envelope.entries) || envelope.entries.length > CACHE_MAX_ENTRIES) {
       if (scoped !== null || currentOwner) {
