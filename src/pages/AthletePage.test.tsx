@@ -1211,6 +1211,19 @@ it("removes existing public cards and ignores an older continuation after a bloc
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
 
+it("rechecks public results without resetting an edited period when the access revision changes", async () => {
+  const profile = { nickname: "Public rider", profilePublic: true, athleteTotalsSignal: "before" };
+  setDocData("users_public/athlete-1", profile);
+  renderWithProviders(<AthletePage />, { route: "/ko/athlete/athlete-1?profileFrom=2026-01-01&profileTo=2026-01-31" });
+  const startDate = await screen.findByLabelText("시작일");
+  fireEvent.change(startDate, { target: { value: "2026-01-02" } });
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 29 }) });
+  act(() => setDocData("users_public/athlete-1", { ...profile, athleteTotalsSignal: "after" }));
+  await screen.findByText("29회");
+  expect(screen.getByLabelText("시작일")).toBe(startDate);
+  expect(startDate).toHaveValue("2026-01-02");
+});
+
 it("observes first signal insertion on existing documents whose counters start at version zero", async () => {
   setDocData("users_public/athlete-1", { nickname: "Initial version rider", profilePublic: false });
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
