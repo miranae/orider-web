@@ -909,6 +909,7 @@
   "src/utils/estimateTSS.ts",
   "src/utils/event-time.ts",
   "src/utils/expandedRunDistances.ts",
+  "src/utils/exportCadence.ts",
   "src/utils/exportCsv.ts",
   "src/utils/exportFit.ts",
   "src/utils/exportGpx.ts",
