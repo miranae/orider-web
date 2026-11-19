@@ -1,8 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { Button, Text, buttonClass } from "../../../theme/components";
-import { LocalizedLink } from "../../../components/LocalizedLink";
+import { Text } from "../../../theme/components";
 import "./analysis-group.css";
 
 /**
@@ -22,22 +20,4 @@ export function AnalysisGroup({ id, title, children }: { id: string; title: stri
     </header>
     <div className="analysis-group__body">{children}</div>
   </section>;
-}
-
-/** 두 기간 비교(파워 커브·기간별 훈련 구성)를 한 번에 불러오는 공용 버튼. 서버 호출이라 명시적으로만 부른다. */
-export function AnalysisPeriodLoadBar({ windowDays, onLoad }: { windowDays: number; onLoad: () => void }) {
-  const { t } = useTranslation("fitness");
-  return <div className="analysis-period-load" data-testid="analysis-period-load">
-    <Text as="p" variant="bodySmall" tone="secondary">{t("analysis.loadNote", { days: windowDays })}</Text>
-    <Button onClick={onLoad}>{t("periodCurve.load")}</Button>
-  </div>;
-}
-
-/**
- * 러닝 거리 기록·출처·마일스톤 상세로 가는 길. 분석은 상세 섹션을 두지 않지만 기록 페이지로 바로 갈 수 있어야 한다
- * (P9 — 러닝을 사이클보다 낮게 다루지 않는다).
- */
-export function AnalysisRunRecordsLink() {
-  const { t } = useTranslation("fitness");
-  return <LocalizedLink data-testid="analysis-run-records-link" className={buttonClass({ variant: "secondary" })} to="/athlete/me/records?sport=run">{t("analysis.runRecordsLink")}</LocalizedLink>;
 }
