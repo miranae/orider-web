@@ -167,8 +167,10 @@ it("uses only the approved viewer's token for the embedded backup when Sentry is
     ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
     getAppCheckToken: vi.fn().mockResolvedValue("embed-appcheck"),
     isSessionApproved: () => true } as unknown as FirebaseServices;
-  const config = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ appEnvironment: "production" });
-  const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
+  const config = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({
+    appEnvironment: "production", firebaseFunctionsRegion: "asia-northeast3",
+  });
+  const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ result: { success: true } }));
   try {
     logClientError("embedded.approved", new Error("pending"), {}, services, services.auth.currentUser);
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith(
@@ -210,13 +212,14 @@ it("retains approved-session diagnostics when approval is revoked during token a
 it.each([
   { phase: "app-check", status: undefined },
   { phase: "http", status: 403 },
+  { phase: "body", status: 200 },
 ] as const)("reports $phase failures of the embedded backup without logging credentials", async ({ phase, status }) => {
   __resetClientErrorDedupeForTests();
   const appCheck = vi.fn().mockResolvedValue("app-check-token");
   if (phase === "app-check") appCheck.mockRejectedValue(new Error("private-token-error"));
   const services = { auth: { currentUser: null }, functions: { app: { options: { projectId: "test-project" } } },
     getAppCheckToken: appCheck, isSessionApproved: () => true } as unknown as FirebaseServices;
-  const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 403 }));
+  const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ error: { status: "FAILED" } }, { status: status ?? 403 }));
   const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
   try {
     logClientError("embedded.test", new Error("initial failure"), {}, services, null);
@@ -225,6 +228,25 @@ it.each([
     expect(captureError).toHaveBeenCalledWith(new Error("embedded-error-backup-failed"), {
       tags: { source: "errorLogger.embeddedBackup" }, extra: diagnostic,
     });
-    expect(post).toHaveBeenCalledTimes(phase === "http" ? 1 : 0);
+    expect(post).toHaveBeenCalledTimes(phase === "app-check" ? 0 : 1);
   } finally { post.mockRestore(); warn.mockRestore(); }
+});
+
+it("bounds a stalled embedded backup and records its timeout", async () => {
+  vi.useFakeTimers();
+  __resetClientErrorDedupeForTests();
+  const services = { auth: { currentUser: null }, functions: { app: { options: { projectId: "test-project" } } },
+    getAppCheckToken: vi.fn().mockResolvedValue("app-check"), isSessionApproved: () => true } as unknown as FirebaseServices;
+  const post = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+  }));
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  try {
+    logClientError("embedded.stalled", new Error("initial failure"), {}, services, null);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(post).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith("[errorLogger] 서버 에러 로깅 실패:", {
+      source: "embedded.stalled", phase: "timeout", status: undefined,
+    });
+  } finally { vi.useRealTimers(); post.mockRestore(); warn.mockRestore(); }
 });

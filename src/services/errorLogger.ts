@@ -17,6 +17,7 @@ import { ensureAppCheckReady, functions } from "./firebase";
 let _logClientErrorFn: HttpsCallable<unknown, unknown> | null = null;
 const RECENT_ERROR_WINDOW_MS = 10_000;
 const MAX_RECENT_ERROR_KEYS = 200;
+const ERROR_BACKUP_TIMEOUT_MS = 10_000;
 type ErrorTimes = Map<string, number>;
 const recentClientErrors: ErrorTimes = new Map();
 let scopedClientErrors = new WeakMap<object, { guest: ErrorTimes; users: WeakMap<object, ErrorTimes> }>();
@@ -108,12 +109,12 @@ export function logClientError(
   if (!requestIsCurrent()) return;
   const payload = { source, message, stack, context };
   void (async () => {
-    let backupPhase: "endpoint" | "app-check" | "id-token" | "transport" | "http" = "endpoint";
+    let backupPhase: "endpoint" | "app-check" | "id-token" | "transport" | "http" | "body" | "timeout" = "endpoint";
     let backupStatus: number | undefined;
     try {
       if (services?.isSessionApproved) {
         // The SDK callable resolves live Auth. Use only the approved viewer's captured credentials.
-        const endpoint = approvedCallableEndpoint(config, services.functions, "asia-northeast3", "logClientError");
+        const endpoint = approvedCallableEndpoint(config, services.functions, config.firebaseFunctionsRegion || "us-central1", "logClientError");
         if (!endpoint) throw new Error("embedded-error-backup-endpoint-unavailable");
         backupPhase = "app-check";
         const appCheck = await services.getAppCheckToken?.();
@@ -123,12 +124,24 @@ export function logClientError(
         const authToken = await user?.getIdToken();
         if (!requestIsCurrent()) return;
         if (user && !authToken) throw new Error("embedded-error-backup-id-token-unavailable");
-        backupPhase = "transport";
-        const response = await postApprovedCallable(endpoint, payload, appCheck ?? null, authToken);
-        if (!response.ok) {
-          backupPhase = "http";
+        const controller = new AbortController();
+        const timeout = setTimeout(() => {
+          backupPhase = "timeout";
+          controller.abort();
+        }, ERROR_BACKUP_TIMEOUT_MS);
+        try {
+          backupPhase = "transport";
+          const response = await postApprovedCallable(endpoint, payload, appCheck ?? null, authToken, controller.signal);
           backupStatus = response.status;
-          throw new Error("embedded-error-backup-rejected");
+          if (!response.ok) {
+            backupPhase = "http";
+            throw new Error("embedded-error-backup-rejected");
+          }
+          backupPhase = "body";
+          const body = await response.json() as { result?: { success?: boolean }; data?: { success?: boolean }; error?: unknown } | null;
+          if (body?.error || (body?.result ?? body?.data)?.success !== true) throw new Error("embedded-error-backup-invalid-response");
+        } finally {
+          clearTimeout(timeout);
         }
         return;
       }
