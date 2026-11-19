@@ -196,7 +196,7 @@ it("keeps moving-time legacy samples separate from native elapsed lap clocks", (
   const prepared = prepareTcxExport(activity, streams, "spm");
   const [, , second] = prepared.render("recorded").split(/<Lap StartTime="/u);
   expect(prepared.hasUnassigned).toBe(false);
-  expect(second).toContain(new Date(startTime + 61_000).toISOString());
+  expect(second).toContain(new Date(startTime + 121_000).toISOString());
 });
 
 it("does not infer elapsed workout time from activity endpoints", () => {
@@ -378,4 +378,18 @@ it("anchors a proven full-activity lap at activity start and keeps recorded calo
   const xml = generateTcx(activity, streams);
   expect(xml).toContain(`<Lap StartTime="${new Date(startTime).toISOString()}">`);
   expect(xml).toContain("<Calories>380</Calories>");
+});
+
+it("uses a complete matching native lap schedule to verify legacy elapsed samples", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {
+    distance: 1200, elapsedTimeMillis: 180_000, ridingTimeMillis: 120_000,
+  } } as Activity;
+  const streams = { userId: "owner", time: [0, 60, 120, 180], heartrate: [150, 150, 150, 150], laps: [
+    { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
+    { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
+  ] } as ActivityStreams;
+  const xml = generateTcx(activity, streams);
+  expect(xml).toContain(`<Lap StartTime="${new Date(startTime + 120_000).toISOString()}">`);
+  expect(xml).toContain(new Date(startTime + 180_000).toISOString());
 });

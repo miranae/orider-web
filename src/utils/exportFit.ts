@@ -16,7 +16,9 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const startSeconds = (startDate.getTime() - garminEpoch) / 1000;
   const startTimestamp = timed ? Math.round(startSeconds) : Math.floor(startSeconds);
   const len = streams.time?.length || streams.latlng?.length || 0;
-  const durationMs = activity.summary.ridingTimeMillis || 0;
+  const movingSeconds = activity.summary.movingTimeSec;
+  const durationMs = typeof movingSeconds === "number" && Number.isFinite(movingSeconds) && movingSeconds >= 0
+    ? movingSeconds * 1000 : activity.summary.ridingTimeMillis || 0;
   const distanceM = activity.summary.distance || 0;
   // streams.time 단위 정규화(상대 초) — 절대 epoch 입력 시 startTimestamp + t 가 uint32 를
   // 넘겨 FIT 타임스탬프가 손상되던 버그 방지(TCX/GPX 와 동일 수정).
@@ -27,7 +29,8 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const elapsedMs = timed ? recordedElapsed ?? 0xFFFFFFFF : durationMs;
   const endTimestamp = recordedElapsed != null
     ? Math.round((startDate.getTime() + recordedElapsed - garminEpoch) / 1000)
-    : startTimestamp + Math.round(endRel ?? Math.floor(durationMs / 1000));
+    : startTimestamp + Math.round(timed ? Math.max(endRel ?? 0, durationMs / 1000)
+      : endRel ?? Math.floor(durationMs / 1000));
 
   // File ID 메시지 (mesg 0)
   buf.writeDefinition(0, 0, [

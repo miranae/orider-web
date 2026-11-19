@@ -106,8 +106,10 @@ export function applyVerifiedCadenceUnit(activity: Activity, displayed: Activity
 export function resolveRecordedElapsedMs(activity: Activity, minimumMs: number): number | undefined {
   const summary = activity.summary.elapsedTimeMillis;
   if (typeof summary === "number" && Number.isFinite(summary) && summary >= minimumMs) return summary;
-  // Activity endpoints can describe GPS coverage rather than the elapsed workout.
-  return undefined;
+  // The legacy native Orider contract includes pauses in ridingTimeMillis.
+  const nativeElapsed = activity.summary.ridingTimeMillis;
+  return activity.source === "orider" && typeof nativeElapsed === "number"
+    && Number.isFinite(nativeElapsed) && nativeElapsed >= minimumMs ? nativeElapsed : undefined;
 }
 
 export function readUnroundedFitEnd(streams: ActivityStreams): number | undefined {

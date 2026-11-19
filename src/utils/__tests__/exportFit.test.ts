@@ -307,3 +307,16 @@ it("quantizes verified FIT records against the absolute start clock", () => {
   expect(session.get(253)! - session.get(2)!).toBe(1);
   expect(session.get(7)).toBe(1000);
 });
+
+it("uses the native legacy elapsed field and its independent moving time", () => {
+  const startTime = 1_700_000_000_000;
+  const source = makeActivity({ type: "Run", startTime, source: "orider" });
+  const activity = { ...source, source: "orider" as const, summary: {
+    ...source.summary, ridingTimeMillis: 120_000, movingTimeSec: 90,
+  } };
+  const raw = markRawPartStreams({ userId: "owner", time: [0, 1], cadence: [170, 172] }, "a".repeat(64), startTime);
+  const fit = readSession(generateFit(activity, prepareActivityFileStreams(activity, raw, "fit"), "spm"));
+  expect(fit.get(7)).toBe(120_000);
+  expect(fit.get(8)).toBe(90_000);
+  expect(fit.get(253)! - fit.get(2)!).toBe(120);
+});

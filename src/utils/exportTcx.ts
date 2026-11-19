@@ -26,11 +26,39 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const unit = firstTime == null ? "relative_sec" : detectTimestampUnit(firstTime);
   const verifiedRelativeClock = usesVerifiedActivityTime(streams);
   const recordedClock = unit !== "relative_sec";
-  const activityTime = verifiedRelativeClock || recordedClock;
   const summary = activity.summary;
+  const relativePoints = new Set(unit === "relative_sec" ? streams.time ?? [] : []);
+  const lastRelative = streams.time?.reduce<number>((last, sample) => Number.isFinite(sample) ? Math.max(last, sample) : last, 0) ?? 0;
+  let lapTimer = 0;
+  const nativeLapClock = (streams.laps ?? []).map(lap => {
+    const timerStart = lapTimer;
+    lapTimer += lap.durationMs / 1000;
+    return {
+      start: ((lap.startTimeMs ?? NaN) - startMs) / 1000,
+      end: ((lap.endTimeMs ?? NaN) - startMs) / 1000,
+      timerStart,
+      timerEnd: lapTimer,
+    };
+  });
+  const boundedLaps = nativeLapClock.length > 0 && nativeLapClock.every((lap, index) =>
+    Number.isFinite(lap.start) && Number.isFinite(lap.end) && lap.end > lap.start
+    && lap.start >= (nativeLapClock[index - 1]?.end ?? 0));
+  // Both clocks are possible for old relative series. Require corroboration from the
+  // complete native lap schedule before interpreting or expanding the recorded samples.
+  const corroboratedElapsed = !recordedClock && !verifiedRelativeClock && boundedLaps && lastRelative > lapTimer
+    && resolveRecordedElapsedMs(activity, Math.round(lastRelative * 1000)) != null
+    && nativeLapClock.every(lap => relativePoints.has(lap.start) && relativePoints.has(lap.end));
+  const corroboratedMoving = !recordedClock && !verifiedRelativeClock && boundedLaps
+    && lastRelative === lapTimer && nativeLapClock.every(lap =>
+      lap.end - lap.start === lap.timerEnd - lap.timerStart && relativePoints.has(lap.timerEnd));
+  const activityTime = verifiedRelativeClock || recordedClock || corroboratedElapsed || corroboratedMoving;
   const relSecAt = (index: number) => {
     const value = streams.time?.[index];
-    if (!recordedClock || value == null || !Number.isFinite(value)) return relativeAt(index);
+    if (value == null || !Number.isFinite(value)) return relativeAt(index);
+    if (corroboratedMoving) {
+      const lap = nativeLapClock.find(entry => value <= entry.timerEnd);
+      if (lap) return lap.start + value - lap.timerStart;
+    }
     if (unit === "epoch_ms") return (value - startMs) / 1000;
     if (unit === "epoch_sec") return value - startMs / 1000;
     return value;
