@@ -163,7 +163,7 @@ test("reviewed historical sources without bundled tooling are rejected before a 
     const run = () => spawnSync("bash", ["-euc", check], { cwd: root, encoding: "utf8", env: { ...process.env, SELECTED_TRANSPORT: "bundled-development", selected_sha: "a".repeat(40) } });
     const missing = run();
     assert.equal(missing.status, 1); assert.match(missing.stdout, /does not support bundled transport: missing/);
-    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs", "scripts/stage-html-entry.mjs", "scripts/verify-bundled-hosting.mjs"]) {
+    for (const path of ["scripts/hosting-candidate-archive.mjs", "scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs", "scripts/stage-html-entry.mjs", "scripts/verify-bundled-hosting.mjs"]) {
       mkdirSync(resolve(root, path, ".."), { recursive: true }); writeFileSync(resolve(root, path), "// capability fixture");
     }
     assert.equal(run().status, 0);

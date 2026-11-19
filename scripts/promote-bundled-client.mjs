@@ -15,14 +15,8 @@ const json = path => JSON.parse(readFileSync(path, "utf8"));
 const save = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + "\n", { flag: "wx" });
 const sha = /^[a-f0-9]{40}$/u, digest = /^[a-f0-9]{64}$/u;
 
-export function validateCandidateRun(run, artifact, attempt) {
-  if (run.repository?.full_name !== "miranae/orider-web" || run.path !== ".github/workflows/deploy-stage.yml"
-    || run.event !== "workflow_dispatch" || run.status !== "completed" || run.conclusion !== "success"
-    || run.run_attempt !== Number(attempt) || !Number.isSafeInteger(run.id) || run.id < 1) throw new Error("successful selected development run/attempt required");
-  if (!artifact || artifact.expired || !Number.isSafeInteger(artifact.id) || artifact.id < 1
-    || !/^stage-client-[a-f0-9]{40}$/u.test(artifact.name)) throw new Error("unexpired selected client artifact required");
-  return artifact.name.slice("stage-client-".length);
-}
+export { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
+import { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
 
 function findFiles(root, name) {
   const found = [];
@@ -34,16 +28,28 @@ function findFiles(root, name) {
   }
   return found;
 }
+/** squash 병합도 같은 Git tree라면 검증한 소스를 그대로 승격한다. */
+export function assertReviewedSource(workspace, frontendSourceSha) {
+  if (!sha.test(frontendSourceSha || "")) throw new Error("candidate source SHA required");
+  const git = (...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  const tree = git("rev-parse", `${frontendSourceSha}^{tree}`);
+  const commits = git("log", "--format=%H %T", "origin/main").split("\n");
+  const reviewedMainSha = commits.find(line => line.endsWith(` ${tree}`))?.split(" ")[0];
+  if (reviewedMainSha) return reviewedMainSha;
+  try { git("merge-base", "--is-ancestor", frontendSourceSha, "origin/main"); return frontendSourceSha; }
+  catch { throw new Error("candidate source is not reviewed main history or an identical reviewed tree"); }
+}
 export function prepareClientPromotion({ archive, workspace = process.cwd(), directory, run, artifact, attempt, toolingSourceSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() }) {
   const frontendSourceSha = validateCandidateRun(run, artifact, attempt);
   if (!sha.test(toolingSourceSha)) throw new Error("tooling source SHA required");
   archive = resolve(archive); workspace = resolve(workspace); directory = resolve(directory);
+  const reviewedMainSha = assertReviewedSource(workspace, frontendSourceSha);
   const receipts = findFiles(archive, "build.json"), configs = findFiles(archive, "firebase.bundled-stage.json");
   if (receipts.length !== 1 || configs.length !== 1) throw new Error("one sealed development client artifact required");
   const candidate = json(receipts[0]), sourceDist = join(dirname(configs[0]), "dist");
   if (candidate.schemaVersion !== 1 || candidate.mode !== "bundled-development-client" || candidate.complete !== true
     || candidate.frontendSourceSha !== frontendSourceSha || !sha.test(candidate.backendSourceSha || "") || !digest.test(candidate.backendTopologyHash || "")
-    || candidate.artifactHash !== hash(JSON.stringify(candidate.artifactManifest))
+    || candidate.artifactHash !== artifact.artifactHash || candidate.artifactHash !== hash(JSON.stringify(candidate.artifactManifest))
     || !isDeepStrictEqual(stageArtifactManifest(sourceDist), candidate.artifactManifest)
     || hash(readFileSync(configs[0])) !== candidate.hostingHash) throw new Error("sealed development artifact source/files mismatch");
   const candidateRuntime = json(join(sourceDist, "runtime-config.json"));
@@ -61,8 +67,10 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
   const expected = candidate.artifactManifest.map(([path, value]) => [path, path === "runtime-config.json" ? hash(readFileSync(join(workspace, "dist", path))) : value]);
   if (!isDeepStrictEqual(stageArtifactManifest(join(workspace, "dist")), expected)) throw new Error("promotion changed compiled/static files");
   save(join(workspace, "firebase.bundled-production.json"), hosting);
-  const receipt = { schemaVersion: 1, mode: "bundled-client-promotion", frontendSourceSha, toolingSourceSha,
-    candidateRunId: run.id, candidateRunAttempt: run.run_attempt, candidateArtifactId: artifact.id,
+  const receipt = { schemaVersion: 1, mode: "bundled-client-promotion", frontendSourceSha, toolingSourceSha, reviewedMainSha,
+    candidateRunId: run.id, candidateRunAttempt: run.run_attempt,
+    candidateRunValidation: run.kind || "github-successful-run",
+    candidateArchive: { bucket: artifact.bucket, object: artifact.object, generation: artifact.generation, sha256: artifact.sha256 },
     backend: { sourceSha: candidate.backendSourceSha, topologyHash: candidate.backendTopologyHash },
     originalArtifactHash: candidate.artifactHash, artifactManifest: expected, runtime,
     hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))),
@@ -73,7 +81,7 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
 export function verifyPromotionFiles({ workspace = process.cwd(), directory }) {
   const receipt = json(join(directory, "promotion.json"));
   if (receipt.schemaVersion !== 1 || receipt.mode !== "bundled-client-promotion" || receipt.rebuilt !== false
-    || !sha.test(receipt.toolingSourceSha || "") || !sha.test(receipt.frontendSourceSha || "") || !sha.test(receipt.backend?.sourceSha || "") || !digest.test(receipt.backend?.topologyHash || "")
+    || !sha.test(receipt.reviewedMainSha || "") || !sha.test(receipt.toolingSourceSha || "") || !sha.test(receipt.frontendSourceSha || "") || !sha.test(receipt.backend?.sourceSha || "") || !digest.test(receipt.backend?.topologyHash || "")
     || !isDeepStrictEqual(stageArtifactManifest(join(workspace, "dist")), receipt.artifactManifest)
     || hash(readFileSync(join(workspace, "firebase.bundled-production.json"))) !== receipt.hostingHash
     || !isDeepStrictEqual(json(join(workspace, "dist/runtime-config.json")), receipt.runtime)
