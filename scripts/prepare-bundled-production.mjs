@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
-import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/stage-production-parity.mjs";
+import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
