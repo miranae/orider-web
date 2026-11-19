@@ -123,6 +123,10 @@ export interface Goal {
 }
 
 export interface PlanDay {
+  /** 시간대 확정 전에 이미 지난 슬롯. 실행 대상으로 다시 쓰지 않는다. */
+  calendarHistoryOnly?: boolean;
+  /** 재계획 공백의 표시용 날짜. 실제 휴식 처방 및 실적 집계에서 제외한다. */
+  calendarGap?: boolean;
   /** 작성 행위로 확인된 강도 출처. 숫자가 같다는 이유로 생성기 근거를 재사용하지 않는다. */
   prescriptionIntensityProvenance?:
     | { origin: 'user' }

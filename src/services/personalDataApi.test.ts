@@ -1,10 +1,11 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
 import { auth, getAppCheckToken } from "./firebase";
-import { resetRuntimeConfigForTests } from "./runtimeConfig";
+import { resetRuntimeConfigForTests, STAGE_PARITY_GATEWAY } from "./runtimeConfig";
 import {
   createPersonalApiKey,
   getActivityStreams,
+  getActivityStreamsWithAuth,
   listPersonalApiKeys,
   revokePersonalApiKey,
 } from "./personalDataApi";
@@ -185,4 +186,23 @@ it("does not dispatch a protected stage request without a token", async () => {
   await expect(listPersonalApiKeys()).rejects.toThrow("app-check/empty-token");
   expect(fetchMock).not.toHaveBeenCalled();
   resetRuntimeConfigForTests(); vi.unstubAllGlobals();
+});
+
+it("uses the unchanged production REST auth contract through parity compute without a global App Check instance", async () => {
+  resetRuntimeConfigForTests({appEnvironment:"production",deploymentProfile:"production-parity-stage",firebaseFunctionsBase:STAGE_PARITY_GATEWAY,personalApiBase:STAGE_PARITY_GATEWAY});
+  mockAuth.currentUser={uid:"owner",getIdToken:vi.fn(async()=>"id")};
+  vi.mocked(getAppCheckToken).mockReset().mockRejectedValue(new Error("app-check/not-initialized"));
+  const streams={time:[0,1],watts:[100,110]};
+  const fetchMock=vi.fn(async()=>responseJson({data:streams}));vi.stubGlobal("fetch",fetchMock);
+  try {
+    expect(await getActivityStreams("activity-1")).toEqual(streams);
+    expect(fetchMock).toHaveBeenCalledWith(`${STAGE_PARITY_GATEWAY}/api/v1/activities/activity-1/streams`,expect.objectContaining({headers:expect.objectContaining({Authorization:"Bearer id"})}));
+    expect(getAppCheckToken).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.any(String),expect.objectContaining({headers:expect.not.objectContaining({"X-Firebase-AppCheck":expect.anything()})}));
+    mockAuth.currentUser=null;
+    const injected={currentUser:{uid:"embedded-owner",getIdToken:vi.fn(async()=>"embedded-id")}};
+    expect(await getActivityStreamsWithAuth(injected as never,"activity-2",{functions:{} as never,ensureAppCheckReady:vi.fn(async()=>{throw Error("global Firebase must not initialize");})})).toEqual(streams);
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.any(String),expect.objectContaining({headers:expect.objectContaining({Authorization:"Bearer embedded-id"})}));
+    expect(getAppCheckToken).not.toHaveBeenCalled();
+  } finally {resetRuntimeConfigForTests({});vi.unstubAllGlobals();}
 });
