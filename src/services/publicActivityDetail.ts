@@ -1,5 +1,5 @@
 import { decodePublicMapPolylineParts } from "./publicActivityMaps";
-import { markRawPartStreams } from "./activityStreamSource";
+import { markPublicStreamRevision, markRawPartStreams } from "./activityStreamSource";
 import { validatedRunEffortFacts } from "./personalDataApi";
 import { announceActivityContentChange } from "./activityContentChanged";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
@@ -85,7 +85,9 @@ export function createPublicActivityClient(services: FirebaseServices, options: 
       if (result.state !== "available") return result;
       if (!result.streamInputRevision || !/^[a-f0-9]{64}$/.test(result.streamInputRevision) || !["raw_parts", "api_streams"].includes(result.sourceLayer ?? "") || !result.streams || Array.isArray(result.streams)) throw new Error("invalid_activity_streams");
       const streams = result.sourceLayer === "raw_parts" ? markRawPartStreams(result.streams, result.streamInputRevision) : result.streams;
-      return { ...result, streams: { ...streams, runningBestEffortsFacts: validatedRunEffortFacts(result.runningBestEffortsFacts, result.streamInputRevision) ?? undefined } };
+      return { ...result, streams: markPublicStreamRevision({
+        ...streams, runningBestEffortsFacts: validatedRunEffortFacts(result.runningBestEffortsFacts, result.streamInputRevision) ?? undefined,
+      }, result.streamInputRevision) };
     },
     setNativeMemo: (activityId: string, memo: string, expectedMemoRevision: string) => call<{ status: "updated" | "unchanged"; memoRevision: string }>("setActivityNativeMemo", { activityId, memo, expectedMemoRevision }),
     photos: (activityId: string) => call<{ photos: NonNullable<PublicActivityDetail["content"]["photos"]>; truncated: boolean }>("getActivityPublicPhotos", { activityId }),

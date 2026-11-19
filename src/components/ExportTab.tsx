@@ -8,6 +8,7 @@ import { generateGpx } from "../utils/exportGpx";
 import { exportFilename } from "../utils/exportSport";
 import type { ExportCadenceUnit } from "../utils/exportCadence";
 import { useToast } from "../contexts/ToastContext";
+import { readPublicStreamRevision } from "../services/activityStreamSource";
 import { logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
@@ -47,16 +48,19 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ca
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
       if (request !== generation.current) return;
+      const displayedRevision = readPublicStreamRevision(streams);
+      const sameStream = !resolveCurrentStreams || (displayedRevision !== undefined && displayedRevision === readPublicStreamRevision(currentStreams));
+      const fileCadenceUnit = sameStream ? cadenceUnit : activity.source === "orider" ? "spm" : null;
       switch (format) {
         case "fit": {
-          const data = generateFit(activity, currentStreams, cadenceUnit);
+          const data = generateFit(activity, currentStreams, fileCadenceUnit);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
           downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
           break;
         }
         case "tcx": {
-          const xml = generateTcx(activity, currentStreams, cadenceUnit);
+          const xml = generateTcx(activity, currentStreams, fileCadenceUnit);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }

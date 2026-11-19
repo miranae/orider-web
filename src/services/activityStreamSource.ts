@@ -13,3 +13,15 @@ export function markRawPartStreams(streams: ActivityStreams, revision: string): 
 export function isRawPartStreams(streams: ActivityStreams | null | undefined): boolean {
   return streams != null && typeof (streams as Partial<RawPartStreams>)[rawPartRevision] === "string";
 }
+
+const publicStreamRevision = Symbol("publicStreamInputRevision");
+type PublicStreams = ActivityStreams & { [publicStreamRevision]: string };
+
+export function markPublicStreamRevision(streams: ActivityStreams, revision: string): ActivityStreams {
+  const marked: PublicStreams = { ...streams, [publicStreamRevision]: revision };
+  return marked;
+}
+
+export function readPublicStreamRevision(streams: ActivityStreams): string | undefined {
+  return (streams as Partial<PublicStreams>)[publicStreamRevision];
+}
