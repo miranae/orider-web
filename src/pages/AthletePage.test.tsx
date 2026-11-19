@@ -1050,6 +1050,22 @@ it("rejects malformed target paths before registering Firestore reads", async ()
   expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(0);
 });
 
+it("records a synchronous signal listener failure while the independent totals read still works", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  const failure = new Error("Firestore was terminated");
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (ref.path === "users_public/athlete-1" && options && typeof options === "object" && "includeMetadataChanges" in options) throw failure;
+    return Reflect.apply(original, undefined, [ref, options, next, error]);
+  }) as typeof onSnapshot);
+  const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("5회");
+    expect(log).toHaveBeenCalledWith("AthletePage.totalsSignal", failure, { kind: "public" }, expect.anything(), null, expect.any(Function));
+  } finally { log.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
 it("retries the callable immediately when a terminated signal subscription has not delivered a new callback", async () => {
   setDocData("users_public/athlete-1", { nickname: "Retry rider", athleteTotalsSignal: "one" });
   const original = vi.mocked(onSnapshot).getMockImplementation()!;

@@ -255,33 +255,43 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!current()) return;
     const generation = ++signalGeneration.current;
     setTotalsSignals(null);
-    const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
-      doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
-        if (!current()) return;
-        // An absent counter is version zero: the live document listener observes its first insertion too.
-        const revision: unknown = snapshot.data()?.[field];
-        const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
-        if (kind === "viewer") viewerRevisionRef.current.revision = signal.revision;
-        setTotalsSignals(previous => {
-          const current = previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation };
-          const prior = current[kind];
-          if (prior && prior.present === signal.present && prior.fromCache === signal.fromCache && prior.error === signal.error && prior.revision === signal.revision) return previous;
-          return { ...current, [kind]: signal };
-        });
-      }, error => {
-        logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer);
-        if (current()) {
-          setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
-        }
-      });
+    const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => {
+      const failed = (error: unknown) => {
+          logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer, current);
+          if (current()) {
+            setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
+          }
+      };
+      try {
+        return onSnapshot(
+          doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
+            if (!current()) return;
+            // An absent counter is version zero: the live document listener observes its first insertion too.
+            const revision: unknown = snapshot.data()?.[field];
+            const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
+            if (kind === "viewer") viewerRevisionRef.current.revision = signal.revision;
+            setTotalsSignals(previous => {
+              const current = previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation };
+              const prior = current[kind];
+              if (prior && prior.present === signal.present && prior.fromCache === signal.fromCache && prior.error === signal.error && prior.revision === signal.revision) return previous;
+              return { ...current, [kind]: signal };
+            });
+          }, failed,
+        );
+      } catch (error) {
+        failed(error);
+        return undefined;
+      }
+    };
     const stopPublic = watch("public", "users_public", userId, "athleteTotalsSignal");
     const viewer = readIdentity.viewer?.uid;
     const stopViewer = viewer && current() ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
-    return () => { active = false; if (signalGeneration.current === generation) signalGeneration.current++; stopPublic(); stopViewer?.(); };
+    return () => { active = false; if (signalGeneration.current === generation) signalGeneration.current++; stopPublic?.(); stopViewer?.(); };
   }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity && totalsSignals.generation === signalGeneration.current ? totalsSignals : null;
   const publicAccessRevision = currentSignals?.public?.revision ?? "0";
-  const viewerAccessRevision = currentSignals?.viewer?.revision ?? viewerRevisionRef.current.revision;
+  const viewerAccessRevision = currentSignals?.viewer && !currentSignals.viewer.error
+    ? currentSignals.viewer.revision : viewerRevisionRef.current.revision;
   const activityAccessCurrent = useCallback(() => profileReadIdentity.current === readIdentity
     && services.auth.currentUser === readIdentity.viewer
     && services.isSessionApproved?.(readIdentity.viewer) !== false
