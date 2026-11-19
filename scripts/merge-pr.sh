@@ -18,9 +18,9 @@
 #   --no-merge                Run gates only.
 #   --no-review               Skip local AI code review.
 #   --self-review-file <path>  Exact-input self review after both CLIs are unavailable.
-#   --blockers-only           Deprecated alias; still blocks BLOCKER and MAJOR.
-#   --major-and-blocker        Review BLOCKER and MAJOR defects (default).
-#   --all-findings            Review BLOCKER, MAJOR, and MINOR findings.
+#   --blockers-only           Block only BLOCKER findings (default).
+#   --major-and-blocker        Legacy alias for the default review scope.
+#   --all-findings            Include MINOR findings in the review report.
 #   --no-visual-check         Skip the sticky/fixed screenshot-evidence gate.
 #   --require-github-review   Require GitHub reviewDecision=APPROVED before merge.
 #   --skip-build              Skip `npm run build`.
@@ -38,7 +38,7 @@ set -euo pipefail
 
 DO_MERGE=1
 RUN_REVIEW=1
-REVIEW_INCLUDE_MINOR=0
+REVIEW_SCOPE=blockers-only
 REVIEW_RANGE_MODE=delta   # delta(기본)=마지막으로 PASS 한 head 이후만 · full=PR 전체
 SELF_REVIEW_FILE=""
 REVIEW_SINCE=""           # --review-since <ref> 로 명시 지정
@@ -46,7 +46,7 @@ REVIEW_SINCE=""           # --review-since <ref> 로 명시 지정
 REVIEW_MAX_DIFF_BYTES=900000
 # Stay below the 1 MiB transport ceiling, including the dependency context.
 REVIEW_MAX_INPUT_BYTES=1040000
-# Legacy blockers-only/diff-only PASS refs cannot establish a baseline for this policy.
+# Reuse the dependency-aware PASS baseline, including PASS under the previous stricter policy.
 REVIEW_STATE_REF_PREFIX="refs/codex-review-v2/pr-"
 REQUIRE_VISUAL_CHECK=1
 REQUIRE_GITHUB_REVIEW=0
@@ -68,11 +68,10 @@ while [[ $# -gt 0 ]]; do
     --self-review-file)
       [[ -n "${2:-}" && "${2:-}" != -* ]] || { echo "--self-review-file 경로가 필요합니다." >&2; exit 2; }
       SELF_REVIEW_FILE="$(realpath "$2")"; shift ;;
-    --blockers-only) printf "%s\n" "--blockers-only is deprecated; BLOCKER and MAJOR remain blocking." >&2; REVIEW_INCLUDE_MINOR=0 ;;
-    --major-and-blocker) REVIEW_INCLUDE_MINOR=0 ;;
+    --blockers-only|--major-and-blocker) REVIEW_SCOPE=blockers-only ;;
     --review-full) REVIEW_RANGE_MODE=full ;;
     --review-since) REVIEW_SINCE="${2:-}"; shift ;;
-    --all-findings) REVIEW_INCLUDE_MINOR=1 ;;
+    --all-findings) REVIEW_SCOPE=all-findings ;;
     --no-visual-check) REQUIRE_VISUAL_CHECK=0 ;;
     --require-github-review) REQUIRE_GITHUB_REVIEW=1 ;;
     --skip-build) DO_BUILD=0 ;;
@@ -422,7 +421,7 @@ echo "  base=$BASE head=$HEADREF branch=$BRANCH"
 echo "  headSha=${HEAD_OID:0:12}"
 echo "  reviewDecision=${REVIEW_DECISION:-<none>} mergeState=${MERGE_STATE:-<unknown>}"
 echo "  gate_tier=$GATE_TIER code_changes=$code_changes review_mode=$review_mode"
-echo "  review_scope=$([[ "$REVIEW_INCLUDE_MINOR" == 0 ]] && echo major-and-blocker || echo all-findings)"
+echo "  review_scope=$REVIEW_SCOPE"
 if [[ "$SKIP_REDUNDANT_LOCAL_GATE" == 1 ]]; then
   echo "  ci_check=success@${HEAD_OID:0:12} — 로컬 풀 게이트의 중복 항목을 생략합니다"
 fi
@@ -434,7 +433,6 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   REVIEW_LOG="$(mktemp -t orider-merge-review-log)"
   REVIEW_OUT="$(realpath "$REVIEW_OUT")"
   REVIEW_LOG="$(realpath "$REVIEW_LOG")"
-  REVIEW_SCOPE="$([[ "$REVIEW_INCLUDE_MINOR" == 0 ]] && echo major-and-blocker || echo all-findings)"
   REVIEW_PROMPT="$(node scripts/review-policy.mjs "$REVIEW_SCOPE" "${TEST_SCOPE_EVIDENCE:-Vitest --changed origin/$BASE (기본)}")" \
     || die "리뷰 정책 생성 실패"
 
@@ -661,7 +659,7 @@ GATE_HEAD="$HEAD_OID" GATE_BASE="$BASE" GATE_BASE_SHA="$(git rev-parse "origin/$
   GATE_BASE_SCRIPT_HASH="$(git rev-parse "origin/$BASE:scripts/merge-pr.sh" 2>/dev/null || true)" \
   GATE_REVIEW_DECISION="$REVIEW_DECISION" GATE_MERGE_STATE="$MERGE_STATE" \
   GATE_RUN_REVIEW="$RUN_REVIEW" GATE_REVIEW_MODE="$review_mode" GATE_REVIEW_RANGE="${REVIEW_RANGE_LABEL:-}" \
-  GATE_REVIEW_SCOPE="$([[ "$REVIEW_INCLUDE_MINOR" == 0 ]] && echo major-and-blocker || echo all-findings)" \
+  GATE_REVIEW_SCOPE="$REVIEW_SCOPE" \
   GATE_REVIEW_FILE="$REVIEW_RESULT_FILE" \
   node scripts/merge-gate-report.mjs >"$GATE_REPORT" || die "게이트 결과 기록 생성 실패 — 머지 중단"
 gh pr comment "$PR_NUM" --body-file "$GATE_REPORT" >/dev/null || die "게이트 결과 PR 댓글 실패 — 머지 중단"

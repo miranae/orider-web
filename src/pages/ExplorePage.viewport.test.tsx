@@ -20,7 +20,7 @@ it("keeps the Korean default viewport while retaining global segment data",async
  expect(fitBounds).not.toHaveBeenCalled();
  expect(screen.getByText("Global climb")).toBeInTheDocument();
  expect(screen.getByRole("button",{name:"세그먼트 검색"})).toBeInTheDocument();
- expect(screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"})).toBeInTheDocument();
+ expect(screen.getByRole("searchbox",{name:"세그먼트 이름 또는 지역"})).toBeInTheDocument();
 });
 it("honors an explicit shared viewport instead of fitting all global segments",async()=>{
  renderWithProviders(<ExplorePage/>,{route:"/explore/segments?c=12.5,46.2&z=11"});
@@ -47,12 +47,12 @@ it("explains the existing private-grid totals with a bounded recorded-period bas
 it("applies another menu query while the segment page stays mounted",async()=>{
  function ExternalSearch(){const navigate=useNavigate();return <button onClick={()=>navigate("/explore/segments?q=Global")}>External search</button>;}
  renderWithProviders(<><ExternalSearch/><ExplorePage/></>,{route:"/explore/segments?q=missing"});
- await waitFor(()=>expect(screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("missing"));
+ await waitFor(()=>expect(screen.getByRole("searchbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("missing"));
  fireEvent.click(screen.getByRole("button",{name:"External search"}));
- await waitFor(()=>expect(screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("Global"));
+ await waitFor(()=>expect(screen.getByRole("searchbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("Global"));
  expect(await screen.findByText("Global climb")).toBeInTheDocument();
  await new Promise(resolve=>setTimeout(resolve,500));
- expect(screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("Global");
+ expect(screen.getByRole("searchbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("Global");
 });
 
 it("retains a newer search draft when an older query is saved to the URL",async()=>{
@@ -60,7 +60,7 @@ it("retains a newer search draft when an older query is saved to the URL",async(
  await screen.findByText("Global climb");
  vi.useFakeTimers();
  try {
-  const input=screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"});
+  const input=screen.getByRole("searchbox",{name:"세그먼트 이름 또는 지역"});
   fireEvent.change(input,{target:{value:"G"}});
   await act(async()=>{await vi.advanceTimersByTimeAsync(250);});
   await act(async()=>{await vi.advanceTimersByTimeAsync(250);});

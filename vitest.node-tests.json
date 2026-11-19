@@ -143,6 +143,7 @@
   "src/utils/__tests__/exportCsv.test.ts",
   "src/utils/__tests__/exportFit.test.ts",
   "src/utils/__tests__/exportGpx.test.ts",
+  "src/utils/__tests__/exportSport.test.ts",
   "src/utils/__tests__/exportTcx.test.ts",
   "src/utils/__tests__/fitnessMetrics.test.ts",
   "src/utils/__tests__/vo2max.test.ts",

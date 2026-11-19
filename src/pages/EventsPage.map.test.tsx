@@ -172,6 +172,28 @@ describe("event status tabs", () => {
   });
 });
 
+describe("event view toggle", () => {
+  it("renders list/calendar/map as filter chips whose selected state follows the active view", async () => {
+    setCollectionDocs("events", [
+      { id: "open", info: { name: "Open ride", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: Date.now() + 86_400_000 } },
+    ]);
+    renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Open ride", { exact: true })).toBeInTheDocument();
+    const group = screen.getByRole("group", { name: eventStrings["view.label"] });
+    const list = within(group).getByRole("button", { name: eventStrings["view.list"] });
+    const calendar = within(group).getByRole("button", { name: eventStrings["view.calendar"] });
+    for (const toggle of [list, calendar]) {
+      expect(toggle).toHaveClass("ds-chip", "ds-chip--selectable");
+      expect(toggle).not.toHaveClass("ds-btn--outline");
+    }
+    expect(list).toHaveAttribute("aria-pressed", "true");
+    expect(calendar).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(calendar);
+    expect(calendar).toHaveAttribute("aria-pressed", "true");
+    expect(list).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
 describe("앱 임베드 탐색 이벤트 (#1485)", () => {
   it("기본 웹 Firebase 가 초기화되지 않은 임베드에서도 주입된 세션으로 목록을 불러온다", async () => {
     const { httpsCallable } = await import("firebase/functions");
@@ -216,4 +238,41 @@ it("shows discovery before optional course and participation reads settle, prese
     expect(summary).toHaveTextContent("—");
     expect(screen.queryByText(eventStrings["dashboard.errorLoadEvent"])).not.toBeInTheDocument();
   } finally { vi.mocked(getDoc).mockImplementation(original); }
+});
+
+describe("event summary strip", () => {
+  const future = Date.now() + 86_400_000;
+  const myEventLabels = [eventStrings["summary.myEvents"], eventStrings["summary.myEventsShort"]];
+
+  it("hides the all-zero strip from guests and leaves the availability note", async () => {
+    setCollectionDocs("events", [
+      { id: "done", info: { name: "Finished ride", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000 } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Finished ride", { exact: true })).toBeInTheDocument();
+    expect(container.querySelector(".event-summary")).toBeNull();
+    expect(screen.getByText(new RegExp(eventStrings["availability.title"]))).toBeInTheDocument();
+  });
+
+  it("shows guests live and open counts without a my-events column", async () => {
+    setCollectionDocs("events", [
+      { id: "open", info: { name: "Open ride", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: future } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Open ride", { exact: true })).toBeInTheDocument();
+    const summary = container.querySelector(".event-summary");
+    expect(summary).not.toBeNull();
+    expect(summary?.children).toHaveLength(2);
+    for (const label of myEventLabels) expect(summary?.textContent).not.toContain(label);
+  });
+
+  it("keeps all three columns, including my events, for signed-in riders", async () => {
+    setCollectionDocs("events", [
+      { id: "done", info: { name: "Finished ride", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000 } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events", authenticated: true });
+    expect(await screen.findByText("Finished ride", { exact: true })).toBeInTheDocument();
+    const summary = await waitFor(() => { const el = container.querySelector(".event-summary"); expect(el).not.toBeNull(); return el; });
+    expect(summary?.children).toHaveLength(3);
+  });
 });

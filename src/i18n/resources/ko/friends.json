@@ -70,6 +70,8 @@
   "search.placeholder": "이메일, 닉네임, 친구 코드",
   "search.submit": "검색",
   "search.hint": "이메일, 닉네임, 친구 코드로 찾을 수 있어요",
+  "search.previewTitle": "친구와 함께 기록 보기",
+  "search.previewDescription": "닉네임이나 친구 코드로 함께 운동하는 사람을 찾아보세요. 친구가 되면 상대가 공유한 운동 기록을 볼 수 있어요.",
   "search.loginRequired": "사람을 찾으려면 로그인이 필요해요.",
   "search.loginAction": "로그인하고 사람 찾기",
   "search.resultsLabel": "검색 결과",

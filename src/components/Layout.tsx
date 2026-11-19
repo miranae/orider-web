@@ -25,7 +25,7 @@ import { TopNav } from "./redesign";
 import LoadingSkeleton from "./redesign/states/LoadingSkeleton";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
-import { resolveDetailHub, isHubSubRoute } from "../config/navHubs";
+import { resolveDetailHub, resolveNavHighlight, isHubSubRoute } from "../config/navHubs";
 import { rememberHubLocation } from "../services/hubReturn";
 import { EnteringShell, RetainedHubPages } from "./RetainedHubPages";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
@@ -109,6 +109,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const path = stripLangPrefix(location.pathname);
   const activeNav = resolveDetailHub(path, location.state);
+  const highlightNav = resolveNavHighlight(path, location.state);
   const mainRef = useRef<HTMLElement>(null);
   const outlet = useOutlet();
   useMainScrollPosition(mainRef, user);
@@ -168,7 +169,7 @@ export default function Layout() {
   return (
     <div className="flex flex-col" style={{ height: "100dvh", background: 'var(--bg-0)', color: 'var(--ink-1)' }}>
       <TopNav
-        active={activeNav}
+        active={highlightNav}
         notifications={notifications}
         notificationStatus={notificationStatus}
         notificationFooter={notificationFooter}
@@ -216,7 +217,7 @@ export default function Layout() {
       </footer>
 
       {/* Mobile bottom tab bar */}
-      <MobileTabBar active={activeNav} />
+      <MobileTabBar active={highlightNav} />
 
       {/* Mobile notification bottom sheet */}
       {notifOpen && (
