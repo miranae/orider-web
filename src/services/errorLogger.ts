@@ -1,6 +1,8 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { captureError } from "./sentry";
 import { getRuntimeConfig } from "./runtimeConfig";
+import { approvedCallableEndpoint, postApprovedCallable } from "../embedded/approvedCallableGateway";
+import { WEB_MESSAGE_TYPES } from "../embedded/bridge";
 import { httpsCallable, type HttpsCallable } from "firebase/functions";
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 오류 로깅 기본값. 임베드 데이터 요청 오류는 services를 주입할 수 있다.
 import { ensureAppCheckReady, functions } from "./firebase";
@@ -16,6 +18,29 @@ import { ensureAppCheckReady, functions } from "./firebase";
 let _logClientErrorFn: HttpsCallable<unknown, unknown> | null = null;
 const RECENT_ERROR_WINDOW_MS = 10_000;
 const MAX_RECENT_ERROR_KEYS = 200;
+const ERROR_BACKUP_TIMEOUT_MS = 10_000;
+const EMBEDDED_ANONYMOUS_FAILURES = new Map([
+  ["embedded.authChangeCacheReset", "embedded-cache-reset-failed"],
+  ["embedded.bridgeSend", "embedded-bridge/send-failed"],
+  ["embedded.accountIsolation.release", "embedded-account-isolation-release-failed"],
+  ["embedded.activityRead", "embedded-callable-read-failed"],
+]);
+
+function anonymousEmbeddedContext(source: string, context?: Record<string, unknown>) {
+  if (source === "embedded.bridgeSend") {
+    return { type: WEB_MESSAGE_TYPES.find(type => type === context?.type) };
+  }
+  if (source === "embedded.activityRead") {
+    const route = ["getActivityDiscovery", "getPublicAthleteTotals"].find(route => route === context?.route);
+    const phase = ["app-check", "id-token", "endpoint", "transport", "body", "http", "timeout", "contract"]
+      .find(phase => phase === context?.phase);
+    const rawStatus = context?.status;
+    const status = typeof rawStatus === "number" && Number.isInteger(rawStatus) && rawStatus >= 100 && rawStatus <= 599
+      ? rawStatus : undefined;
+    return { route, phase, status };
+  }
+  return undefined;
+}
 type ErrorTimes = Map<string, number>;
 const recentClientErrors: ErrorTimes = new Map();
 let scopedClientErrors = new WeakMap<object, { guest: ErrorTimes; users: WeakMap<object, ErrorTimes> }>();
@@ -74,45 +99,92 @@ export function logClientError(
   source: string,
   error: unknown,
   context?: Record<string, unknown>,
-  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady" | "isSessionApproved">,
+  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady" | "isSessionApproved">
+    & Partial<Pick<FirebaseServices, "getAppCheckToken">>,
   requestViewer?: FirebaseServices["auth"]["currentUser"],
   dedupeScope = "",
   isRequestCurrent?: () => boolean,
 ) {
-  const message = error instanceof Error ? error.message : String(error);
-  const user = requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
+  // These lifecycle diagnostics contain no account data. App Check allows recording
+  // failures before host approval or during revocation without borrowing a user's token.
+  const anonymousMessage = services?.isSessionApproved ? EMBEDDED_ANONYMOUS_FAILURES.get(source) : undefined;
+  const anonymousDiagnostic = anonymousMessage !== undefined;
+  const diagnosticError = anonymousMessage === undefined ? error : new Error(anonymousMessage);
+  const diagnosticContext = anonymousDiagnostic ? anonymousEmbeddedContext(source, context) : context;
+  const message = diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError);
+  const user = anonymousDiagnostic ? null : requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
   const signedInAt = user?.metadata?.lastSignInTime ?? "";
-  const requestIsCurrent = () => (!services || (
+  const requestIsCurrent = () => anonymousDiagnostic || ((!services || (
     services.auth?.currentUser === user && (user?.metadata?.lastSignInTime ?? "") === signedInAt
     && services.isSessionApproved?.(user ?? null) !== false
-  )) && isRequestCurrent?.() !== false;
+  )) && isRequestCurrent?.() !== false);
   const requestState = requestIsCurrent() ? "current" : "expired";
   if (shouldSuppressClientError(recentErrorsFor(services, user), source, message, `${signedInAt}:${requestState}:${dedupeScope}`)) return;
 
   // Sentry 에 전송 (lazy-loaded, init 전이면 큐에 저장 → load 시 flush)
   captureError(
-    error instanceof Error ? error : new Error(String(error)),
-    { tags: { source }, extra: context }
+    diagnosticError instanceof Error ? diagnosticError : new Error(message),
+    { tags: { source }, extra: diagnosticContext }
   );
 
-  // Stage의 미배포 backup callable은 건너뛰고 Sentry 진단은 유지한다.
-  if (getRuntimeConfig().appEnvironment === "stage") return;
+  const config = getRuntimeConfig();
+  if (config.appEnvironment === "stage") return;
 
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
-  const stack = error instanceof Error ? error.stack : undefined;
+  const stack = !anonymousDiagnostic && diagnosticError instanceof Error ? diagnosticError.stack : undefined;
 
   if (services ? !services.auth || !services.functions : !functions) return;
   // Report late failures to Sentry, but never send them through a different account's callable.
   if (!requestIsCurrent()) return;
+  const payload = { source, message, stack, context: diagnosticContext };
   void (async () => {
+    let backupPhase: "endpoint" | "app-check" | "id-token" | "transport" | "http" | "body" | "timeout" = "endpoint";
+    let backupStatus: number | undefined;
     try {
+      if (services?.isSessionApproved) {
+        // The SDK callable resolves live Auth. Use only the approved viewer's captured credentials.
+        const endpoint = approvedCallableEndpoint(config, services.functions, config.firebaseFunctionsRegion || "us-central1", "logClientError");
+        if (!endpoint) throw new Error("embedded-error-backup-endpoint-unavailable");
+        backupPhase = "app-check";
+        const appCheck = await services.getAppCheckToken?.();
+        if (!requestIsCurrent()) return;
+        if (!appCheck && config.useEmulators !== true) throw new Error("embedded-error-backup-app-check-unavailable");
+        backupPhase = "id-token";
+        const authToken = await user?.getIdToken();
+        if (!requestIsCurrent()) return;
+        if (user && !authToken) throw new Error("embedded-error-backup-id-token-unavailable");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => {
+          backupPhase = "timeout";
+          controller.abort();
+        }, ERROR_BACKUP_TIMEOUT_MS);
+        try {
+          backupPhase = "transport";
+          const response = await postApprovedCallable(endpoint, payload, appCheck ?? null, authToken, controller.signal);
+          backupStatus = response.status;
+          if (!response.ok) {
+            backupPhase = "http";
+            throw new Error("embedded-error-backup-rejected");
+          }
+          backupPhase = "body";
+          const body = await response.json() as { result?: { success?: boolean }; data?: { success?: boolean }; error?: unknown } | null;
+          if (body?.error || (body?.result ?? body?.data)?.success !== true) throw new Error("embedded-error-backup-invalid-response");
+        } finally {
+          clearTimeout(timeout);
+        }
+        return;
+      }
       await (services?.ensureAppCheckReady ?? ensureAppCheckReady)();
       if (!requestIsCurrent()) return;
       const fn = services ? httpsCallable(services.functions, "logClientError") : getLogClientErrorFn();
       if (!fn) return; // initFirebase 전 — 서버 로깅 skip (Sentry 큐로 충분)
-      await fn({ source, message, stack, context });
+      await fn(payload);
     } catch {
-      console.warn("[errorLogger] 서버 에러 로깅 실패:", message);
+      const backupFailure = services?.isSessionApproved ? { source, phase: backupPhase, status: backupStatus } : undefined;
+      if (backupFailure) {
+        captureError(new Error("embedded-error-backup-failed"), { tags: { source: "errorLogger.embeddedBackup" }, extra: backupFailure });
+      }
+      console.warn("[errorLogger] 서버 에러 로깅 실패:", backupFailure ?? message);
     }
   })();
 }

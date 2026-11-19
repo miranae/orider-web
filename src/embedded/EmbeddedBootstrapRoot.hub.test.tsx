@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => {
     captureClubServices: vi.fn(),
     isolate: vi.fn(async (_uid: string | null) => {}),
     consumeHandoff: vi.fn().mockResolvedValue(undefined),
+    firestore: { instance: "embedded" },
+    functions: {},
     auth: {
       get currentUser() { return state.currentUser; },
       authStateReady: vi.fn().mockResolvedValue(undefined),
@@ -21,13 +23,13 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("./embeddedFirebase", () => ({
-  initEmbeddedFirebase: () => ({ app: {}, auth: mocks.auth, firestore: { instance: "embedded" }, functions: {} }),
+  initEmbeddedFirebase: () => ({ app: {}, auth: mocks.auth, firestore: mocks.firestore, functions: mocks.functions }),
   ensureEmbeddedAppCheckReady: vi.fn().mockResolvedValue(undefined),
   getEmbeddedAppCheckToken: vi.fn().mockResolvedValue("token"),
   embeddedAccountReady: () => true,
   embeddedAuthPersistsSession: () => false,
   embeddedFirestoreOwnerUid: () => null,
-  getEmbeddedFirestore: () => ({ instance: "embedded" }),
+  getEmbeddedFirestore: () => mocks.firestore,
   isolateEmbeddedAccount: (uid: string | null) => mocks.isolate(uid),
 }));
 vi.mock("../services/appHandoff", () => ({ consumeAppHandoffCode: mocks.consumeHandoff }));
