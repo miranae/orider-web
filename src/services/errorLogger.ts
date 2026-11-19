@@ -95,8 +95,9 @@ export function logClientError(
     { tags: { source }, extra: context }
   );
 
-  // Stage의 미배포 backup callable은 건너뛰고 Sentry 진단은 유지한다.
-  if (getRuntimeConfig().appEnvironment === "stage") return;
+  // The backup callable resolves live Auth. Host-approved sessions report through Sentry
+  // so a change between dispatch and token acquisition cannot attach another account.
+  if (getRuntimeConfig().appEnvironment === "stage" || services?.isSessionApproved) return;
 
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
   const stack = error instanceof Error ? error.stack : undefined;

@@ -714,8 +714,8 @@ export default function EmbeddedBootstrapRoot({
     } catch {
       const viewer = controlServices.auth.currentUser;
       const approvedViewer = viewer?.isAnonymous !== true && (viewer?.uid === acceptedUid.current || viewer?.uid === authorizedUid.current) ? viewer : null;
-      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type }, controlServices, approvedViewer, "",
-        () => isSessionApproved(approvedViewer));
+      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type },
+        { ...controlServices, isSessionApproved }, approvedViewer);
     }
   }, [bridge, controlServices, isSessionApproved]);
 
@@ -1140,7 +1140,7 @@ export default function EmbeddedBootstrapRoot({
     const unsubscribeAuth = onIdTokenChanged(controlServices.auth, (user) => {
       observeSdkViewer(user);
       const onCacheError = (error: unknown) =>
-        logClientError("embedded.authChangeCacheReset", error, {}, controlServices, user, "", () => false);
+        logClientError("embedded.authChangeCacheReset", error, {}, { ...controlServices, isSessionApproved }, user);
       const lockedUid = acceptedUid.current;
       if (user?.isAnonymous === true) {
         const requestId = activeSelectionRequestId.current;
@@ -1206,7 +1206,7 @@ export default function EmbeddedBootstrapRoot({
       runStartChannel.dispose();
       bridge.dispose();
     };
-  }, [bridge, commitSurfaceSelection, controlServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
+  }, [bridge, commitSurfaceSelection, controlServices, initialTrainingSurface, isSessionApproved, runStartChannel, safeSend, surfaceKind]);
 
   const selectedTrainingSurface = isStandaloneSurfaceKind(surfaceKind)
     ? null
