@@ -57,7 +57,7 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
   execFileSync("tar", ["-czf", path, "-C", payload, "dist", "firebase.bundled-stage.json", "build.json", "candidate.json"], { env: { ...process.env, COPYFILE_DISABLE: "1" } });
   const bytes = readFileSync(path), checksum = hash(bytes);
   const metadata = { name: object, contentType: "application/gzip", metadata: { ...Object.fromEntries(Object.entries(provenance).map(([key, value]) => [key, String(value)])), sha256: checksum } };
-  const boundary = `orider-client-${checksum}`;
+  const boundary = `orider-client-${checksum.slice(0, 32)}`;
   const body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/gzip\r\n\r\n`), bytes, Buffer.from(`\r\n--${boundary}--\r\n`)]);
   let response;
   try { response = await fetcher(`https://storage.googleapis.com/upload/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o?uploadType=multipart&ifGenerationMatch=0`,

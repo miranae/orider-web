@@ -64,6 +64,7 @@ function fakeStorage({ loseCreateResponse = false, corruptDownload = false } = {
     requests.push({url,method:options.method||"GET"});
     if(options.method==="POST"){
       assert.match(url,/ifGenerationMatch=0/u);
+      assert.ok(options.headers["Content-Type"].split("boundary=")[1].length <= 70);
       const body=options.body, separator=Buffer.from("\r\n\r\n"), first=body.indexOf(separator)+separator.length;
       const metadataEnd=body.indexOf(Buffer.from("\r\n--"),first), metadata=JSON.parse(body.subarray(first,metadataEnd).toString());
       const gzipHeader=Buffer.from("Content-Type: application/gzip\r\n\r\n"), start=body.indexOf(gzipHeader,metadataEnd)+gzipHeader.length;
