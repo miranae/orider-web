@@ -109,6 +109,17 @@ describe("mobile web analysis evidence", () => {
     view.rerender(<MobileFitnessPage {...props} periodLoadSignal={1} />);
     await waitFor(() => expect(calls()).toBe(before + 1));
   });
+  it("loads once when the comparison panel mounts after the automatic load signal was already raised", async () => {
+    const calls = () => mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
+    const before = calls();
+    // 활동·시계열이 늦게 와서 패널이 신호가 1이 된 뒤에야 마운트되는 경로.
+    renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled periodWindowDays={90} periodLoadSignal={1} />, { authenticated: true });
+    await waitFor(() => expect(calls()).toBe(before + 1));
+  });
+  it("keeps the all-records button in running analysis even with the records board slot and no qualified record", () => {
+    renderWithProviders(<MobileFitnessPage part="analysis" runningRecordsSlot={<p>board</p>} data={{ ...data, discipline: "run", runEvidence: { thresholdPaceSec: 300, records: [] } }} />, { authenticated: true });
+    expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
+  });
   it("keeps the 28-day power curve when the period power comparison is not available", () => {
     renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled={false} powerCurveEvidenceSlot={<p>28-day curve</p>} />, { authenticated: true });
     expect(screen.getByText("28-day curve")).toBeVisible();

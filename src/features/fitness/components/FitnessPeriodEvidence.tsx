@@ -93,10 +93,13 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
     const timer = setTimeout(() => { loadedWindow.current = windowDays!; submitRef.current(); }, WINDOW_RELOAD_DELAY_MS);
     return () => clearTimeout(timer);
   }, [windowDays, windowMode, selection, syncMode]);
-  const lastSignal = useRef(loadSignal);
+  // 0 에서 시작한다 — 데이터가 늦게 와서 이미 올라간 신호를 들고 나중에 마운트돼도 한 번 불러온다(자동 조회, 2026-11-19).
+  const lastSignal = useRef<number | undefined>(0);
   useEffect(() => {
     if (syncMode || loadSignal === undefined || loadSignal === lastSignal.current) return;
-    lastSignal.current = loadSignal; if (available) submitRef.current();
+    // 아직 조회할 수 없으면 신호를 소비하지 않고, 준비되면 다시 판정한다.
+    if (!available) return;
+    lastSignal.current = loadSignal; submitRef.current();
   }, [loadSignal, available, syncMode]);
   const Container = inline ? "section" : "details";
   return <Container data-testid="K5-5-2" className="fitness-period-evidence">

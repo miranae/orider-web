@@ -134,7 +134,8 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
     return () => clearTimeout(timer);
   }, [windowDays, windowMode, selection]);
   // 페이지 공용 불러오기 버튼(loadSignal)이 있으면 그 신호로 불러온다.
-  const lastSignal = useRef(loadSignal);
+  // 0 에서 시작한다 — 데이터가 늦게 와서 이미 올라간 신호를 들고 나중에 마운트돼도 한 번 불러온다(자동 조회, 2026-11-19).
+  const lastSignal = useRef<number | undefined>(0);
   useEffect(() => {
     if (loadSignal === undefined || loadSignal === lastSignal.current) return;
     // 호출이 꺼져 있어도 기간은 계산해 아래 훈련 구성에 넘긴다(요청 훅이 호출 여부를 막는다).
