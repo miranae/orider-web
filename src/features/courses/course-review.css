@@ -104,7 +104,7 @@
   /* 좁은 화면은 첫 코스가 화면 아래쪽에서 시작했다 — 부제를 접고 "지도 보기"를 목록 위에 띄운다 */
   .course-catalog-subtitle { display: none; }
   .course-catalog { padding-block-end: calc(var(--dim-button-height) + var(--space-8)); }
-  .course-catalog-map-toggle {
+  .course-catalog-map-toggle.mobile-form-actions {
     position: fixed; z-index: 40; left: 50%; transform: translateX(-50%);
     bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
   }
@@ -112,7 +112,6 @@
   :root:has(.mobile-tab-bar) .course-catalog-map-toggle {
     bottom: calc(var(--space-8) + var(--dim-divider-thickness) + var(--space-4) + env(safe-area-inset-bottom, 0px));
   }
-  .course-catalog-map-toggle .ds-btn { width: auto; border-radius: 999px; padding-inline: var(--space-5); box-shadow: var(--shadow-lg); }
 }
 
 .course-builder-coordinates .ds-field { flex: 1 1 10rem; min-width: 0; }

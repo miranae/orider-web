@@ -921,6 +921,7 @@
   "src/utils/icsExport.ts",
   "src/utils/indoorActivity.ts",
   "src/utils/internalReturnPath.ts",
+  "src/utils/isEnterSubmit.ts",
   "src/utils/lazyWithRetry.tsx",
   "src/utils/localeDate.ts",
   "src/utils/mapbox.ts",

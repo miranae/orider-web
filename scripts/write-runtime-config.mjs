@@ -11,10 +11,22 @@ import { dirname, resolve } from "node:path";
 import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
 import { publicClubEndpoint } from "./lib/public-club-deploy-config.mjs";
 import { productionDataConfig } from "./lib/production-data-config.mjs";
+import { stageProductionParityConfig } from "./lib/stage-production-parity.mjs";
 
 const args = process.argv.slice(2);
 const outIndex = args.indexOf("--out");
 const outputPath = resolve(outIndex >= 0 ? args[outIndex + 1] : "dist/runtime-config.json");
+const stageSource = process.env.STAGE_PARITY_PRODUCTION_RUNTIME_PATH;
+if (stageSource && (args.includes("--production-source") || process.env.PRODUCTION_RUNTIME_CONFIG_PATH)) throw new Error("stage parity and production runtime sources are mutually exclusive");
+if (stageSource) {
+  if (!process.env.STAGE_PARITY_SOURCE_SHA || !process.env.STAGE_PARITY_HOSTING_VERSION) throw new Error("stage parity requires the prepared production SHA and Hosting version");
+  const metadata = { sourceSha: process.env.STAGE_PARITY_SOURCE_SHA, hostingVersion: process.env.STAGE_PARITY_HOSTING_VERSION };
+  const config = stageProductionParityConfig(JSON.parse(readFileSync(resolve(stageSource), "utf8")), metadata);
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, `${JSON.stringify(config, null, 2)}\n`);
+  console.log(`[write-runtime-config] pinned production version with development compute ${outputPath}`);
+  process.exit(0);
+}
 const sourceIndex = args.indexOf("--production-source");
 if (sourceIndex >= 0 && (!args[sourceIndex + 1] || args[sourceIndex + 1].startsWith("--"))) throw new Error("--production-source requires a snapshot file");
 const productionSource = sourceIndex >= 0 ? args[sourceIndex + 1] : process.env.PRODUCTION_RUNTIME_CONFIG_PATH;

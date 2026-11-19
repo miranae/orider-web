@@ -1,9 +1,10 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import type { CourseData } from "../features/courses/courseSnapshot";
 import CoursesPage from "./CoursesPage";
+import { searchVisibleCoursesPage } from "../features/courses/useCourseCatalog";
 
 const { mockLogClientError } = vi.hoisted(() => ({
   mockLogClientError: vi.fn(),
@@ -99,17 +100,40 @@ describe("CoursesPage mobile layout", () => {
     mockLogClientError.mockClear();
   });
 
-  it("puts the condition toggle in the sort chip row and marks the parts the narrow layout folds or floats", () => {
-    const { container } = renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
+  it("queries the server only after the user submits the course search", async () => {
+    vi.mocked(searchVisibleCoursesPage).mockClear();
+    renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
+    const input = screen.getByRole("searchbox");
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(input, { target: { value: "남한강" } });
+      fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+      fireEvent.keyDown(input, { key: "Enter", keyCode: 229, isComposing: false });
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(searchVisibleCoursesPage).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(searchVisibleCoursesPage).toHaveBeenCalledTimes(1));
+  });
 
-    const sortRow = container.querySelector(".course-catalog-actions");
-    const toggle = screen.getByRole("button", { name: /코스 조건/ });
-    expect(sortRow).toContainElement(toggle);
-    expect(sortRow).toContainElement(screen.getByRole("button", { name: "최신순" }));
-    expect(toggle).toHaveAttribute("aria-controls", "course-catalog-filter-controls");
-    expect(container.querySelectorAll(".course-catalog-filter-toolbar")).toHaveLength(1);
-    expect(screen.getByText("코스를 찾아보거나 나만의 코스를 등록하세요")).toHaveClass("course-catalog-subtitle");
-    expect(screen.getByRole("button", { name: "지도 보기" }).parentElement).toHaveClass("course-catalog-map-toggle");
+  it("returns to the catalog when the active course search is cleared", async () => {
+    function CurrentQuery() {
+      return <output data-testid="course-query">{useLocation().search}</output>;
+    }
+
+    vi.mocked(searchVisibleCoursesPage).mockClear();
+    renderWithProviders(<><CoursesPage /><CurrentQuery /></>, {
+      route: "/explore/courses?surface=paved&q=남한강",
+    });
+    await waitFor(() => expect(searchVisibleCoursesPage).toHaveBeenCalledTimes(1));
+
+    fireEvent.input(screen.getByRole("searchbox"), { target: { value: "" } });
+
+    expect(await screen.findByRole("heading", { name: "남한강 자전거길" })).toBeInTheDocument();
+    expect(screen.getByTestId("course-query")).toHaveTextContent(/^\?surface=paved$/);
+    expect(searchVisibleCoursesPage).toHaveBeenCalledTimes(1);
   });
 
   it("applies menu surface and difficulty filters, external updates, reset, and history on the mounted page", async () => {

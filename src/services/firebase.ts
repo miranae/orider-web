@@ -11,7 +11,7 @@ import {
   ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
-import { assertIsolatedStageRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { isStageComputeRuntime, assertIsolatedStageRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 
 let app: FirebaseApp;
 let _auth: Auth;
@@ -85,7 +85,7 @@ export async function initFirebase(options: { isolatedEmulatorSession?: boolean 
       ? { experimentalForceLongPolling: true } : {}),
   });
   _storage = getStorage(app);
-  _functions = getFunctions(app, runtimeConfig.appEnvironment === "stage" ? runtimeConfig.firebaseFunctionsBase : runtimeConfig.firebaseFunctionsRegion || "us-central1");
+  _functions = getFunctions(app, isStageComputeRuntime(runtimeConfig) ? runtimeConfig.firebaseFunctionsBase : runtimeConfig.firebaseFunctionsRegion || "us-central1");
 
   // Analytics(gtag.js ~421kB)는 더 이상 init 경로에서 로드하지 않는다 — 콜드 첫 로드 대역을
   // LCP/폰트 등 임계 리소스에 양보하기 위해 main.tsx 가 idle 시점에 initAnalytics() 로 지연
