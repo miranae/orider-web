@@ -327,6 +327,7 @@
   "src/features/activity/detail/imageResize.ts",
   "src/features/activity/detail/importedActivityObservations.ts",
   "src/features/activity/detail/legacySensorCoverage.ts",
+  "src/features/activity/detail/loadOwnerExportStreams.ts",
   "src/features/activity/detail/matchedRouteGroupPresentation.ts",
   "src/features/activity/detail/metricsPresentation.ts",
   "src/features/activity/detail/observedRouteHistory.ts",
