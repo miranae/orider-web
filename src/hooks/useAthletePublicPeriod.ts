@@ -30,7 +30,7 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
     setState({ generation: generation.current, result: session.current });
   }, []);
   const read = useCallback(async (fresh = false) => {
-    if (!enabled || busy.current || document.visibilityState === "hidden") return;
+    if (!enabled || (!fresh && busy.current) || document.visibilityState === "hidden") return;
     const user = auth.currentUser;
     if (approvedViewer !== undefined && (user !== approvedViewer || user?.isAnonymous)) return;
     const bounds = publicPeriodBounds(from, to);

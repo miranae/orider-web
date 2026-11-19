@@ -28,6 +28,25 @@ it("retains rows on 429 retry, but discards expired or denied continuation", asy
  await act(()=>result.current.more()); expect(result.current.status).toBe("error"); expect(result.current.items).toHaveLength(1);
  await act(()=>result.current.more()); expect(result.current.status).toBe("restart"); expect(result.current.items).toHaveLength(0);
 });
+it("an explicit refresh aborts a pending continuation and prevents it from restoring old results", async () => {
+  let finishOld!: (value: ReturnType<typeof page>) => void;
+  let signal!: AbortSignal;
+  mocks.load.mockResolvedValueOnce(page(["previous"], "ad1.next"))
+    .mockImplementationOnce((_services, _request, currentSignal: AbortSignal) => {
+      signal = currentSignal;
+      return new Promise(resolve => { finishOld = resolve; });
+    }).mockResolvedValueOnce(page([]));
+  const { result } = renderHook(() => useAthletePublicPeriod("target", "", "", true, true));
+  await waitFor(() => expect(result.current.status).toBe("partial"));
+  let oldRequest!: Promise<void>;
+  act(() => { oldRequest = result.current.more(); });
+  await act(() => result.current.refresh());
+  expect(signal.aborted).toBe(true);
+  expect(result.current.items).toEqual([]);
+  await act(async () => { finishOld(page(["late"])); await oldRequest; });
+  expect(result.current.items).toEqual([]);
+  expect(mocks.load.mock.calls[2][1]).not.toHaveProperty("cursor");
+});
 it("logs its own deadline as a timeout even if abort immediately rejects the transport", async () => {
   vi.useFakeTimers();
   try {
