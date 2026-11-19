@@ -1,6 +1,7 @@
 import { lazy } from "react";
 import type { ComponentType, LazyExoticComponent } from "react";
 import { reloadWhenOnline, shouldReloadChunkOnce } from "./chunkReload";
+import { captureError } from "../services/sentry";
 
 // 동적 import 청크 로드 실패 자동 복구.
 //
@@ -31,6 +32,7 @@ export function lazyWithRetry<T extends ComponentType<any>>(
       if (isChunkLoadError(err)) {
         reloadWhenOnline();
         if (shouldReloadChunkOnce()) {
+          captureError(err instanceof Error ? err : new Error(String(err)), { tags: { source: "lazyWithRetry.autoRecovery" } });
           window.location.reload();
           // 새로고침이 진행되는 동안 영원히 pending — 에러 바운더리 깜빡임 방지
           return new Promise<{ default: T }>(() => {});
