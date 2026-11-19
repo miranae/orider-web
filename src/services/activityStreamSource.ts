@@ -34,3 +34,15 @@ export function markStreamCadenceUnit(streams: ActivityStreams, unit: unknown): 
 export function readStreamCadenceUnit(streams: ActivityStreams): CadenceUnit {
   return (streams as Partial<StreamsWithCadenceUnit>)[streamCadenceUnit];
 }
+
+const legacyStravaStreams = Symbol("legacyStravaStreamsWithoutCadenceContract");
+type LegacyStravaStreams = ActivityStreams & { [legacyStravaStreams]: true };
+
+export function markLegacyStravaStreams(streams: ActivityStreams): ActivityStreams {
+  const marked: LegacyStravaStreams = { ...streams, [legacyStravaStreams]: true };
+  return marked;
+}
+
+export function isLegacyStravaStreams(streams: ActivityStreams): boolean {
+  return (streams as Partial<LegacyStravaStreams>)[legacyStravaStreams] === true;
+}

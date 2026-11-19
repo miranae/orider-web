@@ -5,7 +5,7 @@ import { getRuntimeConfig } from "../services/runtimeConfig";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import type { ActivityStreams } from "@shared/types";
-import { markStreamCadenceUnit } from "../services/activityStreamSource";
+import { markLegacyStravaStreams, markStreamCadenceUnit } from "../services/activityStreamSource";
 
 export function useStrava() {
   const { functions } = useFirebaseServices();
@@ -115,7 +115,8 @@ export function useStrava() {
         throw new Error("STREAMS_INVALID");
       }
       const response = streams as Record<string, unknown>;
-      if (!options?.includeCadenceUnit || response.contract !== "strava-stream-cadence-v1") return response;
+      if (!options?.includeCadenceUnit) return response;
+      if (response.contract !== "strava-stream-cadence-v1") return markLegacyStravaStreams(response as unknown as ActivityStreams);
       if (!response.streams || typeof response.streams !== "object" || Array.isArray(response.streams)) throw new Error("STREAMS_INVALID");
       return markStreamCadenceUnit(response.streams as ActivityStreams, response.cadenceUnit);
     } catch (e) {

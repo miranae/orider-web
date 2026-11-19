@@ -1,6 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { useStrava } from "./useStrava";
-import { readStreamCadenceUnit } from "../services/activityStreamSource";
+import { isLegacyStravaStreams, readStreamCadenceUnit } from "../services/activityStreamSource";
 import {
   mockCallableInvocations,
   setCallableImplementation,
@@ -32,6 +32,17 @@ describe("useStrava", () => {
     expect(mockCallableInvocations).toContainEqual({ name: "stravaGetActivityStreams", data: { stravaActivityId: 42, includeCadenceUnit: true } });
   });
 
+  it("preserves a pre-contract rollout response, including its stored samples", async () => {
+    const streams = { userId: "owner", time: [0], cadence: [85] };
+    setCallableResult("stravaGetActivityStreams", { data: streams });
+    const { result } = renderHook(() => useStrava());
+    await act(async () => {
+      const data = await result.current.getStreams(42, { includeCadenceUnit: true });
+      expect(data).toMatchObject(streams);
+      expect(isLegacyStravaStreams(data as typeof streams)).toBe(true);
+      expect(readStreamCadenceUnit(data as typeof streams)).toBeUndefined();
+    });
+  });
   it("forwards granted scopes when reconnecting for publishing", async () => {
     setCallableResult("stravaExchangeToken", { data: { athleteId: 123 } });
     const { result } = renderHook(() => useStrava());

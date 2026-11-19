@@ -7,7 +7,7 @@ import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
 import { exportFilename } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
-import { readStreamCadenceUnit } from "../services/activityStreamSource";
+import { isLegacyStravaStreams, readStreamCadenceUnit } from "../services/activityStreamSource";
 import { logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
@@ -49,16 +49,18 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
       if (!stillCurrent()) return;
       const fileCadenceUnit = readStreamCadenceUnit(currentStreams);
+      // Keep the original FIT/TCX encoding when the Strava server is still on the legacy response.
+      const encoderActivity = isLegacyStravaStreams(currentStreams) ? { ...activity, type: "Ride" } : activity;
       switch (format) {
         case "fit": {
-          const data = generateFit(activity, currentStreams, fileCadenceUnit);
+          const data = generateFit(encoderActivity, currentStreams, fileCadenceUnit);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
           downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
           break;
         }
         case "tcx": {
-          const xml = generateTcx(activity, currentStreams, fileCadenceUnit);
+          const xml = generateTcx(encoderActivity, currentStreams, fileCadenceUnit);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }
