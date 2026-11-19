@@ -1,7 +1,7 @@
 # Merge review fallback / 머지 리뷰 대체 경로
 
 `scripts/merge-pr.sh` tries **Codex → Claude → recorded self-review**. A valid
-`BLOCK` always stops the gate; another reviewer cannot override it. Missing
+`BLOCK` stops the automatic review gate. Another reviewer cannot override it. Missing
 executables/authentication, transport failures, timeouts and unusable responses
 advance to the next provider. Tests, type checks, GitHub checks and commit/base
 freshness checks still apply. No provider failure is converted into an automatic
@@ -29,6 +29,12 @@ CI와 로컬 lint 모두 최신 목록인지 검사합니다. `./firebase`, 확�
 재수출과 동적 import도 검사합니다. 일반 웹 기본값을 함께 제공하는 공유 서비스의
 import 예외는 명시적으로 남기되, 그 예외가 임베드 호출의 안전성을 증명하지는
 않습니다. 리뷰에서는 실제 서비스 전달과 계정·앱 교체 경로까지 확인해야 합니다.
+
+## 저장소 관리자가 승인하는 배포 리뷰 예외
+
+배포 시간이 늘거나 동일한 검사가 반복되는 변경을 요구하는 배포 도구 리뷰 지적은 저장소 관리자가 개별 PR에서 수용할 수 있습니다. 배포 준비·게시·복구의 책임과 이미 실행되는 검증을 확인한 뒤, PR에 승인자, 대상 head SHA, 수용한 지적, 추가 검증을 생략한 이유를 기록합니다. 승인한 코드가 바뀌면 적용 범위를 다시 확인하고 새로운 head를 기록합니다.
+
+승인 내용을 기록한 뒤 공식 머지 게이트를 `--no-review`로 실행합니다. 기존 리뷰 판정은 보존하고 린트, 타입 검사, 테스트, GitHub 필수 검사, 보호 브랜치 규칙을 적용합니다. 이 예외는 승인한 배포 도구 지적에 한정됩니다. 인증·권한·개인정보와 별개의 코드 결함은 기존 블로커 기준을 따릅니다.
 
 ## When both CLIs are unavailable / 두 CLI를 사용할 수 없을 때
 
