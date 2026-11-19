@@ -106,8 +106,8 @@ export function applyVerifiedCadenceUnit(activity: Activity, displayed: Activity
 export function resolveRecordedElapsedMs(activity: Activity, minimumMs: number): number | undefined {
   const summary = activity.summary.elapsedTimeMillis;
   if (typeof summary === "number" && Number.isFinite(summary) && summary >= minimumMs) return summary;
-  const endpointDuration = activity.endTime - activity.startTime;
-  return Number.isFinite(endpointDuration) && endpointDuration >= minimumMs ? endpointDuration : undefined;
+  // Activity endpoints can describe GPS coverage rather than the elapsed workout.
+  return undefined;
 }
 
 export function readUnroundedFitEnd(streams: ActivityStreams): number | undefined {
@@ -124,7 +124,7 @@ export function prepareActivityFileStreams(activity: Activity, streams: Activity
       || Number.isFinite(timed.cadence?.[index]) || Number.isFinite(timed.heartrate?.[index]) || Number.isFinite(timed.watts?.[index]);
     return observed ? timestamp : null;
   });
-  const anchorMs = Math.floor(activity.startTime / 1000) * 1000;
+  const anchorMs = Math.round(activity.startTime / 1000) * 1000;
   const fitTimes = observationTimes.map(timestamp => timestamp === null ? null
     : Math.round((activity.startTime + timestamp) / 1000) * 1000 - anchorMs);
   const fit = combineTimedStreams(timed, fitTimes, { userId: timed.userId }, []);

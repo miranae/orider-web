@@ -69,7 +69,7 @@ it("uses actual elapsed time on a verified grid and keeps the FIT timer time ind
   expect(unknown.get(7)).toBe(0xFFFFFFFF);
   expect(unknown.get(8)).toBe(60_000);
   const known = readSession(generateFit({ ...base, endTime: startTime + 100_000,
-    summary: { ...base.summary, elapsedTimeMillis: 50_000 } }, prepared, "spm"));
+    summary: { ...base.summary, elapsedTimeMillis: 100_000 } }, prepared, "spm"));
   expect(known.get(7)).toBe(100_000);
   expect(known.get(8)).toBe(60_000);
 });
@@ -302,8 +302,8 @@ it("quantizes verified FIT records against the absolute start clock", () => {
   const activity = { ...source, summary: { ...source.summary, ridingTimeMillis: 1000, elapsedTimeMillis: 1000 } };
   const raw = markRawPartStreams({ userId: "owner", time: [0], cadence: [170] }, "a".repeat(64), startTime + 200);
   const prepared = prepareActivityFileStreams(activity, raw, "fit");
-  expect(prepared.time).toEqual([1]);
+  expect(prepared.time).toEqual([0]);
   const session = readSession(generateFit(activity, prepared, "spm"));
-  expect(session.get(253)! - session.get(2)!).toBe(2);
+  expect(session.get(253)! - session.get(2)!).toBe(1);
   expect(session.get(7)).toBe(1000);
 });

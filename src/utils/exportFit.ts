@@ -12,7 +12,9 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const cadence = cadenceWriter(sport, cadenceUnit);
   const startDate = new Date(activity.startTime);
   const garminEpoch = new Date("1989-12-31T00:00:00Z").getTime();
-  const startTimestamp = Math.floor((startDate.getTime() - garminEpoch) / 1000);
+  const timed = usesVerifiedActivityTime(streams);
+  const startSeconds = (startDate.getTime() - garminEpoch) / 1000;
+  const startTimestamp = timed ? Math.round(startSeconds) : Math.floor(startSeconds);
   const len = streams.time?.length || streams.latlng?.length || 0;
   const durationMs = activity.summary.ridingTimeMillis || 0;
   const distanceM = activity.summary.distance || 0;
@@ -21,7 +23,6 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const relSecAt = makeRelSecAt(streams.time);
   const endRel = relSecAt(len - 1);
   const lastObserved = readUnroundedFitEnd(streams) ?? endRel ?? 0;
-  const timed = usesVerifiedActivityTime(streams);
   const recordedElapsed = timed ? resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000))) : undefined;
   const elapsedMs = timed ? recordedElapsed ?? 0xFFFFFFFF : durationMs;
   const endTimestamp = recordedElapsed != null

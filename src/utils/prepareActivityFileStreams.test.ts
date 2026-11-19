@@ -199,14 +199,13 @@ it("keeps moving-time legacy samples separate from native elapsed lap clocks", (
   expect(second).toContain(new Date(startTime + 61_000).toISOString());
 });
 
-it("uses recorded activity endpoints when the elapsed summary is absent", () => {
+it("does not infer elapsed workout time from activity endpoints", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, endTime: startTime + 600_000, type: "Run", summary: {
     distance: 1000, ridingTimeMillis: 300_000,
   } } as Activity;
   const streams = { userId: "owner", time: [0, 300].map(second => startTime + second * 1000), laps: [{ durationMs: 1000 }] } as ActivityStreams;
-  const xml = prepareTcxExport(activity, streams, "spm").render("activity");
-  expect(xml).toContain("<TotalTimeSeconds>600</TotalTimeSeconds>");
+  expect(prepareTcxExport(activity, streams, "spm").canExportAllAsTcx).toBe(false);
 });
 
 
@@ -248,13 +247,14 @@ it("requires recorded elapsed time for a no-lap TCX when the observation window 
   const streams = markRawPartStreams({ time, heartrate: time.map(() => 150) } as ActivityStreams, "f".repeat(64), startTime + 30_000);
   const raw = prepareActivityFileStreams(activity, streams, "tcx");
   expect(prepareTcxExport(activity, raw).requiresCsv).toBe(true);
-  const tcx = generateTcx({ ...activity, endTime: startTime + 100_000,
-    summary: { ...activity.summary, elapsedTimeMillis: 50_000 } }, raw);
+  const inconsistent = { ...activity, endTime: startTime + 100_000, summary: { ...activity.summary, elapsedTimeMillis: 50_000 } };
+  expect(prepareTcxExport(inconsistent, raw).requiresCsv).toBe(true);
+  const tcx = generateTcx({ ...activity, summary: { ...activity.summary, elapsedTimeMillis: 100_000 } }, raw);
   expect(tcx).toContain("<TotalTimeSeconds>100</TotalTimeSeconds>");
   expect(tcx).toContain(new Date(startTime + 90_000).toISOString());
 });
 
-it("does not cut an open recorded lap off before the next recorded start", () => {
+it("does not assign a gap to a lap with an unknown end", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
@@ -265,11 +265,8 @@ it("does not cut an open recorded lap off before the next recorded start", () =>
     ],
   } as ActivityStreams;
   const prepared = prepareTcxExport(activity, streams);
-  expect(prepared.hasUnassigned).toBe(false);
-  const [, first, second] = prepared.render("recorded").split(/<Lap StartTime="/u);
-  expect(first).toContain(new Date(startTime + 75_000).toISOString());
-  expect(first).not.toContain(new Date(startTime + 90_000).toISOString());
-  expect(second).toContain(new Date(startTime + 90_000).toISOString());
+  expect(prepared.hasUnassigned).toBe(true);
+  expect(prepared.canKeepRecordedLaps).toBe(false);
 });
 
 it("keeps the timer when a contradictory TCX elapsed total is shorter than it", () => {
@@ -371,4 +368,14 @@ it("does not offer full-activity TCX for a relative moving axis with known pause
   } } as Activity;
   const streams = { userId: "owner", time: [0, 60, 120], heartrate: [150, 150, 150] };
   expect(prepareTcxExport(activity, streams).canExportAllAsTcx).toBe(false);
+});
+
+it("anchors a proven full-activity lap at activity start and keeps recorded calories", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: { elapsedTimeMillis: 120_000 } } as Activity;
+  const streams = { userId: "owner", time: [startTime + 30_000, startTime + 120_000], heartrate: [150, 151],
+    calories: 380, laps: [{ durationMs: 120_000, distanceKm: 1 }] } as ActivityStreams;
+  const xml = generateTcx(activity, streams);
+  expect(xml).toContain(`<Lap StartTime="${new Date(startTime).toISOString()}">`);
+  expect(xml).toContain("<Calories>380</Calories>");
 });

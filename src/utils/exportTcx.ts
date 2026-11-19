@@ -74,19 +74,14 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const laps: Array<{ start: number; duration: number; distance: number; first: number; end: number }> = [];
   let hasUnassigned = false;
   let canKeepRecordedLaps = true;
-  for (const [lapIndex, lap] of (streams.laps ?? []).entries()) {
+  for (const lap of streams.laps ?? []) {
     const duration = (lap.durationMs || 0) / 1000;
     const recordedEnd = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
       ? (lap.endTimeMs - startMs) / 1000 : undefined;
     const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
-    const nextObservedStart = Math.max(timedAt(next) ?? previousEnd, previousEnd);
-    // A gap in the sensor grid does not tell us whether the athlete paused or the sensor stopped.
-    const start = recordedStart ?? (recordedEnd != null || verifiedRelativeClock ? previousEnd : nextObservedStart);
-    const nextStartMs = streams.laps?.[lapIndex + 1]?.startTimeMs;
-    const boundedByNextLap = recordedEnd == null && recordedStart != null && typeof nextStartMs === "number"
-      && Number.isFinite(nextStartMs) && nextStartMs > startMs + start * 1000;
-    const end = recordedEnd ?? (boundedByNextLap ? (nextStartMs - startMs) / 1000 : start + duration);
+    const start = fullActivityLap && recordedStart == null ? 0 : recordedStart ?? previousEnd;
+    const end = recordedEnd ?? start + duration;
     if (recordedStart != null) {
       const first = next;
       while (next < indices.length && (timedAt(next) ?? Infinity) < recordedStart) next++;
@@ -95,12 +90,12 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     const first = next;
     while (next < indices.length) {
       const time = timedAt(next) ?? Infinity;
-      if (time > end || (boundedByNextLap && time === end)) break;
+      if (time > end) break;
       next++;
     }
     // A duration-only lap can retain its recorded metrics, but its track on an
     // elapsed clock is unknown without a recorded boundary.
-    const unverifiedLapTrack = activityTime && recordedStart == null && !fullActivityLap;
+    const unverifiedLapTrack = activityTime && (recordedStart == null || recordedEnd == null) && !fullActivityLap;
     canKeepRecordedLaps &&= !unverifiedLapTrack;
     const validDistance = typeof lap.distanceKm === "number" && Number.isFinite(lap.distanceKm) && lap.distanceKm >= 0;
     laps.push({ start, duration, distance: validDistance ? lap.distanceKm * 1000 : 0,
@@ -126,7 +121,10 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       if (mode === "activity" && !canExportAllAsTcx) throw new Error("TCX_ACTIVITY_CLOCK_UNAVAILABLE");
       const lines = [...header];
       if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
-        for (const lap of laps) writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
+        for (const lap of laps) {
+          const calories = laps.length === 1 && !hasUnassigned ? streams.calories ?? 0 : 0;
+          writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, calories, lap.first, lap.end);
+        }
       } else {
         const duration = ((mode === "activity" || activityTime || laps.length ? recordedDuration ?? summary.ridingTimeMillis : summary.ridingTimeMillis) || 0) / 1000;
         writeLap(lines, startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
