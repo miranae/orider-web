@@ -13,7 +13,7 @@ const mobileTabFocusClass = "focus-visible:outline focus-visible:outline-2 focus
 export default function MobileTabBar({
   active,
 }: {
-  active: HubKey;
+  active: HubKey | null;
 }) {
   const { t } = useTranslation("common");
   const { lang } = useParams();
