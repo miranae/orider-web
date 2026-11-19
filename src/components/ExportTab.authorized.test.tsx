@@ -174,7 +174,7 @@ it("finishes a download when unrelated activity metadata changes during verifica
 
 
 it("asks how to handle unassigned TCX observations and downloads the chosen edition", async () => {
-  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
   const samples = { userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145],
     laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
   } as unknown as ActivityStreams;
@@ -205,7 +205,7 @@ it("writes the latest recorded summary when verification outlasts a metadata ref
 
 
 it("refreshes the TCX choice before using it on changed lap inputs", async () => {
-  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
   const samples = {
     userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145],
     laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
@@ -221,5 +221,34 @@ it("refreshes the TCX choice before using it on changed lap inputs", async () =>
   await act(async () => fireEvent.click(confirm()));
   expect(click).not.toHaveBeenCalled();
   await act(async () => fireEvent.click(confirm()));
+  expect(click).toHaveBeenCalledOnce();
+});
+
+
+it("keeps raw cadence in CSV when an all-sample TCX lacks an elapsed-time total", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
+  const samples = { userId: "owner", time: [0, 120, 125], cadence: [80, 81, 82],
+    laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
+  } as unknown as ActivityStreams;
+  render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={async () => samples} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
+  expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(samples);
+});
+
+it("drops obsolete lap options if the new activity fits its recorded laps", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
+  const laps = [{ durationMs: 120_000, distanceKm: 1 }];
+  const initial = { userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145], laps } as ActivityStreams;
+  const latest = { ...initial, time: [0, 120], heartrate: [140, 150] };
+  const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
+  const click = vi.mocked(HTMLAnchorElement.prototype.click);
+  click.mockClear();
+  render(<ExportTab activity={run} streams={initial} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  const option = /save all samples|모든 표본을 한 랩|tcxLapsChoice.activity/iu;
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: option })));
+  expect(screen.queryByRole("button", { name: option })).toBeNull();
   expect(click).toHaveBeenCalledOnce();
 });

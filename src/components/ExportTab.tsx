@@ -127,7 +127,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         case "tcx": {
           const preparedStreams = prepareActivityFileStreams(fileActivity, fileStreams, format);
           const prepared = prepareTcxExport(fileActivity, preparedStreams, fileCadenceUnit);
-          if (prepared.hasUnassigned || tcxMode) {
+          if (prepared.hasUnassigned) {
             const binding = JSON.stringify([revision, preparedStreams.laps, preparedStreams.time, preparedStreams.latlng,
               preparedStreams.distance, preparedStreams.altitude, preparedStreams.velocity_smooth, preparedStreams.heartrate,
               preparedStreams.cadence, preparedStreams.watts, fileCadenceUnit, fileActivity.summary.distance,
@@ -140,11 +140,14 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           }
           clearCadencePrompt();
           setTcxPrompt(null);
-          if (tcxMode === "csv") {
-            downloadBlob(new Blob([generateCsv(preparedStreams)], { type: "text/csv" }), exportFilename(fileActivity, "csv"));
+          if (prepared.hasUnassigned && tcxMode === "csv") {
+            const originalSamples = prepareActivityFileStreams(fileActivity, currentStreams, "tcx");
+            downloadBlob(new Blob([generateCsv(originalSamples)], { type: "text/csv" }), exportFilename(fileActivity, "csv"));
           } else {
-            const xml = prepared.render(tcxMode ?? "recorded");
+            const mode = prepared.hasUnassigned && tcxMode === "activity" ? "activity" : "recorded";
+            const xml = prepared.render(mode);
             downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(fileActivity, "tcx"));
+            if (!prepared.hasUnassigned && tcxMode) showToast(t("export.tcxLapsUpdated"), "info");
           }
           break;
         }

@@ -74,8 +74,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
     const nextObservedStart = Math.max(timedAt(next) ?? previousEnd, previousEnd);
-    const contiguous = verifiedRelativeClock && (laps.length === 0 || nextObservedStart - previousEnd < duration);
-    const start = recordedStart ?? (recordedEnd != null || contiguous ? previousEnd : nextObservedStart);
+    const start = recordedStart ?? (recordedEnd != null || verifiedRelativeClock ? previousEnd : nextObservedStart);
     const end = recordedEnd ?? start + duration;
     if (recordedStart != null) {
       const first = next;
@@ -92,9 +91,10 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const summary = activity.summary;
   const elapsed = summary.elapsedTimeMillis;
   const recordedDuration = typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed
-    : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : summary.ridingTimeMillis;
+    : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : undefined;
   const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
-    && typeof recordedDuration === "number" && Number.isFinite(recordedDuration) && recordedDuration >= 0;
+    && typeof recordedDuration === "number" && Number.isFinite(recordedDuration)
+    && recordedDuration / 1000 >= (timedAt(indices.length - 1) ?? 0);
   return {
     hasUnassigned,
     canExportAllAsTcx,

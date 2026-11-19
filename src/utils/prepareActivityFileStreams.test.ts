@@ -222,3 +222,20 @@ it("does not slide adjacent duration-only laps by a sample interval on a verifie
   expect(second).not.toContain(new Date(startTime + 121_000).toISOString());
   expect(prepared.hasUnassigned).toBe(true);
 });
+
+
+it("keeps sparse observation gaps from moving verified duration-only lap boundaries", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const time = Array.from({ length: 131 }, (_, index) => index);
+  const streams = markRawPartStreams({
+    time, heartrate: time.map(index => [30, 125, 130].includes(index) ? 150 : null),
+    laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
+  } as unknown as ActivityStreams, "f".repeat(64), startTime);
+  const exportFile = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
+  expect(exportFile.hasUnassigned).toBe(true);
+  expect(exportFile.canExportAllAsTcx).toBe(false);
+  const [, , second] = exportFile.render("recorded").split(/<Lap StartTime="/u);
+  expect(second).toContain(new Date(startTime + 60_000).toISOString());
+  expect(second).not.toContain(new Date(startTime + 125_000).toISOString());
+});
