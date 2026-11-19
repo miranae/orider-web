@@ -199,6 +199,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const readIdentity = profileReadIdentity.current;
   const viewerRevisionRef = useRef({ identity: readIdentity, revision: "0" });
   if (viewerRevisionRef.current.identity !== readIdentity) viewerRevisionRef.current = { identity: readIdentity, revision: "0" };
+  const publicPresenceRef = useRef<{ identity: typeof readIdentity; state: "unknown" | "present" | "deleted" }>({ identity: readIdentity, state: "unknown" });
+  if (publicPresenceRef.current.identity !== readIdentity) publicPresenceRef.current = { identity: readIdentity, state: "unknown" };
   const [viewIdentity, setViewIdentity] = useState(readIdentity);
   useEffect(() => { setViewIdentity(readIdentity); }, [readIdentity]);
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -270,6 +272,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             const revision: unknown = snapshot.data()?.[field];
             const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
             if (kind === "viewer") viewerRevisionRef.current.revision = signal.revision;
+            if (kind === "public") {
+              const presence = publicPresenceRef.current;
+              if (signal.present && (!signal.fromCache || presence.state === "unknown")) presence.state = "present";
+              if (!signal.present && !signal.fromCache && presence.state === "present") presence.state = "deleted";
+            }
             setTotalsSignals(previous => {
               const current = previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation };
               const prior = current[kind];
@@ -290,13 +297,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity && totalsSignals.generation === signalGeneration.current ? totalsSignals : null;
   const publicAccessRevision = currentSignals?.public?.revision ?? "0";
+  const publicProfileDeleted = publicPresenceRef.current.state === "deleted";
   const viewerAccessRevision = currentSignals?.viewer && !currentSignals.viewer.error
     ? currentSignals.viewer.revision : viewerRevisionRef.current.revision;
   const activityAccessCurrent = useCallback(() => profileReadIdentity.current === readIdentity
     && services.auth.currentUser === readIdentity.viewer
     && services.isSessionApproved?.(readIdentity.viewer) !== false
     && viewerRevisionRef.current.revision === viewerAccessRevision, [readIdentity, services, viewerAccessRevision]);
-  const accessRevision = useMemo(() => ({ publicAccessRevision, viewerAccessRevision }), [publicAccessRevision, viewerAccessRevision]);
+  const accessRevision = useMemo(() => ({ publicAccessRevision, publicProfileDeleted, viewerAccessRevision }),
+    [publicAccessRevision, publicProfileDeleted, viewerAccessRevision]);
   const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized });
   if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline || publicTotalsScopeRef.current.publicTotalsAuthorized !== publicTotalsAuthorized)
     publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized };
@@ -450,8 +459,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
   const profileReadReady = sessionAuthorized && (isOwnProfile || !profileLoading);
-  const activityAccessAllowed = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
-  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true, accessRevision);
+  const activityAccessAllowed = isOwnProfile || (!publicProfileDeleted && (profileForPage?.profilePublic !== false || friendStatus === "friends"));
+  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && activityAccessAllowed, true, accessRevision);
   const chartCurrent = chartScope?.identity === readIdentity && chartScope.year === chartYear;
   const chartActivities = isOwnProfile ? chartCurrent ? ownChartActivities : [] : publicGlobal.items;
   const chartLoading = isOwnProfile ? ownChartLoading || !chartCurrent && !ownChartError : publicGlobal.status === "loading";
@@ -1241,6 +1250,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 {t(publicGlobal.status === "limit" ? "profile.publicMediaLimit" : `publicGlobal.${publicGlobal.status}`)}
               </Text>}
               {(publicPhotosBuffered || publicGlobal.status === "partial") && <Button size="sm" onClick={() => {
+                if (publicPresenceRef.current.state === "deleted") return;
                 if (Date.now() < publicGlobal.authorizedUntil) setMediaVisible(visible => ({ ...visible, photos: visible.photos + 6 }));
                 if (!publicPhotosBuffered || Date.now() >= publicGlobal.authorizedUntil) void publicGlobal.more();
               }}>{t(publicPhotosBuffered ? "profile.moreCachedPhotos" : "profile.morePublicMediaActivities")}</Button>}

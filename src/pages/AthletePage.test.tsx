@@ -11,7 +11,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import AthletePage from "./AthletePage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
-import { setDocData, setCollectionDocs, mockCollectionData, simulateLogin, setCallableResult as setResult, setCallableImplementation as setImplementation, mockCallableInvocations } from "../__tests__/mocks/firebase";
+import { clearDocData, setDocData, setCollectionDocs, mockCollectionData, simulateLogin, setCallableResult as setResult, setCallableImplementation as setImplementation, mockCallableInvocations } from "../__tests__/mocks/firebase";
 import { createMockProfile, createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 
 vi.mock("../services/activityDiscovery", () => ({ loadActivityDiscovery: vi.fn(async (_services, request) => {
@@ -1235,6 +1235,31 @@ it("observes first signal insertion on existing documents whose counters start a
   act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "first-block" }));
   await screen.findByText("누적 기록 확인이 중단되었습니다.");
   expect(screen.queryByText("7회")).not.toBeInTheDocument();
+});
+
+it("drops buffered public photos when an existing version-zero profile is deleted", async () => {
+  const { activityFeedSourceRevision } = await import("../services/activityFeedContent");
+  setDocData("users_public/athlete-1", { nickname: "Legacy rider", profilePublic: true });
+  setCollectionDocs("activities", [0, 1].map(ride => {
+    const activity = createMockActivity({
+      id: `ride-${ride}`, userId: "athlete-1", source: "strava", deletedAt: null, visibility: "everyone",
+      startTime: Date.UTC(2026, 6, 2 - ride), endTime: Date.UTC(2026, 6, 2 - ride, 1),
+    });
+    const photos = [0, 1, 2, 3].map(index => ({
+      id: `photo-${ride}-${index}`, url: `https://example.test/photo-${ride}-${index}.jpg`, caption: `Photo ${ride}-${index}`,
+    }));
+    return { ...activity, feedContentV1: {
+      version: 1, revision: "photo-revision", sourceRevision: activityFeedSourceRevision(activity),
+      memo: null, photos, totalPhotoCount: photos.length,
+    } };
+  }));
+  const view = renderWithProviders(<AthletePage />);
+  const showBuffered = await screen.findByRole("button", { name: "사진 6개 더 보기" });
+  expect(view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger")).toHaveLength(6);
+  act(() => clearDocData("users_public/athlete-1"));
+  fireEvent.click(showBuffered);
+  expect(screen.queryByRole("button", { name: "사진 6개 더 보기" })).not.toBeInTheDocument();
+  expect(view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger, .athlete-cover .athlete-photo-trigger")).toHaveLength(0);
 });
 
 it.each(["success", "failure"])("ignores an older public continuation's %s and busy completion after visibility restarts the first page", async outcome => {
