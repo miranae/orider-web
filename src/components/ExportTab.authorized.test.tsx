@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import ExportTab from "./ExportTab";
-import { markPublicStreamRevision } from "../services/activityStreamSource";
+import { markVerifiedStreamCadence } from "../services/activityStreamSource";
 import type { Activity } from "@shared/types";
 const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new Uint8Array()), toast: vi.fn() }));
 vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
@@ -32,14 +32,14 @@ it("discards a late export authorization after leaving the detail", async () => 
 });
 
 it.each([
-  ["strava", "a", "spm"],
-  ["strava", "b", null],
-  ["orider", "b", "spm"],
-] as const)("exports %s cadence only with a current stream unit (revision %s)", async (source, revision, expected) => {
+  ["strava", "strides_per_minute"],
+  ["orider", null],
+  ["orider", undefined],
+] as const)("only exports the cadence unit returned with the newly authorized %s stream", async (source, expected) => {
   const run = { ...activity, type: "Run", source } as Activity;
-  const before = markPublicStreamRevision({ time: [0], cadence: [180] }, "a".repeat(64));
-  const current = markPublicStreamRevision({ time: [0], cadence: [180] }, revision.repeat(64));
-  render(<ExportTab activity={run} streams={before} cadenceUnit="spm" resolveCurrentStreams={async () => current} />);
+  const before = markVerifiedStreamCadence({ userId: "owner", time: [0], cadence: [180] }, "a".repeat(64), "spm");
+  const current = markVerifiedStreamCadence({ userId: "owner", time: [0], cadence: [85] }, "b".repeat(64), expected);
+  render(<ExportTab activity={run} streams={before} resolveCurrentStreams={async () => current} />);
   await act(async () => fireEvent.click(screen.getByText("FIT")));
   expect(mocks.fit).toHaveBeenCalledWith(run, current, expected);
 });

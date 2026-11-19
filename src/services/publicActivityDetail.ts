@@ -1,5 +1,5 @@
 import { decodePublicMapPolylineParts } from "./publicActivityMaps";
-import { markPublicStreamRevision, markRawPartStreams } from "./activityStreamSource";
+import { markVerifiedStreamCadence, markRawPartStreams } from "./activityStreamSource";
 import { validatedRunEffortFacts } from "./personalDataApi";
 import { announceActivityContentChange } from "./activityContentChanged";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
@@ -80,14 +80,14 @@ export function createPublicActivityClient(services: FirebaseServices, options: 
       return data;
     },
     async streams(activityId: string) {
-      const result = await call<{ state: string; activityId: string; streamInputRevision: string | null; sourceLayer: string | null; reason: string | null; streams: import("@shared/types").ActivityStreams | null; runningBestEffortsFacts?: import("@shared/types/running-best-efforts-facts").RunningBestEffortsFacts }>("getActivityPublicStreams", { activityId, includeRunEffortFacts: true });
+      const result = await call<{ state: string; activityId: string; streamInputRevision: string | null; sourceLayer: string | null; cadenceUnit?: unknown; reason: string | null; streams: import("@shared/types").ActivityStreams | null; runningBestEffortsFacts?: import("@shared/types/running-best-efforts-facts").RunningBestEffortsFacts }>("getActivityPublicStreams", { activityId, includeRunEffortFacts: true });
       if (result.activityId !== activityId || !["available", "pending", "unavailable", "changed_input"].includes(result.state)) throw new Error("invalid_activity_streams");
       if (result.state !== "available") return result;
       if (!result.streamInputRevision || !/^[a-f0-9]{64}$/.test(result.streamInputRevision) || !["raw_parts", "api_streams"].includes(result.sourceLayer ?? "") || !result.streams || Array.isArray(result.streams)) throw new Error("invalid_activity_streams");
       const streams = result.sourceLayer === "raw_parts" ? markRawPartStreams(result.streams, result.streamInputRevision) : result.streams;
-      return { ...result, streams: markPublicStreamRevision({
+      return { ...result, streams: markVerifiedStreamCadence({
         ...streams, runningBestEffortsFacts: validatedRunEffortFacts(result.runningBestEffortsFacts, result.streamInputRevision) ?? undefined,
-      }, result.streamInputRevision) };
+      }, result.streamInputRevision, result.cadenceUnit) };
     },
     setNativeMemo: (activityId: string, memo: string, expectedMemoRevision: string) => call<{ status: "updated" | "unchanged"; memoRevision: string }>("setActivityNativeMemo", { activityId, memo, expectedMemoRevision }),
     photos: (activityId: string) => call<{ photos: NonNullable<PublicActivityDetail["content"]["photos"]>; truncated: boolean }>("getActivityPublicPhotos", { activityId }),

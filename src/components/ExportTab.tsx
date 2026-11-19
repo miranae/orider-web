@@ -6,17 +6,14 @@ import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
 import { exportFilename } from "../utils/exportSport";
-import type { ExportCadenceUnit } from "../utils/exportCadence";
 import { useToast } from "../contexts/ToastContext";
-import { readPublicStreamRevision } from "../services/activityStreamSource";
+import { readStreamCadenceUnit } from "../services/activityStreamSource";
 import { logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
   resolveCurrentStreams?: () => Promise<ActivityStreams>;
-  /** 서버 지표의 저장 케이던스 단위(`cadenceUnit`). 러닝 케이던스를 파일 규격(한 발 기준)으로 바꿀 때 쓴다. */
-  cadenceUnit?: ExportCadenceUnit;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -37,7 +34,7 @@ const FORMATS = [
   { id: "csv", label: "CSV", descKey: "export.formatCsvDesc", icon: "📊" },
 ] as const;
 
-export default function ExportTab({ activity, streams, resolveCurrentStreams, cadenceUnit }: ExportTabProps) {
+export default function ExportTab({ activity, streams, resolveCurrentStreams }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
@@ -48,9 +45,10 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ca
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
       if (request !== generation.current) return;
-      const displayedRevision = readPublicStreamRevision(streams);
-      const sameStream = !resolveCurrentStreams || (displayedRevision !== undefined && displayedRevision === readPublicStreamRevision(currentStreams));
-      const fileCadenceUnit = sameStream ? cadenceUnit : activity.source === "orider" ? "spm" : null;
+      const verifiedUnit = readStreamCadenceUnit(currentStreams);
+      // Legacy owner-only native data predates the server field. Do not infer units for a newly authorized public stream.
+      const fileCadenceUnit = verifiedUnit === undefined && !resolveCurrentStreams && activity.source === "orider"
+        ? "spm" : verifiedUnit;
       switch (format) {
         case "fit": {
           const data = generateFit(activity, currentStreams, fileCadenceUnit);
@@ -81,7 +79,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ca
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, cadenceUnit, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

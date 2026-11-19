@@ -2,6 +2,7 @@ import { encodePolyline } from "../utils/polyline";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { createPublicActivityClient } from "./publicActivityDetail";
+import { readStreamCadenceUnit } from "./activityStreamSource";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), getFunctions: vi.fn(() => ({})), httpsCallable: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ getFunctions: mocks.getFunctions, httpsCallable: (...args: unknown[]) => { mocks.httpsCallable(...args); return mocks.call; }, connectFunctionsEmulator: vi.fn() }));
 vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
@@ -84,6 +85,15 @@ it("reads full activity streams and preserves independent nullable sensor axes",
   const result = await createPublicActivityClient(services(null)).streams("a");
   expect(result.streams).toMatchObject(streams);
   expect(mocks.call).toHaveBeenCalledWith({ activityId: "a", includeRunEffortFacts: true });
+});
+it("binds an authorized cadence unit only to its returned public stream", async () => {
+  const client = createPublicActivityClient(services(null));
+  const base = { activityId: "a", state: "available", sourceLayer: "api_streams", streams: { cadence: [85] } };
+  mocks.call.mockResolvedValueOnce({ data: { ...base, streamInputRevision: "a".repeat(64), cadenceUnit: "strides_per_minute" } })
+    .mockResolvedValueOnce({ data: { ...base, streamInputRevision: "b".repeat(64) } });
+  const first = await client.streams("a"), second = await client.streams("a");
+  expect(readStreamCadenceUnit(first.streams!)).toBe("strides_per_minute");
+  expect(readStreamCadenceUnit(second.streams!)).toBeUndefined();
 });
 it("rejects full streams with missing source binding or a different activity", async () => {
   mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streams: { watts: [1] } } });

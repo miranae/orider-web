@@ -1,3 +1,4 @@
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { ActivityStreams } from "@shared/types";
 
 // JSON 필드로 흉내 낼 수 없고, 파워 미리보기 등의 객체 spread에도 유지되는 출처다.
@@ -14,14 +15,17 @@ export function isRawPartStreams(streams: ActivityStreams | null | undefined): b
   return streams != null && typeof (streams as Partial<RawPartStreams>)[rawPartRevision] === "string";
 }
 
-const publicStreamRevision = Symbol("publicStreamInputRevision");
-type PublicStreams = ActivityStreams & { [publicStreamRevision]: string };
+const streamCadenceUnit = Symbol("verifiedStreamCadenceUnit");
+type CadenceUnit = ActivityMetrics["cadenceUnit"];
+type StreamsWithCadenceUnit = ActivityStreams & { [streamCadenceUnit]: CadenceUnit };
 
-export function markPublicStreamRevision(streams: ActivityStreams, revision: string): ActivityStreams {
-  const marked: PublicStreams = { ...streams, [publicStreamRevision]: revision };
+export function markVerifiedStreamCadence(streams: ActivityStreams, revision: unknown, unit: unknown): ActivityStreams {
+  if (typeof revision !== "string" || !/^[a-f0-9]{64}$/u.test(revision) || unit === undefined) return streams;
+  const verified = unit === "rpm" || unit === "spm" || unit === "strides_per_minute" ? unit : null;
+  const marked: StreamsWithCadenceUnit = { ...streams, [streamCadenceUnit]: verified };
   return marked;
 }
 
-export function readPublicStreamRevision(streams: ActivityStreams): string | undefined {
-  return (streams as Partial<PublicStreams>)[publicStreamRevision];
+export function readStreamCadenceUnit(streams: ActivityStreams): CadenceUnit {
+  return (streams as Partial<StreamsWithCadenceUnit>)[streamCadenceUnit];
 }
