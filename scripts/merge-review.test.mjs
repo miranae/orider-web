@@ -147,6 +147,8 @@ test("the finding severity controls Codex, Claude and self review verdicts", asy
     ["MAJOR src/page.ts:1 broken\n- [**BLOCKER**] src/page.ts:2 account leak", "PASS", "BLOCK"],
     ["BLOCKER(src/auth.ts:42) permission bypass\nMAJOR src/page.ts:7 pagination fails", "BLOCK", "BLOCK"],
     ["> 1. **[BLOCKER]** src/auth.ts:42 permission bypass\nMAJOR src/page.ts:7 pagination fails", "BLOCK", "BLOCK"],
+    ["MAJOR: src/page.ts:7 pagination fails\n- [x] BLOCKER: src/auth.ts:42 permission bypass", "PASS", "BLOCK"],
+    ["MAJOR: src/page.ts:7 pagination fails\n(P0) BLOCKER: src/auth.ts:42 permission bypass", "BLOCK", "BLOCK"],
   ];
   for (const [findings, verdict, expected] of cases) {
     const response = { verdict, findings };
