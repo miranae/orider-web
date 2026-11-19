@@ -141,18 +141,37 @@ jobs:
           node scripts/verify-social-callables.mjs
           --project "${{ vars.VITE_FIREBASE_PROJECT_ID }}"
           --region "${{ vars.VITE_FIREBASE_FUNCTIONS_REGION }}"
+      - name: Record previous production Hosting release for bundled transport
+        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
+        id: hosting_snapshot
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
+          ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
+        run: |
+          export HOSTING_DEPLOYMENT_MARKER="bundled-production:$RELEASE_SHA:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
+          node scripts/bundled-stage-hosting-release.mjs --phase snapshot --file "$RUNNER_TEMP/production-hosting-before.json"
       - name: Deploy Hosting only
+        id: publish
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
+          ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
         run: |
           set -euo pipefail
           npm install -g firebase-tools
-          set +e
           config=firebase.json
           if [ "$ORIDER_FUNCTIONS_TRANSPORT" = production ]; then config=firebase.bundled-production.json; fi
           deploy_env=(env)
+          release_message=()
           if [ "$ORIDER_FUNCTIONS_TRANSPORT" = legacy ]; then
             deploy_env=(env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT)
+          else
+            node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/production-hosting-before.json"
+            release_message=(--message "bundled-production:$RELEASE_SHA:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT")
           fi
-          "${deploy_env[@]}" firebase deploy --config "$config" --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-deploy.log
+          set +e
+          "${deploy_env[@]}" firebase deploy --config "$config" --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "$HOSTING_ACCESS_TOKEN" "${release_message[@]}" 2>&1 | tee firebase-deploy.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-deploy.log; then
@@ -207,8 +226,17 @@ jobs:
           echo "✓ 라이브가 최신 번들 + 자산 immutable 확인"
 
       - name: Verify bundled production Hosting entry bytes and HTTP aliases
+        id: bundle_verify
         if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
         run: node scripts/verify-bundled-hosting.mjs --environment production
+      - name: Restore previous production Hosting release after bundled publication failure
+        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != '' && steps.bundle_verify.outcome != 'success'
+        timeout-minutes: 3
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
+          ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
+        run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/production-hosting-before.json"
 
       - name: Create GitHub Release notes
         env:

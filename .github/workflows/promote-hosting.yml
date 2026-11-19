@@ -164,13 +164,6 @@ jobs:
         run: |
           node scripts/promote-bundled-client.mjs --phase check-files
           node scripts/verify-bundled-hosting.mjs --environment production
-          node --input-type=module <<'JS'
-          import {readFileSync} from 'node:fs';
-          import {stageHtmlEntry} from './scripts/lib/stage-artifact-manifest.mjs';
-          const get=async path=>{const r=await fetch(`https://orider.co.kr/${path}?promotion=${process.env.GITHUB_RUN_ID}`,{cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error(`production ${path} HTTP${r.status}`);return r.text();};
-          if(await get('runtime-config.json')!==readFileSync('dist/runtime-config.json','utf8'))throw Error('production runtime differs');
-          if(stageHtmlEntry(await get(''),'live production HTML','https://orider.co.kr')!==stageHtmlEntry(readFileSync('dist/index.html','utf8'),'built production HTML','https://orider.co.kr'))throw Error('production entry differs');
-          JS
       - name: Restore this run's previous production Hosting release on failure
         if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != ''
         timeout-minutes: 3

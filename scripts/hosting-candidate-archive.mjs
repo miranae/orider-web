@@ -36,10 +36,22 @@ function auth(token) {
   if (!token || /[\r\n]/u.test(token)) throw new Error("candidate archive access token required");
   return { Authorization: `Bearer ${token}` };
 }
-async function readObject(object, token, fetcher) {
-  const response = await fetcher(metadataUrl(object), { headers: auth(token), redirect: "error", signal: AbortSignal.timeout(30000) });
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`private client archive metadata HTTP${response.status}`); }
-  return response.json();
+async function readArchive({ object, generation, token, fetcher }) {
+  const phase = generation ? "download" : "metadata";
+  const url = generation
+    ? `https://storage.googleapis.com/download/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o/${encodeURIComponent(object)}?alt=media&generation=${generation}`
+    : metadataUrl(object);
+  const context = `private client archive ${phase} GET gs://${HOSTING_CANDIDATE_BUCKET}/${object}${generation ? `#${generation}` : ""}`;
+  const headers = auth(token);
+  let response;
+  try {
+    response = await fetcher(url, { headers, redirect: "error", signal: AbortSignal.timeout(generation ? 120000 : 30000) });
+  } catch (error) {
+    throw new Error(`${context}: transport failed (${error?.name ?? "Error"}/${error?.cause?.code ?? error?.code ?? "unknown"})`);
+  }
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`${context}: HTTP${response.status}`); }
+  try { return generation ? Buffer.from(await response.arrayBuffer()) : await response.json(); }
+  catch { throw new Error(`${context}: response body could not be read`); }
 }
 export async function archiveHostingCandidate({ workspace = process.cwd(), buildReceipt, directory, runId, attempt, workflowSourceSha, token, fetcher = fetch }) {
   const object = hostingCandidateObject(runId, attempt), candidate = json(buildReceipt), dist = join(workspace, "dist"), hosting = join(workspace, "firebase.bundled-stage.json");
@@ -60,9 +72,11 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
   const metadata = { name: object, contentType: "application/gzip", metadata: { ...Object.fromEntries(Object.entries(provenance).map(([key, value]) => [key, String(value)])), sha256: checksum } };
   const boundary = `orider-client-${checksum.slice(0, 32)}`;
   const body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/gzip\r\n\r\n`), bytes, Buffer.from(`\r\n--${boundary}--\r\n`)]);
+  const headers = { ...auth(token), "Content-Type": `multipart/related; boundary=${boundary}` };
+  const context = `private client archive create POST gs://${HOSTING_CANDIDATE_BUCKET}/${object}`;
   let response;
   try { response = await fetcher(`https://storage.googleapis.com/upload/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o?uploadType=multipart&ifGenerationMatch=0`,
-    { method: "POST", headers: { ...auth(token), "Content-Type": `multipart/related; boundary=${boundary}` }, body, redirect: "error", signal: AbortSignal.timeout(120000) }); }
+    { method: "POST", headers, body, redirect: "error", signal: AbortSignal.timeout(120000) }); }
   catch (error) {
     // 응답 유실이어도 create-only object를 읽어 같은 checksum인지 확인한다.
     console.error(JSON.stringify({ operation: "hosting-candidate-create", method: "POST",
@@ -70,9 +84,12 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
       errorCode: error?.cause?.code ?? error?.code ?? "unknown" }));
   }
   let stored;
-  if (!response || [409, 412].includes(response.status)) { await response?.body?.cancel(); stored = await readObject(object, token, fetcher); }
-  else if (!response.ok) { await response.body?.cancel(); throw new Error(`private client archive create HTTP${response.status}`); }
-  else stored = await response.json();
+  if (!response || [409, 412].includes(response.status)) { await response?.body?.cancel(); stored = await readArchive({ object, token, fetcher }); }
+  else if (!response.ok) { await response.body?.cancel(); throw new Error(`${context}: HTTP${response.status}`); }
+  else {
+    try { stored = await response.json(); }
+    catch { throw new Error(`${context}: response body could not be read`); }
+  }
   if (stored.name !== object || stored.bucket !== HOSTING_CANDIDATE_BUCKET || !positive.test(stored.generation || "")
     || Number(stored.size) !== bytes.length || Object.entries(metadata.metadata).some(([key, value]) => stored.metadata?.[key] !== value)) throw new Error("immutable private client archive differs");
   const receipt = { kind: "gcs", bucket: HOSTING_CANDIDATE_BUCKET, object, generation: stored.generation, sha256: checksum,
@@ -91,7 +108,7 @@ function verifyCandidateAttestation(file, archive) {
   }
 }
 export async function restoreHostingCandidate({ run, runId, attempt, directory, token, fetcher = fetch, verifyAttestation = verifyCandidateAttestation }) {
-  const object = hostingCandidateObject(runId, attempt), stored = await readObject(object, token, fetcher), metadata = stored.metadata;
+  const object = hostingCandidateObject(runId, attempt), stored = await readArchive({ object, token, fetcher }), metadata = stored.metadata;
   const archive = { kind: "gcs", bucket: stored.bucket, object: stored.name, generation: stored.generation, sha256: metadata?.sha256,
     frontendSourceSha: metadata?.frontendSourceSha, workflowSourceSha: metadata?.workflowSourceSha, artifactHash: metadata?.artifactHash };
   const archivedRun = { kind: "archived-stage-acceptance", repository: { full_name: metadata?.repository }, path: metadata?.workflowPath, event: "workflow_dispatch",
@@ -100,10 +117,7 @@ export async function restoreHostingCandidate({ run, runId, attempt, directory, 
   if (run) { validateArchivedCandidate(run, archive, attempt); if (run.id !== Number(runId)) throw new Error("selected run identity mismatch"); }
   else run = archivedRun;
   if (metadata.repository !== "miranae/orider-web" || metadata.workflowPath !== run.path || metadata.runId !== String(run.id) || metadata.attempt !== String(attempt)) throw new Error("private client archive provenance mismatch");
-  const url = `https://storage.googleapis.com/download/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o/${encodeURIComponent(object)}?alt=media&generation=${archive.generation}`;
-  const response = await fetcher(url, { headers: auth(token), redirect: "error", signal: AbortSignal.timeout(120000) });
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`private client archive download HTTP${response.status}`); }
-  const bytes = Buffer.from(await response.arrayBuffer());
+  const bytes = await readArchive({ object, generation: archive.generation, token, fetcher });
   if (hash(bytes) !== archive.sha256) throw new Error("private client archive checksum mismatch");
   directory = resolve(directory); mkdirSync(directory);
   const path = join(directory, "candidate.tgz"), payload = join(directory, "payload"); writeFileSync(path, bytes, { flag: "wx" }); mkdirSync(payload);

@@ -42,7 +42,7 @@ function fixture() {
   const prepare = (patch = {}) => prepareBundledStage({ workspace, directory, backendSourceSha: backend, frontendSourceSha, fetcher, ...patch });
   const build = () => {
     mkdirSync(resolve(workspace, "dist/assets"), { recursive: true });
-    writeFileSync(resolve(workspace, "dist/index.html"), '<script src="/assets/index-fixture.js"></script>');
+    writeFileSync(resolve(workspace, "dist/index.html"), '<script type="module" src="/assets/index-fixture.js"></script>');
     writeFileSync(resolve(workspace, "dist/assets/index-fixture.js"), "export {};");
     copyFileSync(resolve(directory, "runtime-config.json"), resolve(workspace, "dist/runtime-config.json"));
   };
@@ -389,6 +389,16 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     assert.ok(calls.some(({ url }) => url === "https://orider-dev.web.app/api/v1/profile"));
     assert.ok(calls.some(({ url }) => url === "https://orider-dev.web.app/api/strava/webhook"));
     assert.ok(calls.every(({ options }) => options.method !== "POST"));
+    const production = { environment: "production", directory: resolve(f.workspace, "dist") };
+    const readProduction = (url, options) => {
+      if (url === "https://orider.co.kr/") return new Response(readFileSync(resolve(production.directory, "index.html")));
+      if (url.endsWith("/runtime-config.json")) return new Response(readFileSync(resolve(production.directory, "runtime-config.json")));
+      return fetcher(url, options);
+    };
+    assert.equal((await verifyBundledHosting({ ...production, fetcher: readProduction })).verified, true);
+    await assert.rejects(verifyBundledHosting({ ...production,
+      fetcher: (url, options) => url.endsWith("/runtime-config.json") ? new Response("{}") : readProduction(url, options),
+    }), /runtime differs at https:\/\/orider\.co\.kr\/runtime-config\.json/u);
     for (const [status, mime, body] of [[404, "text/javascript", "missing"], [200, "text/html", "<html>fallback</html>"], [200, "application/javascript", "wrong bytes"]]) {
       await assert.rejects(verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher: async () => new Response(body, { status, headers: { "content-type": mime } }) }), /https:\/\/orider-dev.web.app\/assets\/index-fixture.js/);
     }

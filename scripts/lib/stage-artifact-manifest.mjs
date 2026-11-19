@@ -40,7 +40,8 @@ export function stageHtmlEntry(html, label = "stage HTML", origin = "https://ori
   const dom = new JSDOM(html, { url: `${origin}/` });
   try {
     for (const script of dom.window.document.querySelectorAll("script[src]")) {
-      if (script.namespaceURI !== "http://www.w3.org/1999/xhtml" || script.hasAttribute("nomodule") || script.closest("noscript") || !["", "module", "text/javascript", "application/javascript"].includes((script.getAttribute("type") || "").toLowerCase())) continue;
+      if (script.namespaceURI !== "http://www.w3.org/1999/xhtml" || script.hasAttribute("nomodule")
+        || script.closest("noscript") || script.getAttribute("type")?.toLowerCase() !== "module") continue;
       const entry = script.getAttribute("src").match(/^\/(assets\/index-[A-Za-z0-9_-]+\.js)$/u)?.[1];
       if (entry && script.src === `${origin}/${entry}`) return entry;
     }

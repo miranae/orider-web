@@ -8,7 +8,7 @@ function hostingTarget(environment, serializedWrites) {
   if (environment === "development") assertSerializedStageHostingWrites(serializedWrites);
   else if (environment !== "production" || serializedWrites !== "true") throw new Error("serialized production Hosting writes required");
   const site = environment === "production" ? "miranae-orider-g1" : "orider-dev";
-  const prefix = environment === "production" ? "client-promotion" : "bundled-stage";
+  const prefix = environment === "production" ? "(?:client-promotion|bundled-production)" : "bundled-stage";
   return { site, label: environment, channel: `sites/${site}/channels/live`,
     versionPattern: new RegExp(`^sites/${site}/versions/[A-Za-z0-9_-]+$`, "u"),
     releasePattern: new RegExp(`^sites/${site}/(?:channels/live/)?releases/[A-Za-z0-9_-]+$`, "u"),

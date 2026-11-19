@@ -66,6 +66,7 @@ test("production entry is checked from the production document origin", () => {
   const html = '<base href="https://orider-dev.web.app/"><script type="module" src="/assets/index-abc.js"></script>';
   assert.equal(stageHtmlEntry(html), "assets/index-abc.js");
   assert.throws(() => stageHtmlEntry(html, "production HTML", "https://orider.co.kr"), /entry script missing/u);
+  assert.throws(() => stageHtmlEntry('<script src="/assets/index-abc.js"></script>'), /entry script missing/u);
 });
 
 function fakeStorage({ loseCreateResponse = false, corruptDownload = false } = {}) {
