@@ -988,7 +988,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const recentPhotos = profilePhotos.slice(0, mediaVisible.photos).map(photo =>
     !isOwnProfile && verifiedPublicPhotos?.access === publicPhotoAccess
       ? verifiedPublicPhotos.photos.get(photoKey(photo)) ?? photo : photo);
-  const publicPhotosBuffered = !isOwnProfile && Date.now() < publicGlobal.authorizedUntil && profilePhotos.length > mediaVisible.photos;
+  const publicPhotosBuffered = !isOwnProfile && profilePhotos.length > mediaVisible.photos;
   const currentPhotoRevealStatus = photoRevealStatus?.scope === photoRevealScope ? photoRevealStatus.status : null;
   const showMorePublicPhotos = async () => {
     const current = () => photoRevealScopeRef.current === photoRevealScope && activityAccessCurrent()
@@ -1007,7 +1007,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     const logPageFailure = (error: unknown, pageIndex?: number) =>
       logClientError("AthletePage.publicPhotos", error, { pageIndex }, services, readIdentity.viewer, String(pageIndex ?? ""), current);
     const handleFailures = async (failures: Array<{ error: unknown; pageIndex?: number }>) => {
-      let denied = false;
+      let restartRequired = false;
       let failed = false;
       for (const { error, pageIndex } of failures) {
         const code = (error as { code?: string })?.code;
@@ -1016,10 +1016,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           || (controller.signal.aborted && (error === controller.signal.reason || (error instanceof Error && error.name === "AbortError")))) continue;
         logPageFailure(error, pageIndex);
         failed = true;
-        denied ||= code === "functions/permission-denied" || code === "functions/not-found" || code === "functions/unauthenticated";
+        restartRequired ||= code === "functions/permission-denied" || code === "functions/not-found" || code === "functions/unauthenticated"
+          || code === "functions/failed-precondition";
       }
       if (!failed || !current()) return;
-      if (denied) await publicGlobal.refresh();
+      if (restartRequired) await publicGlobal.refresh();
       else setPhotoRevealStatus({ scope: photoRevealScope, status: "error" });
     };
     try {

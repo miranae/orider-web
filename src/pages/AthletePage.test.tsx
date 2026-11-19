@@ -1333,7 +1333,7 @@ it.each([
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
 
-it.each(["allowed", "denied", "late-transport-error"] as const)("checks buffered photo permissions again before revealing (%s)", async outcome => {
+it.each(["allowed", "allowed-after-expiry", "denied", "late-transport-error"] as const)("checks buffered photo permissions again before revealing (%s)", async outcome => {
   await seedBufferedPublicPhotos();
   const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
   let verifyPhotos = false;
@@ -1341,6 +1341,8 @@ it.each(["allowed", "denied", "late-transport-error"] as const)("checks buffered
   const verification = new Promise<void>(resolve => { release = resolve; });
   const checked = vi.fn();
   const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+  const clock = vi.spyOn(Date, "now");
+  const allowed = outcome === "allowed" || outcome === "allowed-after-expiry";
   vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request, signal) => {
     if (verifyPhotos && request.order === "id_asc") {
       checked(request);
@@ -1360,7 +1362,12 @@ it.each(["allowed", "denied", "late-transport-error"] as const)("checks buffered
   try {
     const view = renderWithProviders(<AthletePage />);
     const photoCount = () => view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger").length;
-    const showBuffered = await screen.findByRole("button", { name: "사진 6개 더 보기" });
+    await screen.findByRole("button", { name: "사진 6개 더 보기" });
+    if (outcome === "allowed-after-expiry") {
+      clock.mockReturnValue(Date.now() + 31_000);
+      fireEvent.click(screen.getByRole("tab", { name: "활동 사진", exact: true }));
+    }
+    const showBuffered = screen.getByRole("button", { name: "사진 6개 더 보기" });
     verifyPhotos = true;
     fireEvent.click(showBuffered);
     await waitFor(() => expect(checked).toHaveBeenCalledWith(
@@ -1369,8 +1376,8 @@ it.each(["allowed", "denied", "late-transport-error"] as const)("checks buffered
     expect(photoCount()).toBe(6);
     if (outcome === "late-transport-error") act(() => clearDocData("users_public/athlete-1"));
     await act(async () => release());
-    await waitFor(() => expect(photoCount()).toBe(outcome === "allowed" ? 8 : 0));
-    if (outcome === "allowed") {
+    await waitFor(() => expect(photoCount()).toBe(allowed ? 8 : 0));
+    if (allowed) {
       const strip = view.container.querySelector<HTMLElement>(".athlete-photo-strip")!;
       expect(within(strip).getAllByRole("img", { name: "Current caption" })).toHaveLength(2);
     }
@@ -1378,7 +1385,7 @@ it.each(["allowed", "denied", "late-transport-error"] as const)("checks buffered
       expect(logger.mock.calls.some(([source, error]) => source === "AthletePage.publicPhotos"
         && error instanceof Error && error.message === "late photo request failure")).toBe(true);
     }
-  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); logger.mockRestore(); }
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); logger.mockRestore(); clock.mockRestore(); }
 });
 
 it("records every failed source page when the next photo batch spans multiple pages", async () => {
