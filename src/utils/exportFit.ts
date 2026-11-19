@@ -1,6 +1,6 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import { cadenceWriter, type ExportCadenceUnit } from "./exportCadence";
-import { usesVerifiedActivityTime } from "./prepareActivityFileStreams";
+import { readUnroundedFitEnd, usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
@@ -22,8 +22,9 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const endRel = relSecAt(len - 1);
   const recordedElapsed = activity.summary.elapsedTimeMillis ?? (Number.isFinite(activity.endTime)
     && activity.endTime >= activity.startTime ? activity.endTime - activity.startTime : undefined);
+  const lastObserved = readUnroundedFitEnd(streams) ?? endRel ?? 0;
   const confirmedElapsed = typeof recordedElapsed === "number" && Number.isFinite(recordedElapsed)
-    && recordedElapsed >= Math.max(durationMs, (endRel ?? 0) * 1000);
+    && recordedElapsed >= Math.max(durationMs, Math.round(lastObserved * 1000));
   const timed = usesVerifiedActivityTime(streams);
   const elapsedMs = timed ? confirmedElapsed ? recordedElapsed : 0xFFFFFFFF : durationMs;
   const endTimestamp = startTimestamp + Math.round(timed && confirmedElapsed

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import ExportTab from "./ExportTab";
-import { markVerifiedStreamCadence } from "../services/activityStreamSource";
+import { markRawPartStreams, markVerifiedStreamCadence } from "../services/activityStreamSource";
 import type { Activity, ActivityStreams } from "@shared/types";
 const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new Uint8Array()), toast: vi.fn() }));
 vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
@@ -280,4 +280,16 @@ it("exports raw CSV after elapsed time and cadence metadata change during confir
   view.rerender(<ExportTab activity={{ ...run, summary: { ...run.summary, elapsedTimeMillis: 130_000 } }} streams={samples} resolveCurrentStreams={resolve} />);
   await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
   expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(next);
+});
+
+it("uses the exact raw response and time axis for both CSV routes", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 500, ridingTimeMillis: 1000 } } as Activity;
+  const raw = markVerifiedStreamCadence(markRawPartStreams({
+    userId: "owner", time: [0, 1], cadence: [170, 172],
+  }, "a".repeat(64), run.startTime + 30_000), "a".repeat(64), "spm");
+  render(<ExportTab activity={run} streams={raw} resolveCurrentStreams={async () => raw} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
+  await act(async () => fireEvent.click(screen.getByText("CSV")));
+  expect(mocks.csv.mock.calls).toEqual([[raw], [raw]]);
 });

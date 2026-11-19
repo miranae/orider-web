@@ -270,3 +270,26 @@ it("does not cut an open recorded lap off before the next recorded start", () =>
   expect(first).not.toContain(new Date(startTime + 90_000).toISOString());
   expect(second).toContain(new Date(startTime + 90_000).toISOString());
 });
+
+it("keeps the timer when a contradictory TCX elapsed total is shorter than it", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: { distance: 500, ridingTimeMillis: 60_000, elapsedTimeMillis: 50_000 } } as Activity;
+  const time = Array.from({ length: 41 }, (_, index) => index);
+  const streams = markRawPartStreams({ time, heartrate: time.map(() => 150) } as ActivityStreams, "f".repeat(64), startTime);
+  const tcx = generateTcx(activity, prepareActivityFileStreams(activity, streams, "tcx"));
+  expect(tcx).toContain("<TotalTimeSeconds>60</TotalTimeSeconds>");
+});
+
+it("preserves a second lap across an observed pause after the first lap boundary", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const time = Array.from({ length: 181 }, (_, index) => index);
+  const streams = markRawPartStreams({
+    time, heartrate: time.map(index => index <= 60 || index >= 120 ? 150 : null),
+    laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
+  } as unknown as ActivityStreams, "e".repeat(64), startTime);
+  const exportFile = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
+  expect(exportFile.hasUnassigned).toBe(false);
+  const [, , second] = exportFile.render("recorded").split(/<Lap StartTime="/u);
+  expect(second).toContain(new Date(startTime + 180_000).toISOString());
+});

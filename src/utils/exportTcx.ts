@@ -74,7 +74,9 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
     const nextObservedStart = Math.max(timedAt(next) ?? previousEnd, previousEnd);
-    const start = recordedStart ?? (recordedEnd != null || verifiedRelativeClock ? previousEnd : nextObservedStart);
+    const observedPause = verifiedRelativeClock && duration > 0 && laps.length > 0 && timedAt(next - 1) === previousEnd
+      && nextObservedStart - previousEnd >= duration;
+    const start = recordedStart ?? (recordedEnd != null || (verifiedRelativeClock && !observedPause) ? previousEnd : nextObservedStart);
     const nextStartMs = streams.laps?.[lapIndex + 1]?.startTimeMs;
     const boundedByNextLap = recordedEnd == null && recordedStart != null && typeof nextStartMs === "number"
       && Number.isFinite(nextStartMs) && nextStartMs > startMs + start * 1000;
@@ -101,7 +103,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : undefined;
   const lastObservation = timedAt(indices.length - 1);
   const validRecordedDuration = recordedDuration != null && Number.isFinite(recordedDuration)
-    && recordedDuration >= 0 && (lastObservation == null || recordedDuration / 1000 >= lastObservation);
+    && recordedDuration >= Math.max(summary.ridingTimeMillis || 0, (lastObservation ?? 0) * 1000);
   const requiresCsv = !laps.length && verifiedRelativeClock && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
   const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0

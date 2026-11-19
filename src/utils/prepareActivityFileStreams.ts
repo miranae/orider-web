@@ -5,7 +5,8 @@ import { makeRelSecAt } from "./streamTime";
 import { detectTimestampUnit } from "./timestampUnit";
 
 const timedFileStreams = Symbol("timedFileStreams");
-type TimedFileStreams = ActivityStreams & { [timedFileStreams]: true };
+const originalFitEnd = Symbol("originalFitEnd");
+type TimedFileStreams = ActivityStreams & { [timedFileStreams]: true; [originalFitEnd]?: number };
 
 function timestampsOf(activity: Activity, streams: ActivityStreams): Array<number | null> {
   const first = streams.time?.find(value => Number.isFinite(value));
@@ -102,10 +103,16 @@ export function applyVerifiedCadenceUnit(activity: Activity, displayed: Activity
   return markStreamCadenceUnit(displayed, readStreamCadenceUnit(verified));
 }
 
+export function readUnroundedFitEnd(streams: ActivityStreams): number | undefined {
+  return (streams as Partial<TimedFileStreams>)[originalFitEnd];
+}
+
 export function prepareActivityFileStreams(activity: Activity, streams: ActivityStreams, format: "fit" | "tcx"): ActivityStreams {
   const timed = alignRawPartTimeline(activity, streams);
   if (format !== "fit" || !usesVerifiedActivityTime(timed)) return timed;
   // FIT timestamps are integer seconds. At each second keep the last observed value per channel.
   const fitTimes = timestampsOf(activity, timed).map(timestamp => timestamp === null ? null : Math.round(timestamp / 1000) * 1000);
-  return combineTimedStreams(timed, fitTimes, { userId: timed.userId }, []);
+  const fit = combineTimedStreams(timed, fitTimes, { userId: timed.userId }, []);
+  fit[originalFitEnd] = timed.time?.at(-1);
+  return fit;
 }

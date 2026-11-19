@@ -271,3 +271,14 @@ describe('exportFit', () => {
     });
   });
 });
+
+it("validates elapsed time before quantizing FIT record timestamps", () => {
+  const startTime = 1_700_000_000_000;
+  const source = makeActivity({ type: "Run", startTime });
+  const activity = { ...source, summary: { ...source.summary, ridingTimeMillis: 1000, elapsedTimeMillis: 1950 } };
+  const streams = markRawPartStreams({ userId: "owner", time: [0, 1], cadence: [170, 172] }, "a".repeat(64), startTime + 900);
+  const prepared = prepareActivityFileStreams(activity, streams, "fit");
+  expect(prepared.time).toEqual([1, 2]);
+  const session = readSession(generateFit(activity, prepared, "spm"));
+  expect(session.get(7)).toBe(1950);
+});
