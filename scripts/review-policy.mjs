@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 /** Derive the code review verdict from reported severity across all providers. */
 export function enforceReviewFloor(review) {
   const findingPrefix = /^(?:[^\p{L}\p{N}\r\n]|\d+[.)]|\[[xX]\])*(BLOCKER|MAJOR|MINOR)\b/iu;
-  const severities = review.findings.split(/\r?\n/)
+  const severities = review.findings.split(/\r\n|[\r\n\u2028\u2029]/)
     .filter(line => line.trim())
     .map(line => findingPrefix.exec(line)?.[1].toUpperCase());
   if (severities.includes("BLOCKER")) return { ...review, verdict: "BLOCK" };

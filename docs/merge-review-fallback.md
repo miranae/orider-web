@@ -10,8 +10,8 @@ freshness checks still apply. No provider failure is converted into an automatic
 코드 리뷰는 **BLOCKER만 차단**합니다. 발견한 MAJOR는 권고 사항으로 남기며
 `--all-findings`는 MINOR 보고를 추가합니다. Codex·Claude·자체 리뷰는 모두
 동일한 심각도 기준을 적용합니다. 구조화된 BLOCKER 항목은 모순된
-`PASS`도 `BLOCK`으로 바꿉니다. 이전 정책의 리뷰 기준점은 새 정책에서
-재사용하지 않습니다. 증분 리뷰 기준점은 `refs/codex-review-v3/pr-*`에 기록합니다.
+`PASS`도 `BLOCK`으로 바꿉니다. 의존성 문맥을 검토한 기존 PASS 기준점은
+재사용합니다. 증분 리뷰 기준점은 `refs/codex-review-v2/pr-*`에 기록합니다.
 
 리뷰 입력에는 정확한 diff와 함께 **커밋된 head의 관련 소스**를 제공합니다.
 변경한 런타임 모듈의 모든 import(기존 local helper 포함), 서비스·인증 로직의 전이 의존성,
