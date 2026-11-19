@@ -158,3 +158,21 @@ it("does not suppress the first identical error from a new injected app", () => 
   expect(first.ensureAppCheckReady).not.toHaveBeenCalled();
   expect(next.ensureAppCheckReady).toHaveBeenCalledOnce();
 });
+
+it("keeps diagnostics without sending a backup after host approval is revoked", async () => {
+  __resetClientErrorDedupeForTests();
+  vi.mocked(captureError).mockClear();
+  let releaseAppCheck!: () => void;
+  const viewer = { uid: "embedded" };
+  let approved = true;
+  const services = { auth: { currentUser: viewer }, functions: { app: { name: "embedded-log" } },
+    ensureAppCheckReady: vi.fn(() => new Promise<void>(resolve => { releaseAppCheck = resolve; })),
+    isSessionApproved: () => approved } as unknown as FirebaseServices;
+  logClientError("embedded.revoked", new Error("pending"), {}, services, services.auth.currentUser);
+  approved = false;
+  releaseAppCheck();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(captureError).toHaveBeenCalledTimes(1);
+  expect(httpsCallable).not.toHaveBeenCalledWith(services.functions, "logClientError");
+});

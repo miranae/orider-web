@@ -1,8 +1,10 @@
+import i18n from "i18next";
+import enAthlete from "../i18n/resources/en/athlete.json";
 import { httpsCallable } from "firebase/functions";
 import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import * as errorLogger from "../services/errorLogger";
 import { installActivityQueryFake } from "../__tests__/fixtures/activityQueryFake";
-import { getDocs } from "firebase/firestore";
+import { getDoc, getDocs, onSnapshot } from "firebase/firestore";
 import { auth } from "../services/firebase";
 import * as activityAcceptance from "../utils/estimateTSS";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -43,12 +45,37 @@ const setCallableImplementation = (name: string, fn: (request: unknown) => unkno
   return name === "getAthleteProfilePreview" ? { data: withCoverage(response.data) } : response;
 });
 const totalsFixture = (patch = {}) => ({ schemaVersion: 1, ownerUid: "athlete-1", epoch: "profile-epoch", state: "ready", revision: 1, count: 5, distance: 5000, timeDisplayMillis: 3600000, elevation: 100, unknownDistanceCount: 0, unknownTimeCount: 0, unknownElevationCount: 0, ...patch });
+const defaultDiscovery = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
 let activityQueries: ReturnType<typeof installActivityQueryFake>;
 beforeEach(() => {
+  vi.mocked(loadActivityDiscovery).mockImplementation(defaultDiscovery);
   activityQueries = installActivityQueryFake();
   setCallableResult("getPublicSegmentMetadata", { data: { items: [], cursor: null, hasMore: false } });
   setCallableResult("ensureAthleteProfile", { data: totalsFixture() });
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture() });
   setCallableResult("getAthleteProfilePreview", { data: { items: [], scope: "recent", complete: true, nextCursor: null } });
+});
+
+it("keeps the next public activity page available after an empty first page", async () => {
+  setDocData("users_public/athlete-1", { ...createMockProfile(), nickname: "Public profile", profilePublic: true });
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
+    const next = Boolean(request.cursor);
+    return { items: next ? [createMockActivity({ id: "next", userId: "athlete-1", description: "Visible on the next page" })] : [],
+      nextCursor: next ? null : "ad1.empty-first", exhausted: next, expiresAt: Date.now() + 600000 } as never;
+  });
+  try {
+    renderWithProviders(<AthletePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }));
+    expect(await screen.findByRole("link", { name: "Visible on the next page" })).toBeInTheDocument();
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
+it("keeps a fractional kilometer in the public lifetime distance", async () => {
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 1, distance: 400 }) });
+  renderWithProviders(<AthletePage />);
+  await waitFor(() => expect(screen.getByTestId("P0-1")).toHaveTextContent("0.4 km"));
 });
 
 describe("AthletePage", () => {
@@ -57,7 +84,7 @@ describe("AthletePage", () => {
     setCollectionDocs("activities", [{id: "memo-ride", ...createMockActivity({ deletedAt: null,id: "memo-ride", userId: "athlete-1"})}]);
     renderWithProviders(<AthletePage />);
     const input = await screen.findByPlaceholderText("활동 검색... (Enter)");
-    await waitFor(() => expect(screen.getByText("한강 라이더")).toBeInTheDocument());
+    await screen.findByRole("heading", { name: "한강 라이더" });
     const count = acceptance.mock.calls.length;
     fireEvent.change(input, {target: {value: "a"}});
     fireEvent.change(input, {target: {value: "ab"}});
@@ -97,9 +124,9 @@ describe("AthletePage", () => {
     rows.push({ id: "older-run", ...createMockActivity({ deletedAt: null, id: "older-run", userId: "athlete-1", type: "Run", source: "strava", description: "Older run", startTime: new Date(2026, 7, 1).getTime(), endTime: new Date(2026, 7, 1, 2).getTime() }) });
     setCollectionDocs("activities", rows);
     renderWithProviders(<AthletePage />);
-    await screen.findByLabelText("종목 선택");
-    fireEvent.click(await screen.findByRole("button", { name: "통계 불러오기" }));
-    await waitFor(() => expect(screen.queryByRole("button", {name: "통계 불러오기"})).not.toBeInTheDocument());
+    fireEvent.click(within(await screen.findByLabelText("종목 선택")).getByText("러닝"));
+    fireEvent.click(await screen.findByRole("button", { name: "필터에 사용할 공개 기록 더 불러오기" }));
+    await waitFor(() => expect(screen.queryByRole("button", {name: "필터에 사용할 공개 기록 더 불러오기"})).not.toBeInTheDocument());
     fireEvent.click(within(screen.getByLabelText("종목 선택")).getByText("러닝"));
     expect(await screen.findByRole("link", { name: "Older run" })).toBeInTheDocument();
     fireEvent.click(within(screen.getByLabelText("종목 선택")).getByText("전체"));
@@ -167,7 +194,7 @@ describe("AthletePage", () => {
     await waitFor(() => expect(loadActivityDiscovery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({scope:"athlete",targetUid:"athlete-1",limit:20})));
   });
 
-  it("uses public activity aggregates for other athletes instead of private profile totals", async () => {
+  it("uses whole server totals for other athletes independently of visible activity aggregates", async () => {
     const profile = createMockProfile({
       nickname: "한강 라이더",
       stats: {
@@ -214,8 +241,8 @@ describe("AthletePage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("공개 활동")).toBeInTheDocument();
-      expect(screen.getByText("3회")).toBeInTheDocument();
+      expect(screen.getByText("전체 활동")).toBeInTheDocument();
+      expect(screen.getByText("5회")).toBeInTheDocument();
     });
     expect(screen.queryByText("3745회")).not.toBeInTheDocument();
   });
@@ -402,7 +429,7 @@ it('distinguishes bounded public inventory exhaustion from a retryable network f
  setDocData('users_public/athlete-1',{nickname:'Public test rider',profilePublic:true});
  const original=vi.mocked(loadActivityDiscovery).getMockImplementation()!;let pages=0;
  vi.mocked(loadActivityDiscovery).mockImplementation(async(services,request)=>request.order==='id_asc'?{items:[],nextCursor:'ad1.'+(++pages),exhausted:false,expiresAt:Date.now()+600000} as never:original(services,request));
- try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'통계 불러오기'}));}await screen.findAllByText(/전체 통계를 불러올 수 없습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'새로고침'})).not.toBeInTheDocument();}
+ try{renderWithProviders(<AthletePage/>);fireEvent.click(await screen.findByRole("button",{name:"Strava",exact:true}));for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'필터에 사용할 공개 기록 더 불러오기'}));}await screen.findAllByText(/필터에 사용할 공개 기록을 최대 200개까지 확인했습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'새로고침'})).not.toBeInTheDocument();}
  finally{vi.mocked(loadActivityDiscovery).mockImplementation(original);}
 });
 
@@ -563,7 +590,7 @@ it("keeps owner sport filters on loaded pages with explicit More even when an ol
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" }, route: "/ko/athlete/me/activities" });
   fireEvent.click(within(await screen.findByLabelText("종목 선택")).getByText("러닝"));
   expect(screen.queryByRole("link", { name: "Older loaded-page run" })).not.toBeInTheDocument();
-  fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }, { timeout: 1000 }));
   await screen.findByRole("link", { name: "Older loaded-page run" });
 });
 it("offers an honest retry after a failed initial owner feed page without re-reading media", async () => {
@@ -584,7 +611,7 @@ it("does not reload loaded pages, friends or segments when numeric profile revis
   setCollectionDocs("activities", Array.from({ length: 24 }, (_, i) => createMockActivity({ deletedAt: null, id: `stable-${i}`, userId: "athlete-1", startTime: Date.UTC(2020, 0, i + 1), endTime: Date.UTC(2020, 0, i + 1, 1), description: `Stable ride ${i}`, keywords: ["stable"] })));
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" }, route: "/ko/athlete/me/activities" });
   await screen.findByLabelText("연도");
-  fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }));
+  fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }, { timeout: 1000 }));
   await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(24));
   const scopedCalls = () => mockCallableInvocations.filter(call => ["ensureAthleteProfile", "getAthleteProfilePreview", "getPublicSegmentMetadata"].includes(call.name)).map(call => JSON.stringify(call));
   const reads = vi.mocked(getDocs).mock.calls.length, functions = scopedCalls();
@@ -779,4 +806,451 @@ it("re-reads my clubs when the clubs failure text is pressed", async () => {
   await waitFor(() => expect(clubReads).toBe(2));
   await waitFor(() => expect(screen.queryByText("클럽을 불러오지 못했습니다.")).not.toBeInTheDocument());
   vi.mocked(getDocs).mockImplementation(original);
+});
+
+
+it.each([false, true])("shows whole totals on a private profile to guest/authenticated=%s without exposing details", async authenticated => {
+  setDocData("users_public/athlete-1", { nickname: "Private rider", profilePublic: false });
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 7 }) });
+  setCollectionDocs("activities", [{ id: "secret", ...createMockActivity({ userId: "athlete-1", visibility: "private", description: "PRIVATE ACTIVITY" }) }]);
+  renderWithProviders(<AthletePage />, { authenticated, user: { uid: "viewer" } });
+  const totals = await screen.findByRole("region", { name: "활동 누적 기록" });
+  await waitFor(() => expect(within(totals).getByText("7회")).toBeInTheDocument());
+  expect(within(totals).getByText("전체 활동 기록 기준")).toBeInTheDocument();
+  expect(screen.getByTestId("P0.private")).toBeInTheDocument();
+  expect(screen.queryByText("PRIVATE ACTIVITY")).not.toBeInTheDocument();
+});
+it.each(["pending", "failed"])("does not replace public %s totals with activity-list zero", async state => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  setCallableResult("getPublicAthleteTotals", { data: { schemaVersion: 1, state, revision: 0 } });
+  renderWithProviders(<AthletePage />);
+  const totals = await screen.findByRole("region", { name: "활동 누적 기록" });
+  await waitFor(() => expect(within(totals).getByRole("status")).toHaveTextContent(state === "failed" ? "누적 기록 확인이 중단되었습니다." : "누적 기록을 확인하고 있습니다."));
+  expect(within(totals).queryByText("0회")).not.toBeInTheDocument();
+  expect(within(totals).getAllByText("—")).toHaveLength(4);
+});
+
+it("re-reads whole totals from a profile change signal and when returning to the tab", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Signal rider", profilePublic: true, athleteTotalsSignal: "one" });
+  renderWithProviders(<AthletePage />);
+  const totals = await screen.findByRole("region", { name: "활동 누적 기록" });
+  await waitFor(() => expect(within(totals).getByText("5회")).toBeInTheDocument());
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 7 }) });
+  act(() => setDocData("users_public/athlete-1", { nickname: "Signal rider", profilePublic: true, athleteTotalsSignal: "two" }));
+  await waitFor(() => expect(within(totals).getByText("7회")).toBeInTheDocument());
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
+  fireEvent(window, new Event("focus"));
+  await waitFor(() => expect(within(totals).getByText("9회")).toBeInTheDocument());
+});
+it("records a real public request failure after unmount without updating abandoned state", async () => {
+  const failure = new Error("offline"); let reject!: (error: Error) => void;
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  setCallableImplementation("getPublicAthleteTotals", () => new Promise((_, fail) => { reject = fail; }));
+  const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+  const view = renderWithProviders(<AthletePage />);
+  await waitFor(() => expect(reject).toBeTypeOf("function"));
+  view.unmount();
+  await act(async () => { reject(failure); await Promise.resolve(); });
+  expect(log).toHaveBeenCalledWith("AthletePage.publicTotals", failure, { targetUid: "athlete-1" }, expect.anything(), null, "", expect.any(Function));
+  expect(log.mock.calls.find(([source]) => source === "AthletePage.publicTotals")?.[6]?.()).toBe(false);
+  log.mockRestore();
+});
+it("does not use whole-history count as the remaining authorized list count", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 100 }) });
+  const visible = Array.from({ length: 21 }, (_, i) => ({
+    ...createMockActivity({ id: `visible-${i}`, userId: "athlete-1", deletedAt: null, visibility: "everyone" }),
+    activityRevision: "current",
+    discoveryFacts: { status: "ready", metrics: null },
+  }));
+  vi.mocked(loadActivityDiscovery).mockImplementation(async () => ({ expiresAt: Date.now() + 600000, items: visible.slice(0, 20), nextCursor: "next", exhausted: false }));
+  renderWithProviders(<AthletePage />);
+  await screen.findByText("100회", {}, { timeout: 1000 });
+  expect(screen.queryByText("더 보기 (80개 남음)")).not.toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "더 보기", exact: true }, { timeout: 1000 })).toBeInTheDocument();
+});
+
+it("renders an authorized public summary even if the separate public identity is missing", async () => {
+  setDocData("users_public/athlete-1", {});
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 13 }) });
+  renderWithProviders(<AthletePage />);
+  await screen.findByText("13회");
+  expect(screen.getByText("프로필 정보를 불러오지 못했습니다.")).toBeInTheDocument();
+  expect(screen.getByText("전체 활동 기록 기준")).toBeInTheDocument();
+});
+it("keeps private summary visible while waiting for relationship status without enabling friend writes", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Private rider", profilePublic: false });
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let resolve!: (value: unknown) => void;
+  vi.mocked(getDoc).mockImplementation(((ref: { path?: string }) => ref.path === "friends/viewer/users/athlete-1"
+    ? new Promise(done => { resolve = done; }) : original(ref as never)) as never);
+  const view = renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+  await screen.findByText("5회");
+  expect(screen.queryByRole("button", { name: "친구 요청", exact: true })).not.toBeInTheDocument();
+  view.unmount(); resolve?.({ exists: () => true });
+  vi.mocked(getDoc).mockImplementation(original);
+});
+
+it("invalidates cached and in-flight totals when the same viewer receives a bilateral block revision", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Blocked rider", profilePublic: false });
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" }, profile: { activitySocialAccessRevision: "before" } });
+  const totals = await screen.findByRole("region", { name: "활동 누적 기록" });
+  await waitFor(() => expect(within(totals).getByText("5회")).toBeInTheDocument());
+  let release!: (value: unknown) => void;
+  let calls = 0;
+  setCallableImplementation("getPublicAthleteTotals", async () => {
+    if (++calls === 1) return await new Promise(resolve => { release = resolve; });
+    throw Object.assign(new Error("not available"), { code: "functions/not-found" });
+  });
+  act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "changed-one" }));
+  await waitFor(() => expect(calls).toBe(1));
+  expect(within(totals).queryByText("5회")).not.toBeInTheDocument();
+  act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "changed-two" }));
+  await waitFor(() => expect(calls).toBe(2));
+  await act(async () => release({ data: totalsFixture({ count: 99 }) }));
+  await waitFor(() => expect(within(totals).getByRole("status")).toHaveTextContent("누적 기록 확인이 중단되었습니다."));
+  expect(within(totals).queryByText("99회")).not.toBeInTheDocument();
+  expect(within(totals).getAllByText("—")).toHaveLength(4);
+});
+
+ it("attributes another athlete's whole-history summary correctly in English", async () => {
+  i18n.addResourceBundle("en", "athlete", enAthlete, true, true);
+  await i18n.changeLanguage("en");
+  try {
+    setDocData("users_public/athlete-1", { nickname: "Other rider", profilePublic: false });
+    renderWithProviders(<AthletePage />, { route: "/en/athlete/athlete-1" });
+    await screen.findByText("Based on all activity records");
+    expect(screen.queryByText("Based on your full activity history")).not.toBeInTheDocument();
+  } finally { await act(async () => { await i18n.changeLanguage("ko"); }); }
+});
+
+it("re-authorizes expired totals when a missing public projection cannot signal account deletion", async () => {
+  const expiry: Array<() => void> = [];
+  const original = globalThis.setTimeout;
+  const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: () => void, delay?: number, ...args: unknown[]) => {
+    if (delay === 60_000) expiry.push(callback);
+    return original(callback, delay, ...args);
+  }) as typeof setTimeout);
+  try {
+    setDocData("users_public/athlete-1", null as never);
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("5회");
+    expect(expiry).toHaveLength(1);
+    const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+    setCallableImplementation("getPublicAthleteTotals", () => { throw Object.assign(new Error("deleted"), { code: "functions/not-found" }); });
+    act(() => expiry[0]!());
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1));
+    await screen.findByText("누적 기록 확인이 중단되었습니다.");
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+  } finally { timer.mockRestore(); }
+});
+
+it("does not offer friend writes after relationship failure and retries the failed check", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Private rider", profilePublic: false });
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let attempts = 0;
+  vi.mocked(getDoc).mockImplementation(((ref: { path?: string }) => {
+    if (ref.path === "friends/viewer/users/athlete-1" && ++attempts === 1) return Promise.reject(new Error("offline"));
+    return original(ref as never);
+  }) as never);
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    const retry = await screen.findByRole("button", { name: "친구 관계를 확인하지 못했습니다." });
+    expect(screen.queryByRole("button", { name: "친구 요청", exact: true })).not.toBeInTheDocument();
+    fireEvent.click(retry);
+    await screen.findByRole("button", { name: "친구 요청", exact: true });
+    expect(attempts).toBe(2);
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
+});
+
+it("invalidates both displayed totals and late responses on public projection deletion", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Deleted rider", athleteTotalsSignal: "one" });
+  renderWithProviders(<AthletePage />);
+  await screen.findByText("5회");
+  let release!: (value: unknown) => void;
+  let requests = 0;
+  setCallableImplementation("getPublicAthleteTotals", async () => {
+    if (++requests === 1) return await new Promise(resolve => { release = resolve; });
+    throw Object.assign(new Error("deleted"), { code: "functions/not-found" });
+  });
+  act(() => setDocData("users_public/athlete-1", { nickname: "Deleted rider", athleteTotalsSignal: "two" }));
+  await waitFor(() => expect(requests).toBe(1));
+  act(() => setDocData("users_public/athlete-1", null as never));
+  await waitFor(() => expect(requests).toBe(2));
+  await act(async () => release({ data: totalsFixture({ count: 99 }) }));
+  await screen.findByText("누적 기록 확인이 중단되었습니다.");
+  expect(screen.queryByText("5회")).not.toBeInTheDocument();
+  expect(screen.queryByText("99회")).not.toBeInTheDocument();
+});
+
+it.each(["users_public/athlete-1", "users/viewer"])("invalidates previous totals on offline metadata from %s and restores only fresh callable results", async path => {
+  setDocData("users_public/athlete-1", { nickname: "Connected rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  const updates = new Map<string, (snapshot: unknown) => void>();
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (options && typeof options === "object" && "includeMetadataChanges" in options) updates.set(ref.path, next as (snapshot: unknown) => void);
+    return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+  }) as never);
+  const timer = vi.spyOn(globalThis, "setTimeout");
+  const clearTimer = vi.spyOn(globalThis, "clearTimeout");
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("5회");
+    await waitFor(() => {
+      const cleared = clearTimer.mock.calls.map(([id]) => id);
+      const pending = timer.mock.calls.flatMap((call, index) => call[1] === 60_000 && !cleared.includes(timer.mock.results[index]?.value) ? [call] : []);
+      expect(pending).toHaveLength(0);
+    });
+    const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+    const update = updates.get(path)!;
+    const snapshot = (fromCache: boolean) => ({ exists: () => true, data: () => ({ athleteTotalsSignal: "one" }), metadata: { fromCache } });
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 7 }) });
+    act(() => update(snapshot(true)));
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    await screen.findByText("7회");
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 1);
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
+    act(() => update(snapshot(false)));
+    await screen.findByText("9회");
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls + 2);
+  } finally { clearTimer.mockRestore(); timer.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it.each(["cache", "error"])("shows a freshly authorized callable snapshot even when signal state is %s, and manual retry reconnects signals", async initial => {
+  setDocData("users_public/athlete-1", { nickname: "Callable rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  let phase = initial;
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (!options || typeof options !== "object" || !("includeMetadataChanges" in options))
+      return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+    if (phase === "error") { (error as (failure: Error) => void)(new Error("signal unavailable")); return () => {}; }
+    return (original as (...args: unknown[]) => () => void)(ref, options, (snapshot: { metadata: object }) => {
+      (next as (value: unknown) => void)({ ...snapshot, metadata: { ...snapshot.metadata, fromCache: phase === "cache" } });
+    }, error);
+  }) as never);
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("5회");
+    expect(screen.getByText(/조회 시각 .*의 누적 기록/)).toBeInTheDocument();
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
+    phase = "server";
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await screen.findByText("9회");
+  } finally { vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+
+it("rejects malformed target paths before registering Firestore reads", async () => {
+  renderWithProviders(<AthletePage meUserId="a/b" />);
+  await screen.findByRole("alert", { name: "" });
+  expect(screen.getByText("사용자를 찾을 수 없습니다.")).toBeInTheDocument();
+  expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(0);
+});
+
+it("retries the callable immediately when a terminated signal subscription has not delivered a new callback", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Retry rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  let first = true;
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (!options || typeof options !== "object" || !("includeMetadataChanges" in options))
+      return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+    if (first) (error as (failure: Error) => void)(new Error("signal unavailable"));
+    return () => {};
+  }) as never);
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("5회");
+    first = false;
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 11 }) });
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await screen.findByText("11회");
+  } finally { vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it.each(["missing", "delayed"])("uses a bounded snapshot when the logged-in viewer signal is %s", async mode => {
+  setDocData("users_public/athlete-1", { nickname: "Bounded rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (ref.path === "users/viewer" && options && typeof options === "object" && "includeMetadataChanges" in options) {
+      if (mode === "missing") (next as (snapshot: unknown) => void)({ exists: () => false, data: () => undefined, metadata: { fromCache: false } });
+      return () => {};
+    }
+    return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+  }) as never);
+  const originalTimer = globalThis.setTimeout;
+  let expire: (() => void) | undefined;
+  const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: () => void, delay?: number, ...args: unknown[]) => {
+    if (delay === 60_000) expire = callback;
+    return originalTimer(callback, delay, ...args);
+  }) as typeof setTimeout);
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("5회");
+    expect(expire).toBeDefined();
+    act(() => expire!());
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    expect(screen.getByText("누적 기록을 다시 확인해 주세요.")).toBeInTheDocument();
+  } finally { timer.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it("keeps whole totals while a failed initial public list remains unknown and can be retried", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true, athleteTotalsSignal: "one" });
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let attempts = 0;
+  vi.mocked(loadActivityDiscovery).mockImplementation((async (services, request) => {
+    if (request.scope === "athlete" && request.fromInclusive === undefined && request.order !== "id_asc" && !request.cursor && ++attempts === 1) throw new Error("list timeout");
+    return original(services, request);
+  }) as typeof loadActivityDiscovery);
+  try {
+    renderWithProviders(<AthletePage />);
+    const retry = await screen.findByRole("button", { name: "활동 목록을 불러오지 못했습니다. 목록을 처음부터 다시 불러올 수 있습니다." });
+    expect(screen.getByText("5회")).toBeInTheDocument();
+    expect(screen.queryByText("공개된 활동이 없습니다.")).not.toBeInTheDocument();
+    fireEvent.click(retry);
+    await waitFor(() => expect(attempts).toBe(2));
+    await screen.findByText("공개된 활동이 없습니다.");
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
+it.each(["functions/permission-denied", "functions/failed-precondition"])("discards prior public details on %s and restarts without the rejected cursor", async code => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  const cursors: Array<string | undefined> = [];
+  vi.mocked(loadActivityDiscovery).mockImplementation((async (services, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
+    cursors.push(request.cursor);
+    if (request.cursor) throw Object.assign(new Error("rejected continuation"), { code });
+    return { expiresAt: Date.now() + 600000, items: [createMockActivity({ id: `page-${cursors.length}`, userId: "athlete-1", description: cursors.length === 1 ? "Prior public detail" : "Recovered public detail" })], nextCursor: "next", exhausted: false };
+  }) as typeof loadActivityDiscovery);
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("Prior public detail");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    const retry = await screen.findByRole("button", { name: "활동 목록을 불러오지 못했습니다. 목록을 처음부터 다시 불러올 수 있습니다." });
+    expect(screen.queryByText("Prior public detail")).not.toBeInTheDocument();
+    fireEvent.click(retry);
+    await screen.findByText("Recovered public detail");
+    expect(cursors).toEqual([undefined, "next", undefined]);
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
+it("releases an old continuation's busy state when the injected app changes", async () => {
+  const services = () => ({ auth: { currentUser: null }, firestore: {}, functions: {}, ensureAppCheckReady: async () => {}, getAppCheckToken: async () => null }) as unknown as FirebaseServices;
+  const first = services(), next = services();
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let release!: (value: Awaited<ReturnType<typeof loadActivityDiscovery>>) => void;
+  vi.mocked(loadActivityDiscovery).mockImplementation((async (activeServices, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(activeServices, request);
+    if (activeServices === first && request.cursor) return await new Promise(resolve => { release = resolve; });
+    return { expiresAt: Date.now() + 600000, items: [createMockActivity({ id: activeServices === first ? "old" : request.cursor ? "continued" : "new", userId: "athlete-1", description: activeServices === first ? "Old app page" : request.cursor ? "Current app continuation" : "Current app page" })], nextCursor: request.cursor ? null : "next", exhausted: Boolean(request.cursor) };
+  }) as typeof loadActivityDiscovery);
+  try {
+    const view = renderWithProviders(<FirebaseServicesProvider services={first}><AthletePage /></FirebaseServicesProvider>);
+    await screen.findByText("Old app page");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    await waitFor(() => expect(release).toBeDefined());
+    view.rerender(<FirebaseServicesProvider services={next}><AthletePage /></FirebaseServicesProvider>);
+    await screen.findByText("Current app page");
+    const more = screen.getByRole("button", { name: /더 보기|더보기/ });
+    expect(more).not.toBeDisabled();
+    fireEvent.click(more);
+    await screen.findByText("Current app continuation");
+    await act(async () => release({ expiresAt: Date.now() + 600000, items: [createMockActivity({ id: "late", userId: "athlete-1", description: "Rejected old app result" })] as never, nextCursor: null, exhausted: true }));
+    expect(screen.queryByText("Rejected old app result")).not.toBeInTheDocument();
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
+it("observes first signal insertion on existing documents whose counters start at version zero", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Initial version rider", profilePublic: false });
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+  await screen.findByText("5회");
+  setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 7 }) });
+  act(() => setDocData("users_public/athlete-1", { nickname: "Initial version rider", profilePublic: false, athleteTotalsSignal: "first-version" }));
+  await screen.findByText("7회");
+  setCallableImplementation("getPublicAthleteTotals", () => { throw Object.assign(new Error("blocked"), { code: "functions/not-found" }); });
+  act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "first-block" }));
+  await screen.findByText("누적 기록 확인이 중단되었습니다.");
+  expect(screen.queryByText("7회")).not.toBeInTheDocument();
+});
+
+it.each(["success", "failure"])("ignores an older public continuation's %s and busy completion after visibility restarts the first page", async outcome => {
+  const profile = { nickname: "Visibility rider", profilePublic: true, athleteTotalsSignal: "one" };
+  setDocData("users_public/athlete-1", profile);
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let firstPages = 0;
+  let releaseOld!: (value: Awaited<ReturnType<typeof loadActivityDiscovery>>) => void;
+  let rejectOld!: (error: Error) => void;
+  let releaseNew!: (value: Awaited<ReturnType<typeof loadActivityDiscovery>>) => void;
+  const page = (description: string, cursor: string | null) => ({ expiresAt: Date.now() + 600000, items: [createMockActivity({ id: description, userId: "athlete-1", description })] as never, nextCursor: cursor, exhausted: cursor === null });
+  vi.mocked(loadActivityDiscovery).mockImplementation((async (services, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
+    if (!request.cursor) return page(++firstPages === 1 ? "Original page" : "Refreshed page", firstPages === 1 ? "old-cursor" : "fresh-cursor");
+    if (request.cursor === "old-cursor") return await new Promise((resolve, reject) => { releaseOld = resolve; rejectOld = reject; });
+    return await new Promise(resolve => { releaseNew = resolve; });
+  }) as typeof loadActivityDiscovery);
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("Original page");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    await waitFor(() => expect(releaseOld).toBeDefined());
+    act(() => setDocData("users_public/athlete-1", { ...profile, profilePublic: false }));
+    await screen.findByText("비공개 프로필입니다");
+    act(() => setDocData("users_public/athlete-1", profile));
+    await screen.findByText("Refreshed page");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    await waitFor(() => expect(releaseNew).toBeDefined());
+    await act(async () => { if (outcome === "success") releaseOld(page("Obsolete detail", "poisoned-cursor")); else rejectOld(new Error("old request failed")); });
+    expect(screen.getByText("Refreshed page")).toBeInTheDocument();
+    expect(screen.queryByText("Obsolete detail")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /불러오는 중/ })).toBeDisabled();
+    await act(async () => releaseNew(page("Current continuation", null)));
+    await screen.findByText("Current continuation");
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
+it("suppresses callable retries throughout a known offline interval and recovers while Firestore remains cached", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Network rider", athleteTotalsSignal: "one" });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  let update!: (snapshot: unknown) => void;
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (ref.path === "users_public/athlete-1" && options && typeof options === "object" && "includeMetadataChanges" in options) update = next as typeof update;
+    return (original as (...args: unknown[]) => () => void)(ref, options, next, error);
+  }) as never);
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("5회");
+    const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+    await act(async () => {
+      fireEvent(window, new Event("offline"));
+      update({ exists: () => true, data: () => ({ athleteTotalsSignal: "one" }), metadata: { fromCache: true } });
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+    expect(screen.queryByText("5회")).not.toBeInTheDocument();
+    setCallableResult("getPublicAthleteTotals", { data: totalsFixture({ count: 9 }) });
+    act(() => fireEvent(window, new Event("online")));
+    await screen.findByText("9회");
+  } finally { vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it("never reads a late SDK account's private profile or credentials in an approved guest frame", async () => {
+  const services = { auth: { currentUser: null }, firestore: {}, functions: {}, ensureAppCheckReady: async () => {}, getAppCheckToken: async () => null } as unknown as FirebaseServices;
+  setDocData("users_public/athlete-1", { nickname: "Guest rider", athleteTotalsSignal: "one" });
+  renderWithProviders(<FirebaseServicesProvider services={services}><AthletePage /></FirebaseServicesProvider>);
+  await screen.findByText("5회");
+  const calls = mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals").length;
+  const lateUser = { uid: "late-account", getIdToken: vi.fn(async () => "unapproved") };
+  Object.defineProperty(services.auth, "currentUser", { value: lateUser, configurable: true });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "누적 기록 다시 불러오기" }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  expect(screen.getByText("프로필 공개 범위를 확인하는 중…")).toBeInTheDocument();
+  expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(calls);
+  expect(lateUser.getIdToken).not.toHaveBeenCalled();
+  expect(vi.mocked(onSnapshot).mock.calls.some(([ref]) => (ref as { path?: string }).path === "users/late-account")).toBe(false);
 });

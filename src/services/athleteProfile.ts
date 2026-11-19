@@ -18,10 +18,25 @@ export function parseAthleteProfile(value: unknown, uid: string): AthleteProfile
     && [v.distance, v.timeDisplayMillis, v.elevation].every(Number.isFinite)
     && Number.isSafeInteger(v.revision) && v.revision >= 0 ? v : null;
 }
-export async function callAthleteProfile<T>(services: FirebaseServices, uid: string, name: string, data: unknown, current: () => boolean): Promise<T> {
+export type PublicAthleteTotals = Pick<AthleteProfileTotals, "schemaVersion" | "state" | "revision"> & Partial<Pick<AthleteProfileTotals,
+  "count" | "distance" | "timeDisplayMillis" | "elevation" | "unknownDistanceCount" | "unknownTimeCount" | "unknownElevationCount">>;
+export function parsePublicAthleteTotals(value: unknown): PublicAthleteTotals | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as PublicAthleteTotals;
+  if (v.schemaVersion !== 1 || !["pending", "ready", "failed"].includes(v.state) || !Number.isSafeInteger(v.revision) || v.revision < 0) return null;
+  if (v.state === "ready" && !parseAthleteProfile({ ...v, ownerUid: "public", epoch: "public" }, "public")) return null;
+  return v;
+}
+export async function loadPublicAthleteTotals(services: FirebaseServices, uid: string, current: () => boolean): Promise<PublicAthleteTotals> {
+  const value = await callAthleteProfile<unknown>(services, uid, "getPublicAthleteTotals", { userId: uid }, current, true);
+  const totals = parsePublicAthleteTotals(value);
+  if (!totals) throw new Error("athlete-profile-invalid-totals");
+  return totals;
+}
+export async function callAthleteProfile<T>(services: FirebaseServices, uid: string, name: string, data: unknown, current: () => boolean, publicTotals = false): Promise<T> {
   const owner = services.auth.currentUser;
   let expired = false, timer: ReturnType<typeof setTimeout> | undefined;
-  const valid = () => !expired && current() && services.auth.currentUser === owner && owner?.uid === uid;
+  const valid = () => !expired && current() && services.auth.currentUser === owner && (publicTotals && name === "getPublicAthleteTotals" || owner?.uid === uid);
   try {
     return await Promise.race([
       (async () => {

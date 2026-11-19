@@ -42,7 +42,7 @@ it('never dispatches after readiness resolves for an aborted request',async()=>{
 });
 it('bounds readiness and rejects late dispatch at the total deadline',async()=>{
  vi.useFakeTimers();try{let ready!:()=>void;mocks.ready.mockImplementation(()=>new Promise<void>(done=>{ready=done;}));
- const pending=loadActivityDiscovery(services,{scope:'all'}),rejected=expect(pending).rejects.toThrow('request_aborted');
+ const pending=loadActivityDiscovery(services,{scope:'all'}),rejected=expect(pending).rejects.toThrow('request_timeout');
  await vi.advanceTimersByTimeAsync(15000);await rejected;ready();await Promise.resolve();expect(mocks.call).not.toHaveBeenCalled();
  }finally{vi.useRealTimers();}
 });

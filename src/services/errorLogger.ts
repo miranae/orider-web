@@ -74,7 +74,7 @@ export function logClientError(
   source: string,
   error: unknown,
   context?: Record<string, unknown>,
-  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">,
+  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady" | "isSessionApproved">,
   requestViewer?: FirebaseServices["auth"]["currentUser"],
   dedupeScope = "",
   isRequestCurrent?: () => boolean,
@@ -84,6 +84,7 @@ export function logClientError(
   const signedInAt = user?.metadata?.lastSignInTime ?? "";
   const requestIsCurrent = () => (!services || (
     services.auth?.currentUser === user && (user?.metadata?.lastSignInTime ?? "") === signedInAt
+    && services.isSessionApproved?.(user ?? null) !== false
   )) && isRequestCurrent?.() !== false;
   const requestState = requestIsCurrent() ? "current" : "expired";
   if (shouldSuppressClientError(recentErrorsFor(services, user), source, message, `${signedInAt}:${requestState}:${dedupeScope}`)) return;

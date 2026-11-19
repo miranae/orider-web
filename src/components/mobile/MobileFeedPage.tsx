@@ -168,7 +168,9 @@ function ActivityMemo({ memo, memoTruncated = false, activityId, generated = fal
 }
 
 /** 시안과 일치하는 컴팩트 모바일 활동 카드 */
-export function CompactActivityCard({ activity: rawActivity, priority = false }: { activity: Activity; priority?: boolean }) {
+export function CompactActivityCard({ activity: rawActivity, priority = false, authorNickname }: {
+  activity: Activity; priority?: boolean; authorNickname?: string | null;
+}) {
   const activity = withActivityPresentation(rawActivity);
   const { t, i18n } = useTranslation("dashboard");
   const services = useFirebaseServices();
@@ -249,7 +251,8 @@ export function CompactActivityCard({ activity: rawActivity, priority = false }:
   const spdNum = knownDistance && knownDuration
     ? distanceM === 0 && sd.displayMs > 0 ? 0 : resolveAvgSpeedKph(distanceM!, sd, elapsedSpd, sourceRecord)
     : Number.NaN;
-  const nickname = useActivityAuthor(activity).nickname ?? t("mobileFeed.defaultRider");
+  const author = useActivityAuthor(activity, authorNickname === undefined);
+  const nickname = authorNickname?.trim() || author.nickname || t("mobileFeed.defaultRider");
   const discipline = getDiscipline(activity.type);
   const activitySport = getHomeActivitySport(activity);
   const achievements = activity.topAchievements?.slice(0, 3) ?? [];

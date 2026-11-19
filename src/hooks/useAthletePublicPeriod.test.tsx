@@ -1,11 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useAthletePublicPeriod, publicPeriodBounds } from "./useAthletePublicPeriod";
-const mocks = vi.hoisted(() => ({ load: vi.fn(), listener: null as null | ((user: unknown) => void), services: { auth: { currentUser: {uid:"viewer"}, app: {} } } }));
+const mocks = vi.hoisted(() => ({ load: vi.fn(), listener: null as null | ((user: unknown) => void), hostUser: null as { uid: string } | null, log: vi.fn(), services: { scope: undefined as "embedded" | undefined, auth: { currentUser: {uid:"viewer"} as { uid: string } | null, app: {} } } }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.hostUser }) }));
+vi.mock("../services/errorLogger", () => ({ logClientError: mocks.log }));
 vi.mock("../services/activityDiscovery", () => ({ loadActivityDiscovery: mocks.load }));
 vi.mock("firebase/auth", () => ({ onAuthStateChanged: (_: unknown, listener: (user: unknown) => void) => { mocks.listener = listener; return vi.fn(); } }));
 const page = (ids: string[], cursor: string | null = null) => ({items:ids.map(id=>({id})),nextCursor:cursor,exhausted:cursor===null,expiresAt:Date.now()+600000});
-beforeEach(() => { mocks.load.mockReset(); Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"}); });
+beforeEach(() => { mocks.load.mockReset(); mocks.log.mockClear(); mocks.hostUser = null; mocks.services.scope = undefined; mocks.services.auth.currentUser = { uid: "viewer" }; Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"}); });
 it("validates KST dates and a bounded one-year selection", () => {
  expect(publicPeriodBounds("2026-01-01","2026-01-01")).toEqual({start:Date.parse("2025-12-31T15:00Z"),end:Date.parse("2026-01-01T15:00Z")});
  expect(publicPeriodBounds("2026-02-30","2026-03-01")).toBeNull();
@@ -40,6 +42,34 @@ it("discards late old-scope and same-UID SDK-session responses", async () => {
  await waitFor(()=>expect(result.current.status).toBe("complete"));
  await act(async()=>resolve(page(["old"]))); expect(result.current.items.map(x=>x.id)).toEqual(["new"]);
 });
+it("does not dispatch discovery with an SDK user the host has not approved", async () => {
+  mocks.services.scope = "embedded";
+  mocks.services.auth.currentUser = null;
+  mocks.load.mockResolvedValueOnce(page(["guest"])).mockResolvedValueOnce(page(["approved"]));
+  const { result, rerender } = renderHook(() => useAthletePublicPeriod("target", "", "", true, true));
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["guest"]));
+  const sdkUser = { uid: "handoff-pending" };
+  act(() => { mocks.services.auth.currentUser = sdkUser; mocks.listener?.(sdkUser); });
+  await act(() => result.current.refresh());
+  expect(mocks.load).toHaveBeenCalledTimes(1);
+  expect(result.current.items).toEqual([]);
+  mocks.hostUser = sdkUser;
+  rerender();
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["approved"]));
+  expect(mocks.load).toHaveBeenCalledTimes(2);
+});
+
+it("discards buffered rows when a live access signal changes", async () => {
+  mocks.load.mockResolvedValueOnce(page(["buffered"], "ad1.next")).mockResolvedValueOnce(page([]));
+  const { result, rerender } = renderHook(({ revision }) => useAthletePublicPeriod("target", "", "", true, true, revision),
+    { initialProps: { revision: { viewer: "before" } } });
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["buffered"]));
+  rerender({ revision: { viewer: "after" } });
+  expect(result.current.items).toEqual([]);
+  await waitFor(() => expect(result.current.status).toBe("complete"));
+  expect(mocks.load.mock.calls[1][1]).not.toHaveProperty("cursor");
+});
+
 it("hides old rows while backgrounded and refreshes on return", async () => {
  mocks.load.mockResolvedValueOnce(page(["a"])).mockResolvedValueOnce(page([]));
  const {result}=renderHook(()=>useAthletePublicPeriod("target","2026-01-01","2026-01-31"));
