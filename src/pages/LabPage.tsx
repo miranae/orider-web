@@ -33,6 +33,7 @@ import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { useAuth } from "../contexts/AuthContext";
 import { ErrorState, Resolvable } from "../components/redesign";
 import { logClientError } from "../services/errorLogger";
+import { executeFirestoreSessionRecovery, firestoreRecoveryLogContext, prepareFirestoreSessionRecovery } from "../utils/firestoreSessionRecovery";
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
 import {
@@ -190,7 +191,9 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
       );
     }).catch(error => {
       const current = isCurrent();
-      logClientError("LabPage.loadCourse", error, { courseId: urlCourseId }, services, viewer, current ? "" : "superseded");
+      const recovery = prepareFirestoreSessionRecovery(error);
+      logClientError("LabPage.loadCourse", error, { courseId: urlCourseId, ...firestoreRecoveryLogContext(recovery) }, services, viewer, current ? "" : "superseded");
+      executeFirestoreSessionRecovery(recovery);
       if (current) setFailedCourseId(urlCourseId);
     });
     return () => {

@@ -459,6 +459,7 @@ export default function EventDetailPage() {
     setLinkedCourses([]);
     if (!linkedCourseIds?.length) return;
     const context = participantContext.current;
+    const viewer = auth.currentUser;
     void Promise.resolve().then(() => Promise.all(linkedCourseIds.map(id => getDoc(doc(firestore, "courses", id)))))
       .then(courseDocs => {
         if (cancelled || participantContext.current !== context) return;
@@ -466,10 +467,11 @@ export default function EventDetailPage() {
           .map(snapshot => ({ ...snapshot.data(), id: snapshot.id } as Course)));
       })
       .catch(error => {
-        if (!cancelled && participantContext.current === context) logClientError("EventDetailPage.loadLinkedCourses", error, { eventId });
+        const current = !cancelled && participantContext.current === context;
+        logClientError("EventDetailPage.loadLinkedCourses", error, { eventId }, services, viewer, current ? "" : "superseded");
       });
     return () => { cancelled = true; };
-  }, [linkedCourseIds, eventId, user?.uid]);
+  }, [linkedCourseIds, eventId, user?.uid, auth, firestore, services]);
 
   // 서버가 정렬한 5명만 읽고 늦은 응답은 현재 이벤트/SDK 세션에 적용하지 않는다.
   useEffect(() => {

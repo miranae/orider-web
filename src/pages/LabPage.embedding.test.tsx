@@ -44,7 +44,7 @@ describe("course preparation calculator", () => {
     vi.mocked(getDoc).mockRejectedValueOnce(error);
     render(<MemoryRouter initialEntries={["/ko/course/current"]}><LabPage presetCourseId="current" embedded /></MemoryRouter>);
     fireEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
-    expect(vi.mocked(logClientError).mock.calls[0]?.slice(0, 3)).toEqual(["LabPage.loadCourse", error, { courseId: "current" }]);
+    expect(vi.mocked(logClientError).mock.calls[0]?.slice(0, 3)).toEqual(["LabPage.loadCourse", error, expect.objectContaining({ courseId: "current", firestoreRecoveryAction: "not-applicable" })]);
     expect(await screen.findByText("예측 결과")).toBeInTheDocument();
   });
 
