@@ -9,11 +9,13 @@ import { isDeepStrictEqual } from "node:util";
 import { stageArtifactManifest, assertStageEntryArtifact } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { verifyBundledProductionBackend } from "./prepare-bundled-production.mjs";
+import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
 const save = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + "\n", { flag: "wx" });
 const sha = /^[a-f0-9]{40}$/u, digest = /^[a-f0-9]{64}$/u;
+const PRODUCTION_ORIGIN = "https://orider.co.kr";
 
 export { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
 import { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
@@ -56,6 +58,7 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
   if (candidateRuntime.deploymentProfile !== "bundled-development"
     || hash(readFileSync(join(sourceDist, "runtime-config.json"))) !== candidate.runtimeHash) throw new Error("sealed development runtime mismatch");
   const runtime = bundledFunctionsConfig(candidateRuntime, "production");
+  const entry = assertStageEntryArtifact(sourceDist, PRODUCTION_ORIGIN);
   const hosting = bundledHostingConfig(json(configs[0]), "production");
   if (hosting.hosting.site !== "orider-dev" || hosting.hosting.public !== "dist" || hosting.hosting.target) throw new Error("development Hosting identity mismatch");
   hosting.hosting.site = "miranae-orider-g1";
@@ -74,7 +77,7 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     backend: { sourceSha: candidate.backendSourceSha, topologyHash: candidate.backendTopologyHash },
     originalArtifactHash: candidate.artifactHash, artifactManifest: expected, runtime,
     hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))),
-    entry: assertStageEntryArtifact(join(workspace, "dist")), rebuilt: false };
+    entry, rebuilt: false };
   save(join(directory, "promotion.json"), receipt);
   return receipt;
 }
@@ -85,12 +88,14 @@ export function verifyPromotionFiles({ workspace = process.cwd(), directory }) {
     || !isDeepStrictEqual(stageArtifactManifest(join(workspace, "dist")), receipt.artifactManifest)
     || hash(readFileSync(join(workspace, "firebase.bundled-production.json"))) !== receipt.hostingHash
     || !isDeepStrictEqual(json(join(workspace, "dist/runtime-config.json")), receipt.runtime)
-    || !isDeepStrictEqual(receipt.runtime, bundledFunctionsConfig(receipt.runtime, "production"))) throw new Error("prepared promotion files changed");
+    || !isDeepStrictEqual(receipt.runtime, bundledFunctionsConfig(receipt.runtime, "production"))
+    || receipt.entry !== assertStageEntryArtifact(join(workspace, "dist"), PRODUCTION_ORIGIN)) throw new Error("prepared promotion files changed");
   return receipt;
 }
 export async function verifyClientPromotion(options, fetcher = fetch) {
   const receipt = verifyPromotionFiles(options);
   await verifyBundledProductionBackend(receipt.runtime, receipt.backend, fetcher);
+  await verifyPublicClubApi(receipt.runtime, PRODUCTION_ORIGIN, fetcher);
   verifyPromotionFiles(options);
   return receipt;
 }

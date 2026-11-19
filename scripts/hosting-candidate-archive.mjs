@@ -27,7 +27,8 @@ export function validateArchivedCandidate(run, archive, attempt) {
   if (!archive || archive.kind !== "gcs" || archive.bucket !== HOSTING_CANDIDATE_BUCKET
     || archive.object !== hostingCandidateObject(run.id, attempt) || !positive.test(archive.generation || "")
     || !digest.test(archive.sha256 || "") || !sha.test(archive.frontendSourceSha || "") || !digest.test(archive.artifactHash || "")
-    || archive.workflowSourceSha !== run.head_sha) throw new Error("pinned private client archive required");
+    || archive.workflowSourceSha !== run.head_sha
+    || archive.frontendSourceSha !== archive.workflowSourceSha) throw new Error("pinned private client archive from the reviewed workflow source required");
   return archive.frontendSourceSha;
 }
 const metadataUrl = object => `https://storage.googleapis.com/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o/${encodeURIComponent(object)}`;
@@ -62,9 +63,14 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
   let response;
   try { response = await fetcher(`https://storage.googleapis.com/upload/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o?uploadType=multipart&ifGenerationMatch=0`,
     { method: "POST", headers: { ...auth(token), "Content-Type": `multipart/related; boundary=${boundary}` }, body, redirect: "error", signal: AbortSignal.timeout(120000) }); }
-  catch { response = { status: 412 }; } // 응답을 잃어도 create-only object를 읽고 같은 checksum인지 확인한다.
+  catch (error) {
+    // 응답 유실이어도 create-only object를 읽어 같은 checksum인지 확인한다.
+    console.error(JSON.stringify({ operation: "hosting-candidate-create", method: "POST",
+      bucket: HOSTING_CANDIDATE_BUCKET, object, errorClass: error?.name ?? "Error",
+      errorCode: error?.cause?.code ?? error?.code ?? "unknown" }));
+  }
   let stored;
-  if ([409, 412].includes(response.status)) { await response.body?.cancel(); stored = await readObject(object, token, fetcher); }
+  if (!response || [409, 412].includes(response.status)) { await response?.body?.cancel(); stored = await readObject(object, token, fetcher); }
   else if (!response.ok) { await response.body?.cancel(); throw new Error(`private client archive create HTTP${response.status}`); }
   else stored = await response.json();
   if (stored.name !== object || stored.bucket !== HOSTING_CANDIDATE_BUCKET || !positive.test(stored.generation || "")
@@ -74,7 +80,17 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
   save(join(directory, "archive.json"), receipt);
   return receipt;
 }
-export async function restoreHostingCandidate({ run, runId, attempt, directory, token, fetcher = fetch }) {
+function verifyCandidateAttestation(file, archive) {
+  try {
+    execFileSync("gh", ["attestation", "verify", file, "--repo", "miranae/orider-web",
+      "--signer-workflow", "miranae/orider-web/.github/workflows/deploy-stage.yml",
+      "--source-ref", "refs/heads/main", "--source-digest", archive.frontendSourceSha,
+      "--deny-self-hosted-runners"], { stdio: ["ignore", "pipe", "pipe"] });
+  } catch {
+    throw new Error(`private client archive provenance verification failed for ${archive.frontendSourceSha}/${archive.sha256}`);
+  }
+}
+export async function restoreHostingCandidate({ run, runId, attempt, directory, token, fetcher = fetch, verifyAttestation = verifyCandidateAttestation }) {
   const object = hostingCandidateObject(runId, attempt), stored = await readObject(object, token, fetcher), metadata = stored.metadata;
   const archive = { kind: "gcs", bucket: stored.bucket, object: stored.name, generation: stored.generation, sha256: metadata?.sha256,
     frontendSourceSha: metadata?.frontendSourceSha, workflowSourceSha: metadata?.workflowSourceSha, artifactHash: metadata?.artifactHash };
@@ -91,6 +107,7 @@ export async function restoreHostingCandidate({ run, runId, attempt, directory, 
   if (hash(bytes) !== archive.sha256) throw new Error("private client archive checksum mismatch");
   directory = resolve(directory); mkdirSync(directory);
   const path = join(directory, "candidate.tgz"), payload = join(directory, "payload"); writeFileSync(path, bytes, { flag: "wx" }); mkdirSync(payload);
+  await verifyAttestation(path, archive);
   const members = execFileSync("tar", ["-tzf", path], { encoding: "utf8" }).trim().split("\n");
   if (members.some(name => !/^(?:dist(?:\/|$)|firebase\.bundled-stage\.json$|build\.json$|candidate\.json$)/u.test(name) || name.split("/").includes(".."))) throw new Error("private client archive contains invalid paths");
   execFileSync("tar", ["-xzf", path, "-C", payload]);

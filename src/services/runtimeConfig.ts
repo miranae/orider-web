@@ -172,9 +172,13 @@ async function fetchRuntimeConfig(): Promise<RuntimeConfig> {
     remote = withoutEmptyValues(payload as RuntimeConfig);
   } catch (error) {
     if (requireBundled) throw Object.assign(new Error("bundled/runtime-config-json"), { cause: error instanceof Error ? error.name : undefined });
+    const diagnostic = new Error("legacy/runtime-config-json");
     void import("./sentry").then(({ captureError }) => {
-      captureError(new Error("legacy/runtime-config-json"), { tags: { source: "runtime-config" } });
-    }).catch(() => {});
+      captureError(diagnostic, { tags: { source: "runtime-config" } });
+    }).catch(() => {
+      // eslint-disable-next-line no-console -- the telemetry module may be unavailable at startup.
+      console.warn(diagnostic.message);
+    });
     return runtimeConfig;
   }
   if (requireBundled && !bundledFunctionsBase(remote)) throw new Error("bundled/runtime-config-profile");

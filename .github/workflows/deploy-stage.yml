@@ -20,6 +20,8 @@ on:
 permissions:
   contents: read
   id-token: write
+  attestations: write
+  artifact-metadata: write
 
 concurrency:
   group: deploy-hosting-stage
@@ -192,6 +194,11 @@ jobs:
         env:
           HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: node scripts/hosting-candidate-archive.mjs --phase archive --build "$BUNDLED_STAGE_DIRECTORY/build.json" --directory "$RUNNER_TEMP/durable-client"
+      - name: Attest the reviewed main candidate archive
+        if: inputs.transport == 'bundled-development' && github.ref == 'refs/heads/main' && steps.source.outputs.sha == github.sha
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ runner.temp }}/durable-client/candidate.tgz
       - name: Restore previous development release after failed publication verification
         timeout-minutes: 3
         if: always() && (failure() || cancelled()) && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success' && steps.deploy.outcome != 'skipped'

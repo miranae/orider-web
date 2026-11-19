@@ -241,6 +241,34 @@ test("development rollback is wired after the live checks and before artifact pu
   assert.match(workflow, /if: always\(\) && \(failure\(\) \|\| cancelled\(\)\).*steps\.hosting_snapshot\.outcome == 'success'/);
 });
 
+test("production rollback targets only the live production release owned by the attempt", async () => {
+  const site = "sites/miranae-orider-g1", channel = `${site}/channels/live`;
+  const previous = `${site}/versions/previous`, published = `${site}/versions/published`;
+  const marker = `client-promotion:${"a".repeat(40)}:123:1`;
+  let current = previous, message = "before", writes = 0;
+  const fetcher = async (url, { method }) => {
+    assert.ok(url.includes(site));
+    if (url.endsWith(channel)) return Response.json({ name: channel, release: {
+      name: `${site}/releases/${current.split("/").at(-1)}`, version: { name: current }, message,
+    } });
+    if (method === "POST") {
+      assert.equal(new URL(url).searchParams.get("versionName"), previous);
+      writes++;
+      current = previous;
+      return Response.json({});
+    }
+    return Response.json({ name: previous, status: "FINALIZED" });
+  };
+  const options = { environment: "production", serializedWrites: "true", token: "fixture", fetcher };
+  const snapshot = await snapshotStageHosting({ ...options, marker });
+  current = published;
+  await assert.rejects(rollbackStageHosting(snapshot, options), /not this deployment/u);
+  assert.equal(writes, 0);
+  message = marker;
+  assert.equal((await rollbackStageHosting(snapshot, options)).version, previous);
+  assert.equal(writes, 1);
+});
+
 test("missing handoff or AI browser routes block development before publication without exchanging a code or invoking AI", async () => {
   for (const path of ["/webHandoffRedeem", "/v1/activity-narrative"]) {
     const f = fixture();

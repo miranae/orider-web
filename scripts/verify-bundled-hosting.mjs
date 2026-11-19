@@ -9,7 +9,7 @@ const ORIGINS = { development: "https://orider-dev.web.app", production: "https:
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 export async function verifyBundledHosting({ environment, directory = "dist", fetcher = fetch }) {
   if (!Object.hasOwn(ORIGINS, environment)) throw new Error("approved Hosting environment required");
-  const base = ORIGINS[environment], entry = assertStageEntryArtifact(directory), expected = readFileSync(resolve(directory, entry));
+  const base = ORIGINS[environment], entry = assertStageEntryArtifact(directory, base), expected = readFileSync(resolve(directory, entry));
   const url = `${base}/${entry}`; let response;
   try { response = await fetcher(url, { credentials: "omit", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled Hosting entry GET transport failed at ${url}`); }

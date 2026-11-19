@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { prepareClientPromotion, verifyPromotionFiles, validateCandidateRun, assertReviewedSource } from "./promote-bundled-client.mjs";
 import { archiveHostingCandidate, restoreHostingCandidate, HOSTING_CANDIDATE_BUCKET } from "./hosting-candidate-archive.mjs";
-import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
+import { stageArtifactManifest, stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com", firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841", firebaseFunctionsRegion: "asia-northeast3", firebaseApiKey: "public", appCheckRecaptchaSiteKey: "public", stravaClientId: "public", mapboxToken: "public", stravaRedirectUri: "https://orider-strava.web.app/strava/callback", aiApiBase: "https://orider-ai-api-h5zqzw3n4a-du.a.run.app", publicClubApiUrl: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net/publicClubs", activitySubscriptionsEnabled: true, activitySubscriptionsBackendReady: false };
@@ -26,7 +26,7 @@ function fixture() {
   delete config.hosting.target; config.hosting.site="orider-dev"; config.hosting.public="dist"; write(configPath,config);
   const manifest = stageArtifactManifest(dist), receipt = {schemaVersion:1,mode:"bundled-development-client",complete:true,frontendSourceSha,backendSourceSha:"b".repeat(40),backendTopologyHash:"c".repeat(64),artifactManifest:manifest,artifactHash:hash(JSON.stringify(manifest)),runtimeHash:hash(readFileSync(join(dist,"runtime-config.json"))),hostingHash:hash(readFileSync(configPath))};
   write(join(archive,"build.json"),receipt);
-  const run = {id:123,run_attempt:1,head_sha:"d".repeat(40),repository:{full_name:"miranae/orider-web"},path:".github/workflows/deploy-stage.yml",event:"workflow_dispatch",status:"completed",conclusion:"success"};
+  const run = {id:123,run_attempt:1,head_sha:frontendSourceSha,repository:{full_name:"miranae/orider-web"},path:".github/workflows/deploy-stage.yml",event:"workflow_dispatch",status:"completed",conclusion:"success"};
   const artifact = {kind:"gcs",bucket:HOSTING_CANDIDATE_BUCKET,object:"deploy-candidates/hosting/123/1/candidate.tgz",generation:"456",sha256:"f".repeat(64),frontendSourceSha,workflowSourceSha:run.head_sha,artifactHash:receipt.artifactHash};
   return {root,archive,workspace,directory,dist,run,artifact,attempt:1,receipt,write,git,cleanup:()=>rmSync(root,{recursive:true,force:true})};
 }
@@ -50,12 +50,22 @@ test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot p
   const f=fixture();try{
     for(const patch of [{conclusion:"failure"},{run_attempt:2},{path:".github/workflows/ci.yml"},{repository:{full_name:"other/repo"}},{event:"pull_request"}])assert.throws(()=>validateCandidateRun({...f.run,...patch},f.artifact,1),/selected/);
     assert.throws(()=>validateCandidateRun(f.run,{...f.artifact,generation:""},1),/pinned/);
+    assert.throws(()=>validateCandidateRun(f.run,{...f.artifact,frontendSourceSha:"e".repeat(40)},1),/reviewed workflow source/);
   }finally{f.cleanup();}
 });
 test("workflow rehearsal has no production environment and promotion has no build",()=>{
   const workflow=readFileSync(new URL("../.github/workflows/promote-hosting.yml",import.meta.url),"utf8");
   assert.ok(!workflow.includes("npm run build"));assert.ok(!workflow.split("  promote:")[0].includes("environment: production"));assert.match(workflow,/if: inputs.phase == 'promote'/);assert.match(workflow,/environment: production/);
   const stage=readFileSync(new URL("../.github/workflows/deploy-stage.yml",import.meta.url),"utf8");assert.match(stage,/name: stage-client-[\s\S]*?include-hidden-files: true/);
+  assert.match(stage,/refs\/heads\/main' && steps\.source\.outputs\.sha == github\.sha[\s\S]*?uses: actions\/attest@v4/u);
+  assert.match(workflow,/needs\.prepare\.outputs\.artifact_name/u);
+  assert.match(workflow,/steps\.hosting_snapshot\.outcome == 'success'[\s\S]*?--phase rollback/u);
+});
+
+test("production entry is checked from the production document origin", () => {
+  const html = '<base href="https://orider-dev.web.app/"><script type="module" src="/assets/index-abc.js"></script>';
+  assert.equal(stageHtmlEntry(html), "assets/index-abc.js");
+  assert.throws(() => stageHtmlEntry(html, "production HTML", "https://orider.co.kr"), /entry script missing/u);
 });
 
 function fakeStorage({ loseCreateResponse = false, corruptDownload = false } = {}) {
@@ -81,7 +91,8 @@ function fakeStorage({ loseCreateResponse = false, corruptDownload = false } = {
 test("durable archive restores exact hidden/static files after GitHub run metadata expires",async()=>{
   const f=fixture(),storage=fakeStorage();try{
     const saved=await archiveHostingCandidate({workspace:join(f.archive,"nested"),buildReceipt:join(f.archive,"build.json"),directory:join(f.root,"stored"),runId:123,attempt:1,workflowSourceSha:f.run.head_sha,token:"fixture",fetcher:storage.fetcher});
-    const restored=await restoreHostingCandidate({runId:123,attempt:1,directory:join(f.root,"restored"),token:"fixture",fetcher:storage.fetcher});
+    const restored=await restoreHostingCandidate({runId:123,attempt:1,directory:join(f.root,"restored"),token:"fixture",fetcher:storage.fetcher,
+      verifyAttestation: (file, archive) => assert.equal(hash(readFileSync(file)), archive.sha256)});
     assert.equal(restored.validation,"archived-stage-acceptance");assert.equal(restored.generation,saved.generation);
     const archivedRun=JSON.parse(readFileSync(join(f.root,"restored/run.json")));
     assert.equal(archivedRun.stageAcceptanceComplete,true);assert.equal(archivedRun.conclusion,undefined);
@@ -94,7 +105,7 @@ test("create response loss is reconciled by immutable checksum readback; corrupt
   for(const corruptDownload of [false,true]){
     const f=fixture(),storage=fakeStorage({loseCreateResponse:true,corruptDownload});try{
       await archiveHostingCandidate({workspace:join(f.archive,"nested"),buildReceipt:join(f.archive,"build.json"),directory:join(f.root,"stored"),runId:123,attempt:1,workflowSourceSha:f.run.head_sha,token:"fixture",fetcher:storage.fetcher});
-      const restore=()=>restoreHostingCandidate({run:f.run,runId:123,attempt:1,directory:join(f.root,"restored"),token:"fixture",fetcher:storage.fetcher});
+      const restore=()=>restoreHostingCandidate({run:f.run,runId:123,attempt:1,directory:join(f.root,"restored"),token:"fixture",fetcher:storage.fetcher,verifyAttestation:()=>{}});
       if(corruptDownload)await assert.rejects(restore(),/checksum/);else assert.equal((await restore()).generation,"987654321");
       assert.deepEqual(storage.requests.slice(0,2).map(r=>r.method),["POST","GET"]);
     }finally{f.cleanup();}
