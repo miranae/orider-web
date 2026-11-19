@@ -161,3 +161,13 @@ it("does not borrow cadence units from a different projection of the same revisi
   const existing = markVerifiedStreamCadence({ time: [0, 2], cadence: [85, 86] }, revision, null);
   expect(await loadOwnerExportStreams(run, existing, "fit", ownerServices())).toBe(existing);
 });
+
+it("reports a cadence lookup failure with the activity and reason before keeping the authorized export", async () => {
+  const services = ownerServices();
+  mocks.streams.mockResolvedValue({ activityId: run.id, state: "unavailable", streams: null, reason: "raw_parts_unavailable" });
+  expect(await loadOwnerExportStreams(run, displayed, "fit", services)).toBe(displayed);
+  expect(logClientError).toHaveBeenCalledExactlyOnceWith(
+    "ActivityStreams.ownerExport", new Error("ACTIVITY_STREAMS_UNAVAILABLE"),
+    { activityId: run.id, source: "orider", format: "fit", reason: "raw_parts_unavailable" }, services,
+  );
+});
