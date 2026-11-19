@@ -210,6 +210,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // Inline description editing
   // Photo upload/delete
   const photoServices = useFirebaseServices();
+  const getExportAccount = useCallback(() => photoServices.auth.currentUser, [photoServices.auth]);
   const getOwnerExportStreams = useCallback(async () => {
     const viewer = photoServices.auth.currentUser;
     if (!activityId || !isActivityOwner || !viewer || viewer.uid !== activity?.userId) throw new Error("account_changed");
@@ -1542,7 +1543,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       <Modal open={showExport} onClose={() => setShowExport(false)} title={t("tab.export")} maxWidth="max-w-3xl">
         <div>
         {streams ? <ExportTab activity={activity} streams={streams}
-          resolveOwnerCadenceStreams={!publicAccess && isActivityOwner && activity.source === "strava" && sport === "run" ? getOwnerExportStreams : undefined}
+          getExportAccount={getExportAccount}
+          resolveOwnerCadenceStreams={!publicAccess && isActivityOwner && sport === "run" ? getOwnerExportStreams : undefined}
           resolveCurrentStreams={publicAccess ? async () => {
           const result = await publicAccess.session.client.streams(activity.id);
           if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");

@@ -8,6 +8,7 @@ import { generateGpx } from "../utils/exportGpx";
 import { exportFilename } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
 import { readStreamCadenceUnit } from "../services/activityStreamSource";
+import { isPublicActivityAccessError } from "../services/publicActivityDetail";
 import { logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
@@ -15,6 +16,7 @@ interface ExportTabProps {
   streams: ActivityStreams;
   resolveCurrentStreams?: () => Promise<ActivityStreams>;
   resolveOwnerCadenceStreams?: () => Promise<ActivityStreams | null>;
+  getExportAccount?: () => object | null;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -35,14 +37,16 @@ const FORMATS = [
   { id: "csv", label: "CSV", descKey: "export.formatCsvDesc", icon: "📊" },
 ] as const;
 
-export default function ExportTab({ activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams }: ExportTabProps) {
+export default function ExportTab({ activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
-  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams, resolveOwnerCadenceStreams]);
+  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount]);
 
   const handleExport = useCallback(async (format: string) => {
     const request = generation.current;
+    const account = getExportAccount?.();
+    const stillCurrent = () => request === generation.current && getExportAccount?.() === account;
     try {
       const cadenceFormat = format === "fit" || format === "tcx";
       const needsOwnerCadence = cadenceFormat && readStreamCadenceUnit(streams) === undefined
@@ -55,17 +59,14 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
           currentStreams = await resolveOwnerCadenceStreams() ?? streams;
         } catch (error) {
           const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-          const retryable = code === "functions/unavailable" || code === "functions/deadline-exceeded"
-            || (error instanceof Error && error.message === "activity_request_timeout");
-          if (!retryable) throw error;
+          if (!stillCurrent()) return;
+          const scopeChanged = error instanceof Error && ["account_changed", "activity_stream_changed"].includes(error.message);
+          if (scopeChanged || isPublicActivityAccessError(error) || code === "functions/unauthenticated") throw error;
           logClientError("ExportTab.ownerCadenceLookup", error, { activityId: activity.id });
         }
       }
-      if (request !== generation.current) return;
-      const verifiedUnit = readStreamCadenceUnit(currentStreams);
-      // Legacy owner-only native data predates the server field. Do not infer units for a newly authorized public stream.
-      const fileCadenceUnit = verifiedUnit === undefined && !resolveCurrentStreams && activity.source === "orider"
-        ? "spm" : verifiedUnit;
+      if (!stillCurrent()) return;
+      const fileCadenceUnit = readStreamCadenceUnit(currentStreams);
       switch (format) {
         case "fit": {
           const data = generateFit(activity, currentStreams, fileCadenceUnit);
@@ -96,7 +97,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;
