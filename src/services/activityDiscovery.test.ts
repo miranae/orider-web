@@ -51,6 +51,27 @@ it('rejects same-uid session replacement while awaiting AppCheck before dispatch
  await expect(loadActivityDiscovery(services,{scope:'all'})).rejects.toThrow('account_changed');expect(mocks.call).not.toHaveBeenCalled();
 });
 
+it('does not let a late login supply the credentials for an approved guest continuation', async () => {
+ bundled('development');
+ const auth = { app, currentUser: null as FirebaseServices['auth']['currentUser'] };
+ const embedded = { ...services, scope: 'embedded' as const, auth: auth as FirebaseServices['auth'],
+  getAppCheckToken: vi.fn().mockResolvedValue('embedded-check'), isSessionApproved: () => auth.currentUser === null };
+ const unapproved = { uid: 'late-viewer', getIdToken: vi.fn() };
+ const request = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+  auth.currentUser = unapproved as never;
+  return Response.json({ result: page() });
+ });
+ try {
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner', cursor: 'ad1.next' })).rejects.toThrow('account_changed');
+  expect(request).toHaveBeenCalledWith(`${BUNDLED_FUNCTIONS_BASES.development}/getActivityDiscovery`, expect.objectContaining({
+   credentials: 'omit', headers: { 'Content-Type': 'application/json', 'X-Firebase-AppCheck': 'embedded-check' },
+   body: expect.stringContaining('ad1.next'),
+  }));
+  expect(unapproved.getIdToken).not.toHaveBeenCalled();
+  expect(mocks.call).not.toHaveBeenCalled();
+ } finally { request.mockRestore(); }
+});
+
 it('keeps an unrecorded TCX distance unknown before and after metrics, while preserving recorded zero',()=>{
  const v=item();v.activity.summary.distance=null;v.activity.effectiveFacts.metrics=null;
  expect(mapDiscoveryActivity(v).summary.distance).toBeNaN();
