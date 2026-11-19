@@ -19,6 +19,7 @@ on:
 permissions:
   contents: read
   actions: read
+  id-token: write
 
 # 운영 게시자를 하나로 직렬화한다. 기존 태그 배포도 같은 그룹을 쓴다.
 concurrency:
@@ -29,6 +30,7 @@ jobs:
   prepare:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: stage
     outputs:
       frontend_source: ${{ steps.prepare.outputs.frontend_source }}
     steps:
@@ -41,36 +43,41 @@ jobs:
           package-manager-cache: false
       - name: Install verification tools (no build)
         run: npm ci
-      - name: Restore successful development candidate
+      - name: Auth (private candidate archive reader)
+        id: archive_auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - name: Restore immutable private development candidate
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
           CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+          HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.archive_auth.outputs.access_token }}
         run: |
           set -euo pipefail
           node -e 'for(const v of [process.env.CANDIDATE_RUN,process.env.CANDIDATE_ATTEMPT])if(!/^[1-9][0-9]*$/.test(v||""))throw Error("positive run/attempt required")'
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" > "$RUNNER_TEMP/candidate-run.json"
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/candidate-artifacts.json"
-          node --input-type=module <<'JS'
-          import {readFileSync,writeFileSync} from 'node:fs';
-          import {validateCandidateRun} from './scripts/promote-bundled-client.mjs';
-          const read = name => JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/${name}.json`));
-          const artifacts = read('candidate-artifacts').artifacts.filter(a => a.name.startsWith('stage-client-'));
-          if(artifacts.length!==1) throw Error('one retained client candidate required');
-          validateCandidateRun(read('candidate-run'),artifacts[0],process.env.CANDIDATE_ATTEMPT);
-          writeFileSync(`${process.env.RUNNER_TEMP}/candidate-artifact.json`,JSON.stringify(artifacts[0]));
-          JS
-          artifact_name=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/candidate-artifact.json")).name')
-          gh run download "$CANDIDATE_RUN" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$RUNNER_TEMP/client-candidate"
+          # GitHub의 실행/로그도 보관 기간이 짧다. 사라진 실행은 private archive의 실제 stage 검증 영수증을 사용한다.
+          status=$(curl -sS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/attempts/$CANDIDATE_ATTEMPT" -o "$RUNNER_TEMP/candidate-run.json" -w '%{http_code}')
+          run_args=()
+          if [ "$status" = 200 ]; then
+            run_args=(--run "$RUNNER_TEMP/candidate-run.json")
+          elif [ "$status" != 404 ]; then
+            echo "::error::Candidate run metadata HTTP$status"; exit 1
+          fi
+          node scripts/hosting-candidate-archive.mjs --phase restore --run-id "$CANDIDATE_RUN" --attempt "$CANDIDATE_ATTEMPT" --directory "$RUNNER_TEMP/client-candidate" "${run_args[@]}"
       - name: Prepare identical compiled files with production runtime
         id: prepare
         env:
           CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
         run: |
           set -euo pipefail
-          node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate" --directory "$RUNNER_TEMP/client-promotion" --run "$RUNNER_TEMP/candidate-run.json" --artifact "$RUNNER_TEMP/candidate-artifact.json" --attempt "$CANDIDATE_ATTEMPT"
+          candidate_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-candidate/archive.json")).frontendSourceSha')
+          if ! git cat-file -e "$candidate_sha^{commit}"; then git fetch --no-tags origin "$candidate_sha"; fi
+          node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate/payload" --directory "$RUNNER_TEMP/client-promotion" --run "$RUNNER_TEMP/client-candidate/run.json" --artifact "$RUNNER_TEMP/client-candidate/archive.json" --attempt "$CANDIDATE_ATTEMPT"
           source_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-promotion/promotion.json")).frontendSourceSha')
-          git merge-base --is-ancestor "$source_sha" origin/main
           echo "frontend_source=$source_sha" >> "$GITHUB_OUTPUT"
           echo "Reused development candidate: $source_sha. JavaScript/static files unchanged; runtime and Hosting routes prepared for production. No build or production publication." >> "$GITHUB_STEP_SUMMARY"
       - name: Retain prepared promotion evidence
@@ -78,7 +85,7 @@ jobs:
         with:
           name: client-promotion-${{ github.run_id }}-${{ github.run_attempt }}
           include-hidden-files: true
-          retention-days: 90
+          retention-days: 1
           path: |
             dist
             firebase.bundled-production.json
