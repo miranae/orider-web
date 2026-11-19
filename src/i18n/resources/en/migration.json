@@ -1,5 +1,7 @@
 {
   "userMigration": {
+    "profileUnavailableTitle": "Could not load your profile",
+    "profileUnavailableDesc": "Your import status could not be checked. Reload before continuing.",
     "stepConnect": "Connect",
     "stepImport": "Import",
     "stepDone": "Done",

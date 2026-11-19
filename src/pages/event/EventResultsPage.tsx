@@ -140,19 +140,22 @@ function CategoryChip({ category }: { category: string }) {
 export default function EventResultsPage() {
   const services = useFirebaseServices();
   const { auth, firestore: db } = services;
+  const sdkViewer = auth.currentUser;
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const viewerAligned = !authLoading && sdkViewer?.uid === user?.uid;
   const dialog = useDialog();
 
-  const [resultScope, setResultScope] = useState<{ eventId: string; owner: typeof auth.currentUser } | null>(null);
+  const [resultScope, setResultScope] = useState<{ eventId: string; owner: typeof auth.currentUser; services: typeof services } | null>(null);
   const [eventHead, setEventHead] = useState<EventHead | null>(null);
   const [results, setResults] = useState<ResultEntry[]>([]);
   const [reload, setReload] = useState(0);
   const pausePages = useRef<(() => void) | null>(null);
   const [complete, setComplete] = useState(false);
   const [pageLoading, setPageLoading] = useState(false);
+  const [profileNamesPending, setProfileNamesPending] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const nextPage = useRef<((all: boolean) => Promise<void>) | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("__overall__");
@@ -182,16 +185,20 @@ export default function EventResultsPage() {
   }, [eventId, groupError, groupId]);
 
   useEffect(() => {
-    if (!eventId || authLoading) return;
+    if (!eventId || !viewerAligned) return;
     let cancelled = false;
-    const owner = auth.currentUser;
-    setResultScope({ eventId, owner });
+    let profileFlush: ReturnType<typeof setTimeout> | undefined;
+    const owner = sdkViewer;
+    if (auth.currentUser !== owner) return;
+    setResultScope({ eventId, owner, services });
     nextPage.current = null;
     setComplete(false);
     setPageLoading(false);
+    setProfileNamesPending(false);
     setPageError(null);
     setResults([]);
     setEventHead(null);
+    setEventDateStr("");
     (async () => {
       setLoading(true);
       setLoadError(null);
@@ -210,22 +217,9 @@ export default function EventResultsPage() {
           setEventDateStr(d.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" }));
         }
 
-        // 코스 거리·고도 — info에 없으면 첫 코스에서
-        let distanceKm: number | null = typeof info.distance === "number" ? info.distance / 1000 : null;
-        let elevationGain: number | null = typeof info.elevationGain === "number" ? info.elevationGain : null;
+        const distanceKm = typeof info.distance === "number" ? info.distance / 1000 : null;
+        const elevationGain = typeof info.elevationGain === "number" ? info.elevationGain : null;
         const courseIds: string[] = Array.isArray(info.courseIds) ? info.courseIds : [];
-        if ((distanceKm == null || elevationGain == null) && courseIds[0]) {
-          try {
-            const cs = await withReadDeadline(getDoc(doc(db, "courses", courseIds[0])), t("readTimeout"));
-            if (cs.exists()) {
-              const cd = cs.data();
-              if (distanceKm == null && typeof cd.distance === "number") distanceKm = cd.distance / 1000;
-              if (elevationGain == null && typeof cd.elevationGain === "number") elevationGain = cd.elevationGain;
-            }
-          } catch (error) {
-            logClientError("EventResultsPage.loadCourse", error, { eventId });
-          }
-        }
 
         if (cancelled || auth.currentUser !== owner) return;
         setEventHead({
@@ -238,10 +232,26 @@ export default function EventResultsPage() {
           groupId: typeof info.groupId === "string" ? info.groupId : undefined,
         });
 
+        // 코스 요약은 결과 페이지와 권한 확인을 기다리게 하지 않는다.
+        if ((distanceKm == null || elevationGain == null) && courseIds[0]) {
+          const courseId = courseIds[0];
+          void Promise.resolve().then(() => withReadDeadline(getDoc(doc(db, "courses", courseId)), t("readTimeout"))).then(snapshot => {
+            if (cancelled || auth.currentUser !== owner || !snapshot.exists()) return;
+            const course = snapshot.data();
+            setEventHead(current => current ? { ...current,
+              distanceKm: current.distanceKm ?? (typeof course.distance === "number" ? course.distance / 1000 : null),
+              elevationGain: current.elevationGain ?? (typeof course.elevationGain === "number" ? course.elevationGain : null),
+            } : current);
+          }).catch(error => {
+            logClientError("EventResultsPage.loadCourse", error, { eventId }, services, owner);
+          });
+        }
+
         // 공개 결과는 허용된 projection만 읽는다. 주최자/admin의 비공개 관리 경로는 유지한다.
-        const admin = user ? (await withReadDeadline(user.getIdTokenResult(), t("readTimeout"))).claims.admin === true : false;
-        const privateAccess = isEventHost(user?.uid, info) || admin;
-        if (cancelled || auth.currentUser !== owner || (privateAccess && owner?.uid !== user?.uid)) return;
+        const authenticatedOwner = owner?.isAnonymous ? null : owner;
+        const admin = authenticatedOwner ? (await withReadDeadline(authenticatedOwner.getIdTokenResult(), t("readTimeout"))).claims.admin === true : false;
+        const privateAccess = isEventHost(authenticatedOwner?.uid, info) || admin;
+        if (cancelled || auth.currentUser !== owner) return;
         if (!privateAccess && info.type === "GROUP_RIDE") {
           setPrivateResultsUnavailable(true);
           return;
@@ -257,6 +267,37 @@ export default function EventResultsPage() {
         let paused = false;
         pausePages.current = () => { paused = true; };
         const current = () => !cancelled && auth.currentUser === owner;
+        const profileQueue: string[] = [];
+        const requestedProfiles = new Set<string>();
+        let profileWorkers = 0;
+        const flushProfiles = () => {
+          clearTimeout(profileFlush);
+          profileFlush = undefined;
+          if (!current()) return;
+          setResults(previous => previous.map(entry => entry.displayName === "—" && profileNames.get(entry.userId)
+            ? { ...entry, displayName: profileNames.get(entry.userId)! } : entry));
+        };
+        const hydrateProfiles = () => {
+          while (current() && profileWorkers < 4 && profileQueue.length) {
+            const uid = profileQueue.shift()!;
+            profileWorkers++;
+            void withReadDeadline(getPublicUserProfile(uid, services.firestore), t("readTimeout")).then(profile => {
+              if (!current() || !profile?.nickname) return;
+              profileNames.set(uid, profile.nickname);
+              profileFlush ??= setTimeout(flushProfiles, 32);
+            }).catch(error => {
+              logClientError("EventResultsPage.loadPublicProfiles", error, { eventId }, services, owner);
+            }).finally(() => {
+              profileWorkers--;
+              if (!current()) return;
+              if (profileQueue.length) hydrateProfiles();
+              else if (profileWorkers === 0) {
+                if (profileFlush !== undefined) flushProfiles();
+                setProfileNamesPending(false);
+              }
+            });
+          }
+        };
         const loadPage = async (all: boolean) => {
           if (busy || done || !current()) return;
           busy = true;
@@ -286,26 +327,6 @@ export default function EventResultsPage() {
               }
               if (!current()) return;
               if ((next && cursors.has(next)) || page.some(row => rowIds.has(row.id))) throw new Error("event-page-cursor-changed");
-              const userNameMap: Record<string, string> = {};
-              if (privateAccess) {
-                let position = 0;
-                await Promise.all(Array.from({ length: Math.min(4, page.length) }, async () => {
-                  while (position < page.length && current()) {
-                    const row = page[position++]!;
-                    if (!profileNames.has(row.id) && !row.data().realName) {
-                      try {
-                        const profile = await withReadDeadline(getPublicUserProfile(row.id, services.firestore), t("readTimeout"));
-                        if (!current()) return;
-                        profileNames.set(row.id, profile?.nickname ?? "");
-                      } catch (error) {
-                        logClientError("EventResultsPage.loadPublicProfiles", error, { eventId });
-                      }
-                    }
-                  }
-                }));
-                for (const [id, name] of profileNames) userNameMap[id] = name;
-              }
-              if (!current()) return;
               const participantDocs = [...rows, ...page];
               const eventStartMs = typeof startMs === "number" ? startMs : null;
               const entries: ResultEntry[] = participantDocs.map((pDoc) => {
@@ -316,7 +337,7 @@ export default function EventResultsPage() {
                 const verifiedFinisher = isVerifiedEventFinisher(info.resultContractVersion, data.status || "REGISTERED", data.resultVerified, finishedAt, eventStartMs);
                 return {
                   userId: pDoc.id,
-                  displayName: (privateAccess ? data.realName || userNameMap[pDoc.id] : data.displayName) || "—",
+                  displayName: (privateAccess ? data.realName || profileNames.get(pDoc.id) : data.displayName) || "—",
                   bibNumber: privateAccess && typeof data.bib === "number" ? data.bib : data.bibNumber ?? null,
                   category: data.category || "—",
                   rank: 0,
@@ -359,6 +380,14 @@ export default function EventResultsPage() {
               done = pageComplete;
               setResults(entries);
               setComplete(done);
+              if (privateAccess) {
+                for (const row of page) {
+                  if (!row.data().realName && !requestedProfiles.has(row.id)) {
+                    requestedProfiles.add(row.id); profileQueue.push(row.id);
+                  }
+                }
+                if (profileQueue.length) { setProfileNamesPending(true); hydrateProfiles(); }
+              }
               if (done || paused) break;
               if (all && request === 199) setPageError(t("resultsView.pageBudget"));
             }
@@ -381,8 +410,8 @@ export default function EventResultsPage() {
         if (!cancelled && auth.currentUser === owner) setLoading(false);
       }
     })();
-    return () => { cancelled = true; nextPage.current = null; pausePages.current = null; };
-  }, [eventId, user, authLoading, t, reload]);
+    return () => { cancelled = true; clearTimeout(profileFlush); nextPage.current = null; pausePages.current = null; };
+  }, [eventId, viewerAligned, t, reload, services, auth, db, sdkViewer]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -464,7 +493,7 @@ export default function EventResultsPage() {
   }, [finishHistogram, myResult]);
 
   const navigation = eventId ? <div className="site-shell"><EventDetailNavigation eventId={eventId} live={eventHead?.status === "LIVE"} results={eventHead?.status === "LIVE" || eventHead?.status === "FINISHED"} /></div> : null;
-  if (loading || authLoading || resultScope?.eventId !== eventId || resultScope?.owner !== auth.currentUser) {
+  if (loading || !viewerAligned || resultScope?.eventId !== eventId || resultScope?.owner !== auth.currentUser || resultScope.services !== services) {
     return (
       <>{navigation}<div className="max-w-3xl mx-auto py-8">
         <LoadingSkeleton kind="chart" />
@@ -713,7 +742,7 @@ export default function EventResultsPage() {
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginLeft: "auto" }}>
                 <InfoTip title={t("termGlossary:terms.csv.label")} content={t("termGlossary:terms.csv.description")} label={t("termGlossary:terms.csv.label")}>CSV</InfoTip>
                 <Button
-                  type="button" variant="secondary" size="sm" aria-label={t("resultsView.csvExport")} disabled={!complete}
+                  type="button" variant="secondary" size="sm" aria-label={t("resultsView.csvExport")} disabled={!complete || profileNamesPending}
                   onClick={() => setCsvNotice(previous => ({
                     eventId,
                     sequence: previous && previous.eventId === eventId ? previous.sequence + 1 : 1,
@@ -1044,7 +1073,7 @@ export default function EventResultsPage() {
                 >
                   <Link2 size={ICON_SIZE.sm} aria-hidden="true" />
                 </Button>
-                {complete && myResult.verifiedFinisher && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} onClick={async () => {
+                {complete && myResult.verifiedFinisher && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} disabled={profileNamesPending && myResult.displayName === "—"} onClick={async () => {
                   try {
                     const file = await createEventShareImage({ eventName: eventHead.name, riderName: myResult.displayName, date: eventHead.date, kind: "finished", result: formatDuration(myResult.finishTime), rank: t("resultsView.myRankDetail", { rank1: myResult.overallRank, cat: myResult.category, rank2: myResult.rank }) });
                     const result = await shareEventImage(file, eventHead.name);

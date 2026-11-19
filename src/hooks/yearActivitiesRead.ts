@@ -20,7 +20,8 @@ export function localYearBounds(year: number) {
 /** 이전 전체 snapshot과 같은 mount 수명. 전역/영구 캐시가 아니며 인증 교체 뒤 재사용하지 않는다. */
 export function createYearReadSession(uid: string, services: Pick<FirebaseServices, "auth" | "firestore"> = { auth, firestore }) {
   return { uid, auth: services.auth, firestore: services.firestore, owner: services.auth.currentUser, valid: true, docs: new Map<string, QueryDocumentSnapshot>(),
-    coverage: [] as Interval[], queries: new Map<string, PageState>(), years: null as number[] | null, duration: null as number | null, crossings: new Map<string, number>() };
+    coverage: [] as Interval[],
+    queries: new Map<string, PageState>(), years: null as number[] | null, duration: null as number | null, crossings: new Map<string, number>() };
 }
 export type YearReadSession = ReturnType<typeof createYearReadSession>;
 function missing(coverage: Interval[], requested: Interval): Interval[] {
@@ -114,16 +115,25 @@ function reader(uid: string, cancelled: () => boolean, budget = YEAR_READ_BUDGET
 }
 
 /** 전체 원본을 버리지 않고 달력 endpoint와 조회한 외곽 구간의 증거로 보관한다. */
-export async function readRecapYears(uid: string, cancelled: () => boolean, session = createYearReadSession(uid)): Promise<number[]> {
+export async function readRecapYears(uid: string, cancelled: () => boolean, session = createYearReadSession(uid),
+  onEndpointError?: (endpoint: "earliest" | "latest", error: unknown) => void): Promise<number[]> {
   const read = reader(uid, cancelled, { documents: 3, requests: 2, pageSize: 2 }, session);
   read.current();
   if (session.years) return session.years;
-  const first = await read.point("calendar:first", [orderBy("startTime", "asc"), orderBy("__name__", "asc")]);
-  const tail = await read.read([orderBy("startTime", "desc"), orderBy("__name__", "desc")], 2);
+  const reportFailure = (endpoint: "earliest" | "latest", error: unknown): never => {
+    if (!(error instanceof Error && error.message === "year-read-cancelled")) onEndpointError?.(endpoint, error);
+    throw error;
+  };
+  // Pin the earliest endpoint first so an import during that read is visible to the latest endpoint.
+  const first = await read.point("calendar:first", [orderBy("startTime", "asc"), orderBy("__name__", "asc")])
+    .catch(error => reportFailure("earliest", error));
+  const tail = await read.read([orderBy("startTime", "desc"), orderBy("__name__", "desc")], 2)
+    .catch(error => reportFailure("latest", error));
   if ([...(first ? [first] : []), ...tail.docs].some(doc => !Number.isFinite(doc.data().startTime))) throw new Error("year-read-invalid-calendar");
   const currentYear = new Date().getFullYear();
-  if (!first || tail.docs.length < 2) cover(session, { start: -Infinity, end: Infinity });
-  else {
+  const complete = first ? tail.docs.length === 1 && tail.docs[0]?.id === first.id : tail.docs.length === 0;
+  if (complete) cover(session, { start: -Infinity, end: Infinity });
+  else if (first && tail.docs.length >= 2) {
     const firstTime = first.data().startTime;
     const lastTime = tail.docs[tail.docs.length - 1]!.data().startTime;
     if (!Number.isFinite(firstTime) || !Number.isFinite(lastTime)) throw new Error("year-read-invalid-calendar");

@@ -1,3 +1,4 @@
+import { captureError } from "../services/sentry";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -70,8 +71,10 @@ describe("trainingSurfaceCache", () => {
   });
 });
 
+vi.mock("../services/sentry", () => ({ captureError: vi.fn() }));
+
 const scope = "12345678-1234-1234-1234-123456789abc";
-const diskKey = "orider.trainingSurfaceCache.v2";
+const diskKey = `orider.trainingSurfaceCache.v2:${key.uid}:${scope}`;
 const snapshot = { goal: null, weeks: [] };
 
 async function freshCache() {
@@ -102,6 +105,47 @@ describe("훈련 스냅샷 영속 캐시", () => {
     expect(restarted.getTrainingSurfaceCache(key)).toEqual(snapshot);
   });
 
+  it("invalidates the active owner's plan without overwriting another account snapshot", async () => {
+    const first = await freshCache();
+    first.prepareTrainingSurfaceCacheOwner(key.uid);
+    first.setTrainingSurfaceCache(key, snapshot);
+    const other = await freshCache();
+    const otherKey = { ...key, uid: "other" };
+    other.prepareTrainingSurfaceCacheOwner(otherKey.uid);
+    other.setTrainingSurfaceCache(otherKey, snapshot);
+    const otherDiskKey = `orider.trainingSurfaceCache.v2:${otherKey.uid}:${scope}`;
+    const otherSnapshot = localStorage.getItem(otherDiskKey);
+
+    first.removeTrainingPlanCacheForSport(key.uid, key.sport, vi.fn());
+
+    expect(otherSnapshot).not.toBeNull();
+    expect(localStorage.getItem(otherDiskKey)).toBe(otherSnapshot);
+    expect(JSON.parse(localStorage.getItem(diskKey)!).entries).toEqual([]);
+    expect(other.getTrainingSurfaceCache(otherKey)).toEqual(snapshot);
+  });
+
+  it("reports a failed disk write while retaining the restored in-memory snapshot", async () => {
+    const first = await freshCache();
+    first.prepareTrainingSurfaceCacheOwner(key.uid);
+    first.setTrainingSurfaceCache(key, snapshot);
+    vi.mocked(captureError).mockClear();
+
+    const restarted = await freshCache();
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+      throw new DOMException("storage quota", "QuotaExceededError");
+    });
+    try {
+      restarted.prepareTrainingSurfaceCacheOwner(key.uid);
+      expect(restarted.getTrainingSurfaceCache(key)).toEqual(snapshot);
+      expect(captureError).toHaveBeenCalledWith(
+        new Error("Training snapshot restore failed (QuotaExceededError)"),
+        { tags: { source: "trainingSurfaceCache.restore" } },
+      );
+    } finally {
+      write.mockRestore();
+    }
+  });
+
   it("네이티브 scope가 없는 기존 앱은 메모리만 사용한다", async () => {
     delete window.__ORIDER_TRAINING_CACHE_SCOPE__;
     const cache = await freshCache();
@@ -128,8 +172,31 @@ describe("훈련 스냅샷 영속 캐시", () => {
       const restarted = await freshCache();
       restarted.prepareTrainingSurfaceCacheOwner(key.uid);
       expect(restarted.getTrainingSurfaceCache(key)).toBeNull();
+      if (["uid", "scope", "schema", "oversize", "broken"].includes(kind)) {
+        expect(localStorage.getItem(diskKey)).toBeNull();
+      }
     },
   );
+
+  it("removes and reports an invalid legacy envelope only for its matching owner", async () => {
+    const legacyKey = "orider.trainingSurfaceCache.v2";
+    const invalid = JSON.stringify({ schema: -1, uid: key.uid, scope, entries: [] });
+    localStorage.setItem(legacyKey, invalid);
+    vi.mocked(captureError).mockClear();
+    const other = await freshCache();
+    other.prepareTrainingSurfaceCacheOwner("other");
+    expect(captureError).not.toHaveBeenCalled();
+    expect(localStorage.getItem(legacyKey)).toBe(invalid);
+
+    const current = await freshCache();
+    current.prepareTrainingSurfaceCacheOwner(key.uid);
+    expect(localStorage.getItem(legacyKey)).toBeNull();
+    expect(current.getTrainingSurfaceCache(key)).toBeNull();
+    expect(captureError).toHaveBeenCalledWith(
+      new Error("Training snapshot restore failed (TypeError)"),
+      { tags: { source: "trainingSurfaceCache.restore" } },
+    );
+  });
 
   it("로그아웃은 구버전 prefix까지 삭제하고 다른 저장소는 유지한다", async () => {
     const cache = await freshCache();
@@ -169,19 +236,21 @@ describe("훈련 스냅샷 영속 캐시", () => {
   });
 
   it("SHA256 scope도 허용하고 디스크 항목 수와 총 바이트를 제한한다", async () => {
-    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "a".repeat(64);
+    const hashScope = "a".repeat(64);
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = hashScope;
+    const hashDiskKey = `orider.trainingSurfaceCache.v2:${key.uid}:${hashScope}`;
     const cache = await freshCache();
     cache.prepareTrainingSurfaceCacheOwner(key.uid);
     for (let index = 0; index < 13; index += 1) {
       cache.setTrainingSurfaceCache({ ...key, sport: `sport-${index}` }, snapshot);
     }
-    expect(JSON.parse(localStorage.getItem(diskKey)!).entries).toHaveLength(12);
+    expect(JSON.parse(localStorage.getItem(hashDiskKey)!).entries).toHaveLength(12);
     for (let index = 0; index < 3; index += 1) {
       cache.setTrainingSurfaceCache({ ...key, sport: `large-${index}` }, {
         goal: { userId: key.uid, id: "goal", title: "큰".repeat(80_000) }, weeks: [],
       });
     }
-    const encoded = localStorage.getItem(diskKey)!;
+    const encoded = localStorage.getItem(hashDiskKey)!;
     expect(new TextEncoder().encode(encoded).byteLength).toBeLessThanOrEqual(524288);
     expect(JSON.parse(encoded).entries.length).toBeLessThan(12);
     expect(cache.getTrainingSurfaceCache({ ...key, sport: "large-2" })).not.toBeNull();

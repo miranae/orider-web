@@ -1,3 +1,4 @@
+import * as errorLogger from "../services/errorLogger";
 import { getDoc } from "firebase/firestore";
 import { installEventDiscoveryFixture } from "../__tests__/fixtures/eventDiscovery";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -51,6 +52,22 @@ describe("event map camera intent", () => {
     await act(async()=>finish({data:{rows:[{id:"late",data:{info:{status:"OPEN",visibility:"PUBLIC",courseIds:["no-read-after-navigation"]}}}],nextCursor:"~ed1_"+"d".repeat(48)}}));
     expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1);
     expect(getDoc).not.toHaveBeenCalled();
+  });
+
+  it("keeps diagnostics for discovery failures after the page is gone", async () => {
+    let reject!: (error: Error) => void;
+    setCallableImplementation("listVisibleEventEnvelopes", () => new Promise((_, fail) => { reject = fail; }));
+    const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+    try {
+      const view = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+      await waitFor(() => expect(reject).toBeDefined());
+      view.unmount();
+      await act(async () => reject(new Error("discovery offline")));
+
+      const call = log.mock.calls.find(([source]) => source === "EventsPage.loadEvents");
+      expect(call?.[1]).toMatchObject({ message: "discovery offline" });
+      expect(call?.[6]?.()).toBe(false);
+    } finally { log.mockRestore(); }
   });
 
   it("keeps an incomplete private window bounded until Next and then shows public, legacy and GROUP rows", async () => {
@@ -213,6 +230,31 @@ describe("앱 임베드 탐색 이벤트 (#1485)", () => {
       vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
     }
   });
+});
+
+
+it("shows discovery before optional course and participation reads settle, preserving unknown membership", async () => {
+  setCollectionDocs("events", [{ id: "progressive", info: { name: "Ready discovery", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: Date.now() + 60_000, courseIds: ["slow-course"] } }]);
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let rejectCourse!: (error: Error) => void;
+  let rejectParticipant!: (error: Error) => void;
+  const course = new Promise<never>((_, reject) => { rejectCourse = reject; });
+  const participant = new Promise<never>((_, reject) => { rejectParticipant = reject; });
+  vi.mocked(getDoc).mockImplementation((...args) => {
+    const path = (args[0] as { path?: string }).path;
+    return path === "courses/slow-course" ? course : path === "events/progressive/participants/test-uid" ? participant : original(...args);
+  });
+  try {
+    renderWithProviders(<EventsPage />, { route: "/ko/explore/events", authenticated: true });
+    expect(await screen.findByText("Ready discovery", { exact: true })).toBeInTheDocument();
+    await waitFor(() => expect(getDoc).toHaveBeenCalledWith(expect.objectContaining({ path: "events/progressive/participants/test-uid" })));
+    const summary = screen.getByText(eventStrings["summary.myEvents"]).parentElement!;
+    expect(summary).toHaveTextContent("—");
+    await act(async () => { rejectCourse(new Error("thumbnail offline")); rejectParticipant(new Error("participation offline")); });
+    expect(screen.getByText("Ready discovery", { exact: true })).toBeInTheDocument();
+    expect(summary).toHaveTextContent("—");
+    expect(screen.queryByText(eventStrings["dashboard.errorLoadEvent"])).not.toBeInTheDocument();
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
 });
 
 describe("event summary strip", () => {

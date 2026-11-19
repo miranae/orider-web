@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { FirebaseServicesProvider } from "../contexts/FirebaseServicesContext";
 import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import * as sentry from "../services/sentry";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { normalizePlanSport, usePlanModel } from "./usePlanModel";
 import { planSnapshotKey, readPlanSnapshot } from "../embedded/planSnapshotCache";
@@ -41,11 +42,13 @@ vi.mock("./useFitnessTimeseries", () => ({
 }));
 
 const firestore = { name: "embedded-firestore" };
+const auth = { currentUser: { uid: "owner" } };
+const ensureAppCheckReady = vi.fn();
 const services = {
   firestore,
-  auth: {},
+  auth,
   functions: {},
-  ensureAppCheckReady: vi.fn(),
+  ensureAppCheckReady,
 } as never;
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -75,6 +78,8 @@ describe("usePlanModel", () => {
     clearTrainingSurfaceCache();
     mocks.locale = "ko";
     mocks.user = { uid: "owner" };
+    auth.currentUser = { uid: "owner" };
+    ensureAppCheckReady.mockClear();
     mocks.freshTraining.mockReset().mockReturnValue({revalidating: false, justRecomputed: false, currentTsb: null});
     mocks.fitnessTimeseries.mockReset().mockReturnValue({timeseries: null, loaded: true});
     resetRuntimeConfigForTests({trainingDecisionEnabled: false});
@@ -178,7 +183,7 @@ describe("usePlanModel", () => {
     expect(mocks.fitnessTimeseries).not.toHaveBeenCalled();
   });
 
-  it("commits a fresh goal and its weeks atomically", async () => {
+  it("shows a fresh goal while its plan is pending without enabling a complete plan", async () => {
     const getDocsMock = vi.mocked(getDocs);
     const originalImplementation = getDocsMock.getMockImplementation()!;
     let resolvePlan: ((value: unknown) => void) | null = null;
@@ -203,8 +208,10 @@ describe("usePlanModel", () => {
     const { result } = renderHook(() => usePlanModel("run"), { wrapper });
 
     await waitFor(() => expect(resolvePlan).not.toBeNull());
-    expect(result.current.goal).toBeNull();
-    expect(result.current.goalLoading).toBe(true);
+    expect(result.current.goal?.id).toBe("goal-run");
+    expect(result.current.goalLoading).toBe(false);
+    expect(result.current.weeks).toEqual([]);
+    expect(result.current.freshLoaded).toBe(false);
     expect(result.current.planLoading).toBe(true);
     expect(result.current.loading).toBe(true);
 
@@ -213,6 +220,52 @@ describe("usePlanModel", () => {
     expect(result.current.goal?.id).toBe("goal-run");
     expect(result.current.weeks).toEqual([]);
     getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("keeps a confirmed goal available when only the plan read fails", async () => {
+    setCollectionDocs("goals", [{ id: "goal-plan-failed", userId: "owner", discipline: "bike", status: "active", eventDate: Date.now() + 86400000 }]);
+    const getDocsMock = vi.mocked(getDocs);
+    const original = getDocsMock.getMockImplementation()!;
+    let rejectPlan!: (error: unknown) => void;
+    getDocsMock.mockImplementation((...args) => (args[0] as { path?: string }).path === "goals/goal-plan-failed/plan"
+      ? new Promise((_, reject) => { rejectPlan = reject; }) as never : original(...args));
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(hook.result.current.goal?.id).toBe("goal-plan-failed"));
+    expect(hook.result.current.goalLoading).toBe(false);
+    expect(hook.result.current.planLoading).toBe(true);
+    const error = new Error("plan unavailable");
+    await act(async () => rejectPlan(error));
+    expect(hook.result.current.goal?.id).toBe("goal-plan-failed");
+    expect(hook.result.current.weeks).toEqual([]);
+    expect(hook.result.current.goalError).toBeNull();
+    expect(hook.result.current.planError).toBe(error);
+    expect(hook.result.current.loading).toBe(false);
+    expect(hook.result.current.freshLoaded).toBe(false);
+    hook.unmount();
+  });
+
+  it.each([
+    ["goals", "PlanPage.goalLoad"],
+    ["goals/goal-late-error/plan", "PlanPage.planLoad"],
+  ])("keeps diagnostics for a failed %s query after the SDK account changes", async (path, source) => {
+    setCollectionDocs("goals", [{
+      id: "goal-late-error", userId: "owner", discipline: "bike", status: "active", eventDate: Date.now(),
+    }]);
+    const getDocsMock = vi.mocked(getDocs);
+    let rejectRead: ((error: Error) => void) | undefined;
+    if (source === "PlanPage.planLoad") getDocsMock.mockImplementationOnce(getDocsMock.getMockImplementation()!);
+    getDocsMock.mockImplementationOnce(() => new Promise((_, reject) => { rejectRead = reject; }) as never);
+    const captureError = vi.spyOn(sentry, "captureError");
+    const { result } = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(rejectRead).toBeDefined());
+
+    auth.currentUser = { uid: "different-owner" };
+    const error = new Error(`read failed: ${path}`);
+    await act(async () => { rejectRead?.(error); });
+
+    expect(captureError).toHaveBeenCalledWith(error, expect.objectContaining({ tags: { source } }));
+    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+    expect(result.current.loadError).toBeNull();
   });
 
   it("renders a remounted Plan from memory while refreshing and preserves it on refresh failure", async () => {
@@ -294,7 +347,7 @@ describe("usePlanModel", () => {
     getDocsMock.mockImplementation(originalImplementation);
   });
 
-  it("preserves the cached goal and weeks when only the fresh plan request fails", async () => {
+  it("keeps the confirmed new goal and hides old weeks when its plan request fails", async () => {
     const cacheKey = {
       uid: "owner",
       surface: "plan" as const,
@@ -319,9 +372,9 @@ describe("usePlanModel", () => {
     const hook = renderHook(() => usePlanModel("bike"), { wrapper });
     await waitFor(() => expect(getDocsMock).toHaveBeenCalledTimes(2));
 
-    expect(hook.result.current.goal?.id).toBe("cached-goal");
-    expect(hook.result.current.weeks[0]?.id).toBe("cached-week");
-    expect(getTrainingSurfaceCache<typeof cachedTuple>(cacheKey)).toEqual(cachedTuple);
+    expect(hook.result.current.goal?.id).toBe("fresh-goal");
+    expect(hook.result.current.weeks).toEqual([]);
+    expect(getTrainingSurfaceCache<typeof cachedTuple>(cacheKey)).toBeNull();
     await waitFor(() => expect(hook.result.current.planError).toEqual(new Error("plan offline")));
     expect(hook.result.current.loadError).toEqual(new Error("plan offline"));
     expect(hook.result.current.freshLoaded).toBe(false);

@@ -4,7 +4,7 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { createPublicActivityClient, isPublicActivityAccessError, type PublicActivityDetail } from "../services/publicActivityDetail";
 import { startJourneyMeasurement, type JourneyOutcome } from "../services/journeyMeasurement";
 export interface PublicActivitySessionOptions {
- activityId: string; retryKey: number; embedded?: boolean; initialDetail?: PublicActivityDetail;
+ activityId: string; retryKey: number; embedded?: boolean; initialDetail?: PublicActivityDetail; initialDetailVerifiedAt?: number;
  detailMeasurement?: (outcome: JourneyOutcome) => void; onDetailRetry?: () => void;
  onReady: () => void; onError: (code: "activity_load_failed") => void;
 }
@@ -23,7 +23,7 @@ function accessWasLost(error: unknown): boolean {
     || error instanceof Error && error.message === "account_changed";
 }
 /** Current-public-access lifecycle; presentation and private owner readers stay outside this hook. */
-export function usePublicActivitySession({ activityId, retryKey, embedded = false, initialDetail, onReady, onError, detailMeasurement: routeMeasurement, onDetailRetry }: PublicActivitySessionOptions) {
+export function usePublicActivitySession({ activityId, retryKey, embedded = false, initialDetail, initialDetailVerifiedAt, onReady, onError, detailMeasurement: routeMeasurement, onDetailRetry }: PublicActivitySessionOptions) {
   const services = useFirebaseServices();
   const { user } = useAuth();
   const client = useMemo(() => createPublicActivityClient(services), [services, user?.uid, services.auth.currentUser]);
@@ -70,11 +70,13 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
     setMapFresh(false); setDetail(null); setLoading(true); setFailed(false); setAccessDenied(false); setPosted(false); setMutationError(false); setBusy(false); inFlight.current = false;
     if (requestSession.current !== session) { commentRequest.current = null; acceptedSession.current = null; }
     requestSession.current = session;
-    const load = attempt === 0 && retryKey === 0 && initialDetail?.activity.id === activityId ? Promise.resolve(initialDetail) : client.load(activityId);
+    const age = initialDetailVerifiedAt === undefined ? 0 : Date.now() - initialDetailVerifiedAt;
+    const prefetched = attempt === 0 && retryKey === 0 && initialDetail?.activity.id === activityId && age >= 0 && age < PUBLIC_ACCESS_VERIFIED_TTL_MS ? initialDetail : undefined;
+    const load = prefetched ? Promise.resolve(prefetched) : client.load(activityId);
     void load.then(data => {
       if (generation.current !== request) return;
       settledGeneration.current = request;
-      acceptedSession.current = session; verifiedAt.current = Date.now();
+      acceptedSession.current = session; verifiedAt.current = prefetched ? initialDetailVerifiedAt ?? Date.now() : Date.now();
       setDetail(data); setVerifiedMap({ client, activityId, value: data.mapPreview }); setMapFresh(document.visibilityState !== "hidden"); setLoading(false); callbacks.current.onReady();
     }).catch(error => {
       if (generation.current !== request) return;
@@ -83,7 +85,7 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
       setLoading(false); setFailed(true); setAccessDenied(accessWasLost(error)); callbacks.current.onError("activity_load_failed");
     });
     return () => { generation.current += 1; finish("cancelled"); socialMeasurement.current?.("cancelled"); };
-  }, [activityId, client, retryKey, attempt, initialDetail, embedded, setDetail, routeMeasurement, session, setText]);
+  }, [activityId, client, retryKey, attempt, initialDetail, initialDetailVerifiedAt, embedded, setDetail, routeMeasurement, session, setText]);
   useEffect(() => {
     if (loading || settledGeneration.current !== generation.current) return;
     if (failed) detailMeasurement.current?.(accessDenied ? "access_denied" : "error");

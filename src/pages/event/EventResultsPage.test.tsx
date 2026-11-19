@@ -164,7 +164,7 @@ it("keeps results available and reports an optional course read that times out",
     renderWithProviders(<ResultsWithNavigation />, { route: "/ko/event/first/results" });
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
     expect(screen.getByRole("heading", { name: "Finished optional course" })).toBeVisible();
-    expect(logClientError).toHaveBeenCalledWith("EventResultsPage.loadCourse", expect.any(Error), { eventId: "first" });
+    expect(logClientError).toHaveBeenCalledWith("EventResultsPage.loadCourse", expect.any(Error), { eventId: "first" }, expect.objectContaining({ auth: expect.anything() }), null);
   } finally {
     read.mockImplementation(original);
     vi.useRealTimers();
@@ -338,4 +338,49 @@ it("hides an already rendered result synchronously when the SDK account changes 
   view.rerender(<ResultsWithNavigation />);
   expect(screen.queryByText("Rider previous-session")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /CSV/ })).not.toBeInTheDocument();
+});
+
+
+it("starts the result page before optional course statistics and keeps results after their failure", async () => {
+  setDocData("events/first", { info: { name: "Ready results", status: "FINISHED", type: "TOUR", courseIds: ["slow-course"] } });
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let reject!: (error: Error) => void;
+  const pending = new Promise<never>((_, no) => { reject = no; });
+  vi.mocked(getDoc).mockImplementation((...args) => (args[0] as { path?: string }).path === "courses/slow-course" ? pending : original(...args));
+  try {
+    renderWithProviders(<ResultsWithNavigation />, { route: "/ko/event/first/results" });
+    expect(await screen.findByRole("heading", { name: "Ready results" })).toBeInTheDocument();
+    expect(paging.page).toHaveBeenCalledTimes(1);
+    await act(async () => reject(new Error("course offline")));
+    expect(screen.getByRole("heading", { name: "Ready results" })).toBeInTheDocument();
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
+});
+
+
+it.each(["ready", "failed"])("shows authorized host results before optional profile names are %s and holds CSV while pending", async outcome => {
+  paging.host = { uid: "host", getIdTokenResult: async () => ({ claims: {} }) };
+  auth.currentUser = paging.host as never;
+  setDocData("events/first", { info: { name: "Ready host results", creatorId: "host", status: "FINISHED", type: "GROUP_RIDE", startTime: 1000 } });
+  vi.mocked(getDocs).mockResolvedValueOnce({ docs: [
+    { id: "nameless", data: () => ({ status: "FINISHED", finishedAt: 2000, bib: 1 }) },
+    { id: "canonical", data: () => ({ status: "FINISHED", finishedAt: 3000, bib: 2, realName: "Ready canonical rider" }) },
+  ] } as never);
+  let finish!: (value: unknown) => void;
+  let reject!: (error: Error) => void;
+  const pending = new Promise((yes, no) => { finish = yes; reject = no; });
+  const original = vi.mocked(getPublicUserProfile).getMockImplementation()!;
+  vi.mocked(getPublicUserProfile).mockImplementation((uid, database) => uid === "nameless" ? pending as never : original(uid, database));
+  try {
+    renderWithProviders(<ResultsWithNavigation />, { route: "/ko/event/first/results" });
+    expect(await screen.findByRole("heading", { name: "Ready host results" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ready canonical rider", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /CSV/ })).toBeDisabled();
+    await act(async () => {
+      if (outcome === "ready") finish({ nickname: "Hydrated host rider" });
+      else reject(new Error("profile offline"));
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: /CSV/ })).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Ready canonical rider", exact: true })).toBeInTheDocument();
+    if (outcome === "ready") expect(screen.getByRole("button", { name: "Hydrated host rider", exact: true })).toBeInTheDocument();
+  } finally { vi.mocked(getPublicUserProfile).mockImplementation(original); }
 });

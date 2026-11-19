@@ -2,14 +2,15 @@ import FirebaseSessionBoundary from "../contexts/FirebaseSessionBoundary";
 import { loadSegmentMetadata } from "../services/segmentMetadata";
 import { useDefaultSport } from "../hooks/useDefaultSport";
 import { Banana, Download, Eye, EyeOff, Flag, FlaskConical, MapPinned, Mountain, Pencil, Share2, Timer, Trash2 } from "lucide-react";
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
+import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
 import { localeTag } from "../utils/localeDate";
 import TabNav from "../components/TabNav";
-import LabPage from "./LabPage";
+const LabPage = lazy(() => import("./LabPage"));
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import {
@@ -34,9 +35,9 @@ import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
 import { useToast } from "../contexts/ToastContext";
-import RouteMap from "../components/RouteMap";
-import { ELEVATION_PLOT_AXIS_WIDTH } from "../components/ElevationChart";
-import { CourseStageProfile } from "../features/courses/CourseStageProfile";
+const RouteMap = lazy(() => import("../components/RouteMap"));
+import { ELEVATION_PLOT_AXIS_WIDTH } from "../components/elevationChartLayout";
+const CourseStageProfile = lazy(() => import("../features/courses/CourseStageProfile").then(module => ({ default: module.CourseStageProfile })));
 import { track } from "../services/analytics";
 import "../features/courses/course-detail.css";
 import "../features/courses/course-review.css";
@@ -53,7 +54,8 @@ import {
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { shortestLongitudeDelta } from "../utils/routeGeometry";
-import { EmptyState, LoadingSkeleton, Resolvable } from "../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../components/redesign";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { useSignInResolve } from "../hooks/useSignInResolve";
 import { revealFocusTarget } from "../services/focusTarget";
 import { Button, Card, Chip, IconButton, Text, buttonClass, Input, Textarea, DropdownSelect } from "../theme/components";
@@ -82,6 +84,7 @@ interface CourseData {
   elevationHigh: number;
   elevationLow: number;
   elevationProfile?: { d: number; e: number }[];
+  trackLoadState?: "loading" | "ready" | "error";
   /** 서버가 GPX <wpt> 를 재투영해 저장한 관심 지점(보급·정상·편의점 등). */
   waypoints?: {
     name: string | null;
@@ -375,7 +378,7 @@ function CoursePageContent() {
   const firebaseServices = useFirebaseServices();
   const { firestore, functions } = firebaseServices;
   const navigate = useNavigate();
-  const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId, true);
+  const { data: course, loading: courseLoading, error: courseError, retry: retryCourse } = useDocument<CourseData>("courses", courseId, true);
   // 획득고도 정본(#887). 전환이 꺼져 있으면 envelope 은 null 이고 코스 문서 값이 그대로 남는다.
   const courseAnalysis = useCourseAnalysis(courseId);
   const courseAnalysisNote = courseAnalysis.envelope ? courseAnalysisNoteKey(courseAnalysis.display) : null;
@@ -873,7 +876,7 @@ function CoursePageContent() {
   // ── Edit ───────────────────────────────────────────────────────────
 
   const startEditing = () => {
-    if (!course) return;
+    if (!course || !canEdit) return;
     setEditName(course.name);
     setEditDesc(course.description || "");
     setEditing(true);
@@ -919,7 +922,7 @@ function CoursePageContent() {
   // ── GPX Export ─────────────────────────────────────────────────────
 
   const handleExportGpx = () => {
-    if (!course) return;
+    if (!course || course.trackLoadState === "loading" || course.trackLoadState === "error") return;
     track("course_detail_action", { course_id: courseId ?? "", action: "gpx_export" });
     downloadGpx(course);
     showToast(t("gpx.export"));
@@ -927,11 +930,12 @@ function CoursePageContent() {
 
   const officialCourse = course ? isOfficialCourse(course) : false;
   const creatorName = officialCourse ? t("creator.official") : course?.creatorNickname ?? "";
-  const isOwner = user?.uid === course?.creatorId && !officialCourse;
+  const isOwner = Boolean(user && user.uid === course?.creatorId && !officialCourse);
+  const canEdit = isOwner && course?.trackLoadState !== "loading";
   const isAdmin = tokenAdmin || profileHasAdminFlag(profile);
   useEffect(() => {
-    if (detailTab === "edit" && isOwner && course && !editing) { setEditing(true); setEditName(course.name); setEditDesc(course.description || ""); }
-  }, [detailTab, isOwner, course, editing]);
+    if (detailTab === "edit" && canEdit && course && !editing) { setEditing(true); setEditName(course.name); setEditDesc(course.description || ""); }
+  }, [detailTab, canEdit, course, editing]);
 
   const courseUnavailable = !course || course.deletedAt || (course.hidden === true && !isAdmin);
 
@@ -943,6 +947,8 @@ function CoursePageContent() {
       </div>
     );
   }
+
+  if (courseError) return <ErrorState title={t("error.loadFailed")} onRetry={retryCourse} />;
 
   if (courseUnavailable) {
     return (
@@ -1029,7 +1035,7 @@ function CoursePageContent() {
       {/* 폴리라인이 없는 코스도 제목이 떠 있지 않게 배경을 깔아둔다. */}
       {!course.polyline && <div className="course-hero-fallback" />}
       {course.polyline && (
-        <RouteMap
+        <ErrorBoundary key={course.id} fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><RouteMap
           polyline={course.polyline}
           height="h-80"
           fallbackHeight="h-40 sm:h-48"
@@ -1060,7 +1066,7 @@ function CoursePageContent() {
               caption: p.caption ?? p.uploaderNickname,
             })),
         ]}
-        />
+        /></Suspense></ErrorBoundary>
       )}
         <div className="course-hero-overlay" aria-hidden="true" />
         <div className="course-hero-content">
@@ -1068,7 +1074,7 @@ function CoursePageContent() {
           {/* 코스 편집은 제목 옆 연필 아이콘으로 — 통계 줄의 큰 버튼 대신 편집 대상 곁에 둔다. */}
           <div className="flex items-start" style={{ gap: "var(--space-1)" }}>
             <h1 data-testid="D2-0" className="course-hero-title flex-1 min-w-0">{course.name}</h1>
-            {isOwner && !editing && (
+            {canEdit && !editing && (
               <IconButton variant="ghost" size="sm" aria-label={t("button.edit")} title={t("button.edit")}
                 icon={<Pencil size={ICON_SIZE.sm} />} onClick={startEditing} />
             )}
@@ -1115,12 +1121,12 @@ function CoursePageContent() {
       </div>
       </div>
 
-      <TabNav tabs={[{ id: "overview", label: t("detailTabs.overview"), specId: "D2-T" }, ...(canPrepare ? [{ id: "prepare", label: t("detailTabs.prepare"), specId: "D2-T" }] : []), ...(isOwner ? [{ id: "edit", label: t("button.edit"), specId: "D2-T" }] : [])]} activeTab={detailTab === "edit" && !isOwner ? "overview" : detailTab} onChange={(tab) => { setDetailTab(tab); if (tab === "edit" && isOwner) startEditing(); else setEditing(false); }} />
+      <TabNav tabs={[{ id: "overview", label: t("detailTabs.overview"), specId: "D2-T" }, ...(canPrepare ? [{ id: "prepare", label: t("detailTabs.prepare"), specId: "D2-T" }] : []), ...(canEdit ? [{ id: "edit", label: t("button.edit"), specId: "D2-T" }] : [])]} activeTab={detailTab === "edit" && !canEdit ? "overview" : detailTab} onChange={(tab) => { setDetailTab(tab); if (tab === "edit" && canEdit) startEditing(); else setEditing(false); }} />
       {canPrepare && detailTab === "prepare" && climbSection && <Card data-testid="D2-2">{climbSection}</Card>}
-      {canPrepare && detailTab === "prepare" && <LabPage presetCourseId={courseId ?? course.id} embedded />}
+      {canPrepare && detailTab === "prepare" && <ErrorBoundary fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="card" />}><LabPage presetCourseId={courseId ?? course.id} embedded /></Suspense></ErrorBoundary>}
       {/* 본문 2단 — 넓은 열에 프로필·경유지·사진, 좁은 열에 정보와 액션. */}
       <div data-testid="D2-1" className="course-body">
-        <div data-testid="D2-1" className="course-col" style={canPrepare && detailTab === "prepare" || (detailTab === "edit" && isOwner) ? { display: "none" } : undefined}>
+        <div data-testid="D2-1" className="course-col" style={canPrepare && detailTab === "prepare" || (detailTab === "edit" && canEdit) ? { display: "none" } : undefined}>
       {/* Photo Gallery */}
       {((course.photos && course.photos.length > 0) || userPhotos.length > 0 || user) && (
         <Card>
@@ -1205,13 +1211,16 @@ function CoursePageContent() {
         </Card>
       )}
 
+      {/* 고도 파일은 제목·거리·지도와 별도로 준비한다. */}
+      {course.trackLoadState === "loading" && <LoadingSkeleton kind="chart" />}
+      {course.trackLoadState === "error" && <ErrorState title={t("error.trackLoadFailed")} onRetry={retryCourse} />}
       {/* Elevation Chart */}
-      {course.elevationProfile && course.elevationProfile.length > 0 && (
+      {Array.isArray(course.elevationProfile) && course.elevationProfile.length > 0 && (
         <Card style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
-          <CourseStageProfile
+          <ErrorBoundary key={course.id} fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><CourseStageProfile
             data={course.elevationProfile.map((p) => ({ distance: p.d, elevation: p.e }))}
             onHoverIndex={handleElevHover}
-          />
+          /></Suspense></ErrorBoundary>
           {waypointLaneRows.length > 0 && (
             <div className="course-lanes">
               {waypointLaneRows.map((group) => (
@@ -1461,7 +1470,7 @@ function CoursePageContent() {
               aria-label={t("button.simulate")} title={t("button.simulate")} icon={<FlaskConical size={ICON_SIZE.md} />} />}
 
             {/* GPX Export */}
-            <IconButton onClick={handleExportGpx} variant="secondary" aria-label={t("button.export")} title={t("button.export")}
+            <IconButton onClick={handleExportGpx} disabled={course.trackLoadState === "loading" || course.trackLoadState === "error"} variant="secondary" aria-label={t("button.export")} title={t("button.export")}
               icon={<Download size={ICON_SIZE.md} />} />
 
             {/* Share */}

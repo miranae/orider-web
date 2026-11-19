@@ -22,6 +22,7 @@ const DashboardPage = lazy(() => import("../pages/DashboardPage"));
 const ExplorePage = lazy(() => import("../pages/ExplorePage"));
 const CoursesPage = lazy(() => import("../pages/CoursesPage"));
 import { TopNav } from "./redesign";
+import LoadingSkeleton from "./redesign/states/LoadingSkeleton";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
 import { resolveDetailHub, resolveNavHighlight, isHubSubRoute } from "../config/navHubs";
@@ -192,11 +193,13 @@ export default function Layout() {
           ) : (
             <EnteringShell className={`site-shell site-shell--padded py-6${path.startsWith("/coach/") || path === "/athlete/me/activities" ? " coach-surface" : ""}`} data-page-shell="content">
               {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
-              <Suspense fallback={<div style={{ height: 200 }} />}>
+              <Suspense fallback={<LoadingSkeleton kind="list" />}>
                 {path === "/explore/segments" && <ExplorePage />}
                 {path === "/explore/courses" && <CoursesPage />}
               </Suspense>
-              {(path.startsWith("/coach/") || path === "/clubs" || path.startsWith("/club/")) ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}>{outlet}</GlossaryProvider> : outlet}
+              <Suspense fallback={<LoadingSkeleton kind="card" count={2} />}>
+                {(path.startsWith("/coach/") || path === "/clubs" || path.startsWith("/club/")) ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}>{outlet}</GlossaryProvider> : outlet}
+              </Suspense>
             </EnteringShell>
           )}
         </RetainedHubPages>

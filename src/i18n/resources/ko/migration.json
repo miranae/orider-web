@@ -1,5 +1,7 @@
 {
   "userMigration": {
+    "profileUnavailableTitle": "프로필을 불러오지 못했어요",
+    "profileUnavailableDesc": "가져오기 상태를 확인할 수 없습니다. 다시 불러온 뒤 진행해 주세요.",
     "stepConnect": "연결",
     "stepImport": "가져오기",
     "stepDone": "완료",

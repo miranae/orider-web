@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { useLocalizedPath } from "../../hooks/useLocalizedNavigate";
 import { useClubMeetingsApi } from "../../features/club-preparation/useClubMeetingsApi";
 import ClubCafeSchedulePanel from "../../features/group/ClubCafeSchedulePanel";
@@ -30,8 +31,13 @@ import { Button, buttonClass } from "../../theme/components";
 import { logClientError } from "../../services/errorLogger";
 
 export default function GroupEventsPage() {
+  return <FirebaseSessionBoundary><GroupEventsContent /></FirebaseSessionBoundary>;
+}
+
+function GroupEventsContent() {
   const services = useFirebaseServices();
   const { firestore } = services;
+  const viewer = services.auth.currentUser;
   const { listClubMeetings } = useClubMeetingsApi();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
@@ -73,6 +79,7 @@ export default function GroupEventsPage() {
   const [eventNextCursor, setEventNextCursor] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
+    const current = () => !cancelled && services.auth.currentUser === viewer;
     setEvents([]);
     setEventNextCursor(null);
     setLoading(true);
@@ -83,83 +90,71 @@ export default function GroupEventsPage() {
     }
     (async () => {
       const page = await getVisibleEventPage({ groupId, publicOnly: !role, ...clubEventQuery(eventWindow), limit: 20, ...(eventCursor ? { cursor: eventCursor } : {}) }, services);
-      if (!cancelled) setEventNextCursor(page.nextCursor);
+      if (current()) setEventNextCursor(page.nextCursor);
       return page.docs.filter(item => {
         const info = item.data().info ?? {};
         return info.kind !== "CLUB_MEETING" && info.deletedAt == null && info.status !== "DRAFT";
       });
     })()
       .then(async (eventDocs) => {
-        if (cancelled) return;
-        const rows = await Promise.all(
-          eventDocs.map(async (eventDoc) => {
-            const data = eventDoc.data();
-            const info = data.info ?? {};
-            if (
-              info.kind === "CLUB_MEETING" ||
-              info.deletedAt != null ||
-              info.status === "DRAFT"
-            )
-              return null;
-            let myRsvp: boolean | null = null;
-            if (user) {
-              try {
-                const participant = await getDoc(
-                  doc(
-                    firestore,
-                    "events",
-                    eventDoc.id,
-                    "participants",
-                    user.uid,
-                  ),
-                );
-                myRsvp =
-                  participant.exists() &&
-                  isActiveEventRegistration(participant.data()?.status);
-              } catch (reason) {
-                logClientError("GroupEventsPage.registration", reason, {
-                  groupId,
-                  eventId: eventDoc.id,
-                });
-              }
-            }
-            return {
-              id: eventDoc.id,
-              name: String(info.name ?? ""),
-              status: String(info.status ?? ""),
-              // 출발하지 않고 시간이 지나 서버가 닫은 이벤트 — '자동 종료'로 보이고 결과 링크를 숨긴다.
-              autoFinished: info.autoFinishReason === "start_window_expired",
-              startTime: normalizeStartTime(info.startTime),
-              endTime: info.endTime == null ? null : normalizeStartTime(info.endTime) || null,
-              registered:
-                typeof data.counters?.totalRegistered === "number"
-                  ? data.counters.totalRegistered
-                  : null,
-              myRsvp,
-              // 주최자(만든 사람·공동 주최자)에게만 목록에서 바로 수정 진입을 보여준다.
-              isHost: isEventHost(user?.uid, {
-                creatorId: typeof info.creatorId === "string" ? info.creatorId : null,
-                hostIds: Array.isArray(info.hostIds) ? info.hostIds : null,
-              }),
-            };
-          }),
-        );
-        if (!cancelled) {
+        if (!current()) return;
+        const rows: Array<ClubEvent | null> = eventDocs.map((eventDoc) => {
+          const data = eventDoc.data();
+          const info = data.info ?? {};
+          if (
+            info.kind === "CLUB_MEETING" ||
+            info.deletedAt != null ||
+            info.status === "DRAFT"
+          )
+            return null;
+          return {
+            id: eventDoc.id,
+            name: String(info.name ?? ""),
+            status: String(info.status ?? ""),
+            // 출발하지 않고 시간이 지나 서버가 닫은 이벤트 — '자동 종료'로 보이고 결과 링크를 숨긴다.
+            autoFinished: info.autoFinishReason === "start_window_expired",
+            startTime: normalizeStartTime(info.startTime),
+            endTime: info.endTime == null ? null : normalizeStartTime(info.endTime) || null,
+            registered:
+              typeof data.counters?.totalRegistered === "number"
+                ? data.counters.totalRegistered
+                : null,
+            myRsvp: null,
+            // 주최자(만든 사람·공동 주최자)에게만 목록에서 바로 수정 진입을 보여준다.
+            isHost: isEventHost(user?.uid, {
+              creatorId: typeof info.creatorId === "string" ? info.creatorId : null,
+              hostIds: Array.isArray(info.hostIds) ? info.hostIds : null,
+            }),
+          };
+        });
+        if (current()) {
           setEvents(rows.filter((row): row is ClubEvent => row !== null));
+          setLoading(false);
           setLoadedEventScope(eventScope);
         }
+        // 참가 여부는 카드 내용을 가리지 않고, 확인한 행만 갱신한다.
+        if (user) await Promise.all(eventDocs.map(async eventDoc => {
+          try {
+            const participant = await getDoc(doc(firestore, "events", eventDoc.id, "participants", user.uid));
+            if (!current()) return;
+            const myRsvp = participant.exists() && isActiveEventRegistration(participant.data()?.status);
+            setEvents(current => current.map(event => event.id === eventDoc.id ? { ...event, myRsvp } : event));
+          } catch (reason) {
+            logClientError("GroupEventsPage.registration", reason, { groupId, eventId: eventDoc.id }, services, viewer);
+          }
+        }));
       })
       .catch((err) => {
         logClientError("GroupEventsPage.load", err, { groupId });
-        if (!cancelled) setError(true);
+        if (current()) setError(true);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (current()) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [groupId, accessKey, role, retry, eventWindow, eventCursor, services, eventScope]);
+  }, [groupId, accessKey, role, retry, eventWindow, eventCursor, services, eventScope, viewer]);
   useEffect(() => {
     let cancelled = false;
     setMeetings([]);

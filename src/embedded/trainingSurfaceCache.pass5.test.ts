@@ -10,7 +10,7 @@ it("admits summary-null owner-bound canonical load after persistent restart", as
     serverDerivedLoad:{schemaVersion:1,userId:"owner",inputBinding:"published",streamTss:100}}]};
   first.prepareTrainingSurfaceCacheOwner("owner");
   first.setTrainingSurfaceCache(key,value);
-  expect(localStorage.getItem("orider.trainingSurfaceCache.v2")).toContain("streamTss");
+  expect(localStorage.getItem(`orider.trainingSurfaceCache.v2:${key.uid}:${window.__ORIDER_TRAINING_CACHE_SCOPE__}`)).toContain("streamTss");
   vi.resetModules();
   const restarted = await import("./trainingSurfaceCache");
   restarted.prepareTrainingSurfaceCacheOwner("owner");

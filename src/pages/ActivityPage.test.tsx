@@ -131,8 +131,9 @@ describe("ActivityPage", () => {
 
   it("shows loading state initially", () => {
     renderWithProviders(<ActivityPage />);
-    // The component starts with loading state
-    expect(document.querySelector(".animate-pulse")).toBeInTheDocument();
+    const loading = screen.getAllByRole("status", { name: "불러오는 중" });
+    expect(loading[0]?.closest("[aria-busy]")).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByRole("tab", { name: "분석" })).not.toBeInTheDocument();
   });
 
   it("keeps conflicting running GAP out of overview interpretation and sidebar", async () => {

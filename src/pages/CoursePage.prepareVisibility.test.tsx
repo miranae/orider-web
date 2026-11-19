@@ -6,10 +6,12 @@ vi.mock("firebase/auth", () => ({
   getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }),
   onAuthStateChanged: (_auth: unknown, callback: () => void) => { callback(); return () => {}; },
 }));
+const courseReadState = vi.hoisted(() => ({ error: null as Error | null }));
 vi.mock("../features/courses/courseDetailAsset", async () => {
   const { doc, onSnapshot } = await import("firebase/firestore");
   return { subscribeCourseDetail: (services: { firestore: Parameters<typeof doc>[0] }, id: string, onData: (value: unknown) => void, onError: (error: Error) => void) =>
-    onSnapshot(doc(services.firestore, "courses", id), (snapshot) => onData(snapshot.exists() ? { id, ...snapshot.data() } : null), onError) };
+    courseReadState.error ? (queueMicrotask(() => onError(courseReadState.error!)), () => {}) :
+      onSnapshot(doc(services.firestore, "courses", id), (snapshot) => onData(snapshot.exists() ? { id, ...snapshot.data() } : null), onError) };
 });
 // 계정 전환 테스트용 — 렌더마다 새 객체를 주면 user 를 의존하는 효과가 매번 다시 돈다. uid 별로 같은 값을 준다.
 const authState = vi.hoisted(() => {
@@ -44,13 +46,30 @@ import i18n from "i18next";
 import enCourse from "../i18n/resources/en/course.json";
 import enGlossary from "../i18n/resources/en/termGlossary.json";
 describe("course preparation climb predictions", () => {
-  beforeEach(() => { void i18n.changeLanguage("ko"); authState.uid = "owner"; simulateLogin({ uid: "owner" }); });
+  beforeEach(() => { courseReadState.error = null; void i18n.changeLanguage("ko"); authState.uid = "owner"; simulateLogin({ uid: "owner" }); });
   beforeEach(() => setDocData("courses/course-climb", {
     name: "Climbing course", description: "", creatorId: "other", creatorNickname: "Creator", source: "orider",
     polyline: "", distance: 10000, elevationGain: 400, averageGrade: 4, maximumGrade: 8,
     regions: [], tags: [], climbs: [{ cat: 3, dist: 3000, gain: 200 }], photos: [],
     createdAt: 1, likeCount: 0, viewCount: 0,
   }));
+  it("shows metadata during elevation loading but keeps GPX export disabled", async () => {
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), trackLoadState: "loading" });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    expect(await screen.findByText("Climbing course")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "GPX" })).toBeDisabled();
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), trackLoadState: "ready" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "GPX" })).toBeEnabled());
+  });
+  it("retries a failed course read instead of reporting that the course does not exist", async () => {
+    courseReadState.error = new Error("unavailable");
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    expect(await screen.findByText("코스를 불러오지 못했습니다")).toBeInTheDocument();
+    expect(screen.queryByText("코스를 찾을 수 없습니다")).not.toBeInTheDocument();
+    courseReadState.error = null;
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(await screen.findByText("Climbing course")).toBeInTheDocument();
+  });
   it("keeps an elevation hover over the dateline aligned with the mapped course", async () => {
     const coursePath = "courses/course-climb";
     setDocData(coursePath, {

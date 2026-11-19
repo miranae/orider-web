@@ -7,6 +7,8 @@ import { isSignInCancelled } from "../utils/signInCancelled";
 import { useStrava } from "../hooks/useStrava";
 import { useToast } from "../contexts/ToastContext";
 import { Card } from "../theme/components";
+import ErrorState from "../components/redesign/states/ErrorState";
+import LoadingSkeleton from "../components/redesign/states/LoadingSkeleton";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
 type Step = "landing" | "progress" | "report";
@@ -85,7 +87,7 @@ function StepIndicator({ current, steps }: { current: number; steps: string[] })
 export default function MigrationPage() {
   const { t } = useTranslation("migration");
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signIn } = useAuth();
+  const { user, profile, profileLoading, loading: authLoading, signIn } = useAuth();
   const { showToast } = useToast();
   const { connectStrava, startMigration, cancelMigration, verifyMigration, fixMigration, loading, error } = useStrava();
   const [signInPending, setSignInPending] = useState(false);
@@ -189,13 +191,10 @@ export default function MigrationPage() {
 
   const currentStepIndex = step === "landing" ? 0 : step === "progress" ? 1 : 2;
 
-  if (authLoading || step === null) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-3 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (authLoading || user && profileLoading) return <LoadingSkeleton kind="card" />;
+  if (user && !profile) return <ErrorState title={t("userMigration.profileUnavailableTitle")}
+    description={t("userMigration.profileUnavailableDesc")} onRetry={() => window.location.reload()} />;
+  if (step === null) return <LoadingSkeleton kind="card" />;
 
   return (
     <div data-testid="S3-3-1" className="max-w-2xl mx-auto pb-20 space-y-6">

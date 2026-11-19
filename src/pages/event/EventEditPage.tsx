@@ -157,6 +157,7 @@ export default function EventEditPage() {
     if (!eventId) return;
     const generation = ++loadGeneration.current;
     setCapacityCounts(unknownEventCapacityCounts([]));
+    setCourse(null);
     setLoading(true);
     setLoadError(null);
     try {
@@ -238,21 +239,19 @@ export default function EventEditPage() {
       // 첫 코스만 표시 (변경 UI는 추후)
       const firstCourseId: string | undefined = Array.isArray(info.courseIds) ? info.courseIds[0] : undefined;
       if (firstCourseId) {
-        try {
-          const cs = await withReadDeadline(getDoc(doc(firestore, "courses", firstCourseId)), t("readTimeout"));
-          if (cs.exists()) {
-            const cd = cs.data();
-            setCourse({
-              id: cs.id,
-              name: cd.name || cs.id,
-              region: Array.isArray(cd.regions) && cd.regions.length > 0 ? cd.regions[0] : undefined,
-              distance: typeof cd.distance === "number" ? cd.distance : undefined,
-              elevationGain: typeof cd.elevationGain === "number" ? cd.elevationGain : undefined,
-            });
-          }
-        } catch (err) {
-          logClientError("EventEditPage.loadCourse", err, { eventId, courseId: firstCourseId });
-        }
+        const owner = services.auth.currentUser;
+        void Promise.resolve().then(() => withReadDeadline(getDoc(doc(firestore, "courses", firstCourseId)), t("readTimeout"))).then(cs => {
+          if (generation !== loadGeneration.current || services.auth.currentUser !== owner || !cs.exists()) return;
+          const cd = cs.data();
+          setCourse({
+            id: cs.id, name: cd.name || cs.id,
+            region: Array.isArray(cd.regions) && cd.regions.length > 0 ? cd.regions[0] : undefined,
+            distance: typeof cd.distance === "number" ? cd.distance : undefined,
+            elevationGain: typeof cd.elevationGain === "number" ? cd.elevationGain : undefined,
+          });
+        }).catch(err => {
+          logClientError("EventEditPage.loadCourse", err, { eventId, courseId: firstCourseId }, services, owner);
+        });
       }
     } catch (err) {
       logClientError("EventEditPage.loadEvent", err, { eventId });

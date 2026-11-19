@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
+import { getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getAppCheckToken } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -175,4 +176,21 @@ it("names cutoff and safety controls without changing their initial values", asy
     expect(screen.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed");
   }
   expect(updateCalls()).toHaveLength(0);
+});
+
+
+it("allows editing before the optional course label and preserves typed changes when it arrives", async () => {
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  setDocData("events/ev", { info: { name: "Progressive editor", status: "OPEN", creatorId: "test-uid", type: "TOUR", courseIds: ["slow-course"] } });
+  let finish!: (value: unknown) => void;
+  const pending = new Promise(resolve => { finish = resolve; });
+  vi.mocked(getDoc).mockImplementation((...args) => (args[0] as { path?: string }).path === "courses/slow-course" ? pending as never : original(...args));
+  try {
+    renderWithProviders(<Routes><Route path="/ko/event/:eventId/edit" element={<EventEditPage />} /></Routes>, { route: "/ko/event/ev/edit", authenticated: true });
+    const name = await screen.findByDisplayValue("Progressive editor");
+    fireEvent.change(name, { target: { value: "Typed while course loads" } });
+    await act(async () => finish({ id: "slow-course", exists: () => true, data: () => ({ name: "Late course label" }) }));
+    expect(screen.getByDisplayValue("Typed while course loads")).toBeInTheDocument();
+    expect(await screen.findByText("Late course label")).toBeInTheDocument();
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
 });

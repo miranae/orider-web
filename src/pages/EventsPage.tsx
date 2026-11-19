@@ -1,8 +1,9 @@
+import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import "./EventControls.css";
 import { Bell, CalendarDays, ChevronDown, Eye, Mountain, Users } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import "./ExploreReview.css";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -12,16 +13,20 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader } from "../components/redesign";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { decodeTrack, encodePolyline } from "../utils/polyline";
 import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { Button, Card, Chip, DropdownSelect, Text, buttonClass } from "../theme/components";
-import "mapbox-gl/dist/mapbox-gl.css";
-import MapGL, { Marker, Popup, type MapRef } from "react-map-gl/mapbox";
+import type { MapRef } from "react-map-gl/mapbox";
 import { MAP_STYLE, DEFAULT_VIEW } from "../utils/mapbox";
 import { buildMonthCells, firstPolylinePoint } from "../features/event/discovery/eventViews";
 import { ICON_SIZE } from "../theme/tokens/icon";
 import TabNav from "../components/TabNav";
+
+const MapGL = lazy(() => Promise.all([import("react-map-gl/mapbox"), import("mapbox-gl/dist/mapbox-gl.css")]).then(([module]) => module));
+const Marker = lazy(() => import("react-map-gl/mapbox").then(module => ({ default: module.Marker })));
+const Popup = lazy(() => import("react-map-gl/mapbox").then(module => ({ default: module.Popup })));
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
 type DisplayEventStatus = EventStatus | "PAST";
@@ -245,12 +250,17 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [coursePolylines, setCoursePolylines] = useState<Record<string, string>>({});
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
-  const [myEventIds, setMyEventIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const viewer = services.auth.currentUser;
   const [pageCursor, setPageCursor] = useState<string>();
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pageError, setPageError] = useState(false);
   const [pageAttempt, setPageAttempt] = useState(0);
+  const pageScope = useMemo(() => ({ services, viewer, pageCursor, pageAttempt }), [services, viewer, pageCursor, pageAttempt]);
+  const pageScopeRef = useRef(pageScope);
+  pageScopeRef.current = pageScope;
+  const [resolvedPageScope, setResolvedPageScope] = useState<typeof pageScope | null>(null);
+  const loading = resolvedPageScope !== pageScope;
+  const [participation, setParticipation] = useState<{ scope: typeof pageScope; key: string; ids: Set<string>; unknown: Set<string> } | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | EventStatus>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [regionFilter, setRegionFilter] = useState<string>("ALL");
@@ -268,14 +278,17 @@ export default function EventsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setMyEventIds(new Set());
+    const current = () => !cancelled && pageScopeRef.current === pageScope && services.auth.currentUser === viewer;
+    setEvents([]);
+    setParticipation(null);
+    setCoursePolylines({});
+    setCourseThumbs({});
     setPageError(false);
     setNextCursor(null);
     (async () => {
       try {
         const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES], pageCursor, services);
-        if (cancelled) return;
+        if (!current()) return;
         setNextCursor(snap.nextCursor);
         const list: EventInfo[] = [];
         snap.forEach((doc) => {
@@ -314,6 +327,8 @@ export default function EventsPage() {
           });
         });
         setEvents(list);
+        // 기본 목록은 지도 미리보기와 내 참가 여부를 기다리지 않는다.
+        setResolvedPageScope(pageScope);
 
         // courseGpx가 URL인 이벤트 — 비동기 fetch 후 inlinePolyline 채워 setEvents 업데이트
         const urlGpxEvents = snap.docs.filter((d) => {
@@ -331,7 +346,7 @@ export default function EventsPage() {
                 return { id: d.id, polyline: poly };
               })
             );
-            if (cancelled) return;
+            if (!current()) return;
             const polyMap = new Map(updates.filter((u) => u.polyline).map((u) => [u.id, u.polyline as string]));
             if (polyMap.size > 0) {
               setEvents((prev) =>
@@ -370,36 +385,49 @@ export default function EventsPage() {
               }
             })
           );
-          if (cancelled) return;
+          if (!current()) return;
           setCoursePolylines(polyMap);
           setCourseThumbs(thumbMap);
         }
 
-        if (cancelled) return;
-        if (user) {
-          try {
-            const myParticipantDocs = await Promise.all(
-              list.map(async (event) => {
-                const participantSnap = await getDoc(doc(firestore, "events", event.id, "participants", user.uid));
-                return participantSnap.exists() ? event.id : null;
-              }),
-            );
-            if (cancelled) return;
-            setMyEventIds(new Set(myParticipantDocs.filter((id): id is string => !!id)));
-          } catch (err) {
-            logClientError("EventsPage.loadMyEvents", err);
-          }
-        }
+
       } catch (err) {
-        if (cancelled) return;
-        logClientError("EventsPage.loadEvents", err);
-        setPageError(true);
+        logClientError("EventsPage.loadEvents", err, {}, services, viewer, "", current);
+        if (current()) setPageError(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (current()) setResolvedPageScope(pageScope);
       }
     })();
     return () => { cancelled = true; };
-  }, [firestore, services, user, pageCursor, pageAttempt]);
+  }, [firestore, services, viewer, pageCursor, pageScope]);
+
+  const participationKey = JSON.stringify(events.map(event => event.id));
+  useEffect(() => {
+    let cancelled = false;
+    if (!user || user.isAnonymous || viewer?.uid !== user.uid || loading) return;
+    const ids = JSON.parse(participationKey) as string[];
+    const current = () => !cancelled && pageScopeRef.current === pageScope && services.auth.currentUser === viewer;
+    void Promise.all(ids.map(async eventId => {
+      try {
+        const snapshot = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
+        return { eventId, status: snapshot.exists() ? "joined" : "absent" };
+      } catch (error) {
+        logClientError("EventsPage.loadMyEvents", error, { eventId }, services, viewer, eventId);
+        return { eventId, status: "unknown" };
+      }
+    })).then(results => {
+      if (!current()) return;
+      const joined = new Set<string>();
+      const unknown = new Set<string>();
+      for (const { eventId, status } of results) {
+        if (status === "joined") joined.add(eventId);
+        if (status === "unknown") unknown.add(eventId);
+      }
+      setParticipation({ scope: pageScope, key: participationKey, ids: joined, unknown });
+    });
+    return () => { cancelled = true; };
+  }, [firestore, services, user, viewer, participationKey, loading, pageScope]);
+  const currentParticipation = !loading && participation?.scope === pageScope && participation.key === participationKey ? participation : null;
 
   const filtered = useMemo(() => {
     return events
@@ -426,14 +454,16 @@ export default function EventsPage() {
   );
 
   const { live: liveCount, open: openCount } = useMemo(() => eventAvailability(events, now), [events, now]);
-  const myCount = myEventIds.size;
+  const signedIn = user != null && !user.isAnonymous;
+  const myCount = !user || user.isAnonymous ? 0
+    : currentParticipation && !currentParticipation.unknown.size ? currentParticipation.ids.size : "—";
   // 로그아웃 방문자에게 "내 이벤트 0" 은 의미가 없고, 진행·모집이 모두 0 이면 아래 안내 문구가 같은 사실을 말한다.
   const summaryItems = [
     { lbl: t("status.live"), val: liveCount, sub: t("summary.liveNow"), dot: "var(--lime)" },
     { lbl: t("status.open"), val: openCount, sub: t("summary.canRegister"), dot: "var(--aqua)" },
-    ...(user ? [{ lbl: t(isMobile ? "summary.myEventsShort" : "summary.myEvents"), val: myCount, sub: t("summary.thisSeason"), dot: "var(--ink-2)" }] : []),
+    ...(signedIn ? [{ lbl: t(isMobile ? "summary.myEventsShort" : "summary.myEvents"), val: myCount, sub: t("summary.thisSeason"), dot: "var(--ink-2)" }] : []),
   ];
-  const showSummary = events.length > 0 && (!!user || liveCount + openCount > 0);
+  const showSummary = events.length > 0 && (signedIn || liveCount + openCount > 0);
   const activeAdvancedCount = [typeFilter, regionFilter, datePreset, difficultyFilter].filter((value) => value !== "ALL").length;
   const calendarCells = useMemo(() => buildMonthCells(filtered, calendarMonth), [calendarMonth, filtered]);
   const monthEvents = useMemo(() => calendarCells.filter(cell => cell.inMonth).flatMap(cell => cell.events), [calendarCells]);
@@ -668,10 +698,10 @@ export default function EventsPage() {
         <Card padding="none" style={{ overflow: "hidden" }}>
           {mapEvents.some(({ point }) => !point) && <Text as="p" variant="body" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)", margin: 0 }}>{t("view.noCoordinates", { count: mapEvents.filter(({ point }) => !point).length })}</Text>}
           <div data-testid="E3-4" style={{ height: 560 }}>
-            <MapGL ref={eventMapRef} onLoad={fitCurrentMapBounds} initialViewState={mapBounds ? { bounds: mapBounds, fitBoundsOptions: { padding: 48, maxZoom: 10 } } : DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
+            <ErrorBoundary fallback={() => <ErrorState compact />}><Suspense fallback={<LoadingSkeleton kind="chart" />}><MapGL ref={eventMapRef} onLoad={fitCurrentMapBounds} initialViewState={mapBounds ? { bounds: mapBounds, fitBoundsOptions: { padding: 48, maxZoom: 10 } } : DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
               {mapEvents.map(({ event, point }) => point && <Marker key={event.id} latitude={point[0]} longitude={point[1]} anchor="bottom"><button type="button" aria-label={event.name} onClick={(click) => { click.stopPropagation(); setMapEventId(event.id); }} style={{ border: 0, background: "var(--lime)", color: "var(--primary-fg)", borderRadius: "50%", width: 32, height: 32, cursor: "pointer" }}><SportIcon sport="bike" size={ICON_SIZE.md} /></button></Marker>)}
               {(() => { const selected = mapEvents.find(({ event }) => event.id === mapEventId); return selected?.point ? <Popup closeOnClick={false} latitude={selected.point[0]} longitude={selected.point[1]} onClose={() => setMapEventId(null)} maxWidth="min(320px, calc(100% - var(--space-4)))" style={{ minWidth: 180 }} offset={36}><div style={{ minWidth: 0, overflowWrap: "anywhere" }}><strong>{selected.event.name}</strong><div style={{ color: "var(--ink-3)", margin: "var(--space-1) 0" }}>{selected.event.meetLocation || selected.event.region || t("view.routeStart")}</div><Link data-testid="E3-4-1" to={`/event/${selected.event.id}`}>{t("action.viewDetails")} →</Link></div></Popup> : null; })()}
-            </MapGL>
+            </MapGL></Suspense></ErrorBoundary>
           </div>
         </Card>
       ) : (
@@ -688,7 +718,7 @@ export default function EventsPage() {
               key={e.id}
               event={e}
               now={now}
-              isMine={myEventIds.has(e.id)}
+              isMine={currentParticipation?.unknown.has(e.id) ? undefined : currentParticipation?.ids.has(e.id)}
               mapImageUrl={e.courseId ? courseThumbs[e.courseId] : undefined}
               polyline={(e.courseId ? coursePolylines[e.courseId] : undefined) ?? e.inlinePolyline}
               t={t}
