@@ -220,6 +220,7 @@ test.describe("running P0 record shapes (owner view)", () => {
   test("timer hold hides populated pace metrics that the available status displays", async ({ page }) => {
     const available = await openOwnerRunAnalysis(page, RUNNING_TIMER_GUARD_CASES.available);
     await expect(available.analysis.getByRole("button", { name: SPLIT_BUTTON })).toHaveCount(1);
+    await expect(available.analysis.getByTestId("run-raw-splits")).toHaveCount(1);
     await available.openRecapDetails();
     await expect(available.recap).toContainText(recapGap("5:20"));
     await expect(available.recap).toContainText(recapFastestKm("5:40"));
@@ -227,6 +228,7 @@ test.describe("running P0 record shapes (owner view)", () => {
     const held = await openOwnerRunAnalysis(page, RUNNING_TIMER_GUARD_CASES.held);
     await expect(held.analysis.getByText(SPLIT_HELD, { exact: true })).toBeVisible();
     await expect(held.analysis.getByRole("button", { name: SPLIT_BUTTON })).toHaveCount(0);
+    await expect(held.analysis.getByTestId("run-raw-splits")).toHaveCount(0);
     await held.openRecapDetails();
     await expect(held.recap).toContainText(recapHr(148));
     await expect(held.recap).not.toContainText(recapGap("5:20"));
