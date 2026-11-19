@@ -1656,9 +1656,11 @@
     "formatCsvDesc": "Spreadsheet — for analysis in Excel/Google Sheets",
     "tcxLapsTitle": "TCX lap options",
     "tcxLapsHelp": "Some samples fall outside the recorded laps. Keep the recorded laps or save all samples in one lap using the activity totals.",
+    "tcxLapsMissingTotals": "Some samples are outside recorded laps, and the activity distance or duration is unknown. Keep the recorded laps or save every sample as CSV.",
     "tcxLapsChoice": {
       "recorded": "Keep recorded laps",
-      "activity": "Save all samples in one lap"
+      "activity": "Save all samples in one lap",
+      "csv": "Save all samples as CSV"
     },
     "cadenceUnitTitle": "Cadence unit",
     "cadenceUnitHelp": "Choose the unit used by the recording device, or download the original cadence as CSV.",

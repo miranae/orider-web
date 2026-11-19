@@ -39,6 +39,7 @@ const FORMATS = [
 ] as const;
 
 type CadenceChoice = "spm" | "strides_per_minute" | "omit";
+type TcxChoice = TcxLapMode | "csv";
 
 export default function ExportTab({ activity, streams, resolveCurrentStreams, getExportAccount, authorizationScope }: ExportTabProps) {
   const { t } = useTranslation("activity");
@@ -66,6 +67,8 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     account: typeof renderedAccount;
     resolverScope: object | undefined;
     cadenceChoice: CadenceChoice | undefined;
+    binding: string;
+    canExportAllAsTcx: boolean;
   } | null>(null);
   const pendingTcx = tcxPrompt?.activityScope === activityScope && tcxPrompt.streams === streams
     && tcxPrompt.account === renderedAccount && tcxPrompt.resolverScope === resolverScope ? tcxPrompt : null;
@@ -75,7 +78,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
   const formatRequests = useRef(new Map<string, number>());
   useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activityScope, streams, resolverScope, getExportAccount]);
 
-  const handleExport = useCallback(async (format: string, choice?: CadenceChoice, tcxMode?: TcxLapMode) => {
+  const handleExport = useCallback(async (format: string, choice?: CadenceChoice, tcxMode?: TcxChoice) => {
     const account = getExportAccount?.();
     if (account !== renderedAccount) return;
     const scope = generation.current;
@@ -122,15 +125,27 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           break;
         }
         case "tcx": {
-          const prepared = prepareTcxExport(fileActivity, prepareActivityFileStreams(fileActivity, fileStreams, format), fileCadenceUnit);
-          if (prepared.hasUnassigned && !tcxMode) {
-            setTcxPrompt({ activityScope, streams, account, resolverScope, cadenceChoice: choice });
-            return;
+          const preparedStreams = prepareActivityFileStreams(fileActivity, fileStreams, format);
+          const prepared = prepareTcxExport(fileActivity, preparedStreams, fileCadenceUnit);
+          if (prepared.hasUnassigned || tcxMode) {
+            const binding = JSON.stringify([revision, preparedStreams.laps, preparedStreams.time, preparedStreams.latlng,
+              preparedStreams.distance, preparedStreams.altitude, preparedStreams.velocity_smooth, preparedStreams.heartrate,
+              preparedStreams.cadence, preparedStreams.watts, fileCadenceUnit, fileActivity.summary.distance,
+              fileActivity.summary.ridingTimeMillis, fileActivity.summary.elapsedTimeMillis, fileActivity.endTime]);
+            if (!tcxMode || pendingTcx?.binding !== binding) {
+              setTcxPrompt({ activityScope, streams, account, resolverScope, cadenceChoice: choice, binding,
+                canExportAllAsTcx: prepared.canExportAllAsTcx });
+              return;
+            }
           }
           clearCadencePrompt();
           setTcxPrompt(null);
-          const xml = prepared.render(tcxMode ?? "recorded");
-          downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(fileActivity, "tcx"));
+          if (tcxMode === "csv") {
+            downloadBlob(new Blob([generateCsv(preparedStreams)], { type: "text/csv" }), exportFilename(fileActivity, "csv"));
+          } else {
+            const xml = prepared.render(tcxMode ?? "recorded");
+            downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(fileActivity, "tcx"));
+          }
           break;
         }
         case "csv": {
@@ -159,7 +174,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       }
     }
   }, [activity, activityScope, streams, resolveCurrentStreams, resolverScope, getExportAccount, renderedAccount,
-    cadencePrompts, firebaseServices, t, showToast]);
+    cadencePrompts, pendingTcx, firebaseServices, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;
@@ -181,9 +196,9 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       {pendingTcx && (
         <fieldset className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
           <legend className="font-semibold">{t("export.tcxLapsTitle")}</legend>
-          <p className="text-[length:var(--fs-sm)]">{t("export.tcxLapsHelp")}</p>
+          <p className="text-[length:var(--fs-sm)]">{t(pendingTcx.canExportAllAsTcx ? "export.tcxLapsHelp" : "export.tcxLapsMissingTotals")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {(["recorded", "activity"] as const).map(mode => (
+            {(["recorded", pendingTcx.canExportAllAsTcx ? "activity" : "csv"] as const).map(mode => (
               <button key={mode} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
                 onClick={() => { void handleExport("tcx", pendingTcx.cadenceChoice, mode); }}>
                 {t(`export.tcxLapsChoice.${mode}`)}

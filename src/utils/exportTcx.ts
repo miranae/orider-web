@@ -74,7 +74,8 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
     const nextObservedStart = Math.max(timedAt(next) ?? previousEnd, previousEnd);
-    const start = recordedStart ?? (recordedEnd != null || (verifiedRelativeClock && laps.length === 0) ? previousEnd : nextObservedStart);
+    const contiguous = verifiedRelativeClock && (laps.length === 0 || nextObservedStart - previousEnd < duration);
+    const start = recordedStart ?? (recordedEnd != null || contiguous ? previousEnd : nextObservedStart);
     const end = recordedEnd ?? start + duration;
     if (recordedStart != null) {
       const first = next;
@@ -88,21 +89,22 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     previousEnd = end;
   }
   hasUnassigned ||= laps.length > 0 && next < indices.length;
+  const summary = activity.summary;
+  const elapsed = summary.elapsedTimeMillis;
+  const recordedDuration = typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed
+    : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : summary.ridingTimeMillis;
+  const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
+    && typeof recordedDuration === "number" && Number.isFinite(recordedDuration) && recordedDuration >= 0;
   return {
     hasUnassigned,
+    canExportAllAsTcx,
     render(mode: TcxLapMode): string {
       const lines = [...header];
-      const summary = activity.summary;
-      if (laps.length && mode === "recorded") {
+      if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
         for (const lap of laps) writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
       } else {
-        const elapsed = summary.elapsedTimeMillis;
-        const activityElapsed = typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed
-          : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : NaN;
-        const duration = laps.length ? activityElapsed / 1000 : (summary.ridingTimeMillis || 0) / 1000;
-        const distance = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
-          ? summary.distance : laps.length ? NaN : 0;
-        writeLap(lines, startMs, duration, distance, streams.calories || 0, 0, indices.length);
+        const duration = (laps.length ? recordedDuration : summary.ridingTimeMillis) || 0;
+        writeLap(lines, startMs, duration / 1000, summary.distance || 0, streams.calories || 0, 0, indices.length);
       }
       lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
       return lines.join('\n');

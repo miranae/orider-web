@@ -174,9 +174,10 @@ it("preserves recorded distances even when there is no activity distance for the
   const xml = generateTcx(activity, streams, "spm");
   expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(2);
   expect(xml.match(/<DistanceMeters>1000<\/DistanceMeters>/gu)).toHaveLength(2);
-  const full = prepareTcxExport(activity, streams, "spm").render("activity");
-  expect(full).toContain(new Date(startTime + 61_000).toISOString());
-  expect(full).toContain("<DistanceMeters>NaN</DistanceMeters>");
+  const prepared = prepareTcxExport(activity, streams, "spm");
+  expect(prepared.hasUnassigned).toBe(true);
+  expect(prepared.canExportAllAsTcx).toBe(false);
+  expect(xml).not.toContain("<DistanceMeters>NaN</DistanceMeters>");
 });
 
 
@@ -204,4 +205,20 @@ it("uses recorded activity endpoints when the elapsed summary is absent", () => 
   const streams = { userId: "owner", time: [0, 300], laps: [{ durationMs: 1000 }] } as ActivityStreams;
   const xml = prepareTcxExport(activity, streams, "spm").render("activity");
   expect(xml).toContain("<TotalTimeSeconds>600</TotalTimeSeconds>");
+});
+
+
+it("does not slide adjacent duration-only laps by a sample interval on a verified clock", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const time = Array.from({ length: 122 }, (_, index) => index);
+  const streams = markRawPartStreams({
+    time, heartrate: time.map(() => 150),
+    laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
+  } as ActivityStreams, "f".repeat(64), startTime);
+  const prepared = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
+  const [, , second] = prepared.render("recorded").split(/<Lap StartTime="/u);
+  expect(second).toMatch(new RegExp(new Date(startTime + 60_000).toISOString()));
+  expect(second).not.toContain(new Date(startTime + 121_000).toISOString());
+  expect(prepared.hasUnassigned).toBe(true);
 });

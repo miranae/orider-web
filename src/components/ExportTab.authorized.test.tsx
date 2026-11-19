@@ -202,3 +202,24 @@ it("writes the latest recorded summary when verification outlasts a metadata ref
   await act(async () => finish(samples));
   expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(latest, samples, undefined);
 });
+
+
+it("refreshes the TCX choice before using it on changed lap inputs", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
+  const samples = {
+    userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145],
+    laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
+  } as ActivityStreams;
+  const first = markVerifiedStreamCadence(samples, "a".repeat(64), null);
+  const second = markVerifiedStreamCadence({ ...samples, time: [0, 120, 130] }, "b".repeat(64), null);
+  const resolve = vi.fn().mockResolvedValueOnce(first).mockResolvedValue(second);
+  const click = vi.mocked(HTMLAnchorElement.prototype.click);
+  click.mockClear();
+  render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={resolve} />);
+  const confirm = () => screen.getByRole("button", { name: /keep recorded laps|기록된 랩 유지|tcxLapsChoice.recorded/iu });
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  await act(async () => fireEvent.click(confirm()));
+  expect(click).not.toHaveBeenCalled();
+  await act(async () => fireEvent.click(confirm()));
+  expect(click).toHaveBeenCalledOnce();
+});
