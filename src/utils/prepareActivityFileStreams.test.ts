@@ -63,7 +63,7 @@ it("uses the activity start for timed TCX lap boundaries even when the first sam
     laps: [{ durationMs: 60_000, distanceKm: 1 }, { durationMs: 60_000, distanceKm: 1 }],
   } as ActivityStreams, "c".repeat(64), startTime + 30_000);
   const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
-  const [, firstLap, secondLap] = xml.split("<Lap>");
+  const [, firstLap, secondLap] = xml.split(/<Lap StartTime="/u);
   expect(firstLap).toContain("2026-11-19T07:01:00.000Z");
   expect(firstLap).not.toContain("2026-11-19T07:01:01.000Z");
   expect(secondLap).toContain("2026-11-19T07:01:01.000Z");
@@ -77,9 +77,32 @@ it("keeps trailing TCX observations outside a lap with a recorded end", () => {
     laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: startTime, endTimeMs: startTime + 120_000 }],
   } as ActivityStreams, "d".repeat(64), startTime);
   const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
-  const [, recorded, tail] = xml.split("<Lap>");
+  const [, recorded, tail] = xml.split(/<Lap StartTime="/u);
   expect(recorded).toContain("2026-11-19T07:02:00.000Z");
   expect(recorded).not.toContain("2026-11-19T07:02:01.000Z");
-  expect(tail).toContain("<TotalTimeSeconds>5</TotalTimeSeconds>");
+  expect(tail).toContain("2026-11-19T07:02:01.000Z");
+  expect(tail).toContain("<TotalTimeSeconds>4</TotalTimeSeconds>");
   expect(tail).toContain("2026-11-19T07:02:05.000Z");
+});
+
+
+it("puts points between explicit laps in their own TCX track and ignores sparse gaps when measuring distance", () => {
+  const startTime = Date.parse("2026-11-19T07:00:00Z");
+  const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 120_000 } } as Activity;
+  const time = Array.from({ length: 121 }, (_, index) => index);
+  const distance = time.map(index => index === 59 ? 1000 : index === 85 ? 1100 : null);
+  const source = markRawPartStreams({
+    time, distance,
+    laps: [
+      { durationMs: 60_000, distanceKm: 1, startTimeMs: startTime, endTimeMs: startTime + 60_000 },
+      { durationMs: 30_000, distanceKm: 1, startTimeMs: startTime + 90_000, endTimeMs: startTime + 120_000 },
+    ],
+  } as unknown as ActivityStreams, "e".repeat(64), startTime);
+  const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
+  const [, first, gap, second] = xml.split(/<Lap StartTime="/u);
+  expect(first).toContain("2026-11-19T07:01:00.000Z");
+  expect(gap).toContain("2026-11-19T07:01:15.000Z");
+  expect(gap).toContain("<DistanceMeters>100</DistanceMeters>");
+  expect(second).not.toContain("2026-11-19T07:01:15.000Z");
+  expect(second).toContain("2026-11-19T07:01:30.000Z");
 });

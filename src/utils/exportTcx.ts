@@ -24,63 +24,69 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
     `<Id>${startDate.toISOString()}</Id>`,
   ];
 
-  // 랩 정보가 있으면 랩별 Lap 생성, 없으면 전체를 단일 Lap으로
-  if (streams.laps && streams.laps.length > 0) {
+  const closeLapWithTrack = (first: number, end: number) => {
+    if (first < end) {
+      lines.push('<Track>');
+      for (let index = first; index < end; index++) writeTrackpoint(lines, streams, index, startMs, relSecAt(index), cadence);
+      lines.push('</Track>');
+    }
+    lines.push('</Lap>');
+  };
+
+  // Preserve recorded lap boundaries and retain observations between distinct laps.
+  if (streams.laps?.length) {
     let trackIdx = 0;
     let previousLapEnd = 0;
     const activityTime = usesVerifiedActivityTime(streams);
+    const timeAt = (index: number) => relSecAt(index) ?? index;
+    const distanceBefore = (end: number) => {
+      for (let index = Math.min(end, streams.distance?.length ?? 0) - 1; index >= 0; index--) {
+        const value = streams.distance?.[index];
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+      }
+      return undefined;
+    };
+    const writeUnassigned = (before: number) => {
+      const first = trackIdx;
+      while (trackIdx < len && timeAt(trackIdx) < before) trackIdx++;
+      if (trackIdx === first) return;
+      const firstTime = timeAt(first);
+      const initialDistance = distanceBefore(first) ?? streams.distance?.slice(first, trackIdx).find(value => Number.isFinite(value));
+      const finalDistance = distanceBefore(trackIdx);
+      const distance = initialDistance != null && finalDistance != null ? Math.max(0, finalDistance - initialDistance) : 0;
+      openLap(lines, startMs + firstTime * 1000, timeAt(trackIdx - 1) - firstTime, distance, 0);
+      closeLapWithTrack(first, trackIdx);
+    };
+
     for (const lap of streams.laps) {
       const lapSeconds = (lap.durationMs || 0) / 1000;
-      const lapDistanceM = (lap.distanceKm || 0) * 1000;
-      lines.push('<Lap>');
-      lines.push(`<TotalTimeSeconds>${lapSeconds}</TotalTimeSeconds>`);
-      lines.push(`<DistanceMeters>${lapDistanceM}</DistanceMeters>`);
-      lines.push('<Track>');
-
-      // 현재 랩에 해당하는 트랙포인트 수 추정 (상대 초 기반)
-      const lapStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
-        ? (lap.startTimeMs - startMs) / 1000
-        : activityTime ? previousLapEnd : (relSecAt(trackIdx) ?? 0);
-      const lapEndTime = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
-        ? (lap.endTimeMs - startMs) / 1000
-        : lapStart + lapSeconds;
-      previousLapEnd = lapEndTime;
-      while (trackIdx < len) {
-        const tSec = relSecAt(trackIdx) ?? trackIdx;
-        if (tSec > lapEndTime) break;
-        writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx), cadence);
-        trackIdx++;
-      }
-
-      lines.push('</Track>', '</Lap>');
+      const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
+        ? (lap.startTimeMs - startMs) / 1000 : undefined;
+      const lapStart = recordedStart ?? (activityTime ? previousLapEnd : (relSecAt(trackIdx) ?? 0));
+      const lapEnd = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
+        ? (lap.endTimeMs - startMs) / 1000 : lapStart + lapSeconds;
+      if (recordedStart !== undefined) writeUnassigned(lapStart);
+      openLap(lines, startMs + lapStart * 1000, lapSeconds, (lap.distanceKm || 0) * 1000, 0);
+      const first = trackIdx;
+      while (trackIdx < len && timeAt(trackIdx) <= lapEnd) trackIdx++;
+      closeLapWithTrack(first, trackIdx);
+      previousLapEnd = lapEnd;
     }
-    if (trackIdx < len) {
-      // TCX stores every track inside a lap. Keep trailing observations in a separate lap.
-      const previousDistance = streams.distance?.[trackIdx - 1] ?? 0;
-      const endDistance = streams.distance?.[len - 1] ?? previousDistance;
-      const tailDuration = Math.max(0, (relSecAt(len - 1) ?? len - 1) - previousLapEnd);
-      lines.push('<Lap>', `<TotalTimeSeconds>${tailDuration}</TotalTimeSeconds>`,
-        `<DistanceMeters>${Math.max(0, endDistance - previousDistance)}</DistanceMeters>`, '<Calories>0</Calories>',
-        '<Intensity>Active</Intensity>', '<TriggerMethod>Manual</TriggerMethod>', '<Track>');
-      for (; trackIdx < len; trackIdx++) writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx), cadence);
-      lines.push('</Track>', '</Lap>');
-    }
+    writeUnassigned(Infinity);
   } else {
-    lines.push('<Lap>');
-    lines.push(`<TotalTimeSeconds>${(activity.summary.ridingTimeMillis || 0) / 1000}</TotalTimeSeconds>`);
-    lines.push(`<DistanceMeters>${activity.summary.distance || 0}</DistanceMeters>`);
-    lines.push(`<Calories>${streams.calories || 0}</Calories>`);
-    lines.push('<Track>');
-
-    for (let i = 0; i < len; i++) {
-      writeTrackpoint(lines, streams, i, startMs, relSecAt(i), cadence);
-    }
-
-    lines.push('</Track>', '</Lap>');
+    openLap(lines, startMs, (activity.summary.ridingTimeMillis || 0) / 1000, activity.summary.distance || 0, streams.calories || 0);
+    closeLapWithTrack(0, len);
   }
 
   lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
   return lines.join('\n');
+}
+
+function openLap(lines: string[], startMs: number, duration: number, distance: number, calories: number) {
+  const caloriesField = Number.isFinite(calories) ? Math.round(Math.max(0, Math.min(65535, calories))) : 0;
+  lines.push(`<Lap StartTime="${new Date(startMs).toISOString()}">`,
+    `<TotalTimeSeconds>${duration}</TotalTimeSeconds>`, `<DistanceMeters>${distance}</DistanceMeters>`,
+    `<Calories>${caloriesField}</Calories>`, '<Intensity>Active</Intensity>', '<TriggerMethod>Manual</TriggerMethod>');
 }
 
 function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, startMs: number, relSec: number | null, cadence: CadenceWriter) {
