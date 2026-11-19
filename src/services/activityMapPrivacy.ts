@@ -1,7 +1,7 @@
 import { withActivityMapDeadline } from "./activityMapDeadline";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { isStageComputeRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 export interface MapPrivacySettings { startMeters: number; endMeters: number }
 export interface ActivityMapPrivacy {
   activityId: string; revision: string; visibility: "everyone" | "friends" | "followers" | "private"; settings: MapPrivacySettings;
@@ -20,7 +20,7 @@ export function createActivityMapPrivacyClient(services: FirebaseServices) {
     if (!payload.activityId || payload.activityId.includes("/")) throw Error("invalid_activity");
     if (name !== "getActivityMapPrivacy" && ![payload.startMeters, payload.endMeters].every(value => typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 5000)) throw Error("invalid_map_radius");
     await services.ensureAppCheckReady(); current();
-    const functions = getRuntimeConfig().appEnvironment === "stage" ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
+    const functions = isStageComputeRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
     if (isEmulatorRuntime() && !connected.has(functions)) { connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001)); connected.add(functions); }
     const { data } = await httpsCallable<object, ActivityMapPrivacy>(functions, name, { timeout: 10000 })(payload); current();
     if (!data || typeof data.revocationPending !== "boolean" || !["everyone", "friends", "followers", "private"].includes(data.visibility) || data.activityId !== payload.activityId || typeof data.revision !== "string" || !data.revision || data.policy !== "endpoint_radius_longest_safe_section_v1"

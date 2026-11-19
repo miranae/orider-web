@@ -4,7 +4,7 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { createPublicActivityClient } from "./publicActivityDetail";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), getFunctions: vi.fn(() => ({})), httpsCallable: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ getFunctions: mocks.getFunctions, httpsCallable: (...args: unknown[]) => { mocks.httpsCallable(...args); return mocks.call; }, connectFunctionsEmulator: vi.fn() }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
 beforeEach(() => { vi.clearAllMocks(); mocks.ready.mockResolvedValue(undefined); mocks.call.mockResolvedValue({ data: { activity: { id: "a" }, content: { activityId: "a" }, viewerHasKudos: false } }); });
 function services(uid: string | null): FirebaseServices { return { auth: { currentUser: uid ? { uid, isAnonymous: false } : null }, functions: { app: { name: "embedded" } }, ensureAppCheckReady: mocks.ready } as unknown as FirebaseServices; }
 describe("public activity transport", () => {

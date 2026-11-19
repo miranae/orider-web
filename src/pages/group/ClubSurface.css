@@ -64,9 +64,8 @@
 .club-my-filters select { width: 100%; }
 .club-invite-label { font-size: var(--fs-sm); color: var(--ink-2); }
 .club-find-query { flex: 1 1 12.5rem; min-width: 0; }
-/* 지역 칸 예시 문구(ko 198px·en 210px)가 180px 에서 잘렸다 — 14rem 으로 넓히고, 좁은 화면은 어차피
-   따로 한 줄이므로 가로를 다 쓴다. */
-.club-find-city { flex: 0 1 14rem; min-width: 0; }
+/* 예시 문구가 잘리지 않도록 여유가 있으면 너비를 유지하고, 부모가 더 좁을 때는 한 줄에 맞춘다. */
+.club-find-city { flex: 0 0 16rem; max-width: 100%; min-width: 0; }
 @media (max-width: 36rem) { .club-find-city { flex-basis: 100%; } }
 .club-create-review { display: grid; gap: var(--space-3); }
 .club-create-review > div { display: grid; grid-template-columns: minmax(5rem, 1fr) minmax(0, 2fr); gap: var(--space-3); }
