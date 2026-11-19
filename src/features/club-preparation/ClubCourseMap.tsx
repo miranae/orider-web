@@ -46,6 +46,7 @@ export default function ClubCourseMap({
   const [fullRange, setFullRange] = useState<{
     startIndex: number;
     endIndex: number;
+    requestId: number;
   } | null>(null);
   const active = parts.find((part) => part.id === selectedId) ?? parts[0];
   const checkpoints = meeting.courseCheckpoints ?? [];
@@ -155,11 +156,12 @@ export default function ClubCourseMap({
           onClick={() => {
             setChosenPoint(null);
             setHover(null);
-            setFullRange({
+            setFullRange(previous => ({
+              requestId: (previous?.requestId ?? 0) + 1,
               startIndex: 0,
               endIndex:
                 routeParts.reduce((sum, part) => sum + part.length, 0) - 1,
-            });
+            }));
           }}
         />
       </div>

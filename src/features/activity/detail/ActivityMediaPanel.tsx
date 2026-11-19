@@ -29,8 +29,10 @@ type ActivityMediaPanelProps = {
   summary: Activity["summary"];
   markerPosition: [number, number] | null;
   hoveredSegment: SegmentEffortData | null;
+  /** Chart highlight only, including split/peak ranges; never an imperative camera request. */
   selectedRunRange?: { startIndex: number; endIndex: number };
-  selectedSegmentRange?: { startIndex: number; endIndex: number } | null;
+  /** Explicit segment camera command. requestId distinguishes repeated clicks on the same range. */
+  selectedSegmentRange?: { startIndex: number; endIndex: number; requestId?: number } | null;
   photos: StreamPhoto[];
   uploadedPhotos: UploadedPhoto[];
   flyToPosition: [number, number] | null;
@@ -92,6 +94,7 @@ export function ActivityMediaPanel({
                 .map((p) => ({ id: `upload-${p.id}`, url: p.url, nativePhoto: p.nativePhoto, location: p.location!, caption: null as string | null })),
             ]}
             flyToRange={publicRouteParts || independentRoute ? undefined : selectedSegmentRange}
+            rangeUsesRawSamples
             flyToPosition={independentRoute || selectedSegmentRange ? undefined : flyToPosition}
             fallbackImageUrl={publicRouteParts ? null : activity.mapImageUrl}
           />

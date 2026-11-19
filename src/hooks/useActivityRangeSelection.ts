@@ -1,3 +1,4 @@
+import { hasRouteLine } from "../utils/routeGeometry";
 import { importedObservations } from "../features/activity/detail/importedActivityObservations";
 import { activitySensorOrigin } from "../features/activity/detail/activitySensorOrigin";
 import { useMemo, useRef, useState } from "react";
@@ -64,8 +65,7 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
   const routeBounds = current.selection && routeAxis ? elapsedRangeRouteBounds(routeAxis, current.selection, interpolationLimit) : null;
   const distanceAvailable = sampled.length > 1 && sampled.every(point => Number.isFinite(point.distance));
   const routeRange = routeBounds && route?.length === routeAxis?.length
-    && Array.from(route!.slice(routeBounds.startIndex, routeBounds.endIndex + 1)).every(point => Array.isArray(point)
-      && Number.isFinite(point[0]) && Number.isFinite(point[1]) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180)
+    && hasRouteLine(route!.slice(routeBounds.startIndex, routeBounds.endIndex + 1))
     ? { startIndex: routeBounds.startIndex, endIndex: routeBounds.endIndex } : undefined;
   return { analysisActivityId, rawSource: model.streams, sourceLoading: model.loadingStreams, sourceLocked,
     lockSource: () => { if (!sourceLocked) setSourceLock({ scope: sourceScope, source: model.streams, refreshing: false }); },

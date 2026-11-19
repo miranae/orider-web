@@ -52,6 +52,7 @@ import {
 } from "../features/courses/courseWaypoints";
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
+import { shortestLongitudeDelta } from "../utils/routeGeometry";
 import { EmptyState, LoadingSkeleton, Resolvable } from "../components/redesign";
 import { useSignInResolve } from "../hooks/useSignInResolve";
 import { revealFocusTarget } from "../services/focusTarget";
@@ -556,7 +557,7 @@ function CoursePageContent() {
     if (!pLo || !pHi) return null;
     return [
       pLo[0] + (pHi[0] - pLo[0]) * t,
-      pLo[1] + (pHi[1] - pLo[1]) * t,
+      shortestLongitudeDelta(pLo[1] + shortestLongitudeDelta(pHi[1] - pLo[1]) * t),
     ] as [number, number];
   }, [hoverIndex, course?.elevationProfile, points, cumDistances]);
 

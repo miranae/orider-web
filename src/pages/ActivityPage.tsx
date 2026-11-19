@@ -1,3 +1,4 @@
+import { useActivityPhotoLocation } from "../hooks/useActivityPhotoLocation";
 import { usePageDataTiming } from "../hooks/usePageDataTiming";
 import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
 import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
@@ -30,7 +31,7 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { elapsedRangeFromChartSelection } from "../features/activity/detail/activityRangeSelection";
+import { elapsedRangeFromChartSelection, visualRouteSelection } from "../features/activity/detail/activityRangeSelection";
 import { canonicalActivityChartMetrics, withStravaChartSummary, withCanonicalChartSummary, getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
 import { ActivityAnalysisSummary } from "../features/activity/detail/ActivityAnalysisSummary";
@@ -154,7 +155,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const [editingText, setEditingText] = useState("");
   const [showAllResults, setShowAllResults] = useState(false);
   const [hoveredSegment, setHoveredSegment] = useState<SegmentEffortData | null>(null);
-  const [segmentMapSelection, setSegmentMapSelection] = useState<{ scope: string; effort: SegmentEffortData } | null>(null);
+  const [segmentMapSelection, setSegmentMapSelection] = useState<{ scope: string; effort: SegmentEffortData; requestId: number } | null>(null);
   const segmentMapTrigger = useRef<HTMLButtonElement | null>(null);
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string> | null>(null);
@@ -231,9 +232,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const [uploadedPhotoState, setUploadedPhotoState] = useState<{ identity: string; photos: UploadedPhoto[] } | null>(null);
   const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
   const [photoUploading, setPhotoUploading] = useState(false);
-  // 서버 응답으로 받은 숨김 목록. 활동 문서 구독이 새 값을 가져올 때까지 화면에 바로 반영한다.
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
+  const { flyToPosition, locate: locatePhoto } = useActivityPhotoLocation(uploadedPhotoIdentity, photoServices, photoServices.auth);
   const activityNavigationRef = useRef<HTMLDivElement>(null);
   const mobileReading = useMobile();
   const [wideStats, setWideStats] = useState(false);
@@ -327,7 +327,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     if (hasPublicRouteParts) return;
     segmentMapTrigger.current = trigger;
     setHoveredSegment(null);
-    setSegmentMapSelection({ scope: segmentMapScope, effort });
+    setSegmentMapSelection(previous => ({ scope: segmentMapScope, effort, requestId: (previous?.requestId ?? 0) + 1 }));
     requestAnimationFrame(() => {
       const stickyNavigation = Array.from(document.querySelectorAll("nav")).filter(nav => {
         const style = getComputedStyle(nav), top = Number.parseFloat(style.top);
@@ -734,15 +734,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     const dragged = dragSelection.current, current = rangeSelection.selection;
     if (visualRange && dragged && current && current.startOffsetSec === dragged.startOffsetSec && current.endOffsetSec === dragged.endOffsetSec) setVisualRange(null);
   };
-  const visualRouteRange = useMemo(() => {
-    if (!visualRange || !streams?.latlng) return null;
-    if (sampledData.some(point => point.routeSourceIndex !== undefined)) return rangeSelection.routeRange ?? null;
-    const startIndex = sampledData[visualRange[0]]?.routeSourceIndex === null ? undefined : sampledData[visualRange[0]]?.routeSourceIndex ?? sampledData[visualRange[0]]?.sourceIndex;
-    const endIndex = sampledData[visualRange[1]]?.routeSourceIndex === null ? undefined : sampledData[visualRange[1]]?.routeSourceIndex ?? sampledData[visualRange[1]]?.sourceIndex;
-    if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || startIndex! < 0 || endIndex! <= startIndex! || endIndex! >= streams.latlng.length) return null;
-    if (!streams.latlng.slice(startIndex, endIndex! + 1).every(point => point?.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180)) return null;
-    return { startIndex: startIndex!, endIndex: endIndex! };
-  }, [visualRange, sampledData, streams, rangeSelection.routeRange]);
+  const visualRouteRange = useMemo(() => visualRouteSelection(visualRange, sampledData, streams?.latlng, rangeSelection.routeRange),
+    [visualRange, sampledData, streams, rangeSelection.routeRange]);
   const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
   const availableOverlays = useMemo(() => getPerformanceOverlays(
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
@@ -1389,7 +1382,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         loadingPhotos={publicAccess ? publicPhotosBusy : loadingStreams || showStreamSpinner} photoError={publicAccess ? publicPhotosError : (activity.photoCount ?? 0) > overviewPhotos.length ? streamsError : null} canLoadPhotos={!streamsSignInRequired}
         onSignIn={() => { void signIn(); }} onLoadPhotos={() => { if (publicAccess) { void loadPublicPhotos(); return; } if (streamsError) void retryStreams(); else requestStreams(); }} onUpload={() => photoInputRef.current?.click()}
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
-        onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
+        onLocate={location => { locatePhoto(location); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
       {activeTab === "analysis" && <header className="activity-analysis-intro">
         <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
@@ -1426,7 +1419,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         summary={s}
         markerPosition={markerPosition}
         hoveredSegment={activeTab === "analysis" && visualRange ? null : selectedMapSegment ?? hoveredSegment}
-        selectedSegmentRange={selectedMapSegment}
+        selectedSegmentRange={selectedMapSegment && segmentMapSelection ? { ...selectedMapSegment, requestId: segmentMapSelection.requestId } : null}
         selectedRunRange={activeTab === "analysis" && visualRange ? visualRouteRange ?? undefined : rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
         photos={mapPhotos}
         uploadedPhotos={uploadedPhotos}

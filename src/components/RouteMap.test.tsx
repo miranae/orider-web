@@ -1,8 +1,17 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import RouteMap from "./RouteMap";
+import RouteMap, { RouteMapFallback } from "./RouteMap";
+import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
+import { buildSampledData, buildAlignedActivityChartChannels } from "../features/activity/detail/activityDetailDerived";
+import type { ActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
+import { routeFixtureActivity, routeFixtureStreams } from "../../e2e/fixtures/routeSensorExpansionData";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
+import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
+import { simulateTokenChange } from "../__tests__/mocks/firebase";
+
+const mapErrors = vi.hoisted(() => vi.fn());
+vi.mock("../services/errorLogger", async importOriginal => ({ ...await importOriginal<typeof import("../services/errorLogger")>(), logClientError: mapErrors }));
 
 const mapProps = vi.hoisted(() => ({
   api: null as null | { fitBounds: ReturnType<typeof vi.fn>; resize: ReturnType<typeof vi.fn>; zoomIn: ReturnType<typeof vi.fn>; zoomOut: ReturnType<typeof vi.fn>; getContainer: () => HTMLElement },
@@ -11,13 +20,15 @@ const mapProps = vi.hoisted(() => ({
     dragPan?: boolean;
     scrollZoom?: boolean;
     onIdle?: () => void;
+    onError?: (event?: {error?:unknown}) => void;
     onLoad?: (event: { target: Record<string, unknown> }) => void;
   },
   layers: new Map<string, Record<string, unknown>>(),
   sources: [] as unknown[],
+  markers: [] as { longitude: number; latitude: number; draggable?: boolean; onDragEnd?: (event: { lngLat: { lat: number; lng: number } }) => void }[],
 }));
 
-vi.mock("./activity/NativeActivityPhotoImage", () => ({ NativeActivityPhotoImage: ({nativePhoto,alt}: {nativePhoto:{activityId:string;photoId:string};alt:string}) => <img src="blob:authorized" alt={alt} data-native-reference={`${nativePhoto.activityId}/${nativePhoto.photoId}`} /> }));
+vi.mock("./activity/NativeActivityPhotoImage", () => ({ NativeActivityPhotoImage: ({nativePhoto,alt,onError}: {nativePhoto:{activityId:string;photoId:string};alt:string;onError?:()=>void}) => <img src="blob:authorized" alt={alt} onError={onError} data-native-reference={`${nativePhoto.activityId}/${nativePhoto.photoId}`} /> }));
 
 vi.mock("../utils/mapbox", () => ({
   getMapboxToken: () => "test-token",
@@ -36,14 +47,14 @@ vi.mock("react-map-gl/mapbox", () => ({
     onIdle,
   }: {
     children: ReactNode;
-    onError?: () => void;
+    onError?: (event?: {error?:unknown}) => void;
     cooperativeGestures?: boolean;
     dragPan?: boolean;
     scrollZoom?: boolean;
     onIdle?: () => void;
     onLoad?: (event: { target: Record<string, unknown> }) => void;
   }) => {
-    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom, onLoad, onIdle };
+    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom, onLoad, onIdle, onError };
     return (
       <div data-testid="mock-map" onClick={event => { if (event.target === event.currentTarget) onError?.(); }}>
         {children}
@@ -58,7 +69,10 @@ vi.mock("react-map-gl/mapbox", () => ({
     mapProps.layers.set(id, paint);
     return null;
   },
-  Marker: ({ children, onClick }: { children: ReactNode; onClick?: (event: {originalEvent: MouseEvent}) => void }) => <div data-testid="map-marker" onClick={event => onClick?.({originalEvent:event.nativeEvent})}>{children}</div>,
+  Marker: ({ children, onClick, ...props }: { children: ReactNode; onClick?: (event: {originalEvent: MouseEvent}) => void; longitude: number; latitude: number; draggable?: boolean; onDragEnd?: (event: { lngLat: { lat: number; lng: number } }) => void }) => {
+    mapProps.markers.push(props);
+    return <div data-testid="map-marker" onClick={event => onClick?.({originalEvent:event.nativeEvent})}>{children}</div>;
+  },
   Popup: ({ children }: { children: ReactNode }) => <div data-testid="map-popup">{children}</div>,
   useMap: () => ({ current: mapProps.api }),
 }));
@@ -66,8 +80,941 @@ vi.mock("react-map-gl/mapbox", () => ({
 describe("RouteMap", () => {
   beforeEach(() => {
     mapProps.api = null;
+    mapErrors.mockClear();
     mapProps.layers.clear();
     mapProps.sources.length = 0;
+    mapProps.markers.length = 0;
+  });
+
+  it("renders sparse stream coordinates without joining gaps or shifting selection indices", () => {
+    const latlng = [[37, 127], [37.01, 127], null, [38, 128], [38.01, 128]] as unknown as [number, number][];
+    renderWithProviders(<RouteMap latlng={latlng} highlightRange={{ startIndex: 3, endIndex: 4 }} />);
+    const sources = mapProps.sources as { geometry?: { type: string; coordinates: unknown } }[];
+    expect(sources[0]?.geometry?.coordinates).toEqual([[[127, 37], [127, 37.01]], [[128, 38], [128, 38.01]]]);
+    expect(sources[1]?.geometry?.coordinates).toEqual([[128, 38], [128, 38.01]]);
+    expect(latlng).toHaveLength(5);
+    expect(latlng[2]).toBeNull();
+    fireEvent.click(screen.getByTestId("mock-map"));
+    const path = document.querySelector("svg path")?.getAttribute("d") ?? "";
+    expect(path.match(/M/g)).toHaveLength(2);
+    expect(path.match(/L/g)).toHaveLength(2);
+  });
+
+  it("keeps the real chart selection model, power samples and map indices aligned after a GPS gap", () => {
+    const streams = routeFixtureStreams();
+    expect(streams.time).toEqual([0,1,2,3,4]);
+    expect(buildAlignedActivityChartChannels(streams).chartPower).toEqual([100,null,120,130,140]);
+    const sampled = buildSampledData(streams);
+    const model = { activity: routeFixtureActivity, streams, effectiveStreams: streams, serverMetrics: { metrics: null }, authorizedActivityAccess: true } as unknown as ActivityAnalysisModel;
+    function Analysis() {
+      const selection = useActivityRangeSelection(model, sampled);
+      return <><button onClick={() => selection.selectChart([3,4])}>Select chart range</button><button onClick={() => selection.selectChart([0,4])}>Select across gap</button>
+        <output>{JSON.stringify({ range: selection.routeRange, power: sampled.slice(selection.chartRange?.[0] ?? 0, (selection.chartRange?.[1] ?? 4) + 1).map(point => point.power) })}</output>
+        <RouteMap latlng={streams.latlng} highlightRange={selection.routeRange} /></>;
+    }
+    renderWithProviders(<Analysis />);
+    expect(screen.getByRole("status")).toHaveTextContent('"power":[100,null,120,130,140]');
+    fireEvent.click(screen.getByRole("button", {name:"Select chart range"}));
+    expect(screen.getByRole("status")).toHaveTextContent('"range":{"startIndex":3,"endIndex":4},"power":[130,140]');
+    expect(mapProps.sources.at(-1)).toMatchObject({geometry:{coordinates:[[127.02,37.02],[127.022,37.022]]}});
+    fireEvent.click(screen.getByRole("button", {name:"Select across gap"}));
+    expect(screen.getByRole("status")).toHaveTextContent('"range":{"startIndex":0,"endIndex":4},"power":[100,null,120,130,140]');
+    expect(mapProps.sources.at(-1)).toMatchObject({geometry:{type:"MultiLineString",coordinates:[[[127,37],[127.002,37.002]],[[127.02,37.02],[127.022,37.022]]]}});
+    expect(streams.latlng?.[2]).toBeNull();
+    expect(streams.watts).toEqual([100,null,120,130,140]);
+  });
+
+  it("returns original source indices when dragging after a missing sample", () => {
+    const onChange = vi.fn();
+    const latlng = [[37,127], [37.01,127], null, [38,128], [38.01,128]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} highlightRange={{startIndex:0,endIndex:4}} onHighlightRangeChange={onChange} />);
+    act(() => mapProps.markers.find(marker => marker.draggable)?.onDragEnd?.({lngLat:{lat:38,lng:128}}));
+    expect(onChange).toHaveBeenCalledWith(3, 4);
+  });
+
+  it("does not fit a wholly missing selection or emit invalid hover markers", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127], [37.01,127], null, [38,128], [38.01,128]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} markerPosition={[NaN,127]} flyToRange={{startIndex:2,endIndex:2}} />);
+    expect(api.fitBounds.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify([[127,37],[128,38.01]]))).toBe(true); // Full valid bounds only.
+    expect(mapProps.sources.some(source => (source as {geometry?:{type:string}}).geometry?.type === "Point")).toBe(false);
+  });
+
+  it("recovers all-missing streams with the thumbnail without applying sensor indices", () => {
+    renderWithProviders(<RouteMap latlng={[null, {}, null] as unknown as [number,number][]}
+      polyline="37,127;37.01,127.01" highlightRange={{startIndex:1,endIndex:2}} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(mapProps.sources).toHaveLength(1);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[127.01,37.01]]}});
+    expect(mapProps.markers).toHaveLength(0);
+  });
+
+  it("keeps isolated measured GPS without drawing a thumbnail bridge over the gaps", () => {
+    const latlng = [[37,127], null, [38,128], null, [39,129]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} polyline="37,127;39,129" highlightRange={{startIndex:0,endIndex:4}} />);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({ type: "FeatureCollection", features:
+      expect.arrayContaining([expect.objectContaining({ geometry: { type: "Point", coordinates: [128, 38] } })]) }));
+    expect(mapProps.sources).not.toContainEqual(expect.objectContaining({ geometry: expect.objectContaining({ type: "LineString" }) }));
+  });
+
+  it("restores the whole thumbnail after a selected stream becomes unavailable with identical bounds", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127], [37.01,127], null, [38,128], [38.01,128]] as unknown as [number,number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={latlng} polyline="37,127;38.01,128" flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+    rerender(<RouteMap latlng={[null, null] as unknown as [number,number][]} polyline="37,127;38.01,128" flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[128,38.01]]);
+  });
+
+  it.each([false,true])("shows the saved route image for isolated GPS points with endpoint display %s", showRouteEndpoints => {
+    renderWithProviders(<RouteMap latlng={[[37,127], null, [38,128]] as unknown as [number,number][]} showRouteEndpoints={showRouteEndpoints} fallbackImageUrl="https://example.test/map.png" />);
+    expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/map.png");
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+  });
+
+  it("never bridges an invalid Orider thumbnail entry", () => {
+    renderWithProviders(<RouteMap latlng={[null] as unknown as [number,number][]} polyline="37,127;37.01,127;broken;38,128;38.01,128" />);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{type:"MultiLineString",coordinates:[[[127,37],[127,37.01]],[[128,38],[128,38.01]]]}});
+  });
+
+  it.each([{}, "_p~iF~ps|U_ulL"])("recovers malformed thumbnail input %s with the saved map", polyline => {
+    renderWithProviders(<RouteMap latlng={[null] as unknown as [number,number][]} polyline={polyline as string} fallbackImageUrl="https://example.test/map.png" />);
+    expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/map.png");
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+  });
+
+  it("fits only the rendered line, excluding distant isolated fixes", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[80,170]] as unknown as [number,number][]} flyToRange={{startIndex:0,endIndex:3}} />);
+    expect(api.fitBounds.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify([[127,37],[127,37.01]]))).toBe(true);
+  });
+
+  it("fits all isolated route parts with endpoint markers enabled", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[37, 127]], [[42, 132]], [[38, 128]]]} showRouteEndpoints
+      navigationLabels={{ zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show entire route" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Show entire route" }));
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127, 37], [132, 42]]);
+  });
+
+  it("keeps measured endpoint navigation and explains that isolated GPS has no route line", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} showRouteEndpoints />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
+  });
+
+  it.each([
+    { range: {startIndex:0,endIndex:3}, expected: [[127,37],[127,37.01]] },
+    { range: {startIndex:1,endIndex:4}, expected: [[170,80],[170,80.01]] },
+  ])("fits the selected lines without neighbouring isolated boundary samples: $range", ({range, expected}) => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[80,170],[80.01,170]] as unknown as [number,number][]} flyToRange={range} highlightRange={range} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual(expected);
+  });
+
+  it("fits selections using explicit part boundaries as well as GPS gaps", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[37,127],[37.01,127]],[[80,170],[80.01,170]]]} flyToRange={{startIndex:0,endIndex:2}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+  });
+
+  it("still fits a valid single-sample location", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} flyToRange={{startIndex:1,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[127,37.01]]);
+  });
+
+  it("fits the selected valid fixes without joining a GPS gap", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127],[37.01,127],null,[80,170],[80.01,170]] as unknown as [number,number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={latlng} flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+    rerender(<RouteMap latlng={latlng} flyToRange={{startIndex:1,endIndex:3}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[170,80]]);
+  });
+
+  it("retains isolated measured fixes for single-point navigation and draggable boundaries", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const onChange = vi.fn();
+    const latlng = [[37,127],[37.01,127],null,[60,150],null,[80,170],[80.01,170]] as unknown as [number,number][];
+    renderWithProviders(<RouteMap latlng={latlng} flyToRange={{startIndex:3,endIndex:3}} highlightRange={{startIndex:3,endIndex:3}} onHighlightRangeChange={onChange} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
+    const handles = mapProps.markers.filter(marker => marker.draggable);
+    expect(handles).toHaveLength(2);
+    expect(handles.every(marker => marker.latitude === 60 && marker.longitude === 150)).toBe(true);
+    act(() => handles[0]!.onDragEnd?.({lngLat:{lat:60,lng:150}}));
+    expect(onChange).toHaveBeenCalledWith(3,3);
+  });
+
+  it("can navigate to a single-point part without using it to fit the route line", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[60,150]],[[37,127],[37.01,127]]]} flyToRange={{startIndex:0,endIndex:0}} showRouteEndpoints />);
+    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[150,60]]);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
+    expect(mapProps.sources.some(source => (source as {features?: {geometry:{coordinates:number[]}}[]}).features?.[0]?.geometry.coordinates[0] === 150)).toBe(true);
+  });
+
+  it("keeps photo location navigation available when only one GPS fix exists", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127]]} photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} flyToPosition={[38,128]} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(mapProps.markers).toContainEqual(expect.objectContaining({latitude:38,longitude:128}));
+    expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[128,38]}));
+  });
+
+  it("retains measured point markers and navigation when the line comes from a thumbnail", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const onChange = vi.fn();
+    renderWithProviders(<RouteMap latlng={[[60,150],null] as unknown as [number,number][]} polyline="37,127;37.01,127"
+      markerPosition={[60,150]} flyToRange={{startIndex:0,endIndex:0}} highlightRange={{startIndex:0,endIndex:0}} onHighlightRangeChange={onChange} />);
+    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[127,37.01]]);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150,60],[150,60]]);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[150,60]}}));
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[[127,37],[127,37.01]]}});
+    const handles = mapProps.markers.filter(marker => marker.draggable);
+    expect(handles).toHaveLength(2);
+    act(() => handles[0]!.onDragEnd?.({lngLat:{lat:60,lng:150}}));
+    expect(onChange).toHaveBeenCalledWith(0,0);
+  });
+
+  it.each([undefined,"https://example.test/route.png"])("shows endpoints for single-fix parts without connecting them with image %s", fallbackImageUrl => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[37,127]],[[38,128]]]} showRouteEndpoints fallbackImageUrl={fallbackImageUrl} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
+    expect(api.fitBounds.mock.calls[0]?.[0]).toEqual([[127,37],[128,38]]);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[]}});
+    expect(mapProps.sources.some(source => (source as {features?:unknown[]}).features?.length === 2)).toBe(true);
+  });
+
+  it("retains isolated recorded points and the same map while hovering across GPS gaps", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127],null,[38,128]] as unknown as [number,number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={latlng} markerPosition={[37,127]} />);
+    const map = screen.getByTestId("mock-map");
+    const fits = api.fitBounds.mock.calls.length;
+    expect(screen.getByText(/경로 데이터 없음|No route data/)).toBeInTheDocument();
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({type:"FeatureCollection",features:[
+      {type:"Feature",properties:{},geometry:{type:"Point",coordinates:[127,37]}},
+      {type:"Feature",properties:{},geometry:{type:"Point",coordinates:[128,38]}},
+    ]}));
+    rerender(<RouteMap latlng={latlng} markerPosition={null} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(api.fitBounds).toHaveBeenCalledTimes(fits);
+  });
+
+  it("renders a single recorded polyline location as a point without inventing a line", () => {
+    renderWithProviders(<RouteMap polyline="37,127" />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(mapProps.layers.has("route-standalone-points")).toBe(true);
+    expect(mapProps.sources[0]).toMatchObject({geometry:{coordinates:[]}});
+  });
+
+  it("retains a single thumbnail point after an all-missing raw stream arrives", () => {
+    const view = renderWithProviders(<RouteMap polyline="37,127" />);
+    const map = screen.getByTestId("mock-map");
+    view.rerender(<RouteMap polyline="37,127" latlng={[null,null] as unknown as [number,number][]} highlightRange={{startIndex:0,endIndex:1}} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(mapProps.sources.at(-1)).toMatchObject({features:[{geometry:{type:"Point",coordinates:[127,37]}}]});
+    expect(mapProps.markers.filter(marker => marker.draggable)).toHaveLength(0);
+  });
+
+  it("caps full-range selection zoom for a stationary recording", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37,127]]} flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall).toEqual([[[127,37],[127,37]],{padding:20,maxZoom:15}]);
+  });
+
+  it("restores the route when full selection is cleared after manual camera changes", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127],[37.01,127]];
+    const view = renderWithProviders(<RouteMap latlng={latlng} flyToRange={{startIndex:0,endIndex:1}} />);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToRange={null} />);
+    expect(api.fitBounds).toHaveBeenCalledOnce();
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+  });
+
+  it("keeps a located photo popup accessible alongside a single GPS fix and a saved image", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png"
+      photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("map-marker"));
+    expect(screen.getByTestId("map-popup")).toBeInTheDocument();
+  });
+
+  it("preserves a selected photo camera when new located photos arrive on a single-fix route", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127]];
+    const photos = [{id:"a",url:"https://example.test/a.jpg",location:[38,128] as [number,number]}];
+    const position: [number,number] = [38,128];
+    const view = renderWithProviders(<RouteMap latlng={latlng} photos={photos} flyToPosition={position} />);
+    const fits = api.fitBounds.mock.calls.length;
+    view.rerender(<RouteMap latlng={latlng} photos={[...photos,{id:"b",url:"https://example.test/b.jpg",location:[60,150]}]} flyToPosition={position} />);
+    expect(api.fitBounds).toHaveBeenCalledTimes(fits);
+    expect(api.flyTo).toHaveBeenCalledTimes(1);
+    expect(mapProps.markers).toContainEqual(expect.objectContaining({latitude:60,longitude:150}));
+  });
+
+  it("retains the located photo when GPS arrives after the photo-only map", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const position: [number,number] = [60,150];
+    const view = renderWithProviders(<RouteMap flyToPosition={position} />);
+    expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[150,60]}));
+    api.fitBounds.mockClear();
+    api.flyTo.mockClear();
+    view.rerender(<RouteMap latlng={[[37,127],[37.01,127]]} flyToPosition={position} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+    expect(api.flyTo).toHaveBeenCalledTimes(1);
+    expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[150,60]}));
+  });
+
+  it("preserves photo navigation on range removal while accepting a new explicit chart range", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127],[37.01,127],[37.02,127]];
+    const range = {startIndex:0,endIndex:1,requestId:1};
+    const view = renderWithProviders(<RouteMap latlng={latlng} flyToRange={range} />);
+    const position: [number,number] = [60,150];
+    view.rerender(<RouteMap latlng={latlng} flyToRange={range} flyToPosition={position} />);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{...range}} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37.01],[127,37.02]]);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2,requestId:2}} />);
+    expect(api.fitBounds).toHaveBeenCalledOnce();
+    api.fitBounds.mockClear();
+    const updated: [number,number][] = [[38,128],[38.01,128],[38.02,128]];
+    view.rerender(<RouteMap latlng={updated} flyToPosition={position} flyToRange={{startIndex:1,endIndex:2,requestId:2}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128,38.01],[128,38.02]]);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={updated} flyToPosition={position} flyToRange={null} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128,38],[128,38.02]]);
+  });
+
+  it("keeps a new photo camera when the photo and range arrive together", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const route: [number, number][] = [[37, 127], [37.01, 127], [37.02, 127]];
+    const view = renderWithProviders(<RouteMap latlng={route} />);
+    const photo: [number, number] = [60, 150];
+    const range = { startIndex: 0, endIndex: 1, requestId: 1 };
+    view.rerender(<RouteMap latlng={route} flyToPosition={photo} flyToRange={range} />);
+    expect(api.flyTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [150, 60] }));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={[[38, 128], [38.01, 128], [38.02, 128]]} flyToPosition={photo} flyToRange={range} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("keeps isolated GPS points in the static fallback after an SDK failure", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],null,[38,127]] as unknown as [number,number][]} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(document.querySelectorAll("svg circle")).toHaveLength(2);
+    expect(document.querySelector("svg path")).toBeNull();
+    expect(document.querySelector("svg")?.innerHTML).not.toMatch(/NaN|Infinity/);
+  });
+
+  it("applies the requested course padding on full-range fits and selection clearing", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127],[37.01,127]];
+    const view = renderWithProviders(<RouteMap latlng={latlng} fitPadding={40} flyToRange={{startIndex:0,endIndex:1,requestId:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40});
+    expect(api.fitBounds.mock.lastCall?.[1]).not.toHaveProperty("maxZoom");
+    view.rerender(<RouteMap latlng={latlng} fitPadding={40} flyToRange={null} />);
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40});
+  });
+
+  it("does not label distant photos or waypoints as recorded GPS in the static preview", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127]]} flyToPosition={[60,150]}
+      photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[60,150]}]}
+      waypoints={[{lat:50,lon:140,name:"Waypoint",icon:null}]} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    const points = document.querySelectorAll("svg circle:not([data-route-static-selection])");
+    expect(points).toHaveLength(1);
+    const photo = document.querySelector("circle[data-route-static-selection]");
+    expect(photo).toBeInTheDocument();
+    expect(photo?.getAttribute("cx")).not.toBe(points[0]?.getAttribute("cx"));
+    expect(document.querySelector("svg path")).toBeNull();
+  });
+
+  it("keeps full-range zoom limits when clearing a checkpoint in the same render", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng: [number,number][] = [[37,127],[37,127]];
+    const view = renderWithProviders(<RouteMap latlng={latlng} flyToPosition={[38,128]} fitPadding={40} />);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap latlng={latlng} flyToPosition={null} fitPadding={40} flyToRange={{startIndex:0,endIndex:1,requestId:1}} />);
+    expect(api.fitBounds).toHaveBeenCalled();
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({padding:40,maxZoom:15});
+  });
+
+  it("keeps a photo popup available when an all-missing stream arrives after a one-point thumbnail", () => {
+    const props = {polyline:"37,127",fallbackImageUrl:"https://example.test/route.png",photos:[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128] as [number,number]}]};
+    const view = renderWithProviders(<RouteMap {...props} />);
+    const map = screen.getByTestId("mock-map");
+    fireEvent.click(screen.getByTestId("map-marker"));
+    expect(screen.getByTestId("map-popup")).toBeInTheDocument();
+    view.rerender(<RouteMap {...props} latlng={[null,null] as unknown as [number,number][]} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(screen.getByTestId("map-popup")).toBeInTheDocument();
+  });
+
+  it("falls back to recorded GPS and logs safely when the saved image fails", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],null,[38,128]] as unknown as [number,number][]} fallbackImageUrl="https://example.test/route.png?token=fake" />);
+    const image = screen.getByRole("img");
+    fireEvent.error(image);
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(document.querySelectorAll("svg circle")).toHaveLength(2);
+    const failures = mapErrors.mock.calls.filter(call => call[0] === "RouteMap.image");
+    expect(failures).toHaveLength(1);
+    expect((failures[0]![1] as Error).message).toBe("route_image_load_failed");
+    expect(failures[0]![2]).toEqual({stage:"static_image",routeSlotCount:3});
+  });
+
+  it("renders endpoint colors above standalone point circles", () => {
+    renderWithProviders(<RouteMap routeParts={[[[37,127]],[[38,128]]]} showRouteEndpoints />);
+    const layers = [...mapProps.layers.keys()];
+    expect(layers.indexOf("route-standalone-points")).toBeLessThan(layers.indexOf("route-endpoint-core"));
+  });
+
+  it("retains the single-fix map and chart marker alongside a saved route image", () => {
+    const latlng: [number,number][] = [[37,127]];
+    const view = renderWithProviders(<RouteMap latlng={latlng} fallbackImageUrl="https://example.test/route.png" />);
+    const map = screen.getByTestId("mock-map");
+    view.rerender(<RouteMap latlng={latlng} fallbackImageUrl="https://example.test/route.png" markerPosition={[37,127]} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[127,37]}}));
+    view.rerender(<RouteMap latlng={latlng} fallbackImageUrl="https://example.test/route.png" markerPosition={null} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+  });
+
+  it("shows a visible photo placeholder and sanitized diagnostic after marker image failure", () => {
+    renderWithProviders(<RouteMap flyToPosition={[38,128]} photos={[{id:"photo",url:"https://example.test/photo.jpg?token=fake",location:[38,128],caption:"지도 사진"}]} />);
+    fireEvent.error(screen.getByRole("img"));
+    expect(document.querySelector("[data-map-photo-failed]")).toBeInTheDocument();
+    const failures = mapErrors.mock.calls.filter(call => call[0] === "RouteMap.photo");
+    expect(failures).toHaveLength(1);
+    expect((failures[0]![1] as Error).message).toBe("map_photo_image_load_failed");
+    expect(failures[0]![2]).toEqual({stage:"photo_image",native:false});
+  });
+
+  it("allows a failed native photo popup image to be retried", () => {
+    const photo = {id:"photo",url:"",nativePhoto:{activityId:"ride",photoId:"native"},location:[37,127] as [number,number],caption:"네이티브 사진"};
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} photos={[photo]} />);
+    fireEvent.error(screen.getByRole("img", {name:photo.caption}));
+    fireEvent.click(screen.getByTestId("map-marker"));
+    const popup = within(screen.getByTestId("map-popup"));
+    fireEvent.error(popup.getByRole("img", {name:photo.caption}));
+    const retry = popup.getByRole("button", {name:"다시 시도"});
+    fireEvent.click(retry);
+    expect(popup.getByRole("img", {name:photo.caption})).toHaveAttribute("data-native-reference","ride/native");
+    expect(screen.getAllByRole("img", {name:photo.caption})).toHaveLength(2);
+  });
+
+  it("retries a failed marker when the Firebase session changes while photo identity stays the same", () => {
+    const first = {auth:{currentUser:{uid:"owner"}},functions:{},firestore:{},ensureAppCheckReady:vi.fn(),getAppCheckToken:vi.fn()} as unknown as FirebaseServices;
+    const second = {...first,functions:{}} as FirebaseServices;
+    const latlng: [number,number][] = [[37,127],[37.01,127]];
+    const photos = [{id:"photo",url:"https://example.test/photo.jpg",location:[37,127] as [number,number],caption:"세션 사진"}];
+    const view = renderWithProviders(<FirebaseServicesProvider services={first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    fireEvent.error(screen.getByRole("img", {name:"세션 사진"}));
+    expect(document.querySelector("[data-map-photo-failed]")).toBeInTheDocument();
+    view.rerender(<FirebaseServicesProvider services={second}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    expect(screen.getByRole("img", {name:"세션 사진"})).toBeInTheDocument();
+    expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
+    view.rerender(<FirebaseServicesProvider services={first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    expect(screen.getByRole("img", {name:"세션 사진"})).toBeInTheDocument();
+    expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
+  });
+
+  it("shows the selected raw interval in a static preview instead of an unannotated saved image", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[38,128],[38.01,128]] as unknown as [number,number][]}
+      highlightRange={{startIndex:3,endIndex:4}} fallbackImageUrl="https://example.test/route.png" />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    const selected = document.querySelector("[data-route-static-selection]");
+    expect(selected?.getAttribute("d")?.match(/M/g)).toHaveLength(1);
+    expect(selected?.getAttribute("d")?.match(/L/g)).toHaveLength(1);
+    expect(document.querySelector("svg path")?.getAttribute("d")?.match(/M/g)).toHaveLength(2);
+  });
+
+  it("never applies raw selection indices to a thumbnail after the measured stream is cleared", () => {
+    const props = { polyline: "37,127;37.01,127;37.02,127", rangeUsesRawSamples: true, flyToRange: { startIndex: 1, endIndex: 1 } };
+    const view = renderWithProviders(<RouteMap {...props} latlng={[[38,128],[38.01,128],[38.02,128]]} />);
+    expect(mapProps.layers.has("route-selected-point")).toBe(true);
+    mapProps.layers.clear();
+    view.rerender(<RouteMap {...props} latlng={[]} />);
+    expect(mapProps.layers.has("route-selected-point")).toBe(false);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(document.querySelector("[data-route-static-selection]")).toBeNull();
+  });
+
+  it("preserves a separate single GPS target alongside the highlighted track in the static preview", () => {
+    renderWithProviders(<RouteMap latlng={[[37, 127], [37.01, 127], null, [38, 128]] as unknown as [number, number][]}
+      highlightRange={{ startIndex: 0, endIndex: 1 }} flyToRange={{ startIndex: 3, endIndex: 3 }} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(document.querySelector("path[data-route-static-selection]")).not.toBeNull();
+    expect(document.querySelector("circle[data-route-static-selection]")).not.toBeNull();
+  });
+
+  it("shows a hovered GPS fix even when a saved image accompanies isolated fixes", () => {
+    const props = { latlng: [[37, 127], null, [38, 128]] as unknown as [number, number][], fallbackImageUrl: "https://example.test/route.png" };
+    const view = renderWithProviders(<RouteMap {...props} markerPosition={[38, 128]} />);
+    expect(mapProps.layers.has("hover-marker-outer")).toBe(true);
+    const map = screen.getByTestId("mock-map");
+    view.rerender(<RouteMap {...props} markerPosition={null} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    view.rerender(<RouteMap {...props} markerPosition={[37, 127]} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    fireEvent.click(map);
+    expect(document.querySelector("circle[data-route-static-selection]")).not.toBeNull();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("keeps a full-route toolbar request active when native GPS arrives after photo navigation", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {polyline:"37,127;37.01,127",navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const photo: [number,number] = [60,150];
+    const view = renderWithProviders(<RouteMap {...props} flyToPosition={photo} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    const latlng: [number,number][] = [[40,130],[40.01,130]];
+    view.rerender(<RouteMap {...props} latlng={latlng} flyToPosition={photo} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[130,40],[130,40.01]]);
+    expect(api.fitBounds.mock.lastCall?.[1]).not.toHaveProperty("maxZoom");
+    const nextPhoto: [number,number] = [70,160];
+    view.rerender(<RouteMap {...props} latlng={latlng} flyToPosition={nextPhoto} />);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} latlng={[[41,131],[41.01,131]]} flyToPosition={nextPhoto} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("preserves full-route intent across an SDK fallback and map remount", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {polyline:"37,127;37.01,127",flyToPosition:[60,150] as [number,number],
+      navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const view = renderWithProviders(<RouteMap {...props} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    api.fitBounds.mockClear(); api.flyTo.mockClear();
+    view.rerender(<RouteMap {...props} latlng={[[40,130],[40.01,130]]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[130,40],[130,40.01]]);
+    expect(api.flyTo).not.toHaveBeenCalled();
+  });
+
+  it("does not refit unchanged bounds on chart hover after a toolbar fit", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {polyline:"37,127;37.01,127",flyToPosition:[60,150] as [number,number],
+      navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const view = renderWithProviders(<RouteMap {...props} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} markerPosition={[37,127]} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("restores the most recent chart range after remounting a map that had a photo target", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = { flyToPosition: [60, 150] as [number, number] };
+    const first: [number, number][] = [[37, 127], [37.01, 127], [37.02, 127]];
+    const view = renderWithProviders(<RouteMap {...props} latlng={first} />);
+    const range = { startIndex: 0, endIndex: 1, requestId: 1 };
+    view.rerender(<RouteMap {...props} latlng={first} flyToRange={range} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    api.fitBounds.mockClear();
+    api.flyTo.mockClear();
+    view.rerender(<RouteMap {...props} latlng={[[38, 128], [38.01, 128], [38.02, 128]]} flyToRange={range} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[128, 38], [128, 38.01]]);
+    expect(api.flyTo).not.toHaveBeenCalled();
+  });
+
+  it("discards a saved image error from a replaced same-UID session", () => {
+    const services = { auth: { currentUser: { uid: "owner" } } } as unknown as FirebaseServices;
+    const props = { fallbackImageUrl: "https://example.test/route.png" };
+    const view = renderWithProviders(<FirebaseServicesProvider services={services}><RouteMap {...props} /></FirebaseServicesProvider>);
+    const previous = screen.getByRole("img");
+    Object.assign(services.auth, { currentUser: { uid: "owner" } });
+    view.rerender(<FirebaseServicesProvider services={services}><RouteMap {...props} /></FirebaseServicesProvider>);
+    const current = screen.getByRole("img");
+    expect(current).not.toBe(previous);
+    fireEvent.error(previous);
+    expect(current).toBeInTheDocument();
+    expect(mapErrors.mock.calls.some(call => call[0] === "RouteMap.image")).toBe(false);
+  });
+
+  it("includes a located photo in the initial bounds of a single-fix route", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127]]} fallbackImageUrl="https://example.test/route.png"
+      navigationLabels={{ zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show entire route" }}
+      photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[128,38]]);
+    expect(screen.getByTestId("map-marker")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show entire route" }));
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37]]);
+  });
+
+  it("keeps a manually moved camera when passive photos arrive on a single GPS fix", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = { latlng: [[37, 127]] as [number, number][], navigationLabels: { zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show route" } };
+    const view = renderWithProviders(<RouteMap {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} photos={[{ id: "distant", url: "https://example.test/photo.jpg", location: [52, 145] }]} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { points: [[37, 127]] },
+    { points: [[37, 127], null, [37.5, 127.5]] },
+  ])("keeps a selected GPS fix in view when a distant photo arrives with route $points", ({ points }) => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = { latlng: points as unknown as [number, number][], flyToRange: { startIndex: 0, endIndex: 0 } };
+    const view = renderWithProviders(<RouteMap {...props} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127, 37], [127, 37]]);
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} photos={[{ id: "distant", url: "https://example.test/photo.jpg", location: [52, 145] }]} />);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("preserves the user camera when raw GPS adds points inside the thumbnail bounds", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = { polyline: "37,127;38,128",
+      navigationLabels: { zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show entire route" } };
+    const view = renderWithProviders(<RouteMap {...props} />);
+    const map = screen.getByTestId("mock-map");
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} latlng={[[37, 127], [37.8, 127.3], [38, 128]]} />);
+    expect(screen.getByTestId("mock-map")).toBe(map);
+    expect(api.zoomIn).toHaveBeenCalledTimes(1);
+    expect(api.fitBounds).not.toHaveBeenCalled();
+    expect(JSON.stringify(mapProps.sources)).toContain("[127.3,37.8]");
+  });
+
+  it("bounds isolated-point DOM rendering and preserves the raw selected point", () => {
+    const positions = Array.from({ length: 150_000 }, (_, index) => index % 2 ? null : [37 + index / 1_000_000, 127] as [number, number]);
+    const props = { positions, pointsOnly: true, title: "Static map", description: "Route preview", imageAlt: "Route", height: "normal", rounded: true };
+    const view = renderWithProviders(<RouteMapFallback {...props} highlightRange={{ startIndex: 32, endIndex: 32 }} />);
+    expect(view.container.querySelectorAll("svg circle").length).toBeLessThan(260);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    view.rerender(<RouteMapFallback {...props} highlightRange={{ startIndex: 140_002, endIndex: 140_002 }} />);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    view.rerender(<RouteMapFallback {...props} imageUrl="https://example.test/static.png" highlightRange={{ startIndex: 1, endIndex: 3 }} />);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    expect(view.container.querySelector("img")).toBeNull();
+    view.rerender(<RouteMapFallback {...props} highlightRange={{ startIndex: 1, endIndex: 9 }} />);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(2);
+  });
+
+  it("fits isolated dateline points into the same narrow viewport", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, 179], null, [0, -179]] as unknown as [number, number][]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[179, 0], [181, 0]]);
+  });
+
+  it("unwraps the route line across the dateline and drags to the wrapped sample", () => {
+    const onChange = vi.fn();
+    renderWithProviders(<RouteMap latlng={[[0, 179], [0, -179]]} highlightRange={{ startIndex: 0, endIndex: 1 }} onHighlightRangeChange={onChange} />);
+    expect(mapProps.sources[0]).toMatchObject({ geometry: { coordinates: [[179, 0], [181, 0]] } });
+    const start = mapProps.markers.find(marker => marker.draggable && marker.longitude === 179);
+    expect(start).toBeDefined();
+    act(() => start?.onDragEnd?.({ lngLat: { lat: 0, lng: 181 } }));
+    expect(onChange).toHaveBeenCalledWith(1, 1);
+  });
+
+  it("includes the unwrapped line in the recorded map viewport", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, -120], [0, 0], [0, 120], [0, -120]]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[-120, 0], [240, 0]]);
+  });
+
+  it("does not show the former session's SDK error after same-UID renewal", () => {
+    const services = { auth: { currentUser: { uid: "viewer" } }, functions: {} } as unknown as FirebaseServices;
+    renderWithProviders(<FirebaseServicesProvider services={services}><RouteMap latlng={[[37, 127], [38, 128]]} /></FirebaseServicesProvider>);
+    const firstMap = screen.getByTestId("mock-map"), oldError = mapProps.latest?.onError;
+    services.auth.currentUser = { ...services.auth.currentUser! };
+    act(() => oldError?.({ error: new Error("network") }));
+    expect(screen.getByTestId("mock-map")).toBe(firstMap);
+  });
+
+  it("recreates the map after the SDK reuses the signed-in user for a new session", () => {
+    const user = { uid: "viewer", metadata: { lastSignInTime: "before" } };
+    const services = { auth: { currentUser: user } } as unknown as FirebaseServices;
+    renderWithProviders(<FirebaseServicesProvider services={services}><RouteMap latlng={[[37, 127], [38, 128]]} /></FirebaseServicesProvider>);
+    const oldMap = screen.getByTestId("mock-map");
+    user.metadata.lastSignInTime = "after";
+    act(() => simulateTokenChange(services.auth));
+    const currentMap = screen.getByTestId("mock-map");
+    expect(currentMap).not.toBe(oldMap);
+    fireEvent.click(oldMap);
+    expect(currentMap).toBeInTheDocument();
+  });
+
+  it("fits the emitted dateline edge at exactly 180 degrees", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, -180], [0, 179]]} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[179, 0], [180, 0]]);
+    expect(mapProps.sources[0]).toMatchObject({ geometry: { coordinates: [[180, 0], [179, 0]] } });
+  });
+
+  it("fits the selected line in the same world as the displayed geometry", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, 0], [0, -179], [0, 179], [0, 178]]}
+      highlightRange={{ startIndex: 0, endIndex: 2 }} flyToRange={{ startIndex: 0, endIndex: 2 }} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[-181, 0], [0, 0]]);
+  });
+
+  it("places the selected subrange on the full route's world copy", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, 179], [0, -170], [0, 10]]}
+      highlightRange={{ startIndex: 1, endIndex: 2 }} flyToRange={{ startIndex: 1, endIndex: 2 }} />);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({ geometry: { type: "LineString", coordinates: [[190, 0], [10, 0]] } }));
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[10, 0], [190, 0]]);
+  });
+
+  it("keeps distant disconnected samples out of dateline line framing", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[0, 178], [0, 179], null, [0, -179], [0, -178], null, [0, -1], null, [0, 0]] as unknown as [number, number][]}/>);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[178, 0], [182, 0]]);
+  });
+
+  it("marks the only valid selected point on a static route with other line segments", () => {
+    const positions = [[37, 127], [37.1, 127], null, [38, 128], [38.1, 128]] as ([number, number] | null)[];
+    const view = renderWithProviders(<RouteMapFallback positions={positions}
+      highlightRange={{ startIndex: 1, endIndex: 2 }} imageUrl="https://example.test/static.png"
+      title="Fallback" description="Static preview" imageAlt="Route" height="normal" rounded />);
+    expect(view.container.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    expect(view.container.querySelector("img")).toBeNull();
+  });
+
+  it("fits a full raw selection around its measured point when using a thumbnail line", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap polyline="37,127;37.01,127" latlng={[[60, 150], null] as unknown as [number, number][]}
+      flyToRange={{ startIndex: 0, endIndex: 1 }} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[150, 60], [150, 60]]);
+  });
+
+  it("retains the saved route image while the unprojectable photo point has no coordinates to anchor it", () => {
+    renderWithProviders(<RouteMap flyToPosition={[37, 127]} fallbackImageUrl="https://example.test/thumb.png" />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    const savedImage = screen.getByRole("img");
+    expect(savedImage).toHaveAttribute("src", "https://example.test/thumb.png");
+    expect(document.querySelector("circle[data-route-static-selection]")).not.toBeInTheDocument();
+    fireEvent.error(savedImage);
+    expect(document.querySelector("circle[data-route-static-selection]")).toBeInTheDocument();
+  });
+
+  it("reports a late SDK error without replacing the current route", () => {
+    const view = renderWithProviders(<RouteMap flyToPosition={[37, 127]} />);
+    const previousMap = screen.getByTestId("mock-map");
+    const previousError = mapProps.latest?.onError;
+    view.rerender(<RouteMap latlng={[[38, 128], [38.01, 128]]} />);
+    const error = { error: new Error("network") };
+    act(() => previousError?.(error));
+    expect(screen.getByTestId("mock-map")).not.toBe(previousMap);
+    expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.mapbox")).toHaveLength(1);
+  });
+
+  it("ignores a former map instance's error after a photo reopens the map", () => {
+    const props = { latlng: [[37, 127], null, [38, 128]] as unknown as [number, number][],
+      fallbackImageUrl: "https://example.test/route.png" };
+    const photos = [{ id: "photo", url: "https://example.test/photo.jpg", location: [37, 127] as [number, number] }];
+    const view = renderWithProviders(<RouteMap {...props} photos={photos} />);
+    const firstMap = screen.getByTestId("mock-map"), firstError = mapProps.latest?.onError;
+    view.rerender(<RouteMap {...props} photos={[]} />);
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    view.rerender(<RouteMap {...props} photos={photos} />);
+    const currentMap = screen.getByTestId("mock-map");
+    expect(currentMap).not.toBe(firstMap);
+    act(() => firstError?.({ error: new Error("network") }));
+    expect(screen.getByTestId("mock-map")).toBe(currentMap);
+    expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.mapbox")).toHaveLength(1);
+  });
+
+  it("allows selecting the same photo again after a location-only map failed", () => {
+    const photo: [number, number] = [37, 127];
+    const view = renderWithProviders(<RouteMap flyToPosition={photo} />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    view.rerender(<RouteMap flyToPosition={null} />);
+    view.rerender(<RouteMap flyToPosition={photo} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+  });
+
+  it.each([0,3])("preserves a single GPS selection at raw index %s in the static fallback", index => {
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[60,150]] as unknown as [number,number][]}
+      flyToRange={{startIndex:index,endIndex:index}} fallbackImageUrl="https://example.test/route.png" />);
+    expect(mapProps.layers.has("route-selected-point")).toBe(true);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({
+      geometry: {type:"Point", coordinates:index === 0 ? [127,37] : [150,60]},
+    }));
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    const selected = document.querySelector("[data-route-static-selection]");
+    expect(selected?.tagName).toBe("circle");
+    expect(Number(selected?.getAttribute("cx"))).toBeGreaterThanOrEqual(16);
+    expect(Number(selected?.getAttribute("cx"))).toBeLessThanOrEqual(304);
+  });
+
+  it("refits a thumbnail after full view even when that thumbnail was auto-fitted before photo navigation", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {polyline:"37,127;37.01,127",navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const photo: [number,number] = [60,150];
+    const view = renderWithProviders(<RouteMap {...props} flyToPosition={null} />);
+    view.rerender(<RouteMap {...props} flyToPosition={photo} />);
+    view.rerender(<RouteMap {...props} flyToPosition={photo} latlng={[[40,130],[40.01,130]]} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    api.fitBounds.mockClear();
+    view.rerender(<RouteMap {...props} flyToPosition={photo} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+  });
+
+  it("fits a distinct short route freely while capping stationary full views", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const props = {navigationLabels:{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}};
+    const view = renderWithProviders(<RouteMap {...props} latlng={[[37,127],[37.00036,127]]} flyToRange={{startIndex:0,endIndex:1}} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    expect(api.fitBounds.mock.calls.every(call => !("maxZoom" in call[1]))).toBe(true);
+    view.rerender(<RouteMap {...props} latlng={[[37,127],[37,127]]} flyToRange={{startIndex:0,endIndex:1}} />);
+    expect(api.fitBounds.mock.lastCall?.[1]).toMatchObject({maxZoom:15});
+  });
+
+  it("retains a measured selected point without applying its index to a thumbnail's separate clock", () => {
+    renderWithProviders(<RouteMap latlng={[[60,150],null] as unknown as [number,number][]} polyline="37,127;37.01,127"
+      highlightRange={{startIndex:0,endIndex:0}} flyToRange={{startIndex:0,endIndex:0}} fallbackImageUrl="https://example.test/route.png" />);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(document.querySelectorAll("circle[data-route-static-selection]")).toHaveLength(1);
+    expect(document.querySelector("path[data-route-static-selection]")).toBeNull();
+    expect(document.querySelector("svg path")?.getAttribute("d")?.match(/L/g)).toHaveLength(1);
+  });
+
+  it.each(["services","account"])("isolates pending image errors across a %s change", mode => {
+    const auth = {currentUser:{uid:"owner"}};
+    const first = {auth,functions:{},firestore:{},ensureAppCheckReady:vi.fn(),getAppCheckToken:vi.fn()} as unknown as FirebaseServices;
+    const second = {...first,functions:{}} as FirebaseServices;
+    const latlng: [number,number][] = [[37,127],[37.01,127]];
+    const photos = [{id:"photo",url:"https://example.test/photo.jpg",location:[37,127] as [number,number],caption:"로딩 사진"}];
+    const view = renderWithProviders(<FirebaseServicesProvider services={first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    const pending = screen.getByRole("img", {name:"로딩 사진"});
+    if (mode === "account") {
+      auth.currentUser = {uid:"other"};
+      fireEvent.error(pending);
+      expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
+    }
+    view.rerender(<FirebaseServicesProvider services={mode === "services" ? second : first}><RouteMap latlng={latlng} photos={photos} /></FirebaseServicesProvider>);
+    const current = screen.getByRole("img", {name:"로딩 사진"});
+    expect(current).not.toBe(pending);
+    fireEvent.error(pending);
+    expect(screen.getByRole("img", {name:"로딩 사진"})).toBe(current);
+    expect(document.querySelector("[data-map-photo-failed]")).not.toBeInTheDocument();
+    expect(mapErrors.mock.calls.filter(call => call[0] === "RouteMap.photo")).toHaveLength(mode === "account" ? 1 : 0);
+  });
+
+  it("preserves the user camera while hovering an isolated GPS point outside the route line", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    const latlng = [[37,127],[37.01,127],null,[60,150]] as unknown as [number,number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={latlng} markerPosition={null} />);
+    const fits = api.fitBounds.mock.calls.length;
+    rerender(<RouteMap latlng={latlng} markerPosition={[60,150]} />);
+    expect(mapProps.sources).toContainEqual(expect.objectContaining({geometry:{type:"Point",coordinates:[150,60]}}));
+    rerender(<RouteMap latlng={latlng} markerPosition={null} />);
+    expect(api.fitBounds).toHaveBeenCalledTimes(fits);
+  });
+
+  it("fits drawn geometry when a chart highlights the full raw range ending in an isolated point", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127],null,[80,170]] as unknown as [number,number][]}
+      highlightRange={{startIndex:0,endIndex:3}} flyToRange={{startIndex:0,endIndex:3}} />);
+    expect(api.fitBounds.mock.calls.every(call => JSON.stringify(call[0]) === JSON.stringify([[127,37],[127,37.01]]))).toBe(true);
+  });
+
+  it("fits only the recorded route after navigating to a distant photo", () => {
+    const api = { fitBounds: vi.fn(), flyTo: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} flyToPosition={[80,170]}
+      navigationLabels={{zoomIn:"Zoom in",zoomOut:"Zoom out",fitRoute:"Show entire route"}} />);
+    expect(api.flyTo).toHaveBeenCalledWith(expect.objectContaining({center:[170,80]}));
+    fireEvent.click(screen.getByRole("button", {name:"Show entire route"}));
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[127,37.01]]);
+  });
+
+  it("preserves a saved route image when only passive photo coordinates are present", () => {
+    renderWithProviders(<RouteMap fallbackImageUrl="https://example.test/route.png" photos={[{id:"photo",url:"https://example.test/photo.jpg",location:[38,128]}]} />);
+    expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/route.png");
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+  });
+
+  it("fits the complete course including a singleton start fragment when the full range is requested", () => {
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => document.createElement("div") };
+    mapProps.api = api;
+    renderWithProviders(<RouteMap routeParts={[[[60,150]],[[37,127],[37.01,127]]]} showRouteEndpoints flyToRange={{startIndex:0,endIndex:2}} />);
+    expect(api.fitBounds.mock.lastCall?.[0]).toEqual([[127,37],[150,60]]);
+  });
+
+  it("logs a bounded SDK failure once without recording request URLs, tokens or coordinates", () => {
+    renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127]]} />);
+    const onError = mapProps.latest?.onError;
+    const error = Object.assign(new Error("https://example.test/37,127?access_token=fake"), { status:401 });
+    act(() => { onError?.({error}); onError?.({error}); });
+    const failures = mapErrors.mock.calls.filter(call => call[0] === "RouteMap.mapbox");
+    expect(failures).toHaveLength(1);
+    expect((failures[0]![1] as Error).message).toBe("mapbox_http_failure_401");
+    expect(failures[0]![2]).toEqual({stage:"mapbox_render_or_request",kind:"http",status:401,routeSlotCount:2,pointCount:0,hasSavedImage:false,hasRouteLine:true});
+    expect(failures[0]![3]).toEqual(expect.objectContaining({auth:expect.anything(),functions:expect.anything()}));
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+  });
+
+  it("keeps all-invalid coordinates out of Mapbox and recovers on a valid activity", () => {
+    const invalid = [null, {}, [NaN, 127], [91, 127], [37, Infinity], [37], ["37", 127]] as unknown as [number, number][];
+    const { rerender } = renderWithProviders(<RouteMap latlng={invalid} />);
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    rerender(<RouteMap latlng={[[37, 127], [38, 128]]} />);
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
   });
 
   it("renders a saved map image without route positions", () => {

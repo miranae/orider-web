@@ -5,6 +5,7 @@
 import { vi } from "vitest";
 import {
   addAuthListener,
+  addTokenListener,
   getCurrentUser,
   mockSetDoc,
   mockDeleteDoc,
@@ -23,20 +24,22 @@ import {
 let authCurrentUserOverride: unknown | undefined;
 const sdkUsers = new WeakMap<object, object>();
 
+const webAuth = {
+  get currentUser() {
+    if (authCurrentUserOverride !== undefined) return authCurrentUserOverride;
+    const user = getCurrentUser();
+    if (!user) return null;
+    if (!sdkUsers.has(user)) sdkUsers.set(user, { ...user, getIdToken: vi.fn().mockResolvedValue("test-id-token") });
+    return sdkUsers.get(user);
+  },
+  set currentUser(value: unknown) {
+    authCurrentUserOverride = value;
+  },
+};
+
 // ─── services/firebase.ts ─────────────────────────────────
 vi.mock("../../services/firebase", () => ({
-  auth: {
-    get currentUser() {
-      if (authCurrentUserOverride !== undefined) return authCurrentUserOverride;
-      const user = getCurrentUser();
-      if (!user) return null;
-      if (!sdkUsers.has(user)) sdkUsers.set(user, { ...user, getIdToken: vi.fn().mockResolvedValue("test-id-token") });
-      return sdkUsers.get(user);
-    },
-    set currentUser(value: unknown) {
-      authCurrentUserOverride = value;
-    },
-  },
+  auth: webAuth,
   // 소비처는 주입된 서비스(useFirebaseServices)의 firestore.app 으로 Storage 버킷을 읽는다.
   firestore: { app: { options: { storageBucket: "test" } } },
   storage: { app: { options: { storageBucket: "test" } } },
@@ -60,9 +63,9 @@ vi.mock("firebase/analytics", () => ({
 
 // ─── firebase/auth ────────────────────────────────────────
 vi.mock("firebase/auth", () => ({
-  onAuthStateChanged: vi.fn((_auth: unknown, cb: (user: unknown) => void) => {
-    return addAuthListener(cb);
-  }),
+  onAuthStateChanged: vi.fn((_auth: unknown, cb: (user: unknown) => void) => addAuthListener(cb)),
+  onIdTokenChanged: vi.fn((auth: { currentUser: unknown }, cb: (user: unknown) => void) =>
+    auth === webAuth ? addAuthListener(() => cb(webAuth.currentUser)) : addTokenListener(auth, cb)),
   signInWithPopup: mockSignInWithPopup,
   signInWithRedirect: vi.fn().mockResolvedValue(undefined),
   getRedirectResult: vi.fn().mockResolvedValue(null),
