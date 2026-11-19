@@ -30,7 +30,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
 
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ext="http://www.garmin.com/xmlschemas/ActivityExtension/v2">',
+    '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ext="http://www.garmin.com/xmlschemas/ActivityExtension/v2" xmlns:orider="urn:orider:tcx:observations:v1">',
     '<Activities>',
     `<Activity Sport="${sport.tcxSport}">`,
     `<Id>${startDate.toISOString()}</Id>`,
@@ -40,13 +40,15 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
     !activityTime || streams.latlng?.[index] != null || Number.isFinite(streams.distance?.[index])
     || Number.isFinite(streams.altitude?.[index]) || Number.isFinite(streams.heartrate?.[index])
     || Number.isFinite(streams.watts?.[index]) || Number.isFinite(streams.velocity_smooth?.[index]) || cadence.whole(streams.cadence?.[index]) != null);
+  const writeTrack = (first: number, end: number) => {
+    if (first === end) return;
+    lines.push('<Track>');
+    for (const index of indices.slice(first, end)) writeTrackpoint(lines, streams, index, startMs, relSecAt(index), cadence);
+    lines.push('</Track>');
+  };
   const writeLap = (when: number, duration: number, distance: number, calories: number, first: number, end: number) => {
     openLap(lines, when, duration, distance, calories);
-    if (first < end) {
-      lines.push('<Track>');
-      for (const index of indices.slice(first, end)) writeTrackpoint(lines, streams, index, startMs, relSecAt(index), cadence);
-      lines.push('</Track>');
-    }
+    writeTrack(first, end);
     lines.push('</Lap>');
   };
 
@@ -92,17 +94,27 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
   const remainder = allLapDistancesKnown && typeof totalDistance === "number" && Number.isFinite(totalDistance)
     && totalDistance >= recordedTotal ? totalDistance - recordedTotal : null;
   const unassignedDistance = remainder === 0 || unassigned.length === 1 ? remainder : null;
-  if (laps.length && (!unassigned.length || unassignedDistance !== null)) {
-    for (const lap of laps) writeLap(startMs + lap.start * 1000, lap.duration,
-      lap.distance ?? unassignedDistance ?? 0, 0, lap.first, lap.end);
+  if (laps.length) {
+    for (const lap of laps) {
+      const distance = lap.distance ?? unassignedDistance;
+      if (distance !== null) writeLap(startMs + lap.start * 1000, lap.duration, distance, 0, lap.first, lap.end);
+    }
+    if (unassigned.length && unassignedDistance === null) {
+      // Standard laps require a distance. Keep unassigned points in an activity extension
+      // when assigning individual distances would change the measurements.
+      lines.push('<Extensions>', '<orider:UnassignedTracks>');
+      const elapsed = summary.elapsedTimeMillis;
+      if (typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0) {
+        lines.push(`<orider:ActivityElapsedSeconds>${elapsed / 1000}</orider:ActivityElapsedSeconds>`);
+      }
+      if (typeof totalDistance === "number" && Number.isFinite(totalDistance) && totalDistance >= 0) {
+        lines.push(`<orider:ActivityDistanceMeters>${totalDistance}</orider:ActivityDistanceMeters>`);
+      }
+      for (const lap of unassigned) writeTrack(lap.first, lap.end);
+      lines.push('</orider:UnassignedTracks>', '</Extensions>');
+    }
   } else {
-    // TCX requires a distance for every lap. Preserve the activity total when the individual distance is unknown.
-    const recordedElapsed = typeof summary.elapsedTimeMillis === "number" && Number.isFinite(summary.elapsedTimeMillis)
-      ? summary.elapsedTimeMillis / 1000 : null;
-    const duration = laps.length
-      ? recordedElapsed ?? Math.max((summary.ridingTimeMillis || 0) / 1000, timedAt(indices.length - 1) ?? 0)
-      : (summary.ridingTimeMillis || 0) / 1000;
-    writeLap(startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
+    writeLap(startMs, (summary.ridingTimeMillis || 0) / 1000, summary.distance || 0, streams.calories || 0, 0, indices.length);
   }
 
   lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');

@@ -132,7 +132,7 @@ it("exports a speed-only observation in a recorded indoor lap", () => {
 });
 
 
-it("keeps the recorded elapsed time and distance if multiple unassigned laps cannot be measured", () => {
+it("preserves every recorded lap and keeps unassigned observations in a TCX extension", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {
     ridingTimeMillis: 9000, elapsedTimeMillis: 15_000, distance: 120,
@@ -145,7 +145,28 @@ it("keeps the recorded elapsed time and distance if multiple unassigned laps can
     ],
   } as ActivityStreams;
   const xml = generateTcx(activity, streams, "spm");
-  expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(1);
-  expect(xml).toContain("<DistanceMeters>120</DistanceMeters>");
-  expect(xml).toContain("<TotalTimeSeconds>15</TotalTimeSeconds>");
+  expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(2);
+  expect(xml.match(/<DistanceMeters>50<\/DistanceMeters>/gu)).toHaveLength(2);
+  const [, extension] = xml.split("<orider:UnassignedTracks>");
+  expect(extension).toContain("<orider:ActivityDistanceMeters>120</orider:ActivityDistanceMeters>");
+  expect(extension).toContain("<orider:ActivityElapsedSeconds>15</orider:ActivityElapsedSeconds>");
+  expect(extension).toContain(new Date(startTime + 7000).toISOString());
+  expect(extension).toContain(new Date(startTime + 15_000).toISOString());
+});
+
+
+it("preserves recorded distances even when there is no activity distance for the final points", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const streams = {
+    userId: "owner", time: [0, 30, 60, 61], heartrate: [150, 150, 150, 150],
+    laps: [
+      { startTimeMs: startTime, endTimeMs: startTime + 30_000, durationMs: 30_000, distanceKm: 1 },
+      { startTimeMs: startTime + 30_000, endTimeMs: startTime + 60_000, durationMs: 30_000, distanceKm: 1 },
+    ],
+  } as ActivityStreams;
+  const xml = generateTcx(activity, streams, "spm");
+  expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(2);
+  expect(xml.match(/<DistanceMeters>1000<\/DistanceMeters>/gu)).toHaveLength(2);
+  expect(xml.split("<orider:UnassignedTracks>")[1]).toContain(new Date(startTime + 61_000).toISOString());
 });
