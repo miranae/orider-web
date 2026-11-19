@@ -1,7 +1,11 @@
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getDoc } from "firebase/firestore";
 import type { Activity } from "@shared/types";
+import { FirebaseServicesProvider, useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
+import { markVerifiedStreamCadence, readStreamCadenceUnit } from "../../../services/activityStreamSource";
+import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
+import type { ReactNode } from "react";
 import { useActivityStreamsLoader } from "./useActivityStreamsLoader";
 const mocks = vi.hoisted(() => ({ streams: vi.fn() }));
 vi.mock("../../../services/publicActivityDetail", () => ({ createPublicActivityClient: () => mocks, isPublicActivityAccessError: (error: {code?: string}) => error.code === "functions/permission-denied" }));
@@ -9,6 +13,46 @@ const t = (key: string) => key;
 const getStreams = vi.fn();
 const activity = { id: "a", userId: "owner", source: "orider", type: "VirtualRide" } as Activity;
 beforeEach(() => { mocks.streams.mockReset(); getStreams.mockClear(); });
+afterEach(() => resetRuntimeConfigForTests());
+
+function renderLegacyOwnerRun(source: Activity["source"] = "orider") {
+  resetRuntimeConfigForTests({ appEnvironment: "production" });
+  const serviceTemplate = renderHook(() => useFirebaseServices());
+  const services = {
+    ...serviceTemplate.result.current,
+    auth: { currentUser: { uid: "owner" } } as ReturnType<typeof useFirebaseServices>["auth"],
+  };
+  serviceTemplate.unmount();
+  const run = { ...activity, source, type: "Run" } as Activity;
+  return renderHook(() => useActivityStreamsLoader({
+    activityId: run.id, activity: run, userId: "owner", getStreams, t,
+  }), { wrapper: ({ children }: { children: ReactNode }) => <FirebaseServicesProvider services={services}>{children}</FirebaseServicesProvider> });
+}
+
+it.each(["orider", "apple_health", "health_connect"] as const)("loads legacy owner %s runs together with their authorized cadence units", async source => {
+  const streams = markVerifiedStreamCadence({ time: [0, 1], cadence: [170, 172] }, "a".repeat(64), "spm");
+  mocks.streams.mockResolvedValueOnce({ activityId: "a", state: "available", streams });
+  const before = vi.mocked(getDoc).mock.calls.length;
+  const { result } = renderLegacyOwnerRun(source);
+  await waitFor(() => expect(result.current.streams?.cadence).toEqual([170, 172]));
+  expect(readStreamCadenceUnit(result.current.streams!)).toBe("spm");
+  expect(result.current.streams?.userId).toBe("owner");
+  expect(mocks.streams).toHaveBeenCalledExactlyOnceWith("a");
+  expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
+});
+
+it("does not fall back to cached streams after a revision change or access denial", async () => {
+  mocks.streams.mockResolvedValueOnce({ activityId: "a", state: "changed_input", streams: null })
+    .mockRejectedValueOnce({ code: "functions/permission-denied" });
+  const before = vi.mocked(getDoc).mock.calls.length;
+  const { result } = renderLegacyOwnerRun();
+  await waitFor(() => expect(result.current.streamsError).toBe("page.streamsMissing"));
+  await act(async () => { await result.current.retryStreams(); });
+  await waitFor(() => expect(result.current.streamsError).toBe("page.streamsMissing"));
+  expect(result.current.streams).toBeNull();
+  expect(mocks.streams).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
+});
 it("uses the authorized full-resolution reader without raw Firestore or provider reads, retaining streams on social refresh", async () => {
   const streams = { time: [0, .5, 1], watts: [200, 0, 150] };
   mocks.streams.mockResolvedValue({ state: "available", activityId: "a", streams });

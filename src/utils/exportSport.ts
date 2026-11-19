@@ -29,7 +29,7 @@ export interface ExportSport {
 
 // FIT SDK Profile 의 enum 값.
 const FIT_SPORT = { generic: 0, running: 1, cycling: 2, swimming: 5, walking: 11, hiking: 17 } as const;
-const FIT_SUB_SPORT = { generic: 0, virtualActivity: 58 } as const;
+const FIT_SUB_SPORT = { generic: 0, trail: 3, virtualActivity: 58 } as const;
 
 export function exportSportOf(activity: Pick<Activity, "type">): ExportSport {
   const type = typeof activity.type === "string" ? activity.type.trim().toLowerCase() : "";
@@ -41,8 +41,11 @@ export function exportSportOf(activity: Pick<Activity, "type">): ExportSport {
     return { fitSport: FIT_SPORT.hiking, fitSubSport: FIT_SUB_SPORT.generic, tcxSport: "Other", gpxType: "hiking", label: "Hike", footCadence: true };
   }
   switch (disciplineOfType(type === "indoor_cycling" ? "VirtualRide" : activity.type)) {
-    case "run":
-      return { fitSport: FIT_SPORT.running, fitSubSport: type === "virtualrun" ? FIT_SUB_SPORT.virtualActivity : FIT_SUB_SPORT.generic, tcxSport: "Running", gpxType: "running", label: "Run", footCadence: true };
+    case "run": {
+      const fitSubSport = type === "trailrun" ? FIT_SUB_SPORT.trail
+        : type === "virtualrun" ? FIT_SUB_SPORT.virtualActivity : FIT_SUB_SPORT.generic;
+      return { fitSport: FIT_SPORT.running, fitSubSport, tcxSport: "Running", gpxType: "running", label: "Run", footCadence: true };
+    }
     case "bike":
       return {
         fitSport: FIT_SPORT.cycling,

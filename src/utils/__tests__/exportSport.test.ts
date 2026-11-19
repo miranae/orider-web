@@ -4,7 +4,7 @@ import { exportFilename, exportSportOf } from '../exportSport';
 describe('exportSportOf', () => {
   it.each([
     ['Run', 1, 0, 'Running', 'running'],
-    ['TrailRun', 1, 0, 'Running', 'running'],
+    ['TrailRun', 1, 3, 'Running', 'running'],
     ['VirtualRun', 1, 58, 'Running', 'running'],
     ['Walk', 11, 0, 'Other', 'walking'],
     ['Hike', 17, 0, 'Other', 'hiking'],

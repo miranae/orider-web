@@ -167,10 +167,32 @@ export function useActivityStreamsLoader({
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-      loadCanonicalActivityStreams(activityId, activity.userId, services, { includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run", ...(sensorOriginId ? { useCanonicalApi: true } : {}) }).then((parsed) => {
-        if (active) setStreams(parsed);
+      const ownerRun = !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run";
+      const loadStoredStreams = () => loadCanonicalActivityStreams(activityId, activity.userId, services, {
+        includeRunEffortFacts: ownerRun,
+        useCanonicalApi: !!sensorOriginId,
+      });
+      const isCurrent = () => active && auth.currentUser === sdkUser;
+      const loadStreams = async () => {
+        if (!ownerRun || sdkUser?.uid !== userId || getRuntimeConfig().appEnvironment === "stage") return loadStoredStreams();
+        // Export consumes this payload and its revision-bound cadence unit together.
+        const result = await createPublicActivityClient(firebaseServices).streams(activityId).catch(error => {
+          if (!isCurrent() || isPublicActivityAccessError(error) || (error instanceof Error && error.message === "account_changed")) throw error;
+          logClientError("ActivityStreams.ownerCanonicalFallback", error, undefined, services);
+          return null;
+        });
+        if (!isCurrent()) return null;
+        if (result?.state === "available" && result.activityId === activityId && result.streams) {
+          return { ...result.streams, userId: activity.userId };
+        }
+        if (result && (result.activityId !== activityId || result.state === "changed_input")) throw new Error("STREAMS_MISSING");
+        if (result) debugLog("streams.owner_canonical_fallback", { state: result.state });
+        return loadStoredStreams();
+      };
+      loadStreams().then(parsed => {
+        if (isCurrent() && parsed) setStreams(parsed);
       }).catch((err) => {
-        if (!active) return;
+        if (!isCurrent()) return;
         logClientError("ActivityPage.streams", err, {
           activityId,
           source: source ?? "unknown",
