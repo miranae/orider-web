@@ -37,14 +37,17 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
     const absolute = absoluteMsAt(index);
     return absolute == null ? relativeAt(index) : Math.round((absolute - garminEpoch) / 1000) - startTimestamp;
   };
-  const endRel = relSecAt(len - 1);
-  const absoluteEnd = absoluteMsAt(len - 1);
+  let lastIndex = len - 1;
+  while (absoluteClock && lastIndex >= 0 && absoluteMsAt(lastIndex) == null) lastIndex--;
+  const endRel = relSecAt(lastIndex);
+  const absoluteEnd = absoluteMsAt(lastIndex);
   const lastObserved = readUnroundedFitEnd(streams)
     ?? (absoluteEnd == null ? endRel ?? 0 : (absoluteEnd - activity.startTime) / 1000);
   const recordedElapsed = resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000)));
   const legacyElapsed = activity.summary.ridingTimeMillis;
   const canUseLegacyElapsed = !preparedClock && (!absoluteClock || activity.summary.elapsedTimeMillis == null)
-    && typeof legacyElapsed === "number" && Number.isFinite(legacyElapsed) && legacyElapsed >= durationMs;
+    && typeof legacyElapsed === "number" && Number.isFinite(legacyElapsed)
+    && legacyElapsed >= Math.max(durationMs, absoluteClock ? Math.round(lastObserved * 1000) : 0);
   const elapsedMs = recordedElapsed ?? (canUseLegacyElapsed ? legacyElapsed : 0xFFFFFFFF);
   const endTimestamp = recordedElapsed != null
     ? timed ? Math.round(startSeconds + recordedElapsed / 1000) : startTimestamp + Math.round(recordedElapsed / 1000)
@@ -93,6 +96,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   buf.writeDefinition(0, 20, recordFields);
 
   for (let i = 0; i < len; i++) {
+    if (absoluteClock && absoluteMsAt(i) == null) continue;
     const recBytes: number[] = [];
     const relSec = relSecAt(i) ?? i; // null(샘플 누락) → 인덱스를 초로 근사
     recBytes.push(...uint32LE(startTimestamp + Math.round(relSec)));

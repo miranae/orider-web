@@ -489,3 +489,16 @@ it("does not infer a Strava clock for linked native sensor offsets", () => {
   expect(file.canExportAllAsTcx).toBe(false);
   expect(file.render("recorded")).not.toContain("<Value>199</Value>");
 });
+
+it("retains all Strava trackpoints in a summary lap when the complete observed clock matches the recorded timer", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, source: "strava", type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
+  const streams = { userId: "owner", time: [0, 60, 61, 120], heartrate: [150, 151, 152, 153],
+    laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }] } as ActivityStreams;
+  const result = prepareTcxExport(activity, streams);
+  expect(result.canKeepRecordedLaps).toBe(false);
+  expect(result.canExportAllAsTcx).toBe(true);
+  const xml = result.render("activity");
+  expect(xml).toContain("<TotalTimeSeconds>120</TotalTimeSeconds>");
+  expect(xml.match(/<Trackpoint>/gu)).toHaveLength(4);
+});

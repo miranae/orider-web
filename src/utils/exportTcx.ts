@@ -45,7 +45,8 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   // Where both clocks have identical origins and offsets, the stored samples can
   // be attached to those laps without resolving the legacy clock convention.
   const coincidentClocks = boundedLaps && nativeLapClock.every(lap => lap.start === lap.timerStart && lap.end === lap.timerEnd);
-  const activityTime = verifiedRelativeClock || recordedClock || coincidentClocks || (activity.source === "strava" && activitySensorOrigin(activity) == null);
+  const stravaElapsedClock = activity.source === "strava" && activitySensorOrigin(activity) == null;
+  const activityTime = verifiedRelativeClock || recordedClock || coincidentClocks || stravaElapsedClock;
   const hasNativeLapTimes = nativeLapClock.some(lap => Number.isFinite(lap.start) || Number.isFinite(lap.end));
   const ambiguousNativeClock = !activityTime && hasNativeLapTimes;
   const relSecAt = (index: number) => {
@@ -133,8 +134,12 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   }
   hasUnassigned ||= laps.length > 0 && (next < indices.length || !canKeepRecordedLaps);
   const validRecordedDuration = recordedDuration != null;
-  const summaryLapDuration = activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
-    ? recordedDuration : undefined;
+  const canUseCompleteStravaTimer = stravaElapsedClock && !recordedClock && !verifiedRelativeClock
+    && !hasNativeLapTimes && laps.length > 0 && summary.elapsedTimeMillis == null
+    && summary.ridingTimeMillis > 0 && summary.ridingTimeMillis === lapTimer * 1000
+    && timedAt(0) === 0 && lastObservation === lapTimer;
+  const summaryLapDuration = (activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
+    ? recordedDuration : undefined) ?? (canUseCompleteStravaTimer ? summary.ridingTimeMillis : undefined);
   const requiresCsv = !laps.length && activityTime && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
   const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0

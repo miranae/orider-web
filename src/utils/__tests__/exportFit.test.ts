@@ -341,3 +341,18 @@ it("leaves elapsed time missing when only a nonzero timer is recorded", () => {
   expect(session.get(7)).toBe(0xFFFFFFFF);
   expect(session.get(8)).toBe(60_000);
 });
+
+it("validates FIT totals against the last dated observation even when the final row has no timestamp", () => {
+  const startTime = 1_700_000_000_000;
+  const base = makeActivity({ startTime });
+  const strava = { ...base, source: "strava" as const,
+    summary: { ...base.summary, ridingTimeMillis: 60_000 } };
+  const samples = { userId: "owner", time: [startTime + 30_000, startTime + 90_000, null],
+    heartrate: [150, 152, 199] } as unknown as Parameters<typeof generateFit>[1];
+  for (const elapsedTimeMillis of [undefined, 75_000]) {
+    const activity = { ...strava, summary: { ...strava.summary, elapsedTimeMillis } };
+    const session = readSession(generateFit(activity, samples));
+    expect(session.get(7)).toBe(0xFFFFFFFF);
+    expect(session.get(253)! - session.get(2)!).toBe(90);
+  }
+});
