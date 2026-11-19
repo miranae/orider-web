@@ -1655,7 +1655,7 @@
     "formatGpxDesc": "GPS Exchange — universal GPS format",
     "formatCsvDesc": "Spreadsheet — for analysis in Excel/Google Sheets",
     "tcxLapsTitle": "TCX lap options",
-    "tcxLapsHelp": "Some samples fall outside the recorded laps. Keep the recorded laps or save all samples in one lap using the activity totals.",
+    "tcxLapsHelp": "Some samples cannot be assigned to recorded laps. Save only the recorded laps, or save all samples in one lap using the activity totals.",
     "tcxElapsedMissing": "The activity has no confirmed elapsed time for a TCX lap. You can save the recorded samples as CSV.",
     "tcxLapsUpdated": "The activity was updated, so the TCX keeps all recorded laps.",
     "tcxLapsMissingTotals": "Some samples are outside recorded laps, and the activity distance or duration is unknown. Keep the recorded laps or save every sample as CSV.",

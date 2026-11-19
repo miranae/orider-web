@@ -78,11 +78,8 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
     const nextObservedStart = Math.max(timedAt(next) ?? previousEnd, previousEnd);
-    const observedEnd = timedAt(indices.length - 1) ?? 0;
-    const latestPossibleEnd = recordedDuration == null ? observedEnd : Math.min(observedEnd, recordedDuration / 1000);
-    const observedPause = verifiedRelativeClock && duration > 0 && laps.length > 0 && timedAt(next - 1) === previousEnd
-      && nextObservedStart - previousEnd >= duration && nextObservedStart + duration <= latestPossibleEnd;
-    const start = recordedStart ?? (recordedEnd != null || (verifiedRelativeClock && !observedPause) ? previousEnd : nextObservedStart);
+    // A gap in the sensor grid does not tell us whether the athlete paused or the sensor stopped.
+    const start = recordedStart ?? (recordedEnd != null || verifiedRelativeClock ? previousEnd : nextObservedStart);
     const nextStartMs = streams.laps?.[lapIndex + 1]?.startTimeMs;
     const boundedByNextLap = recordedEnd == null && recordedStart != null && typeof nextStartMs === "number"
       && Number.isFinite(nextStartMs) && nextStartMs > startMs + start * 1000;

@@ -293,3 +293,29 @@ it("uses the exact raw response and time axis for both CSV routes", async () => 
   await act(async () => fireEvent.click(screen.getByText("CSV")));
   expect(mocks.csv.mock.calls).toEqual([[raw], [raw]]);
 });
+
+it("keeps the requested single-lap TCX when refreshed samples now fit the recorded laps", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
+  const laps = [{ durationMs: 60_000, distanceKm: 0.5 }, { durationMs: 60_000, distanceKm: 0.5 }];
+  const initial = { userId: "owner", time: [0, 60, 61, 120, 125], heartrate: [140, 150, 145, 146, 147], laps } as ActivityStreams;
+  const latest = { ...initial, time: [0, 60, 61, 120], heartrate: [140, 150, 145, 146] };
+  const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
+  const url = vi.spyOn(URL, "createObjectURL");
+  try {
+    render(<ExportTab activity={run} streams={initial} resolveCurrentStreams={resolve} />);
+    await act(async () => fireEvent.click(screen.getByText("TCX")));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples|모든 표본을 한 랩|tcxLapsChoice.activity/iu })));
+    const blob = url.mock.calls.at(-1)?.[0];
+    expect(blob).toBeInstanceOf(Blob);
+    const xml = await new Promise<string>((done, fail) => {
+      const reader = new FileReader();
+      reader.onload = () => done(String(reader.result));
+      reader.onerror = fail;
+      reader.readAsText(blob as Blob);
+    });
+    expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(1);
+    expect(xml).toContain("<DistanceMeters>1100</DistanceMeters>");
+  } finally {
+    url.mockRestore();
+  }
+});

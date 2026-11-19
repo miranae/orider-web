@@ -280,18 +280,19 @@ it("keeps the timer when a contradictory TCX elapsed total is shorter than it", 
   expect(tcx).toContain("<TotalTimeSeconds>60</TotalTimeSeconds>");
 });
 
-it("preserves a second lap across an observed pause after the first lap boundary", () => {
+it("leaves samples after an ambiguous gap unassigned without losing the full export option", () => {
   const startTime = 1_790_000_000_000;
-  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const activity = { startTime, type: "Run", summary: { distance: 1200, elapsedTimeMillis: 180_000 } } as Activity;
   const time = Array.from({ length: 181 }, (_, index) => index);
   const streams = markRawPartStreams({
     time, heartrate: time.map(index => index <= 60 || index >= 120 ? 150 : null),
     laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
   } as unknown as ActivityStreams, "e".repeat(64), startTime);
   const exportFile = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
-  expect(exportFile.hasUnassigned).toBe(false);
-  const [, , second] = exportFile.render("recorded").split(/<Lap StartTime="/u);
-  expect(second).toContain(new Date(startTime + 180_000).toISOString());
+  expect(exportFile.hasUnassigned).toBe(true);
+  expect(exportFile.canExportAllAsTcx).toBe(true);
+  expect(exportFile.render("recorded")).not.toContain(new Date(startTime + 180_000).toISOString());
+  expect(exportFile.render("activity")).toContain(new Date(startTime + 180_000).toISOString());
 });
 
 it("does not turn late sparse points into a lap ending after the recorded activity", () => {

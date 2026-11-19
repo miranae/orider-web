@@ -147,10 +147,12 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           }
           clearCadencePrompt();
           setTcxPrompt(null);
-          const mode = prepared.hasUnassigned && tcxMode === "activity" ? "activity" : "recorded";
+          const mode = tcxMode === "activity" && prepared.canExportAllAsTcx ? "activity" : "recorded";
           const xml = prepared.render(mode);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(fileActivity, "tcx"));
-          if (!prepared.hasUnassigned && tcxMode) showToast(t("export.tcxLapsUpdated"), "info");
+          if (!prepared.hasUnassigned && tcxMode === "activity" && mode !== "activity") {
+            showToast(t("export.tcxLapsUpdated"), "info");
+          }
           break;
         }
         case "csv": {
