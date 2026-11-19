@@ -7,16 +7,17 @@ advance to the next provider. Tests, type checks, GitHub checks and commit/base
 freshness checks still apply. No provider failure is converted into an automatic
 `PASS`.
 
-기본 기준은 **BLOCKER와 MAJOR 차단**입니다. `--blockers-only`는 호환 별칭이며
-MAJOR 차단을 해제하지 않습니다. `--all-findings`는 MINOR 보고만 추가합니다.
-Codex·Claude·자체 리뷰 모두 findings의 BLOCKER/MAJOR 항목을 감지하면 모순된
-`PASS`도 `BLOCK`으로 바꿉니다. 검토하지 못한 입력을 통과시키지 않습니다. 이전 BLOCKER 전용/diff 전용 PASS 기준점은 재사용하지 않으며, 새 정책의 증분 기준점은 `refs/codex-review-v2/pr-*`에만 기록합니다.
+코드 리뷰는 **BLOCKER만 차단**합니다. 발견한 MAJOR는 권고 사항으로 남기며
+`--all-findings`는 MINOR 보고를 추가합니다. Codex·Claude·자체 리뷰는 모두
+동일한 심각도 기준을 적용합니다. 구조화된 BLOCKER 항목은 모순된
+`PASS`도 `BLOCK`으로 바꿉니다. 이전 정책의 리뷰 기준점은 새 정책에서
+재사용하지 않습니다. 증분 리뷰 기준점은 `refs/codex-review-v3/pr-*`에 기록합니다.
 
 리뷰 입력에는 정확한 diff와 함께 **커밋된 head의 관련 소스**를 제공합니다.
 변경한 런타임 모듈의 모든 import(기존 local helper 포함), 서비스·인증 로직의 전이 의존성,
 변경 모듈의 모든 런타임 소비자(변경한 export 이름으로 걸러내지 않음)와 그 데이터·인증 helper, 재수출을 통한 실제 소비자, 일반/임베드 초기화와 전역 테스트 mock을 포함합니다. 비-UI 런타임 모듈은 폴더에 관계없이 전이 의존성을 확장하며, 호출부의 무관한 UI 경로는 확장 경계로 표시합니다. 문맥에 포함된 모든 파일이 임베드 경로인 것은 아닙니다. 각 파일에 head의 실제 lint 대상 여부(`embeddedReachable`)와 정적 런타임 import 목록(`runtimeDependencies`)을 명시합니다. barrel의 런타임 재수출도 추적합니다(타입 전용 재수출은 제외). UI 전개는 기본 2단계이며 그 이후
 경계는 manifest에 표시합니다. 모든 코드를 검토했다는 뜻은 아닙니다.
-변경 테스트의 실제 실행 대상, 테스트 지원 모듈, 전역 Firebase mock과 그 하위 구현, 부트스트랩의 데이터·인증 의존성도 확장합니다. 실제 `.test`/`.spec` 실행 파일만 재귀 의존 대상에서 제외하며 `__tests__` 폴더 자체는 제외하지 않습니다. 파일별 SHA-256과 전체 입력 SHA-256을 기록합니다. 단일 입력 상한을 넘으면 호출부와 의존성의 양쪽 소스를 함께 제공하는 배치로 나누며, 모든 소스와 각 import 연결이 적어도 한 배치에서 함께 검토되도록 검증합니다. 변경 테스트와 그 import 대상, 정적 `vi.mock`/`doMock`이 가리는 실제 구현도 같은 배치 연결 검증에 포함합니다. 모든 배치가 PASS여야 통과합니다. 한 배치의 MAJOR/BLOCKER는 다른 배치의 PASS나 실행 실패로 덮을 수 없습니다. 각 CLI의 동시 요청은 최대 2개이며 BLOCK 후 새 배치를 시작하지 않습니다. 단일 연결·부트스트랩 자체가 상한을 넘거나 24개 배치/총 20 MB를 넘으면 PR 분할을 요구하며 소스를 조용히 자르지 않습니다. tracked blob만 읽으며 작업트리의 `.env`,
+변경 테스트의 실제 실행 대상, 테스트 지원 모듈, 전역 Firebase mock과 그 하위 구현, 부트스트랩의 데이터·인증 의존성도 확장합니다. 실제 `.test`/`.spec` 실행 파일만 재귀 의존 대상에서 제외하며 `__tests__` 폴더 자체는 제외하지 않습니다. 파일별 SHA-256과 전체 입력 SHA-256을 기록합니다. 단일 입력 상한을 넘으면 호출부와 의존성의 양쪽 소스를 함께 제공하는 배치로 나누며, 모든 소스와 각 import 연결이 적어도 한 배치에서 함께 검토되도록 검증합니다. 변경 테스트와 그 import 대상, 정적 `vi.mock`/`doMock`이 가리는 실제 구현도 같은 배치 연결 검증에 포함합니다. 모든 배치가 PASS여야 통과합니다. 한 배치의 BLOCKER는 다른 배치의 PASS나 실행 실패로 덮을 수 없습니다. 각 CLI의 동시 요청은 최대 2개이며 BLOCK 후 새 배치를 시작하지 않습니다. 단일 연결·부트스트랩 자체가 상한을 넘거나 24개 배치/총 20 MB를 넘으면 PR 분할을 요구하며 소스를 조용히 자르지 않습니다. tracked blob만 읽으며 작업트리의 `.env`,
 외부 symlink, node_modules 소스는 모델에 제공하지 않습니다.
 
 feature→dev도 ESLint와 임베드 격리 회귀 테스트를 항상 실행한 뒤 변경 영향

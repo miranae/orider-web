@@ -8,7 +8,7 @@ import { IsolationError, reviewProviderBatches, claudeJsonSchema, parseReview, r
 function fixture(t) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "merge-review-")));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const binding = reviewBinding({ pr: 42, head: "a".repeat(40), base: "b".repeat(40), baseRef: "dev", reviewFrom: "b".repeat(40), scope: "major-and-blocker" }, "real diff\n", "review prompt and diff");
+  const binding = reviewBinding({ pr: 42, head: "a".repeat(40), base: "b".repeat(40), baseRef: "dev", reviewFrom: "b".repeat(40), scope: "blockers-only" }, "real diff\n", "review prompt and diff");
   return { root, binding, diff: "real diff\n", input: "review prompt and diff", evidenceDir: join(root, "evidence") };
 }
 const result = (verdict, code = 0) => ({ code, stdout: JSON.stringify({ verdict, findings: verdict === "BLOCK" ? "BLOCKER src/file.ts:1 broken" : "결함 없음" }) });
@@ -138,24 +138,30 @@ test("Claude schema drops only the draft 2020-12 declaration the CLI rejects", (
   assert.deepEqual(JSON.parse(claudeJsonSchema(source)), rest);
 });
 
-test("MAJOR findings override a contradictory PASS for Codex, Claude and self review", async t => {
-  for (const findings of ["MAJOR src/page.ts:1 undefined Firebase", "- **MAJOR** src/page.ts:1 pagination fails", "### [MAJOR] src/page.ts:1 broken", "1. BLOCKER src/page.ts:1 account leak"]) {
-    const response = { verdict: "PASS", findings };
-    assert.equal(parseReview(JSON.stringify(response)).verdict, "BLOCK");
-    assert.equal(parseReview(JSON.stringify({ structured_output: response }), "claude").verdict, "BLOCK");
+test("the finding severity controls Codex, Claude and self review verdicts", async t => {
+  const cases = [
+    ["MAJOR src/page.ts:1 undefined Firebase", "BLOCK", "PASS"],
+    ["- **MAJOR** src/page.ts:1 pagination fails", "BLOCK", "PASS"],
+    ["### [MAJOR] src/page.ts:1 broken", "PASS", "PASS"],
+    ["1. BLOCKER src/page.ts:1 account leak", "PASS", "BLOCK"],
+    ["MAJOR src/page.ts:1 broken\n- [**BLOCKER**] src/page.ts:2 account leak", "PASS", "BLOCK"],
+  ];
+  for (const [findings, verdict, expected] of cases) {
+    const response = { verdict, findings };
+    assert.deepEqual(parseReview(JSON.stringify(response)), { findings, verdict: expected });
+    assert.equal(parseReview(JSON.stringify({ structured_output: response }), "claude").verdict, expected);
     const f = fixture(t);
-    assert.equal(validateSelfReview({ ...report(f.binding), ...response }, f.binding).verdict, "BLOCK");
-    let fallback = false;
+    assert.equal(validateSelfReview({ ...report(f.binding), ...response }, f.binding).verdict, expected);
     const result = await reviewWithFallback({ ...f, providers: [
       { name: "codex", run: async () => ({ code: 0, stdout: JSON.stringify(response) }) },
-      { name: "claude", run: async () => { fallback = true; return unavailable(); } },
+      { name: "claude", run: async () => assert.fail("a valid review needs no fallback") },
     ] });
-    assert.equal(result.state, "BLOCK"); assert.equal(fallback, false);
+    assert.equal(result.state, expected);
   }
 });
 
 test("review evidence binds dependency context and prompt policy as well as the diff", t => {
-  const f = fixture(t), request = { pr: 42, head: "a", base: "b", scope: "major-and-blocker" };
+  const f = fixture(t), request = { pr: 42, head: "a", base: "b", scope: "blockers-only" };
   const first = reviewBinding(request, "same diff", "policy and dependency source A");
   const next = reviewBinding(request, "same diff", "policy and dependency source B");
   assert.equal(first.diffSha256, next.diffSha256);
@@ -175,10 +181,10 @@ test("every batch must pass and concurrency stays bounded", async () => {
   assert.equal(actual.batches.length, 3); assert.equal(maximum, 2); assert.equal(seen.length, 3);
 });
 
-test("a batch MAJOR blocks the entire review even beside an unavailable batch, without Claude override", async t => {
+test("a batch BLOCKER blocks the entire review even beside an unavailable batch, without Claude override", async t => {
   const f = fixture(t); let claude = false;
   const actual = await reviewWithFallback({ ...f, providers: [
-    { name: "codex", run: () => reviewProviderBatches(["a", "b", "c"], "codex", async (_input, index) => index === 0 ? unavailable() : index === 1 ? { code: 0, stdout: JSON.stringify({ verdict: "PASS", findings: "MAJOR src/helper.ts:1 missing scoped services" }) } : result("PASS")) },
+    { name: "codex", run: () => reviewProviderBatches(["a", "b", "c"], "codex", async (_input, index) => index === 0 ? unavailable() : index === 1 ? { code: 0, stdout: JSON.stringify({ verdict: "PASS", findings: "BLOCKER src/helper.ts:1 account data exposed" }) } : result("PASS")) },
     { name: "claude", run: async () => { claude = true; return result("PASS"); } },
   ] });
   assert.equal(actual.state, "BLOCK"); assert.equal(claude, false);
