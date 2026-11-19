@@ -32,7 +32,10 @@ vi.mock("../../hooks/useGroup", () => ({ useGroup: () => ({ group: null, loading
 vi.mock("../../hooks/useGroupNextEvents", () => ({ useGroupNextEvents: () => ({ byGroup: {}, eventByGroup: {} }) }));
 vi.mock("../../features/event/detail/cancelRegistration", () => ({ cancelEventRegistration: vi.fn(async () => {}) }));
 
-function simulateLogin(value: { uid: string }) { mockLogin(value); auth.currentUser = getCurrentUser() as unknown as User; }
+function simulateLogin(value: { uid: string }) {
+  mockLogin(value);
+  auth.currentUser = { ...getCurrentUser(), getIdTokenResult: user.getIdTokenResult } as unknown as User;
+}
 function simulateLogout() { mockLogout(); auth.currentUser = null; }
 
 let navigateRoute: ReturnType<typeof useNavigate>;
@@ -652,6 +655,18 @@ describe("event participant privacy boundaries", () => {
     show(<EventDetailPage />);
     expect(await screen.findByRole("button", { name: `+ ${eventStrings["button.register"]}` })).toBeEnabled();
     expect(screen.queryByRole("button", { name: eventStrings["detail.button.cancelRegistration"] })).toBeNull();
+  });
+
+  it("does not read private results while the SDK and organizer context disagree", async () => {
+    const event = mockDocData.get("events/ev")!;
+    mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), creatorId: "actor", type: "GROUP_RIDE" } });
+    simulateLogin({ uid: "replacement" });
+
+    show(<EventResultsPage />);
+    await act(async () => { await Promise.resolve(); });
+
+    expect(user.getIdTokenResult).not.toHaveBeenCalled();
+    expect(vi.mocked(getDocs).mock.calls.some(([q]) => collectionPath(q) === "events/ev/participants")).toBe(false);
   });
 
   it.each(["host", "admin"])("preserves authorized %s private results without private user profiles", async (role) => {
