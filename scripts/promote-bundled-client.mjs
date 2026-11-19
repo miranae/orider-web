@@ -116,6 +116,7 @@ export async function verifyClientPromotion(options, fetcher = fetch) {
   // Check reachability and the login callable for the production browser origin.
   await Promise.all([
     verifyGatewayReadiness(`${receipt.runtime.firebaseFunctionsBase}/readyz`, fetcher),
+    verifyBundledCallable({ base: receipt.runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "getActivityDiscovery", fetcher }),
     verifyBundledCallable({
       base: receipt.runtime.socialAuthFunctionsBase, origin: "https://orider.co.kr", name: "socialAuthStart", fetcher,
       responseContract: [

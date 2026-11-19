@@ -85,16 +85,18 @@ test("checks gateway readiness and the login route without binding the backend c
       calls.push([path, init.method ?? "GET"]);
       if (path === "/readyz") return Response.json({status:"ok",sourceSha:"e".repeat(40),topologyHash:"f".repeat(64)});
       if (init.method === "OPTIONS") return new Response(null, {status:204,headers});
-      return Response.json({error:{status:"INVALID_ARGUMENT"}}, {status:400,headers});
+      return path === "/getActivityDiscovery"
+        ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers})
+        : Response.json({error:{status:"INVALID_ARGUMENT"}}, {status:400,headers});
     };
     await verifyClientPromotion(f,fetcher);
-    assert.deepEqual(calls,[["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"]]);
+    assert.deepEqual(calls.sort(),[["/getActivityDiscovery","OPTIONS"],["/getActivityDiscovery","POST"],["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"]]);
     await verifyClientPromotion(f,async(url,init)=>init.method === "POST"
       ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers})
       : fetcher(url,init));
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("not ready",{status:503}) : fetcher(url,init)),/unavailable/);
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("<html>error</html>") : fetcher(url,init)),/response body is invalid.*\/readyz/);
-    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" ? new Response(null,{status:404}) : fetcher(url,init)),/socialAuthStart browser preflight rejected/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && url.endsWith("/socialAuthStart") ? new Response(null,{status:404}) : fetcher(url,init)),/socialAuthStart browser preflight rejected/);
   }finally{f.cleanup();}
 });
 
