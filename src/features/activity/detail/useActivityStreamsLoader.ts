@@ -29,7 +29,7 @@ interface UseActivityStreamsLoaderArgs {
   activityId: string | undefined;
   activity: Activity | null;
   userId: string | undefined;
-  getStreams: (stravaId: number) => Promise<unknown>;
+  getStreams: (stravaId: number, options?: { includeCadenceUnit?: boolean }) => Promise<unknown>;
   t: (key: string) => string;
   enabled?: boolean;
   publicAccess?: boolean;
@@ -194,7 +194,9 @@ export function useActivityStreamsLoader({
     setLoadingStreams(true);
     setStreamsError(null);
     const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-    getStreams(stravaId).then((data) => {
+    const providerStreams = userId && userId === activity.userId && disciplineOfType(activity.type) === "run"
+      ? getStreams(stravaId, { includeCadenceUnit: true }) : getStreams(stravaId);
+    providerStreams.then((data) => {
       if (active) setStreams(data as unknown as ActivityStreams);
     }).catch((err) => {
       if (!active) return;

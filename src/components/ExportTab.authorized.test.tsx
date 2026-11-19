@@ -3,13 +3,13 @@ import { beforeEach, expect, it, vi } from "vitest";
 import ExportTab from "./ExportTab";
 import { markVerifiedStreamCadence } from "../services/activityStreamSource";
 import type { Activity } from "@shared/types";
-const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new Uint8Array()), toast: vi.fn(), log: vi.fn() }));
+const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new Uint8Array()), toast: vi.fn() }));
 vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
 vi.mock("../utils/exportCsv", () => ({ generateCsv: mocks.csv }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.toast }) }));
-vi.mock("../services/errorLogger", () => ({ logClientError: mocks.log }));
+vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 const activity = { id: "a", description: "Ride", startTime: 1792800000000 } as Activity;
-beforeEach(() => { mocks.csv.mockClear(); mocks.fit.mockClear(); mocks.toast.mockClear(); mocks.log.mockClear(); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {}); });
+beforeEach(() => { mocks.csv.mockClear(); mocks.fit.mockClear(); mocks.toast.mockClear(); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {}); });
 it("exports the newly authorized streams rather than cached props", async () => {
   const current = { watts: [0, 200], time: [0, 1] };
   const resolve = vi.fn().mockResolvedValue(current);
@@ -44,104 +44,24 @@ it.each([
   expect(mocks.fit).toHaveBeenCalledWith(run, current, expected);
 });
 
-it("verifies legacy owner Strava cadence without replacing the other cached samples", async () => {
+it("exports the displayed owner stream with the unit delivered alongside its samples", async () => {
   const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const before = { userId: "owner", time: [0], heartrate: [142], cadence: [84] };
-  const current = markVerifiedStreamCadence({ userId: "owner", cadence: [84] }, "b".repeat(64), "strides_per_minute");
-  const resolveOwnerCadenceStreams = vi.fn().mockResolvedValue(current);
-  render(<ExportTab activity={run} streams={before} resolveOwnerCadenceStreams={resolveOwnerCadenceStreams} />);
-  await act(async () => fireEvent.click(screen.getByText("CSV")));
-  expect(resolveOwnerCadenceStreams).not.toHaveBeenCalled();
-  expect(mocks.csv).toHaveBeenCalledWith(before);
+  const ownerStream = markVerifiedStreamCadence({ userId: "owner", time: [0], heartrate: [142], cadence: [84] },
+    "b".repeat(64), "strides_per_minute");
+  render(<ExportTab activity={run} streams={ownerStream} />);
   await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(resolveOwnerCadenceStreams).toHaveBeenCalledOnce();
-  expect(mocks.fit).toHaveBeenCalledWith(run, before, "strides_per_minute");
+  expect(mocks.fit).toHaveBeenCalledWith(run, ownerStream, "strides_per_minute");
 });
 
-it("does not attach a unit to legacy owner samples when the returned cadence differs", async () => {
-  const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const before = { userId: "owner", time: [0], cadence: [170] };
-  const current = markVerifiedStreamCadence({ userId: "owner", cadence: [85] }, "b".repeat(64), "strides_per_minute");
-  render(<ExportTab activity={run} streams={before} resolveOwnerCadenceStreams={async () => current} />);
-  await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(mocks.fit).toHaveBeenCalledWith(run, before, undefined);
-});
-
-it.each([null, new Error("activity_request_timeout"),
-  Object.assign(new Error("provider failure"), { code: "functions/internal" })])("exports an owner run when the cadence lookup cannot return a unit (%s)", async (failure) => {
-  const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const cached = { userId: "owner", time: [0], cadence: [84] };
-  const lookup = failure ? vi.fn().mockRejectedValue(failure) : vi.fn().mockResolvedValue(null);
-  const view = render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} />);
-  await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(lookup).toHaveBeenCalledOnce();
-  expect(mocks.fit).toHaveBeenCalledWith(run, cached, undefined);
-  lookup.mockClear();
-  const malformed = { ...cached, cadence: { 0: 85, length: 1 } } as unknown as typeof cached;
-  view.rerender(<ExportTab activity={run} streams={malformed} resolveOwnerCadenceStreams={lookup} />);
-  await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(lookup).not.toHaveBeenCalled();
-  expect(mocks.fit).toHaveBeenCalledTimes(2);
-});
-
-it("drops an owner export from a replaced resolver scope", async () => {
-  const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const cached = { userId: "owner", time: [0], cadence: [84] };
-  let finish!: (value: typeof cached) => void;
-  const lookup = () => new Promise<typeof cached>(resolve => { finish = resolve; });
-  const view = render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} />);
-  fireEvent.click(screen.getByText("FIT"));
-  view.rerender(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={async () => null} />);
-  await act(async () => finish(cached));
-  expect(mocks.fit).not.toHaveBeenCalled();
-});
-
-it("does not use cached samples when owner cadence authorization is denied", async () => {
-  const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const cached = { userId: "owner", time: [0], cadence: [84] };
-  const denied = Object.assign(new Error("permission denied"), { code: "functions/permission-denied" });
-  render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={async () => { throw denied; }} />);
-  await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(mocks.fit).not.toHaveBeenCalled();
-  expect(mocks.toast).toHaveBeenCalled();
-});
-
-it("checks the live account again before writing a delayed owner file", async () => {
+it("checks the live account again before writing a delayed public file", async () => {
   const run = { ...activity, type: "Run", source: "orider" } as Activity;
   const cached = { userId: "owner", time: [0], cadence: [170] };
   let account = { uid: "owner" };
   let finish!: (value: typeof cached) => void;
   const lookup = () => new Promise<typeof cached>(resolve => { finish = resolve; });
-  render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} getExportAccount={() => account} />);
+  render(<ExportTab activity={run} streams={cached} resolveCurrentStreams={lookup} getExportAccount={() => account} />);
   fireEvent.click(screen.getByText("FIT"));
   account = { uid: "next" };
-  await act(async () => finish(cached));
-  expect(mocks.fit).not.toHaveBeenCalled();
-});
-
-it("records a delayed owner lookup failure after leaving the detail", async () => {
-  const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const cached = { userId: "owner", time: [0], cadence: [85] };
-  let fail!: (error: Error) => void;
-  const lookup = () => new Promise<never>((_resolve, reject) => { fail = reject; });
-  const view = render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} />);
-  fireEvent.click(screen.getByText("FIT"));
-  view.unmount();
-  const error = new Error("activity_request_timeout");
-  await act(async () => fail(error));
-  expect(mocks.log).toHaveBeenCalledExactlyOnceWith("ExportTab.ownerCadenceLookup", error, undefined);
-  expect(mocks.fit).not.toHaveBeenCalled();
-  expect(mocks.toast).not.toHaveBeenCalled();
-});
-
-it("does not download an owner stream that was replaced during lookup", async () => {
-  const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const cached = { userId: "owner", time: [0], cadence: [84] };
-  let finish!: (value: typeof cached) => void;
-  const lookup = () => new Promise<typeof cached>(resolve => { finish = resolve; });
-  const view = render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} />);
-  fireEvent.click(screen.getByText("FIT"));
-  view.rerender(<ExportTab activity={run} streams={{ ...cached, cadence: [85] }} resolveOwnerCadenceStreams={lookup} />);
   await act(async () => finish(cached));
   expect(mocks.fit).not.toHaveBeenCalled();
 });

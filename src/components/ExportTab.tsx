@@ -8,14 +8,12 @@ import { generateGpx } from "../utils/exportGpx";
 import { exportFilename } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
 import { readStreamCadenceUnit } from "../services/activityStreamSource";
-import { isPublicActivityAccessError } from "../services/publicActivityDetail";
 import { logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
   resolveCurrentStreams?: () => Promise<ActivityStreams>;
-  resolveOwnerCadenceStreams?: () => Promise<ActivityStreams | null>;
   getExportAccount?: () => object | null;
 }
 
@@ -37,46 +35,20 @@ const FORMATS = [
   { id: "csv", label: "CSV", descKey: "export.formatCsvDesc", icon: "📊" },
 ] as const;
 
-export default function ExportTab({ activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount }: ExportTabProps) {
+export default function ExportTab({ activity, streams, resolveCurrentStreams, getExportAccount }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
-  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount]);
+  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity, streams, resolveCurrentStreams, getExportAccount]);
 
   const handleExport = useCallback(async (format: string) => {
     const request = generation.current;
     const account = getExportAccount?.();
     const stillCurrent = () => request === generation.current && getExportAccount?.() === account;
     try {
-      const cadenceFormat = format === "fit" || format === "tcx";
-      const cachedCadence = Array.isArray(streams.cadence) ? streams.cadence : null;
-      const needsOwnerCadence = cadenceFormat && readStreamCadenceUnit(streams) === undefined
-        && cachedCadence?.some(value => Number.isFinite(value) && value >= 0);
-      let currentStreams = streams;
-      let fileCadenceUnit = readStreamCadenceUnit(streams);
-      if (resolveCurrentStreams) {
-        currentStreams = await resolveCurrentStreams();
-        fileCadenceUnit = readStreamCadenceUnit(currentStreams);
-      } else if (needsOwnerCadence && cachedCadence && resolveOwnerCadenceStreams) {
-        try {
-          const verified = await resolveOwnerCadenceStreams();
-          const cadence = verified?.cadence;
-          // The owner may have richer cached GPS and sensor channels. Reuse only the unit for identical samples.
-          if (verified && Array.isArray(cadence) && cadence.length === cachedCadence.length
-            && cachedCadence.every((sample, index) => sample === cadence[index])) {
-            fileCadenceUnit = readStreamCadenceUnit(verified);
-          }
-        } catch (error) {
-          const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-          const scopeChanged = error instanceof Error && ["account_changed", "activity_stream_changed"].includes(error.message);
-          const denied = scopeChanged || isPublicActivityAccessError(error) || code === "functions/unauthenticated";
-          const current = stillCurrent();
-          if (denied && current) throw error;
-          logClientError("ExportTab.ownerCadenceLookup", error, current ? { activityId: activity.id } : undefined);
-          if (!current) return;
-        }
-      }
+      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
       if (!stillCurrent()) return;
+      const fileCadenceUnit = readStreamCadenceUnit(currentStreams);
       switch (format) {
         case "fit": {
           const data = generateFit(activity, currentStreams, fileCadenceUnit);
@@ -107,7 +79,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, getExportAccount, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

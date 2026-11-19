@@ -6,7 +6,7 @@ import { ActivityReanalysisControl } from "../features/activity/detail/ActivityR
 import type { JourneyOutcome } from "../services/journeyMeasurement";
 import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
 import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
-import { createPublicActivityClient, isPublicActivityAccessError } from "../services/publicActivityDetail";
+import { isPublicActivityAccessError } from "../services/publicActivityDetail";
 import { useAuthorizedActivityComments } from "../features/activity/detail/useAuthorizedActivityComments";
 import { ActivityPublicAccess, type ActivityPublicAccessState } from "../features/activity/detail/ActivityPublicAccess";
 import type { PublicActivitySessionOptions } from "../hooks/usePublicActivitySession";
@@ -211,21 +211,6 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // Photo upload/delete
   const photoServices = useFirebaseServices();
   const getExportAccount = useCallback(() => photoServices.auth.currentUser, [photoServices.auth]);
-  const getOwnerExportStreams = useCallback(async () => {
-    const viewer = photoServices.auth.currentUser;
-    if (!activityId || !isActivityOwner || !viewer || viewer.uid !== activity?.userId) throw new Error("account_changed");
-    const response = await createPublicActivityClient(photoServices).streams(activityId);
-    if (response.state === "changed_input") throw new Error("activity_stream_changed");
-    if (response.state !== "available" || !response.streams) {
-      const reason = typeof response.reason === "string" && /^[a-z_]{1,64}$/u.test(response.reason) ? response.reason : undefined;
-      logClientError("ActivityPage.ownerExportCadenceUnavailable", new Error("owner_export_cadence_stream_unavailable"), {
-        state: response.state, reason,
-        ...(photoServices.auth.currentUser === viewer ? { activityId } : {}),
-      });
-      return null;
-    }
-    return response.streams;
-  }, [activityId, activity?.userId, isActivityOwner, photoServices]);
   const uploadedPhotoIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}`;
   const [publicPhotosBusy, setPublicPhotosBusy] = useState(false);
   const [publicPhotosError, setPublicPhotosError] = useState<string | null>(null);
@@ -1547,7 +1532,6 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <div>
         {streams ? <ExportTab activity={activity} streams={streams}
           getExportAccount={getExportAccount}
-          resolveOwnerCadenceStreams={!publicAccess && isActivityOwner && sport === "run" ? getOwnerExportStreams : undefined}
           resolveCurrentStreams={publicAccess ? async () => {
           const result = await publicAccess.session.client.streams(activity.id);
           if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");

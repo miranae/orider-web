@@ -20,7 +20,12 @@ type CadenceUnit = ActivityMetrics["cadenceUnit"];
 type StreamsWithCadenceUnit = ActivityStreams & { [streamCadenceUnit]: CadenceUnit };
 
 export function markVerifiedStreamCadence(streams: ActivityStreams, revision: unknown, unit: unknown): ActivityStreams {
-  if (typeof revision !== "string" || !/^[a-f0-9]{64}$/u.test(revision) || unit === undefined) return streams;
+  if (typeof revision !== "string" || !/^[a-f0-9]{64}$/u.test(revision)) return streams;
+  return markStreamCadenceUnit(streams, unit);
+}
+
+export function markStreamCadenceUnit(streams: ActivityStreams, unit: unknown): ActivityStreams {
+  if (unit === undefined) return streams;
   const verified = unit === "rpm" || unit === "spm" || unit === "strides_per_minute" ? unit : null;
   const marked: StreamsWithCadenceUnit = { ...streams, [streamCadenceUnit]: verified };
   return marked;
