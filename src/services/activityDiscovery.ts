@@ -30,10 +30,10 @@ type DiscoveryPage = Omit<ActivityDiscoveryResponse,'items'>&{items:DiscoveryAct
 export async function loadActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,signal?:AbortSignal):Promise<DiscoveryPage>{
  const controller = new AbortController();
  let active=true, rejectAbort: (error: Error)=>void = () => {};
- const stop = (message: string) => { active=false; rejectAbort(Error(message)); controller.abort(); };
+ const stop = (message: string, reason?: DOMException) => { active=false; rejectAbort(Error(message)); controller.abort(reason); };
  const abort = () => stop('request_aborted');
  const aborted = new Promise<never>((_,reject)=>{rejectAbort=reject;});
- const timer=setTimeout(()=>stop('request_timeout'),15000);
+ const timer=setTimeout(()=>stop('request_timeout',new DOMException('request_timeout','TimeoutError')),15000);
  signal?.addEventListener('abort',abort,{once:true});
  if(signal?.aborted)abort();
  try { return await Promise.race([readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');},controller.signal),aborted]); }
@@ -50,7 +50,8 @@ async function readActivityDiscovery(services:FirebaseServices,request:ActivityD
   if(services.auth.app!==app||services.auth.currentUser!==viewer||viewer?.metadata?.lastSignInTime!==signedInAt
    ||(embedded?approval!==true:approval===false))throw Error('account_changed');
  };
- assertCurrent();await services.ensureAppCheckReady();assertCurrent();
+ assertCurrent();
+ if(!embedded){await services.ensureAppCheckReady();assertCurrent();}
  const data=embedded
   ? await callApprovedActivityRead<ActivityDiscoveryResponse>(services,viewer,'getActivityDiscovery','asia-northeast3',request,assertCurrent,signal)
   : await fetchSdkDiscovery(services,request);

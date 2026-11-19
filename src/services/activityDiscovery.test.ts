@@ -91,6 +91,31 @@ it('records transport failures and preserves permission errors from non-JSON gat
  } finally { request.mockRestore(); report.mockRestore(); }
 });
 
+it('records embedded App Check rejection and separately records token readiness timeouts', async () => {
+ bundled('development');
+ const check = vi.fn().mockRejectedValueOnce(new Error('mock-check-failed'));
+ const embedded = { ...services, scope: 'embedded' as const,
+  auth: { ...services.auth, currentUser: null }, isSessionApproved: () => true, getAppCheckToken: check };
+ const report = vi.spyOn(errorLogger, 'logClientError').mockImplementation(() => undefined);
+ const request = vi.spyOn(globalThis, 'fetch');
+ try {
+  await expect(loadActivityDiscovery(embedded, { scope: 'all' })).rejects.toThrow('mock-check-failed');
+  vi.useFakeTimers();
+  let resolveCheck!: (token: string) => void;
+  check.mockImplementationOnce(() => new Promise<string>(resolve => { resolveCheck = resolve; }));
+  const timedOut = expect(loadActivityDiscovery(embedded, { scope: 'all' })).rejects.toThrow('request_timeout');
+  await vi.advanceTimersByTimeAsync(15000);
+  await timedOut;
+  resolveCheck('late-check');
+  await Promise.resolve();
+  expect(request).not.toHaveBeenCalled();
+  expect(report.mock.calls.map(([, , context]) => context)).toEqual([
+   { route: 'getActivityDiscovery', phase: 'app-check', status: undefined },
+   { route: 'getActivityDiscovery', phase: 'timeout', status: undefined },
+  ]);
+ } finally { vi.useRealTimers(); report.mockRestore(); request.mockRestore(); }
+});
+
 it('keeps an unrecorded TCX distance unknown before and after metrics, while preserving recorded zero',()=>{
  const v=item();v.activity.summary.distance=null;v.activity.effectiveFacts.metrics=null;
  expect(mapDiscoveryActivity(v).summary.distance).toBeNaN();
