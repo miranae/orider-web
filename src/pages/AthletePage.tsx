@@ -466,12 +466,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const profileReadReady = sessionAuthorized && (isOwnProfile || !profileLoading);
   const activityAccessAllowed = isOwnProfile || (!publicProfileDeleted && (profileForPage?.profilePublic !== false || friendStatus === "friends"));
   const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && activityAccessAllowed, true, accessRevision);
-  const photoRevealScope = useMemo(() => ({ readIdentity, accessRevision, generation: publicGlobal.generation, items: publicGlobal.items }),
-    [readIdentity, accessRevision, publicGlobal.generation, publicGlobal.items]);
+  const publicPhotoAccess = useMemo(() => ({ readIdentity, accessRevision, generation: publicGlobal.generation }),
+    [readIdentity, accessRevision, publicGlobal.generation]);
+  const photoRevealScope = useMemo(() => ({ access: publicPhotoAccess, items: publicGlobal.items }), [publicPhotoAccess, publicGlobal.items]);
   const photoRevealScopeRef = useRef(photoRevealScope);
   photoRevealScopeRef.current = photoRevealScope;
   const pendingPhotoReveal = useRef<{ scope: typeof photoRevealScope; controller: AbortController } | null>(null);
   const [photoRevealStatus, setPhotoRevealStatus] = useState<{ scope: typeof photoRevealScope; status: "loading" | "error" } | null>(null);
+  const [verifiedPublicPhotos, setVerifiedPublicPhotos] = useState<{ access: typeof publicPhotoAccess; photos: Map<string, AthletePhoto> } | null>(null);
   useEffect(() => () => {
     if (pendingPhotoReveal.current?.scope === photoRevealScope) pendingPhotoReveal.current.controller.abort();
   }, [photoRevealScope]);
@@ -969,7 +971,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         return [{ ...photo, activityId: activity.id }];
       }));
   }, [chartActivities, userId, isOwnProfile, ownerPhotoItems]);
-  const recentPhotos = profilePhotos.slice(0, mediaVisible.photos);
+  const photoKey = (photo: AthletePhoto) => JSON.stringify([photo.activityId, athletePhotoIdentity(photo)]);
+  const recentPhotos = profilePhotos.slice(0, mediaVisible.photos).map(photo =>
+    !isOwnProfile && verifiedPublicPhotos?.access === publicPhotoAccess
+      ? verifiedPublicPhotos.photos.get(photoKey(photo)) ?? photo : photo);
   const publicPhotosBuffered = !isOwnProfile && Date.now() < publicGlobal.authorizedUntil && profilePhotos.length > mediaVisible.photos;
   const currentPhotoRevealStatus = photoRevealStatus?.scope === photoRevealScope ? photoRevealStatus.status : null;
   const showMorePublicPhotos = async () => {
@@ -994,12 +999,24 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         scope: "athlete", targetUid: userId, order: "id_asc", limit: 20, ...(cursor ? { cursor } : {}),
       }, controller.signal)));
       if (!current() || controller.signal.aborted) return;
-      const fresh = new Map(pages.flatMap(page => page.items.filter(activity => activity.userId === userId)
-        .map(activity => [activity.id, new Set(publishedPhotos(activity).map(athletePhotoIdentity))] as const)));
-      if (!buffered.every(photo => fresh.get(photo.activityId)?.has(athletePhotoIdentity(photo)))) {
+      const fresh = new Map<string, AthletePhoto>();
+      for (const page of pages) for (const activity of page.items) {
+        if (activity.userId !== userId) continue;
+        for (const photo of publishedPhotos(activity)) {
+          const currentPhoto = { ...photo, activityId: activity.id };
+          fresh.set(photoKey(currentPhoto), currentPhoto);
+        }
+      }
+      const verified = buffered.map(photo => fresh.get(photoKey(photo)));
+      if (verified.some(photo => !photo)) {
         await publicGlobal.refresh();
         return;
       }
+      setVerifiedPublicPhotos(previous => {
+        const photos = new Map(previous?.access === publicPhotoAccess ? previous.photos : undefined);
+        for (const photo of verified) if (photo) photos.set(photoKey(photo), photo);
+        return { access: publicPhotoAccess, photos };
+      });
       setMediaVisible(value => ({ ...value, photos: Math.max(value.photos, revealFrom + buffered.length) }));
     } catch (error) {
       if (controller.signal.aborted) return;

@@ -1278,6 +1278,13 @@ it.each([true, false])("checks buffered photo permissions again before revealing
       checked(request);
       await verification;
       if (!allowed) throw Object.assign(new Error("not found"), { code: "functions/not-found" });
+      const page = await original(services, request, signal);
+      return { ...page, items: page.items.map(activity => ({
+        ...activity,
+        feedContentV1: activity.feedContentV1 && {
+          ...activity.feedContentV1, photos: activity.feedContentV1.photos.map(photo => ({ ...photo, caption: "Current caption" })),
+        },
+      })) };
     }
     return original(services, request, signal);
   });
@@ -1293,6 +1300,10 @@ it.each([true, false])("checks buffered photo permissions again before revealing
     expect(photoCount()).toBe(6);
     await act(async () => release());
     await waitFor(() => expect(photoCount()).toBe(allowed ? 8 : 0));
+    if (allowed) {
+      const strip = view.container.querySelector<HTMLElement>(".athlete-photo-strip")!;
+      expect(within(strip).getAllByRole("img", { name: "Current caption" })).toHaveLength(2);
+    }
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
 
