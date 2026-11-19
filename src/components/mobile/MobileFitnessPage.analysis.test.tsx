@@ -133,8 +133,8 @@ describe("mobile web analysis evidence", () => {
     renderWithProviders(<MobileFitnessPage part="analysis" runningRecordsSlot={<p>달성한 러닝 마일스톤</p>} data={{ ...data, discipline: "run",
       runEvidence: { thresholdPaceSec: null, records: [{ distance: "5km", seconds: 1200, date: "2026-10-01", activityId: "activity", startTime: 1, qualification: "source_qualified", unit: "seconds" }] } }} />);
     expect(screen.getByTestId("K5-4")).toHaveTextContent("5km · 20:00");
-    // 웹 분석의 '기록 전체 보기'는 웹 페이지 대신 앱을 연다.
-    expect(within(screen.getByTestId("K5-4")).getByRole("button", { name: "기록 전체 보기 →" })).toBeInTheDocument();
+    // 휴대폰에서는 앱을 열고, 데스크톱(테스트 환경)은 기존 웹 기록 페이지로 간다.
+    expect(within(screen.getByTestId("K5-4")).getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
     expect(screen.queryByRole("button", { name: /거리 기록·출처와 마일스톤/ })).not.toBeInTheDocument();
     expect(screen.queryByText("달성한 러닝 마일스톤")).not.toBeInTheDocument();
     // 따로 있던 '거리 기록·출처와 마일스톤 보기' 링크는 위 버튼과 겹쳐 두지 않는다.
@@ -174,7 +174,7 @@ it("excludes bike FTP decisions from other sports", () => {
 it("renders the two-line running analysis summary outside the full records board", () => {
   renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run", runEvidence: { thresholdPaceSec: null, records: [], unverifiedRecords: [{ distance: "5km", storedValue: 1200, date: "2026-10-01", activityId: "old", startTime: 1, qualification: "legacy_unverified", unit: "unverified" }] } }} part="analysis" />, { authenticated: true });
   expect(screen.getByTestId("K5-4")).toHaveTextContent("시간과 페이스를 표시하지 않습니다");
-  expect(screen.getByRole("button", { name: "기록 전체 보기 →" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
 });
 
 
@@ -194,8 +194,8 @@ it("keeps only the two app buttons when running analysis is not ready", () => {
   // '러닝 분석 준비' 제목·설명과 기간별 훈련 구성(존 분포·훈련 존)은 두지 않는다(2026-11-19).
   expect(screen.queryByRole("heading", { name: "러닝 분석 준비" })).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "기간별 훈련 구성" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "러닝 훈련 기준 설정" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "기록 전체 보기 →" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "러닝 훈련 기준 설정" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
   expect(screen.queryByText(/심박 구간을 표시할 수/)).not.toBeInTheDocument();
 });
 

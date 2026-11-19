@@ -4,7 +4,7 @@ import type { RunEvidence } from "../multisportPerformance";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { buttonClass, Card, Text } from "../../../theme/components";
 import { Resolvable } from "../../../components/redesign/states/Resolvable";
-import { openOriderApp } from "../../../utils/openOriderApp";
+import { canOpenOriderApp, openOriderApp } from "../../../utils/openOriderApp";
 
 function duration(seconds: number) {
   const value = Math.round(seconds);
@@ -23,6 +23,12 @@ export default function RunRecordsSummary({ evidence, readiness = false, sourceB
   if (sourceBoard && !readiness && qualified.length === 0) return <div data-testid="K5-4" className="run-records-board__all-link"><LocalizedLink data-testid="K5-4-2" to="/athlete/me/records?sport=run">{t("runRecords.viewAll")}</LocalizedLink></div>;
   // 웹 코치 분석: 준비 상태면 제목·설명 없이 버튼만 남긴다. 버튼은 웹 페이지 대신 앱을 연다.
   const bare = openInApp && readiness;
+  // 휴대폰에서는 웹 페이지 대신 앱을 연다. 데스크톱은 앱을 열 수 없으니 원래 웹 페이지로 간다.
+  const openInAppClick = openInApp ? (event: { preventDefault: () => void }) => {
+    if (!canOpenOriderApp()) return;
+    event.preventDefault();
+    openOriderApp("coach");
+  } : undefined;
   const Shell = bare ? "div" : Card;
   return <Shell data-testid="K5-4">
     {!bare && <Text as="h2" variant="title">{t(readiness ? "runReadiness.title" : "runRecords.title")}</Text>}
@@ -36,13 +42,8 @@ export default function RunRecordsSummary({ evidence, readiness = false, sourceB
     })}
     {readiness && !sourceBoard && evidence.unverifiedRecords?.length ? <Text as="p" variant="bodySmall" tone="secondary">{t("runRecords.unverified")}</Text> : null}
     <div className="flex flex-wrap items-center gap-2">
-    {openInApp ? <>
-      {readiness && <button type="button" className={buttonClass({ variant: "primary" })} data-testid="run-thresholds-open-app" onClick={() => openOriderApp("coach")}>{t("runReadiness.setThresholds")}</button>}
-      <button type="button" className={buttonClass({ variant: readiness ? "outline" : "ghost" })} data-testid="K5-4-2" onClick={() => openOriderApp("coach")}>{t("runRecords.viewAll")}</button>
-    </> : <>
-    {readiness && <LocalizedLink className={buttonClass({ variant: "primary" })} to="/coach/condition?sport=run#thresholds">{t("runReadiness.setThresholds")}</LocalizedLink>}
-    <LocalizedLink className={readiness ? buttonClass({ variant: "outline" }) : undefined} data-testid="K5-4-2" to="/athlete/me/records?sport=run">{t("runRecords.viewAll")}</LocalizedLink>
-    </>}
+    {readiness && <LocalizedLink className={buttonClass({ variant: "primary" })} to="/coach/condition?sport=run#thresholds" onClick={openInAppClick}>{t("runReadiness.setThresholds")}</LocalizedLink>}
+    <LocalizedLink className={readiness ? buttonClass({ variant: "outline" }) : undefined} data-testid="K5-4-2" to="/athlete/me/records?sport=run" onClick={openInAppClick}>{t("runRecords.viewAll")}</LocalizedLink>
     </div>
   </Shell>;
 }

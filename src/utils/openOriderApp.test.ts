@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { openOriderApp } from "./openOriderApp";
+import { canOpenOriderApp, openOriderApp } from "./openOriderApp";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 
 function fakeWindow(userAgent: string) {
@@ -36,5 +36,13 @@ describe("openOriderApp", () => {
     ios.listeners.forEach(fn => fn());
     ios.timers.forEach(fn => fn());
     expect(ios.state.location.href).toBe("orider://coach");
+  });
+});
+
+describe("canOpenOriderApp", () => {
+  it("휴대폰 브라우저에서만 앱을 연다", () => {
+    expect(canOpenOriderApp({ navigator: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)" } } as unknown as Window)).toBe(true);
+    expect(canOpenOriderApp({ navigator: { userAgent: "Mozilla/5.0 (Linux; Android 14)" } } as unknown as Window)).toBe(true);
+    expect(canOpenOriderApp({ navigator: { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" } } as unknown as Window)).toBe(false);
   });
 });
