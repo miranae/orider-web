@@ -1046,8 +1046,6 @@ export default function MobileFitnessPage({
             {thresholdCard}
             {thresholdMissingCard}
           </AnalysisGroup>
-          {/* 러닝은 기간별 훈련 구성(존 분포·훈련 존)과 그 아래 준비 상태 안내를 두지 않는다(2026-11-19). */}
-          {data.discipline !== "run" && <>
           <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")}>
             {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled ? analysisPeriods : undefined} />}
             {!periodZonesFromServer && sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} discipline={zoneDiscipline} />}
@@ -1059,7 +1057,6 @@ export default function MobileFitnessPage({
           <SufficiencyGroup summaryOnly sets={definedAnalysisSets} testId="analysis-readiness-summary" />
           {sufficiencyCards}
           {analysisInsufficientNote}
-          </>}
           {bikeThresholdSection}
         </div></ConciseExplanationsContext.Provider>) : null;
 

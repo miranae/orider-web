@@ -1045,8 +1045,6 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {discipline === "run" && !user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
         {discipline === "run" && <Card><Text as="h3" variant="subtitle">{t("criticalPace.title")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
       </AnalysisGroup>
-      {/* 러닝은 기간별 훈련 구성과 그 아래 준비 상태 안내를 두지 않는다(2026-11-19). */}
-      {discipline !== "run" && <>
       <AnalysisGroup id="analysis-periods" title={t("analysis.groups.composition")}>
         {discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={ANALYSIS_WINDOW_DAYS} loadSignal={periodLoadSignal} periods={discipline === "bike" && periodPowerEnabled ? analysisPeriods : undefined} />}
         {/* 기간별 심박·파워 존은 위 기간과 같은 서버 기간 통계로 보여준다. 고정 30일 카드는 그 통계를 못 쓸 때만 둔다. */}
@@ -1054,7 +1052,6 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       </AnalysisGroup>
       {/* 해석과 근거 묶음은 두지 않는다. 데이터 준비 상태만 남기고, FTP 판단은 제안 링크(#ftp-decision·decisionId)로 들어올 때만 연다. */}
       <SufficiencyGroup summaryOnly sets={analysisSets} testId="analysis-readiness-summary" />
-      </>}
       {discipline === "bike" && <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled collapsible requestedOnly>
         <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} ftpHistoryControls={ftpHistoryControls} t={t} />
       </FtpDecisionSection>}

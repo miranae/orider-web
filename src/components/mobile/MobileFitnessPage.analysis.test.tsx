@@ -191,9 +191,9 @@ it('names the mobile coach analysis surface and explains repeated zone labels an
 
 it("keeps only the two app buttons when running analysis is not ready", () => {
   renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run" }} part="analysis" />, { authenticated: true });
-  // '러닝 분석 준비' 제목·설명과 기간별 훈련 구성(존 분포·훈련 존)은 두지 않는다(2026-11-19).
+  // '러닝 분석 준비' 제목·설명은 두지 않는다. 기간별 훈련 구성은 사이클과 같이 남긴다(P9, 2026-11-19).
   expect(screen.queryByRole("heading", { name: "러닝 분석 준비" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("heading", { name: "기간별 훈련 구성" })).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "기간별 훈련 구성" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "러닝 훈련 기준 설정" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
   expect(screen.queryByText(/심박 구간을 표시할 수/)).not.toBeInTheDocument();
