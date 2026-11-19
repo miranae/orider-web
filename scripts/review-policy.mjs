@@ -3,12 +3,13 @@ import { resolve } from "node:path";
 
 /** Derive the code review verdict from reported severity across all providers. */
 export function enforceReviewFloor(review) {
-  const findingPrefix = /^(?:[^\p{L}\p{N}\r\n]|\d+[.)]|\[[xX]\])*(BLOCKER|MAJOR|MINOR)\b/gimu;
-  const severities = Array.from(review.findings.matchAll(findingPrefix), match => match[1].toUpperCase());
+  const findingPrefix = /^(?:[^\p{L}\p{N}\r\n]|\d+[.)]|\[[xX]\])*(BLOCKER|MAJOR|MINOR)\b/iu;
+  const severities = review.findings.split(/\r?\n/)
+    .filter(line => line.trim())
+    .map(line => findingPrefix.exec(line)?.[1].toUpperCase());
   if (severities.includes("BLOCKER")) return { ...review, verdict: "BLOCK" };
-  // Downgrade only when the review reports identifiable advisory findings and
-  // contains no potentially unrecognized blocker label.
-  if (severities.length && !/\bBLOCKER\b/i.test(review.findings)) {
+  // Override a BLOCK only if every reported line is explicitly advisory.
+  if (severities.length && severities.every(value => value === "MAJOR" || value === "MINOR")) {
     return { ...review, verdict: "PASS" };
   }
   return review;
@@ -37,7 +38,7 @@ ${scope === "all-findings" ? "MINOR도 findings에 포함하되 BLOCK 기준은 
 변경과 무관한 기존 문제나 추측은 제외하고, 새 호출 경로로 활성화된 기존 코드의 문제는 제외하지 말라.
 
 제공된 JSON Schema에 맞는 객체만 출력하라:
-- findings: 각 항목은 한 줄에서 BLOCKER:, MAJOR: 또는 MINOR:로 시작하며 file:line과 재현 조건·사용자 영향을 포함한다.
+- findings: 각 항목은 한 줄로 작성하고 BLOCKER:, MAJOR: 또는 MINOR:로 시작하며 file:line과 재현 조건·사용자 영향을 포함한다.
 - verdict: BLOCKER가 있으면 BLOCK, 없으면 PASS.
 보고할 지적이 없으면 findings는 '제공된 diff와 의존성 문맥에서 BLOCKER 미발견'으로 적어라. '전체 결함 없음'을 보장하지 말라.
 추가 키·코드 펜스·JSON 앞뒤 설명은 출력하지 말라.`;
