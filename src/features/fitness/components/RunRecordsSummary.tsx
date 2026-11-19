@@ -4,6 +4,7 @@ import type { RunEvidence } from "../multisportPerformance";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { buttonClass, Card, Text } from "../../../theme/components";
 import { Resolvable } from "../../../components/redesign/states/Resolvable";
+import { openOriderApp } from "../../../utils/openOriderApp";
 
 function duration(seconds: number) {
   const value = Math.round(seconds);
@@ -13,14 +14,20 @@ function duration(seconds: number) {
   return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${remainder}` : `${minutes}:${remainder}`;
 }
 /** 서버 원본 영수증이 있는 기록만 시간으로 표시한다. 구형 저장값을 PB로 인증하지 않는다. */
-export default function RunRecordsSummary({ evidence, readiness = false, sourceBoard = false }: { evidence: RunEvidence; readiness?: boolean; sourceBoard?: boolean }) {
+/**
+ * `openInApp`: 웹 코치 분석에서는 '러닝 분석 준비' 제목·설명 없이 두 버튼만 두고, 누르면 앱으로 넘긴다(2026-11-19).
+ */
+export default function RunRecordsSummary({ evidence, readiness = false, sourceBoard = false, openInApp = false }: { evidence: RunEvidence; readiness?: boolean; sourceBoard?: boolean; openInApp?: boolean }) {
   const { t } = useTranslation("fitness");
   const qualified = qualifiedRunRecords(evidence);
   if (sourceBoard && !readiness && qualified.length === 0) return <div data-testid="K5-4" className="run-records-board__all-link"><LocalizedLink data-testid="K5-4-2" to="/athlete/me/records?sport=run">{t("runRecords.viewAll")}</LocalizedLink></div>;
-  return <Card data-testid="K5-4">
-    <Text as="h2" variant="title">{t(readiness ? "runReadiness.title" : "runRecords.title")}</Text>
+  // 웹 코치 분석: 준비 상태면 제목·설명 없이 버튼만 남긴다. 버튼은 웹 페이지 대신 앱을 연다.
+  const bare = openInApp && readiness;
+  const Shell = bare ? "div" : Card;
+  return <Shell data-testid="K5-4">
+    {!bare && <Text as="h2" variant="title">{t(readiness ? "runReadiness.title" : "runRecords.title")}</Text>}
     {/* 기록이 부족하다는 문구를 누르면 기록을 들여오는 연결 화면으로 간다(훈련 기준은 아래 버튼). */}
-    {readiness && <Text as="p" variant="body" tone="secondary"><Resolvable resolve={{ to: "/settings/connections" }}>{t("runReadiness.body")}</Resolvable></Text>}
+    {readiness && !bare && <Text as="p" variant="body" tone="secondary"><Resolvable resolve={{ to: "/settings/connections" }}>{t("runReadiness.body")}</Resolvable></Text>}
     {!readiness && qualified.length === 0 && <Text as="p" variant="bodySmall" tone="secondary">{t(evidence.unverifiedRecords?.length ? "runRecords.unverified" : "runRecords.none")}</Text>}
     {qualified.length > 0 && (["5km", "10km"] as const).map(distance => {
       const best = qualified.filter(record => record.distance === distance).sort((a, b) => a.seconds - b.seconds)[0];
@@ -29,8 +36,13 @@ export default function RunRecordsSummary({ evidence, readiness = false, sourceB
     })}
     {readiness && !sourceBoard && evidence.unverifiedRecords?.length ? <Text as="p" variant="bodySmall" tone="secondary">{t("runRecords.unverified")}</Text> : null}
     <div className="flex flex-wrap items-center gap-2">
+    {openInApp ? <>
+      {readiness && <button type="button" className={buttonClass({ variant: "primary" })} data-testid="run-thresholds-open-app" onClick={() => openOriderApp("coach")}>{t("runReadiness.setThresholds")}</button>}
+      <button type="button" className={buttonClass({ variant: readiness ? "outline" : "ghost" })} data-testid="K5-4-2" onClick={() => openOriderApp("coach")}>{t("runRecords.viewAll")}</button>
+    </> : <>
     {readiness && <LocalizedLink className={buttonClass({ variant: "primary" })} to="/coach/condition?sport=run#thresholds">{t("runReadiness.setThresholds")}</LocalizedLink>}
     <LocalizedLink className={readiness ? buttonClass({ variant: "outline" }) : undefined} data-testid="K5-4-2" to="/athlete/me/records?sport=run">{t("runRecords.viewAll")}</LocalizedLink>
+    </>}
     </div>
-  </Card>;
+  </Shell>;
 }

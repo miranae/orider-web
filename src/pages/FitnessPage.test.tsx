@@ -1063,7 +1063,12 @@ describe("FitnessPage", () => {
       expect(await screen.findByRole("heading", { name: "수행 능력 변화" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).not.toBeInTheDocument();
       expect(document.getElementById("analysis-run-records")).toBeNull();
-      expect(screen.getByRole("link", { name: "거리 기록·출처와 마일스톤 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
+      expect(screen.queryByRole("link", { name: "거리 기록·출처와 마일스톤 보기 →" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "기록 전체 보기 →" })).toBeInTheDocument();
+      // 기간 선택 탭·불러오기 버튼·기간별 훈련 구성 없이 수행 능력 변화만 둔다(2026-11-19).
+      expect(screen.queryByTestId("K5-0-3")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "기간별 훈련 구성" })).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "구간 바로가기" })).not.toBeInTheDocument();
     });
 

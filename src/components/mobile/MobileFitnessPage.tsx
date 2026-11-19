@@ -32,7 +32,7 @@ import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
 import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
-import { AnalysisGroup, AnalysisPeriodLoadBar, AnalysisRunRecordsLink } from "../../features/fitness/components/AnalysisGroup";
+import { AnalysisGroup } from "../../features/fitness/components/AnalysisGroup";
 import { ConciseExplanationsContext } from "../../features/fitness/conciseExplanations";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
@@ -693,7 +693,6 @@ export default function MobileFitnessPage({
   periodWindowDays,
   periodTimeseries = null,
   periodLoadSignal,
-  onPeriodLoad,
   analysisPeriods,
   onAnalysisPeriodsChange,
   periodZonesFromServer = false,
@@ -729,7 +728,6 @@ export default function MobileFitnessPage({
   periodSlot?: ReactNode;
   /** 웹 분석 공용 "불러오기" — 값이 바뀌면 두 기간 비교 패널이 함께 불러온다. */
   periodLoadSignal?: number;
-  onPeriodLoad?: () => void;
   /** 사이클 분석: 위 파워 비교가 불러온 기간 — 아래 "기간별 훈련 구성"이 같은 기간으로 불러온다. */
   analysisPeriods?: PowerCurvePeriod[] | null;
   onAnalysisPeriodsChange?: (periods: PowerCurvePeriod[]) => void;
@@ -880,7 +878,7 @@ export default function MobileFitnessPage({
           {part === "analysis" && embedded && isBike && <BikePerformanceSummaryCard compact={!embedded} part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
           {(part === "analysis" || part === "condition") && !(mobileAnalysis && data.discipline === "run") && !runReadiness && !(part === "condition" && data.discipline === "run" && !embedded && runningRecordsSlot && data.runEvidence.thresholdPaceSec == null) && <SportPerformanceCard compact={!embedded} discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
           {(part === "analysis" || part === "condition") && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
-          {(part === "analysis" || part === "condition") && !embedded && data.discipline === "run" && !(runningRecordsSlot && !runReadiness && qualifiedRunRecords(data.runEvidence).length === 0) && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} sourceBoard={Boolean(runningRecordsSlot)} />}
+          {(part === "analysis" || part === "condition") && !embedded && data.discipline === "run" && !(runningRecordsSlot && !runReadiness && qualifiedRunRecords(data.runEvidence).length === 0) && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} sourceBoard={Boolean(runningRecordsSlot)} openInApp={mobileAnalysis} />}
           {/* 웹 분석은 "거리 기록·출처와 마일스톤" 상세를 두지 않는다. */}
           {part === "condition" && runningRecordsSlot}
           {(part === "analysis" || part === "condition") && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence condition={part === "condition" || mobileAnalysis} data={data} />}
@@ -1034,24 +1032,22 @@ export default function MobileFitnessPage({
   // 웹 분석 = 선택한 기간 동안 무엇이 바뀌었나. 수행 능력 변화 → 기간별 훈련 구성 → 해석과 근거.
   // 두 기간 비교(파워 커브·훈련 구성)는 서버 호출이라 위 공용 버튼으로만 함께 불러온다.
   const definedAnalysisSets = mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null);
-  // 페이지가 두 기간 비교 패널을 그릴 수 있을 때만 onPeriodLoad 를 넘긴다.
-  const showPeriodLoad = onPeriodLoad != null && periodWindowDays != null;
   const webAnalysisContent = mobileAnalysis ? (<ConciseExplanationsContext.Provider value><div style={{ paddingTop: 14 }}>
           {sectionState.derived === "loading" && <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedLoading")}</div>}
           {sectionState.derived === "error" && <div role="alert" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedError")}</div>}
-          {showPeriodLoad && <AnalysisPeriodLoadBar windowDays={periodWindowDays!} onLoad={onPeriodLoad!} />}
           <AnalysisGroup id="analysis-comparison" title={t("fitness:analysis.groups.performance")}>
             {/* 기간 파워 비교를 조회할 수 없는 환경에서는 기존 28일 파워 커브를 보여준다. */}
             {isBike && !(powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled) && bikePowerCurveContent}
             {isBike && powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} onPeriodsChange={onAnalysisPeriodsChange} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
             {runCurveContent}
             {!isBike && modelContent}
-            {data.discipline === "run" && <AnalysisRunRecordsLink />}
             {/* 러닝 레이스 예측(스테이지)은 거리 기록 상세를 뺀 뒤에도 분석에 남긴다(P9). */}
             {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
             {thresholdCard}
             {thresholdMissingCard}
           </AnalysisGroup>
+          {/* 러닝은 기간별 훈련 구성(존 분포·훈련 존)과 그 아래 준비 상태 안내를 두지 않는다(2026-11-19). */}
+          {data.discipline !== "run" && <>
           <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")}>
             {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled ? analysisPeriods : undefined} />}
             {!periodZonesFromServer && sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} discipline={zoneDiscipline} />}
@@ -1063,6 +1059,7 @@ export default function MobileFitnessPage({
           <SufficiencyGroup summaryOnly sets={definedAnalysisSets} testId="analysis-readiness-summary" />
           {sufficiencyCards}
           {analysisInsufficientNote}
+          </>}
           {bikeThresholdSection}
         </div></ConciseExplanationsContext.Provider>) : null;
 
