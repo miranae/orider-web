@@ -2,7 +2,7 @@ import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/
 import type { Activity, ActivitySummary } from '@shared/types';
 import type { ActivityDiscoveryItem, ActivityDiscoveryRequest, ActivityDiscoveryResponse } from '@shared/activity-discovery';
 import type { FirebaseServices } from '../contexts/FirebaseServicesContext';
-import { getRuntimeConfig, isEmulatorRuntime } from './runtimeConfig';
+import { isStageComputeRuntime, getRuntimeConfig, isEmulatorRuntime } from './runtimeConfig';
 import { activityFeedSourceRevision } from './activityFeedContent';
 export type { ActivityDiscoveryRequest } from '@shared/activity-discovery';
 export type DiscoveryActivity = Activity & { discoveryFacts: ActivityDiscoveryItem['activity']['effectiveFacts']; activityRevision: string };
@@ -41,7 +41,7 @@ async function readActivityDiscovery(services:FirebaseServices,request:ActivityD
  const app=services.auth.app;
  const assertCurrent=()=>{assertActive();if(services.auth.app!==app||services.auth.currentUser!==viewer)throw Error('account_changed');};
  assertCurrent();await services.ensureAppCheckReady();assertCurrent();
- const functions=getRuntimeConfig().appEnvironment==='stage'?services.functions:getFunctions(services.functions.app,'asia-northeast3');
+ const functions=isStageComputeRuntime(getRuntimeConfig())?services.functions:getFunctions(services.functions.app,'asia-northeast3');
  if(isEmulatorRuntime()&&!connected.has(functions)){connectFunctionsEmulator(functions,'localhost',Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT||5001));connected.add(functions);}
  const {data}=await httpsCallable<ActivityDiscoveryRequest,ActivityDiscoveryResponse>(functions,'getActivityDiscovery',{timeout:10000})(request);assertCurrent();
  if(!data||!Array.isArray(data.items)||data.items.length>Math.min(request.limit??20,20)||!Number.isFinite(data.expiresAt)||data.expiresAt<=Date.now()||data.totalCount!==null||data.consistency!=='current_authorized_seek_pages'||!Number.isInteger(data.scannedCount)||data.scannedCount<0||data.scannedCount>50||typeof data.exhausted!=='boolean'||data.exhausted!==(data.nextCursor===null)||data.nextCursor!==null&&(typeof data.nextCursor!=='string'||!data.nextCursor.startsWith('ad1.'))||data.order!==(request.order??'startTime_desc')||data.includesUndated!==(data.order==='id_asc'&&request.fromInclusive===undefined&&request.toExclusive===undefined))throw Error('invalid_activity_discovery');
