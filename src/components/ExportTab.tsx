@@ -59,10 +59,12 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
           currentStreams = await resolveOwnerCadenceStreams() ?? streams;
         } catch (error) {
           const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-          if (!stillCurrent()) return;
           const scopeChanged = error instanceof Error && ["account_changed", "activity_stream_changed"].includes(error.message);
-          if (scopeChanged || isPublicActivityAccessError(error) || code === "functions/unauthenticated") throw error;
-          logClientError("ExportTab.ownerCadenceLookup", error, { activityId: activity.id });
+          const denied = scopeChanged || isPublicActivityAccessError(error) || code === "functions/unauthenticated";
+          const current = stillCurrent();
+          if (denied && current) throw error;
+          logClientError("ExportTab.ownerCadenceLookup", error, current ? { activityId: activity.id } : undefined);
+          if (!current) return;
         }
       }
       if (!stillCurrent()) return;

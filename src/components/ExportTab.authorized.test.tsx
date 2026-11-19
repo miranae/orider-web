@@ -3,13 +3,13 @@ import { beforeEach, expect, it, vi } from "vitest";
 import ExportTab from "./ExportTab";
 import { markVerifiedStreamCadence } from "../services/activityStreamSource";
 import type { Activity } from "@shared/types";
-const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new Uint8Array()), toast: vi.fn() }));
+const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new Uint8Array()), toast: vi.fn(), log: vi.fn() }));
 vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
 vi.mock("../utils/exportCsv", () => ({ generateCsv: mocks.csv }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.toast }) }));
-vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
+vi.mock("../services/errorLogger", () => ({ logClientError: mocks.log }));
 const activity = { id: "a", description: "Ride", startTime: 1792800000000 } as Activity;
-beforeEach(() => { mocks.csv.mockClear(); mocks.fit.mockClear(); mocks.toast.mockClear(); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {}); });
+beforeEach(() => { mocks.csv.mockClear(); mocks.fit.mockClear(); mocks.toast.mockClear(); mocks.log.mockClear(); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {}); });
 it("exports the newly authorized streams rather than cached props", async () => {
   const current = { watts: [0, 200], time: [0, 1] };
   const resolve = vi.fn().mockResolvedValue(current);
@@ -107,4 +107,19 @@ it("checks the live account again before writing a delayed owner file", async ()
   account = { uid: "next" };
   await act(async () => finish(cached));
   expect(mocks.fit).not.toHaveBeenCalled();
+});
+
+it("records a delayed owner lookup failure after leaving the detail", async () => {
+  const run = { ...activity, type: "Run", source: "strava" } as Activity;
+  const cached = { userId: "owner", time: [0], cadence: [85] };
+  let fail!: (error: Error) => void;
+  const lookup = () => new Promise<never>((_resolve, reject) => { fail = reject; });
+  const view = render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} />);
+  fireEvent.click(screen.getByText("FIT"));
+  view.unmount();
+  const error = new Error("activity_request_timeout");
+  await act(async () => fail(error));
+  expect(mocks.log).toHaveBeenCalledExactlyOnceWith("ExportTab.ownerCadenceLookup", error, undefined);
+  expect(mocks.fit).not.toHaveBeenCalled();
+  expect(mocks.toast).not.toHaveBeenCalled();
 });
