@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadPublicAthleteTotals, parsePublicAthleteTotals, callAthleteProfile, loadAthleteProfilePreview, parseAthleteProfile, type AthletePreviewCursor } from "./athleteProfile";
 import { mockCallableInvocations, setCallableResult as setResult, setCallableImplementation } from "../__tests__/mocks/firebase";
+import * as errorLogger from "./errorLogger";
 const setCallableResult = (name: string, data: unknown) => setResult(name, { data: name === "getAthleteProfilePreview" ? { pendingCount: 0, coverageComplete: true, retryCursor: null, ...(data as object) } : data });
 let services: FirebaseServices;
 beforeEach(() => { services = { auth: { currentUser: { uid: "owner" } }, functions: {}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices; });
@@ -70,6 +71,22 @@ it("loads public totals without owner authentication and fences guest-to-login t
   await expect(loadPublicAthleteTotals(services, "target", () => true)).resolves.toMatchObject({ count: 4 });
   setCallableImplementation("getPublicAthleteTotals", () => { services.auth.currentUser = { uid: "viewer" } as never; return root(); });
   await expect(loadPublicAthleteTotals(services, "target", () => true)).rejects.toThrow("session-changed");
+});
+it("records a normal web totals callable failure that arrives after the request deadline", async () => {
+  vi.useFakeTimers();
+  services.auth.currentUser = null;
+  let rejectCall!: (reason: Error) => void;
+  setCallableImplementation("getPublicAthleteTotals", () => new Promise<never>((_, reject) => { rejectCall = reject; }));
+  const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+  try {
+    const request = expect(loadPublicAthleteTotals(services, "target", () => true)).rejects.toThrow("athlete-profile-timeout");
+    await vi.advanceTimersByTimeAsync(12000);
+    await request;
+    const failure = Object.assign(new Error("late service failure"), { code: "functions/unavailable" });
+    rejectCall(failure);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(log.mock.calls.some(([source, error]) => source === "athleteProfile.publicTotalsLateFailure" && error === failure)).toBe(true);
+  } finally { vi.useRealTimers(); log.mockRestore(); }
 });
 it("sends embedded guest totals without credentials even when the SDK user changes during the request", async () => {
   services.auth.currentUser = null;

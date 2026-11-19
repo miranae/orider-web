@@ -4,6 +4,7 @@ import type { AthletePhoto } from "../components/athlete/AthletePhotoGallery";
 import type { Activity } from "@shared/types";
 import { callApprovedActivityRead, reportApprovedActivityReadFailure } from "../embedded/callApprovedActivityRead";
 import { getRuntimeConfig } from "./runtimeConfig";
+import { logClientError } from "./errorLogger";
 export interface AthleteProfileTotals {
   integrityFailed?: true;
   schemaVersion: 1; ownerUid: string; epoch: string; state: "pending" | "ready" | "failed"; revision: number;
@@ -53,14 +54,23 @@ export async function callAthleteProfile<T>(services: FirebaseServices, uid: str
     return await Promise.race([
       (async () => {
         assertCurrent();
-        if (!embeddedPublicTotals) {
-          await services.ensureAppCheckReady();
-          assertCurrent();
+        let result: T;
+        try {
+          if (!embeddedPublicTotals) {
+            await services.ensureAppCheckReady();
+            assertCurrent();
+          }
+          result = embeddedPublicTotals
+            ? await callApprovedActivityRead<T>(services, owner, "getPublicAthleteTotals",
+              getRuntimeConfig().firebaseFunctionsRegion || "us-central1", data, assertCurrent, controller.signal)
+            : (await httpsCallable<unknown, T>(services.functions, name)(data)).data;
+        } catch (error) {
+          if (expired && publicTotals && !embeddedPublicTotals && name === "getPublicAthleteTotals"
+            && (!(error instanceof Error) || error.message !== "athlete-profile-session-changed")) {
+            logClientError("athleteProfile.publicTotalsLateFailure", error, { operation: name }, services, owner, "", current);
+          }
+          throw error;
         }
-        const result = embeddedPublicTotals
-          ? await callApprovedActivityRead<T>(services, owner, "getPublicAthleteTotals",
-            getRuntimeConfig().firebaseFunctionsRegion || "us-central1", data, assertCurrent, controller.signal)
-          : (await httpsCallable<unknown, T>(services.functions, name)(data)).data;
         assertCurrent();
         return result;
       })(),

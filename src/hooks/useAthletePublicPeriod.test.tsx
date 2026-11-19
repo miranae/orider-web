@@ -85,6 +85,23 @@ it("discards buffered rows when a live access signal changes", async () => {
   expect(mocks.load.mock.calls[1][1]).not.toHaveProperty("cursor");
 });
 
+it("records late callable failures after an access signal cancels a pending page", async () => {
+  let reportLate!: (error: unknown) => void;
+  mocks.load.mockImplementationOnce((_services, _request, signal: AbortSignal, report: typeof reportLate) => {
+    reportLate = report;
+    return new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("request_aborted")), { once: true }));
+  }).mockResolvedValueOnce(page(["current"]));
+  const { result, rerender } = renderHook(({ revision }) => useAthletePublicPeriod("target", "", "", true, true, revision),
+    { initialProps: { revision: { viewer: "old" } } });
+  rerender({ revision: { viewer: "new" } });
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["current"]));
+  const failure = Object.assign(new Error("old response failed"), { code: "functions/unavailable" });
+  reportLate(failure);
+  expect(mocks.log).toHaveBeenCalledWith("useAthletePublicPeriod.read", failure,
+    { targetUid: "target", global: true, continuation: false }, mocks.services, mocks.services.auth.currentUser, "", expect.any(Function));
+  expect(result.current.items.map(item => item.id)).toEqual(["current"]);
+});
+
 it("hides old rows while backgrounded and refreshes on return", async () => {
  mocks.load.mockResolvedValueOnce(page(["a"])).mockResolvedValueOnce(page([]));
  const {result}=renderHook(()=>useAthletePublicPeriod("target","2026-01-01","2026-01-31"));

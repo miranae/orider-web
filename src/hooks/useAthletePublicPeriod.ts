@@ -49,9 +49,11 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
     const requestController = new AbortController(); controller.current = requestController;
     busy.current = true;
     session.current = { ...previous, status: "loading" }; setState({ generation: seq, result: session.current });
+    const logFailure = (error: unknown) => logClientError("useAthletePublicPeriod.read", error,
+      { targetUid, global, continuation: Boolean(previous.cursor) }, services, user, "", current);
     let deadline: ReturnType<typeof setTimeout> | undefined;
     try {
-      const page = await Promise.race([loadActivityDiscovery(services, { scope: "athlete", targetUid, ...(global ? { order: "id_asc" as const } : { fromInclusive: bounds!.start, toExclusive: bounds!.end }), limit: 20, ...(previous.cursor ? { cursor: previous.cursor } : {}) }, requestController.signal), new Promise<never>((_, reject) => { deadline = setTimeout(() => { reject(Error("request_timeout")); requestController.abort(); }, 15000); })]);
+      const page = await Promise.race([loadActivityDiscovery(services, { scope: "athlete", targetUid, ...(global ? { order: "id_asc" as const } : { fromInclusive: bounds!.start, toExclusive: bounds!.end }), limit: 20, ...(previous.cursor ? { cursor: previous.cursor } : {}) }, requestController.signal, logFailure), new Promise<never>((_, reject) => { deadline = setTimeout(() => { reject(Error("request_timeout")); requestController.abort(); }, 15000); })]);
       if (!current()) return;
       if (page.nextCursor && page.nextCursor === previous.cursor) throw Error("invalid_activity_discovery");
       const items = new Map(previous.items.map(item => [item.id, item]));
@@ -63,9 +65,8 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
       session.current = { items: [...items.values()], pageStartById, cursor: page.nextCursor, expiresAt: page.expiresAt, authorizedUntil: previous.authorizedUntil || requestedAt + 30000, pages: previous.pages + 1, status: page.exhausted ? "complete" : global && previous.pages + 1 >= 10 ? "limit" : "partial" };
     } catch (error) {
       const code = String((error as {code?: string})?.code ?? (error as Error)?.message ?? error);
-      const context = { targetUid, global, continuation: Boolean(previous.cursor) };
       if (code !== "account_changed" && code !== "request_aborted" && (error as Error)?.name !== "AbortError")
-        logClientError("useAthletePublicPeriod.read", error, context, services, user, "", current);
+        logFailure(error);
       if (!current()) return;
       const restart = /permission-denied|unauthenticated|not-found|failed-precondition|invalid-argument|account_changed|invalid_activity_discovery/.test(code);
       session.current = restart ? { ...empty(), status: "restart" } : { ...previous, status: "error" };
