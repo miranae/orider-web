@@ -18,6 +18,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { usePlanModel } from "../hooks/usePlanModel";
 import { useDialog } from "../contexts/DialogContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { logClientError } from "../services/errorLogger";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink } from "../components/LocalizedLink";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
@@ -47,20 +48,25 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const [error, setError] = useState(false);
   const types = useRef<HTMLDivElement>(null);
   const dialog = useDialog();
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const navigate = useLocalizedNavigate();
   const projectionOwner = `${user?.uid ?? ""}:${discipline}:${goal?.id ?? ""}`;
   const [projection, setProjection] = useState<{ owner: string; value: FitnessProjection } | null>(null);
   useEffect(() => {
     if (!user || user.isAnonymous || !goal) return;
     let cancelled = false;
+    const viewer = services.auth.currentUser;
     void getDoc(doc(firestore, "users", user.uid, "fitness", `projection_${discipline}`)).then(snapshot => {
       const data = snapshot.exists() ? snapshot.data() as FitnessProjection : null;
       if (!cancelled) setProjection(data && data.goalId === goal.id && (!data.discipline || data.discipline === discipline)
         && Number.isFinite(data.goalDay?.ctl) && Number.isFinite(data.goalDay?.tsb) ? { owner: projectionOwner, value: data } : null);
-    }).catch(() => { if (!cancelled) setProjection(null); });
+    }).catch(error => {
+      logClientError("GoalHub.loadProjection", error, { discipline, goalId: goal.id }, services, viewer, cancelled ? "superseded" : "");
+      if (!cancelled) setProjection(null);
+    });
     return () => { cancelled = true; };
-  }, [user, goal, discipline, firestore, projectionOwner]);
+  }, [user, goal, discipline, firestore, projectionOwner, services]);
   const goalDay = projection?.owner === projectionOwner ? projection.value.goalDay : null;
   useEffect(() => {
     if (params.get("new") === "1") types.current?.scrollIntoView?.({ behavior: "smooth" });
