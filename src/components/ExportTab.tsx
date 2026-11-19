@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
+import { activitySensorOrigin } from "../features/activity/detail/activitySensorOrigin";
+import { isRawPartStreams, markStreamCadenceUnit, readStreamCadenceUnit } from "../services/activityStreamSource";
 import { generateTcx } from "../utils/exportTcx";
 import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
@@ -12,6 +15,7 @@ import { logClientError } from "../services/errorLogger";
 interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
+  displayedCadenceUnit?: ActivityMetrics["cadenceUnit"];
   resolveCurrentStreams?: () => Promise<ActivityStreams>;
 }
 
@@ -33,7 +37,7 @@ const FORMATS = [
   { id: "csv", label: "CSV", descKey: "export.formatCsvDesc", icon: "📊" },
 ] as const;
 
-export default function ExportTab({ activity, streams, resolveCurrentStreams }: ExportTabProps) {
+export default function ExportTab({ activity, streams, displayedCadenceUnit, resolveCurrentStreams }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
@@ -44,16 +48,21 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
       if (request !== generation.current) return;
+      const origin = activitySensorOrigin(activity);
+      const canUseDisplayedUnit = (format === "fit" || format === "tcx") && !resolveCurrentStreams
+        && displayedCadenceUnit != null && !isRawPartStreams(currentStreams)
+        && (origin == null || origin === activity.id) && readStreamCadenceUnit(currentStreams) === undefined;
+      const fileStreams = canUseDisplayedUnit ? markStreamCadenceUnit(currentStreams, displayedCadenceUnit) : currentStreams;
       switch (format) {
         case "fit": {
-          const data = generateFit(activity, currentStreams);
+          const data = generateFit(activity, fileStreams);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
           downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
           break;
         }
         case "tcx": {
-          const xml = generateTcx(activity, currentStreams);
+          const xml = generateTcx(activity, fileStreams);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }
@@ -74,7 +83,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, t, showToast]);
+  }, [activity, streams, displayedCadenceUnit, resolveCurrentStreams, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

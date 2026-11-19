@@ -1,3 +1,4 @@
+import type { Activity } from "@shared/types";
 import { describe, it, expect } from 'vitest';
 import { markStreamCadenceUnit } from "../../services/activityStreamSource";
 import { generateTcx } from '../exportTcx';
