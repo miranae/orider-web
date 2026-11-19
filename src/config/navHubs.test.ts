@@ -3,7 +3,7 @@ import { screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import HubSubNav from "../components/HubSubNav";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { getActiveHub, getHub, isDetailRoute, resolveDetailHub, isHubSubRoute, PRIMARY_HUBS } from "./navHubs";
+import { getActiveHub, getHub, isDetailRoute, resolveDetailHub, resolveNavHighlight, isHubSubRoute, PRIMARY_HUBS } from "./navHubs";
 
 describe("navHubs", () => {
   describe("getActiveHub", () => {
@@ -132,4 +132,24 @@ it.each(["all", "tri"])("normalizes the plan destination from records sport=%s w
   renderWithProviders(createElement(HubSubNav, { hubKey: "coach" }), { route: `/ko/athlete/me/activities?sport=${sport}&day=2026-10-14` });
   expect(screen.getByRole("link", { name: "계획/기록" })).toHaveAttribute("href", "/ko/coach/plan?sport=bike&date=2026-10-14");
   expect(screen.getByRole("link", { name: "컨디션" })).toHaveAttribute("href", `/ko/coach/condition?sport=${sport === "tri" ? "tri" : "bike"}`);
+});
+
+describe("navigation highlight for routes outside every hub", () => {
+  it.each(["/tools/virtual-power", "/terms", "/privacy", "/partnership", "/lab", "/onboarding"])("lights no tab on %s instead of claiming Home", path => {
+    expect(resolveNavHighlight(path)).toBeNull();
+    // 허브 복귀 기억은 그대로 home 폴백을 쓴다.
+    expect(resolveDetailHub(path)).toBe("home");
+  });
+
+  it.each([
+    ["/", "home"],
+    ["/explore/courses", "explore"],
+    ["/clubs", "club"],
+    ["/community/board", "community"],
+    ["/settings/account", "settings"],
+    ["/activity/abc", "home"],
+    ["/course/abc", "explore"],
+  ] as const)("keeps %s under %s", (path, hub) => {
+    expect(resolveNavHighlight(path)).toBe(hub);
+  });
 });
