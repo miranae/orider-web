@@ -136,7 +136,15 @@ function purgeDisk(): void {
   }
 }
 
-function persist(onError?: (error: unknown) => void): boolean {
+function reportSnapshotStorageError(operation: "persist" | "restore" | "migrate", error: unknown): void {
+  // JSON 파싱 오류가 캐시 내용의 일부를 메시지에 포함할 수 있다.
+  const errorName = error instanceof Error || error instanceof DOMException ? error.name : typeof error;
+  captureError(new Error(`Training snapshot ${operation} failed (${errorName})`), {
+    tags: { source: `trainingSurfaceCache.${operation}` },
+  });
+}
+
+function persist(onError = (error: unknown) => reportSnapshotStorageError("persist", error)): boolean {
   const scope = trainingSurfaceCacheScope();
   if (!ownerUid || !scope || ownerScope !== scope) return false;
   try {
@@ -155,7 +163,7 @@ function persist(onError?: (error: unknown) => void): boolean {
     return true;
   } catch (error) {
     // 디스크 저장 실패 시에도 이미 검증된 메모리 값은 유지한다.
-    onError?.(error);
+    onError(error);
     return false;
   }
 }
@@ -163,11 +171,7 @@ function persist(onError?: (error: unknown) => void): boolean {
 function restore(uid: string): void {
   const scope = trainingSurfaceCacheScope();
   if (!scope) return;
-  const reportRestoreFailure = (error: unknown) => {
-    // JSON 파싱 오류가 캐시 내용의 일부를 메시지에 포함할 수 있다.
-    const errorName = error instanceof Error || error instanceof DOMException ? error.name : typeof error;
-    captureError(new Error(`Training snapshot restore failed (${errorName})`), { tags: { source: "trainingSurfaceCache.restore" } });
-  };
+  const reportRestoreFailure = (error: unknown) => reportSnapshotStorageError("restore", error);
   try {
     const disk = storage(reportRestoreFailure);
     if (!disk) return;
@@ -188,7 +192,7 @@ function restore(uid: string): void {
     if (scoped !== null) {
       persist(reportRestoreFailure);
     } else {
-      const reportMigrationFailure = (error: unknown) => captureError(error, { tags: { source: "trainingSurfaceCache.migrate" } });
+      const reportMigrationFailure = (error: unknown) => reportSnapshotStorageError("migrate", error);
       if (persist(reportMigrationFailure)) {
         try { disk.removeItem(LEGACY_STORAGE_KEY); }
         catch (error) { reportMigrationFailure(error); }
