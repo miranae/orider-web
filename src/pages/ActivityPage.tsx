@@ -214,14 +214,16 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const getOwnerExportStreams = useCallback(async () => {
     const viewer = photoServices.auth.currentUser;
     if (!activityId || !isActivityOwner || !viewer || viewer.uid !== activity?.userId) throw new Error("account_changed");
-    try {
-      const response = await createPublicActivityClient(photoServices).streams(activityId);
-      if (response.state === "changed_input") throw new Error("activity_stream_changed");
-      return response.streams;
-    } catch (error) {
-      if (photoServices.auth.currentUser !== viewer) throw new Error("account_changed");
-      throw error;
+    const response = await createPublicActivityClient(photoServices).streams(activityId);
+    if (response.state === "changed_input") throw new Error("activity_stream_changed");
+    if (!response.streams) {
+      const reason = typeof response.reason === "string" && /^[a-z_]{1,64}$/u.test(response.reason) ? response.reason : undefined;
+      logClientError("ActivityPage.ownerExportCadenceUnavailable", new Error("owner_export_cadence_stream_unavailable"), {
+        state: response.state, reason,
+        ...(photoServices.auth.currentUser === viewer ? { activityId } : {}),
+      });
     }
+    return response.streams;
   }, [activityId, activity?.userId, isActivityOwner, photoServices]);
   const uploadedPhotoIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}`;
   const [publicPhotosBusy, setPublicPhotosBusy] = useState(false);

@@ -41,7 +41,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
-  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount]);
+  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount]);
 
   const handleExport = useCallback(async (format: string) => {
     const request = generation.current;

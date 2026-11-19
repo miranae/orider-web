@@ -123,3 +123,15 @@ it("records a delayed owner lookup failure after leaving the detail", async () =
   expect(mocks.fit).not.toHaveBeenCalled();
   expect(mocks.toast).not.toHaveBeenCalled();
 });
+
+it("does not download an owner stream that was replaced during lookup", async () => {
+  const run = { ...activity, type: "Run", source: "strava" } as Activity;
+  const cached = { userId: "owner", time: [0], cadence: [84] };
+  let finish!: (value: typeof cached) => void;
+  const lookup = () => new Promise<typeof cached>(resolve => { finish = resolve; });
+  const view = render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} />);
+  fireEvent.click(screen.getByText("FIT"));
+  view.rerender(<ExportTab activity={run} streams={{ ...cached, cadence: [85] }} resolveOwnerCadenceStreams={lookup} />);
+  await act(async () => finish(cached));
+  expect(mocks.fit).not.toHaveBeenCalled();
+});
