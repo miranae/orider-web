@@ -19,6 +19,12 @@ function footCadenceScale(activity: Activity, streams: ActivityStreams): number 
   return undefined;
 }
 
+export function needsExportCadenceUnit(activity: Activity, streams: ActivityStreams, sport: ExportSport): boolean {
+  return sport.footCadence && footCadenceScale(activity, streams) == null
+    && Array.isArray(streams.cadence)
+    && streams.cadence.some(value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 510);
+}
+
 export function cadenceWriter(activity: Activity, streams: ActivityStreams, sport: ExportSport) {
   const scale = sport.footCadence ? footCadenceScale(activity, streams) : 1;
   const cyclesAt = (index: number) => {
