@@ -26,7 +26,12 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const unit = firstTime == null ? "relative_sec" : detectTimestampUnit(firstTime);
   const verifiedRelativeClock = usesVerifiedActivityTime(streams);
   const recordedClock = unit !== "relative_sec" && streams.laps?.some(lap => Number.isFinite(lap.startTimeMs) || Number.isFinite(lap.endTimeMs));
-  const activityTime = verifiedRelativeClock || recordedClock;
+  const relativeEnd = streams.time?.reduce<number | undefined>((last, value) => Number.isFinite(value) ? value : last, undefined);
+  const recordedLapEnd = streams.laps?.reduce<number | undefined>((latest, lap) => typeof lap.endTimeMs === "number"
+    && Number.isFinite(lap.endTimeMs) ? Math.max(latest ?? lap.endTimeMs, lap.endTimeMs) : latest, undefined);
+  const alignedRelativeClock = unit === "relative_sec" && relativeEnd != null && recordedLapEnd != null
+    && Math.abs(startMs + relativeEnd * 1000 - recordedLapEnd) <= 1;
+  const activityTime = verifiedRelativeClock || recordedClock || alignedRelativeClock;
   const summary = activity.summary;
   const relSecAt = (index: number) => {
     const value = streams.time?.[index];
@@ -120,7 +125,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
         for (const lap of laps) writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
       } else {
-        const duration = ((activityTime || laps.length ? recordedDuration ?? summary.ridingTimeMillis : summary.ridingTimeMillis) || 0) / 1000;
+        const duration = ((mode === "activity" || activityTime || laps.length ? recordedDuration ?? summary.ridingTimeMillis : summary.ridingTimeMillis) || 0) / 1000;
         writeLap(lines, startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
       }
       lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');

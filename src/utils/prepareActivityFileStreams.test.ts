@@ -325,3 +325,29 @@ it("preserves a legacy moving-time axis when a lap has no verified elapsed sourc
   expect(xml).toContain("<TotalTimeSeconds>120</TotalTimeSeconds>");
   expect(xml).not.toContain("<TotalTimeSeconds>180</TotalTimeSeconds>");
 });
+
+it("matches relative samples to recorded lap boundaries only when their endpoint is corroborated", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const streams = {
+    userId: "owner", time: [0, 60, 75, 120, 150, 180], heartrate: [150, 150, 150, 150, 150, 150],
+    laps: [
+      { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
+      { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
+    ],
+  } as ActivityStreams;
+  const result = prepareTcxExport(activity, streams, "spm");
+  expect(result.hasUnassigned).toBe(true);
+  const [, , second] = result.render("recorded").split(/<Lap StartTime="/u);
+  expect(second).toContain(new Date(startTime + 180_000).toISOString());
+  expect(second).not.toContain(new Date(startTime + 75_000).toISOString());
+});
+
+it("keeps an explicit activity-summary export on the recorded elapsed clock after laps disappear", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {
+    distance: 1000, elapsedTimeMillis: 130_000, ridingTimeMillis: 120_000,
+  } } as Activity;
+  const streams = { userId: "owner", time: [0, 120, 125], heartrate: [150, 150, 150] };
+  expect(prepareTcxExport(activity, streams).render("activity")).toContain("<TotalTimeSeconds>130</TotalTimeSeconds>");
+});

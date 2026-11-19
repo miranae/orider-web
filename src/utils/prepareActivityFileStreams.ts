@@ -124,7 +124,9 @@ export function prepareActivityFileStreams(activity: Activity, streams: Activity
       || Number.isFinite(timed.cadence?.[index]) || Number.isFinite(timed.heartrate?.[index]) || Number.isFinite(timed.watts?.[index]);
     return observed ? timestamp : null;
   });
-  const fitTimes = observationTimes.map(timestamp => timestamp === null ? null : Math.round(timestamp / 1000) * 1000);
+  const anchorMs = Math.floor(activity.startTime / 1000) * 1000;
+  const fitTimes = observationTimes.map(timestamp => timestamp === null ? null
+    : Math.round((activity.startTime + timestamp) / 1000) * 1000 - anchorMs);
   const fit = combineTimedStreams(timed, fitTimes, { userId: timed.userId }, []);
   const lastObservation = observationTimes.reduce<number | null>((last, timestamp) => timestamp ?? last, null);
   if (lastObservation != null) fit[originalFitEnd] = lastObservation / 1000;

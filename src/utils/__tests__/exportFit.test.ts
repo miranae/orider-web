@@ -295,3 +295,15 @@ it("does not use empty trailing raw grid slots as FIT observations", () => {
   expect(session.get(7)).toBe(1000);
   expect(session.get(253)! - session.get(2)!).toBe(1);
 });
+
+it("quantizes verified FIT records against the absolute start clock", () => {
+  const startTime = 1_700_000_000_900;
+  const source = makeActivity({ type: "Run", startTime, endTime: startTime + 1000 });
+  const activity = { ...source, summary: { ...source.summary, ridingTimeMillis: 1000, elapsedTimeMillis: 1000 } };
+  const raw = markRawPartStreams({ userId: "owner", time: [0], cadence: [170] }, "a".repeat(64), startTime + 200);
+  const prepared = prepareActivityFileStreams(activity, raw, "fit");
+  expect(prepared.time).toEqual([1]);
+  const session = readSession(generateFit(activity, prepared, "spm"));
+  expect(session.get(253)! - session.get(2)!).toBe(2);
+  expect(session.get(7)).toBe(1000);
+});

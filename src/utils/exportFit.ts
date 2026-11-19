@@ -24,8 +24,9 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const timed = usesVerifiedActivityTime(streams);
   const recordedElapsed = timed ? resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000))) : undefined;
   const elapsedMs = timed ? recordedElapsed ?? 0xFFFFFFFF : durationMs;
-  const endTimestamp = startTimestamp + Math.round(recordedElapsed != null
-    ? recordedElapsed / 1000 : endRel ?? Math.floor(durationMs / 1000));
+  const endTimestamp = recordedElapsed != null
+    ? Math.round((startDate.getTime() + recordedElapsed - garminEpoch) / 1000)
+    : startTimestamp + Math.round(endRel ?? Math.floor(durationMs / 1000));
 
   // File ID 메시지 (mesg 0)
   buf.writeDefinition(0, 0, [
