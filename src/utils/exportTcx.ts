@@ -1,6 +1,7 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import { cadenceWriter, type CadenceWriter, type ExportCadenceUnit } from "./exportCadence";
 import { exportSportOf } from "./exportSport";
+import { usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { makeRelSecAt } from "./streamTime";
 
 /** @param cadenceUnit 활동 지표의 저장 케이던스 단위 — 러닝 케이던스를 한 발 기준으로 바꾸는 데 쓴다. */
@@ -26,6 +27,8 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
   // 랩 정보가 있으면 랩별 Lap 생성, 없으면 전체를 단일 Lap으로
   if (streams.laps && streams.laps.length > 0) {
     let trackIdx = 0;
+    let previousLapEnd = 0;
+    const activityTime = usesVerifiedActivityTime(streams);
     for (const [lapIndex, lap] of streams.laps.entries()) {
       const lapSeconds = (lap.durationMs || 0) / 1000;
       const lapDistanceM = (lap.distanceKm || 0) * 1000;
@@ -35,9 +38,13 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
       lines.push('<Track>');
 
       // 현재 랩에 해당하는 트랙포인트 수 추정 (상대 초 기반)
+      const lapStart = typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
+        ? (lap.startTimeMs - startMs) / 1000
+        : activityTime ? previousLapEnd : (relSecAt(trackIdx) ?? 0);
       const lapEndTime = typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
         ? (lap.endTimeMs - startMs) / 1000
-        : (relSecAt(trackIdx) ?? 0) + lapSeconds;
+        : lapStart + lapSeconds;
+      previousLapEnd = lapEndTime;
       const isLastLap = lapIndex === streams.laps.length - 1;
       while (trackIdx < len) {
         const tSec = relSecAt(trackIdx) ?? trackIdx;

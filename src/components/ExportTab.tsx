@@ -8,7 +8,7 @@ import { generateGpx } from "../utils/exportGpx";
 import { prepareActivityFileStreams } from "../utils/prepareActivityFileStreams";
 import { exportFilename, exportSportOf } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
-import { readStreamCadenceUnit } from "../services/activityStreamSource";
+import { readStreamCadenceUnit, readVerifiedStreamRevision } from "../services/activityStreamSource";
 import { reportPreviousAccountFailure, logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
@@ -49,6 +49,8 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     resolver: ExportTabProps["resolveCurrentStreams"];
     format: "fit" | "tcx";
     samples: NonNullable<ActivityStreams["cadence"]>;
+    time: ActivityStreams["time"];
+    revision: string | undefined;
   } | null>(null);
   const pendingCadence = cadencePrompt?.activity === activity && cadencePrompt.streams === streams
     && cadencePrompt.account === renderedAccount && cadencePrompt.resolver === resolveCurrentStreams ? cadencePrompt : null;
@@ -65,13 +67,17 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       if (!stillCurrent()) return;
       const verifiedUnit = readStreamCadenceUnit(currentStreams);
       const cadence = currentStreams.cadence;
+      const time = currentStreams.time;
+      const revision = readVerifiedStreamRevision(currentStreams);
       const missingFootCadenceUnit = (format === "fit" || format === "tcx") && exportSportOf(activity).footCadence
         && verifiedUnit !== "spm" && verifiedUnit !== "strides_per_minute"
         && Array.isArray(cadence) && cadence.some(value => Number.isFinite(value) && value >= 0);
       const chosenUnitApplies = choice === "omit" || (choice !== undefined && pendingCadence?.format === format
+        && revision === pendingCadence.revision && time?.length === pendingCadence.time?.length
+        && (!time || time.every((value, index) => Object.is(value, pendingCadence.time?.[index])))
         && cadence?.length === pendingCadence.samples.length && cadence?.every((value, index) => Object.is(value, pendingCadence.samples[index])));
       if (missingFootCadenceUnit && !chosenUnitApplies) {
-        setCadencePrompt({ activity, streams, account, resolver: resolveCurrentStreams, format, samples: [...cadence] });
+        setCadencePrompt({ activity, streams, account, resolver: resolveCurrentStreams, format, samples: [...cadence], time: time?.slice(), revision });
         return;
       }
       setCadencePrompt(null);

@@ -50,3 +50,18 @@ it("matches epoch-based displayed samples to the cadence grid without moving the
   expect(merged.heartrate).toEqual([150]);
   expect(merged.cadence).toEqual([180]);
 });
+
+
+it("uses the activity start for timed TCX lap boundaries even when the first sample is late", () => {
+  const startTime = Date.parse("2026-11-19T07:00:00Z");
+  const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 120_000 } } as Activity;
+  const source = markRawPartStreams({
+    time: Array.from({ length: 41 }, (_, index) => index),
+    laps: [{ durationMs: 60_000, distanceKm: 1 }, { durationMs: 60_000, distanceKm: 1 }],
+  } as ActivityStreams, "c".repeat(64), startTime + 30_000);
+  const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
+  const [, firstLap, secondLap] = xml.split("<Lap>");
+  expect(firstLap).toContain("2026-11-19T07:01:00.000Z");
+  expect(firstLap).not.toContain("2026-11-19T07:01:01.000Z");
+  expect(secondLap).toContain("2026-11-19T07:01:01.000Z");
+});

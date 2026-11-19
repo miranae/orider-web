@@ -27,7 +27,6 @@ function combineTimedStreams(
   baseTimes: Array<number | null>,
   secondary: ActivityStreams,
   secondaryTimes: Array<number | null>,
-  useSecondaryCadence = false,
 ): TimedFileStreams {
   const timeline = [...new Set([...baseTimes, ...secondaryTimes])].filter((time): time is number => time !== null).sort((a, b) => a - b);
   const slots = new Map(timeline.map((timestamp, index) => [timestamp, index]));
@@ -54,17 +53,21 @@ function combineTimedStreams(
     altitude: align(base.altitude, secondary.altitude),
     distance: align(base.distance, secondary.distance),
     velocity_smooth: align(base.velocity_smooth, secondary.velocity_smooth),
-    cadence: useSecondaryCadence ? align(undefined, secondary.cadence) : align(base.cadence, secondary.cadence),
+    cadence: align(base.cadence, secondary.cadence),
     heartrate: align(base.heartrate, secondary.heartrate),
     watts: align(base.watts, secondary.watts),
   };
 }
 
 /** Keep independently observed GPS timestamps rather than assigning them to sensor rows. */
+export function usesVerifiedActivityTime(streams: ActivityStreams): boolean {
+  return (streams as Partial<TimedFileStreams>)[timedFileStreams] === true;
+}
+
 function alignRawPartTimeline(activity: Activity, streams: ActivityStreams): ActivityStreams {
   const origin = readRawPartGridOrigin(streams);
   const time = streams.time;
-  if ((streams as Partial<TimedFileStreams>)[timedFileStreams] || origin == null || !Number.isFinite(activity.startTime)
+  if (usesVerifiedActivityTime(streams) || origin == null || !Number.isFinite(activity.startTime)
     || !time?.length || !time.every((sample, index) => sample === index)) return streams;
 
   const geometry = streams.activityRouteGeometryV1;
@@ -86,27 +89,32 @@ export function addVerifiedCadenceToExport(activity: Activity, displayed: Activi
 
   const baseTimes = timestampsOf(activity, base);
   const candidateTimes = timestampsOf(activity, cadenceSource);
+  const measuredPairs = (values: ActivityStreams["cadence"], timestamps: Array<number | null>) =>
+    timestamps.flatMap((time, index): Array<[number, number]> => {
+      const value = values?.[index];
+      return time !== null && typeof value === "number" && Number.isFinite(value) && value >= 0 ? [[time, value]] : [];
+    });
+  const confirmed = measuredPairs(cadenceSource.cadence, candidateTimes);
+  if (!confirmed.length) return displayed;
+
   if (!baseRevision) {
     // Legacy display streams have no revision. Bind a unit only to identical measured pairs.
-    const measuredPairs = (values: ActivityStreams["cadence"], timestamps: Array<number | null>) =>
-      timestamps.flatMap((time, index) => {
-        const value = values?.[index];
-        return time !== null && typeof value === "number" && Number.isFinite(value) && value >= 0 ? [[time, value]] : [];
-      });
     const original = measuredPairs(base.cadence, baseTimes);
-    const confirmed = measuredPairs(cadenceSource.cadence, candidateTimes);
-    if (!original.length || original.length !== confirmed.length
+    const originalCount = displayed.cadence?.filter(value => Number.isFinite(value) && value >= 0).length ?? 0;
+    if (original.length !== originalCount || original.length !== confirmed.length
       || original.some(([time, cadence], index) => time !== confirmed[index]?.[0] || cadence !== confirmed[index]?.[1])) return displayed;
     return markStreamCadenceUnit(displayed, unit);
   }
 
-  const combined = combineTimedStreams(base, baseTimes, { userId: displayed.userId, cadence: cadenceSource.cadence }, candidateTimes, true);
+  const existingCadence = base.cadence?.map(value => Number.isFinite(value) && value >= 0 ? value : undefined);
+  const combined = combineTimedStreams({ ...base, cadence: existingCadence as ActivityStreams["cadence"] }, baseTimes,
+    { userId: displayed.userId, cadence: confirmed.map(([, value]) => value) }, confirmed.map(([time]) => time));
   return markStreamCadenceUnit(combined, unit);
 }
 
 export function prepareActivityFileStreams(activity: Activity, streams: ActivityStreams, format: "fit" | "tcx"): ActivityStreams {
   const timed = alignRawPartTimeline(activity, streams);
-  if (format !== "fit" || !(timed as Partial<TimedFileStreams>)[timedFileStreams]) return timed;
+  if (format !== "fit" || !usesVerifiedActivityTime(timed)) return timed;
   // FIT timestamps are integer seconds. At each second keep the last observed value per channel.
   const fitTimes = timestampsOf(activity, timed).map(timestamp => timestamp === null ? null : Math.round(timestamp / 1000) * 1000);
   return combineTimedStreams(timed, fitTimes, { userId: timed.userId }, []);

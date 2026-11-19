@@ -41,7 +41,7 @@ it.each(["orider", "apple_health", "health_connect"] as const)("binds a verified
 
 it("adds only cadence from the matching revision and omits candidate samples without timestamps", async () => {
   const streams = markVerifiedStreamCadence({
-    time: [0, null, 1], cadence: [170, 174, 172], heartrate: [222, 223, 224],
+    time: [0, null, 1, 60], cadence: [170, 174, 172, null], heartrate: [222, 223, 224, null],
   } as unknown as ActivityStreams, revision, "spm");
   mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams });
   const existing = markVerifiedStreamCadence({
@@ -53,7 +53,7 @@ it("adds only cadence from the matching revision and omits candidate samples wit
   expect(result.heartrate?.[2]).toBe(152);
   expect(result.heartrate?.[1]).toBeUndefined();
   expect(result.watts?.[2]).toBe(105);
-  expect(result.cadence?.filter(Number.isFinite)).toEqual([170, 172]);
+  expect(result.cadence?.filter(Number.isFinite)).toEqual([170, 172, 172]);
   expect(readStreamCadenceUnit(result)).toBe("spm");
 });
 
@@ -118,4 +118,12 @@ it("does not submit previous account diagnostics under the replacement account",
   expect(reportPreviousAccountFailure).toHaveBeenCalledWith("ActivityStreams.ownerExportPreviousAccount", expect.any(Error), {
     format: "fit", source: "orider",
   });
+});
+
+
+it("does not apply a legacy unit to cadence observations with missing timestamps", async () => {
+  const streams = markVerifiedStreamCadence({ time: [0, 2], cadence: [170, 172] }, revision, "spm");
+  mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams });
+  const existing = { time: [0, null, 2], cadence: [170, 85, 172] } as unknown as ActivityStreams;
+  expect(await loadOwnerExportStreams(run, existing, "tcx", ownerServices())).toBe(existing);
 });

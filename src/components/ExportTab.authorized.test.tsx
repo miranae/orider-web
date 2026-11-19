@@ -94,3 +94,19 @@ it("honors the explicit omission choice when a refreshed response now knows the 
   await act(async () => fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })));
   expect(mocks.fit).toHaveBeenCalledWith(run, { ...second, cadence: undefined }, undefined);
 });
+
+
+it("requires a new cadence choice when a refreshed stream revision replaced the first", async () => {
+  const run = { ...activity, type: "Run" } as Activity;
+  const samples = { userId: "owner", time: [0], cadence: [85] };
+  const first = markVerifiedStreamCadence(samples, "a".repeat(64), null);
+  const second = markVerifiedStreamCadence(samples, "b".repeat(64), null);
+  const resolve = vi.fn().mockResolvedValueOnce(first).mockResolvedValue(second);
+  render(<ExportTab activity={run} streams={first} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  const unit = () => screen.getByRole("button", { name: /strides per minute|분당 스트라이드|cadenceChoice.strides_per_minute/iu });
+  await act(async () => fireEvent.click(unit()));
+  expect(mocks.fit).not.toHaveBeenCalled();
+  await act(async () => fireEvent.click(unit()));
+  expect(mocks.fit).toHaveBeenCalledWith(run, second, "strides_per_minute");
+});
