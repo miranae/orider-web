@@ -1019,10 +1019,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       });
       setMediaVisible(value => ({ ...value, photos: Math.max(value.photos, revealFrom + buffered.length) }));
     } catch (error) {
-      if (controller.signal.aborted) return;
+      const code = (error as { code?: string })?.code;
+      const message = error instanceof Error ? error.message : "";
+      if (message === "request_aborted" || message === "account_changed"
+        || (controller.signal.aborted && (error === controller.signal.reason || (error instanceof Error && error.name === "AbortError")))) return;
       logClientError("AthletePage.publicPhotos", error, {}, services, readIdentity.viewer, "", current);
       if (!current()) return;
-      const code = (error as { code?: string })?.code;
       if (code === "functions/permission-denied" || code === "functions/not-found" || code === "functions/unauthenticated") {
         await publicGlobal.refresh();
       } else {

@@ -1266,18 +1266,20 @@ it("drops buffered public photos when an existing version-zero profile is delete
   expect(view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger, .athlete-cover .athlete-photo-trigger")).toHaveLength(0);
 });
 
-it.each([true, false])("checks buffered photo permissions again before revealing (allowed=%s)", async allowed => {
+it.each(["allowed", "denied", "late-transport-error"] as const)("checks buffered photo permissions again before revealing (%s)", async outcome => {
   await seedBufferedPublicPhotos();
   const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
   let verifyPhotos = false;
   let release!: () => void;
   const verification = new Promise<void>(resolve => { release = resolve; });
   const checked = vi.fn();
+  const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
   vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request, signal) => {
     if (verifyPhotos && request.order === "id_asc") {
       checked(request);
       await verification;
-      if (!allowed) throw Object.assign(new Error("not found"), { code: "functions/not-found" });
+      if (outcome === "denied") throw Object.assign(new Error("not found"), { code: "functions/not-found" });
+      if (outcome === "late-transport-error") throw new Error("late photo request failure");
       const page = await original(services, request, signal);
       return { ...page, items: page.items.map(activity => ({
         ...activity,
@@ -1298,13 +1300,18 @@ it.each([true, false])("checks buffered photo permissions again before revealing
       expect.objectContaining({ scope: "athlete", targetUid: "athlete-1", order: "id_asc", limit: 20 }),
     ));
     expect(photoCount()).toBe(6);
+    if (outcome === "late-transport-error") act(() => clearDocData("users_public/athlete-1"));
     await act(async () => release());
-    await waitFor(() => expect(photoCount()).toBe(allowed ? 8 : 0));
-    if (allowed) {
+    await waitFor(() => expect(photoCount()).toBe(outcome === "allowed" ? 8 : 0));
+    if (outcome === "allowed") {
       const strip = view.container.querySelector<HTMLElement>(".athlete-photo-strip")!;
       expect(within(strip).getAllByRole("img", { name: "Current caption" })).toHaveLength(2);
     }
-  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+    if (outcome === "late-transport-error") {
+      expect(logger.mock.calls.some(([source, error]) => source === "AthletePage.publicPhotos"
+        && error instanceof Error && error.message === "late photo request failure")).toBe(true);
+    }
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); logger.mockRestore(); }
 });
 
 it.each(["success", "failure"])("ignores an older public continuation's %s and busy completion after visibility restarts the first page", async outcome => {
