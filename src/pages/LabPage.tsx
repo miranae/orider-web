@@ -189,9 +189,9 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
             ],
       );
     }).catch(error => {
-      if (!isCurrent()) return;
-      setFailedCourseId(urlCourseId);
-      logClientError("LabPage.loadCourse", error, { courseId: urlCourseId }, services, viewer);
+      const current = isCurrent();
+      logClientError("LabPage.loadCourse", error, { courseId: urlCourseId }, services, viewer, current ? "" : "superseded");
+      if (current) setFailedCourseId(urlCourseId);
     });
     return () => {
       cancelled = true;

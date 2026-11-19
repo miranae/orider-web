@@ -320,9 +320,9 @@ export default function EventParticipantsPage() {
         setDrawer(previous => previous ? enrich(previous) : previous);
       });
     } catch (err) {
-      if (!current()) return;
-      logClientError("EventParticipantsPage.load", err, { eventId });
-      setLoadError(err instanceof Error ? err.message : t("participantsView.loadError"));
+      const active = current();
+      logClientError("EventParticipantsPage.load", err, { eventId }, services, scope.owner, active ? "" : "superseded");
+      if (active) setLoadError(err instanceof Error ? err.message : t("participantsView.loadError"));
     } finally {
       if (current()) { setLoadedScope(scope); setLoading(false); }
     }
