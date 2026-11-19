@@ -99,7 +99,7 @@ export function debugLog(scope: string, payload: Record<string, unknown>): void 
 }
 
 /** Error details safe to record when the requesting account is no longer active. */
-export function describeDiagnosticFailure(error: unknown): { code: string } {
+function describeDiagnosticFailure(error: unknown): { code: string } {
   const rawCode = error && typeof error === "object" && "code" in error ? error.code : null;
   if (typeof rawCode === "string" && /^(functions|firestore)\/(aborted|cancelled|deadline-exceeded|failed-precondition|internal|invalid-argument|not-found|permission-denied|resource-exhausted|unauthenticated|unavailable|unknown|unimplemented)$/u.test(rawCode)) {
     return { code: rawCode };
@@ -111,4 +111,12 @@ export function describeDiagnosticFailure(error: unknown): { code: string } {
     if (/network|failed to fetch|load failed/iu.test(error.message)) return { code: "network_error" };
   }
   return { code: "unknown" };
+}
+
+
+/** Send only sanitized diagnostics for a request whose account has been replaced. */
+export function reportPreviousAccountFailure(source: string, error: unknown, context?: Record<string, unknown>): void {
+  const { code } = describeDiagnosticFailure(error);
+  if (code === "account_changed" || shouldSuppressClientError(source, code)) return;
+  captureError(new Error(code), { tags: { source }, extra: { ...context, code } });
 }

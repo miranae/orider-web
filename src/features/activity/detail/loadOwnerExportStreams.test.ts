@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Activity, ActivityStreams } from "@shared/types";
 import type { FirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { markVerifiedStreamCadence, readStreamCadenceUnit } from "../../../services/activityStreamSource";
-import { logClientError } from "../../../services/errorLogger";
+import { logClientError, reportPreviousAccountFailure } from "../../../services/errorLogger";
 import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
 import { loadOwnerExportStreams } from "./loadOwnerExportStreams";
 
@@ -14,7 +14,7 @@ vi.mock("../../../services/publicActivityDetail", async importOriginal => ({
 }));
 vi.mock("../../../services/errorLogger", async importOriginal => ({
   ...await importOriginal<typeof import("../../../services/errorLogger")>(),
-  logClientError: vi.fn(), debugLog: vi.fn(),
+  logClientError: vi.fn(), debugLog: vi.fn(), reportPreviousAccountFailure: vi.fn(),
 }));
 
 const run = { id: "orider_run", userId: "owner", source: "orider", type: "Run" } as Activity;
@@ -52,8 +52,8 @@ it("keeps existing GPS, heart rate and power when the candidate only contains ca
   expect(readStreamCadenceUnit(result)).toBe("spm");
 });
 
-it("keeps the existing file signals when the candidate contains no usable cadence samples", async () => {
-  const streams = markVerifiedStreamCadence({ time: [0], cadence: [] }, revision, "spm");
+it.each([{ time: [0], cadence: [] }, { cadence: [170] }])("keeps existing file data if cadence cannot be placed on the candidate timeline", async data => {
+  const streams = markVerifiedStreamCadence(data as ActivityStreams, revision, "spm");
   mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "raw_parts", streams });
   expect(await loadOwnerExportStreams(run, displayed, "tcx", ownerServices())).toBe(displayed);
 });
@@ -103,4 +103,7 @@ it("does not submit previous account diagnostics under the replacement account",
   });
   await expect(loadOwnerExportStreams(run, displayed, "fit", services)).rejects.toThrow("account_changed");
   expect(logClientError).not.toHaveBeenCalled();
+  expect(reportPreviousAccountFailure).toHaveBeenCalledWith("ActivityStreams.ownerExportPreviousAccount", expect.any(Error), {
+    format: "fit", source: "orider",
+  });
 });

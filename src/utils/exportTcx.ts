@@ -26,7 +26,6 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
   // 랩 정보가 있으면 랩별 Lap 생성, 없으면 전체를 단일 Lap으로
   if (streams.laps && streams.laps.length > 0) {
     let trackIdx = 0;
-    let lapEndTime = 0;
     for (const [lapIndex, lap] of streams.laps.entries()) {
       const lapSeconds = (lap.durationMs || 0) / 1000;
       const lapDistanceM = (lap.distanceKm || 0) * 1000;
@@ -36,7 +35,9 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
       lines.push('<Track>');
 
       // 현재 랩에 해당하는 트랙포인트 수 추정 (상대 초 기반)
-      lapEndTime += lapSeconds;
+      const lapEndTime = typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
+        ? (lap.endTimeMs - startMs) / 1000
+        : (relSecAt(trackIdx) ?? 0) + lapSeconds;
       const isLastLap = lapIndex === streams.laps.length - 1;
       while (trackIdx < len) {
         const tSec = relSecAt(trackIdx) ?? trackIdx;

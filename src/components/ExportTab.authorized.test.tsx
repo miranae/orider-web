@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new 
 vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
 vi.mock("../utils/exportCsv", () => ({ generateCsv: mocks.csv }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.toast }) }));
-vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn(), debugLog: vi.fn() }));
+vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn(), reportPreviousAccountFailure: vi.fn() }));
 const activity = { id: "a", description: "Ride", startTime: 1792800000000 } as Activity;
 beforeEach(() => { mocks.csv.mockClear(); mocks.fit.mockClear(); mocks.toast.mockClear(); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {}); });
 it("exports the newly authorized streams rather than cached props", async () => {
@@ -41,6 +41,10 @@ it.each([
   const current = markVerifiedStreamCadence({ userId: "owner", time: [0], cadence: [85] }, "b".repeat(64), expected);
   render(<ExportTab activity={run} streams={before} resolveCurrentStreams={async () => current} />);
   await act(async () => fireEvent.click(screen.getByText("FIT")));
+  if (expected == null) {
+    expect(mocks.fit).not.toHaveBeenCalled();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })));
+  }
   expect(mocks.fit).toHaveBeenCalledWith(run, current, expected);
 });
 
@@ -66,13 +70,14 @@ it("checks the live account again before writing a delayed public file", async (
   expect(mocks.fit).not.toHaveBeenCalled();
 });
 
-it("preserves the running sport and offers raw CSV when an older backend omits a cadence unit", async () => {
+it("lets the user specify the original cadence unit when an older backend omits it", async () => {
   const run = { ...activity, type: "Run", source: "strava" } as Activity;
   const streams = { userId: "owner", time: [0], cadence: [85] };
   render(<ExportTab activity={run} streams={streams} />);
   await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(mocks.fit).toHaveBeenCalledWith(run, streams, undefined);
-  expect(mocks.toast).toHaveBeenCalledWith(expect.stringMatching(/cadenceUnavailable|cadence unit|케이던스/iu), "info");
+  expect(mocks.fit).not.toHaveBeenCalled();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /strides per minute|분당 스트라이드|cadenceChoice.strides_per_minute/iu })));
+  expect(mocks.fit).toHaveBeenCalledWith(run, streams, "strides_per_minute");
   await act(async () => fireEvent.click(screen.getByText("CSV")));
   expect(mocks.csv).toHaveBeenCalledWith(streams);
 });

@@ -1,7 +1,7 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import type { FirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { readStreamCadenceUnit } from "../../../services/activityStreamSource";
-import { logClientError, debugLog, describeDiagnosticFailure } from "../../../services/errorLogger";
+import { logClientError, debugLog, reportPreviousAccountFailure } from "../../../services/errorLogger";
 import { createPublicActivityClient, isPublicActivityAccessError } from "../../../services/publicActivityDetail";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
 import { addVerifiedCadenceToExport } from "../../../utils/prepareActivityFileStreams";
@@ -30,7 +30,7 @@ export async function loadOwnerExportStreams(
   const context = { activityId: activity.id, source: activity.source ?? "unknown", format };
   const result = await createPublicActivityClient(services).streams(activity.id).catch(error => {
     if (services.auth.currentUser !== account) {
-      debugLog("streams.owner_export_stale_failure", { format, source: context.source, ...describeDiagnosticFailure(error) });
+      reportPreviousAccountFailure("ActivityStreams.ownerExportPreviousAccount", error, { format, source: context.source });
       throw new Error("account_changed");
     }
     logClientError("ActivityStreams.ownerExport", error, context, services);
@@ -49,8 +49,9 @@ export async function loadOwnerExportStreams(
     return displayed;
   }
   if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");
-  if (!hasFootCadenceUnit(result.streams) || !Array.isArray(result.streams.cadence)
-    || !result.streams.cadence.some(value => Number.isFinite(value) && value >= 0)) {
+  const { cadence, time } = result.streams;
+  if (!hasFootCadenceUnit(result.streams) || !Array.isArray(cadence) || !Array.isArray(time)
+    || !cadence.some((value, index) => Number.isFinite(value) && value >= 0 && Number.isFinite(time[index]))) {
     return displayed;
   }
   return addVerifiedCadenceToExport(activity, displayed, result.streams);

@@ -2,14 +2,23 @@ import type { Activity, ActivityStreams } from "@shared/types";
 import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
 import { markStreamCadenceUnit, readRawPartGridOrigin, readStreamCadenceUnit } from "../services/activityStreamSource";
 import { makeRelSecAt } from "./streamTime";
+import { detectTimestampUnit } from "./timestampUnit";
 
 const timedFileStreams = Symbol("timedFileStreams");
 type TimedFileStreams = ActivityStreams & { [timedFileStreams]: true };
 
-function timestampsOf(streams: ActivityStreams): number[] {
+function timestampsOf(activity: Activity, streams: ActivityStreams): number[] {
+  const first = streams.time?.find(value => Number.isFinite(value));
+  const unit = first == null ? "relative_sec" : detectTimestampUnit(first);
   const relative = makeRelSecAt(streams.time);
-  return Array.from({ length: streams.time?.length || streams.latlng?.length || 0 },
-    (_, index) => Math.round((relative(index) ?? index) * 1000));
+  return Array.from({ length: streams.time?.length || streams.latlng?.length || 0 }, (_, index) => {
+    const sample = streams.time?.[index];
+    if (sample != null && Number.isFinite(activity.startTime)) {
+      if (unit === "epoch_ms") return Math.round(sample - activity.startTime);
+      if (unit === "epoch_sec") return Math.round(sample * 1000 - activity.startTime);
+    }
+    return Math.round((relative(index) ?? index) * 1000);
+  });
 }
 
 function combineTimedStreams(
@@ -69,7 +78,7 @@ function alignRawPartTimeline(activity: Activity, streams: ActivityStreams): Act
 export function addVerifiedCadenceToExport(activity: Activity, displayed: ActivityStreams, verified: ActivityStreams): ActivityStreams {
   const base = alignRawPartTimeline(activity, displayed);
   const cadenceSource = alignRawPartTimeline(activity, verified);
-  const combined = combineTimedStreams(base, timestampsOf(base), cadenceSource, timestampsOf(cadenceSource), true);
+  const combined = combineTimedStreams(base, timestampsOf(activity, base), cadenceSource, timestampsOf(activity, cadenceSource), true);
   return markStreamCadenceUnit(combined, readStreamCadenceUnit(verified));
 }
 
@@ -77,6 +86,6 @@ export function prepareActivityFileStreams(activity: Activity, streams: Activity
   const timed = alignRawPartTimeline(activity, streams);
   if (format !== "fit" || !(timed as Partial<TimedFileStreams>)[timedFileStreams]) return timed;
   // FIT timestamps are integer seconds. At each second keep the last observed value per channel.
-  const fitTimes = timestampsOf(timed).map(timestamp => Math.round(timestamp / 1000) * 1000);
+  const fitTimes = timestampsOf(activity, timed).map(timestamp => Math.round(timestamp / 1000) * 1000);
   return combineTimedStreams(timed, fitTimes, { userId: timed.userId }, []);
 }

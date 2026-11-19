@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { generateTcx } from "../utils/exportTcx";
@@ -9,7 +9,7 @@ import { prepareActivityFileStreams } from "../utils/prepareActivityFileStreams"
 import { exportFilename, exportSportOf } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
 import { readStreamCadenceUnit } from "../services/activityStreamSource";
-import { debugLog, describeDiagnosticFailure, logClientError } from "../services/errorLogger";
+import { reportPreviousAccountFailure, logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
   activity: Activity;
@@ -36,14 +36,26 @@ const FORMATS = [
   { id: "csv", label: "CSV", descKey: "export.formatCsvDesc", icon: "📊" },
 ] as const;
 
+type CadenceChoice = "spm" | "strides_per_minute" | "omit";
+
 export default function ExportTab({ activity, streams, resolveCurrentStreams, getExportAccount }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const renderedAccount = getExportAccount?.();
+  const [cadencePrompt, setCadencePrompt] = useState<{
+    activity: Activity;
+    streams: ActivityStreams;
+    account: typeof renderedAccount;
+    resolver: ExportTabProps["resolveCurrentStreams"];
+    format: "fit" | "tcx";
+    samples: NonNullable<ActivityStreams["cadence"]>;
+  } | null>(null);
+  const pendingCadence = cadencePrompt?.activity === activity && cadencePrompt.streams === streams
+    && cadencePrompt.account === renderedAccount && cadencePrompt.resolver === resolveCurrentStreams ? cadencePrompt : null;
   const generation = useRef(0);
   useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity, streams, resolveCurrentStreams, getExportAccount]);
 
-  const handleExport = useCallback(async (format: string) => {
+  const handleExport = useCallback(async (format: string, choice?: CadenceChoice) => {
     const request = generation.current;
     const account = getExportAccount?.();
     if (account !== renderedAccount) return;
@@ -51,10 +63,19 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(format) : streams;
       if (!stillCurrent()) return;
-      const fileCadenceUnit = readStreamCadenceUnit(currentStreams);
+      const verifiedUnit = readStreamCadenceUnit(currentStreams);
+      const cadence = currentStreams.cadence;
       const missingFootCadenceUnit = (format === "fit" || format === "tcx") && exportSportOf(activity).footCadence
-        && fileCadenceUnit !== "spm" && fileCadenceUnit !== "strides_per_minute"
-        && Array.isArray(currentStreams.cadence) && currentStreams.cadence.some(value => Number.isFinite(value) && value >= 0);
+        && verifiedUnit !== "spm" && verifiedUnit !== "strides_per_minute"
+        && Array.isArray(cadence) && cadence.some(value => Number.isFinite(value) && value >= 0);
+      const chosenUnitApplies = choice === "omit" || (choice !== undefined && pendingCadence?.format === format
+        && cadence?.length === pendingCadence.samples.length && cadence?.every((value, index) => value === pendingCadence.samples[index]));
+      if (missingFootCadenceUnit && !chosenUnitApplies) {
+        setCadencePrompt({ activity, streams, account, resolver: resolveCurrentStreams, format, samples: cadence });
+        return;
+      }
+      setCadencePrompt(null);
+      const fileCadenceUnit = missingFootCadenceUnit && choice !== "omit" ? choice : verifiedUnit;
       switch (format) {
         case "fit": {
           const data = generateFit(activity, prepareActivityFileStreams(activity, currentStreams, format), fileCadenceUnit);
@@ -81,16 +102,15 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           break;
         }
       }
-      if (missingFootCadenceUnit) showToast(t("export.cadenceUnavailable"), "info");
     } catch (err) {
       if (getExportAccount?.() !== account) {
-        debugLog("export.previous_account_failure", { format, ...describeDiagnosticFailure(err) });
+        reportPreviousAccountFailure("ExportTab.previousAccount", err, { format });
         return;
       }
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       if (stillCurrent()) showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, getExportAccount, renderedAccount, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, getExportAccount, renderedAccount, pendingCadence, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;
@@ -108,6 +128,21 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           {hasPower && ` · ${t("export.tagPower")}`}
         </p>
       </div>
+
+      {pendingCadence && (
+        <fieldset className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
+          <legend className="font-semibold">{t("export.cadenceUnitTitle")}</legend>
+          <p className="text-[length:var(--fs-sm)]">{t("export.cadenceUnitHelp")}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(["spm", "strides_per_minute", "omit"] as const).map(choice => (
+              <button key={choice} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
+                onClick={() => { void handleExport(pendingCadence.format, choice); }}>
+                {t(`export.cadenceChoice.${choice}`)}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {FORMATS.map((fmt) => {
