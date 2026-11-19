@@ -5,13 +5,14 @@ describe('exportSportOf', () => {
   it.each([
     ['Run', 1, 0, 'Running', 'running'],
     ['TrailRun', 1, 0, 'Running', 'running'],
-    ['VirtualRun', 1, 0, 'Running', 'running'],
+    ['VirtualRun', 1, 58, 'Running', 'running'],
     ['Walk', 11, 0, 'Other', 'walking'],
     ['Hike', 17, 0, 'Other', 'hiking'],
     ['Ride', 2, 0, 'Biking', 'cycling'],
     ['ride', 2, 0, 'Biking', 'cycling'],
     ['GravelRide', 2, 0, 'Biking', 'cycling'],
     ['VirtualRide', 2, 58, 'Biking', 'cycling'],
+    ['indoor_cycling', 2, 58, 'Biking', 'cycling'],
     ['Swim', 5, 0, 'Other', 'swimming'],
   ] as const)('%s → FIT %i/%i, TCX %s, GPX %s', (type, fitSport, fitSubSport, tcxSport, gpxType) => {
     expect(exportSportOf({ type })).toMatchObject({ fitSport, fitSubSport, tcxSport, gpxType });
@@ -19,7 +20,7 @@ describe('exportSportOf', () => {
 
   it('does not fall back to cycling for untracked sports', () => {
     for (const type of ['Workout', 'Yoga', '']) {
-      expect(exportSportOf({ type })).toEqual({ fitSport: 0, fitSubSport: 0, tcxSport: 'Other', gpxType: null, label: 'Activity' });
+      expect(exportSportOf({ type })).toEqual({ fitSport: 0, fitSubSport: 0, tcxSport: 'Other', gpxType: null, label: 'Activity', footCadence: false });
     }
   });
 });

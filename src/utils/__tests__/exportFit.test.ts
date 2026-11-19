@@ -51,6 +51,35 @@ function readSessionSport(data: Uint8Array): { sport: number; subSport: number }
   throw new Error('session message not found');
 }
 
+/** Reads cadence (field 4) and fractional_cadence (field 53) from every record message (global 20). */
+function readRecordCadence(data: Uint8Array): { fields: number[]; cadence: number[]; fractional: number[] } {
+  const end = data[0]! + (data[4]! | (data[5]! << 8) | (data[6]! << 16) | (data[7]! << 24));
+  const definitions = new Map<number, { global: number; fields: [number, number][] }>();
+  const out = { fields: [] as number[], cadence: [] as number[], fractional: [] as number[] };
+  let i = data[0]!;
+  while (i < end) {
+    const header = data[i++]!;
+    const local = header & 0x0f;
+    if (header & 0x40) {
+      const count = data[i + 4]!;
+      const fields: [number, number][] = [];
+      for (let f = 0; f < count; f++) fields.push([data[i + 5 + f * 3]!, data[i + 6 + f * 3]!]);
+      const global = data[i + 2]! | (data[i + 3]! << 8);
+      definitions.set(local, { global, fields });
+      if (global === 20) out.fields = fields.map(([num]) => num);
+      i += 5 + count * 3;
+      continue;
+    }
+    const definition = definitions.get(local)!;
+    for (const [num, size] of definition.fields) {
+      if (definition.global === 20 && num === 4) out.cadence.push(data[i]!);
+      if (definition.global === 20 && num === 53) out.fractional.push(data[i]!);
+      i += size;
+    }
+  }
+  return out;
+}
+
 describe('exportFit', () => {
   describe('crc16', () => {
     it('returns 0 for empty data', () => {
@@ -165,6 +194,34 @@ describe('exportFit', () => {
       const encodedAltitude = data[altitudeOffset]! | (data[altitudeOffset + 1]! << 8);
 
       expect(encodedAltitude).toBe(0xFFFF);
+    });
+
+    it('writes one-foot cadence for an Orider run stored in spm, keeping the half step', () => {
+      const streams = { userId: 'u1', time: [0, 1, 2], cadence: [168, 169, 170] };
+      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, 'spm'));
+      expect(read.cadence).toEqual([84, 84, 85]);
+      expect(read.fractional).toEqual([0, 64, 0]);
+    });
+
+    it('keeps a run already stored in strides per minute', () => {
+      const streams = { userId: 'u1', time: [0, 1], cadence: [84, 85] };
+      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, 'strides_per_minute'));
+      expect(read.cadence).toEqual([84, 85]);
+      expect(read.fractional).toEqual([0, 0]);
+    });
+
+    it('omits run cadence when its unit is unknown instead of guessing', () => {
+      const streams = { userId: 'u1', time: [0, 1], cadence: [168, 169] };
+      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, null));
+      expect(read.fields).not.toContain(4);
+      expect(read.fields).not.toContain(53);
+    });
+
+    it('keeps cycling cadence in rpm without a fractional field', () => {
+      const streams = { userId: 'u1', time: [0, 1], cadence: [90, 91] };
+      const read = readRecordCadence(generateFit(makeActivity({ type: 'Ride' }), streams, 'rpm'));
+      expect(read.cadence).toEqual([90, 91]);
+      expect(read.fields).not.toContain(53);
     });
 
     it('writes the activity sport to the session instead of always cycling', () => {

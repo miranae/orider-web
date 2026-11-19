@@ -1529,7 +1529,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
 
       <Modal open={showExport} onClose={() => setShowExport(false)} title={t("tab.export")} maxWidth="max-w-3xl">
         <div>
-        {streams ? <ExportTab activity={activity} streams={streams} resolveCurrentStreams={publicAccess ? async () => {
+        {streams ? <ExportTab activity={activity} streams={streams} cadenceUnit={serverMetrics.metrics?.cadenceUnit} resolveCurrentStreams={publicAccess ? async () => {
           const result = await publicAccess.session.client.streams(activity.id);
           if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");
           return result.streams;

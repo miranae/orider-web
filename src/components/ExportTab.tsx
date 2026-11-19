@@ -6,6 +6,7 @@ import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
 import { exportFilename } from "../utils/exportSport";
+import type { ExportCadenceUnit } from "../utils/exportCadence";
 import { useToast } from "../contexts/ToastContext";
 import { logClientError } from "../services/errorLogger";
 
@@ -13,6 +14,8 @@ interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
   resolveCurrentStreams?: () => Promise<ActivityStreams>;
+  /** 서버 지표의 저장 케이던스 단위(`cadenceUnit`). 러닝 케이던스를 파일 규격(한 발 기준)으로 바꿀 때 쓴다. */
+  cadenceUnit?: ExportCadenceUnit;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -33,7 +36,7 @@ const FORMATS = [
   { id: "csv", label: "CSV", descKey: "export.formatCsvDesc", icon: "📊" },
 ] as const;
 
-export default function ExportTab({ activity, streams, resolveCurrentStreams }: ExportTabProps) {
+export default function ExportTab({ activity, streams, resolveCurrentStreams, cadenceUnit }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
@@ -46,14 +49,14 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
       if (request !== generation.current) return;
       switch (format) {
         case "fit": {
-          const data = generateFit(activity, currentStreams);
+          const data = generateFit(activity, currentStreams, cadenceUnit);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
           downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
           break;
         }
         case "tcx": {
-          const xml = generateTcx(activity, currentStreams);
+          const xml = generateTcx(activity, currentStreams, cadenceUnit);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }
@@ -74,7 +77,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, cadenceUnit, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;
