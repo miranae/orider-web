@@ -1270,33 +1270,47 @@ it("drops buffered public photos when an existing version-zero profile is delete
   expect(view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger, .athlete-cover .athlete-photo-trigger")).toHaveLength(0);
 });
 
-it("discards a pending search continuation when the public profile is deleted", async () => {
-  setDocData("users_public/athlete-1", { nickname: "Legacy rider", profilePublic: true });
+it.each([
+  ["search", "deleted"], ["search", "revised"], ["browse", "revised"],
+] as const)("discards old %s results when public activity access is %s", async (view, change) => {
+  const profile = { nickname: "Legacy rider", profilePublic: true };
+  setDocData("users_public/athlete-1", profile);
   const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
   type Page = Awaited<ReturnType<typeof loadActivityDiscovery>>;
   let finishContinuation!: (value: Page) => void;
+  let revoked = false;
   const searchPage = (description: string, cursor: string | null): Page => ({
     items: [createMockActivity({ id: description, userId: "athlete-1", description })] as Page["items"],
     nextCursor: cursor, exhausted: cursor === null, expiresAt: Date.now() + 600000,
   });
   vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request, signal) => {
-    if (!request.keyword) return original(services, request, signal);
-    if (!request.cursor) return searchPage("First public result", "ad1.search");
+    if (request.order === "id_asc" || request.fromInclusive !== undefined || Boolean(request.keyword) !== (view === "search")) {
+      return original(services, request, signal);
+    }
+    if (!request.cursor) return revoked
+      ? { ...searchPage("", null), items: [] }
+      : searchPage("First public result", "ad1.continuation");
     return new Promise(resolve => { finishContinuation = resolve; });
   });
   try {
     renderWithProviders(<AthletePage />);
-    const input = await screen.findByPlaceholderText("활동 검색... (Enter)");
-    fireEvent.change(input, { target: { value: "public" } });
-    fireEvent.keyDown(input, { key: "Enter" });
+    if (view === "search") {
+      const input = await screen.findByPlaceholderText("활동 검색... (Enter)");
+      fireEvent.change(input, { target: { value: "public" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+    }
     await screen.findByText("First public result");
     fireEvent.click(screen.getByRole("button", { name: "더 보기", exact: true }));
     await waitFor(() => expect(finishContinuation).toBeTypeOf("function"));
-    act(() => clearDocData("users_public/athlete-1"));
+    revoked = true;
+    act(() => {
+      if (change === "deleted") clearDocData("users_public/athlete-1");
+      else setDocData("users_public/athlete-1", { ...profile, athleteTotalsSignal: "activity-changed" });
+    });
     expect(screen.queryByText("First public result")).not.toBeInTheDocument();
     await act(async () => finishContinuation(searchPage("Late deleted activity", null)));
     expect(screen.queryByText("Late deleted activity")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "더 보기", exact: true })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "더 보기", exact: true })).not.toBeInTheDocument());
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
 

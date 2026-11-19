@@ -204,10 +204,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const readIdentity = profileReadIdentity.current;
   const viewerRevisionRef = useRef({ identity: readIdentity, revision: "0" });
   if (viewerRevisionRef.current.identity !== readIdentity) viewerRevisionRef.current = { identity: readIdentity, revision: "0" };
-  const publicPresenceRef = useRef<{ identity: typeof readIdentity; state: "unknown" | "present" | "deleted"; deletions: number }>({
-    identity: readIdentity, state: "unknown", deletions: 0,
+  const publicPresenceRef = useRef<{ identity: typeof readIdentity; state: "unknown" | "present" | "deleted"; deletions: number; revision: string }>({
+    identity: readIdentity, state: "unknown", deletions: 0, revision: "0",
   });
-  if (publicPresenceRef.current.identity !== readIdentity) publicPresenceRef.current = { identity: readIdentity, state: "unknown", deletions: 0 };
+  if (publicPresenceRef.current.identity !== readIdentity) publicPresenceRef.current = { identity: readIdentity, state: "unknown", deletions: 0, revision: "0" };
   const [viewIdentity, setViewIdentity] = useState(readIdentity);
   useEffect(() => { setViewIdentity(readIdentity); }, [readIdentity]);
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -281,6 +281,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             if (kind === "viewer") viewerRevisionRef.current.revision = signal.revision;
             if (kind === "public") {
               const presence = publicPresenceRef.current;
+              presence.revision = signal.revision;
               if (signal.present && (!signal.fromCache || presence.state === "unknown")) presence.state = "present";
               if (!signal.present && !signal.fromCache && presence.state === "present") {
                 presence.state = "deleted";
@@ -306,17 +307,19 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return () => { active = false; if (signalGeneration.current === generation) signalGeneration.current++; stopPublic?.(); stopViewer?.(); };
   }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity && totalsSignals.generation === signalGeneration.current ? totalsSignals : null;
-  const publicAccessRevision = currentSignals?.public?.revision ?? "0";
+  const publicAccessRevision = publicPresenceRef.current.revision;
   const publicProfileDeleted = publicPresenceRef.current.state === "deleted";
   const publicProfileDeletions = publicPresenceRef.current.deletions;
   const viewerAccessRevision = currentSignals?.viewer && !currentSignals.viewer.error
     ? currentSignals.viewer.revision : viewerRevisionRef.current.revision;
+  const activityRowsRevision = JSON.stringify([publicAccessRevision, publicProfileDeletions, viewerAccessRevision]);
   const activityAccessCurrent = useCallback(() => profileReadIdentity.current === readIdentity
     && services.auth.currentUser === readIdentity.viewer
     && services.isSessionApproved?.(readIdentity.viewer) !== false
     && publicPresenceRef.current.state !== "deleted"
     && publicPresenceRef.current.deletions === publicProfileDeletions
-    && viewerRevisionRef.current.revision === viewerAccessRevision, [publicProfileDeletions, readIdentity, services, viewerAccessRevision]);
+    && publicPresenceRef.current.revision === publicAccessRevision
+    && viewerRevisionRef.current.revision === viewerAccessRevision, [publicAccessRevision, publicProfileDeletions, readIdentity, services, viewerAccessRevision]);
   const accessRevision = useMemo(() => ({ publicAccessRevision, publicProfileDeleted, publicProfileDeletions, viewerAccessRevision }),
     [publicAccessRevision, publicProfileDeleted, publicProfileDeletions, viewerAccessRevision]);
   const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized });
@@ -547,7 +550,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setLoadingMore(false);
       setActivityReadError(false);
       setDisplayActivities([]);
-      setActivityResultRevision(viewerAccessRevision);
+      setActivityResultRevision(activityRowsRevision);
       setLastActivityDoc(null);
       setPublicActivityCursor(null);
       setHasMoreActivities(true);
@@ -590,7 +593,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     load();
     return () => { cancelled = true; if (activityGeneration.current === generation) activityGeneration.current++; };
-  }, [userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, viewerAccessRevision, activityAttempt]);
+  }, [userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, activityRowsRevision, activityAttempt]);
 
   // 본인 차트는 선택한 연도와 최근 28일의 검증된 범위만 읽는다.
   useEffect(() => {
@@ -642,7 +645,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     let cancelled = false;
     setSearchLoading(true);
     setSearchResults([]);
-    setSearchResultRevision(viewerAccessRevision);
+    setSearchResultRevision(activityRowsRevision);
     setPublicSearchCursor(null); setPublicSearchError(false);
 
     const token = searchQuery
@@ -675,10 +678,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }).finally(() => { if (current()) setSearchLoading(false); });
 
     return () => { cancelled = true; };
-  }, [searchQuery, userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, viewerAccessRevision]);
+  }, [searchQuery, userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, activityRowsRevision]);
 
   const loadMorePublicSearch = async () => {
-    if (!userId || !publicSearchCursor || searchLoading || isOwnProfile || searchResultRevision !== viewerAccessRevision) return;
+    if (!userId || !publicSearchCursor || searchLoading || isOwnProfile || searchResultRevision !== activityRowsRevision) return;
     const identity = readIdentity;
     const current = activityAccessCurrent;
     if (!profileReadReady || !current()) return;
@@ -701,7 +704,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   };
 
   const handleLoadMoreActivities = async () => {
-    if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore || activityResultRevision !== viewerAccessRevision) return;
+    if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore || activityResultRevision !== activityRowsRevision) return;
     if (!profileReadReady) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
     const identity = readIdentity;
@@ -954,7 +957,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const canViewProfile = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
   const canViewFriends = isOwnProfile;
   const canSendFriendRequest = profileForPage?.friendRequestsAllowed !== false;
-  const activities = (activityResultRevision === viewerAccessRevision ? displayActivities : []).map((a) =>
+  const activities = (activityResultRevision === activityRowsRevision ? displayActivities : []).map((a) =>
     !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
   );
   const isMe = isOwnProfile;
@@ -1063,10 +1066,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const baseActivities = useMemo(() => {
     if (publicProfileDeleted) return [];
     if (!isSearchActive) return selectedPeriod || !isOwnProfile && (sport !== "all" || filterType !== "all") ? [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime) : activities;
-    return (searchResultRevision === viewerAccessRevision ? searchResults : []).map((a) =>
+    return (searchResultRevision === activityRowsRevision ? searchResults : []).map((a) =>
       !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
     );
-  }, [publicProfileDeleted, isSearchActive, activities, searchResults, searchResultRevision, viewerAccessRevision, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
+  }, [publicProfileDeleted, isSearchActive, activities, searchResults, searchResultRevision, activityRowsRevision, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
 
   const hasLocalFilter = !!selectedPeriod || sport !== "all" || filterType !== "all";
   const publicFiltersApplied = !isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all");
