@@ -9,6 +9,7 @@ import { isDeepStrictEqual } from "node:util";
 import { stageArtifactManifest, assertStageEntryArtifact } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { verifyBundledProductionBackend, verifyBundledProductionIdentity } from "./prepare-bundled-production.mjs";
+import { verifyAiServingRevision } from "./prepare-bundled-stage.mjs";
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
@@ -114,6 +115,7 @@ async function main() {
   else if (args["--phase"] === "verify-identity") {
     receipt = verifyPromotionFiles(options);
     await verifyBundledProductionIdentity(receipt.runtime, receipt.backend);
+    await verifyAiServingRevision(receipt.backend.sourceSha, process.env.HOSTING_ACCESS_TOKEN, fetch, "production");
   }
   else if (args["--phase"] === "check-files") receipt = verifyPromotionFiles(options);
   else throw new Error("prepare/verify/verify-identity/check-files phase required");

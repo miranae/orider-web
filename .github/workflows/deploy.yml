@@ -168,6 +168,7 @@ jobs:
           if [ "$ORIDER_FUNCTIONS_TRANSPORT" = legacy ]; then
             deploy_env=(env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT)
           else
+            node scripts/prepare-bundled-production.mjs --phase verify-identity
             node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/production-hosting-before.json"
             release_message=(--message "bundled-production:$RELEASE_SHA:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT")
           fi

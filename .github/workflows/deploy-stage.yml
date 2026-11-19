@@ -138,6 +138,7 @@ jobs:
           if [ "$SELECTED_TRANSPORT" = bundled-development ]; then config=firebase.bundled-stage.json; fi
           npm install -g firebase-tools@15.16.0
           if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
+            node scripts/prepare-bundled-stage.mjs --phase verify-identity
             node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/bundled-stage-hosting.json"
           fi
           set +e

@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { verifyBundledHosting } from "./verify-bundled-hosting.mjs";
 import { stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, verifyHostedAssets, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
-import { prepareBundledStage, sealBundledStage, verifyBundledStage, verifyStageAiRevision } from "./prepare-bundled-stage.mjs";
+import { prepareBundledStage, sealBundledStage, verifyBundledStage, verifyAiServingRevision } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841",
@@ -249,12 +249,12 @@ test("stage AI serving revision must belong to the accepted backend source", asy
   const containers = [{ env: [{ name: "COACH_SESSION_EXECUTION_COMMIT_SHA", value: sha }] }];
   const service = { name, labels: { "orider-source": sha }, terminalCondition: { state: "CONDITION_SUCCEEDED" },
     template: { containers }, latestReadyRevision: revision, trafficStatuses: [{ revision, percent: 100 }] };
-  await verifyStageAiRevision(sha, "fixture", async url => Response.json(url.endsWith(revision) ? { name: revision, containers } : service));
-  await assert.rejects(verifyStageAiRevision("c".repeat(40), "fixture", async () => Response.json(service)), /serving revision differs/u);
-  await assert.rejects(verifyStageAiRevision(sha, "fixture", async () => Response.json({ ...service,
+  await verifyAiServingRevision(sha, "fixture", async url => Response.json(url.endsWith(revision) ? { name: revision, containers } : service));
+  await assert.rejects(verifyAiServingRevision("c".repeat(40), "fixture", async () => Response.json(service)), /serving revision differs/u);
+  await assert.rejects(verifyAiServingRevision(sha, "fixture", async () => Response.json({ ...service,
     trafficStatuses: [{ revision: `${name}/revisions/previous`, percent: 100 }],
   })), /serving revision differs/u);
-  await assert.rejects(verifyStageAiRevision(sha, "fixture", async url =>
+  await assert.rejects(verifyAiServingRevision(sha, "fixture", async url =>
     Response.json(url.endsWith(revision) ? { name: revision, containers: [] } : service)), /planned execution epoch/u);
 });
 
@@ -272,10 +272,11 @@ test("the finalized live Hosting inventory must contain lazy JavaScript and CSS"
       : { files: [{ path: "/assets/entry.js", status: "ACTIVE", hash: "js-hash" }], nextPageToken: "second" });
   };
   const options = { token: "fixture", environment: "development", fetcher };
-  await verifyHostedAssets([["/assets/entry.js", "js-hash"], ["/assets/lazy.css", "css-hash"]], options);
+  await verifyHostedAssets(new Map([["/assets/entry.js", "js-hash"], ["/assets/lazy.css", "css-hash"]]), options);
   assert.deepEqual(pages, [null, "second"]);
-  await assert.rejects(verifyHostedAssets([["/assets/absent.js", "absent-hash"]], options), /missing 1 compiled assets.*absent.js/u);
-  await assert.rejects(verifyHostedAssets([["/assets/entry.js", "other-hash"]], options), /different bytes for.*entry.js/u);
+  await assert.rejects(verifyHostedAssets(new Map([["/assets/entry.js", "js-hash"]]), options), /unexpected file.*lazy.css/u);
+  await assert.rejects(verifyHostedAssets(new Map([["/assets/entry.js", "js-hash"], ["/assets/lazy.css", "css-hash"], ["/assets/absent.js", "absent-hash"]]), options), /missing 1 compiled assets.*absent.js/u);
+  await assert.rejects(verifyHostedAssets(new Map([["/assets/entry.js", "other-hash"]]), options), /different bytes for.*entry.js/u);
 });
 
 test("production rollback targets only the live production release owned by the attempt", async () => {

@@ -35,7 +35,11 @@ async function request(target, fetcher, token, method, url, body) {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
   catch { throw new Error(`${target.label} Hosting ${method} transport failed at ${url}`); }
   if (!response.ok) { await response.body?.cancel(); throw new Error(`${target.label} Hosting ${method} failed at ${url}: HTTP${response.status}`); }
-  try { return await response.json(); } catch { throw new Error(`${target.label} Hosting ${method} invalid JSON at ${url}`); }
+  try {
+    const data = await response.json();
+    if (!data || typeof data !== "object" || Array.isArray(data)) throw new TypeError("expected a response object");
+    return data;
+  } catch { throw new Error(`${target.label} Hosting ${method} invalid JSON object at ${url}`); }
 }
 function currentVersion(channel, target) {
   const version = channel?.release?.version?.name;
@@ -62,25 +66,30 @@ export async function verifyStagePublishPointer(snapshot, { token, fetcher = fet
 export async function verifyHostedAssets(assetHashes, { token, environment, fetcher = fetch }) {
   const target = hostingTarget(environment, "true");
   const live = await request(target, fetcher, token, "GET", API + target.channel);
-  const version = currentVersion(live, target), missing = new Map(assetHashes);
+  const version = currentVersion(live, target), missing = new Set(assetHashes.keys());
   const tokens = new Set();
+  const injectedFiles = new Set(["/__/firebase/init.js", "/__/firebase/init.json"]);
   let nextPageToken;
   do {
     const params = new URLSearchParams({ status: "ACTIVE", pageSize: "1000" });
     if (nextPageToken) params.set("pageToken", nextPageToken);
-    const page = await request(target, fetcher, token, "GET", `${API}${version}/files?${params}`);
+    const url = `${API}${version}/files?${params}`;
+    const page = await request(target, fetcher, token, "GET", url);
+    if (page.files !== undefined && !Array.isArray(page.files)) throw new Error(`${target.label} Hosting files GET returned invalid file list at ${url}`);
     for (const row of page.files ?? []) {
-      const expected = missing.get(row.path);
-      if (row.status === "ACTIVE" && expected) {
-        if (row.hash !== expected) throw new Error(`${target.label} Hosting ${version} has different bytes for ${row.path}`);
-        missing.delete(row.path);
-      }
+      if (row?.status !== "ACTIVE" || typeof row.path !== "string" || typeof row.hash !== "string")
+        throw new Error(`${target.label} Hosting files GET returned an invalid active file at ${url}`);
+      const expected = assetHashes.get(row.path);
+      if (!expected && injectedFiles.has(row.path)) continue;
+      if (!expected) throw new Error(`${target.label} Hosting ${version} has unexpected file ${row.path}`);
+      if (row.hash !== expected) throw new Error(`${target.label} Hosting ${version} has different bytes for ${row.path}`);
+      missing.delete(row.path);
     }
     nextPageToken = page.nextPageToken;
     if (nextPageToken && tokens.has(nextPageToken)) throw new Error(`${target.label} Hosting files GET repeated a page for ${version}`);
     tokens.add(nextPageToken);
-  } while (nextPageToken && missing.size > 0);
-  if (missing.size > 0) throw new Error(`${target.label} Hosting ${version} missing ${missing.size} compiled assets, including ${missing.keys().next().value}`);
+  } while (nextPageToken);
+  if (missing.size > 0) throw new Error(`${target.label} Hosting ${version} missing ${missing.size} compiled assets, including ${missing.values().next().value}`);
   const after = await request(target, fetcher, token, "GET", API + target.channel);
   if (currentVersion(after, target) !== version || releaseName(after, target) !== releaseName(live, target))
     throw new Error(`${target.label} Hosting changed while verifying the published assets`);

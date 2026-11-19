@@ -52,7 +52,12 @@ async function readArchive({ object, generation, token, fetcher }) {
     throw new Error(`${context}: transport failed (${error?.name ?? "Error"}/${error?.cause?.code ?? error?.code ?? "unknown"})`);
   }
   if (!response.ok) { await response.body?.cancel(); throw new Error(`${context}: HTTP${response.status}`); }
-  try { return generation ? Buffer.from(await response.arrayBuffer()) : await response.json(); }
+  try {
+    if (generation) return Buffer.from(await response.arrayBuffer());
+    const data = await response.json();
+    if (!data || typeof data !== "object" || Array.isArray(data)) throw new TypeError("expected a metadata object");
+    return data;
+  }
   catch { throw new Error(`${context}: response body could not be read`); }
 }
 export async function archiveHostingCandidate({ workspace = process.cwd(), buildReceipt, directory, runId, attempt, workflowSourceSha, token, fetcher = fetch }) {
@@ -92,7 +97,7 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
     try { stored = await response.json(); }
     catch { throw new Error(`${context}: response body could not be read`); }
   }
-  if (stored.name !== object || stored.bucket !== HOSTING_CANDIDATE_BUCKET || !positive.test(stored.generation || "")
+  if (stored?.name !== object || stored.bucket !== HOSTING_CANDIDATE_BUCKET || !positive.test(stored.generation || "")
     || Number(stored.size) !== bytes.length || Object.entries(metadata.metadata).some(([key, value]) => stored.metadata?.[key] !== value))
     throw new Error(`${context}: immutable private client archive differs (create ${response ? `HTTP${response.status}` : "transport failed"})`);
   const receipt = { kind: "gcs", bucket: HOSTING_CANDIDATE_BUCKET, object, generation: stored.generation, sha256: checksum,

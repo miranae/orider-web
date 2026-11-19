@@ -51,12 +51,12 @@ export async function verifyBundledHosting({ environment, directory = "dist", fe
   await verifyBundledHttpAliases({ base, fetcher });
   if (hostingToken) {
     // Firebase CLI hashes each file after level-9 gzip compression in the same runner.
-    const assetHashes = readdirSync(directory, { recursive: true, withFileTypes: true })
-      .filter(file => file.isFile() && /\.(?:js|css|json|wasm)$/u.test(file.name))
+    const assetHashes = new Map(readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter(file => file.isFile())
       .map(file => {
         const path = resolve(file.parentPath, file.name);
         return [`/${relative(directory, path)}`, hash(gzipSync(readFileSync(path), { level: 9 }))];
-      });
+      }));
     await verifyHostedAssets(assetHashes, { token: hostingToken, environment, fetcher });
   }
   return { verified: true, environment, entry };
