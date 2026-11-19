@@ -62,7 +62,17 @@ test("a valid development artifact cannot change the origin of production assets
     f.receipt.artifactManifest=stageArtifactManifest(f.dist);
     f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
     f.write(join(f.archive,"build.json"),f.receipt);
-    assert.throws(()=>prepareClientPromotion(f),/must not set a base URL/);
+    assert.throws(()=>prepareClientPromotion(f),/must not set a non-root base URL/);
+  }finally{f.cleanup();}
+});
+test("keeps a same-origin root base URL accepted by the development build",()=>{
+  const f=fixture();try{
+    const index=join(f.dist,"index.html");
+    writeFileSync(index,'<base href="/">' + readFileSync(index,"utf8"));
+    f.receipt.artifactManifest=stageArtifactManifest(f.dist);
+    f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
+    f.write(join(f.archive,"build.json"),f.receipt);
+    assert.deepEqual(prepareClientPromotion(f).entries,["assets/index-abc.js"]);
   }finally{f.cleanup();}
 });
 test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot promote",()=>{

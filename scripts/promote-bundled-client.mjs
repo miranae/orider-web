@@ -60,8 +60,9 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
   // The Vite shell uses root-relative assets. A base element can redirect them
   // to the development origin when the same HTML is published to production.
   const html = readFileSync(join(sourceDist, "index.html"), "utf8");
-  if (/<base(?:[\t\n\f\r />]|$)/iu.test(html)) {
-    throw new Error("development entry HTML must not set a base URL");
+  const baseTags = html.match(/<base(?=[\t\n\f\r />])[^>]*>/giu) ?? [];
+  if (baseTags.some(tag => !/^<base\s+href\s*=\s*(?:"\/"|'\/'|\/)\s*\/?>$/iu.test(tag))) {
+    throw new Error("development entry HTML must not set a non-root base URL");
   }
   const entryPattern = /^assets\/index-[A-Za-z0-9_-]+\.js$/u;
   const files = new Map(candidate.artifactManifest);
