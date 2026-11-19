@@ -41,6 +41,7 @@ if (typeof window !== "undefined") {
   window.addEventListener("vite:preloadError", (e) => {
     const ev = e as Event & { payload?: unknown };
     if (!isChunkLoadError(ev.payload)) return;
+    captureError(ev.payload, { tags: { source: "vite:preloadError" } });
     e.preventDefault();
     reloadWhenOnline();
     if (shouldReloadChunkOnce()) {
