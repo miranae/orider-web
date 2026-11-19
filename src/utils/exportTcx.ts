@@ -26,12 +26,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const unit = firstTime == null ? "relative_sec" : detectTimestampUnit(firstTime);
   const verifiedRelativeClock = usesVerifiedActivityTime(streams);
   const recordedClock = unit !== "relative_sec" && streams.laps?.some(lap => Number.isFinite(lap.startTimeMs) || Number.isFinite(lap.endTimeMs));
-  const relativeEnd = streams.time?.reduce<number | undefined>((last, value) => Number.isFinite(value) ? value : last, undefined);
-  const recordedLapEnd = streams.laps?.reduce<number | undefined>((latest, lap) => typeof lap.endTimeMs === "number"
-    && Number.isFinite(lap.endTimeMs) ? Math.max(latest ?? lap.endTimeMs, lap.endTimeMs) : latest, undefined);
-  const alignedRelativeClock = unit === "relative_sec" && relativeEnd != null && recordedLapEnd != null
-    && Math.abs(startMs + relativeEnd * 1000 - recordedLapEnd) <= 1;
-  const activityTime = verifiedRelativeClock || recordedClock || alignedRelativeClock;
+  const activityTime = verifiedRelativeClock || recordedClock;
   const summary = activity.summary;
   const relSecAt = (index: number) => {
     const value = streams.time?.[index];
@@ -71,8 +66,14 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     const index = indices[cursor];
     return index == null ? null : relSecAt(index) ?? index;
   };
+  const lastObservation = timedAt(indices.length - 1);
+  const recordedDuration = resolveRecordedElapsedMs(activity, Math.max(summary.ridingTimeMillis || 0,
+    Math.round((lastObservation ?? 0) * 1000)));
+  const singleDuration = streams.laps?.length === 1 ? streams.laps[0]?.durationMs : undefined;
+  const fullActivityLap = typeof singleDuration === "number" && singleDuration > 0 && singleDuration === recordedDuration;
   const laps: Array<{ start: number; duration: number; distance: number; first: number; end: number }> = [];
   let hasUnassigned = false;
+  let canKeepRecordedLaps = true;
   for (const [lapIndex, lap] of (streams.laps ?? []).entries()) {
     const duration = (lap.durationMs || 0) / 1000;
     const recordedEnd = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
@@ -99,17 +100,14 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     }
     // A duration-only lap can retain its recorded metrics, but its track on an
     // elapsed clock is unknown without a recorded boundary.
-    const unverifiedLapTrack = verifiedRelativeClock && recordedStart == null && recordedEnd == null;
-    hasUnassigned ||= unverifiedLapTrack && first < next;
+    const unverifiedLapTrack = verifiedRelativeClock && recordedStart == null && !fullActivityLap;
+    canKeepRecordedLaps &&= !unverifiedLapTrack;
     const validDistance = typeof lap.distanceKm === "number" && Number.isFinite(lap.distanceKm) && lap.distanceKm >= 0;
     laps.push({ start, duration, distance: validDistance ? lap.distanceKm * 1000 : 0,
       first, end: unverifiedLapTrack ? first : next });
     previousEnd = end;
   }
-  hasUnassigned ||= laps.length > 0 && next < indices.length;
-  const lastObservation = timedAt(indices.length - 1);
-  const recordedDuration = resolveRecordedElapsedMs(activity, Math.max(summary.ridingTimeMillis || 0,
-    Math.round((lastObservation ?? 0) * 1000)));
+  hasUnassigned ||= laps.length > 0 && (next < indices.length || !canKeepRecordedLaps);
   const validRecordedDuration = recordedDuration != null;
   const requiresCsv = !laps.length && verifiedRelativeClock && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
@@ -118,9 +116,11 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   return {
     hasUnassigned,
     canExportAllAsTcx,
+    canKeepRecordedLaps,
     requiresCsv,
     render(mode: TcxLapMode): string {
       if (requiresCsv) throw new Error("TCX_ELAPSED_UNAVAILABLE");
+      if (!canKeepRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) throw new Error("TCX_LAP_CLOCK_UNAVAILABLE");
       const lines = [...header];
       if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
         for (const lap of laps) writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);

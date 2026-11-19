@@ -1657,7 +1657,7 @@
     "tcxLapsTitle": "TCX 랩 옵션",
     "tcxLapsHelp": "랩 경계를 확인할 수 없는 표본이 있습니다. 기록된 랩만 저장하거나 활동 전체 수치와 모든 표본을 한 랩으로 저장할 수 있습니다.",
     "tcxElapsedMissing": "TCX에 필요한 경과시간을 확인할 수 없습니다. 기록된 표본을 CSV로 저장할 수 있습니다.",
-    "tcxLapsUpdated": "기록이 갱신되어 기록된 랩을 그대로 저장했습니다.",
+    "tcxLapClockMissing": "랩의 시작 시각을 확인할 수 없습니다. 모든 표본을 활동 전체 파일로 저장할 수 있습니다.",
     "tcxLapsMissingTotals": "랩에 속하지 않는 표본이 있고 전체 거리나 시간이 확인되지 않습니다. 기록된 랩을 유지하거나 모든 표본을 CSV로 저장할 수 있습니다.",
     "tcxLapsChoice": {
       "recorded": "기록된 랩 유지",

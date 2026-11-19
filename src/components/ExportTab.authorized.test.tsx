@@ -320,3 +320,21 @@ it("keeps the requested single-lap TCX when refreshed samples now fit the record
     url.mockRestore();
   }
 });
+
+
+it("asks again instead of substituting another format if the selected TCX totals disappear", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
+  const latestRun = { ...run, summary: { ...run.summary, elapsedTimeMillis: undefined } };
+  const laps = [{ durationMs: 120_000, distanceKm: 1 }];
+  const initial = { userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145], laps } as ActivityStreams;
+  const latest = { ...initial, time: [0, 120], heartrate: [140, 150] };
+  const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
+  const click = vi.mocked(HTMLAnchorElement.prototype.click);
+  click.mockClear();
+  const view = render(<ExportTab activity={run} streams={initial} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  view.rerender(<ExportTab activity={latestRun} streams={initial} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples|모든 표본을 한 랩|tcxLapsChoice.activity/iu })));
+  expect(click).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: /keep recorded laps|기록된 랩 유지|tcxLapsChoice.recorded/iu })).toBeVisible();
+});

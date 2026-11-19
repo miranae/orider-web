@@ -81,7 +81,7 @@ it("keeps recorded intervals or the full timeline without allocating distance to
     time, heartrate: time.map(() => 150),
     laps: [
       { durationMs: 60_000, distanceKm: 0.5, startTimeMs: startTime, endTimeMs: startTime + 60_000 },
-      { durationMs: 30_000, distanceKm: 0.5, endTimeMs: startTime + 120_000 },
+      { durationMs: 30_000, distanceKm: 0.5, startTimeMs: startTime + 60_000, endTimeMs: startTime + 120_000 },
     ],
   } as ActivityStreams, "d".repeat(64), startTime);
   const prepared = prepareTcxExport(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
@@ -220,10 +220,9 @@ it("does not slide adjacent duration-only laps by a sample interval on a verifie
     laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
   } as ActivityStreams, "f".repeat(64), startTime);
   const prepared = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
-  const [, , second] = prepared.render("recorded").split(/<Lap StartTime="/u);
-  expect(second).toMatch(new RegExp(new Date(startTime + 60_000).toISOString()));
-  expect(second).not.toContain(new Date(startTime + 121_000).toISOString());
   expect(prepared.hasUnassigned).toBe(true);
+  expect(prepared.canKeepRecordedLaps).toBe(false);
+  expect(() => prepared.render("recorded")).toThrow("TCX_LAP_CLOCK_UNAVAILABLE");
 });
 
 
@@ -238,9 +237,8 @@ it("keeps sparse observation gaps from moving verified duration-only lap boundar
   const exportFile = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
   expect(exportFile.hasUnassigned).toBe(true);
   expect(exportFile.canExportAllAsTcx).toBe(false);
-  const [, , second] = exportFile.render("recorded").split(/<Lap StartTime="/u);
-  expect(second).toContain(new Date(startTime + 60_000).toISOString());
-  expect(second).not.toContain(new Date(startTime + 125_000).toISOString());
+  expect(exportFile.canKeepRecordedLaps).toBe(false);
+  expect(() => exportFile.render("recorded")).toThrow("TCX_LAP_CLOCK_UNAVAILABLE");
 });
 
 
@@ -295,7 +293,7 @@ it("leaves samples after an ambiguous gap unassigned without losing the full exp
   const exportFile = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
   expect(exportFile.hasUnassigned).toBe(true);
   expect(exportFile.canExportAllAsTcx).toBe(true);
-  expect(exportFile.render("recorded")).not.toContain(new Date(startTime + 180_000).toISOString());
+  expect(exportFile.canKeepRecordedLaps).toBe(false);
   expect(exportFile.render("activity")).toContain(new Date(startTime + 180_000).toISOString());
 });
 
@@ -309,9 +307,8 @@ it("does not turn late sparse points into a lap ending after the recorded activi
   } as unknown as ActivityStreams, "f".repeat(64), startTime);
   const file = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
   expect(file.hasUnassigned).toBe(true);
-  const [, , second] = file.render("recorded").split(/<Lap StartTime="/u);
-  expect(second).toMatch(new RegExp(new Date(startTime + 60_000).toISOString()));
-  expect(second).not.toContain(new Date(startTime + 125_000).toISOString());
+  expect(file.canKeepRecordedLaps).toBe(false);
+  expect(() => file.render("recorded")).toThrow("TCX_LAP_CLOCK_UNAVAILABLE");
 });
 
 
@@ -326,11 +323,11 @@ it("preserves a legacy moving-time axis when a lap has no verified elapsed sourc
   expect(xml).not.toContain("<TotalTimeSeconds>180</TotalTimeSeconds>");
 });
 
-it("matches relative samples to recorded lap boundaries only when their endpoint is corroborated", () => {
+it("uses recorded boundaries when the stream supplies an absolute clock", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 60, 75, 120, 150, 180], heartrate: [150, 150, 150, 150, 150, 150],
+    userId: "owner", time: [0, 60, 75, 120, 150, 180].map(second => startTime + second * 1000), heartrate: [150, 150, 150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
       { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
@@ -350,4 +347,19 @@ it("keeps an explicit activity-summary export on the recorded elapsed clock afte
   } } as Activity;
   const streams = { userId: "owner", time: [0, 120, 125], heartrate: [150, 150, 150] };
   expect(prepareTcxExport(activity, streams).render("activity")).toContain("<TotalTimeSeconds>130</TotalTimeSeconds>");
+});
+
+
+it("keeps the track for a single lap proven to span the complete activity even without lap timestamps", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: { elapsedTimeMillis: 60_000, ridingTimeMillis: 60_000 } } as Activity;
+  const time = Array.from({ length: 61 }, (_, index) => index);
+  const raw = markRawPartStreams({
+    time, heartrate: time.map(() => 150), laps: [{ durationMs: 60_000, distanceKm: 1 }],
+  } as ActivityStreams, "a".repeat(64), startTime);
+  const file = prepareTcxExport(activity, prepareActivityFileStreams(activity, raw, "tcx"));
+  expect(file.canKeepRecordedLaps).toBe(true);
+  expect(file.hasUnassigned).toBe(false);
+  expect(file.render("recorded")).toContain("<DistanceMeters>1000</DistanceMeters>");
+  expect(file.render("recorded")).toContain("<HeartRateBpm>");
 });

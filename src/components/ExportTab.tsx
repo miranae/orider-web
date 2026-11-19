@@ -69,6 +69,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     cadenceChoice: CadenceChoice | undefined;
     binding: string;
     canExportAllAsTcx: boolean;
+    canKeepRecordedLaps: boolean;
     requiresCsv: boolean;
   } | null>(null);
   const pendingTcx = tcxPrompt?.activityScope === activityScope && tcxPrompt.streams === streams
@@ -134,14 +135,17 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         case "tcx": {
           const preparedStreams = prepareActivityFileStreams(fileActivity, fileStreams, format);
           const prepared = prepareTcxExport(fileActivity, preparedStreams, fileCadenceUnit);
-          if (prepared.hasUnassigned || prepared.requiresCsv) {
+          if (prepared.hasUnassigned || prepared.requiresCsv || (tcxMode === "activity" && !prepared.canExportAllAsTcx)) {
             const binding = JSON.stringify([revision, preparedStreams.laps, preparedStreams.time, preparedStreams.latlng,
               preparedStreams.distance, preparedStreams.altitude, preparedStreams.velocity_smooth, preparedStreams.heartrate,
               preparedStreams.cadence, preparedStreams.watts, fileCadenceUnit, fileActivity.summary.distance,
               fileActivity.summary.ridingTimeMillis, fileActivity.summary.elapsedTimeMillis, fileActivity.endTime]);
-            if (!tcxMode || pendingTcx?.binding !== binding || prepared.requiresCsv) {
+            if (!tcxMode || pendingTcx?.binding !== binding || prepared.requiresCsv
+              || (tcxMode === "activity" && !prepared.canExportAllAsTcx)
+              || (tcxMode === "recorded" && !prepared.canKeepRecordedLaps)) {
               setTcxPrompt({ activityScope, streams, account, resolverScope, cadenceChoice: choice, binding,
-                canExportAllAsTcx: prepared.canExportAllAsTcx, requiresCsv: prepared.requiresCsv });
+                canExportAllAsTcx: prepared.canExportAllAsTcx, canKeepRecordedLaps: prepared.canKeepRecordedLaps,
+                requiresCsv: prepared.requiresCsv });
               return;
             }
           }
@@ -150,9 +154,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           const mode = tcxMode === "activity" && prepared.canExportAllAsTcx ? "activity" : "recorded";
           const xml = prepared.render(mode);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(fileActivity, "tcx"));
-          if (!prepared.hasUnassigned && tcxMode === "activity" && mode !== "activity") {
-            showToast(t("export.tcxLapsUpdated"), "info");
-          }
+
           break;
         }
         case "csv": {
@@ -203,10 +205,13 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       {pendingTcx && (
         <fieldset className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
           <legend className="font-semibold">{t("export.tcxLapsTitle")}</legend>
-          <p className="text-[length:var(--fs-sm)]">{t(pendingTcx.requiresCsv ? "export.tcxElapsedMissing"
+          <p className="text-[length:var(--fs-sm)]">{t(pendingTcx.requiresCsv ? "export.tcxElapsedMissing" : !pendingTcx.canKeepRecordedLaps ? "export.tcxLapClockMissing"
             : pendingTcx.canExportAllAsTcx ? "export.tcxLapsHelp" : "export.tcxLapsMissingTotals")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {(pendingTcx.requiresCsv ? ["csv"] as const : ["recorded", pendingTcx.canExportAllAsTcx ? "activity" : "csv"] as const).map(mode => (
+            {([
+              ...(pendingTcx.canKeepRecordedLaps && !pendingTcx.requiresCsv ? ["recorded"] as const : []),
+              pendingTcx.canExportAllAsTcx && !pendingTcx.requiresCsv ? "activity" : "csv",
+            ] as const).map(mode => (
               <button key={mode} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
                 onClick={() => { void handleExport("tcx", pendingTcx.cadenceChoice, mode); }}>
                 {t(`export.tcxLapsChoice.${mode}`)}
