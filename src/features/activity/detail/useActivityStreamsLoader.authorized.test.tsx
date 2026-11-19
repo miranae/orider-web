@@ -4,6 +4,7 @@ import { getDoc } from "firebase/firestore";
 import type { Activity } from "@shared/types";
 import { FirebaseServicesProvider, useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { markVerifiedStreamCadence, readStreamCadenceUnit } from "../../../services/activityStreamSource";
+import * as logger from "../../../services/errorLogger";
 import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
 import type { ReactNode } from "react";
 import { useActivityStreamsLoader } from "./useActivityStreamsLoader";
@@ -15,8 +16,8 @@ const activity = { id: "a", userId: "owner", source: "orider", type: "VirtualRid
 beforeEach(() => { mocks.streams.mockReset(); getStreams.mockClear(); });
 afterEach(() => resetRuntimeConfigForTests());
 
-function renderLegacyOwnerRun(source: Activity["source"] = "orider") {
-  resetRuntimeConfigForTests({ appEnvironment: "production" });
+function renderLegacyOwnerRun(source: Activity["source"] = "orider", publicActivityDetailEnabled = true) {
+  resetRuntimeConfigForTests({ appEnvironment: "production", publicActivityDetailEnabled });
   const serviceTemplate = renderHook(() => useFirebaseServices());
   const services = {
     ...serviceTemplate.result.current,
@@ -41,18 +42,48 @@ it.each(["orider", "apple_health", "health_connect"] as const)("loads legacy own
   expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
 });
 
-it("does not fall back to cached streams after a revision change or access denial", async () => {
+it("keeps legacy owner streams when the public detail feature is disabled", async () => {
+  vi.mocked(getDoc).mockResolvedValueOnce({
+    exists: () => true, data: () => ({ json: JSON.stringify({ time: [0, 1], cadence: [170, 172] }) }),
+  } as Awaited<ReturnType<typeof getDoc>>);
+  const { result } = renderLegacyOwnerRun("orider", false);
+  await waitFor(() => expect(result.current.streams?.cadence).toEqual([170, 172]));
+  expect(mocks.streams).not.toHaveBeenCalled();
+});
+
+it("does not fall back to cached streams after a revision change, malformed response, or access denial", async () => {
   mocks.streams.mockResolvedValueOnce({ activityId: "a", state: "changed_input", streams: null })
-    .mockRejectedValueOnce({ code: "functions/permission-denied" });
+    .mockRejectedValueOnce({ code: "functions/permission-denied" })
+    .mockRejectedValueOnce(new Error("invalid_activity_streams"));
   const before = vi.mocked(getDoc).mock.calls.length;
   const { result } = renderLegacyOwnerRun();
   await waitFor(() => expect(result.current.streamsError).toBe("page.streamsMissing"));
   await act(async () => { await result.current.retryStreams(); });
   await waitFor(() => expect(result.current.streamsError).toBe("page.streamsMissing"));
+  await act(async () => { await result.current.retryStreams(); });
+  await waitFor(() => expect(result.current.streamsError).toBe("invalid_activity_streams"));
   expect(result.current.streams).toBeNull();
-  expect(mocks.streams).toHaveBeenCalledTimes(2);
+  expect(mocks.streams).toHaveBeenCalledTimes(3);
   expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
 });
+it("records an owner stream failure that arrives after leaving the activity", async () => {
+  const log = vi.spyOn(logger, "logClientError").mockImplementation(() => {});
+  try {
+    let reject!: (reason: Error) => void;
+    mocks.streams.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    const before = vi.mocked(getDoc).mock.calls.length;
+    const { unmount } = renderLegacyOwnerRun();
+    unmount();
+    const failure = new Error("network failure");
+    await act(async () => { reject(failure); });
+    expect(log).toHaveBeenCalledWith("ActivityPage.streams", failure,
+      expect.objectContaining({ activityId: "a", source: "orider" }), expect.anything());
+    expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
+  } finally {
+    log.mockRestore();
+  }
+});
+
 it("uses the authorized full-resolution reader without raw Firestore or provider reads, retaining streams on social refresh", async () => {
   const streams = { time: [0, .5, 1], watts: [200, 0, 150] };
   mocks.streams.mockResolvedValue({ state: "available", activityId: "a", streams });
