@@ -49,8 +49,10 @@ export async function callAthleteProfile<T>(services: FirebaseServices, uid: str
     return await Promise.race([
       (async () => {
         assertCurrent();
-        await services.ensureAppCheckReady();
-        assertCurrent();
+        if (!embeddedPublicTotals) {
+          await services.ensureAppCheckReady();
+          assertCurrent();
+        }
         const result = embeddedPublicTotals
           ? await callApprovedActivityRead<T>(services, owner, "getPublicAthleteTotals",
             getRuntimeConfig().firebaseFunctionsRegion || "us-central1", data, assertCurrent, controller.signal)
@@ -61,7 +63,7 @@ export async function callAthleteProfile<T>(services: FirebaseServices, uid: str
       new Promise<never>((_, reject) => { timer = setTimeout(() => {
         expired = true;
         reject(new Error("athlete-profile-timeout"));
-        controller.abort();
+        controller.abort(new DOMException("athlete-profile-timeout", "TimeoutError"));
       }, 12000); }),
     ]);
   } finally { if (timer) clearTimeout(timer); }
