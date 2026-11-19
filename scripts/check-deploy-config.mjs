@@ -238,12 +238,12 @@ requireIncludes(deployWorkflow, "git rev-list -n 1 \"$GITHUB_REF\"", "deploy.yml
 requireIncludes(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "deploy.yml main provenance gate");
 requireBefore(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "npm ci", "deploy.yml main provenance gate");
 requireBefore(deployWorkflow, "npm ci", "npm run build", "deploy.yml production build");
-requireBefore(deployWorkflow, "npm run build", "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
+requireBefore(deployWorkflow, "npm run build", "      - name: Write production runtime config\n", "deploy.yml built runtime config");
 requireIncludes(deployWorkflow, "node scripts/verify-social-callables.mjs", "deploy.yml backend contract gate");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_PROJECT_ID', "deploy.yml backend contract project");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_FUNCTIONS_REGION', "deploy.yml backend contract region");
 requireIncludes(deployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy.yml backend contract credential");
-requireBefore(deployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy --only hosting", "deploy.yml backend contract gate");
+requireBefore(deployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy --config", "deploy.yml backend contract gate");
 requireIncludes(deployWorkflow, "node scripts/production-hosting-evidence.mjs", "deploy.yml production evidence writer");
 requireIncludes(deployWorkflow, "actions/upload-artifact@v4", "deploy.yml production evidence upload");
 requireIncludes(deployWorkflow, "attest-production-deployment:", "deploy.yml production evidence attestation job");
@@ -271,6 +271,13 @@ if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh r
   fail("deploy.yml must build the production artifact without a stage artifact dependency");
 }
 
+requireIncludes(deployWorkflow, "vars.ORIDER_FUNCTIONS_TRANSPORT || 'legacy'", "deploy.yml explicit transport default");
+requireIncludes(deployWorkflow, "node scripts/prepare-bundled-production.mjs --phase prepare", "deploy.yml normal production flags");
+requireIncludes(deployWorkflow, "if: env.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'", "deploy.yml legacy Functions contract scope");
+requireIncludes(readFileSync("scripts/prepare-bundled-production.mjs", "utf8"),
+  'hosting.hosting.predeploy += " && node scripts/prepare-bundled-production.mjs --phase verify"', "bundled backend deploy-time verification");
+requireIncludes(deployWorkflow, "config=firebase.bundled-production.json", "deploy.yml bundled Hosting config");
+
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
 requireIncludes(stageDeployWorkflow, "VITE_MODE: production", "deploy-stage.yml production data profile");
 requireIncludes(stageDeployWorkflow, "PRODUCTION_RUNTIME_CONFIG_PATH:", "deploy-stage.yml pinned runtime path");
@@ -278,21 +285,26 @@ requireIncludes(stageDeployWorkflow, "node scripts/prepare-production-data-runti
 requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "npm ci", "deploy-stage.yml production runtime pinning");
 requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "node scripts/check-canonical-deploy-env.mjs", "deploy-stage.yml canonical runtime source");
 requireIncludes(stageDeployWorkflow, "workflow_dispatch:", "deploy-stage.yml manual trigger");
-if (/^  push:/mu.test(stageDeployWorkflow)) fail("deploy-stage.yml must not publish automatically on dev push");
+if (/^  (?:push|pull_request):/m.test(stageDeployWorkflow)) fail("deploy-stage.yml must not automatically deploy merged development code");
 requireIncludes(stageDeployWorkflow, "group: deploy-hosting-stage", "deploy-stage.yml shared writer lock");
 requireIncludes(stageDeployWorkflow, "cancel-in-progress: false", "deploy-stage.yml serialized writer");
 requireIncludes(stageDeployWorkflow, 'if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then', "deploy-stage.yml operator contract");
 requireBefore(stageDeployWorkflow, 'if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then', "google-github-actions/auth", "deploy-stage.yml pre-auth writer contract");
+requireIncludes(stageDeployWorkflow, "source_ref:", "deploy-stage.yml explicit source");
+requireIncludes(stageDeployWorkflow, "backend_source_sha:", "deploy-stage.yml pinned backend");
+requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase prepare", "deploy-stage.yml bundled preparation");
+requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase seal", "deploy-stage.yml actual artifact validation");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
-requireIncludes(stageDeployWorkflow, "if: github.ref == 'refs/heads/dev'", "deploy-stage.yml dev ref guard");
+requireIncludes(stageDeployWorkflow, "if: github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')", "deploy-stage.yml manual source guard");
 requireIncludes(stageDeployWorkflow, "runs-on: ubuntu-latest", "deploy-stage.yml disposable runner");
 checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
-requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
+requireIncludes(stageDeployWorkflow, 'config=firebase.stage.json', "deploy-stage.yml legacy deploy config");
+requireIncludes(stageDeployWorkflow, 'config=firebase.bundled-stage.json', "deploy-stage.yml bundled deploy config");
 requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
+requireIncludes(stageDeployWorkflow, "--project orider-dev", "deploy-stage.yml development project boundary");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");
-requireIncludes(stageDeployWorkflow, "steps.auth.outputs.access_token", "deploy-stage.yml Hosting credential");
+requireIncludes(stageDeployWorkflow, "create_credentials_file: true", "deploy-stage.yml Hosting ADC credential");
 requireIncludes(stageDeployWorkflow, "orider-dev.web.app", "deploy-stage.yml verification");
 requireIncludes(stageDeployWorkflow, 'cmp -s dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"', "deploy-stage.yml live runtime snapshot verification");
 if (stageDeployWorkflow.includes("STAGE_VITE_") || stageDeployWorkflow.includes("verify-stage-analysis-callables.mjs")) {

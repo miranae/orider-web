@@ -1,7 +1,7 @@
 import { reauthenticateWithPopup } from "firebase/auth";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import { auth, ensureAppCheckReady, functions, getAppCheckToken, googleProvider } from "./firebase";
-import { isStageComputeRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 import { listSocialLinks, startSocialAuth } from "./socialAuth";
 
 // Functions 에뮬레이터 포트 — 콜러블 연결과 영수증 상태 HTTP 조회가 같은 값을 써야 한다(기본 5001).
@@ -9,7 +9,7 @@ function functionsEmulatorPort(): number {
   return Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001);
 }
 
-const deletionFunctions = isStageComputeRuntime(getRuntimeConfig())
+const deletionFunctions = isFunctionsGatewayRuntime(getRuntimeConfig())
   ? functions : getFunctions(functions.app, "asia-northeast3");
 if (isEmulatorRuntime() && deletionFunctions !== functions) connectFunctionsEmulator(deletionFunctions, "localhost", functionsEmulatorPort());
 
@@ -68,7 +68,7 @@ export async function getAccountDeletionStatus(receipt?: string): Promise<Accoun
     const config = getRuntimeConfig();
     const base = isEmulatorRuntime()
       ? `http://localhost:${functionsEmulatorPort()}/${functions.app.options.projectId}/asia-northeast3`
-      : isStageComputeRuntime(config) ? config.firebaseFunctionsBase
+      : isFunctionsGatewayRuntime(config) ? config.firebaseFunctionsBase
       : `https://asia-northeast3-${functions.app.options.projectId}.cloudfunctions.net`;
     if (!base) throw new Error("DELETION_ENDPOINT_UNAVAILABLE");
     const response = await fetch(`${base}/getAccountDeletionStatus`, {
