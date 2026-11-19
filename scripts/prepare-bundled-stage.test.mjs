@@ -317,12 +317,12 @@ test("observed intervening release changes abort publication and compensating ro
       if (options.method === "POST") writes++;
       if (url.endsWith("/channels/live")) {
         reads++;
-        return Response.json({ name: "sites/orider-dev/channels/live", release: { name: `sites/orider-dev/releases/${reads === 1 ? operation === verifyStagePublishPointer ? "previous" : "ours" : "other"}`, version: { name: operation === verifyStagePublishPointer ? previous : active }, message: snapshot.marker } });
+        return Response.json({ name: "sites/orider-dev/channels/live", release: { name: `sites/orider-dev/releases/${operation === verifyStagePublishPointer || reads > 1 ? "other" : "ours"}`, version: { name: operation === verifyStagePublishPointer ? previous : active }, message: snapshot.marker } });
       }
       return Response.json({ name: previous, status: "FINALIZED" });
     };
     await assert.rejects(operation(snapshot, { serializedWrites: "true", token: "fixture", fetcher }), /live release changed/);
-    assert.equal(writes, 0); assert.equal(reads, 2);
+    assert.equal(writes, 0); assert.equal(reads, operation === verifyStagePublishPointer ? 1 : 2);
   }
   const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
   assert.ok(workflow.indexOf("--phase check-publish") < workflow.indexOf("firebase deploy --config"));
