@@ -1,3 +1,5 @@
+import { captureError } from "../services/sentry";
+
 export const TRAINING_SURFACE_CACHE_SCHEMA_VERSION = 2;
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -178,7 +180,15 @@ function restore(uid: string): void {
         || !validSnapshot(entry.key.surface, entry.value, uid)) continue;
       entries.set(serializeKey(entry.key), entry as unknown as CacheEntry);
     }
-    if (persist() && scoped === null) disk.removeItem(LEGACY_STORAGE_KEY);
+    if (scoped !== null) {
+      persist();
+    } else {
+      const reportMigrationFailure = (error: unknown) => captureError(error, { tags: { source: "trainingSurfaceCache.migrate" } });
+      if (persist(reportMigrationFailure)) {
+        try { disk.removeItem(LEGACY_STORAGE_KEY); }
+        catch (error) { reportMigrationFailure(error); }
+      }
+    }
   } catch {
     // 저장소 오류나 손상된 스냅샷은 원본 조회로 복구한다.
   }
