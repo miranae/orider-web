@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { prepareClientPromotion, verifyPromotionFiles, validateCandidateRun, assertReviewedSource } from "./promote-bundled-client.mjs";
+import { prepareClientPromotion, verifyClientPromotion, verifyPublishedPromotion, validateCandidateRun, assertReviewedSource } from "./promote-bundled-client.mjs";
 import { archiveHostingCandidate, restoreHostingCandidate, HOSTING_CANDIDATE_BUCKET } from "./hosting-candidate-archive.mjs";
-import { stageArtifactManifest, stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
+import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com", firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841", firebaseFunctionsRegion: "asia-northeast3", firebaseApiKey: "public", appCheckRecaptchaSiteKey: "public", stravaClientId: "public", mapboxToken: "public", stravaRedirectUri: "https://orider-strava.web.app/strava/callback", aiApiBase: "https://orider-ai-api-h5zqzw3n4a-du.a.run.app", publicClubApiUrl: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net/publicClubs", activitySubscriptionsEnabled: true, activitySubscriptionsBackendReady: false };
@@ -36,9 +36,7 @@ test("promotion preserves all compiled/static bytes, hidden files and flags whil
     assert.equal(r.runtime.deploymentProfile,"bundled-production");assert.ok(!JSON.stringify(r.runtime).includes("dev-bundle"));
     const before=f.receipt.artifactManifest.filter(([path])=>path!=="runtime-config.json"),after=stageArtifactManifest(join(f.workspace,"dist")).filter(([path])=>path!=="runtime-config.json");assert.deepEqual(after,before);
     const hosting=JSON.parse(readFileSync(join(f.workspace,"firebase.bundled-production.json"))).hosting;
-    assert.equal(hosting.site,"miranae-orider-g1");assert.ok(!hosting.predeploy.includes("build"));assert.ok(hosting.rewrites.filter(r=>r.run).every(r=>r.run.serviceId==="orider-bundle-default-api"));
-    verifyPromotionFiles(f);
-    writeFileSync(join(f.workspace,"dist/assets/index-abc.js"),"changed");assert.throws(()=>verifyPromotionFiles(f),/changed/);
+    assert.equal(hosting.site,"miranae-orider-g1");assert.equal(hosting.predeploy,undefined);assert.ok(hosting.rewrites.filter(r=>r.run).every(r=>r.run.serviceId==="orider-bundle-default-api"));
   }finally{f.cleanup();}
 });
 test("missing hidden files, changed payload, added stale files, wrong source/runtime all reject before preparation",()=>{
@@ -46,32 +44,125 @@ test("missing hidden files, changed payload, added stale files, wrong source/run
     const f=fixture();try{change(f);assert.throws(()=>prepareClientPromotion(f));}finally{f.cleanup();}
   }
 });
-test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot promote",()=>{
+test("an older receipt uses the browser-visible module rather than a comment",()=>{
   const f=fixture();try{
-    for(const patch of [{conclusion:"failure"},{run_attempt:2},{path:".github/workflows/ci.yml"},{head_branch:"dev"},{repository:{full_name:"other/repo"}},{event:"pull_request"}])assert.throws(()=>validateCandidateRun({...f.run,...patch},f.artifact,1),/selected/);
-    assert.equal(validateCandidateRun({...f.run,path:`${f.run.path}@main`},f.artifact,1),f.artifact.frontendSourceSha);
-    assert.throws(()=>validateCandidateRun(f.run,{...f.artifact,generation:""},1),/pinned/);
-    assert.throws(()=>validateCandidateRun(f.run,{...f.artifact,frontendSourceSha:"e".repeat(40)},1),/reviewed workflow source/);
+    const index=join(f.dist,"index.html");
+    writeFileSync(index,'<!-- src="/assets/index-unused.js" -->' + readFileSync(index,"utf8"));
+    writeFileSync(join(f.dist,"assets/index-unused.js"),"export {};");
+    f.receipt.artifactManifest=stageArtifactManifest(f.dist);
+    f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
+    f.write(join(f.archive,"build.json"),f.receipt);
+    assert.equal(prepareClientPromotion(f).entry,"assets/index-abc.js");
   }finally{f.cleanup();}
 });
-test("workflow rehearsal has no production environment and promotion has no build",()=>{
+test("a valid development artifact cannot change the origin of production assets",()=>{
+  const f=fixture();try{
+    const index=join(f.dist,"index.html");
+    writeFileSync(index,'<!--><base href="https://orider-dev.web.app/"><!-- -->' + readFileSync(index,"utf8"));
+    f.receipt.artifactManifest=stageArtifactManifest(f.dist);
+    f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
+    f.write(join(f.archive,"build.json"),f.receipt);
+    assert.throws(()=>prepareClientPromotion(f),/stage entry script missing/);
+  }finally{f.cleanup();}
+});
+test("keeps a same-origin root base URL and ignores base tags in HTML comments",()=>{
+  const f=fixture();try{
+    const index=join(f.dist,"index.html");
+    writeFileSync(index,'<!-- <base href="https://orider-dev.web.app/"> --> <base href="/">' + readFileSync(index,"utf8"));
+    f.receipt.artifactManifest=stageArtifactManifest(f.dist);
+    f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
+    f.write(join(f.archive,"build.json"),f.receipt);
+    assert.equal(prepareClientPromotion(f).entry,"assets/index-abc.js");
+  }finally{f.cleanup();}
+});
+test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot promote",()=>{
+  const f=fixture();try{
+    for(const patch of [{conclusion:"failure"},{run_attempt:2},{path:".github/workflows/ci.yml"},{repository:{full_name:"other/repo"}},{event:"pull_request"}])assert.throws(()=>validateCandidateRun({...f.run,...patch},f.artifact,1),/selected/);
+    assert.throws(()=>validateCandidateRun(f.run,{...f.artifact,generation:""},1),/pinned/);
+  }finally{f.cleanup();}
+});
+test("promotion is one production job without application install, rebuild, rehearsal or artifact transfer",()=>{
   const workflow=readFileSync(new URL("../.github/workflows/promote-hosting.yml",import.meta.url),"utf8");
-  assert.ok(!workflow.includes("npm run build"));assert.ok(!workflow.split("  promote:")[0].includes("environment: production"));assert.match(workflow,/if: inputs.phase == 'promote'/);assert.match(workflow,/environment: production/);
+  for(const removed of ["npm run build","actions/download-artifact","verify-bundled-hosting","inputs.phase","environment: stage"])assert.ok(!workflow.includes(removed),removed);
+  assert.equal(workflow.match(/npm ci/g)?.length,1);
+  assert.match(workflow,/parser_workspace="\$RUNNER_TEMP\/client-promotion-html-parser"[\s\S]*?cd "\$parser_workspace" && npm ci --include=dev --ignore-scripts/);
+  assert.deepEqual([...workflow.matchAll(/^  ([A-Za-z_-]+):$/gm)].map(match=>match[1]).filter(name=>["prepare","promote"].includes(name)),["promote"]);
+  assert.match(workflow,/--phase snapshot[\s\S]*?--phase rollback/);
+  assert.match(workflow,/Retain recovery receipt[^\n]+\n[^\n]+failure\(\)[^\n]+\n\s+continue-on-error: true\n\s+uses: actions\/upload-artifact@v4/);
+  assert.match(workflow,/attestations: read/);
+  assert.match(workflow,/environment: production/);assert.match(workflow,/GCP_WORKLOAD_IDENTITY_PROVIDER/);assert.match(workflow,/if: always\(\)/);assert.match(workflow,/--jq \.created_at/);
   const stage=readFileSync(new URL("../.github/workflows/deploy-stage.yml",import.meta.url),"utf8");assert.match(stage,/name: stage-client-[\s\S]*?include-hidden-files: true/);
-  assert.match(stage,/refs\/heads\/main' && steps\.source\.outputs\.sha == github\.sha[\s\S]*?uses: actions\/attest@v4/u);
-  assert.ok(stage.indexOf("Retain verified bundled client artifact") < stage.indexOf("Attest the reviewed main candidate archive"));
-  assert.ok(stage.indexOf("--phase verify-identity") < stage.indexOf("Archive verified client"));
-  assert.match(workflow,/needs\.prepare\.outputs\.artifact_name/u);
-  assert.match(workflow,/inputs\.phase == 'promote' && 'deploy-hosting-production'/u);
-  assert.match(workflow,/steps\.hosting_snapshot\.outcome == 'success'[\s\S]*?--phase rollback/u);
-  assert.match(workflow,/hosting-promotion-recovery-/u);
 });
 
-test("production entry is checked from the production document origin", () => {
-  const html = '<base href="https://orider-dev.web.app/"><script type="module" src="/assets/index-abc.js"></script>';
-  assert.equal(stageHtmlEntry(html), "assets/index-abc.js");
-  assert.throws(() => stageHtmlEntry(html, "production HTML", "https://orider.co.kr"), /entry script missing/u);
-  assert.throws(() => stageHtmlEntry('<script src="/assets/index-abc.js"></script>'), /entry script missing/u);
+test("checks gateway readiness and the login route without binding the backend commit",async()=>{
+  const f=fixture();try{
+    prepareClientPromotion(f);
+    const headers = {
+      "access-control-allow-origin":"https://orider.co.kr",
+      "access-control-allow-methods":"POST",
+      "access-control-allow-headers":"authorization,content-type,x-firebase-appcheck",
+    };
+    const calls = [];
+    const fetcher = async (url, init = {}) => {
+      const path = new URL(url).pathname;
+      calls.push([path, init.method ?? "GET"]);
+      const responseHeaders = {...headers,"access-control-allow-origin":init.headers?.Origin ?? headers["access-control-allow-origin"]};
+      if (path.startsWith("/oriderReadinessMissing")) return Response.json({error:"unknown-bundle-function"}, {status:404,headers:responseHeaders});
+      if (path === "/readyz") return Response.json({status:"ok",sourceSha:"e".repeat(40),topologyHash:"f".repeat(64)});
+      if (init.method === "OPTIONS") return new Response(null, {status:204,headers:responseHeaders});
+      if (path === "/v1/activity-narrative") return Response.json({error:{code:"unauthenticated"}}, {status:401,headers:responseHeaders});
+      return path === "/getActivityDiscovery"
+        ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers:responseHeaders})
+        : Response.json({error:{status:"INVALID_ARGUMENT"}}, {status:400,headers:responseHeaders});
+    };
+    await verifyClientPromotion(f,fetcher);
+    assert.deepEqual(calls.filter(([path])=>path==="/readyz"),[["/readyz","GET"]]);
+    assert.equal(calls.filter(([path,method])=>path.startsWith("/oriderReadinessMissing")&&method==="POST").length,1);
+    for (const path of ["/getActivityDiscovery","/socialAuthStart","/webHandoffRedeem","/v1/activity-narrative"]) {
+      assert.deepEqual(calls.filter(([seen])=>seen===path).map(([,method])=>method).sort(),["OPTIONS","OPTIONS","OPTIONS","OPTIONS","POST","POST","POST","POST"]);
+    }
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.includes("/oriderReadinessMissing")
+      ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers}) : fetcher(url,init)),/missing-route control/);
+    await verifyClientPromotion(f,async(url,init)=>init.method === "POST" && url.endsWith("/socialAuthStart")
+      ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers:{...headers,"access-control-allow-origin":init.headers.Origin}})
+      : fetcher(url,init));
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("not ready",{status:503}) : fetcher(url,init)),/unavailable/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("<html>error</html>") : fetcher(url,init)),/response body is invalid.*\/readyz/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && url.endsWith("/socialAuthStart") ? new Response(null,{status:404}) : fetcher(url,init)),/socialAuthStart browser preflight rejected/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && url.endsWith("/webHandoffRedeem") && init.headers?.Origin === "https://miranae-orider-g1.web.app"
+      ? new Response(null,{status:403}) : fetcher(url,init)),/webHandoffRedeem browser preflight rejected.*web.app/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "POST" && url.endsWith("/v1/activity-narrative")
+      ? Response.json({error:{code:"not_found"}}, {status:404,headers}) : fetcher(url,init)),/activity-narrative.*HTTP 404/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && url.endsWith("/socialAuthStart") && init.headers?.Origin === "https://www.orider.co.kr"
+      ? new Response(null,{status:403}) : fetcher(url,init)),/socialAuthStart browser preflight rejected.*www.orider/);
+  }finally{f.cleanup();}
+});
+
+test("one public release check validates the HTML, entry, runtime and sitemap rewrite",async()=>{
+  const f=fixture();try{
+    prepareClientPromotion(f);const urls=[];
+    const fetcher=async input=>{
+      const url = new URL(input);
+      urls.push(url.pathname);
+      if (url.pathname === "/api/v1/profile") return Response.json({error:{code:"UNAUTHENTICATED"}}, {status:401});
+      if (url.pathname === "/api/strava/webhook") return new Response("Forbidden", {status:403});
+      if (url.pathname === "/sitemap.xml") return new Response("<urlset/>", {headers:{"content-type":"application/xml"}});
+      const isPage = url.pathname === "/" || url.pathname === "/ko/course/nonexistent";
+      const file = join(f.workspace, "dist", isPage ? "index.html" : url.pathname.slice(1));
+      return new Response(readFileSync(file), {headers:{"content-type":url.pathname.endsWith(".js") ? "application/javascript" : isPage ? "text/html" : "application/json"}});
+    };
+    await verifyPublishedPromotion(f,fetcher);assert.deepEqual(urls.sort(),["/","/api/strava/webhook","/api/v1/profile","/assets/index-abc.js","/ko/course/nonexistent","/runtime-config.json","/sitemap.xml"]);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname.endsWith(".js") ? new Response("<html>fallback</html>", {headers:{"content-type":"text/html"}}) : fetcher(url)),/did not return JavaScript/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/sitemap.xml" ? new Response("not found", {status:404}) : fetcher(url)),/sitemap.xml.*HTTP404/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/runtime-config.json" ? new Response("stale") : fetcher(url)),/differs/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/" ? new Response(readFileSync(join(f.workspace,"dist","index.html")), {headers:{"content-type":"text/plain"}}) : fetcher(url)),/did not return HTML/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent" ? new Response("not found", {status:404}) : fetcher(url)),/course\/nonexistent.*HTTP404/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent" ? new Response("<!-- /assets/index-abc.js -->", {headers:{"content-type":"text/html"}}) : fetcher(url)),/stage entry script missing.*course\/nonexistent/);
+    await verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent"
+      ? new Response('<title>Course details</title><script type="module" src="/assets/index-abc.js"></script>', {headers:{"content-type":"text/html"}})
+      : fetcher(url));
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/api/strava/webhook" ? new Response("not found", {status:404}) : fetcher(url)),/strava\/webhook/);
+  }finally{f.cleanup();}
 });
 
 function fakeStorage({ loseCreateResponse = false, corruptDownload = false } = {}) {
@@ -97,8 +188,14 @@ function fakeStorage({ loseCreateResponse = false, corruptDownload = false } = {
 test("durable archive restores exact hidden/static files after GitHub run metadata expires",async()=>{
   const f=fixture(),storage=fakeStorage();try{
     const saved=await archiveHostingCandidate({workspace:join(f.archive,"nested"),buildReceipt:join(f.archive,"build.json"),directory:join(f.root,"stored"),runId:123,attempt:1,workflowSourceSha:f.run.head_sha,token:"fixture",fetcher:storage.fetcher});
-    const restored=await restoreHostingCandidate({runId:123,attempt:1,directory:join(f.root,"restored"),token:"fixture",fetcher:storage.fetcher,
-      verifyAttestation: (file, archive) => assert.equal(hash(readFileSync(file)), archive.sha256)});
+    const options = {runId:123,attempt:1,token:"fixture",fetcher:storage.fetcher};
+    await assert.rejects(restoreHostingCandidate({...options,directory:join(f.root,"untrusted"),verifyAttestation:()=>{
+      throw new Error("untrusted archive");
+    }}), /untrusted archive/);
+    const restored=await restoreHostingCandidate({...options,directory:join(f.root,"restored"),verifyAttestation:(file,record)=>{
+      assert.equal(hash(readFileSync(file)), record.sha256);
+      assert.equal(record.frontendSourceSha, f.run.head_sha);
+    }});
     assert.equal(restored.validation,"archived-stage-acceptance");assert.equal(restored.generation,saved.generation);
     const archivedRun=JSON.parse(readFileSync(join(f.root,"restored/run.json")));
     assert.equal(archivedRun.stageAcceptanceComplete,true);assert.equal(archivedRun.conclusion,undefined);

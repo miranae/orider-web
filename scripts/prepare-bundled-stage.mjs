@@ -113,9 +113,11 @@ function readPrepared(directory) {
 export async function sealBundledStage(directory) {
   const state = readPrepared(directory), { prepared } = state;
   if (hash(readFileSync(resolve(prepared.artifactDirectory, "runtime-config.json"))) !== prepared.runtimeHash) throw new Error("built runtime differs from the prepared development profile");
-  assertStageEntryArtifact(prepared.artifactDirectory);
+  const entry = assertStageEntryArtifact(prepared.artifactDirectory);
+  const productionEntry = assertStageEntryArtifact(prepared.artifactDirectory, "https://orider.co.kr");
+  if (productionEntry !== entry) throw new Error("development and production must resolve the same Vite entry");
   const manifest = stageArtifactManifest(prepared.artifactDirectory);
-  const receipt = { ...prepared, complete: true, artifactManifest: manifest, artifactHash: hash(JSON.stringify(manifest)), verifiedAt: new Date().toISOString() };
+  const receipt = { ...prepared, complete: true, entry, productionEntry, artifactManifest: manifest, artifactHash: hash(JSON.stringify(manifest)), verifiedAt: new Date().toISOString() };
   save(resolve(state.directory, "build.json"), receipt);
   return receipt;
 }

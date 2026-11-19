@@ -1,26 +1,28 @@
 # FE 개발 검증 → 운영 승격
 
-FE는 `Deploy (Hosting → stage)`에서 한 번 빌드하고 개발 서버에서 entry·runtime·HTTP alias를 검증합니다. 개발 검증 직후 dist 전체(숨김 파일 포함), Hosting 설정, 파일별 해시와 실제 검증 영수증을 기존 비공개 GCS 릴리스 버킷의 `deploy-candidates/hosting/<run>/<attempt>/candidate.tgz`에 create-only로 보관합니다. 현재 버킷에는 자동 만료 정책이 없습니다. GitHub artifact·실행 기록의 실제 보관 한도는 1일이므로 장기 승격의 원본으로 사용하지 않습니다. 추가·변경·삭제는 매번 완성된 dist 전체로 반영됩니다.
+개발 배포에서 한 번 빌드하고 검증한 dist 전체를 기존 비공개 GCS 릴리스 버킷에 보관합니다. 운영 승격은 **Promote verified Hosting artifact** (`promote-hosting.yml`)를 `main`에서 실행합니다.
 
-운영 승격 후보는 `main`의 개발 배포 워크플로에서 실행 커밋과 같은 웹 소스를 빌드해 만듭니다. 이 실행은 개발 검증을 마친 압축 파일에 GitHub 출처 증명을 발급합니다. 운영 승격은 **Promote verified Hosting artifact** (`promote-hosting.yml`)를 `main`에서 실행합니다.
+입력은 개발 배포의 `candidate_run_id`와 `candidate_run_attempt`(보통 `1`) 두 개입니다. 한 production job에서 다음 순서로 진행합니다.
 
-- `candidate_run_id`: 검증을 마친 개발 FE 배포 실행 번호
-- `candidate_run_attempt`: 해당 실행 시도 번호 (보통 `1`)
-- `phase=rehearse`: 원본 파일과 출처를 검증하고 운영용 산출물을 준비합니다. 개발 계정의 비공개 후보 읽기 권한으로 실행하며 배포·재빌드·운영 인증은 하지 않습니다. 아직 전환하지 않은 운영 BE가 정상이라는 의미는 아닙니다.
-- `phase=promote`: 동일한 준비 후 기존 production Environment를 통해 Hosting을 게시합니다. 먼저 운영 BE의 source/topology가 개발에서 검증한 후보와 일치해야 합니다.
+1. 고정된 GCS generation·SHA-256으로 검증본을 복원하고 GitHub 출처 증명과 파일 manifest를 각각 한 번 확인합니다.
+2. JS·CSS·HTML·정적 파일은 그대로 복사하고, runtime 주소와 Hosting rewrite만 운영용으로 바꿉니다. 기능 플래그는 개발 검증본 값을 유지합니다.
+3. 운영 gateway의 `/readyz`와 운영 브라우저의 소셜 로그인 호출 경로를 병렬로 한 번 확인한 뒤 Hosting에 게시합니다.
+4. 공개 HTML, 진입 JS, runtime이 준비한 바이트와 같은지, 사이트맵과 기존 HTTP 경로가 올바르게 응답하는지 함께 확인합니다. 게시·검증 실패 시 이 작업이 게시한 릴리스만 직전 버전으로 되돌리고, 복구 영수증은 실패한 실행에서만 보관합니다.
 
-자바스크립트·CSS·HTML·정적 자산은 개발에서 검증한 바이트를 그대로 사용합니다. `runtime-config.json`의 서비스 주소와 Hosting rewrite만 운영 묶음 서비스로 바꾸며 기능 플래그는 후보 값을 유지합니다. 산출물의 frontend source와 승격 도구의 tooling source는 영수증에 따로 기록됩니다.
+서명된 개발 영수증에 기록된 진입 파일을 사용합니다. 운영의 딥링크 HTML 검사를 위해 잠긴 파서 두 패키지만 임시 경로에 설치합니다. 앱 의존성을 설치하거나 재빌드하지 않습니다. 중간 Actions artifact 전달, 필수 rehearsal 및 predeploy 재검증은 없습니다. Firebase CLI는 runner에 있으면 재사용하고 없을 때만 설치합니다. BE commit/topology 값은 검증본의 출처 기록으로 남기며 FE 게시 조건으로 사용하지 않습니다. 추가·변경·삭제는 완성된 dist 전체로 반영합니다. 후보의 source·archive 무결성 및 검토된 main 이력/동일 Git tree 확인은 유지합니다.
 
-게시 전 파일 전체와 운영 BE를 확인하고 게시 후 실제 entry 바이트·runtime·HTTP alias를 검증합니다. 이 수동 승격은 기존 태그 배포의 Release 생성/태그 기반 모니터 증명을 만들지 않으며, 자체 실행 기록과 원본/변환 파일 영수증을 남깁니다. 기존 태그 재빌드 배포도 유지됩니다. 두 운영 배포 경로는 같은 concurrency 그룹을 사용합니다.
+실행에는 기존 production Environment의 `GCP_WORKLOAD_IDENTITY_PROVIDER`와 `GCP_SERVICE_ACCOUNT`를 사용합니다. 운영 배포 계정의 Hosting 권한과 기존 릴리스 버킷 `deploy-candidates/hosting/` 경로의 읽기 권한은 준비되어 있습니다. production Environment의 별도 수동 승인 단계 없이 같은 운영 자격 증명을 사용합니다. 개발 배포와 개발 계정 설정은 변경하지 않습니다.
 
-Firebase Hosting은 설정과 파일 목록 전체를 새 버전으로 확정하고 해당 버전을 게시합니다. 파일 추가·변경·삭제는 게시 전 검증을 마친 `dist` 목록으로 반영됩니다. 게시 후에는 진입 파일, 런타임 설정, 주요 경로의 실제 응답을 확인합니다. [Firebase Hosting 게시 절차](https://firebase.google.com/docs/hosting/api-deploy)
+GitHub 실행 기록의 보관 기간과 무관하게 GCS에 보관한 개발 검증 영수증으로 후보를 복원합니다. 새 플랫폼이나 별도 배포 서비스는 추가하지 않습니다. 기존 태그 재빌드 배포는 별도 경로이며 두 운영 게시 경로는 같은 concurrency 그룹을 사용합니다.
+
+## 소요시간
+
+성공·실패 모두 준비·게시·공개 확인의 실제 경과시간을 workflow summary에 남깁니다. 전체 소요시간은 준비 스크립트 시작부터가 아니라 GitHub run의 `created_at`부터 계산합니다. 마지막 summary는 그 시점까지의 경과시간이며, cleanup까지 포함한 최종 전체 시간은 실행이 완료된 뒤 GitHub run의 `updated_at - created_at`으로 확인합니다. 개발 빌드 시간은 운영 승격 시간과 별도로 봅니다.
 
 요청 예:
 
-> 개발에서 검증한 FE 실행 123456789의 1번 시도를 운영으로 승격해 주세요. BE도 같은 후보로 맞추고 소요시간을 측정해 주세요.
-
-승격은 GCS object의 generation을 고정해 내려받은 뒤, 압축을 풀기 전에 SHA-256과 GitHub 서명을 대조합니다. 서명에는 `main`의 개발 배포 워크플로와 후보의 소스 커밋이 일치해야 합니다. GitHub 실행 기록이 남아 있으면 선택한 정확한 시도의 성공 기록도 대조합니다. 게시 후 검증이 실패하면 현재 활성 릴리스가 이 실행의 결과일 때만 직전 버전을 복원합니다.
+> 개발에서 검증한 FE 실행 123456789의 1번 시도를 운영으로 승격해 주세요. 전체 소요시간도 측정해 주세요.
 
 ## English
 
-The main-branch stage workflow builds the source at its own commit and attests the archive after development verification. Promotion verifies the immutable archive digest and GitHub provenance before extraction, then changes only runtime routing and Hosting rewrites. It rolls back a failed publication only while the release from that run is still active.
+Build and validate once in development. One production job restores the immutable GCS candidate, verifies GitHub provenance and checks its files once, replaces only runtime routing and Hosting rewrites, publishes it, and checks the public HTML, JavaScript entry, runtime and sitemap once. It restores the previous version only if this run published the failed release. It does not install application dependencies, rebuild, transfer intermediate Actions artifacts, require a rehearsal, or require an exact backend commit. The configured production credentials have Hosting deployment access and read access to the existing private candidate prefix; no separate manual approval or IAM setup step is required. Timing includes the workflow dispatch/setup period; use the completed run's `updated_at - created_at` for the final total including cleanup.

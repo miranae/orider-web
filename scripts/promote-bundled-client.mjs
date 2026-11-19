@@ -6,16 +6,15 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { stageArtifactManifest, assertStageEntryArtifact } from "./lib/stage-artifact-manifest.mjs";
+import { assertStageEntryArtifact, stageArtifactManifest, stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
-import { verifyBundledProductionBackend, verifyBundledProductionIdentity } from "./prepare-bundled-production.mjs";
-import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
+import { verifyBundledCallable, verifyBundledHttpAliases, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
 const save = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + "\n", { flag: "wx" });
 const sha = /^[a-f0-9]{40}$/u, digest = /^[a-f0-9]{64}$/u;
-const PRODUCTION_ORIGIN = "https://orider.co.kr";
+const productionOrigins = ["https://orider.co.kr", "https://www.orider.co.kr", "https://miranae-orider-g1.web.app", "https://miranae-orider-g1.firebaseapp.com"];
 
 export { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
 import { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
@@ -56,19 +55,26 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     || hash(readFileSync(configs[0])) !== candidate.hostingHash) throw new Error("sealed development artifact source/files mismatch");
   const candidateRuntime = json(join(sourceDist, "runtime-config.json"));
   if (candidateRuntime.deploymentProfile !== "bundled-development"
-    || hash(readFileSync(join(sourceDist, "runtime-config.json"))) !== candidate.runtimeHash) throw new Error("sealed development runtime mismatch");
+    || hash(readFileSync(join(sourceDist, "runtime-config.json"))) !== candidate.runtimeHash
+    || !candidate.artifactManifest.some(([path]) => path === "index.html")) throw new Error("sealed development runtime/entry mismatch");
+  // The signed development receipt proves how browsers resolve the entry at
+  // the production origin. Older receipts use the same HTML parser on demand.
+  const entry = candidate.productionEntry ?? assertStageEntryArtifact(sourceDist, "https://orider.co.kr");
+  const entryPattern = /^assets\/index-[A-Za-z0-9_-]+\.js$/u;
+  if (!entryPattern.test(entry) || (candidate.entry !== undefined && candidate.entry !== entry)
+    || !candidate.artifactManifest.some(([file]) => file === entry)) {
+    throw new Error("verified Vite entry is missing from the development artifact");
+  }
   const runtime = bundledFunctionsConfig(candidateRuntime, "production");
-  const entry = assertStageEntryArtifact(sourceDist, PRODUCTION_ORIGIN);
   const hosting = bundledHostingConfig(json(configs[0]), "production");
   if (hosting.hosting.site !== "orider-dev" || hosting.hosting.public !== "dist" || hosting.hosting.target) throw new Error("development Hosting identity mismatch");
   hosting.hosting.site = "miranae-orider-g1";
-  hosting.hosting.predeploy = "node scripts/promote-bundled-client.mjs --phase verify";
+  delete hosting.hosting.predeploy;
   if (existsSync(join(workspace, "dist")) || existsSync(directory)) throw new Error("promotion requires fresh output directories");
   mkdirSync(directory, { recursive: true });
   cpSync(sourceDist, join(workspace, "dist"), { recursive: true });
   writeFileSync(join(workspace, "dist/runtime-config.json"), JSON.stringify(runtime, null, 2) + "\n");
   const expected = candidate.artifactManifest.map(([path, value]) => [path, path === "runtime-config.json" ? hash(readFileSync(join(workspace, "dist", path))) : value]);
-  if (!isDeepStrictEqual(stageArtifactManifest(join(workspace, "dist")), expected)) throw new Error("promotion changed compiled/static files");
   save(join(workspace, "firebase.bundled-production.json"), hosting);
   const receipt = { schemaVersion: 1, mode: "bundled-client-promotion", frontendSourceSha, toolingSourceSha, reviewedMainSha,
     candidateRunId: run.id, candidateRunAttempt: run.run_attempt,
@@ -76,27 +82,99 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     candidateArchive: { bucket: artifact.bucket, object: artifact.object, generation: artifact.generation, sha256: artifact.sha256 },
     backend: { sourceSha: candidate.backendSourceSha, topologyHash: candidate.backendTopologyHash },
     originalArtifactHash: candidate.artifactHash, artifactManifest: expected, runtime,
-    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))),
-    entry, rebuilt: false };
+    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), entry, rebuilt: false };
   save(join(directory, "promotion.json"), receipt);
   return receipt;
 }
-export function verifyPromotionFiles({ workspace = process.cwd(), directory }) {
-  const receipt = json(join(directory, "promotion.json"));
-  if (receipt.schemaVersion !== 1 || receipt.mode !== "bundled-client-promotion" || receipt.rebuilt !== false
-    || !sha.test(receipt.reviewedMainSha || "") || !sha.test(receipt.toolingSourceSha || "") || !sha.test(receipt.frontendSourceSha || "") || !sha.test(receipt.backend?.sourceSha || "") || !digest.test(receipt.backend?.topologyHash || "")
-    || !isDeepStrictEqual(stageArtifactManifest(join(workspace, "dist")), receipt.artifactManifest)
-    || hash(readFileSync(join(workspace, "firebase.bundled-production.json"))) !== receipt.hostingHash
-    || !isDeepStrictEqual(json(join(workspace, "dist/runtime-config.json")), receipt.runtime)
-    || !isDeepStrictEqual(receipt.runtime, bundledFunctionsConfig(receipt.runtime, "production"))
-    || receipt.entry !== assertStageEntryArtifact(join(workspace, "dist"), PRODUCTION_ORIGIN)) throw new Error("prepared promotion files changed");
+async function fetchPromotionResource(url, fetcher) {
+  try {
+    return await fetcher(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
+  } catch (cause) {
+    throw new Error(`Hosting promotion GET transport failed at ${url}`, { cause });
+  }
+}
+
+async function rejectPromotionResponse(response, message) {
+  const error = new Error(message);
+  try { await response.body?.cancel(); }
+  catch (cause) { error.cause = cause; }
+  throw error;
+}
+
+async function verifyGatewayReadiness(url, fetcher) {
+  const response = await fetchPromotionResource(url, fetcher);
+  if (!response.ok) return rejectPromotionResponse(response, `production gateway unavailable at ${url}: HTTP${response.status}`);
+  let ready;
+  try { ready = await response.json(); }
+  catch (cause) { throw new Error(`production gateway GET response body is invalid at ${url}`, { cause }); }
+  if (ready?.status !== "ok") throw new Error(`production gateway is not ready at ${url}`);
+}
+
+export async function verifyClientPromotion(options, fetcher = fetch) {
+  const receipt = json(join(options.directory, "promotion.json"));
+  // Check reachability and the login callable for the production browser origin.
+  const { aiApiBase, firebaseFunctionsBase, socialAuthFunctionsBase } = receipt.runtime;
+  await Promise.all([
+    verifyGatewayReadiness(`${firebaseFunctionsBase}/readyz`, fetcher),
+    verifyBundledRouteControl({ base: firebaseFunctionsBase, origin: productionOrigins[0], fetcher }),
+    ...productionOrigins.flatMap(origin => [
+      verifyBundledCallable({ base: firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher }),
+      verifyBundledCallable({
+        base: aiApiBase, origin, name: "v1/activity-narrative", fetcher,
+        requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" },
+      }),
+      verifyBundledCallable({
+        base: firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher,
+        requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+      }),
+      verifyBundledCallable({
+        base: socialAuthFunctionsBase, origin, name: "socialAuthStart", fetcher,
+        responseContract: [
+          { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+          { status: 401, field: "status", value: "UNAUTHENTICATED" },
+        ],
+      }),
+    ]),
+  ]);
   return receipt;
 }
-export async function verifyClientPromotion(options, fetcher = fetch) {
-  const receipt = verifyPromotionFiles(options);
-  await verifyPublicClubApi(receipt.runtime, PRODUCTION_ORIGIN, fetcher);
-  await verifyBundledProductionBackend(receipt.runtime, receipt.backend, fetcher);
-  verifyPromotionFiles(options);
+export async function verifyPublishedPromotion({ directory, origin = "https://orider.co.kr" }, fetcher = fetch) {
+  const receipt = json(join(directory, "promotion.json")), expected = new Map(receipt.artifactManifest);
+  // Check the previously validated Vite entry in parallel with the shell and sitemap.
+  const deepLink = "ko/course/nonexistent";
+  const verifyPublishedResource = async path => {
+    const url = new URL(path === "index.html" ? "/" : `/${path}`, origin); url.searchParams.set("promotion", receipt.frontendSourceSha);
+    const response = await fetchPromotionResource(url, fetcher);
+    if (!response.ok) return rejectPromotionResponse(response, `published ${url} HTTP${response.status}`);
+    if (path === "sitemap.xml") {
+      if (!/^(?:application|text)\/xml(?:;|$)/iu.test(response.headers.get("content-type") ?? "")) {
+        return rejectPromotionResponse(response, `published sitemap alias did not return XML at ${url}`);
+      }
+      try { await response.body?.cancel(); }
+      catch (cause) { throw new Error(`published sitemap GET response could not be closed at ${url}`, { cause }); }
+      return;
+    }
+    const mime = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+    if ((path === "index.html" || path === deepLink) && mime !== "text/html") {
+      return rejectPromotionResponse(response, `published page did not return HTML at ${url}`);
+    }
+    if (path === receipt.entry && !["application/javascript", "text/javascript"].includes(mime)) {
+      return rejectPromotionResponse(response, `published entry did not return JavaScript at ${url}`);
+    }
+    let bytes;
+    try { bytes = Buffer.from(await response.arrayBuffer()); }
+    catch (cause) { throw new Error(`published GET response body could not be read at ${url}`, { cause }); }
+    if (path === deepLink) {
+      const liveEntry = stageHtmlEntry(bytes.toString("utf8"), String(url), origin);
+      if (liveEntry !== receipt.entry) throw new Error(`published deep link entry differs at ${url}`);
+      return;
+    }
+    if (hash(bytes) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact at ${url}`);
+  };
+  await Promise.all([
+    ...["index.html", deepLink, "runtime-config.json", receipt.entry, "sitemap.xml"].map(verifyPublishedResource),
+    verifyBundledHttpAliases({ base: origin, fetcher }),
+  ]);
   return receipt;
 }
 async function main() {
@@ -111,12 +189,8 @@ async function main() {
   let receipt;
   if (args["--phase"] === "prepare") receipt = prepareClientPromotion({ ...options, archive: args["--archive"], run: json(args["--run"]), artifact: json(args["--artifact"]), attempt: args["--attempt"] });
   else if (args["--phase"] === "verify") receipt = await verifyClientPromotion(options);
-  else if (args["--phase"] === "verify-identity") {
-    receipt = verifyPromotionFiles(options);
-    await verifyBundledProductionIdentity(receipt.runtime, receipt.backend);
-  }
-  else if (args["--phase"] === "check-files") receipt = verifyPromotionFiles(options);
-  else throw new Error("prepare/verify/verify-identity/check-files phase required");
-  console.log(JSON.stringify({ phase: args["--phase"], frontendSourceSha: receipt.frontendSourceSha, backend: receipt.backend, candidateRunId: receipt.candidateRunId, rebuilt: false, entry: receipt.entry }));
+  else if (args["--phase"] === "published") receipt = await verifyPublishedPromotion(options);
+  else throw new Error("prepare/verify/published phase required");
+  console.log(JSON.stringify({ phase: args["--phase"], frontendSourceSha: receipt.frontendSourceSha, backend: receipt.backend, candidateRunId: receipt.candidateRunId, rebuilt: false }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

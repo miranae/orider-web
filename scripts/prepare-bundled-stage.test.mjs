@@ -79,6 +79,7 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
     const receipt = await sealBundledStage(f.directory);
     assert.equal(f.calls.length, beforeSeal);
     assert.equal(receipt.complete, true); assert.equal(receipt.backendTopologyHash, topology);
+    assert.equal(receipt.productionEntry, "assets/index-fixture.js");
     writeFileSync(resolve(f.workspace, "firebase-stage-deploy.log"), "development deploy output");
     writeFileSync(resolve(f.workspace, "gha-creds-fixture.json"), "{}");
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).artifactHash, receipt.artifactHash);
@@ -178,6 +179,15 @@ test("reviewed historical sources without bundled tooling are rejected before a 
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test("prevents a development-only asset base before signing a production candidate", async () => {
+  const f = fixture();
+  try {
+    await f.prepare(); f.build();
+    const file = resolve(f.workspace, "dist/index.html");
+    writeFileSync(file, '<!--><base href="https://orider-dev.web.app/"><!-- -->' + readFileSync(file,"utf8"));
+    await assert.rejects(sealBundledStage(f.directory), /stage entry script missing/);
+  } finally { f.cleanup(); }
+});
 test("missing HTML or entry chunks fail before seal or any remote verification", async () => {
   for (const missing of ["index.html", "assets/index-fixture.js"]) {
     const f = fixture();
