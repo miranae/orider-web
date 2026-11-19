@@ -30,7 +30,7 @@ function fixture() {
     if (url === "https://orider.co.kr/runtime-config.json") return Response.json(source);
     if (url.endsWith("/readyz")) return Response.json(health);
     if (/\/oriderReadinessMissing[a-f0-9]+$/u.test(url)) return Response.json({ error: "unknown-bundle-function" }, { status: 404 });
-    if (/\/(getActivityDiscovery|socialAuthStart|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } });
+    if (/\/(getActivityDiscovery|getActivityPublicMaps|socialAuthStart|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } });
     if (url.endsWith("/api/v1/profile")) return Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 });
     if (url.endsWith("/api/strava/webhook")) return new Response("Forbidden", { status: 403 });
     if (url.endsWith("/publicClubs?size=1")) {
@@ -271,8 +271,8 @@ test("production rollback targets only the live production release owned by the 
   assert.equal(writes, 1);
 });
 
-test("missing handoff or AI browser routes block development before publication without exchanging a code or invoking AI", async () => {
-  for (const path of ["/webHandoffRedeem", "/v1/activity-narrative"]) {
+test("missing browser routes block development before publication without credentials", async () => {
+  for (const path of ["/getActivityPublicMaps", "/webHandoffRedeem", "/v1/activity-narrative"]) {
     const f = fixture();
     try {
       await assert.rejects(f.prepare({ fetcher: (url, options) => url.endsWith(path)
@@ -345,6 +345,7 @@ test("served HTML requires an executable script rather than a comment, preload o
   for (const html of ['<!-- <script src="/assets/index-fixture.js"></script> -->', '<link rel="preload" href="/assets/index-fixture.js">', '<script type="application/json" src="/assets/index-fixture.js"></script>', '<template><script src="/assets/index-fixture.js"></script></template>', '<script nomodule src="/assets/index-fixture.js"></script>', '<svg><script src="/assets/index-fixture.js"></script></svg>', '<script src="assets/index-fixture.js"></script>', '<base href="https://orider.co.kr/"><script src="/assets/index-fixture.js"></script>']) {
     assert.throws(() => stageHtmlEntry(html, "fixture URL"), /script missing in fixture URL/);
   }
+  assert.throws(() => stageHtmlEntry('<head><noscript><script type="module" src="/assets/index-fixture.js"></script></noscript></head>'), /entry script missing/u);
   assert.equal(stageHtmlEntry('<script type="module" crossorigin src="/assets/index-fixture.js"></script>'), "assets/index-fixture.js");
   const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
   assert.match(workflow, /detail=\$\(entry /);

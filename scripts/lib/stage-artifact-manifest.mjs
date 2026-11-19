@@ -34,19 +34,24 @@ export async function verifyStageArtifacts(directory, expected, verifyRemote) {
 }
 
 export function stageHtmlEntry(html, label = "stage HTML", origin = "https://orider-dev.web.app") {
-  // DOM으로 읽어 주석·preload·template·JSON script의 파일명을 실행 entry로 오인하지 않는다.
-  // prepare는 npm ci 전에 실행된다. 빌드 이후 HTML 검사에서만 설치된 parser를 읽는다.
-  const { JSDOM } = requireDependency("jsdom");
-  const dom = new JSDOM(html, { url: `${origin}/` });
-  try {
-    for (const script of dom.window.document.querySelectorAll("script[src]")) {
-      if (script.namespaceURI !== "http://www.w3.org/1999/xhtml" || script.hasAttribute("nomodule")
-        || script.closest("noscript") || script.getAttribute("type")?.toLowerCase() !== "module") continue;
-      const entry = script.getAttribute("src").match(/^\/(assets\/index-[A-Za-z0-9_-]+\.js)$/u)?.[1];
-      if (entry && script.src === `${origin}/${entry}`) return entry;
-    }
-    throw new Error(`stage entry script missing in ${label}`);
-  } finally { dom.window.close(); }
+  // Match browser HTML parsing with scripting enabled, without running any script.
+  // Preparation precedes npm ci, so load the parser only when verifying built HTML.
+  const { parse } = requireDependency("parse5");
+  function* elements(node) {
+    if (node.namespaceURI === "http://www.w3.org/1999/xhtml") yield node;
+    for (const child of node.childNodes ?? []) yield* elements(child);
+  }
+  const tags = [...elements(parse(html, { scriptingEnabled: true }))];
+  const attribute = (node, name) => node.attrs.find(attr => attr.name === name)?.value;
+  const base = tags.find(node => node.tagName === "base" && attribute(node, "href") !== undefined);
+  const baseUrl = base ? URL.parse(attribute(base, "href"), origin) ?? origin : origin;
+  for (const script of tags) {
+    if (script.tagName !== "script" || attribute(script, "nomodule") !== undefined || attribute(script, "type")?.toLowerCase() !== "module") continue;
+    const src = attribute(script, "src");
+    const entry = src?.match(/^\/(assets\/index-[A-Za-z0-9_-]+\.js)$/u)?.[1];
+    if (entry && URL.parse(src, baseUrl)?.href === `${origin}/${entry}`) return entry;
+  }
+  throw new Error(`stage entry script missing in ${label}`);
 }
 
 /** 앱을 시작할 HTML과 실제 entry 청크가 없는 산출물은 게시 전에 거부한다. */
