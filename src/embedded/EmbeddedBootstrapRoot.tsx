@@ -12,12 +12,13 @@ import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, EMBEDDED_
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onIdTokenChanged, signOut } from "firebase/auth";
 import {
   lazy,
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -339,6 +340,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession, liveDark
 
 function AuthorizedSurface({
   activityId,
+  approvedUid,
   bridge,
   mountedTrainingSurface,
   onTrainingShellReady,
@@ -354,6 +356,7 @@ function AuthorizedSurface({
   trainingSurfaceVisible,
 }: {
   activityId?: string;
+  approvedUid: string | null;
   bridge: EmbeddedBridge;
   mountedTrainingSurface: TrainingSurfaceKind | null;
   onTrainingShellReady: () => void;
@@ -384,9 +387,11 @@ function AuthorizedSurface({
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } },
   }));
-  const user = services.auth.currentUser;
+  const sdkViewer = services.auth.currentUser;
+  const approved = sdkViewer?.isAnonymous !== true && (sdkViewer?.uid ?? null) === approvedUid;
+  const user = approved ? sdkViewer : null;
   const trainingSurface = mountedTrainingSurface !== null;
-  const trainingShellVisible = trainingSurface && trainingSurfaceVisible;
+  const trainingShellVisible = approved && trainingSurface && trainingSurfaceVisible;
   const [warmupFinished, setWarmupFinished] = useState(false);
   useEffect(() => {
     setWarmupFinished(false);
@@ -402,7 +407,7 @@ function AuthorizedSurface({
   selectionRequestIdRef.current = selectionRequestId;
 
   useEffect(() => {
-    if (!subscriptionsActive || !user) return undefined;
+    if (!subscriptionsActive || !user || services.auth.currentUser !== user) return undefined;
     return onSnapshot(
       doc(services.firestore, "users", user.uid),
       (snapshot) => {
@@ -419,7 +424,7 @@ function AuthorizedSurface({
         );
       },
     );
-  }, [bridge, services.firestore, subscriptionsActive, surfaceKind, user]);
+  }, [bridge, services.auth, services.firestore, subscriptionsActive, surfaceKind, user]);
 
   const logout = useCallback(async () => {
     await signOut(services.auth);
@@ -479,6 +484,7 @@ function AuthorizedSurface({
     return () => window.cancelAnimationFrame(frame);
   }, [onTrainingShellReady, trainingShellVisible]);
 
+  if (!approved) return null;
   if (surfaceGateLoading && !trainingSurface) {
     return (
       <div className="orider-embedded-status" role="status" aria-label="Loading profile">
@@ -659,6 +665,10 @@ export default function EmbeddedBootstrapRoot({
   const selectionGeneration = useRef(0);
   const activeSelectionRequestId = useRef<string | undefined>(undefined);
   const authorizationAttempt = useRef(0);
+  useLayoutEffect(() => () => {
+    sessionAccepted.current = false;
+    authorizationAttempt.current += 1;
+  }, []);
   const surfaceLoadingFlow = useRef<SurfaceLoadingFlow | null>(null);
   const embedded = initEmbeddedFirebase();
   // 브리지·인증 구독은 Firestore 인스턴스와 무관하다. 계정 전환으로 Firestore 가 새로 만들어져도
@@ -670,9 +680,17 @@ export default function EmbeddedBootstrapRoot({
     getAppCheckToken: getEmbeddedAppCheckToken,
   }), [embedded.auth, embedded.functions]);
   const [firestore, setFirestore] = useState(() => embedded.firestore);
+  const [, observeSdkViewer] = useState(embedded.auth.currentUser);
+  const isSessionApproved = useCallback((viewer: FirebaseServices["auth"]["currentUser"]) =>
+    sessionAccepted.current && viewer === controlServices.auth.currentUser
+    && viewer?.isAnonymous !== true && (viewer?.uid ?? null) === acceptedUid.current, [controlServices.auth]);
+  const approvalAttempt = authorizationAttempt.current;
   const services = useMemo<FirebaseServices>(
-    () => ({ ...controlServices, firestore, scope: "embedded" }),
-    [controlServices, firestore],
+    () => ({
+      ...controlServices, firestore, scope: "embedded",
+      isSessionApproved: viewer => authorizationAttempt.current === approvalAttempt && isSessionApproved(viewer),
+    }),
+    [controlServices, firestore, isSessionApproved, approvalAttempt],
   );
   // 로그아웃·계정 변경 뒤 이전 계정 데이터를 버리는 요청. 표면이 언마운트된(리스너가 닫힌)
   // 다음 커밋의 effect 에서 처리한다.
@@ -694,9 +712,12 @@ export default function EmbeddedBootstrapRoot({
     try {
       bridge.send(type, payload, requestId);
     } catch {
-      // Native transport availability is non-sensitive; never log message payloads.
+      const viewer = controlServices.auth.currentUser;
+      const approvedViewer = viewer?.isAnonymous !== true && (viewer?.uid === acceptedUid.current || viewer?.uid === authorizedUid.current) ? viewer : null;
+      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type }, controlServices, approvedViewer, "",
+        () => isSessionApproved(approvedViewer));
     }
-  }, [bridge]);
+  }, [bridge, controlServices, isSessionApproved]);
 
   const handleTrainingShellReady = useCallback((
     surface: TrainingSurfaceKind,
@@ -829,8 +850,9 @@ export default function EmbeddedBootstrapRoot({
           ensureAppCheckReady: controlServices.ensureAppCheckReady,
         }).then(() => controlServices.auth.authStateReady()).then(() => {
           if (authorizationAttempt.current !== attempt) return;
-          const uid = controlServices.auth.currentUser?.uid ?? null;
-          authorizedUid.current = uid !== null && uid === authorization.expectedUid ? uid : null;
+          const viewer = controlServices.auth.currentUser;
+          const uid = viewer?.uid ?? null;
+          authorizedUid.current = viewer?.isAnonymous !== true && uid !== null && uid === authorization.expectedUid ? uid : null;
           // 허브 표면은 로그인 인계가 없거나 실패해도(웹 세션 없음) 공개 목록을 게스트로 연다.
           // 다른 계정으로 로그인된 상태(uid 불일치)는 지금처럼 거절한다.
           guestAuthorized.current = (isHubSurfaceKind(surfaceKind) || isPublicMenuPage(surfaceKind)) && uid === null;
@@ -839,7 +861,7 @@ export default function EmbeddedBootstrapRoot({
             // 이전 계정의 Firestore 문서도 다음 승인까지 메모리에 두지 않는다(표면은 위에서 내렸다).
             setAccountReleaseRequest((request) => request + 1);
           }
-          safeSend("auth.state", { uid }, message.requestId);
+          safeSend("auth.state", { uid: viewer?.isAnonymous === true ? null : uid }, message.requestId);
         }).catch(() => {
           if (authorizationAttempt.current !== attempt) return;
           authorizedUid.current = null;
@@ -876,7 +898,7 @@ export default function EmbeddedBootstrapRoot({
           });
           return;
         }
-        if (!authorizedUid.current || authorizedUid.current !== currentUid) {
+        if (controlServices.auth.currentUser?.isAnonymous === true || !authorizedUid.current || authorizedUid.current !== currentUid) {
           clearTrainingSurfaceCache();
           surfaceLoadingFlow.current = null;
           activeSelectionRequestId.current = undefined;
@@ -884,7 +906,7 @@ export default function EmbeddedBootstrapRoot({
           safeSend("surface.error", { code: "auth_uid_mismatch" }, message.requestId);
           return;
         }
-        prepareTrainingSurfaceCacheOwner(currentUid, controlServices.auth.currentUser?.isAnonymous === true);
+        prepareTrainingSurfaceCacheOwner(currentUid);
         if (rootRef.current) applyHostContract(rootRef.current, accepted, liveDarkRef.current);
         acceptedUid.current = currentUid;
         sessionAccepted.current = true;
@@ -1052,7 +1074,9 @@ export default function EmbeddedBootstrapRoot({
         }
         setSession(null);
         setAccountReleaseRequest((request) => request + 1);
+        authorizationAttempt.current += 1;
         authorizedUid.current = null;
+        guestAuthorized.current = false;
         acceptedUid.current = null;
         sessionAccepted.current = false;
         selectionGeneration.current += 1;
@@ -1113,11 +1137,14 @@ export default function EmbeddedBootstrapRoot({
     };
 
     const unsubscribe = bridge.subscribe(handleMessage);
-    const unsubscribeAuth = onAuthStateChanged(controlServices.auth, (user) => {
+    const unsubscribeAuth = onIdTokenChanged(controlServices.auth, (user) => {
+      observeSdkViewer(user);
+      const onCacheError = (error: unknown) =>
+        logClientError("embedded.authChangeCacheReset", error, {}, controlServices, user, "", () => false);
       const lockedUid = acceptedUid.current;
       if (user?.isAnonymous === true) {
         const requestId = activeSelectionRequestId.current;
-        clearTrainingSurfaceCache();
+        clearTrainingSurfaceCache(onCacheError);
         authorizationAttempt.current += 1;
         acceptedUid.current = null;
         authorizedUid.current = null;
@@ -1130,12 +1157,13 @@ export default function EmbeddedBootstrapRoot({
         safeSend("surface.error", { code: "auth_uid_changed" }, requestId);
         return;
       }
-      if (!lockedUid || user?.uid === lockedUid) return;
+      if (lockedUid ? user?.uid === lockedUid : !sessionAccepted.current || !guestAuthorized.current || user === null) return;
       const requestId = activeSelectionRequestId.current;
-      clearTrainingSurfaceCache();
+      clearTrainingSurfaceCache(onCacheError);
       authorizationAttempt.current += 1;
       acceptedUid.current = null;
       authorizedUid.current = null;
+      guestAuthorized.current = false;
       sessionAccepted.current = false;
       selectionGeneration.current += 1;
       surfaceLoadingFlow.current = null;
@@ -1226,6 +1254,9 @@ export default function EmbeddedBootstrapRoot({
   }, [handleTrainingSurfaceReady, surfaceSelection]);
 
   // 단일 현재 표면만 유지한다. 다른 표면·계정 전환은 기존 교체 경계를 따른다.
+  const sdkViewer = services.auth.currentUser;
+  const approvedSession = sessionAccepted.current && sdkViewer?.isAnonymous !== true
+    && (sdkViewer?.uid ?? null) === acceptedUid.current;
 
   return (
     <div
@@ -1234,13 +1265,14 @@ export default function EmbeddedBootstrapRoot({
       data-testid="embedded-bootstrap-root"
       onClickCapture={handleNavigation}
     >
-      {session && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
+      {session && approvedSession && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
         <RetainedSurfaceActivity foreground={hostForeground}
           contentVisible={isStandaloneSurfaceKind(surfaceKind) || selectedTrainingSurface !== null}
           scrollKey={surfaceScrollKey}>
         <AuthorizedSurface
-          key={services.auth.currentUser?.uid ?? "signed-out"}
+          key={sdkViewer?.uid ?? "signed-out"}
           activityId={activityId}
+          approvedUid={acceptedUid.current}
           bridge={bridge}
           mountedTrainingSurface={isStandaloneSurfaceKind(surfaceKind) ? null : surfaceSelection.mounted}
           onTrainingShellReady={trainingShellReady}

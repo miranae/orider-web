@@ -42,13 +42,34 @@ it('never dispatches after readiness resolves for an aborted request',async()=>{
 });
 it('bounds readiness and rejects late dispatch at the total deadline',async()=>{
  vi.useFakeTimers();try{let ready!:()=>void;mocks.ready.mockImplementation(()=>new Promise<void>(done=>{ready=done;}));
- const pending=loadActivityDiscovery(services,{scope:'all'}),rejected=expect(pending).rejects.toThrow('request_aborted');
+ const pending=loadActivityDiscovery(services,{scope:'all'}),rejected=expect(pending).rejects.toThrow('request_timeout');
  await vi.advanceTimersByTimeAsync(15000);await rejected;ready();await Promise.resolve();expect(mocks.call).not.toHaveBeenCalled();
  }finally{vi.useRealTimers();}
 });
 it('rejects same-uid session replacement while awaiting AppCheck before dispatch',async()=>{
  mocks.ready.mockImplementation(async()=>{(services.auth as {currentUser:unknown}).currentUser={...viewer};});
  await expect(loadActivityDiscovery(services,{scope:'all'})).rejects.toThrow('account_changed');expect(mocks.call).not.toHaveBeenCalled();
+});
+
+it('does not let a late login supply the credentials for an approved guest continuation', async () => {
+ bundled('development');
+ const auth = { app, currentUser: null as FirebaseServices['auth']['currentUser'] };
+ const embedded = { ...services, scope: 'embedded' as const, auth: auth as FirebaseServices['auth'],
+  getAppCheckToken: vi.fn().mockResolvedValue('embedded-check'), isSessionApproved: () => auth.currentUser === null };
+ const unapproved = { uid: 'late-viewer', getIdToken: vi.fn() };
+ const request = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+  auth.currentUser = unapproved as never;
+  return Response.json({ result: page() });
+ });
+ try {
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner', cursor: 'ad1.next' })).rejects.toThrow('account_changed');
+  expect(request).toHaveBeenCalledWith(`${BUNDLED_FUNCTIONS_BASES.development}/getActivityDiscovery`, expect.objectContaining({
+   credentials: 'omit', headers: { 'Content-Type': 'application/json', 'X-Firebase-AppCheck': 'embedded-check' },
+   body: expect.stringContaining('ad1.next'),
+  }));
+  expect(unapproved.getIdToken).not.toHaveBeenCalled();
+  expect(mocks.call).not.toHaveBeenCalled();
+ } finally { request.mockRestore(); }
 });
 
 it('keeps an unrecorded TCX distance unknown before and after metrics, while preserving recorded zero',()=>{

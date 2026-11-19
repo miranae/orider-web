@@ -2,13 +2,15 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setDocData, simulateLogin, simulateLogout } from "../__tests__/mocks/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { setDocData, simulateLogin, simulateLogout, simulateTokenChange } from "../__tests__/mocks/firebase";
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
 
 const mocks = vi.hoisted(() => {
   const state = { currentUser: { uid: "owner-1" } as { uid: string; isAnonymous?: boolean } | null };
   return {
     state,
+    captureClubServices: vi.fn(),
     isolate: vi.fn(async (_uid: string | null) => {}),
     consumeHandoff: vi.fn().mockResolvedValue(undefined),
     auth: {
@@ -32,14 +34,16 @@ vi.mock("../services/appHandoff", () => ({ consumeAppHandoffCode: mocks.consumeH
 
 function hubSurfaceMock(testId: string) {
   return {
-    default: ({ onReady }: { onReady: () => void }) => (
-      <div data-testid={testId}>
+    default: function HubFixture({ onReady }: { onReady: () => void }) {
+      const services = useFirebaseServices();
+      if (testId === "clubs-surface") mocks.captureClubServices(services);
+      return <div data-testid={testId}>
         <button type="button" onClick={onReady}>ready</button>
         <a href="/ko/club/club-1">club detail</a>
         <a href="/ko/explore/events?type=race">events tab</a>
         <a href="https://example.com/rules">external</a>
-      </div>
-    ),
+      </div>;
+    },
   };
 }
 vi.mock("./surfaces/ClubsSurface", () => hubSurfaceMock("clubs-surface"));
@@ -211,6 +215,44 @@ describe("app tab hub embeds", () => {
     expect(bridge.sent.some(item => item.type === "surface.error")).toBe(false);
   });
 
+  it("revokes an accepted guest surface when a late handoff signs in an unapproved account", async () => {
+    mocks.state.currentUser = null; simulateLogout();
+    const bridge = createFakeBridge(); renderHub(bridge, "clubs");
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    await screen.findByTestId("clubs-surface");
+    act(() => { mocks.state.currentUser = { uid: "late-account" }; simulateTokenChange(mocks.auth); });
+    await waitFor(() => expect(screen.queryByTestId("clubs-surface")).not.toBeInTheDocument());
+    expect(bridge.sent).toContainEqual(expect.objectContaining({ type: "surface.error", payload: { code: "auth_uid_changed" } }));
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    expect(screen.queryByTestId("clubs-surface")).not.toBeInTheDocument();
+  });
+
+  it("keeps the previous approval invalid when the same guest is approved again", async () => {
+    mocks.state.currentUser = null;
+    simulateLogout();
+    mocks.captureClubServices.mockClear();
+    const bridge = createFakeBridge();
+    renderHub(bridge, "clubs");
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    await screen.findByTestId("clubs-surface");
+    const oldServices = mocks.captureClubServices.mock.lastCall?.[0];
+    expect(oldServices.isSessionApproved(null)).toBe(true);
+
+    act(() => bridge.emit(message("host.sessionRejected", { reason: "expired" })));
+    await waitFor(() => expect(screen.queryByTestId("clubs-surface")).not.toBeInTheDocument());
+    expect(oldServices.isSessionApproved(null)).toBe(false);
+
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    await screen.findByTestId("clubs-surface");
+    const newServices = mocks.captureClubServices.mock.lastCall?.[0];
+    expect(newServices).not.toBe(oldServices);
+    expect(newServices.isSessionApproved(null)).toBe(true);
+    expect(oldServices.isSessionApproved(null)).toBe(false);
+  });
+
   it.each(["about", "community-guidelines"] as const)("%s 안내는 로그인 인계 없이 열 수 있다", async kind => {
     mocks.state.currentUser = null; simulateLogout();
     const bridge = createFakeBridge(); renderHub(bridge, kind);
@@ -230,6 +272,7 @@ describe("app tab hub embeds", () => {
 
   it("falls back to a guest session when the handoff for the expected account produced no user", async () => {
     mocks.state.currentUser = null;
+    simulateLogout();
     const bridge = createFakeBridge();
     renderHub(bridge, "explore");
     await authorize(bridge, { expectedUid: "owner-1", contractVersion: 1 });
