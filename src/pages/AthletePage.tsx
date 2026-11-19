@@ -991,15 +991,34 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     const request = { scope: photoRevealScope, controller };
     pendingPhotoReveal.current = request;
     setPhotoRevealStatus({ scope: photoRevealScope, status: "loading" });
+    const handleFailures = async (failures: Array<{ error: unknown; pageIndex?: number }>) => {
+      let denied = false;
+      let failed = false;
+      for (const { error, pageIndex } of failures) {
+        const code = (error as { code?: string })?.code;
+        const message = error instanceof Error ? error.message : "";
+        if (message === "request_aborted" || message === "account_changed"
+          || (controller.signal.aborted && (error === controller.signal.reason || (error instanceof Error && error.name === "AbortError")))) continue;
+        logClientError("AthletePage.publicPhotos", error, { pageIndex }, services, readIdentity.viewer, String(pageIndex ?? ""), current);
+        failed = true;
+        denied ||= code === "functions/permission-denied" || code === "functions/not-found" || code === "functions/unauthenticated";
+      }
+      if (!failed || !current()) return;
+      if (denied) await publicGlobal.refresh();
+      else setPhotoRevealStatus({ scope: photoRevealScope, status: "error" });
+    };
     try {
       const buffered = profilePhotos.slice(revealFrom, revealFrom + 6);
       const cursors = new Set(buffered.map(photo => publicGlobal.pageStartById.get(photo.activityId)));
       if (cursors.has(undefined)) throw new Error("public-photo-source-missing");
-      const pages = await Promise.all([...cursors].map(cursor => loadActivityDiscovery(services, {
+      const results = await Promise.allSettled([...cursors].map(cursor => loadActivityDiscovery(services, {
         scope: "athlete", targetUid: userId, order: "id_asc", limit: 20, ...(cursor ? { cursor } : {}),
       }, controller.signal)));
+      const failures = results.flatMap((result, pageIndex) => result.status === "rejected" ? [{ error: result.reason, pageIndex }] : []);
+      if (failures.length > 0) { await handleFailures(failures); return; }
       if (!current() || controller.signal.aborted) return;
       const fresh = new Map<string, AthletePhoto>();
+      const pages = results.flatMap(result => result.status === "fulfilled" ? [result.value] : []);
       for (const page of pages) for (const activity of page.items) {
         if (activity.userId !== userId) continue;
         for (const photo of publishedPhotos(activity)) {
@@ -1019,17 +1038,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       });
       setMediaVisible(value => ({ ...value, photos: Math.max(value.photos, revealFrom + buffered.length) }));
     } catch (error) {
-      const code = (error as { code?: string })?.code;
-      const message = error instanceof Error ? error.message : "";
-      if (message === "request_aborted" || message === "account_changed"
-        || (controller.signal.aborted && (error === controller.signal.reason || (error instanceof Error && error.name === "AbortError")))) return;
-      logClientError("AthletePage.publicPhotos", error, {}, services, readIdentity.viewer, "", current);
-      if (!current()) return;
-      if (code === "functions/permission-denied" || code === "functions/not-found" || code === "functions/unauthenticated") {
-        await publicGlobal.refresh();
-      } else {
-        setPhotoRevealStatus({ scope: photoRevealScope, status: "error" });
-      }
+      await handleFailures([{ error }]);
     } finally {
       if (pendingPhotoReveal.current === request) pendingPhotoReveal.current = null;
       if (current()) setPhotoRevealStatus(value => value?.scope === photoRevealScope && value.status === "loading" ? null : value);

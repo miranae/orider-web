@@ -1237,13 +1237,12 @@ it("observes first signal insertion on existing documents whose counters start a
   expect(screen.queryByText("7회")).not.toBeInTheDocument();
 });
 
-async function seedBufferedPublicPhotos() {
+async function bufferedPublicPhotoRows(days: number[]) {
   const { activityFeedSourceRevision } = await import("../services/activityFeedContent");
-  setDocData("users_public/athlete-1", { nickname: "Legacy rider", profilePublic: true });
-  setCollectionDocs("activities", [0, 1].map(ride => {
+  return days.map((day, ride) => {
     const activity = createMockActivity({
       id: `ride-${ride}`, userId: "athlete-1", source: "strava", deletedAt: null, visibility: "everyone",
-      startTime: Date.UTC(2026, 6, 2 - ride), endTime: Date.UTC(2026, 6, 2 - ride, 1),
+      startTime: Date.UTC(2026, 6, day), endTime: Date.UTC(2026, 6, day, 1),
     });
     const photos = [0, 1, 2, 3].map(index => ({
       id: `photo-${ride}-${index}`, url: `https://example.test/photo-${ride}-${index}.jpg`, caption: `Photo ${ride}-${index}`,
@@ -1252,7 +1251,12 @@ async function seedBufferedPublicPhotos() {
       version: 1, revision: "photo-revision", sourceRevision: activityFeedSourceRevision(activity),
       memo: null, photos, totalPhotoCount: photos.length,
     } };
-  }));
+  });
+}
+
+async function seedBufferedPublicPhotos() {
+  setDocData("users_public/athlete-1", { nickname: "Legacy rider", profilePublic: true });
+  setCollectionDocs("activities", await bufferedPublicPhotoRows([2, 1]));
 }
 
 it("drops buffered public photos when an existing version-zero profile is deleted", async () => {
@@ -1311,6 +1315,33 @@ it.each(["allowed", "denied", "late-transport-error"] as const)("checks buffered
       expect(logger.mock.calls.some(([source, error]) => source === "AthletePage.publicPhotos"
         && error instanceof Error && error.message === "late photo request failure")).toBe(true);
     }
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); logger.mockRestore(); }
+});
+
+it("records every failed source page when the next photo batch spans multiple pages", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Paged rider", profilePublic: true });
+  const rows = await bufferedPublicPhotoRows([2, 5, 4, 3, 1]);
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+  let verifyPhotos = false;
+  vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request, signal) => {
+    if (request.order !== "id_asc") return original(services, request, signal);
+    if (verifyPhotos) throw new Error("simultaneous request failure");
+    const next = Boolean(request.cursor);
+    const page = await original(services, request, signal);
+    return { ...page, items: next ? rows.slice(1) : rows.slice(0, 1), nextCursor: next ? null : "ad1.photos", exhausted: next };
+  });
+  try {
+    const view = renderWithProviders(<AthletePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "이전 공개 기록 더 불러오기" }));
+    const showBuffered = await screen.findByRole("button", { name: "사진 6개 더 보기" });
+    verifyPhotos = true;
+    fireEvent.click(showBuffered);
+    await screen.findByText("미디어 기록을 불러오지 못했습니다.");
+    const photoLogs = logger.mock.calls.filter(([source]) => source === "AthletePage.publicPhotos");
+    expect(photoLogs.map(call => call[2])).toEqual([{ pageIndex: 0 }, { pageIndex: 1 }]);
+    expect(photoLogs.map(call => call[5])).toEqual(["0", "1"]);
+    expect(view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger")).toHaveLength(12);
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); logger.mockRestore(); }
 });
 
