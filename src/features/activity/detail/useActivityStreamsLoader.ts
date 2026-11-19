@@ -140,6 +140,7 @@ export function useActivityStreamsLoader({
     lastLoad.current = inputs;
     if (unchanged && retainedStreams.current) return;
     let active = true;
+    const isCurrent = () => active && auth.currentUser === sdkUser;
     setLoadedScope(scope);
     setStreams(null);
     setStreamsError(null);
@@ -172,7 +173,6 @@ export function useActivityStreamsLoader({
         includeRunEffortFacts: ownerRun,
         useCanonicalApi: !!sensorOriginId,
       });
-      const isCurrent = () => active && auth.currentUser === sdkUser;
       const config = getRuntimeConfig();
       const streamContext = {
         activityId,
@@ -187,8 +187,12 @@ export function useActivityStreamsLoader({
         }
         // Export consumes this payload and its revision-bound cadence unit together.
         const result = await createPublicActivityClient(firebaseServices).streams(activityId).catch(error => {
-          if (!isCurrent() || isPublicActivityAccessError(error) || (error instanceof Error
-            && ["account_changed", "invalid_activity_streams"].includes(error.message))) throw error;
+          const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+          // The Firebase SDK uses this default message for a bare HTTP 404.
+          // An application not-found response supplies its own message and must remain denied.
+          const endpointMissing = error instanceof Error && code === "functions/not-found" && error.message === "not-found";
+          if (!isCurrent() || (isPublicActivityAccessError(error) && !endpointMissing) || code === "functions/unauthenticated"
+            || (error instanceof Error && ["account_changed", "invalid_activity_streams"].includes(error.message))) throw error;
           logClientError("ActivityStreams.ownerCanonicalFallback", error, streamContext, services);
           return null;
         });
@@ -219,19 +223,18 @@ export function useActivityStreamsLoader({
       return () => { active = false; clearTimeout(timer); };
     }
 
-    if (!stravaId) return;
+    if (!stravaId || (sdkUser && userId && sdkUser.uid !== userId)) return;
 
     setLoadingStreams(true);
     setStreamsError(null);
-    const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-    const providerStreams = userId && userId === activity.userId && disciplineOfType(activity.type) === "run"
-      ? getStreams(stravaId, { includeCadenceUnit: true }) : getStreams(stravaId);
+    const timer = setTimeout(() => { if (isCurrent()) setShowStreamSpinner(true); }, 500);
+    const ownerRun = sdkUser?.uid === userId && !sdkUser?.isAnonymous && userId === activity.userId && disciplineOfType(activity.type) === "run";
+    const providerStreams = ownerRun ? getStreams(stravaId, { includeCadenceUnit: true }) : getStreams(stravaId);
     providerStreams.then((data) => {
-      if (active) setStreams(data as unknown as ActivityStreams);
+      if (isCurrent()) setStreams(data as unknown as ActivityStreams);
     }).catch((err) => {
-      if (!active) return;
       if (isStreamNotCachedError(err)) {
-        setStreamsError(t("page.streamsNotCached"));
+        if (isCurrent()) setStreamsError(t("page.streamsNotCached"));
       } else {
         logClientError("ActivityPage.streams", err, {
           activityId,
@@ -239,13 +242,14 @@ export function useActivityStreamsLoader({
           stravaId,
           visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
           isOwn: !!userId && activity.userId === userId,
-        });
+        }, services);
+        if (!isCurrent()) return;
         const message = err instanceof Error ? err.message : "";
         setStreamsError(message === "STREAMS_INVALID" ? t("page.streamsErrorFallback") : message || t("page.streamsErrorFallback"));
       }
     }).finally(() => {
       clearTimeout(timer);
-      if (!active) return;
+      if (!isCurrent()) return;
       setShowStreamSpinner(false);
       setLoadingStreams(false);
     });

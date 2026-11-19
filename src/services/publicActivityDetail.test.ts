@@ -99,6 +99,17 @@ it("rejects full streams with missing source binding or a different activity", a
   mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streams: { watts: [1] } } });
   await expect(createPublicActivityClient(services("viewer")).streams("a")).rejects.toThrow("invalid_activity_streams");
 });
+it.each([null, 1, "not a stream", []])("rejects malformed stream payloads (%j)", async streams => {
+  const response = { activityId: "a", state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", streams };
+  mocks.call.mockResolvedValue({ data: response });
+  await expect(createPublicActivityClient(services("owner")).streams("a")).rejects.toThrow("invalid_activity_streams");
+});
+
+it("classifies an absent callable data envelope as an invalid stream response", async () => {
+  mocks.call.mockResolvedValue({ data: null });
+  await expect(createPublicActivityClient(services("owner")).streams("a")).rejects.toThrow("invalid_activity_streams");
+});
+
 it("does not dispatch streams after same-UID SDK session replacement during AppCheck", async () => {
   const source = services("viewer");
   let ready!: () => void;
