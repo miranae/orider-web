@@ -71,6 +71,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     canExportAllAsTcx: boolean;
     canKeepRecordedLaps: boolean;
     requiresCsv: boolean;
+    hasUnallocatedCalories: boolean;
   } | null>(null);
   const pendingTcx = tcxPrompt?.activityScope === activityScope && tcxPrompt.streams === streams
     && tcxPrompt.account === renderedAccount && tcxPrompt.resolverScope === resolverScope ? tcxPrompt : null;
@@ -135,7 +136,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         case "tcx": {
           const preparedStreams = prepareActivityFileStreams(fileActivity, fileStreams, format);
           const prepared = prepareTcxExport(fileActivity, preparedStreams, fileCadenceUnit);
-          if (prepared.hasUnassigned || prepared.requiresCsv || tcxMode === "recorded" || (tcxMode === "activity" && !prepared.canExportAllAsTcx)) {
+          if (prepared.hasUnassigned || prepared.requiresCsv || prepared.hasUnallocatedCalories || tcxMode === "recorded" || (tcxMode === "activity" && !prepared.canExportAllAsTcx)) {
             const binding = JSON.stringify([revision, preparedStreams.laps, preparedStreams.time, preparedStreams.latlng,
               preparedStreams.distance, preparedStreams.altitude, preparedStreams.velocity_smooth, preparedStreams.heartrate,
               preparedStreams.cadence, preparedStreams.watts, fileCadenceUnit, fileActivity.summary.distance,
@@ -145,7 +146,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
               || (tcxMode === "recorded" && !prepared.canKeepRecordedLaps)) {
               setTcxPrompt({ activityScope, streams, account, resolverScope, cadenceChoice: choice, binding,
                 canExportAllAsTcx: prepared.canExportAllAsTcx, canKeepRecordedLaps: prepared.canKeepRecordedLaps,
-                requiresCsv: prepared.requiresCsv });
+                requiresCsv: prepared.requiresCsv, hasUnallocatedCalories: prepared.hasUnallocatedCalories && !prepared.hasUnassigned });
               return;
             }
           }
@@ -205,7 +206,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       {pendingTcx && (
         <fieldset className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
           <legend className="font-semibold">{t("export.tcxLapsTitle")}</legend>
-          <p className="text-[length:var(--fs-sm)]">{t(pendingTcx.requiresCsv ? "export.tcxElapsedMissing" : !pendingTcx.canKeepRecordedLaps ? "export.tcxLapClockMissing"
+          <p className="text-[length:var(--fs-sm)]">{t(pendingTcx.hasUnallocatedCalories ? "export.tcxCaloriesHelp" : pendingTcx.requiresCsv ? "export.tcxElapsedMissing" : !pendingTcx.canKeepRecordedLaps ? "export.tcxLapClockMissing"
             : pendingTcx.canExportAllAsTcx ? "export.tcxLapsHelp" : "export.tcxLapsMissingTotals")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {([

@@ -1654,6 +1654,7 @@
     "formatTcxDesc": "Garmin Training Center XML — includes HR/power",
     "formatGpxDesc": "GPS Exchange — universal GPS format",
     "formatCsvDesc": "Spreadsheet — for analysis in Excel/Google Sheets",
+    "tcxCaloriesHelp": "Calories are recorded for the whole activity. Keep the recorded laps, or save the activity and its calories as one lap.",
     "tcxLapsTitle": "TCX lap options",
     "tcxLapsHelp": "Some samples cannot be assigned to recorded laps. Save only the recorded laps, or save all samples in one lap using the activity totals.",
     "tcxElapsedMissing": "The activity has no confirmed elapsed time for a TCX lap. You can save the recorded samples as CSV.",

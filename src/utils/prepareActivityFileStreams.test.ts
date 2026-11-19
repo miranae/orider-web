@@ -197,7 +197,9 @@ it("keeps moving-time legacy samples separate from native elapsed lap clocks", (
   const recorded = prepared.render("recorded");
   expect(prepared.hasUnassigned).toBe(true);
   expect(recorded).toContain(`<Lap StartTime="${new Date(startTime + 120_000).toISOString()}">`);
-  expect(recorded).not.toContain("<Trackpoint>");
+  const [, first, second] = recorded.split(/<Lap StartTime="/u);
+  expect(first).toContain(new Date(startTime + 60_000).toISOString());
+  expect(second).not.toContain("<Trackpoint>");
 });
 
 it("does not infer elapsed workout time from activity endpoints", () => {
@@ -368,9 +370,9 @@ it("preserves the original sample axis and its recorded moving duration", () => 
     distance: 1000, elapsedTimeMillis: 180_000, ridingTimeMillis: 120_000,
   } } as Activity;
   const streams = { userId: "owner", time: [0, 60, 120], heartrate: [150, 150, 150] };
-  const xml = prepareTcxExport(activity, streams).render("activity");
+  expect(prepareTcxExport(activity, streams).canExportAllAsTcx).toBe(false);
+  const xml = generateTcx(activity, streams);
   expect(xml).toContain("<TotalTimeSeconds>120</TotalTimeSeconds>");
-  expect(xml).not.toContain("<TotalTimeSeconds>180</TotalTimeSeconds>");
 });
 
 it("anchors a proven full-activity lap at activity start and keeps recorded calories", () => {
@@ -383,7 +385,7 @@ it("anchors a proven full-activity lap at activity start and keeps recorded calo
   expect(xml).toContain("<Calories>380</Calories>");
 });
 
-it("uses a complete matching native lap schedule to verify legacy elapsed samples", () => {
+it("does not use matching numeric endpoints as proof of the legacy sample clock", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {
     distance: 1200, elapsedTimeMillis: 180_000, ridingTimeMillis: 120_000,
@@ -394,7 +396,8 @@ it("uses a complete matching native lap schedule to verify legacy elapsed sample
   ] } as ActivityStreams;
   const xml = generateTcx(activity, streams);
   expect(xml).toContain(`<Lap StartTime="${new Date(startTime + 120_000).toISOString()}">`);
-  expect(xml).toContain(new Date(startTime + 180_000).toISOString());
+  expect(xml).not.toContain(new Date(startTime + 180_000).toISOString());
+  expect(xml).toContain(new Date(startTime + 60_000).toISOString());
 });
 
 it("accepts a recorded Strava elapsed total without treating inferred provider endpoints as one", () => {
@@ -421,4 +424,17 @@ it("keeps trackpoints when a continuous native lap schedule makes both legacy cl
   expect(first).toContain("<Value>151</Value>");
   expect(second).toContain("<Value>152</Value>");
   expect(second).toContain("<Value>153</Value>");
+});
+
+it("offers a summary lap to preserve unallocated recorded activity calories", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: { distance: 1800, elapsedTimeMillis: 120_000 } } as Activity;
+  const streams = { userId: "owner", time: [0, 60, 61, 120], heartrate: [150, 151, 152, 153], calories: 270, laps: [
+    { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000, distanceKm: 0.9 },
+    { startTimeMs: startTime + 60_000, endTimeMs: startTime + 120_000, durationMs: 60_000, distanceKm: 0.9 },
+  ] } as ActivityStreams;
+  const file = prepareTcxExport(activity, streams);
+  expect(file.hasUnassigned).toBe(false);
+  expect(file.hasUnallocatedCalories).toBe(true);
+  expect(file.render("activity")).toContain("<Calories>270</Calories>");
 });

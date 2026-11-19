@@ -27,8 +27,6 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const verifiedRelativeClock = usesVerifiedActivityTime(streams);
   const recordedClock = unit !== "relative_sec";
   const summary = activity.summary;
-  const relativePoints = new Set(unit === "relative_sec" ? streams.time ?? [] : []);
-  const lastRelative = streams.time?.reduce<number>((last, sample) => Number.isFinite(sample) ? Math.max(last, sample) : last, 0) ?? 0;
   let lapTimer = 0;
   const nativeLapClock = (streams.laps ?? []).map(lap => {
     const timerStart = lapTimer;
@@ -43,15 +41,10 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const boundedLaps = nativeLapClock.length > 0 && nativeLapClock.every((lap, index) =>
     Number.isFinite(lap.start) && Number.isFinite(lap.end) && lap.end > lap.start
     && lap.start >= (nativeLapClock[index - 1]?.end ?? 0));
-  // Old relative series can use different clocks. Interpret them as elapsed only
-  // when the observations corroborate the native lap schedule.
-  const corroboratedElapsed = !recordedClock && !verifiedRelativeClock && boundedLaps && lastRelative > lapTimer
-    && resolveRecordedElapsedMs(activity, Math.round(lastRelative * 1000)) != null
-    && nativeLapClock.every(lap => relativePoints.has(lap.start) && relativePoints.has(lap.end));
-  // When every lap's timer and elapsed bounds have the same origin and offsets,
-  // interpreting legacy offsets does not depend on which of those clocks stored them.
+  // Where both clocks have identical origins and offsets, the stored samples can
+  // be attached to those laps without resolving the legacy clock convention.
   const coincidentClocks = boundedLaps && nativeLapClock.every(lap => lap.start === lap.timerStart && lap.end === lap.timerEnd);
-  const activityTime = verifiedRelativeClock || recordedClock || corroboratedElapsed || coincidentClocks;
+  const activityTime = verifiedRelativeClock || recordedClock || coincidentClocks;
   const ambiguousNativeClock = !activityTime && boundedLaps;
   const relSecAt = (index: number) => {
     const value = streams.time?.[index];
@@ -94,12 +87,18 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const lastObservation = timedAt(indices.length - 1);
   const recordedDuration = resolveRecordedElapsedMs(activity, Math.max(summary.ridingTimeMillis || 0,
     Math.round((lastObservation ?? 0) * 1000)));
-  const singleDuration = streams.laps?.length === 1 ? streams.laps[0]?.durationMs : undefined;
-  const fullActivityLap = typeof singleDuration === "number" && singleDuration > 0 && singleDuration === recordedDuration;
+  const onlyLap = streams.laps?.length === 1 ? streams.laps[0] : undefined;
+  const fullActivityLap = onlyLap != null && onlyLap.durationMs > 0 && onlyLap.durationMs === recordedDuration
+    && (onlyLap.startTimeMs == null || onlyLap.startTimeMs === startMs)
+    && (onlyLap.endTimeMs == null || onlyLap.endTimeMs === startMs + recordedDuration);
   const laps: Array<{ start: number; duration: number; distance: number; first: number; end: number }> = [];
   let hasUnassigned = false;
   let canKeepRecordedLaps = true;
-  for (const lap of streams.laps ?? []) {
+  let sharedClockPrefix = true;
+  for (const [lapIndex, lap] of (streams.laps ?? []).entries()) {
+    const clock = nativeLapClock[lapIndex];
+    sharedClockPrefix &&= clock != null && clock.start === clock.timerStart && clock.end === clock.timerEnd;
+    const canAssignTrack = !ambiguousNativeClock || sharedClockPrefix;
     const duration = (lap.durationMs || 0) / 1000;
     const recordedEnd = (activityTime || ambiguousNativeClock) && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
       ? (lap.endTimeMs - startMs) / 1000 : undefined;
@@ -107,13 +106,13 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
     const start = fullActivityLap && recordedStart == null ? 0 : recordedStart ?? previousEnd;
     const end = recordedEnd ?? start + duration;
-    if (!ambiguousNativeClock && recordedStart != null) {
+    if (canAssignTrack && recordedStart != null) {
       const first = next;
       while (next < indices.length && (timedAt(next) ?? Infinity) < recordedStart) next++;
       hasUnassigned ||= next > first;
     }
     const first = next;
-    while (!ambiguousNativeClock && next < indices.length) {
+    while (canAssignTrack && next < indices.length) {
       const time = timedAt(next) ?? Infinity;
       if (time > end) break;
       next++;
@@ -129,11 +128,8 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   }
   hasUnassigned ||= laps.length > 0 && (next < indices.length || !canKeepRecordedLaps);
   const validRecordedDuration = recordedDuration != null;
-  const sampleAxisDuration = typeof summary.movingTimeSec === "number" && Number.isFinite(summary.movingTimeSec)
-    ? summary.movingTimeSec * 1000 : boundedLaps ? lapTimer * 1000 : summary.ridingTimeMillis;
-  const sampleAxisDurationValid = typeof sampleAxisDuration === "number" && Number.isFinite(sampleAxisDuration)
-    && sampleAxisDuration >= (lastObservation ?? 0) * 1000;
-  const summaryLapDuration = activityTime ? recordedDuration : sampleAxisDurationValid ? sampleAxisDuration : undefined;
+  const summaryLapDuration = activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
+    ? recordedDuration : undefined;
   const requiresCsv = !laps.length && activityTime && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
   const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
@@ -142,6 +138,8 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     hasUnassigned,
     canExportAllAsTcx,
     canKeepRecordedLaps: laps.length > 0 && canKeepRecordedLaps,
+    hasUnallocatedCalories: laps.length > 1 && Number.isFinite(streams.calories) && (streams.calories ?? 0) > 0
+      && canExportAllAsTcx,
     requiresCsv,
     render(mode: TcxLapMode): string {
       if (requiresCsv) throw new Error("TCX_ELAPSED_UNAVAILABLE");
@@ -157,9 +155,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
         const duration = ((mode === "activity" ? summaryLapDuration
           : activityTime ? recordedDuration ?? summary.ridingTimeMillis : summary.ridingTimeMillis) || 0) / 1000;
         writeLap(lines, startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
-        if (mode === "activity" && ambiguousNativeClock) {
-          lines.push("<Notes>Trackpoint times use the stored sample offsets. Elapsed lap timing is not available for these samples.</Notes>");
-        }
+
       }
       lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
       return lines.join('\n');
