@@ -3,7 +3,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect } from "react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { simulateLogin } from "../__tests__/mocks/firebase";
+import { simulateTokenChange } from "../__tests__/mocks/firebase";
 import i18n from "../i18n";
 import { HOST_THEME_CHANGE_EVENT } from "../contexts/ThemeContext";
 
@@ -281,7 +281,6 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       entries: [{ key: cacheKey, expiresAt: Date.now() + 60_000, value }] });
     localStorage.setItem(diskKey, encoded);
     mocks.setCurrentUser(null);
-    simulateLogin(null);
     const bridge = createFakeBridge();
     renderBootstrap(bridge, "/ko/embed/plan", "plan");
     expect(localStorage.getItem(diskKey)).toBe(encoded);
@@ -1432,7 +1431,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
 
     act(() => {
       mocks.setCurrentUser({ uid: "different-user" });
-      simulateLogin({ uid: "different-user" });
+      simulateTokenChange(mocks.embeddedAuth);
     });
 
     await waitFor(() => expect(screen.queryByTestId("analysis-surface")).not.toBeInTheDocument());
@@ -1809,7 +1808,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
 
       act(() => {
         mocks.setCurrentUser({ uid: "different-user" });
-        simulateLogin({ uid: "different-user" });
+        simulateTokenChange(mocks.embeddedAuth);
       });
 
       await waitFor(() => expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument());
