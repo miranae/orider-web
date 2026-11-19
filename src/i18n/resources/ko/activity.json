@@ -1650,6 +1650,13 @@
     "tagGps": "GPS",
     "tagHr": "심박",
     "tagPower": "파워",
+    "cadenceUnitTitle": "케이던스 단위",
+    "cadenceUnitHelp": "기록에 단위가 없습니다. FIT·TCX에 케이던스를 담으려면 원래 단위를 선택하세요. 원본 값은 CSV로 저장할 수 있습니다.",
+    "cadenceUnitOption": {
+      "spm": "분당 걸음 수 (양발)",
+      "strides_per_minute": "분당 스트라이드 수 (한 발)",
+      "omit": "케이던스 없이 내보내기"
+    },
     "formatFitDesc": "Garmin FIT 바이너리 — 대부분의 앱과 호환",
     "formatTcxDesc": "Garmin Training Center XML — 심박/파워 포함",
     "formatGpxDesc": "GPS Exchange — 범용 GPS 포맷",

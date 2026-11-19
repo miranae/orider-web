@@ -1,3 +1,4 @@
+import { readStreamCadenceUnit } from "./activityStreamSource";
 import { encodePolyline } from "../utils/polyline";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -80,9 +81,10 @@ it("rejects the old response after same-uid reauthentication", async () => {
 
 it("reads full activity streams and preserves independent nullable sensor axes", async () => {
   const streams = { time: [], latlng: [], importedSensorObservationsV1: { version: 1, timeMs: [0, 500, 1000], watts: [200, null, 0], routeTimeMs: [] } };
-  mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", streams } });
+  mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", cadenceUnit: "spm", streams } });
   const result = await createPublicActivityClient(services(null)).streams("a");
   expect(result.streams).toMatchObject(streams);
+  expect(readStreamCadenceUnit(result.streams!)).toBe("spm");
   expect(mocks.call).toHaveBeenCalledWith({ activityId: "a", includeRunEffortFacts: true });
 });
 it("rejects full streams with missing source binding or a different activity", async () => {
