@@ -180,6 +180,11 @@ describe('exportFit', () => {
       const streams = { userId: 'u1', time: [0], heartrate: [150] };
       const run = makeActivity({ type: 'Run' });
       expect(generateFit(run, { ...streams, cadence: [180] })).toEqual(generateFit(run, streams));
+      const nativeRun = makeActivity({ type: 'Run', source: 'orider' });
+      const stravaRun = makeActivity({ type: 'Run', source: 'strava' });
+      const nativeFile = generateFit(nativeRun, { ...streams, cadence: [181] });
+      expect(nativeFile).not.toEqual(generateFit(nativeRun, streams));
+      expect(nativeFile).toEqual(generateFit(stravaRun, { ...streams, cadence: [90.5] }));
       const ride = makeActivity({ type: 'Ride' });
       expect(generateFit(ride, { ...streams, cadence: [90] })).not.toEqual(generateFit(ride, streams));
     });

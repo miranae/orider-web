@@ -92,6 +92,10 @@ describe('generateTcx', () => {
   it('keeps cycling cadence without labelling running samples as cycling cadence', () => {
     const streams = { userId: 'u1', time: [0], heartrate: [150], cadence: [90] };
     expect(generateTcx(makeActivity({ type: 'Run' }), streams)).not.toContain('<Cadence>');
+    const native = generateTcx(makeActivity({ type: 'Run', source: 'orider' }), { ...streams, cadence: [180] });
+    const provider = generateTcx(makeActivity({ type: 'Run', source: 'strava' }), streams);
+    expect(native).toContain('<ext:RunCadence>90</ext:RunCadence>');
+    expect(provider).toContain('<ext:RunCadence>90</ext:RunCadence>');
     expect(generateTcx(makeActivity({ type: 'Ride' }), streams)).toContain('<Cadence>90</Cadence>');
   });
 
