@@ -90,8 +90,8 @@ test("checks gateway readiness and the login route without binding the backend c
         : Response.json({error:{status:"INVALID_ARGUMENT"}}, {status:400,headers});
     };
     await verifyClientPromotion(f,fetcher);
-    assert.deepEqual(calls.sort(),[["/getActivityDiscovery","OPTIONS"],["/getActivityDiscovery","POST"],["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"]]);
-    await verifyClientPromotion(f,async(url,init)=>init.method === "POST"
+    assert.deepEqual(calls.sort(),[["/getActivityDiscovery","OPTIONS"],["/getActivityDiscovery","POST"],["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"],["/webHandoffRedeem","OPTIONS"],["/webHandoffRedeem","POST"]]);
+    await verifyClientPromotion(f,async(url,init)=>init.method === "POST" && url.endsWith("/socialAuthStart")
       ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers})
       : fetcher(url,init));
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("not ready",{status:503}) : fetcher(url,init)),/unavailable/);
@@ -119,6 +119,7 @@ test("one public release check validates the HTML, entry, runtime and sitemap re
     await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/runtime-config.json" ? new Response("stale") : fetcher(url)),/differs/);
     await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/" ? new Response(readFileSync(join(f.workspace,"dist","index.html")), {headers:{"content-type":"text/plain"}}) : fetcher(url)),/did not return HTML/);
     await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent" ? new Response("not found", {status:404}) : fetcher(url)),/course\/nonexistent.*HTTP404/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent" ? new Response("<!-- /assets/index-abc.js -->", {headers:{"content-type":"text/html"}}) : fetcher(url)),/course\/nonexistent differs/);
     await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/api/strava/webhook" ? new Response("not found", {status:404}) : fetcher(url)),/strava\/webhook/);
   }finally{f.cleanup();}
 });

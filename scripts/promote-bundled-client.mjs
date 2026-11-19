@@ -118,6 +118,10 @@ export async function verifyClientPromotion(options, fetcher = fetch) {
     verifyGatewayReadiness(`${receipt.runtime.firebaseFunctionsBase}/readyz`, fetcher),
     verifyBundledCallable({ base: receipt.runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "getActivityDiscovery", fetcher }),
     verifyBundledCallable({
+      base: receipt.runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "webHandoffRedeem", fetcher,
+      requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+    }),
+    verifyBundledCallable({
       base: receipt.runtime.socialAuthFunctionsBase, origin: "https://orider.co.kr", name: "socialAuthStart", fetcher,
       responseContract: [
         { status: 400, field: "status", value: "INVALID_ARGUMENT" },
@@ -153,11 +157,8 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
     let bytes;
     try { bytes = Buffer.from(await response.arrayBuffer()); }
     catch (cause) { throw new Error(`published GET response body could not be read at ${url}`, { cause }); }
-    if (path === deepLink) {
-      if (!bytes.toString("utf8").includes(`/${receipt.entry}`)) throw new Error(`published deep link is missing the entry at ${url}`);
-      return;
-    }
-    if (hash(bytes) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact`);
+    const artifactPath = path === deepLink ? "index.html" : path;
+    if (hash(bytes) !== expected.get(artifactPath)) throw new Error(`published ${path} differs from prepared artifact at ${url}`);
   };
   await Promise.all([
     ...["index.html", deepLink, "runtime-config.json", receipt.entry, "sitemap.xml"].map(verifyPublishedResource),
