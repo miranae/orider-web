@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   deploy-stage:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev'
+    if: github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     environment: stage
     env:

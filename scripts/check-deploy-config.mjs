@@ -294,7 +294,7 @@ requireIncludes(stageDeployWorkflow, "backend_source_sha:", "deploy-stage.yml pi
 requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase prepare", "deploy-stage.yml bundled preparation");
 requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase seal", "deploy-stage.yml actual artifact validation");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
-requireIncludes(stageDeployWorkflow, "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev'", "deploy-stage.yml manual source guard");
+requireIncludes(stageDeployWorkflow, "if: github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')", "deploy-stage.yml manual source guard");
 requireIncludes(stageDeployWorkflow, "runs-on: ubuntu-latest", "deploy-stage.yml disposable runner");
 checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, 'config=firebase.stage.json', "deploy-stage.yml legacy deploy config");

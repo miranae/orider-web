@@ -221,7 +221,8 @@ export const BUNDLED_FUNCTIONS_BASES = {
 
 /** 검증한 공통 라우팅을 환경 주소만 바꿔 사용한다. 잘못된 설정은 리전 함수로 폴백하지 않는다. */
 export function bundledFunctionsBase(config: RuntimeConfig = getRuntimeConfig()): string | undefined {
-  if (config.deploymentProfile !== "bundled-development" && config.deploymentProfile !== "bundled-production") return undefined;
+  if (config.deploymentProfile === undefined || config.deploymentProfile === "production-parity-stage") return undefined;
+  if (config.deploymentProfile !== "bundled-development" && config.deploymentProfile !== "bundled-production") throw new Error("bundled/unknown-profile");
   const environment = config.deploymentProfile === "bundled-development" ? "development" : "production";
   const base = BUNDLED_FUNCTIONS_BASES[environment];
   if (config.appEnvironment !== "production" || config.firebaseFunctionsBase !== base
