@@ -201,8 +201,11 @@ export default function ExploreAthletesPage() {
     return <div className="explore-challenges-surface space-y-4">
       {heading}
       <div data-testid="E5.guest" className="explore-people-guest">
-        <Text as="p" tone="secondary">{t("search.loginRequired")}</Text>
-        <CoachSignInButton label={t("search.loginAction")} />
+        <Card className="space-y-1">
+          <Text as="h2" variant="title">{t("search.previewTitle")}</Text>
+          <Text as="p" tone="secondary">{t("search.previewDescription")}</Text>
+        </Card>
+        <CoachSignInButton primary label={t("search.loginAction")} />
       </div>
     </div>;
   }
