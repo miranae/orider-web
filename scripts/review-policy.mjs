@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 /** Derive the code review verdict from reported severity across all providers. */
 export function enforceReviewFloor(review) {
-  const findingPrefix = /^[ \t]*(?:(?:[-*+]|\d+[.)]|#{1,6})[ \t]+)?(?:\*\*|__)?(?:\[[ \t]*)?(?:\*\*|__)?(BLOCKER|MAJOR|MINOR)\b/gim;
+  const findingPrefix = /^(?:[^\p{L}\p{N}\r\n]|\d+[.)])*(BLOCKER|MAJOR|MINOR)\b/gimu;
   const severities = Array.from(review.findings.matchAll(findingPrefix), match => match[1].toUpperCase());
   if (severities.includes("BLOCKER")) return { ...review, verdict: "BLOCK" };
   // Preserve a BLOCK that has no recognizable finding to explain it.
