@@ -45,7 +45,8 @@ it.each([
     expect(mocks.fit).not.toHaveBeenCalled();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })));
   }
-  expect(mocks.fit).toHaveBeenCalledWith(run, current, expected);
+  if (expected == null) expect(mocks.fit).toHaveBeenCalledWith(run, { ...current, cadence: undefined }, undefined);
+  else expect(mocks.fit).toHaveBeenCalledWith(run, current, expected);
 });
 
 it("exports the displayed owner stream with the unit delivered alongside its samples", async () => {
@@ -72,7 +73,7 @@ it("checks the live account again before writing a delayed public file", async (
 
 it("lets the user specify the original cadence unit when an older backend omits it", async () => {
   const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const streams = { userId: "owner", time: [0], cadence: [85] };
+  const streams = { userId: "owner", time: [0, 1, 2], cadence: [85, NaN, 86] };
   render(<ExportTab activity={run} streams={streams} />);
   await act(async () => fireEvent.click(screen.getByText("FIT")));
   expect(mocks.fit).not.toHaveBeenCalled();
@@ -80,4 +81,16 @@ it("lets the user specify the original cadence unit when an older backend omits 
   expect(mocks.fit).toHaveBeenCalledWith(run, streams, "strides_per_minute");
   await act(async () => fireEvent.click(screen.getByText("CSV")));
   expect(mocks.csv).toHaveBeenCalledWith(streams);
+});
+
+
+it("honors the explicit omission choice when a refreshed response now knows the unit", async () => {
+  const run = { ...activity, type: "Run" } as Activity;
+  const first = { userId: "owner", time: [0], cadence: [170] };
+  const second = markVerifiedStreamCadence(first, "b".repeat(64), "spm");
+  const resolve = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+  render(<ExportTab activity={run} streams={first} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })));
+  expect(mocks.fit).toHaveBeenCalledWith(run, { ...second, cadence: undefined }, undefined);
 });

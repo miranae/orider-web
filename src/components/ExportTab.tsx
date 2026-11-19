@@ -69,23 +69,24 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         && verifiedUnit !== "spm" && verifiedUnit !== "strides_per_minute"
         && Array.isArray(cadence) && cadence.some(value => Number.isFinite(value) && value >= 0);
       const chosenUnitApplies = choice === "omit" || (choice !== undefined && pendingCadence?.format === format
-        && cadence?.length === pendingCadence.samples.length && cadence?.every((value, index) => value === pendingCadence.samples[index]));
+        && cadence?.length === pendingCadence.samples.length && cadence?.every((value, index) => Object.is(value, pendingCadence.samples[index])));
       if (missingFootCadenceUnit && !chosenUnitApplies) {
-        setCadencePrompt({ activity, streams, account, resolver: resolveCurrentStreams, format, samples: cadence });
+        setCadencePrompt({ activity, streams, account, resolver: resolveCurrentStreams, format, samples: [...cadence] });
         return;
       }
       setCadencePrompt(null);
-      const fileCadenceUnit = missingFootCadenceUnit && choice !== "omit" ? choice : verifiedUnit;
+      const fileCadenceUnit = choice === "omit" ? undefined : missingFootCadenceUnit ? choice : verifiedUnit;
+      const fileStreams = choice === "omit" ? { ...currentStreams, cadence: undefined } : currentStreams;
       switch (format) {
         case "fit": {
-          const data = generateFit(activity, prepareActivityFileStreams(activity, currentStreams, format), fileCadenceUnit);
+          const data = generateFit(activity, prepareActivityFileStreams(activity, fileStreams, format), fileCadenceUnit);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
           downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
           break;
         }
         case "tcx": {
-          const xml = generateTcx(activity, prepareActivityFileStreams(activity, currentStreams, format), fileCadenceUnit);
+          const xml = generateTcx(activity, prepareActivityFileStreams(activity, fileStreams, format), fileCadenceUnit);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }

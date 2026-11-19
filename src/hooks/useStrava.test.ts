@@ -5,6 +5,7 @@ import {
   mockCallableInvocations,
   setCallableImplementation,
   setCallableResult,
+  simulateLogin,
 } from "../__tests__/mocks/firebase";
 
 const mocks = vi.hoisted(() => ({
@@ -30,6 +31,19 @@ describe("useStrava", () => {
       expect(readStreamCadenceUnit(data as typeof streams)).toBe("strides_per_minute");
     });
     expect(mockCallableInvocations).toContainEqual({ name: "stravaGetActivityStreams", data: { stravaActivityId: 42, includeCadenceUnit: true } });
+  });
+
+  it("does not dispatch a provider retry under a replacement account", async () => {
+    simulateLogin({ uid: "original" });
+    setCallableImplementation("stravaGetActivityStreams", () => {
+      simulateLogin({ uid: "replacement" });
+      return Promise.reject(new Error("Response is not valid JSON object"));
+    });
+    const { result } = renderHook(() => useStrava());
+    await act(async () => {
+      await expect(result.current.getStreams(42, { includeCadenceUnit: true })).rejects.toThrow("Response is not valid JSON object");
+    });
+    expect(mockCallableInvocations.filter(call => call.name === "stravaGetActivityStreams")).toHaveLength(1);
   });
 
   it("preserves a pre-contract rollout response, including its stored samples", async () => {

@@ -18,7 +18,7 @@ vi.mock("../../../services/errorLogger", async importOriginal => ({
 }));
 
 const run = { id: "orider_run", userId: "owner", source: "orider", type: "Run" } as Activity;
-const displayed: ActivityStreams = { time: [0, 2], cadence: [85, 86] };
+const displayed: ActivityStreams = { time: [0, 2], cadence: [170, 172] };
 const ownerServices = () => ({ auth: { currentUser: { uid: "owner" } } }) as FirebaseServices;
 const revision = "a".repeat(64);
 
@@ -29,27 +29,39 @@ beforeEach(() => {
 });
 afterEach(() => resetRuntimeConfigForTests());
 
-it.each(["orider", "apple_health", "health_connect"] as const)("exports the cadence unit and samples from the same owner %s response", async source => {
-  const streams = markVerifiedStreamCadence({ time: [0, 1], cadence: [170, 172] }, revision, "spm");
+it.each(["orider", "apple_health", "health_connect"] as const)("binds a verified unit to identical %s legacy samples", async source => {
+  const streams = markVerifiedStreamCadence({ time: [0, 1, 2], cadence: [170, null, 172] } as unknown as ActivityStreams, revision, "spm");
   mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams });
   const result = await loadOwnerExportStreams({ ...run, source }, displayed, "fit", ownerServices());
-  expect(result.time).toEqual([0, 1, 2]);
-  expect(result.cadence?.slice(0, 2)).toEqual([170, 172]);
-  expect(result.cadence?.[2]).toBeUndefined();
+  expect(result.time).toEqual([0, 2]);
+  expect(result.cadence).toEqual([170, 172]);
   expect(readStreamCadenceUnit(result)).toBe("spm");
   expect(mocks.streams).toHaveBeenCalledExactlyOnceWith(run.id);
 });
 
-it("keeps existing GPS, heart rate and power when the candidate only contains cadence", async () => {
-  const streams = markVerifiedStreamCadence({ time: [0, 1], cadence: [170, 172] }, revision, "spm");
+it("adds only cadence from the matching revision and omits candidate samples without timestamps", async () => {
+  const streams = markVerifiedStreamCadence({
+    time: [0, null, 1], cadence: [170, 174, 172], heartrate: [222, 223, 224],
+  } as unknown as ActivityStreams, revision, "spm");
   mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams });
-  const existing = { ...displayed, latlng: [[37, 127], [38, 128]], heartrate: [150, 152], watts: [100, 105] } as ActivityStreams;
+  const existing = markVerifiedStreamCadence({
+    ...displayed, latlng: [[37, 127], [38, 128]], heartrate: [150, 152], watts: [100, 105],
+  } as ActivityStreams, revision, null);
   const result = await loadOwnerExportStreams(run, existing, "tcx", ownerServices());
+  expect(result.time).toEqual([0, 1, 2]);
   expect(result.latlng?.[2]).toEqual([38, 128]);
   expect(result.heartrate?.[2]).toBe(152);
+  expect(result.heartrate?.[1]).toBeUndefined();
   expect(result.watts?.[2]).toBe(105);
-  expect(result.cadence?.[2]).toBeUndefined();
+  expect(result.cadence?.filter(Number.isFinite)).toEqual([170, 172]);
   expect(readStreamCadenceUnit(result)).toBe("spm");
+});
+
+it("retains the stored export on a revision mismatch", async () => {
+  const streams = markVerifiedStreamCadence({ time: [0, 2], cadence: [170, 172] }, revision, "spm");
+  mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams });
+  const existing = markVerifiedStreamCadence(displayed, "b".repeat(64), null);
+  expect(await loadOwnerExportStreams(run, existing, "tcx", ownerServices())).toBe(existing);
 });
 
 it.each([{ time: [0], cadence: [] }, { cadence: [170] }])("keeps existing file data if cadence cannot be placed on the candidate timeline", async data => {

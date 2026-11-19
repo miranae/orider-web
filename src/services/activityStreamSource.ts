@@ -22,12 +22,18 @@ export function readRawPartGridOrigin(streams: ActivityStreams): number | undefi
 }
 
 const streamCadenceUnit = Symbol("verifiedStreamCadenceUnit");
+const verifiedStreamRevision = Symbol("verifiedStreamRevision");
 type CadenceUnit = ActivityMetrics["cadenceUnit"];
 type StreamsWithCadenceUnit = ActivityStreams & { [streamCadenceUnit]: CadenceUnit };
 
 export function markVerifiedStreamCadence(streams: ActivityStreams, revision: unknown, unit: unknown): ActivityStreams {
   if (typeof revision !== "string" || !/^[a-f0-9]{64}$/u.test(revision)) return streams;
-  return markStreamCadenceUnit(streams, unit);
+  return markStreamCadenceUnit({ ...streams, [verifiedStreamRevision]: revision } as ActivityStreams, unit);
+}
+
+export function readVerifiedStreamRevision(streams: ActivityStreams): string | undefined {
+  const verified = streams as ActivityStreams & { [verifiedStreamRevision]?: string; [rawPartRevision]?: string };
+  return verified[verifiedStreamRevision] ?? verified[rawPartRevision];
 }
 
 export function markStreamCadenceUnit(streams: ActivityStreams, unit: unknown): ActivityStreams {

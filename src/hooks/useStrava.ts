@@ -8,7 +8,7 @@ import type { ActivityStreams } from "@shared/types";
 import { markStreamCadenceUnit } from "../services/activityStreamSource";
 
 export function useStrava() {
-  const { functions } = useFirebaseServices();
+  const { auth, functions } = useFirebaseServices();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +90,7 @@ export function useStrava() {
   }, [functions]);
 
   const getStreams = useCallback(async (stravaActivityId: number, options?: { includeCadenceUnit?: boolean }) => {
+    const account = auth.currentUser;
     setLoading(true);
     setError(null);
     try {
@@ -101,11 +102,12 @@ export function useStrava() {
       } catch (firstError) {
         // Callable 응답 파싱은 네트워크/런타임 경계에서 간헐적으로 실패할 수
         // 있다. 스트림 읽기는 멱등이므로 같은 요청을 한 번만 재시도한다.
-        if (!(firstError instanceof Error) || !firstError.message.includes("Response is not valid JSON object")) {
+        if (auth.currentUser !== account || !(firstError instanceof Error) || !firstError.message.includes("Response is not valid JSON object")) {
           throw firstError;
         }
         result = await fn(payload);
       }
+      if (auth.currentUser !== account) throw new Error("account_changed");
       // Firebase callable 응답은 보통 `data`로 오지만, 런타임이 섞인 배포에서는
       // 같은 payload가 `result`로 노출될 수 있다. 성공한 스트림 응답이
       // undefined로 바뀌어 분석 없음 상태가 되는 것을 막는다.
@@ -119,13 +121,12 @@ export function useStrava() {
       if (!response.streams || typeof response.streams !== "object" || Array.isArray(response.streams)) throw new Error("STREAMS_INVALID");
       return markStreamCadenceUnit(response.streams as ActivityStreams, response.cadenceUnit);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Stream fetch failed";
-      setError(msg);
+      if (auth.currentUser === account) setError(e instanceof Error ? e.message : "Stream fetch failed");
       throw e;
     } finally {
       setLoading(false);
     }
-  }, [functions]);
+  }, [auth, functions]);
 
   const disconnectStrava = async (operationId: string) => {
     setLoading(true);

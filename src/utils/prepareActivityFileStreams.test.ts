@@ -43,7 +43,7 @@ it("writes each GPS observation at its own time and offsets sensor samples from 
 it("matches epoch-based displayed samples to the cadence grid without moving the displayed origin", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime } as Activity;
-  const displayed = { time: [startTime + 30_000], heartrate: [150] } as ActivityStreams;
+  const displayed = markVerifiedStreamCadence({ time: [startTime + 30_000], heartrate: [150] } as ActivityStreams, "b".repeat(64), null);
   const canonical = markRawPartStreams({ time: [0], cadence: [180] } as ActivityStreams, "b".repeat(64), startTime + 30_000);
   const merged = addVerifiedCadenceToExport(activity, displayed, canonical);
   expect(merged.time).toEqual([30]);
