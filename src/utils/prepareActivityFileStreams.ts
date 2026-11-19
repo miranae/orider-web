@@ -1,3 +1,4 @@
+import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
 import { markStreamCadenceUnit, readRawPartGridOrigin, readStreamCadenceUnit, readVerifiedStreamRevision } from "../services/activityStreamSource";
@@ -106,6 +107,9 @@ export function applyVerifiedCadenceUnit(activity: Activity, displayed: Activity
 export function resolveRecordedElapsedMs(activity: Activity, minimumMs: number): number | undefined {
   const summary = activity.summary.elapsedTimeMillis;
   if (typeof summary === "number" && Number.isFinite(summary) && summary >= minimumMs) return summary;
+  const provider = activity.source === "strava" && activity.stravaSummaryV1?.version === 1
+    ? stravaRecordOf(activity)?.elapsed_time : null;
+  if (typeof provider === "number" && Number.isFinite(provider) && provider * 1000 >= minimumMs) return provider * 1000;
   // The legacy native Orider contract includes pauses in ridingTimeMillis.
   const nativeElapsed = activity.summary.ridingTimeMillis;
   return activity.source === "orider" && typeof nativeElapsed === "number"

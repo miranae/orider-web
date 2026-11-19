@@ -194,9 +194,10 @@ it("keeps moving-time legacy samples separate from native elapsed lap clocks", (
     ],
   } as ActivityStreams;
   const prepared = prepareTcxExport(activity, streams, "spm");
-  const [, , second] = prepared.render("recorded").split(/<Lap StartTime="/u);
-  expect(prepared.hasUnassigned).toBe(false);
-  expect(second).toContain(new Date(startTime + 121_000).toISOString());
+  const recorded = prepared.render("recorded");
+  expect(prepared.hasUnassigned).toBe(true);
+  expect(recorded).toContain(`<Lap StartTime="${new Date(startTime + 120_000).toISOString()}">`);
+  expect(recorded).not.toContain("<Trackpoint>");
 });
 
 it("does not infer elapsed workout time from activity endpoints", () => {
@@ -361,13 +362,15 @@ it("keeps the track for a single lap proven to span the complete activity even w
 });
 
 
-it("does not offer full-activity TCX for a relative moving axis with known pauses", () => {
+it("preserves the original sample axis and its recorded moving duration", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {
     distance: 1000, elapsedTimeMillis: 180_000, ridingTimeMillis: 120_000,
   } } as Activity;
   const streams = { userId: "owner", time: [0, 60, 120], heartrate: [150, 150, 150] };
-  expect(prepareTcxExport(activity, streams).canExportAllAsTcx).toBe(false);
+  const xml = prepareTcxExport(activity, streams).render("activity");
+  expect(xml).toContain("<TotalTimeSeconds>120</TotalTimeSeconds>");
+  expect(xml).not.toContain("<TotalTimeSeconds>180</TotalTimeSeconds>");
 });
 
 it("anchors a proven full-activity lap at activity start and keeps recorded calories", () => {
@@ -392,4 +395,15 @@ it("uses a complete matching native lap schedule to verify legacy elapsed sample
   const xml = generateTcx(activity, streams);
   expect(xml).toContain(`<Lap StartTime="${new Date(startTime + 120_000).toISOString()}">`);
   expect(xml).toContain(new Date(startTime + 180_000).toISOString());
+});
+
+it("accepts a recorded Strava elapsed total without treating inferred provider endpoints as one", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, endTime: startTime + 180_000, source: "strava", type: "Run", summary: {
+    distance: 1000, ridingTimeMillis: 120_000,
+  } } as Activity;
+  const streams = { userId: "owner", time: [startTime, startTime + 180_000], heartrate: [150, 150] };
+  expect(prepareTcxExport(activity, streams).requiresCsv).toBe(true);
+  const provided = { ...activity, stravaSummaryV1: { version: 1 as const, elapsed_time: 180 } };
+  expect(generateTcx(provided, streams)).toContain("<TotalTimeSeconds>180</TotalTimeSeconds>");
 });

@@ -315,8 +315,10 @@ it("uses the native legacy elapsed field and its independent moving time", () =>
     ...source.summary, ridingTimeMillis: 120_000, movingTimeSec: 90,
   } };
   const raw = markRawPartStreams({ userId: "owner", time: [0, 1], cadence: [170, 172] }, "a".repeat(64), startTime);
-  const fit = readSession(generateFit(activity, prepareActivityFileStreams(activity, raw, "fit"), "spm"));
-  expect(fit.get(7)).toBe(120_000);
-  expect(fit.get(8)).toBe(90_000);
-  expect(fit.get(253)! - fit.get(2)!).toBe(120);
+  for (const streams of [{ userId: "owner", time: [0, 90] }, prepareActivityFileStreams(activity, raw, "fit")]) {
+    const fit = readSession(generateFit(activity, streams, "spm"));
+    expect(fit.get(7)).toBe(120_000);
+    expect(fit.get(8)).toBe(90_000);
+    expect(fit.get(253)! - fit.get(2)!).toBe(120);
+  }
 });

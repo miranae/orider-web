@@ -25,10 +25,10 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const relSecAt = makeRelSecAt(streams.time);
   const endRel = relSecAt(len - 1);
   const lastObserved = readUnroundedFitEnd(streams) ?? endRel ?? 0;
-  const recordedElapsed = timed ? resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000))) : undefined;
-  const elapsedMs = timed ? recordedElapsed ?? 0xFFFFFFFF : durationMs;
+  const recordedElapsed = resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000)));
+  const elapsedMs = recordedElapsed ?? (timed ? 0xFFFFFFFF : activity.summary.ridingTimeMillis || 0);
   const endTimestamp = recordedElapsed != null
-    ? Math.round((startDate.getTime() + recordedElapsed - garminEpoch) / 1000)
+    ? timed ? Math.round(startSeconds + recordedElapsed / 1000) : startTimestamp + Math.round(recordedElapsed / 1000)
     : startTimestamp + Math.round(timed ? Math.max(endRel ?? 0, durationMs / 1000)
       : endRel ?? Math.floor(durationMs / 1000));
 
