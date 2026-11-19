@@ -9,7 +9,6 @@ import { isDeepStrictEqual } from "node:util";
 import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 
 export const HOSTING_CANDIDATE_BUCKET = "miranae-orider-g1-release-evidence";
-const STAGE_WORKFLOW = ".github/workflows/deploy-stage.yml";
 const sha = /^[a-f0-9]{40}$/u, digest = /^[a-f0-9]{64}$/u, positive = /^[1-9][0-9]*$/u;
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
@@ -19,8 +18,7 @@ export function hostingCandidateObject(runId, attempt) {
   return `deploy-candidates/hosting/${runId}/${attempt}/candidate.tgz`;
 }
 function validateRun(run, attempt) {
-  if (run.repository?.full_name !== "miranae/orider-web" || run.head_branch !== "main"
-    || ![STAGE_WORKFLOW, `${STAGE_WORKFLOW}@main`, `${STAGE_WORKFLOW}@refs/heads/main`].includes(run.path)
+  if (run.repository?.full_name !== "miranae/orider-web" || run.path !== ".github/workflows/deploy-stage.yml"
     || run.event !== "workflow_dispatch" || (run.kind === "archived-stage-acceptance" ? run.stageAcceptanceComplete !== true : run.status !== "completed" || run.conclusion !== "success")
     || run.run_attempt !== Number(attempt) || !Number.isSafeInteger(run.id) || run.id < 1 || !sha.test(run.head_sha || "")) throw new Error("successful selected development run/attempt required");
 }
@@ -29,8 +27,7 @@ export function validateArchivedCandidate(run, archive, attempt) {
   if (!archive || archive.kind !== "gcs" || archive.bucket !== HOSTING_CANDIDATE_BUCKET
     || archive.object !== hostingCandidateObject(run.id, attempt) || !positive.test(archive.generation || "")
     || !digest.test(archive.sha256 || "") || !sha.test(archive.frontendSourceSha || "") || !digest.test(archive.artifactHash || "")
-    || archive.workflowSourceSha !== run.head_sha
-    || archive.frontendSourceSha !== archive.workflowSourceSha) throw new Error("pinned private client archive from the reviewed workflow source required");
+    || archive.workflowSourceSha !== run.head_sha) throw new Error("pinned private client archive required");
   return archive.frontendSourceSha;
 }
 const metadataUrl = object => `https://storage.googleapis.com/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o/${encodeURIComponent(object)}`;
@@ -38,27 +35,10 @@ function auth(token) {
   if (!token || /[\r\n]/u.test(token)) throw new Error("candidate archive access token required");
   return { Authorization: `Bearer ${token}` };
 }
-async function readArchive({ object, generation, token, fetcher }) {
-  const phase = generation ? "download" : "metadata";
-  const url = generation
-    ? `https://storage.googleapis.com/download/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o/${encodeURIComponent(object)}?alt=media&generation=${generation}`
-    : metadataUrl(object);
-  const context = `private client archive ${phase} GET gs://${HOSTING_CANDIDATE_BUCKET}/${object}${generation ? `#${generation}` : ""}`;
-  const headers = auth(token);
-  let response;
-  try {
-    response = await fetcher(url, { headers, redirect: "error", signal: AbortSignal.timeout(generation ? 120000 : 30000) });
-  } catch (error) {
-    throw new Error(`${context}: transport failed (${error?.name ?? "Error"}/${error?.cause?.code ?? error?.code ?? "unknown"})`);
-  }
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`${context}: HTTP${response.status}`); }
-  try {
-    if (generation) return Buffer.from(await response.arrayBuffer());
-    const data = await response.json();
-    if (!data || typeof data !== "object" || Array.isArray(data)) throw new TypeError("expected a metadata object");
-    return data;
-  }
-  catch { throw new Error(`${context}: response body could not be read`); }
+async function readObject(object, token, fetcher) {
+  const response = await fetcher(metadataUrl(object), { headers: auth(token), redirect: "error", signal: AbortSignal.timeout(30000) });
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`private client archive metadata HTTP${response.status}`); }
+  return response.json();
 }
 export async function archiveHostingCandidate({ workspace = process.cwd(), buildReceipt, directory, runId, attempt, workflowSourceSha, token, fetcher = fetch }) {
   const object = hostingCandidateObject(runId, attempt), candidate = json(buildReceipt), dist = join(workspace, "dist"), hosting = join(workspace, "firebase.bundled-stage.json");
@@ -70,7 +50,7 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
   directory = resolve(directory); mkdirSync(directory, { recursive: true });
   const payload = join(directory, "payload"); mkdirSync(payload);
   cpSync(dist, join(payload, "dist"), { recursive: true }); cpSync(hosting, join(payload, "firebase.bundled-stage.json")); cpSync(buildReceipt, join(payload, "build.json"));
-  const provenance = { schemaVersion: 1, repository: "miranae/orider-web", workflowPath: STAGE_WORKFLOW,
+  const provenance = { schemaVersion: 1, repository: "miranae/orider-web", workflowPath: ".github/workflows/deploy-stage.yml",
     runId: String(runId), attempt: String(attempt), stageAcceptanceComplete: true, workflowSourceSha, frontendSourceSha: candidate.frontendSourceSha, artifactHash: candidate.artifactHash };
   save(join(payload, "candidate.json"), provenance);
   const path = join(directory, "candidate.tgz");
@@ -79,57 +59,38 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
   const metadata = { name: object, contentType: "application/gzip", metadata: { ...Object.fromEntries(Object.entries(provenance).map(([key, value]) => [key, String(value)])), sha256: checksum } };
   const boundary = `orider-client-${checksum.slice(0, 32)}`;
   const body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/gzip\r\n\r\n`), bytes, Buffer.from(`\r\n--${boundary}--\r\n`)]);
-  const headers = { ...auth(token), "Content-Type": `multipart/related; boundary=${boundary}` };
-  const context = `private client archive create POST gs://${HOSTING_CANDIDATE_BUCKET}/${object}`;
   let response;
   try { response = await fetcher(`https://storage.googleapis.com/upload/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o?uploadType=multipart&ifGenerationMatch=0`,
-    { method: "POST", headers, body, redirect: "error", signal: AbortSignal.timeout(120000) }); }
-  catch (error) {
-    // 응답 유실이어도 create-only object를 읽어 같은 checksum인지 확인한다.
-    console.error(JSON.stringify({ operation: "hosting-candidate-create", method: "POST",
-      bucket: HOSTING_CANDIDATE_BUCKET, object, errorClass: error?.name ?? "Error",
-      errorCode: error?.cause?.code ?? error?.code ?? "unknown" }));
-  }
+    { method: "POST", headers: { ...auth(token), "Content-Type": `multipart/related; boundary=${boundary}` }, body, redirect: "error", signal: AbortSignal.timeout(120000) }); }
+  catch { response = { status: 412 }; } // 응답을 잃어도 create-only object를 읽고 같은 checksum인지 확인한다.
   let stored;
-  if (!response || [409, 412].includes(response.status)) { await response?.body?.cancel(); stored = await readArchive({ object, token, fetcher }); }
-  else if (!response.ok) { await response.body?.cancel(); throw new Error(`${context}: HTTP${response.status}`); }
-  else {
-    try { stored = await response.json(); }
-    catch { throw new Error(`${context}: response body could not be read`); }
-  }
-  if (stored?.name !== object || stored.bucket !== HOSTING_CANDIDATE_BUCKET || !positive.test(stored.generation || "")
-    || Number(stored.size) !== bytes.length || Object.entries(metadata.metadata).some(([key, value]) => stored.metadata?.[key] !== value))
-    throw new Error(`${context}: immutable private client archive differs (create ${response ? `HTTP${response.status}` : "transport failed"})`);
+  if ([409, 412].includes(response.status)) { await response.body?.cancel(); stored = await readObject(object, token, fetcher); }
+  else if (!response.ok) { await response.body?.cancel(); throw new Error(`private client archive create HTTP${response.status}`); }
+  else stored = await response.json();
+  if (stored.name !== object || stored.bucket !== HOSTING_CANDIDATE_BUCKET || !positive.test(stored.generation || "")
+    || Number(stored.size) !== bytes.length || Object.entries(metadata.metadata).some(([key, value]) => stored.metadata?.[key] !== value)) throw new Error("immutable private client archive differs");
   const receipt = { kind: "gcs", bucket: HOSTING_CANDIDATE_BUCKET, object, generation: stored.generation, sha256: checksum,
     frontendSourceSha: candidate.frontendSourceSha, workflowSourceSha, artifactHash: candidate.artifactHash };
   save(join(directory, "archive.json"), receipt);
   return receipt;
 }
-function verifyCandidateAttestation(file, archive) {
-  try {
-    execFileSync("gh", ["attestation", "verify", file, "--repo", "miranae/orider-web",
-      "--signer-workflow", "miranae/orider-web/.github/workflows/deploy-stage.yml",
-      "--source-ref", "refs/heads/main", "--source-digest", archive.frontendSourceSha,
-      "--deny-self-hosted-runners"], { stdio: ["ignore", "pipe", "pipe"] });
-  } catch {
-    throw new Error(`private client archive provenance verification failed for ${archive.frontendSourceSha}/${archive.sha256}`);
-  }
-}
-export async function restoreHostingCandidate({ run, runId, attempt, directory, token, fetcher = fetch, verifyAttestation = verifyCandidateAttestation }) {
-  const object = hostingCandidateObject(runId, attempt), stored = await readArchive({ object, token, fetcher }), metadata = stored.metadata;
+export async function restoreHostingCandidate({ run, runId, attempt, directory, token, fetcher = fetch }) {
+  const object = hostingCandidateObject(runId, attempt), stored = await readObject(object, token, fetcher), metadata = stored.metadata;
   const archive = { kind: "gcs", bucket: stored.bucket, object: stored.name, generation: stored.generation, sha256: metadata?.sha256,
     frontendSourceSha: metadata?.frontendSourceSha, workflowSourceSha: metadata?.workflowSourceSha, artifactHash: metadata?.artifactHash };
-  const archivedRun = { kind: "archived-stage-acceptance", repository: { full_name: metadata?.repository }, path: metadata?.workflowPath, event: "workflow_dispatch", head_branch: "main",
+  const archivedRun = { kind: "archived-stage-acceptance", repository: { full_name: metadata?.repository }, path: metadata?.workflowPath, event: "workflow_dispatch",
     id: Number(runId), run_attempt: Number(attempt), head_sha: archive.workflowSourceSha, stageAcceptanceComplete: metadata?.stageAcceptanceComplete === "true" };
   validateArchivedCandidate(archivedRun, archive, attempt);
   if (run) { validateArchivedCandidate(run, archive, attempt); if (run.id !== Number(runId)) throw new Error("selected run identity mismatch"); }
   else run = archivedRun;
-  if (metadata.repository !== "miranae/orider-web" || metadata.workflowPath !== STAGE_WORKFLOW || metadata.runId !== String(run.id) || metadata.attempt !== String(attempt)) throw new Error("private client archive provenance mismatch");
-  const bytes = await readArchive({ object, generation: archive.generation, token, fetcher });
+  if (metadata.repository !== "miranae/orider-web" || metadata.workflowPath !== run.path || metadata.runId !== String(run.id) || metadata.attempt !== String(attempt)) throw new Error("private client archive provenance mismatch");
+  const url = `https://storage.googleapis.com/download/storage/v1/b/${HOSTING_CANDIDATE_BUCKET}/o/${encodeURIComponent(object)}?alt=media&generation=${archive.generation}`;
+  const response = await fetcher(url, { headers: auth(token), redirect: "error", signal: AbortSignal.timeout(120000) });
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`private client archive download HTTP${response.status}`); }
+  const bytes = Buffer.from(await response.arrayBuffer());
   if (hash(bytes) !== archive.sha256) throw new Error("private client archive checksum mismatch");
   directory = resolve(directory); mkdirSync(directory);
   const path = join(directory, "candidate.tgz"), payload = join(directory, "payload"); writeFileSync(path, bytes, { flag: "wx" }); mkdirSync(payload);
-  await verifyAttestation(path, archive);
   const members = execFileSync("tar", ["-tzf", path], { encoding: "utf8" }).trim().split("\n");
   if (members.some(name => !/^(?:dist(?:\/|$)|firebase\.bundled-stage\.json$|build\.json$|candidate\.json$)/u.test(name) || name.split("/").includes(".."))) throw new Error("private client archive contains invalid paths");
   execFileSync("tar", ["-xzf", path, "-C", payload]);

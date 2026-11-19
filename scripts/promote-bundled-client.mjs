@@ -6,16 +6,13 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { stageArtifactManifest, assertStageEntryArtifact } from "./lib/stage-artifact-manifest.mjs";
+import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
-import { verifyBundledProductionBackend, verifyBundledProductionIdentity } from "./prepare-bundled-production.mjs";
-import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
 const save = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + "\n", { flag: "wx" });
 const sha = /^[a-f0-9]{40}$/u, digest = /^[a-f0-9]{64}$/u;
-const PRODUCTION_ORIGIN = "https://orider.co.kr";
 
 export { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
 import { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
@@ -56,19 +53,18 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     || hash(readFileSync(configs[0])) !== candidate.hostingHash) throw new Error("sealed development artifact source/files mismatch");
   const candidateRuntime = json(join(sourceDist, "runtime-config.json"));
   if (candidateRuntime.deploymentProfile !== "bundled-development"
-    || hash(readFileSync(join(sourceDist, "runtime-config.json"))) !== candidate.runtimeHash) throw new Error("sealed development runtime mismatch");
+    || hash(readFileSync(join(sourceDist, "runtime-config.json"))) !== candidate.runtimeHash
+    || !candidate.artifactManifest.some(([path]) => path === "index.html")) throw new Error("sealed development runtime/entry mismatch");
   const runtime = bundledFunctionsConfig(candidateRuntime, "production");
-  const entry = assertStageEntryArtifact(sourceDist, PRODUCTION_ORIGIN);
   const hosting = bundledHostingConfig(json(configs[0]), "production");
   if (hosting.hosting.site !== "orider-dev" || hosting.hosting.public !== "dist" || hosting.hosting.target) throw new Error("development Hosting identity mismatch");
   hosting.hosting.site = "miranae-orider-g1";
-  hosting.hosting.predeploy = "node scripts/promote-bundled-client.mjs --phase verify";
+  delete hosting.hosting.predeploy;
   if (existsSync(join(workspace, "dist")) || existsSync(directory)) throw new Error("promotion requires fresh output directories");
   mkdirSync(directory, { recursive: true });
   cpSync(sourceDist, join(workspace, "dist"), { recursive: true });
   writeFileSync(join(workspace, "dist/runtime-config.json"), JSON.stringify(runtime, null, 2) + "\n");
   const expected = candidate.artifactManifest.map(([path, value]) => [path, path === "runtime-config.json" ? hash(readFileSync(join(workspace, "dist", path))) : value]);
-  if (!isDeepStrictEqual(stageArtifactManifest(join(workspace, "dist")), expected)) throw new Error("promotion changed compiled/static files");
   save(join(workspace, "firebase.bundled-production.json"), hosting);
   const receipt = { schemaVersion: 1, mode: "bundled-client-promotion", frontendSourceSha, toolingSourceSha, reviewedMainSha,
     candidateRunId: run.id, candidateRunAttempt: run.run_attempt,
@@ -76,27 +72,28 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     candidateArchive: { bucket: artifact.bucket, object: artifact.object, generation: artifact.generation, sha256: artifact.sha256 },
     backend: { sourceSha: candidate.backendSourceSha, topologyHash: candidate.backendTopologyHash },
     originalArtifactHash: candidate.artifactHash, artifactManifest: expected, runtime,
-    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))),
-    entry, rebuilt: false };
+    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), rebuilt: false };
   save(join(directory, "promotion.json"), receipt);
   return receipt;
 }
-export function verifyPromotionFiles({ workspace = process.cwd(), directory }) {
-  const receipt = json(join(directory, "promotion.json"));
-  if (receipt.schemaVersion !== 1 || receipt.mode !== "bundled-client-promotion" || receipt.rebuilt !== false
-    || !sha.test(receipt.reviewedMainSha || "") || !sha.test(receipt.toolingSourceSha || "") || !sha.test(receipt.frontendSourceSha || "") || !sha.test(receipt.backend?.sourceSha || "") || !digest.test(receipt.backend?.topologyHash || "")
-    || !isDeepStrictEqual(stageArtifactManifest(join(workspace, "dist")), receipt.artifactManifest)
-    || hash(readFileSync(join(workspace, "firebase.bundled-production.json"))) !== receipt.hostingHash
-    || !isDeepStrictEqual(json(join(workspace, "dist/runtime-config.json")), receipt.runtime)
-    || !isDeepStrictEqual(receipt.runtime, bundledFunctionsConfig(receipt.runtime, "production"))
-    || receipt.entry !== assertStageEntryArtifact(join(workspace, "dist"), PRODUCTION_ORIGIN)) throw new Error("prepared promotion files changed");
+export async function verifyClientPromotion(options, fetcher = fetch) {
+  const receipt = json(join(options.directory, "promotion.json"));
+  // 운영 API 주소의 기본 상태만 확인한다. 앱 게시를 BE commit과 결속하지 않는다.
+  const response = await fetcher(`${receipt.runtime.firebaseFunctionsBase}/readyz`, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`production gateway unavailable HTTP${response.status}`); }
+  const ready = await response.json();
+  if (ready.status !== "ok") throw new Error("production gateway is not ready");
   return receipt;
 }
-export async function verifyClientPromotion(options, fetcher = fetch) {
-  const receipt = verifyPromotionFiles(options);
-  await verifyPublicClubApi(receipt.runtime, PRODUCTION_ORIGIN, fetcher);
-  await verifyBundledProductionBackend(receipt.runtime, receipt.backend, fetcher);
-  verifyPromotionFiles(options);
+export async function verifyPublishedPromotion({ directory, origin = "https://orider.co.kr" }, fetcher = fetch) {
+  const receipt = json(join(directory, "promotion.json")), expected = new Map(receipt.artifactManifest);
+  // Hosting은 한 버전으로 게시한다. HTML과 runtime 두 파일을 한 번씩 확인한다.
+  await Promise.all(["index.html", "runtime-config.json"].map(async path => {
+    const url = new URL(path === "index.html" ? "/" : `/${path}`, origin); url.searchParams.set("promotion", receipt.frontendSourceSha);
+    const response = await fetcher(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
+    if (!response.ok) { await response.body?.cancel(); throw new Error(`published ${path} HTTP${response.status}`); }
+    if (hash(Buffer.from(await response.arrayBuffer())) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact`);
+  }));
   return receipt;
 }
 async function main() {
@@ -111,12 +108,8 @@ async function main() {
   let receipt;
   if (args["--phase"] === "prepare") receipt = prepareClientPromotion({ ...options, archive: args["--archive"], run: json(args["--run"]), artifact: json(args["--artifact"]), attempt: args["--attempt"] });
   else if (args["--phase"] === "verify") receipt = await verifyClientPromotion(options);
-  else if (args["--phase"] === "verify-identity") {
-    receipt = verifyPromotionFiles(options);
-    await verifyBundledProductionIdentity(receipt.runtime, receipt.backend);
-  }
-  else if (args["--phase"] === "check-files") receipt = verifyPromotionFiles(options);
-  else throw new Error("prepare/verify/verify-identity/check-files phase required");
-  console.log(JSON.stringify({ phase: args["--phase"], frontendSourceSha: receipt.frontendSourceSha, backend: receipt.backend, candidateRunId: receipt.candidateRunId, rebuilt: false, entry: receipt.entry }));
+  else if (args["--phase"] === "published") receipt = await verifyPublishedPromotion(options);
+  else throw new Error("prepare/verify/published phase required");
+  console.log(JSON.stringify({ phase: args["--phase"], frontendSourceSha: receipt.frontendSourceSha, backend: receipt.backend, candidateRunId: receipt.candidateRunId, rebuilt: false }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

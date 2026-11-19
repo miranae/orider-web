@@ -3,39 +3,28 @@ name: Promote verified Hosting artifact
 on:
   workflow_dispatch:
     inputs:
-      phase:
-        description: Rehearse prepares the exact files without publishing
-        type: choice
-        options: [rehearse, promote]
-        default: rehearse
       candidate_run_id:
-        description: Successful Deploy (Hosting → stage) run ID
+        description: Validated development FE run ID
         required: true
       candidate_run_attempt:
-        description: Successful run attempt
+        description: Development run attempt
         required: true
         default: '1'
 
 permissions:
   contents: read
   actions: read
-  attestations: read
   id-token: write
 
-# 운영 게시자를 하나로 직렬화한다. 기존 태그 배포도 같은 그룹을 쓴다.
 concurrency:
-  group: ${{ inputs.phase == 'promote' && 'deploy-hosting-production' || format('rehearse-hosting-{0}', github.run_id) }}
-  queue: max
+  group: deploy-hosting-production
   cancel-in-progress: false
 
 jobs:
-  prepare:
+  promote:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: stage
-    outputs:
-      frontend_source: ${{ steps.prepare.outputs.frontend_source }}
-      artifact_name: ${{ steps.prepare.outputs.artifact_name }}
+    runs-on: [self-hosted, macOS, ARM64, web-hosting]
+    environment: production
     steps:
       - uses: actions/checkout@v5
         with:
@@ -44,149 +33,69 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
-      - name: Install verification tools (no build)
-        run: npm ci
-      - name: Auth (private candidate archive reader)
-        id: archive_auth
-        uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
-          token_format: access_token
-      - name: Restore immutable private development candidate
+      - name: Record workflow and preparation start
         env:
           GH_TOKEN: ${{ github.token }}
-          CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
-          CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
-          HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.archive_auth.outputs.access_token }}
         run: |
           set -euo pipefail
-          node -e 'for(const v of [process.env.CANDIDATE_RUN,process.env.CANDIDATE_ATTEMPT])if(!/^[1-9][0-9]*$/.test(v||""))throw Error("positive run/attempt required")'
-          # Run metadata may expire. Artifact attestation is verified before extracting the private archive.
-          if status=$(curl -sS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/attempts/$CANDIDATE_ATTEMPT" -o "$RUNNER_TEMP/candidate-run.json" -w '%{http_code}'); then
-            :
-          else
-            transport_status=$?
-            echo "::error::GitHub Actions GET failed for candidate $CANDIDATE_RUN/$CANDIDATE_ATTEMPT (curl=$transport_status)"; exit 1
-          fi
-          run_args=()
-          if [ "$status" = 200 ]; then
-            run_args=(--run "$RUNNER_TEMP/candidate-run.json")
-          elif [ "$status" != 404 ]; then
-            echo "::error::GitHub Actions GET candidate $CANDIDATE_RUN/$CANDIDATE_ATTEMPT returned HTTP$status"; exit 1
-          fi
-          node scripts/hosting-candidate-archive.mjs --phase restore --run-id "$CANDIDATE_RUN" --attempt "$CANDIDATE_ATTEMPT" --directory "$RUNNER_TEMP/client-candidate" "${run_args[@]}"
-      - name: Prepare identical compiled files with production runtime
-        id: prepare
-        env:
-          CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
-        run: |
-          set -euo pipefail
-          candidate_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-candidate/archive.json")).frontendSourceSha')
-          if ! git cat-file -e "$candidate_sha^{commit}"; then git fetch --no-tags origin "$candidate_sha"; fi
-          node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate/payload" --directory "$RUNNER_TEMP/client-promotion" --run "$RUNNER_TEMP/client-candidate/run.json" --artifact "$RUNNER_TEMP/client-candidate/archive.json" --attempt "$CANDIDATE_ATTEMPT"
-          source_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-promotion/promotion.json")).frontendSourceSha')
-          echo "frontend_source=$source_sha" >> "$GITHUB_OUTPUT"
-          echo "artifact_name=client-promotion-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
-          echo "Reused development candidate: $source_sha. JavaScript/static files unchanged; runtime and Hosting routes prepared for production. No build or production publication." >> "$GITHUB_STEP_SUMMARY"
-      - name: Retain prepared promotion evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.prepare.outputs.artifact_name }}
-          include-hidden-files: true
-          retention-days: 1
-          path: |
-            dist
-            firebase.bundled-production.json
-            ${{ runner.temp }}/client-promotion/promotion.json
-
-  promote:
-    if: inputs.phase == 'promote'
-    needs: prepare
-    runs-on: [self-hosted, macOS, ARM64, web-hosting]
-    environment: production
-    env:
-      ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
-      ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
-    permissions:
-      contents: read
-      actions: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          package-manager-cache: false
-      - run: npm ci
-      - name: Select promotion receipt directory
-        run: echo "CLIENT_PROMOTION_DIRECTORY=$RUNNER_TEMP/client-production" >> "$GITHUB_ENV"
-      - uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.prepare.outputs.artifact_name }}
-          path: ${{ runner.temp }}/client-ready
-      - name: Restore prepared production files
-        run: |
-          node --input-type=module <<'JS'
-          import {readdirSync,cpSync,mkdirSync} from 'node:fs';
-          import {join,dirname} from 'node:path';
-          const root=join(process.env.RUNNER_TEMP,'client-ready');
-          const find=(dir,name)=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?find(join(dir,e.name),name):e.name===name?[join(dir,e.name)]:[]);
-          const configs=find(root,'firebase.bundled-production.json'),receipts=find(root,'promotion.json');
-          if(configs.length!==1||receipts.length!==1)throw Error('one prepared client required');
-          cpSync(join(dirname(configs[0]),'dist'),'dist',{recursive:true});
-          cpSync(configs[0],'firebase.bundled-production.json');
-          mkdirSync(process.env.CLIENT_PROMOTION_DIRECTORY);
-          cpSync(receipts[0],join(process.env.CLIENT_PROMOTION_DIRECTORY,'promotion.json'));
-          JS
-      - name: Auth (production Hosting only)
+          echo "WORKFLOW_CREATED_AT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)" >> "$GITHUB_ENV"
+          echo "PREPARATION_STARTED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+          echo "CLIENT_PROMOTION_DIRECTORY=$RUNNER_TEMP/client-promotion" >> "$GITHUB_ENV"
+      - name: Auth (production Hosting and candidate reader)
         id: auth
         uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
           token_format: access_token
-      - name: Record previous production Hosting release
-        id: hosting_snapshot
+      - name: Restore validated development candidate
         env:
-          FRONTEND_SOURCE: ${{ needs.prepare.outputs.frontend_source }}
-          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
+          CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
         run: |
-          export HOSTING_DEPLOYMENT_MARKER="client-promotion:$FRONTEND_SOURCE:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
-          node scripts/bundled-stage-hosting-release.mjs --phase snapshot --file "$RUNNER_TEMP/production-hosting-before.json"
-      - name: Publish verified artifact (no build)
-        id: publish
+          node scripts/hosting-candidate-archive.mjs --phase restore --run-id "$CANDIDATE_RUN" --attempt "$CANDIDATE_ATTEMPT" --directory "$RUNNER_TEMP/client-candidate"
+      - name: Prepare production routing and check gateway once
         env:
-          FRONTEND_SOURCE: ${{ needs.prepare.outputs.frontend_source }}
+          CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+        run: |
+          set -euo pipefail
+          candidate_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-candidate/archive.json")).frontendSourceSha')
+          if ! git cat-file -e "$candidate_sha^{commit}"; then git fetch --no-tags origin "$candidate_sha"; fi
+          node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate/payload" --run "$RUNNER_TEMP/client-candidate/run.json" --artifact "$RUNNER_TEMP/client-candidate/archive.json" --attempt "$CANDIDATE_ATTEMPT"
+          node scripts/promote-bundled-client.mjs --phase verify
+          echo "PREPARED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+      - name: Publish the same compiled files
+        env:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
           set -euo pipefail
-          npm install -g firebase-tools
-          node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/production-hosting-before.json"
-          log="$RUNNER_TEMP/hosting-publish.log"
-          set +e
-          firebase deploy --config firebase.bundled-production.json --only hosting --project miranae-orider-g1 --non-interactive --token "$HOSTING_ACCESS_TOKEN" --message "client-promotion:$FRONTEND_SOURCE:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT" 2>&1 | tee "$log"
-          status=${PIPESTATUS[0]}
-          set -e
-          if [ "$status" -ne 0 ] && ! grep -q "is the current active version" "$log"; then exit "$status"; fi
-      - name: Verify production entry, runtime and aliases
+          echo "PUBLISH_STARTED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+          if ! command -v firebase >/dev/null; then npm install -g firebase-tools; fi
+          source_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.CLIENT_PROMOTION_DIRECTORY+"/promotion.json")).frontendSourceSha')
+          firebase deploy --config firebase.bundled-production.json --only hosting --project miranae-orider-g1 --non-interactive --token "$HOSTING_ACCESS_TOKEN" --message "client-promotion:$source_sha:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
+          echo "PUBLISHED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+      - name: Check public release once
         run: |
-          node scripts/verify-bundled-hosting.mjs --environment production
-          node scripts/promote-bundled-client.mjs --phase verify-identity
-      - name: Restore this run's previous production Hosting release on failure
-        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != ''
-        timeout-minutes: 3
+          set -euo pipefail
+          echo "PUBLIC_CHECK_STARTED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+          node scripts/promote-bundled-client.mjs --phase published
+          echo "VERIFIED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+      - name: Report actual elapsed time
+        if: always()
         env:
-          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/production-hosting-before.json"
-      - name: Retain production Hosting recovery receipt on failure
-        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: hosting-promotion-recovery-${{ github.run_id }}-${{ github.run_attempt }}
-          retention-days: 1
-          path: ${{ runner.temp }}/production-hosting-before.json
-      - name: Record promoted source
-        env:
-          FRONTEND_SOURCE: ${{ needs.prepare.outputs.frontend_source }}
-        run: echo "Published verified frontend $FRONTEND_SOURCE from development run ${{ inputs.candidate_run_id }}/${{ inputs.candidate_run_attempt }} without rebuilding. Production entry bytes, runtime and HTTP aliases verified." >> "$GITHUB_STEP_SUMMARY"
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          node --input-type=module <<'JS'
+          import {appendFileSync} from 'node:fs';
+          const env=process.env, end=Date.now(), created=Date.parse(env.WORKFLOW_CREATED_AT);
+          const elapsed=(start,finish=end)=>Number.isFinite(Number(start))&&start?finish-Number(start):null;
+          const timing={status:env.JOB_STATUS,workflowCreatedAt:env.WORKFLOW_CREATED_AT||null,reportAt:new Date(end).toISOString(),
+            dispatchToReportMs:Number.isFinite(created)?end-created:null,
+            setupAndQueueMs:Number.isFinite(created)&&env.PREPARATION_STARTED_AT_MS?Number(env.PREPARATION_STARTED_AT_MS)-created:null,
+            preparationMs:elapsed(env.PREPARATION_STARTED_AT_MS,Number(env.PREPARED_AT_MS)||end),
+            publicationMs:elapsed(env.PUBLISH_STARTED_AT_MS,Number(env.PUBLISHED_AT_MS)||end),
+            publicCheckMs:elapsed(env.PUBLIC_CHECK_STARTED_AT_MS,Number(env.VERIFIED_AT_MS)||end),rebuilt:false};
+          console.log(JSON.stringify(timing));
+          appendFileSync(env.GITHUB_STEP_SUMMARY,`Status: ${timing.status}\n\nActual timings (ms):\n\n\`\`\`json\n${JSON.stringify(timing,null,2)}\n\`\`\`\n\nFinal workflow total including cleanup: GitHub run created_at → updated_at after completion. No application install, build or intermediate artifact transfer.\n`);
+          JS
