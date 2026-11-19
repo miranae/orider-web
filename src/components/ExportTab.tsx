@@ -50,7 +50,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
     [activity.id, activity.type, activity.source, streams, resolveCurrentStreams]);
 
   const handleExport = useCallback(async (format: ExportFormat, choice?: { unit: FootCadenceUnit; samples: string }) => {
-    const request = ++generation.current;
+    const request = generation.current;
     setCadencePrompt(null);
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
@@ -92,8 +92,8 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
         }
       }
     } catch (err) {
-      if (request !== generation.current) return;
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
+      if (request !== generation.current) return;
       showToast(t("export.errorAlert"), "error");
     }
   }, [activity, streams, resolveCurrentStreams, t, showToast]);
