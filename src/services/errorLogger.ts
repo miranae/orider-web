@@ -108,17 +108,28 @@ export function logClientError(
   if (!requestIsCurrent()) return;
   const payload = { source, message, stack, context };
   void (async () => {
+    let backupPhase: "endpoint" | "app-check" | "id-token" | "transport" | "http" = "endpoint";
+    let backupStatus: number | undefined;
     try {
       if (services?.isSessionApproved) {
         // The SDK callable resolves live Auth. Use only the approved viewer's captured credentials.
         const endpoint = approvedCallableEndpoint(config, services.functions, "asia-northeast3", "logClientError");
-        const [appCheck, authToken] = await Promise.all([services.getAppCheckToken?.(), user?.getIdToken()]);
+        if (!endpoint) throw new Error("embedded-error-backup-endpoint-unavailable");
+        backupPhase = "app-check";
+        const appCheck = await services.getAppCheckToken?.();
         if (!requestIsCurrent()) return;
-        if (!endpoint || (!appCheck && config.useEmulators !== true) || (user && !authToken)) {
-          throw new Error("embedded-error-backup-unavailable");
-        }
+        if (!appCheck && config.useEmulators !== true) throw new Error("embedded-error-backup-app-check-unavailable");
+        backupPhase = "id-token";
+        const authToken = await user?.getIdToken();
+        if (!requestIsCurrent()) return;
+        if (user && !authToken) throw new Error("embedded-error-backup-id-token-unavailable");
+        backupPhase = "transport";
         const response = await postApprovedCallable(endpoint, payload, appCheck ?? null, authToken);
-        if (!response.ok) throw new Error("embedded-error-backup-rejected");
+        if (!response.ok) {
+          backupPhase = "http";
+          backupStatus = response.status;
+          throw new Error("embedded-error-backup-rejected");
+        }
         return;
       }
       await (services?.ensureAppCheckReady ?? ensureAppCheckReady)();
@@ -127,7 +138,11 @@ export function logClientError(
       if (!fn) return; // initFirebase 전 — 서버 로깅 skip (Sentry 큐로 충분)
       await fn(payload);
     } catch {
-      console.warn("[errorLogger] 서버 에러 로깅 실패:", message);
+      const backupFailure = services?.isSessionApproved ? { source, phase: backupPhase, status: backupStatus } : undefined;
+      if (backupFailure) {
+        captureError(new Error("embedded-error-backup-failed"), { tags: { source: "errorLogger.embeddedBackup" }, extra: backupFailure });
+      }
+      console.warn("[errorLogger] 서버 에러 로깅 실패:", backupFailure ?? message);
     }
   })();
 }

@@ -194,6 +194,7 @@ it("retains approved-session diagnostics when approval is revoked during token a
   const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
   try {
     logClientError("embedded.revoked", new Error("pending"), {}, services, services.auth.currentUser);
+    await vi.waitFor(() => expect(viewer.getIdToken).toHaveBeenCalledOnce());
     approved = false;
     const replacement = { uid: "embedded", getIdToken: vi.fn() };
     services.auth.currentUser = replacement as never;
@@ -204,4 +205,26 @@ it("retains approved-session diagnostics when approval is revoked during token a
     expect(post).not.toHaveBeenCalled();
     expect(replacement.getIdToken).not.toHaveBeenCalled();
   } finally { post.mockRestore(); }
+});
+
+it.each([
+  { phase: "app-check", status: undefined },
+  { phase: "http", status: 403 },
+] as const)("reports $phase failures of the embedded backup without logging credentials", async ({ phase, status }) => {
+  __resetClientErrorDedupeForTests();
+  const appCheck = vi.fn().mockResolvedValue("app-check-token");
+  if (phase === "app-check") appCheck.mockRejectedValue(new Error("private-token-error"));
+  const services = { auth: { currentUser: null }, functions: { app: { options: { projectId: "test-project" } } },
+    getAppCheckToken: appCheck, isSessionApproved: () => true } as unknown as FirebaseServices;
+  const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 403 }));
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  try {
+    logClientError("embedded.test", new Error("initial failure"), {}, services, null);
+    const diagnostic = { source: "embedded.test", phase, status };
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledWith("[errorLogger] 서버 에러 로깅 실패:", diagnostic));
+    expect(captureError).toHaveBeenCalledWith(new Error("embedded-error-backup-failed"), {
+      tags: { source: "errorLogger.embeddedBackup" }, extra: diagnostic,
+    });
+    expect(post).toHaveBeenCalledTimes(phase === "http" ? 1 : 0);
+  } finally { post.mockRestore(); warn.mockRestore(); }
 });
