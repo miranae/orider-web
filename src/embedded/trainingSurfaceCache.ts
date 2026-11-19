@@ -163,8 +163,13 @@ function persist(onError?: (error: unknown) => void): boolean {
 function restore(uid: string): void {
   const scope = trainingSurfaceCacheScope();
   if (!scope) return;
+  const reportRestoreFailure = (error: unknown) => {
+    // JSON 파싱 오류가 캐시 내용의 일부를 메시지에 포함할 수 있다.
+    const errorName = error instanceof Error ? error.name : typeof error;
+    captureError(new Error(`Training snapshot restore failed (${errorName})`), { tags: { source: "trainingSurfaceCache.restore" } });
+  };
   try {
-    const disk = storage();
+    const disk = storage(reportRestoreFailure);
     if (!disk) return;
     const scopedKey = storageKey(uid, scope);
     const scoped = disk.getItem(scopedKey);
@@ -189,8 +194,8 @@ function restore(uid: string): void {
         catch (error) { reportMigrationFailure(error); }
       }
     }
-  } catch {
-    // 저장소 오류나 손상된 스냅샷은 원본 조회로 복구한다.
+  } catch (error) {
+    reportRestoreFailure(error);
   }
 }
 
