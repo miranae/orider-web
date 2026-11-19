@@ -379,12 +379,12 @@ export default function WorkoutEditModal({
       <div className="coach-training-dialog" ref={modalRef} role="dialog" tabIndex={-1} data-testid="K4-6" aria-modal="true" aria-busy={loading} aria-label={meta.label}
         style={{
           position: 'fixed',
-          top: '50%',
+          top: 'calc(var(--dialog-viewport-top, 0px) + var(--dialog-viewport-height, 100dvh) / 2)',
           left: '50%',
           transform: 'translate(-50%, -50%)',
           zIndex: 118,
           width: 'min(100% - var(--space-6), 24rem)',
-          maxHeight: 'calc(100dvh - var(--space-6))',
+          maxHeight: 'calc(var(--dialog-viewport-height, 100dvh) - var(--space-6))',
           overflowY: 'auto',
           overscrollBehavior: 'contain',
           background: 'var(--bg-1)',

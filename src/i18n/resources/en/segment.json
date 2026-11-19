@@ -97,7 +97,7 @@
   "status.approved": "Approved",
   "status.rejected": "Rejected",
   "status.hidden": "Hidden",
-  "search.placeholder": "Search segments... (Enter)",
+  "search.placeholder": "Search segments...",
   "stats.resultCount": "Search results: {{count}}",
   "stats.areaCount": "{{count}} segments in this area",
   "stats.leaderboardCount": "Leaderboard ({{count}} riders)",

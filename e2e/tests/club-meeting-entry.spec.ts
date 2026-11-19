@@ -1,5 +1,29 @@
 import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
+test("mobile: keyboard-sized viewport keeps the focused meeting field uncovered", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile", "Mobile keyboard layout");
+  await page.goto("/e2e/fixtures/club-meeting-entry.html?lang=ko&role=leader");
+  await page.getByRole("link", { name: /주말 라이더/ }).click();
+  await page.getByRole("link", { name: "모임 만들기", exact: true }).click();
+  const field = page.getByRole("textbox", { name: "기본 집결 장소", exact: true });
+  await field.focus();
+  // Android resize 방식으로 키보드가 차지한 높이를 제외한다.
+  await page.setViewportSize({ width: 390, height: 300 });
+  await field.fill("반포 한강공원");
+  await field.evaluate(node => node.scrollIntoView({ block: "end" }));
+  await expect(field).toBeFocused();
+  await expect(field).toHaveValue("반포 한강공원");
+  await expect.poll(() => field.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    return document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === node;
+  })).toBe(true);
+  await page.screenshot({ path: info.outputPath("keyboard-input.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const preview = page.getByRole("button", { name: "모집글 미리보기", exact: true });
+  await preview.focus();
+  await expect(preview).toBeInViewport();
+});
+
 for (const lang of ["ko", "en"]) {
   test(`${lang}: one coherent club-to-meeting flow`, async ({ page }, info) => {
     await page.goto(`/e2e/fixtures/club-meeting-entry.html?lang=${lang}&long=1&role=leader`);

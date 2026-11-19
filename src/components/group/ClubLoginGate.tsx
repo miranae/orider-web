@@ -9,7 +9,7 @@ export default function ClubLoginGate() {
   return <PermissionGate
     title={t("public.loginTitle")}
     description={failed ? t("common:auth.loginFailed") : t("error.loginRequiredDesc")}
-    actionLabel={t(pending ? "common:auth.loginLoading" : "common:button.login")}
+    actionLabel={t(pending ? "common:auth.loginLoading" : "public.loginAction")}
     onAction={() => { void login(); }}
   />;
 }

@@ -44,7 +44,7 @@ async function readOwnRelationshipPage(uid: string, kind: SubscriptionKind | "bl
   assertOwner(uid, expectedUser, currentAuth);
   if (snapshot.metadata?.fromCache) throw new Error("activity-subscriptions-server-confirmation-required");
   const page = snapshot.docs.slice(0, 20);
-  const profiles = options.hydrateProfiles === false ? new Map<string, PublicUserProfile>() : await getPublicUserProfiles(page.map(row => row.id), database);
+  const profiles = options.hydrateProfiles === false ? new Map<string, PublicUserProfile>() : await getPublicUserProfiles(page.map(row => row.id), database, options.services);
   assertOwner(uid, expectedUser, currentAuth);
   return {
     items: page.map(row => {

@@ -1,6 +1,6 @@
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useEffect, useState } from "react";
-import { getVisibleEventPage } from "../services/eventDiscovery";
+import { getVisibleEventPage, getGroupNextEventPage } from "../services/eventDiscovery";
 import { logClientError } from "../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
@@ -66,7 +66,21 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
       try {
         const map = new Map<string, NextEventInfo>();
         const uniqueGroupIds = [...new Set(groupIds)];
-        const snapshots = await Promise.all(uniqueGroupIds.map(groupId => getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 }, services)));
+        const snapshots = [];
+        const incomplete = new Set<string>();
+        for (let offset = 0; offset < uniqueGroupIds.length; offset += 20) {
+          const chunk = uniqueGroupIds.slice(offset, offset + 20);
+          const batch = await getGroupNextEventPage(chunk, publicOnly, excludeEventId, services);
+          if (batch) { snapshots.push({ docs: batch.docs }); batch.incompleteGroupIds.forEach(id => incomplete.add(id)); }
+          else {
+            const legacy = await Promise.all(chunk.map(async groupId => {
+              const page = await getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 }, services);
+              if (page.nextCursor) incomplete.add(groupId);
+              return page;
+            }));
+            snapshots.push(...legacy);
+          }
+        }
 
         snapshots.forEach((snap) => {
           snap.docs.forEach((doc) => {
@@ -86,7 +100,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
           });
         });
         if (cancelled) return;
-        setIncompleteGroups(new Set(uniqueGroupIds.filter((groupId, index) => snapshots[index]?.nextCursor && !map.has(groupId))));
+        setIncompleteGroups(new Set([...incomplete].filter(groupId => !map.has(groupId))));
         const labels = new Map<string, string>();
         map.forEach((v, k) => labels.set(k, formatNextLabel(v.startTime, v.name, localeTag())));
         setByGroup(labels);

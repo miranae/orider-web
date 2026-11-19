@@ -80,7 +80,7 @@ export function ReportContentModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+      className="mobile-dialog-viewport fixed inset-0 z-[90] flex items-center justify-center p-4"
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -123,7 +123,7 @@ export function ReportContentModal({
         tabIndex={-1}
         padding="none"
         className="relative w-full max-w-lg overflow-y-auto overscroll-contain p-5! md:p-6! rounded-[var(--r-xl)] text-[length:var(--ft-body-size)] leading-[var(--ft-body-line-height)]"
-        style={{ maxHeight: "calc(100dvh - var(--space-8))", boxShadow: "var(--shadow-lg)" }}
+        style={{ maxHeight: "calc(var(--dialog-viewport-height, 100dvh) - var(--space-8))", boxShadow: "var(--shadow-lg)" }}
       >
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="min-w-0">
