@@ -19,6 +19,11 @@ let _logClientErrorFn: HttpsCallable<unknown, unknown> | null = null;
 const RECENT_ERROR_WINDOW_MS = 10_000;
 const MAX_RECENT_ERROR_KEYS = 200;
 const ERROR_BACKUP_TIMEOUT_MS = 10_000;
+const EMBEDDED_LIFECYCLE_FAILURES = new Map([
+  ["embedded.authChangeCacheReset", "embedded-cache-reset-failed"],
+  ["embedded.bridgeSend", "embedded-bridge/send-failed"],
+  ["embedded.accountIsolation.release", "embedded-account-isolation-release-failed"],
+]);
 type ErrorTimes = Map<string, number>;
 const recentClientErrors: ErrorTimes = new Map();
 let scopedClientErrors = new WeakMap<object, { guest: ErrorTimes; users: WeakMap<object, ErrorTimes> }>();
@@ -85,14 +90,11 @@ export function logClientError(
 ) {
   // These lifecycle diagnostics contain no account data. App Check allows recording
   // failures before host approval or during revocation without borrowing a user's token.
-  const anonymousCacheReset = source === "embedded.authChangeCacheReset" && Boolean(services?.isSessionApproved);
-  const anonymousBridgeSend = source === "embedded.bridgeSend" && Boolean(services?.isSessionApproved);
-  const anonymousDiagnostic = anonymousCacheReset || anonymousBridgeSend;
-  const diagnosticError = anonymousCacheReset ? new Error("embedded-cache-reset-failed")
-    : anonymousBridgeSend ? new Error("embedded-bridge/send-failed") : error;
-  const diagnosticContext = anonymousBridgeSend
-    ? { type: WEB_MESSAGE_TYPES.find(type => type === context?.type) }
-    : anonymousCacheReset ? undefined : context;
+  const anonymousMessage = services?.isSessionApproved ? EMBEDDED_LIFECYCLE_FAILURES.get(source) : undefined;
+  const anonymousDiagnostic = anonymousMessage !== undefined;
+  const diagnosticError = anonymousMessage === undefined ? error : new Error(anonymousMessage);
+  const diagnosticContext = !anonymousDiagnostic ? context : source === "embedded.bridgeSend"
+    ? { type: WEB_MESSAGE_TYPES.find(type => type === context?.type) } : undefined;
   const message = diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError);
   const user = anonymousDiagnostic ? null : requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
   const signedInAt = user?.metadata?.lastSignInTime ?? "";

@@ -701,9 +701,9 @@ export default function EmbeddedBootstrapRoot({
     void isolateEmbeddedAccount(null).then(
       () => setFirestore(getEmbeddedFirestore()),
       // 실패하면 소유 계정이 유지되어 다음 sessionAccepted 가 격리를 다시 시도한다.
-      (err: unknown) => logClientError("embedded.accountIsolation.release", err, { phase: "logout" }),
+      (err: unknown) => logClientError("embedded.accountIsolation.release", err, undefined, hostDiagnosticServices),
     );
-  }, [accountReleaseRequest]);
+  }, [accountReleaseRequest, hostDiagnosticServices]);
 
   const safeSend = useCallback((
     type: Parameters<EmbeddedBridge["send"]>[0],
