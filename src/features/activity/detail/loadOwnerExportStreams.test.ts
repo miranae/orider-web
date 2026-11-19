@@ -39,7 +39,7 @@ it.each(["orider", "apple_health", "health_connect"] as const)("binds a verified
   expect(mocks.streams).toHaveBeenCalledExactlyOnceWith(run.id);
 });
 
-it("adds only cadence from the matching revision and omits candidate samples without timestamps", async () => {
+it("keeps the complete existing timeline when a matching revision confirms the unit", async () => {
   const streams = markVerifiedStreamCadence({
     time: [0, null, 1, 60], cadence: [170, 174, 172, null], heartrate: [222, 223, 224, null],
   } as unknown as ActivityStreams, revision, "spm");
@@ -48,12 +48,11 @@ it("adds only cadence from the matching revision and omits candidate samples wit
     ...displayed, latlng: [[37, 127], [38, 128]], heartrate: [150, 152], watts: [100, 105],
   } as ActivityStreams, revision, null);
   const result = await loadOwnerExportStreams(run, existing, "tcx", ownerServices());
-  expect(result.time).toEqual([0, 1, 2]);
-  expect(result.latlng?.[2]).toEqual([38, 128]);
-  expect(result.heartrate?.[2]).toBe(152);
-  expect(result.heartrate?.[1]).toBeUndefined();
-  expect(result.watts?.[2]).toBe(105);
-  expect(result.cadence?.filter(Number.isFinite)).toEqual([170, 172, 172]);
+  expect(result.time).toEqual([0, 2]);
+  expect(result.latlng?.[1]).toEqual([38, 128]);
+  expect(result.heartrate).toEqual([150, 152]);
+  expect(result.watts?.[1]).toBe(105);
+  expect(result.cadence).toEqual([170, 172]);
   expect(readStreamCadenceUnit(result)).toBe("spm");
 });
 
@@ -125,5 +124,20 @@ it("does not apply a legacy unit to cadence observations with missing timestamps
   const streams = markVerifiedStreamCadence({ time: [0, 2], cadence: [170, 172] }, revision, "spm");
   mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams });
   const existing = { time: [0, null, 2], cadence: [170, 85, 172] } as unknown as ActivityStreams;
+  expect(await loadOwnerExportStreams(run, existing, "tcx", ownerServices())).toBe(existing);
+});
+
+
+it("ignores cadence verification when the displayed file has no valid cadence samples", async () => {
+  mocks.streams.mockResolvedValue({ activityId: run.id, state: "changed_input", streams: null });
+  const existing = { ...displayed, cadence: undefined };
+  expect(await loadOwnerExportStreams(run, existing, "fit", ownerServices())).toBe(existing);
+  expect(mocks.streams).not.toHaveBeenCalled();
+});
+
+it("does not infer identical timing for legacy cadence without a time axis", async () => {
+  const streams = markVerifiedStreamCadence({ time: [0, 1], cadence: [170, 172] }, revision, "spm");
+  mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams });
+  const existing = { ...displayed, time: undefined, latlng: [[37, 127], [38, 128]] } as ActivityStreams;
   expect(await loadOwnerExportStreams(run, existing, "tcx", ownerServices())).toBe(existing);
 });

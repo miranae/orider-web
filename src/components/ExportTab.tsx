@@ -58,9 +58,9 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
   useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity, streams, resolveCurrentStreams, getExportAccount]);
 
   const handleExport = useCallback(async (format: string, choice?: CadenceChoice) => {
-    const request = generation.current;
     const account = getExportAccount?.();
     if (account !== renderedAccount) return;
+    const request = ++generation.current;
     const stillCurrent = () => request === generation.current && getExportAccount?.() === account;
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(format) : streams;

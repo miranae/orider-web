@@ -110,3 +110,21 @@ it("requires a new cadence choice when a refreshed stream revision replaced the 
   await act(async () => fireEvent.click(unit()));
   expect(mocks.fit).toHaveBeenCalledWith(run, second, "strides_per_minute");
 });
+
+
+it("generates only the file chosen most recently when two confirmations overlap", async () => {
+  const run = { ...activity, type: "Run" } as Activity;
+  const samples = { userId: "owner", time: [0], cadence: [85] };
+  let first!: (value: typeof samples) => void;
+  let last!: (value: typeof samples) => void;
+  const resolve = vi.fn().mockResolvedValueOnce(samples)
+    .mockReturnValueOnce(new Promise<typeof samples>(done => { first = done; }))
+    .mockReturnValueOnce(new Promise<typeof samples>(done => { last = done; }));
+  render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  fireEvent.click(screen.getByRole("button", { name: /strides per minute|분당 스트라이드|cadenceChoice.strides_per_minute/iu }));
+  fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu }));
+  await act(async () => last(samples));
+  await act(async () => first(samples));
+  expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(run, { ...samples, cadence: undefined }, undefined);
+});

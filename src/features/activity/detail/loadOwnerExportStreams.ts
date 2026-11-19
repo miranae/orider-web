@@ -4,7 +4,7 @@ import { readStreamCadenceUnit } from "../../../services/activityStreamSource";
 import { logClientError, debugLog, reportPreviousAccountFailure } from "../../../services/errorLogger";
 import { createPublicActivityClient, isPublicActivityAccessError } from "../../../services/publicActivityDetail";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
-import { addVerifiedCadenceToExport } from "../../../utils/prepareActivityFileStreams";
+import { applyVerifiedCadenceUnit } from "../../../utils/prepareActivityFileStreams";
 import { exportSportOf } from "../../../utils/exportSport";
 import { activitySensorOrigin } from "./activitySensorOrigin";
 import { usesCanonicalActivityStreams } from "./useActivityStreamsLoader";
@@ -24,6 +24,7 @@ export async function loadOwnerExportStreams(
   const config = getRuntimeConfig();
   if ((format !== "fit" && format !== "tcx") || !account || account.isAnonymous || account.uid !== activity.userId
     || config.appEnvironment === "stage" || config.publicActivityDetailEnabled !== true || !exportSportOf(activity).footCadence
+    || !Array.isArray(displayed.cadence) || !displayed.cadence.some(value => Number.isFinite(value) && value >= 0)
     || hasFootCadenceUnit(displayed)
     || (!usesCanonicalActivityStreams(activity.id, activity.source) && !activitySensorOrigin(activity))) return displayed;
 
@@ -54,5 +55,5 @@ export async function loadOwnerExportStreams(
     || !cadence.some((value, index) => Number.isFinite(value) && value >= 0 && Number.isFinite(time[index]))) {
     return displayed;
   }
-  return addVerifiedCadenceToExport(activity, displayed, result.streams);
+  return applyVerifiedCadenceUnit(activity, displayed, result.streams);
 }

@@ -79,37 +79,27 @@ function alignRawPartTimeline(activity: Activity, streams: ActivityStreams): Act
   return combineTimedStreams({ ...streams, latlng: undefined }, sensorTimes, { userId: streams.userId, latlng: coordinates }, routeTimes);
 }
 
-export function addVerifiedCadenceToExport(activity: Activity, displayed: ActivityStreams, verified: ActivityStreams): ActivityStreams {
-  const base = alignRawPartTimeline(activity, displayed);
-  const cadenceSource = alignRawPartTimeline(activity, verified);
+export function applyVerifiedCadenceUnit(activity: Activity, displayed: ActivityStreams, verified: ActivityStreams): ActivityStreams {
   const baseRevision = readVerifiedStreamRevision(displayed);
   const revision = readVerifiedStreamRevision(verified);
-  const unit = readStreamCadenceUnit(verified);
   if (baseRevision && baseRevision !== revision) return displayed;
+  if (!displayed.time?.length || !verified.time?.length) return displayed;
 
-  const baseTimes = timestampsOf(activity, base);
-  const candidateTimes = timestampsOf(activity, cadenceSource);
-  const measuredPairs = (values: ActivityStreams["cadence"], timestamps: Array<number | null>) =>
-    timestamps.flatMap((time, index): Array<[number, number]> => {
-      const value = values?.[index];
-      return time !== null && typeof value === "number" && Number.isFinite(value) && value >= 0 ? [[time, value]] : [];
-    });
-  const confirmed = measuredPairs(cadenceSource.cadence, candidateTimes);
-  if (!confirmed.length) return displayed;
+  const base = alignRawPartTimeline(activity, displayed);
+  const cadenceSource = alignRawPartTimeline(activity, verified);
+  const measuredPairs = (streams: ActivityStreams) => timestampsOf(activity, streams).flatMap((time, index): Array<[number, number]> => {
+    const value = streams.cadence?.[index];
+    return time !== null && typeof value === "number" && Number.isFinite(value) && value >= 0 ? [[time, value]] : [];
+  });
+  const original = measuredPairs(base);
+  const confirmed = measuredPairs(cadenceSource);
+  const originalCount = displayed.cadence?.filter(value => Number.isFinite(value) && value >= 0).length ?? 0;
+  if (!original.length || original.length !== originalCount || !confirmed.length) return displayed;
 
-  if (!baseRevision) {
-    // Legacy display streams have no revision. Bind a unit only to identical measured pairs.
-    const original = measuredPairs(base.cadence, baseTimes);
-    const originalCount = displayed.cadence?.filter(value => Number.isFinite(value) && value >= 0).length ?? 0;
-    if (original.length !== originalCount || original.length !== confirmed.length
-      || original.some(([time, cadence], index) => time !== confirmed[index]?.[0] || cadence !== confirmed[index]?.[1])) return displayed;
-    return markStreamCadenceUnit(displayed, unit);
-  }
-
-  const existingCadence = base.cadence?.map(value => Number.isFinite(value) && value >= 0 ? value : undefined);
-  const combined = combineTimedStreams({ ...base, cadence: existingCadence as ActivityStreams["cadence"] }, baseTimes,
-    { userId: displayed.userId, cadence: confirmed.map(([, value]) => value) }, confirmed.map(([time]) => time));
-  return markStreamCadenceUnit(combined, unit);
+  // Legacy streams carry no revision. Only identical observed samples prove the unit applies to this file.
+  if (!baseRevision && (original.length !== confirmed.length
+    || original.some(([time, cadence], index) => time !== confirmed[index]?.[0] || cadence !== confirmed[index]?.[1]))) return displayed;
+  return markStreamCadenceUnit(displayed, readStreamCadenceUnit(verified));
 }
 
 export function prepareActivityFileStreams(activity: Activity, streams: ActivityStreams, format: "fit" | "tcx"): ActivityStreams {

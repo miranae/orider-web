@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { markRawPartStreams, markVerifiedStreamCadence, readStreamCadenceUnit } from "../services/activityStreamSource";
-import { addVerifiedCadenceToExport, prepareActivityFileStreams } from "./prepareActivityFileStreams";
+import { applyVerifiedCadenceUnit, prepareActivityFileStreams } from "./prepareActivityFileStreams";
 import { generateTcx } from "./exportTcx";
 
 it("writes each GPS observation at its own time and offsets sensor samples from the actual activity start", () => {
@@ -43,12 +43,15 @@ it("writes each GPS observation at its own time and offsets sensor samples from 
 it("matches epoch-based displayed samples to the cadence grid without moving the displayed origin", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime } as Activity;
-  const displayed = markVerifiedStreamCadence({ time: [startTime + 30_000], heartrate: [150] } as ActivityStreams, "b".repeat(64), null);
-  const canonical = markRawPartStreams({ time: [0], cadence: [180] } as ActivityStreams, "b".repeat(64), startTime + 30_000);
-  const merged = addVerifiedCadenceToExport(activity, displayed, canonical);
-  expect(merged.time).toEqual([30]);
+  const displayed = { time: [startTime + 30_000], heartrate: [150], cadence: [180] } as ActivityStreams;
+  const revision = "b".repeat(64);
+  const canonical = markVerifiedStreamCadence(
+    markRawPartStreams({ time: [0], cadence: [180] } as ActivityStreams, revision, startTime + 30_000), revision, "spm");
+  const merged = applyVerifiedCadenceUnit(activity, displayed, canonical);
+  expect(merged.time).toEqual(displayed.time);
   expect(merged.heartrate).toEqual([150]);
   expect(merged.cadence).toEqual([180]);
+  expect(readStreamCadenceUnit(merged)).toBe("spm");
 });
 
 

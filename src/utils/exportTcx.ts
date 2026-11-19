@@ -38,10 +38,10 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
       lines.push('<Track>');
 
       // 현재 랩에 해당하는 트랙포인트 수 추정 (상대 초 기반)
-      const lapStart = typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
+      const lapStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
         ? (lap.startTimeMs - startMs) / 1000
         : activityTime ? previousLapEnd : (relSecAt(trackIdx) ?? 0);
-      const lapEndTime = typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
+      const lapEndTime = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
         ? (lap.endTimeMs - startMs) / 1000
         : lapStart + lapSeconds;
       previousLapEnd = lapEndTime;
