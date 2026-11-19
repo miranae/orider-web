@@ -31,6 +31,7 @@ const transportPaths = [
 ];
 const allowedTools = ["firebase.stage.json", "docs/STAGE_PRODUCTION_PARITY.md", "scripts/check-isolated-stage.mjs",
   "scripts/lib/isolated-stage-config.mjs", "scripts/lib/public-club-deploy-config.mjs", "scripts/lib/stage-production-parity.mjs",
+  "scripts/lib/bundled-functions-config.mjs",
   "scripts/lib/production-release-attestation.mjs", "scripts/lib/stage-artifact-manifest.mjs", "scripts/prepare-stage-production-parity.mjs", "scripts/write-runtime-config.mjs",
   "scripts/write-runtime-config.test.mjs"];
 const changed = execFileSync("git", ["diff", "--no-renames", "--name-only", sourceSha, reviewedHead], { encoding: "utf8" }).trim().split("\n").filter(Boolean);

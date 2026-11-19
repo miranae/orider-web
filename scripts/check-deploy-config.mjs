@@ -274,7 +274,8 @@ if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh r
 requireIncludes(deployWorkflow, "vars.ORIDER_FUNCTIONS_TRANSPORT || 'legacy'", "deploy.yml explicit transport default");
 requireIncludes(deployWorkflow, "node scripts/prepare-bundled-production.mjs --phase prepare", "deploy.yml normal production flags");
 requireIncludes(deployWorkflow, "if: env.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'", "deploy.yml legacy Functions contract scope");
-requireIncludes(readFileSync("scripts/prepare-bundled-production.mjs", "utf8"), 'hosting.hosting.predeploy += " && node scripts/prepare-bundled-production.mjs --phase verify"', "bundled production Hosting predeploy gate");
+requireIncludes(readFileSync("scripts/prepare-bundled-production.mjs", "utf8"),
+  'hosting.hosting.predeploy += " && node scripts/prepare-bundled-production.mjs --phase verify"', "bundled backend deploy-time verification");
 requireIncludes(deployWorkflow, "config=firebase.bundled-production.json", "deploy.yml bundled Hosting config");
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
@@ -294,7 +295,7 @@ requireIncludes(stageDeployWorkflow, "backend_source_sha:", "deploy-stage.yml pi
 requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase prepare", "deploy-stage.yml bundled preparation");
 requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase seal", "deploy-stage.yml actual artifact validation");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
-requireIncludes(stageDeployWorkflow, "if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev'", "deploy-stage.yml manual source guard");
+requireIncludes(stageDeployWorkflow, "if: github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')", "deploy-stage.yml manual source guard");
 requireIncludes(stageDeployWorkflow, "runs-on: ubuntu-latest", "deploy-stage.yml disposable runner");
 checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, 'config=firebase.stage.json', "deploy-stage.yml legacy deploy config");

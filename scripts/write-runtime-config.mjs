@@ -11,7 +11,8 @@ import { dirname, resolve } from "node:path";
 import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
 import { publicClubEndpoint } from "./lib/public-club-deploy-config.mjs";
 import { productionDataConfig } from "./lib/production-data-config.mjs";
-import { bundledFunctionsConfig, stageProductionParityConfig } from "./lib/stage-production-parity.mjs";
+import { bundledFunctionsConfig } from "./lib/bundled-functions-config.mjs";
+import { stageProductionParityConfig } from "./lib/stage-production-parity.mjs";
 
 const args = process.argv.slice(2);
 const outIndex = args.indexOf("--out");

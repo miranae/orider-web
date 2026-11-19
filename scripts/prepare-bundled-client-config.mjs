@@ -2,7 +2,7 @@
 // 검증한 원본 설정에서 환경별 공통 실행 구성을 생성한다. 원격 설정은 변경하지 않는다.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/stage-production-parity.mjs";
+import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 const args = {};
 for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index];

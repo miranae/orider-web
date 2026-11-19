@@ -42,7 +42,7 @@ function fixture() {
   const prepare = (patch = {}) => prepareBundledStage({ workspace, directory, backendSourceSha: backend, frontendSourceSha, fetcher, ...patch });
   const build = () => {
     mkdirSync(resolve(workspace, "dist/assets"), { recursive: true });
-    writeFileSync(resolve(workspace, "dist/index.html"), '<script src="/assets/index-fixture.js"></script>');
+    writeFileSync(resolve(workspace, "dist/index.html"), '<script type="module" src="/assets/index-fixture.js"></script>');
     writeFileSync(resolve(workspace, "dist/assets/index-fixture.js"), "export {};");
     copyFileSync(resolve(directory, "runtime-config.json"), resolve(workspace, "dist/runtime-config.json"));
   };
@@ -134,6 +134,8 @@ test("development workflow is manual-only and seals the selected artifact before
   assert.match(workflow, /git merge-base --is-ancestor "\$selected_sha" origin\/main/);
   assert.match(workflow, /git merge-base --is-ancestor "\$selected_sha" origin\/dev/);
   assert.ok(workflow.indexOf("git merge-base --is-ancestor") < workflow.indexOf("run: node scripts/prepare-bundled-stage.mjs")); assert.match(workflow, /backend_source_sha:/);
+  const mainSourceGuard = workflow.indexOf("[ \"$GITHUB_REF\" = refs/heads/main ] && [ \"$selected_sha\" != \"$GITHUB_SHA\" ]");
+  assert.ok(mainSourceGuard >= 0 && mainSourceGuard < workflow.indexOf("run: node scripts/prepare-bundled-stage.mjs"));
   assert.match(workflow, /default: bundled-development/);
   assert.match(workflow, /--project orider-dev/); assert.doesNotMatch(workflow, /--project miranae-orider-g1/);
   assert.ok(workflow.indexOf("--phase seal") < workflow.indexOf("google-github-actions/auth"));
@@ -169,14 +171,14 @@ test("reviewed historical sources without bundled tooling are rejected before a 
     const run = () => spawnSync("bash", ["-euc", check], { cwd: root, encoding: "utf8", env: { ...process.env, SELECTED_TRANSPORT: "bundled-development", selected_sha: "a".repeat(40) } });
     const missing = run();
     assert.equal(missing.status, 1); assert.match(missing.stdout, /does not support bundled transport: missing/);
-    for (const path of ["scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs", "scripts/stage-html-entry.mjs", "scripts/verify-bundled-hosting.mjs"]) {
+    for (const path of ["scripts/hosting-candidate-archive.mjs", "scripts/prepare-bundled-stage.mjs", "scripts/lib/bundled-callable-probe.mjs", "scripts/bundled-stage-hosting-release.mjs", "scripts/stage-html-entry.mjs", "scripts/verify-bundled-hosting.mjs"]) {
       mkdirSync(resolve(root, path, ".."), { recursive: true }); writeFileSync(resolve(root, path), "// capability fixture");
     }
     assert.equal(run().status, 0);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("rejects a missing HTML or entry chunk at seal and detects later removal at predeploy", async () => {
+test("missing HTML or entry chunks fail before seal or any remote verification", async () => {
   for (const missing of ["index.html", "assets/index-fixture.js"]) {
     const f = fixture();
     try {
@@ -189,8 +191,8 @@ test("rejects a missing HTML or entry chunk at seal and detects later removal at
   const f = fixture();
   try {
     await f.prepare(); f.build(); await sealBundledStage(f.directory);
-    rmSync(resolve(f.workspace, "dist/assets/index-fixture.js"));
-    await assert.rejects(verifyBundledStage(f.directory, f.fetcher), /artifact differs/);
+    rmSync(resolve(f.workspace, "dist/assets/index-fixture.js")); const calls = f.calls.length;
+    await assert.rejects(verifyBundledStage(f.directory, f.fetcher), /stage entry asset missing/); assert.equal(f.calls.length, calls);
   } finally { f.cleanup(); }
 });
 test("null development health identifies the gateway instead of throwing an unscoped TypeError", async () => {
@@ -247,7 +249,35 @@ test("development rollback is wired after the live checks and before artifact pu
   assert.match(workflow, /if: always\(\) && \(failure\(\) \|\| cancelled\(\)\).*steps\.hosting_snapshot\.outcome == 'success'/);
 });
 
-test("missing handoff or AI browser routes block development before publication without exchanging a code or invoking AI", async () => {
+test("production rollback targets only the live production release owned by the attempt", async () => {
+  const site = "sites/miranae-orider-g1", channel = `${site}/channels/live`;
+  const previous = `${site}/versions/previous`, published = `${site}/versions/published`;
+  const marker = `client-promotion:${"a".repeat(40)}:123:1`;
+  let current = previous, message = "before", writes = 0;
+  const fetcher = async (url, { method }) => {
+    assert.ok(url.includes(site));
+    if (url.endsWith(channel)) return Response.json({ name: channel, release: {
+      name: `${site}/releases/${current.split("/").at(-1)}`, version: { name: current }, message,
+    } });
+    if (method === "POST") {
+      assert.equal(new URL(url).searchParams.get("versionName"), previous);
+      writes++;
+      current = previous;
+      return Response.json({});
+    }
+    return Response.json({ name: previous, status: "FINALIZED" });
+  };
+  const options = { environment: "production", serializedWrites: "true", token: "fixture", fetcher };
+  const snapshot = await snapshotStageHosting({ ...options, marker });
+  current = published;
+  await assert.rejects(rollbackStageHosting(snapshot, options), /not this deployment/u);
+  assert.equal(writes, 0);
+  message = marker;
+  assert.equal((await rollbackStageHosting(snapshot, options)).version, previous);
+  assert.equal(writes, 1);
+});
+
+test("missing browser routes block development before publication without credentials", async () => {
   for (const path of ["/webHandoffRedeem", "/v1/activity-narrative"]) {
     const f = fixture();
     try {
@@ -320,6 +350,7 @@ test("served HTML requires an executable script rather than a comment, preload o
   for (const html of ['<!-- <script src="/assets/index-fixture.js"></script> -->', '<link rel="preload" href="/assets/index-fixture.js">', '<script type="application/json" src="/assets/index-fixture.js"></script>', '<template><script src="/assets/index-fixture.js"></script></template>', '<script nomodule src="/assets/index-fixture.js"></script>', '<svg><script src="/assets/index-fixture.js"></script></svg>', '<script src="assets/index-fixture.js"></script>', '<base href="https://orider.co.kr/"><script src="/assets/index-fixture.js"></script>']) {
     assert.throws(() => stageHtmlEntry(html, "fixture URL"), /script missing in fixture URL/);
   }
+  assert.throws(() => stageHtmlEntry('<head><noscript><script type="module" src="/assets/index-fixture.js"></script></noscript></head>'), /entry script missing/u);
   assert.equal(stageHtmlEntry('<script type="module" crossorigin src="/assets/index-fixture.js"></script>'), "assets/index-fixture.js");
   const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
   assert.match(workflow, /detail=\$\(entry /);
@@ -367,16 +398,21 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     assert.ok(calls.some(({ url }) => url === "https://orider-dev.web.app/api/strava/webhook"));
     assert.ok(calls.every(({ options }) => options.method !== "POST"));
     const production = { environment: "production", directory: resolve(f.workspace, "dist") };
-    const runtime = readFileSync(resolve(production.directory, "runtime-config.json"), "utf8");
-    const readProduction = (url, options) => url.endsWith("/runtime-config.json")
-      ? Promise.resolve(new Response(runtime, { headers: { "content-type": "application/json" } }))
-      : fetcher(url, options);
+    const readProduction = (url, options) => {
+      if (url === "https://orider.co.kr/" || url.endsWith("/ko/course/nonexistent")) return new Response(readFileSync(resolve(production.directory, "index.html")), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      if (url.endsWith("/runtime-config.json")) return new Response(readFileSync(resolve(production.directory, "runtime-config.json")));
+      return fetcher(url, options);
+    };
     assert.equal((await verifyBundledHosting({ ...production, fetcher: readProduction })).verified, true);
-    for (const status of [200, 404]) {
-      await assert.rejects(verifyBundledHosting({ ...production, fetcher: (url, options) => url.endsWith("/runtime-config.json")
-        ? Promise.resolve(Response.json({ deploymentProfile: "legacy" }, { status }))
-        : readProduction(url, options) }), /runtime-config\.json/u);
-    }
+    await assert.rejects(verifyBundledHosting({ ...production,
+      fetcher: (url, options) => url.endsWith("/runtime-config.json") ? new Response("{}") : readProduction(url, options),
+    }), /runtime differs at https:\/\/orider\.co\.kr\/runtime-config\.json/u);
+    await assert.rejects(verifyBundledHosting({ ...production,
+      fetcher: (url, options) => url.endsWith("/ko/course/nonexistent") ? new Response(null, { status: 404 }) : readProduction(url, options),
+    }), /GET HTTP404 at https:\/\/orider\.co\.kr\/ko\/course\/nonexistent/u);
+    await assert.rejects(verifyBundledHosting({ ...production,
+      fetcher: (url, options) => url.endsWith("/ko/course/nonexistent") ? new Response('<script type="module" src="/assets/index-fixture.js"></script>') : readProduction(url, options),
+    }), /content type differs.*expected=text\/html.*actual=text\/plain/u);
     for (const [status, mime, body] of [[404, "text/javascript", "missing"], [200, "text/html", "<html>fallback</html>"], [200, "application/javascript", "wrong bytes"]]) {
       await assert.rejects(verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher: async () => new Response(body, { status, headers: { "content-type": mime } }) }), /https:\/\/orider-dev.web.app\/assets\/index-fixture.js/);
     }

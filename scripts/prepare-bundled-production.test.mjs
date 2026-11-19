@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { verifyBundledCallable, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
 import { prepareBundledProduction, verifyBundledProduction } from "./prepare-bundled-production.mjs";
-import { bundledFunctionsConfig } from "./lib/stage-production-parity.mjs";
+import { bundledFunctionsConfig } from "./lib/bundled-functions-config.mjs";
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841",
   firebaseFunctionsRegion: "asia-northeast3", firebaseApiKey: "public", appCheckRecaptchaSiteKey: "public", stravaClientId: "public", mapboxToken: "public",
@@ -55,6 +55,7 @@ test("backend drift and replaced runtime block production deployment preparation
     await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
     f.setHealth({ status: "ok", exposure: "public", sourceSha: "d".repeat(40), topologyHash: "c".repeat(64) });
     await assert.rejects(verifyBundledProduction(f.directory, f.fetcher), /backend changed/);
+    await assert.rejects(verifyBundledProduction(f.directory, f.fetcher, { identityOnly: true }), /backend changed/);
     writeFileSync(resolve(f.workspace, "dist/runtime-config.json"), JSON.stringify(source));
     await assert.rejects(verifyBundledProduction(f.directory, f.fetcher), /built production runtime/);
   } finally { f.cleanup(); }
@@ -71,7 +72,7 @@ test("production workflow remains tag-only and routing changes are explicit defa
   assert.match(workflow, /if: env\.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'/);
   assert.match(workflow, /startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.ok(workflow.indexOf("Verify release commit is on main") < workflow.indexOf("Prepare selected production transport"));
-  assert.doesNotMatch(workflow, /prepare-bundled-production\.mjs --phase verify(?:\s|$)/u);
+  assert.match(workflow, /config=firebase\.bundled-production\.json/u);
 });
 
 test("production preparation rejects absent or mismatched approved backend pins", async () => {
