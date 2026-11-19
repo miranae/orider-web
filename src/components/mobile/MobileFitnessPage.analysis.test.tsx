@@ -94,22 +94,31 @@ describe("mobile web analysis evidence", () => {
     expect(screen.queryByRole("heading", { name: "수행 능력 변화" })).not.toBeInTheDocument();
   });
 
-  it("shows the period power comparison inline behind one shared load", async () => {
+  it("loads the fixed 90-day power comparison without a period picker or load button", async () => {
     const calls = () => mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
     const before = calls();
-    const onPeriodLoad = vi.fn();
-    const props = { data, part: "analysis" as const, powerCurvePeriodsOwnerUid: "test-uid", powerCurvePeriodsEnabled: true, periodWindowDays: 90, onPeriodLoad, powerCurveEvidenceSlot: <p>28-day curve</p> };
+    const props = { data, part: "analysis" as const, powerCurvePeriodsOwnerUid: "test-uid", powerCurvePeriodsEnabled: true, periodWindowDays: 90, powerCurveEvidenceSlot: <p>28-day curve</p> };
     const view = renderWithProviders(<MobileFitnessPage {...props} periodLoadSignal={0} />, { authenticated: true });
-    // 두 패널의 자체 버튼은 숨기고 공용 버튼 하나만 둔다. 누르기 전에는 서버를 부르지 않는다.
-    const load = screen.getByRole("button", { name: "기간 분석 불러오기" });
-    expect(screen.getAllByRole("button", { name: "기간 분석 불러오기" })).toHaveLength(1);
+    // 기간 선택·불러오기 버튼·비교 방식 선택 없이 늘 최근 90일 ↔ 이전 90일만 비교한다(2026-11-19).
+    expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "날짜 직접 선택" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /최근 90일 ↔ 이전 90일/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("단위")).not.toBeInTheDocument();
     expect(screen.getByTestId("K5-5-1")).toBeVisible();
     expect(screen.queryByText("28-day curve")).not.toBeInTheDocument();
-    expect(calls()).toBe(before);
-    fireEvent.click(load);
-    expect(onPeriodLoad).toHaveBeenCalledTimes(1);
     view.rerender(<MobileFitnessPage {...props} periodLoadSignal={1} />);
     await waitFor(() => expect(calls()).toBe(before + 1));
+  });
+  it("loads once when the comparison panel mounts after the automatic load signal was already raised", async () => {
+    const calls = () => mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
+    const before = calls();
+    // 활동·시계열이 늦게 와서 패널이 신호가 1이 된 뒤에야 마운트되는 경로.
+    renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled periodWindowDays={90} periodLoadSignal={1} />, { authenticated: true });
+    await waitFor(() => expect(calls()).toBe(before + 1));
+  });
+  it("keeps the all-records button in running analysis even with the records board slot and no qualified record", () => {
+    renderWithProviders(<MobileFitnessPage part="analysis" runningRecordsSlot={<p>board</p>} data={{ ...data, discipline: "run", runEvidence: { thresholdPaceSec: 300, records: [] } }} />, { authenticated: true });
+    expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
   });
   it("keeps the 28-day power curve when the period power comparison is not available", () => {
     renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled={false} powerCurveEvidenceSlot={<p>28-day curve</p>} />, { authenticated: true });
@@ -135,11 +144,12 @@ describe("mobile web analysis evidence", () => {
     renderWithProviders(<MobileFitnessPage part="analysis" runningRecordsSlot={<p>달성한 러닝 마일스톤</p>} data={{ ...data, discipline: "run",
       runEvidence: { thresholdPaceSec: null, records: [{ distance: "5km", seconds: 1200, date: "2026-10-01", activityId: "activity", startTime: 1, qualification: "source_qualified", unit: "seconds" }] } }} />);
     expect(screen.getByTestId("K5-4")).toHaveTextContent("5km · 20:00");
-    expect(within(screen.getByTestId("K5-4")).getByRole("link")).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
+    // 휴대폰에서는 앱을 열고, 데스크톱(테스트 환경)은 기존 웹 기록 페이지로 간다.
+    expect(within(screen.getByTestId("K5-4")).getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
     expect(screen.queryByRole("button", { name: /거리 기록·출처와 마일스톤/ })).not.toBeInTheDocument();
     expect(screen.queryByText("달성한 러닝 마일스톤")).not.toBeInTheDocument();
-    // 상세 섹션 대신 기록 페이지로 바로 가는 길은 남긴다(P9).
-    expect(screen.getByRole("link", { name: "거리 기록·출처와 마일스톤 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
+    // 따로 있던 '거리 기록·출처와 마일스톤 보기' 링크는 위 버튼과 겹쳐 두지 않는다.
+    expect(screen.queryByRole("link", { name: "거리 기록·출처와 마일스톤 보기 →" })).not.toBeInTheDocument();
     expect(document.getElementById("condition-metrics")).toBeNull();
 
   });
@@ -175,7 +185,7 @@ it("excludes bike FTP decisions from other sports", () => {
 it("renders the two-line running analysis summary outside the full records board", () => {
   renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run", runEvidence: { thresholdPaceSec: null, records: [], unverifiedRecords: [{ distance: "5km", storedValue: 1200, date: "2026-10-01", activityId: "old", startTime: 1, qualification: "legacy_unverified", unit: "unverified" }] } }} part="analysis" />, { authenticated: true });
   expect(screen.getByTestId("K5-4")).toHaveTextContent("시간과 페이스를 표시하지 않습니다");
-  expect(screen.getByRole("link", { name: "기록 전체 보기 →" }).getAttribute("href")).toContain("/athlete/me/records?sport=run");
+  expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
 });
 
 
@@ -190,10 +200,13 @@ it('names the mobile coach analysis surface and explains repeated zone labels an
 });
 
 
-it("groups missing running evidence and setup into one readiness card", () => {
+it("keeps only the two app buttons when running analysis is not ready", () => {
   renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run" }} part="analysis" />, { authenticated: true });
-  expect(screen.getByRole("heading", { name: "러닝 분석 준비" })).toBeInTheDocument();
+  // '러닝 분석 준비' 제목·설명은 두지 않는다. 기간별 훈련 구성은 사이클과 같이 남긴다(P9, 2026-11-19).
+  expect(screen.queryByRole("heading", { name: "러닝 분석 준비" })).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "기간별 훈련 구성" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "러닝 훈련 기준 설정" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
   expect(screen.queryByText(/심박 구간을 표시할 수/)).not.toBeInTheDocument();
 });
 

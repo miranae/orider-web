@@ -28,3 +28,6 @@
   .period-curve-controls { grid-template-columns: minmax(0, 1fr); }
   .period-curve-actions { justify-content: flex-start; }
 }
+/* 코치 분석: W · W/kg 토글을 범례 줄 오른쪽 끝에 작게 둔다. */
+.period-curve-legend .period-curve-unit-toggle { order: 2; margin-inline-start: auto; }
+.period-curve-legend .period-curve-unit-toggle button { min-height: 28px; padding-inline: var(--space-2); font-size: var(--fs-xs); }

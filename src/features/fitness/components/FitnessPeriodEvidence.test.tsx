@@ -11,7 +11,7 @@ vi.mock("../../../hooks/useTrainingAnalysisPeriods", () => ({ useTrainingAnalysi
 vi.mock("./BikePeriodSnapshotPanel", () => ({ default: ({ historyOnly }: { historyOnly: boolean }) => <div data-testid="saved-bike-results" data-history-only={String(historyOnly)} /> }));
 vi.mock("../../activity/detail/RunPeriodComparisonPanel", () => ({ default: () => null }));
 vi.mock("../../activity/detail/TrainingPeriodZonesPanel", () => ({ default: () => null }));
-vi.mock("../../activity/detail/RunEffortStageManagementPanel", () => ({ default: () => null }));
+vi.mock("../../activity/detail/RunEffortStageManagementPanel", () => ({ default: () => <div data-testid="run-effort-stage-panel" /> }));
 beforeEach(() => { mocks.environment = "production"; mocks.available = true; mocks.response = null; mocks.hook.mockClear(); });
 describe("period evidence capability boundary", () => {
   it("connects the hosted bike entry to an explicit period read without Stage run options", () => {
@@ -81,6 +81,21 @@ describe("period evidence capability boundary", () => {
     expect(screen.getByTestId("K5-5-2")).toHaveTextContent("1970-01-01");
     if (truncated) expect(screen.getByTestId("K5-5-2")).toHaveTextContent("—");
     expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", null, true);
+  });
+  it("does not send the Stage-only run overlay in production so the automatic load is accepted", () => {
+    mocks.environment = "production";
+    renderWithProviders(<FitnessPeriodEvidence discipline="run" />, { authenticated: true });
+    fireEvent.click(screen.getByRole("button", { name: "기간 분석 불러오기" }));
+    const request = (mocks.hook.mock.lastCall?.[1] as { request: Record<string, unknown> }).request;
+    expect(request).toMatchObject({ discipline: "run", includeExpandedRunDistances: true, includeRunningPaceZones: true });
+    expect(Object.keys(request).some(key => /stage/iu.test(key))).toBe(false);
+  });
+  it("keeps the Stage-only run effort panel out of production results", () => {
+    mocks.environment = "production";
+    mocks.response = { periods: [] } as never;
+    renderWithProviders(<FitnessPeriodEvidence discipline="run" />, { authenticated: true });
+    expect(screen.queryByTestId("run-effort-stage-panel")).not.toBeInTheDocument();
+    mocks.response = null as never;
   });
   it("does not submit before explicit selection and keeps run period extensions", () => {
     mocks.environment = "stage";
