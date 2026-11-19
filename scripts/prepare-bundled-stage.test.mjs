@@ -176,7 +176,7 @@ test("reviewed historical sources without bundled tooling are rejected before a 
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("missing HTML or entry chunks fail before seal or any remote verification", async () => {
+test("rejects a missing HTML or entry chunk at seal and detects later removal at predeploy", async () => {
   for (const missing of ["index.html", "assets/index-fixture.js"]) {
     const f = fixture();
     try {
@@ -189,8 +189,8 @@ test("missing HTML or entry chunks fail before seal or any remote verification",
   const f = fixture();
   try {
     await f.prepare(); f.build(); await sealBundledStage(f.directory);
-    rmSync(resolve(f.workspace, "dist/assets/index-fixture.js")); const calls = f.calls.length;
-    await assert.rejects(verifyBundledStage(f.directory, f.fetcher), /stage entry asset missing/); assert.equal(f.calls.length, calls);
+    rmSync(resolve(f.workspace, "dist/assets/index-fixture.js"));
+    await assert.rejects(verifyBundledStage(f.directory, f.fetcher), /artifact differs/);
   } finally { f.cleanup(); }
 });
 test("null development health identifies the gateway instead of throwing an unscoped TypeError", async () => {

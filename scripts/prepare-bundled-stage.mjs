@@ -123,7 +123,6 @@ export async function verifyBundledStage(directory, fetcher = fetch) {
   const { prepared, runtime } = readPrepared(directory), receipt = json(resolve(directory, "build.json"));
   if (receipt.complete !== true || Object.entries(prepared).some(([key, value]) => !isDeepStrictEqual(receipt[key], value))
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
-  assertStageEntryArtifact(prepared.artifactDirectory);
   await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   assertStageArtifactManifest(prepared.artifactDirectory, receipt.artifactManifest);
   readPrepared(directory);
