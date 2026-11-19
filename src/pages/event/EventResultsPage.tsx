@@ -145,6 +145,7 @@ export default function EventResultsPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const viewerAligned = !authLoading && sdkViewer?.uid === user?.uid;
   const dialog = useDialog();
 
   const [resultScope, setResultScope] = useState<{ eventId: string; owner: typeof auth.currentUser; services: typeof services } | null>(null);
@@ -184,7 +185,7 @@ export default function EventResultsPage() {
   }, [eventId, groupError, groupId]);
 
   useEffect(() => {
-    if (!eventId || authLoading) return;
+    if (!eventId || !viewerAligned) return;
     let cancelled = false;
     let profileFlush: ReturnType<typeof setTimeout> | undefined;
     const owner = sdkViewer;
@@ -247,9 +248,10 @@ export default function EventResultsPage() {
         }
 
         // 공개 결과는 허용된 projection만 읽는다. 주최자/admin의 비공개 관리 경로는 유지한다.
-        const admin = user ? (await withReadDeadline(user.getIdTokenResult(), t("readTimeout"))).claims.admin === true : false;
-        const privateAccess = isEventHost(user?.uid, info) || admin;
-        if (cancelled || auth.currentUser !== owner || (privateAccess && owner?.uid !== user?.uid)) return;
+        const authenticatedOwner = owner?.isAnonymous ? null : owner;
+        const admin = authenticatedOwner ? (await withReadDeadline(authenticatedOwner.getIdTokenResult(), t("readTimeout"))).claims.admin === true : false;
+        const privateAccess = isEventHost(authenticatedOwner?.uid, info) || admin;
+        if (cancelled || auth.currentUser !== owner) return;
         if (!privateAccess && info.type === "GROUP_RIDE") {
           setPrivateResultsUnavailable(true);
           return;
@@ -409,7 +411,7 @@ export default function EventResultsPage() {
       }
     })();
     return () => { cancelled = true; clearTimeout(profileFlush); nextPage.current = null; pausePages.current = null; };
-  }, [eventId, user, authLoading, t, reload, services, auth, db, sdkViewer]);
+  }, [eventId, viewerAligned, t, reload, services, auth, db, sdkViewer]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -491,7 +493,7 @@ export default function EventResultsPage() {
   }, [finishHistogram, myResult]);
 
   const navigation = eventId ? <div className="site-shell"><EventDetailNavigation eventId={eventId} live={eventHead?.status === "LIVE"} results={eventHead?.status === "LIVE" || eventHead?.status === "FINISHED"} /></div> : null;
-  if (loading || authLoading || resultScope?.eventId !== eventId || resultScope?.owner !== auth.currentUser || resultScope.services !== services) {
+  if (loading || !viewerAligned || resultScope?.eventId !== eventId || resultScope?.owner !== auth.currentUser || resultScope.services !== services) {
     return (
       <>{navigation}<div className="max-w-3xl mx-auto py-8">
         <LoadingSkeleton kind="chart" />
