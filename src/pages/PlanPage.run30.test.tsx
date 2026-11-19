@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,19 +59,29 @@ describe("PlanPage with server-managed Run30 goals", () => {
     mocks.mobileProps = null;
   });
 
-  it("shows the comparison by default and opens the enrolled Run30 program on request", () => {
+  it("renders the program view for sport=run when a program is active", () => {
     mocks.model = planModel({ id: "run30_goal", userId: "test-uid", discipline: "run", runProgram: { template: "run-30-intro-v1" } });
     mocks.run30 = { ...mocks.run30, program: { goalId: "run30_goal" } };
     renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/plan?sport=run" });
-    expect(screen.getByTestId("K4-0")).toBeInTheDocument();
-    expect(screen.queryByTestId("run30-program-view")).not.toBeInTheDocument();
+    expect(screen.getByTestId("run30-program-view")).toBeInTheDocument();
     expect(screen.queryByTestId("plan-presentation")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("run30-enroll-intro")).not.toBeInTheDocument();
+  });
 
-    const details = screen.getByText("운동 계획").closest("details")!;
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
-    expect(screen.getByTestId("run30-program-view")).toBeVisible();
+  it("hides direct-write edit affordances for goals with runProgram", () => {
+    mocks.model = planModel({
+      id: "run30_goal", userId: "test-uid", discipline: "run", status: "active",
+      runProgram: { template: "run-30-intro-v1" }, adaptationFlag: { kind: "x" },
+    });
+    renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/plan?sport=run" });
+    expect(screen.getByTestId("plan-presentation")).toBeInTheDocument();
+    expect(mocks.presentationProps?.onEditWorkout).toBeUndefined();
+    expect(mocks.presentationProps?.onReroll).toBeUndefined();
+    expect(mocks.presentationProps?.onGoalReset).toBeUndefined();
+    expect(mocks.presentationProps?.adaptationSlot).toBeUndefined();
+    expect(mocks.presentationProps?.onIcsExport).toEqual(expect.any(Function));
+    expect(mocks.mobileProps?.goalId).toBeUndefined();
+    expect(mocks.mobileProps?.onReroll).toBeUndefined();
+    expect(mocks.mobileProps?.onGoalReset).toBeUndefined();
   });
 
   it("keeps edit affordances for ordinary goals", () => {
@@ -84,12 +94,11 @@ describe("PlanPage with server-managed Run30 goals", () => {
     expect(mocks.mobileProps?.goalId).toBe("bike_goal");
   });
 
-  it("shows no enrollment card when no running goal exists", () => {
+  it("offers enrollment instead of the empty state when no running goal exists", () => {
     mocks.model = planModel(null);
     renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/plan?sport=run" });
-    expect(screen.getByTestId("K4-0")).toBeInTheDocument();
-    expect(screen.queryByTestId("run30-enroll-intro")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("plan-presentation")).not.toBeInTheDocument();
+    expect(screen.getByTestId("run30-enroll-intro")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "다른 러닝 목표 만들기" })).toHaveAttribute("href", "/ko/coach/goals?sport=run");
   });
 });
 

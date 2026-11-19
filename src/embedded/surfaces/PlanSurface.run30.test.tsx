@@ -1,0 +1,199 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  planModel: {} as Record<string, unknown>,
+  run30: {} as Record<string, unknown>,
+  programViewProps: null as null | Record<string, unknown>,
+  presentationProps: null as null | Record<string, unknown>,
+}));
+
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner", isAnonymous: false }, profile: {} }) }));
+vi.mock("../../features/trainingDecision/TodayTrainingDecisionCard", () => ({ default: () => null }));
+
+vi.mock("../../hooks/usePlanModel", () => ({
+  usePlanModel: () => mocks.planModel,
+}));
+vi.mock("../../features/training/run30/useRun30Program", () => ({
+  useRun30Program: () => mocks.run30,
+}));
+vi.mock("../../features/training/run30/Run30ProgramView", () => ({
+  default: (props: Record<string, unknown>) => {
+    mocks.programViewProps = props;
+    return <div data-testid="run30-program-view" />;
+  },
+}));
+vi.mock("../../features/training/run30/Run30EnrollCard", () => ({
+  default: ({ variant }: { variant: string }) => <div data-testid={`run30-enroll-${variant}`} />,
+}));
+vi.mock("../../features/training/plan/PlanPresentation", () => ({
+  default: (props: { decisionSlot?: ReactNode }) => {
+    mocks.presentationProps = props;
+    return <div data-testid="plan-presentation">{props.decisionSlot}</div>;
+  },
+}));
+
+import PlanSurface from "./PlanSurface";
+
+function wrapper(children: ReactNode) {
+  return <MemoryRouter initialEntries={["/ko/embed/plan?sport=run"]}>{children}</MemoryRouter>;
+}
+
+const loadedPlan = {
+  discipline: "run",
+  goal: null,
+  weeks: [],
+  isTodayCell: () => false,
+  goalMatchesDiscipline: true,
+  goalLoading: false,
+  planLoading: false,
+  goalError: null,
+  planError: null,
+  loading: false,
+  loadError: null,
+  cacheHit: false,
+  freshLoaded: true,
+  retryLoad: vi.fn(),
+};
+
+const program = { goalId: "run30_goal", revision: 1, sessions: [] };
+
+describe("PlanSurface Run30 mode", () => {
+  beforeEach(() => {
+    loadedPlan.retryLoad.mockClear();
+    mocks.planModel = { ...loadedPlan };
+    mocks.run30 = { status: "ready", program: null, api: {}, refresh: vi.fn(), retry: vi.fn() };
+    mocks.programViewProps = null;
+    mocks.presentationProps = null;
+  });
+
+  it("renders the program view instead of the generic calendar and reports fresh", async () => {
+    mocks.planModel = { ...loadedPlan, goal: { id: "run30_goal", discipline: "run", runProgram: { template: "run-30-intro-v1" } } };
+    mocks.run30 = { ...mocks.run30, program };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByTestId("run30-program-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-presentation")).not.toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
+    expect(mocks.programViewProps?.startMode).toEqual({ kind: "host-unsupported" });
+  });
+
+  it("프로그램 변경 후 Run30와 일반 계획을 모두 강제 갱신한다", async () => {
+    mocks.run30 = { ...mocks.run30, program };
+    render(wrapper(<PlanSurface onReady={vi.fn()} retryKey={0} />));
+    await (mocks.programViewProps?.onRefresh as () => Promise<void>)();
+    expect(mocks.run30.refresh).toHaveBeenCalledWith();
+    expect(loadedPlan.retryLoad).toHaveBeenCalledOnce();
+  });
+
+  it("passes the host starter when the capability was negotiated", () => {
+    mocks.run30 = { ...mocks.run30, program };
+    const starter = { start: vi.fn() };
+    render(wrapper(<PlanSurface onReady={vi.fn()} retryKey={0} scheduledRunStarter={starter} />));
+    expect(mocks.programViewProps?.startMode).toEqual({ kind: "host", starter });
+  });
+
+  it("shows the enrollment intro when no running goal is active", async () => {
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByTestId("run30-enroll-intro")).toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
+  });
+
+  it("keeps another running goal and offers the program with replacement", () => {
+    mocks.planModel = { ...loadedPlan, goal: { id: "half", discipline: "run" } };
+    render(wrapper(<PlanSurface onReady={vi.fn()} retryKey={0} />));
+    expect(screen.getByTestId("plan-presentation")).toBeInTheDocument();
+    expect(screen.getByTestId("run30-enroll-offer")).toBeInTheDocument();
+  });
+
+  it("waits for the program lookup before reporting cached plan content", async () => {
+    mocks.planModel = { ...loadedPlan, cacheHit: true, freshLoaded: false };
+    mocks.run30 = { ...mocks.run30, status: "loading" };
+    const onReady = vi.fn();
+    const { rerender } = render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(onReady).not.toHaveBeenCalled();
+    mocks.run30 = { ...mocks.run30, status: "ready" };
+    rerender(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+  });
+
+  it("캐시 Run30 프로그램은 로딩 대기 없이 표시하며 cached만 보고한다", async () => {
+    mocks.planModel = { ...loadedPlan, goalLoading: true, loading: true, freshLoaded: false };
+    mocks.run30 = { ...mocks.run30, program, cacheHit: true };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByTestId("run30-program-view")).toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+    expect(onReady).not.toHaveBeenCalledWith("fresh");
+  });
+
+  it("Run30 조회 중에도 성공한 일반 계획 캐시는 가리지 않는다", async () => {
+    mocks.planModel = { ...loadedPlan, goal: { id: "half", discipline: "run" }, cacheHit: true, freshLoaded: false };
+    mocks.run30 = { ...mocks.run30, status: "loading" };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByTestId("plan-presentation")).toBeInTheDocument();
+    expect(screen.queryByTestId("run30-enroll-offer")).not.toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+  });
+
+  it("reports a failed goal query even when no fresh snapshot was produced", async () => {
+    const error = new Error("plan/load-timeout");
+    mocks.planModel = { ...loadedPlan, discipline: "bike", goalError: error, loadError: error, freshLoaded: false };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("error"));
+    expect(onReady).not.toHaveBeenCalledWith("fresh");
+  });
+
+  it("reports error with retry when the program lookup fails", async () => {
+    mocks.run30 = { ...mocks.run30, status: "error", error: new Error("x") };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByRole("button")).toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("error"));
+    screen.getByRole("button").click();
+    expect(mocks.run30.retry).toHaveBeenCalled();
+    expect(loadedPlan.retryLoad).toHaveBeenCalled();
+  });
+
+  it("backgroundRefreshKey 가 바뀔 때만 재마운트 없이 계획과 Run30 을 조용히 다시 읽는다", async () => {
+    const refreshPlanWeeks = vi.fn().mockResolvedValue(undefined);
+    mocks.planModel = {
+      ...loadedPlan,
+      goal: { id: "half", discipline: "run" },
+      refreshPlanWeeks,
+    };
+    const onReady = vi.fn();
+    const { rerender } = render(wrapper(<PlanSurface onReady={onReady} retryKey={0} backgroundRefreshKey={3} />));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
+    // 마운트 시점 값으로는 갱신하지 않는다(마운트가 이미 새로 읽는다).
+    expect(refreshPlanWeeks).not.toHaveBeenCalled();
+    expect(mocks.run30.refresh).not.toHaveBeenCalled();
+
+    rerender(wrapper(<PlanSurface onReady={onReady} retryKey={0} backgroundRefreshKey={4} />));
+    await waitFor(() => expect(refreshPlanWeeks).toHaveBeenCalledTimes(1));
+    expect(mocks.run30.refresh).toHaveBeenCalledTimes(1);
+    expect(loadedPlan.retryLoad).not.toHaveBeenCalled();
+    expect(screen.getByTestId("plan-presentation")).toBeInTheDocument();
+
+    rerender(wrapper(<PlanSurface onReady={onReady} retryKey={0} backgroundRefreshKey={4} />));
+    expect(refreshPlanWeeks).toHaveBeenCalledTimes(1);
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves bike plans untouched", async () => {
+    mocks.planModel = { ...loadedPlan, discipline: "bike", goal: { id: "gf", discipline: "bike" } };
+    mocks.run30 = { status: "idle", program: null, api: {}, refresh: vi.fn(), retry: vi.fn() };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    expect(screen.getByTestId("plan-presentation")).toBeInTheDocument();
+    expect(screen.queryByTestId("run30-enroll-intro")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run30-enroll-offer")).not.toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
+  });
+});

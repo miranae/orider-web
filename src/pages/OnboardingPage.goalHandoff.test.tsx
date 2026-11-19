@@ -18,7 +18,7 @@ function LocationReceipt() {
 }
 
 describe("actual onboarding goal handoff", () => {
-  it("creates a running goal through the real wizard and lands on the running plan instead of home", async () => {
+  it("creates a running goal through the real wizard and renders its plan instead of landing at home", async () => {
     const before = mockCallableInvocations.length;
     setCallableImplementation("createGoal", data => {
       expect(data).toMatchObject({ discipline: "run", eventId: "half", eventDate: expect.any(String) });
@@ -45,8 +45,7 @@ describe("actual onboarding goal handoff", () => {
     fireEvent.click(enabledDate);
     fireEvent.click(screen.getByRole("button", { name: /다음/ }));
     fireEvent.click(screen.getByTestId("K3-3-7"));
-    // 러닝 훈련 계획은 계획 대비 기록만 보여 준다(2026-11-19) — 목표 제목 대신 계획 화면 머리(K4-0)에 도착했는지 본다.
-    expect(await screen.findByTestId("K4-0")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Created running goal" })).toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent("/ko/coach/plan?sport=run&goalId=created-run-goal");
     expect(screen.queryByText("Home landing")).not.toBeInTheDocument();
     expect(mockCallableInvocations.slice(before).filter(call => call.name === "createGoal")).toHaveLength(1);

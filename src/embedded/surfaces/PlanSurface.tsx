@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
 import { PlanView } from "../../pages/PlanPage";
 import GoalSetupPage from "../../pages/GoalSetupPage";
+import type { Run30StartMode } from "../../features/training/run30/run30Start";
+import { useRun30Program } from "../../features/training/run30/useRun30Program";
 import { usePlanModel } from "../../hooks/usePlanModel";
 import { logClientError } from "../../services/errorLogger";
 import type { ScheduledRunStarter } from "../runStartBridge";
@@ -32,37 +34,67 @@ export default function PlanSurface({
   const [searchParams] = useSearchParams();
   const { t } = useTranslation("training");
   const model = usePlanModel(searchParams.get("sport"), active);
+  const run30Enabled = model.discipline === "run";
+  const run30 = useRun30Program(run30Enabled, active);
   const settledKeys = useRef(new Set<string>());
+  const startMode = useMemo<Run30StartMode>(() => scheduledRunStarter
+    ? { kind: "host", starter: scheduledRunStarter }
+    : { kind: "host-unsupported" }, [scheduledRunStarter]);
+  // Run30 성공 스냅샷(프로그램 부재 포함)이 있으면 네트워크 갱신을 기다리지 않는다.
+  const run30Settled = !run30Enabled || run30.status === "ready" || run30.status === "error";
+  const run30Program = run30Enabled && run30.status === "ready" ? run30.program : null;
+  const run30Failed = run30Enabled && run30.status === "error";
   const canShowPlanCache = model.cacheHit && model.goal !== null;
 
   useEffect(() => {
-    if (model.cacheHit) {
+    if (!run30Settled && !canShowPlanCache) return;
+    if ((model.cacheHit || run30.cacheHit) && !run30Failed) {
       const key = `${retryKey}:cached`;
       if (!settledKeys.current.has(key)) {
         settledKeys.current.add(key);
         onReady("cached");
       }
     }
-    const planSettled = (model.freshLoaded || Boolean(model.loadError)) && !model.loading;
+    // 프로그램이 있으면 일반 계획 로딩과 무관하게 화면이 완성된다.
+    const planSettled = run30Program !== null ? !run30.cacheHit : ((model.freshLoaded || Boolean(model.loadError)) && !model.loading && !run30.cacheHit);
     if (!planSettled) return;
-    const status = model.loadError ? "error" : "fresh";
+    const status = run30Failed || (run30Program === null && model.loadError) ? "error" : "fresh";
     const key = `${retryKey}:${status}`;
     if (settledKeys.current.has(key)) return;
     settledKeys.current.add(key);
     onReady(status);
-  }, [model.cacheHit, model.freshLoaded, model.loadError, model.loading, onReady, retryKey]);
+  }, [
+    canShowPlanCache,
+    model.cacheHit,
+    model.freshLoaded,
+    model.loadError,
+    model.loading,
+    onReady,
+    retryKey,
+    run30.cacheHit,
+    run30Failed,
+    run30Program,
+    run30Settled,
+  ]);
 
   // 계획은 일회성 조회라 숨긴 동안의 변경(앱에서 완료 기록 등)을 받지 못한다. 다시 보일 때
-  // 로딩 화면 없이 주차 계획만 다시 읽는다.
+  // 로딩 화면 없이 주차 계획과 Run30 상태만 다시 읽는다.
   const refreshedKey = useRef(backgroundRefreshKey);
   const { refreshPlanWeeks } = model;
+  const { refresh: refreshRun30 } = run30;
   useEffect(() => {
     if (refreshedKey.current === backgroundRefreshKey) return;
     refreshedKey.current = backgroundRefreshKey;
+    if (run30Enabled) void refreshRun30(false);
     refreshPlanWeeks(false).catch((error: unknown) => {
       logClientError("embedded.plan.backgroundRefresh", error, { discipline: model.discipline });
     });
-  }, [backgroundRefreshKey, model.discipline, refreshPlanWeeks]);
+  }, [backgroundRefreshKey, model.discipline, refreshPlanWeeks, refreshRun30, run30Enabled]);
+
+  const retryAll = useCallback(() => {
+    model.retryLoad();
+    run30.retry();
+  }, [model, run30]);
 
 
   if (searchParams.get("page") === "goals") {
@@ -71,12 +103,11 @@ export default function PlanSurface({
 
   const sharedContent = <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
     {/* 캐시로 먼저 그린 뒤 최신 값으로 조용히 바꾼다 — "저장된 이전 정보" 안내는 앱 계획 탭에서 띄우지 않는다(2026-11-03). */}
-    {active && <PlanView model={model} startMode={scheduledRunStarter ? { kind: "host", starter: scheduledRunStarter } : { kind: "host-unsupported" }} />}
+    {active && <PlanView model={model} run30={run30} startMode={startMode} />}
   </main>;
-  // 러닝 계획은 제목·종목 탭·날짜 이동·계획 대비 기록만 보여 준다 — 목표·주간 계획 로딩 화면을 거치지 않는다(2026-11-19).
-  if (model.discipline === "run") return sharedContent;
+  if (run30Program) return sharedContent;
 
-  if (model.goalLoading && !canShowPlanCache) {
+  if ((model.goalLoading || !run30Settled) && !canShowPlanCache) {
     return (
       <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
         <section className="orider-embedded-plan-state" aria-label={t("goal")}>
@@ -86,15 +117,17 @@ export default function PlanSurface({
     );
   }
 
-  if (model.goalError) {
+  if (model.goalError || run30Failed) {
     return (
       <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
         <section className="orider-embedded-plan-state" aria-label={t("goal")}>
-          <EmbeddedSurfaceState title={t("goal")} onRetry={model.retryLoad} />
+          <EmbeddedSurfaceState title={t("goal")} onRetry={retryAll} />
         </section>
       </main>
     );
   }
+
+  if (run30Enabled && (!model.goal || model.goal.discipline !== "run")) return sharedContent;
 
   if (model.goal && model.planLoading) {
     return (
