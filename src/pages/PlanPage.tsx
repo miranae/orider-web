@@ -22,12 +22,9 @@ import { useDialog } from "../contexts/DialogContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useToast } from "../contexts/ToastContext";
 import PlanPresentation from "../features/training/plan/PlanPresentation";
-import Run30EnrollCard from "../features/training/run30/Run30EnrollCard";
-import Run30ProgramView from "../features/training/run30/Run30ProgramView";
 import type { Run30StartMode } from "../features/training/run30/run30Start";
-import { useRun30Program, type Run30ProgramState } from "../features/training/run30/useRun30Program";
+import type { Run30ProgramState } from "../features/training/run30/useRun30Program";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
-import { ErrorState } from "../components/redesign";
 import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useMobile } from "../hooks/useMobile";
@@ -42,25 +39,24 @@ import { downloadICS, generateICS } from "../utils/icsExport";
  * mobilePlanViewModel is shared by full-page and embedded rendering there.
  */
 
-const WEB_START_MODE: Run30StartMode = { kind: "web" };
-
 export default function PlanPage() {
   const [params] = useSearchParams();
   const requested = params.get("sport");
   const model = usePlanModel(requested === "run" || requested === "swim" && isSportUiEnabled(requested) ? requested : "bike");
-  const { user } = useAuth();
-  const run30 = useRun30Program(model.discipline === "run" && user != null);
-  return <PlanView model={model} run30={run30} />;
+  return <PlanView model={model} />;
 }
 
-export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
+/**
+ * 계획 화면. 러닝은 제목·종목 탭·날짜 이동·계획 대비 기록만 보여 주므로(2026-11-19) Run30 프로그램 상태는 쓰지 않는다.
+ * 앱 임베드(PlanSurface)는 화면 준비 판정에 Run30 조회를 계속 쓰므로 prop 자리는 남긴다.
+ */
+export function PlanView({ model }: {
   model: ReturnType<typeof usePlanModel>;
-  run30: Run30ProgramState;
+  run30?: Run30ProgramState;
   startMode?: Run30StartMode;
 }) {
   const { t, i18n } = useTranslation("training");
   const { t: tActivity } = useTranslation("activity");
-  const { t: tCommon } = useTranslation("common");
   const { user, profile } = useAuth();
   const { auth, firestore, functions } = useFirebaseServices();
   const { showToast } = useToast();
@@ -247,45 +243,9 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
   }}>{t("planRecords.currentPlan")} →</Button>}</>;
   const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
 
-  const refreshAfterProgramChange = async () => {
-    await run30.refresh();
-    model.retryLoad();
-  };
-
-  if (discipline === "run") {
-    const run30Program = run30.status === "ready" ? run30.program : null;
-    // 미리보기는 일반 계획 경로와 같은 위치에 둬서 Run30 조회가 끝나도 다시 마운트되지 않게 한다.
-    const shell = (content: ReactNode) => (
-      <>
-        {goalLink}{targetNotice}
-        {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
-        <div className="site-shell" style={{ paddingBottom: "var(--space-8)" }}>
-          <div style={{ padding: "var(--space-4) 0 var(--space-3)", borderBottom: "1px solid var(--line-soft)", marginBottom: "var(--space-4)" }}>
-
-          </div>
-          {content}
-        </div>
-      </>
-    );
-    if (run30Program) {
-      return shell(
-        <Run30ProgramView api={run30.api} program={run30Program} onRefresh={refreshAfterProgramChange} startMode={startMode} />,
-      );
-    }
-    if (run30.status === "loading" && !(model.cacheHit && goal)) {
-      return shell(<p role="status" style={{ color: "var(--ink-3)" }}>{tCommon("button.loading")}</p>);
-    }
-    if (run30.status === "error" && !goal && !loading) {
-      return shell(<ErrorState title={t("run30.errors.load")} onRetry={run30.retry} />);
-    }
-    if (!loading && !loadError && (!goal || goal.discipline !== "run")) {
-      return shell(<Run30EnrollCard api={run30.api} variant="intro" onEnrolled={refreshAfterProgramChange} showCustomGoalLink />);
-    }
-  }
-
-  const run30Offer = discipline === "run" && run30.status === "ready" && goal?.discipline === "run" && !serverManagedPlan
-    ? <Run30EnrollCard api={run30.api} variant="offer" onEnrolled={refreshAfterProgramChange} />
-    : null;
+  // 러닝 훈련 계획은 제목·종목 탭·날짜 이동·계획 대비 기록만 보여 준다(2026-11-19 요청).
+  // 러닝 30일 프로그램·오늘의 훈련 결정·주간 계획 목록·계획 조정 안내는 이 화면에서 두지 않는다.
+  if (discipline === "run") return goalLink;
 
   if (!loading && loadError) {
     return <>{goalLink}{targetNotice}{renderPresentation(
@@ -301,12 +261,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
     <>
       {goalLink}{targetNotice}
       {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
-      {renderPresentation(
-        <>
-          {run30Offer}
-          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
-        </>,
-      )}
+      {renderPresentation(<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />)}
       {selectedDay?.owner === selectionOwner && goal && !serverManagedPlan && (
         <WorkoutEditModal
           day={selectedDay.day}
