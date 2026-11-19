@@ -4,6 +4,7 @@ import { BUNDLED_FUNCTIONS_BASES, BUNDLED_AI_BASES, type RuntimeConfig } from '.
 import type {FirebaseServices} from '../contexts/FirebaseServicesContext';
 import {loadActivityDiscovery,mapDiscoveryActivity} from './activityDiscovery';
 import {activityFeedSourceRevision,resolveActivityMemo} from './activityFeedContent';
+import * as errorLogger from './errorLogger';
 const mocks=vi.hoisted(()=>({call:vi.fn(),ready:vi.fn(),getFunctions:vi.fn(()=>({kind:'regional'})),callable:vi.fn(),config:{appEnvironment:'stage'} as RuntimeConfig}));
 vi.mock('firebase/functions',()=>({getFunctions:mocks.getFunctions,httpsCallable:(...args:unknown[])=>{mocks.callable(...args);return mocks.call;},connectFunctionsEmulator:vi.fn()}));
 vi.mock('./runtimeConfig',async importOriginal=>{const actual=await importOriginal<typeof import('./runtimeConfig')>();return{...actual,getRuntimeConfig:()=>mocks.config,isEmulatorRuntime:()=>false,isFunctionsGatewayRuntime:()=>actual.isFunctionsGatewayRuntime(mocks.config)};});
@@ -70,6 +71,24 @@ it('does not let a late login supply the credentials for an approved guest conti
   expect(unapproved.getIdToken).not.toHaveBeenCalled();
   expect(mocks.call).not.toHaveBeenCalled();
  } finally { request.mockRestore(); }
+});
+
+it('records transport failures and preserves permission errors from non-JSON gateway responses', async () => {
+ bundled('development');
+ const embedded = { ...services, scope: 'embedded' as const,
+  auth: { ...services.auth, currentUser: null }, isSessionApproved: () => true,
+  getAppCheckToken: vi.fn().mockResolvedValue('embedded-check') };
+ const request = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('network failed'))
+  .mockResolvedValueOnce(new Response('forbidden', { status: 403 }));
+ const report = vi.spyOn(errorLogger, 'logClientError').mockImplementation(() => undefined);
+ try {
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toThrow('network failed');
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toMatchObject({ code: 'functions/permission-denied' });
+  expect(report.mock.calls.map(([, , context]) => context)).toEqual([
+   { route: 'getActivityDiscovery', phase: 'transport', status: undefined },
+   { route: 'getActivityDiscovery', phase: 'body', status: 403 },
+  ]);
+ } finally { request.mockRestore(); report.mockRestore(); }
 });
 
 it('keeps an unrecorded TCX distance unknown before and after metrics, while preserving recorded zero',()=>{
