@@ -65,19 +65,22 @@ export async function verifyBundledProduction(directory, fetcher = fetch) {
   const expected = bundledFunctionsConfig(json(resolve(directory, "source-runtime.json")), "production");
   const actual = json(resolve(receipt.workspace, "dist/runtime-config.json"));
   if (!isDeepStrictEqual(actual, expected)) throw new Error("built production runtime differs from normal release flags");
-  await health(expected, fetcher, receipt.backend);
-  await verifyBundledRouteControl({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", fetcher });
-  const manifest = json(new URL("./contracts/social-callables.json", import.meta.url));
-  for (const { name } of manifest.callables) {
-    await verifyBundledCallable({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", name, fetcher });
-  }
-  await verifyBundledCallable({ base: expected.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
-  await verifyBundledCallable({ base: expected.aiApiBase, origin: "https://orider.co.kr", name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
-  await verifyBundledHttpAliases({ base: expected.firebaseFunctionsBase, fetcher });
-  await health(expected, fetcher, receipt.backend);
+  await verifyBundledProductionBackend(expected, receipt.backend, fetcher);
   if (hash(readFileSync(receipt.hostingPath)) !== receipt.hostingHash
     || !isDeepStrictEqual(json(resolve(receipt.workspace, "dist/runtime-config.json")), expected)) throw new Error("production output changed during verification");
   return receipt;
+}
+export async function verifyBundledProductionBackend(runtime, backend, fetcher = fetch) {
+  await health(runtime, fetcher, backend);
+  await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", fetcher });
+  const manifest = json(new URL("./contracts/social-callables.json", import.meta.url));
+  for (const { name } of manifest.callables) {
+    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name, fetcher });
+  }
+  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
+  await verifyBundledCallable({ base: runtime.aiApiBase, origin: "https://orider.co.kr", name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
+  await health(runtime, fetcher, backend);
 }
 async function main() {
   const args = {};

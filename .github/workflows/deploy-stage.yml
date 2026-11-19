@@ -62,7 +62,7 @@ jobs:
             echo "::error::Selected frontend source $selected_sha must be an ancestor of reviewed origin/main or origin/dev"; exit 1
           fi
           if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
-            for required in scripts/prepare-bundled-stage.mjs scripts/lib/bundled-callable-probe.mjs scripts/bundled-stage-hosting-release.mjs scripts/stage-html-entry.mjs scripts/verify-bundled-hosting.mjs; do
+            for required in scripts/hosting-candidate-archive.mjs scripts/prepare-bundled-stage.mjs scripts/lib/bundled-callable-probe.mjs scripts/bundled-stage-hosting-release.mjs scripts/stage-html-entry.mjs scripts/verify-bundled-hosting.mjs; do
               if [ ! -f "$required" ]; then
                 echo "::error::Selected source $selected_sha does not support bundled transport: missing $required. Select a reviewed commit with bundled tooling or explicit legacy transport."; exit 1
               fi
@@ -186,6 +186,12 @@ jobs:
         env:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/bundled-stage-hosting.json"
+      # Candidate storage failures must not roll back an already verified live release.
+      - name: Archive verified client in durable private release storage
+        if: inputs.transport == 'bundled-development'
+        env:
+          HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: node scripts/hosting-candidate-archive.mjs --phase archive --build "$BUNDLED_STAGE_DIRECTORY/build.json" --directory "$RUNNER_TEMP/durable-client"
       - name: Retain development release recovery receipt
         if: always() && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success'
         timeout-minutes: 2
@@ -199,7 +205,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stage-client-${{ steps.source.outputs.sha }}
-          retention-days: 7
+          include-hidden-files: true
+          retention-days: 1
           path: |
             dist
             firebase.bundled-stage.json
