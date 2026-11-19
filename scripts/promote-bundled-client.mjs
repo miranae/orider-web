@@ -129,6 +129,7 @@ export async function verifyClientPromotion(options, fetcher = fetch) {
 export async function verifyPublishedPromotion({ directory, origin = "https://orider.co.kr" }, fetcher = fetch) {
   const receipt = json(join(directory, "promotion.json")), expected = new Map(receipt.artifactManifest);
   // Check the previously validated Vite entry in parallel with the shell and sitemap.
+  const deepLink = "ko/course/nonexistent";
   const verifyPublishedResource = async path => {
     const url = new URL(path === "index.html" ? "/" : `/${path}`, origin); url.searchParams.set("promotion", receipt.frontendSourceSha);
     const response = await fetchPromotionResource(url, fetcher);
@@ -142,8 +143,8 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
       return;
     }
     const mime = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
-    if (path === "index.html" && mime !== "text/html") {
-      return rejectPromotionResponse(response, `published index did not return HTML at ${url}`);
+    if ((path === "index.html" || path === deepLink) && mime !== "text/html") {
+      return rejectPromotionResponse(response, `published page did not return HTML at ${url}`);
     }
     if (path === receipt.entry && !["application/javascript", "text/javascript"].includes(mime)) {
       return rejectPromotionResponse(response, `published entry did not return JavaScript at ${url}`);
@@ -151,10 +152,14 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
     let bytes;
     try { bytes = Buffer.from(await response.arrayBuffer()); }
     catch (cause) { throw new Error(`published GET response body could not be read at ${url}`, { cause }); }
+    if (path === deepLink) {
+      if (!bytes.toString("utf8").includes(`/${receipt.entry}`)) throw new Error(`published deep link is missing the entry at ${url}`);
+      return;
+    }
     if (hash(bytes) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact`);
   };
   await Promise.all([
-    ...["index.html", "runtime-config.json", receipt.entry, "sitemap.xml"].map(verifyPublishedResource),
+    ...["index.html", deepLink, "runtime-config.json", receipt.entry, "sitemap.xml"].map(verifyPublishedResource),
     verifyBundledHttpAliases({ base: origin, fetcher }),
   ]);
   return receipt;
