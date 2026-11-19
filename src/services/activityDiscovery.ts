@@ -2,7 +2,7 @@ import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/
 import type { Activity, ActivitySummary } from '@shared/types';
 import type { ActivityDiscoveryItem, ActivityDiscoveryRequest, ActivityDiscoveryResponse } from '@shared/activity-discovery';
 import type { FirebaseServices } from '../contexts/FirebaseServicesContext';
-import { callApprovedActivityRead } from '../embedded/callApprovedActivityRead';
+import { callApprovedActivityRead, reportApprovedActivityReadFailure } from '../embedded/callApprovedActivityRead';
 import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from './runtimeConfig';
 import { activityFeedSourceRevision } from './activityFeedContent';
 export type { ActivityDiscoveryRequest } from '@shared/activity-discovery';
@@ -56,6 +56,15 @@ async function readActivityDiscovery(services:FirebaseServices,request:ActivityD
   ? await callApprovedActivityRead<ActivityDiscoveryResponse>(services,viewer,'getActivityDiscovery','asia-northeast3',request,assertCurrent,signal)
   : await fetchSdkDiscovery(services,request);
  assertCurrent();
+ try {
+  return validateDiscoveryPage(data,request);
+ } catch (error) {
+  if (embedded) reportApprovedActivityReadFailure(services,viewer,'getActivityDiscovery','contract');
+  throw error;
+ }
+}
+
+function validateDiscoveryPage(data: ActivityDiscoveryResponse, request: ActivityDiscoveryRequest): DiscoveryPage {
  if(!data||!Array.isArray(data.items)||data.items.length>Math.min(request.limit??20,20)||!Number.isFinite(data.expiresAt)||data.expiresAt<=Date.now()||data.totalCount!==null||data.consistency!=='current_authorized_seek_pages'||!Number.isInteger(data.scannedCount)||data.scannedCount<0||data.scannedCount>50||typeof data.exhausted!=='boolean'||data.exhausted!==(data.nextCursor===null)||data.nextCursor!==null&&(typeof data.nextCursor!=='string'||!data.nextCursor.startsWith('ad1.'))||data.order!==(request.order??'startTime_desc')||data.includesUndated!==(data.order==='id_asc'&&request.fromInclusive===undefined&&request.toExclusive===undefined))throw Error('invalid_activity_discovery');
  const ids=new Set<string>();
  for(const item of data.items){const a=item?.activity;if(request.anchorActivityId&&item.anchorBoundCoRider!==true)throw Error('invalid_activity_discovery');if(item.viewerHasKudos!==undefined&&typeof item.viewerHasKudos!=='boolean')throw Error('invalid_activity_discovery');if(!a||typeof a.id!=='string'||!a.id||ids.has(a.id)||typeof a.userId!=='string'||!a.userId||a.externalId!==null||!a.effectiveFacts||a.effectiveFacts.thresholdBasis!==null||!item.mapPreview||!item.content||!['ready','pending'].includes(item.content.status)||typeof item.presentationRevision!=='string'||!/^[a-f0-9]{64}$/.test(item.presentationRevision))throw Error('invalid_activity_discovery');if(item.generatedSummary&&(!/^[a-f0-9]{64}$/.test(item.generatedSummary.inputDigest)||!/^[a-z0-9][a-z0-9._-]{0,99}$/i.test(item.generatedSummary.formatterVersion)||!['ko','en'].every(lang=>{const text=item.generatedSummary!.text?.[lang as 'ko'|'en'];return typeof text==='string'&&text.trim().length>0&&text.length<=3500;})))throw Error('invalid_activity_discovery');ids.add(a.id);}

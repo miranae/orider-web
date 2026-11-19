@@ -9,21 +9,30 @@ const httpErrorCodes: Partial<Record<number, string>> = {
   499: "cancelled", 500: "internal", 501: "unimplemented", 503: "unavailable", 504: "deadline-exceeded",
 };
 
-type ReadPhase = "app-check" | "id-token" | "endpoint" | "transport" | "body" | "http" | "timeout";
+type ReadPhase = "app-check" | "id-token" | "endpoint" | "transport" | "body" | "http" | "timeout" | "contract";
+type ReadRoute = "getActivityDiscovery" | "getPublicAthleteTotals";
+
+export function reportApprovedActivityReadFailure(
+  services: FirebaseServices,
+  viewer: FirebaseServices["auth"]["currentUser"],
+  route: ReadRoute,
+  phase: ReadPhase,
+  status?: number,
+) {
+  logClientError("embedded.activityRead", new Error(`embedded-callable-${phase}-failed`),
+    { route, phase, status }, services, viewer, `${route}:${status ?? ""}`);
+}
 
 export async function callApprovedActivityRead<T>(
   services: FirebaseServices,
   viewer: FirebaseServices["auth"]["currentUser"],
-  route: "getActivityDiscovery" | "getPublicAthleteTotals",
+  route: ReadRoute,
   region: string,
   data: unknown,
   assertCurrent: () => void,
   signal: AbortSignal,
 ): Promise<T> {
-  const report = (phase: ReadPhase, status?: number) => {
-    logClientError("embedded.activityRead", new Error(`embedded-callable-${phase}-failed`),
-      { route, phase, status }, services, viewer, `${route}:${status ?? ""}`);
-  };
+  const report = (phase: ReadPhase, status?: number) => reportApprovedActivityReadFailure(services, viewer, route, phase, status);
   const reportTimeout = () => {
     if (signal.reason instanceof DOMException && signal.reason.name === "TimeoutError") report("timeout");
   };
