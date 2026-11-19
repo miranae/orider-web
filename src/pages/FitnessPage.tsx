@@ -7,16 +7,15 @@ import { FitnessEvidenceTrend } from "../features/fitness/components/FitnessEvid
 import FitnessPedalingEvidence from "../features/fitness/components/FitnessPedalingEvidence";
 import GlossaryText from "../components/common/GlossaryText";
 import GlossaryProvider from "../components/common/GlossaryProvider";
-import TabNav from "../components/TabNav";
 import FitnessPeriodEvidence, { fitnessPeriodEvidenceVisible } from "../features/fitness/components/FitnessPeriodEvidence";
-import { AnalysisGroup, AnalysisPeriodLoadBar, AnalysisRunRecordsLink } from "../features/fitness/components/AnalysisGroup";
+import { AnalysisGroup } from "../features/fitness/components/AnalysisGroup";
 import { ConciseExplanationsContext } from "../features/fitness/conciseExplanations";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import "./FitnessPage.css";
 import { PowerCurvePeriodsPanel } from "../features/fitness/components/PowerCurvePeriodsPanel";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import { useTranslation } from "react-i18next";
 import { useTrainingDecision } from "../hooks/useTrainingDecision";
@@ -102,6 +101,9 @@ export function fitnessGoalDisplayName(goal: { title?: string | null; courseName
   return raw ? formatPlanGoalTitle(raw).name : null;
 }
 
+/** 코치 분석의 비교 기간(최근 N일 ↔ 이전 N일). 기간 선택 탭을 없애고 이 값으로 고정한다. */
+const ANALYSIS_WINDOW_DAYS = 90;
+
 export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
   return <GlossaryProvider scopeKey="coach-fitness">
     {!props.embedded && props.part === "analysis" && <CoachDetailRouteNotice discipline={props.model.discipline} />}
@@ -114,6 +116,14 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   // 분석의 두 기간 비교(파워 커브·기간별 훈련 구성)를 한 버튼으로 함께 불러온다.
   const [periodLoadSignal, setPeriodLoadSignal] = useState(0);
+  // '기간 분석 불러오기' 버튼을 없앴다 — 분석 화면이 열리거나 종목이 바뀌면 바로 불러온다.
+  const autoLoadAnalysis = !embedded && part === "analysis";
+  const autoLoadDiscipline = model.discipline;
+  const autoLoadOwner = model.user?.uid ?? null;
+  useEffect(() => {
+    if (!autoLoadAnalysis || !autoLoadOwner) return;
+    setPeriodLoadSignal(value => value + 1);
+  }, [autoLoadAnalysis, autoLoadDiscipline, autoLoadOwner]);
   // 사이클 분석의 "기간별 훈련 구성"은 위 파워 비교가 불러온 기간을 그대로 쓴다.
   const [analysisPeriods, setAnalysisPeriods] = useState<PowerCurvePeriod[] | null>(null);
   // 기간 파워 비교는 이 플래그가 켜진 환경에서만 조회된다. 꺼져 있으면 분석은 기존 28일 파워 커브를 보여준다.
@@ -190,10 +200,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     asOf={weeklyStats.asOf} dateBasis={weeklyStats.dateBasis} ready={weeklyStats.insightReady} t={t} /> : null;
   const currentSource = t(model.canonicalFitness.enabled && model.canonicalFitness.values ? "coach.currentSource.summary" : hasCanonicalTimeseries ? "coach.currentSource.history" : "coach.currentSource.estimated");
   const currentBasis = currentPoint ? t("coach.currentBasis", { date: currentPoint.date, source: part === "condition" && discipline === "tri" ? t("condition.combinedSource") : currentSource }) : undefined;
-  // 기간 선택은 계획/기록 하위 탭(오늘 훈련·훈련 계획·활동 기록)과 같은 밑줄 탭으로 그린다.
-  const periodControls = !embedded && part === "analysis" ? <div data-testid="K5-0-3" aria-label={t("history.range")} className="fitness-period-tabs">
-    <TabNav tabs={([30, 90, 180, 365] as const).map(days => ({ id: String(days), label: t(`range.${days}`) }))} activeTab={String(range)} onChange={id => changePageRange(Number(id) as typeof range)} />
-  </div> : null;
+  // 코치 분석은 기간 선택을 두지 않는다 — 수행 능력 변화·훈련 구성은 늘 최근 90일 ↔ 이전 90일이다(2026-11-19).
+  const periodControls = null;
   const changeHistoryRange = (nextRange: PmcRange) => {
     if (typeof nextRange === "number") {
       setHistoryRangeOverride(null);
@@ -494,12 +502,11 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
-            periodWindowDays={!embedded && part === "analysis" ? range : undefined}
+            periodWindowDays={!embedded && part === "analysis" ? ANALYSIS_WINDOW_DAYS : undefined}
             periodLoadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined}
             analysisPeriods={!embedded && part === "analysis" && discipline === "bike" ? analysisPeriods : undefined}
             onAnalysisPeriodsChange={!embedded && part === "analysis" && discipline === "bike" ? setAnalysisPeriods : undefined}
             periodZonesFromServer={!embedded && part === "analysis" && fitnessPeriodEvidenceVisible(discipline, user)}
-            onPeriodLoad={!embedded && part === "analysis" && (discipline === "bike" && periodPowerEnabled || fitnessPeriodEvidenceVisible(discipline, user)) ? () => setPeriodLoadSignal(value => value + 1) : undefined}
             {...model.mobilePageProps}
             periodTimeseries={model.periodTimeseries}
             sectionState={{
@@ -882,7 +889,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
   </>;
 
-  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel windowDays={!embedded && part === "analysis" ? range : undefined} loadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined} onPeriodsChange={!embedded && part === "analysis" ? setAnalysisPeriods : undefined} nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
+  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel windowDays={!embedded && part === "analysis" ? ANALYSIS_WINDOW_DAYS : undefined} loadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined} onPeriodsChange={!embedded && part === "analysis" ? setAnalysisPeriods : undefined} nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
 
   const performanceCurves = <>
           {part !== "condition" && periodPowerCard}
@@ -1029,20 +1036,17 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     <div className="site-shell" style={bodyPad}>
       <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
       <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
-      {/* 분석 = 선택한 기간 동안 무엇이 바뀌었나. 수행 능력 변화 → 기간별 훈련 구성 → 해석과 근거 순서로 읽는다.
-          두 기간 비교는 서버 호출이라 공용 버튼으로만 불러온다(위 기간 선택이 기본 비교 기간을 정한다). */}
-      {(discipline === "bike" && periodPowerEnabled || fitnessPeriodEvidenceVisible(discipline, user)) && <AnalysisPeriodLoadBar windowDays={range} onLoad={() => setPeriodLoadSignal(value => value + 1)} />}
+      {/* 분석 = 무엇이 바뀌었나(최근 90일 ↔ 이전 90일). 기간 선택·불러오기 버튼 없이 화면이 열리면 바로 불러온다. */}
       <AnalysisGroup id="analysis-comparison" title={t("analysis.groups.performance")}>
         {discipline === "bike" && (periodPowerEnabled ? periodPowerCard
           : <BikePowerCurveEvidence compact current={curveBlock && needsSufficiencyCard(activityWindowSufficiency!, curveBlock) ? [] : currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} emptyContent={activityWindowSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(activityWindowSufficiency, curveBlock) ? <SufficiencyCard set={activityWindowSufficiency} block={curveBlock} testId="K5-2-1-sufficiency" /> : undefined} />)}
-        {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
-        {discipline === "run" && <AnalysisRunRecordsLink />}
+        {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} openInApp />}
         {/* 러닝 레이스 예측(스테이지)은 거리 기록 상세를 뺀 뒤에도 분석에 남긴다(P9). */}
         {discipline === "run" && !user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
         {discipline === "run" && <Card><Text as="h3" variant="subtitle">{t("criticalPace.title")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
       </AnalysisGroup>
       <AnalysisGroup id="analysis-periods" title={t("analysis.groups.composition")}>
-        {discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={range} loadSignal={periodLoadSignal} periods={discipline === "bike" && periodPowerEnabled ? analysisPeriods : undefined} />}
+        {discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={ANALYSIS_WINDOW_DAYS} loadSignal={periodLoadSignal} periods={discipline === "bike" && periodPowerEnabled ? analysisPeriods : undefined} />}
         {/* 기간별 심박·파워 존은 위 기간과 같은 서버 기간 통계로 보여준다. 고정 30일 카드는 그 통계를 못 쓸 때만 둔다. */}
         {!fitnessPeriodEvidenceVisible(discipline, user) && zoneDistributionCard}
       </AnalysisGroup>
