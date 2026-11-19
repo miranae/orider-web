@@ -76,8 +76,8 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
       ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, ...stageRunOverlay() } : {}),
     } }));
   }, [syncedPeriods, syncMode, available, discipline]);
-  const submit = () => {
-    setControls(value => value); // An explicit load wins over late session restoration.
+  const submit = (explicit = false) => {
+    if (explicit) setControls(value => value); // An explicit load wins over late session restoration.
     const periods = windowMode ? trainingWindowPeriods(windowDays!, Date.now()) : preset ? trainingComparisonPeriods(preset, Date.now()) : ranges.map(range => trainingCalendarPeriod(range.from, range.through, Date.now()));
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); return; }
     setInvalid(false);
@@ -123,7 +123,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
       {(["from", "through"] as const).map(field => <label className="block" key={field}>{t(`periodCurve.${field}`)}<Input type="date" value={range[field]} max={today} onChange={event => { setRanges(values => values.map((value, position) => position === index ? { ...value, [field]: event.target.value } : value)); setSelection(null); setInvalid(false); }} /></label>)}
     </fieldset>)}</div>}
     </>}
-    {loadSignal === undefined && !syncMode && <div><Button disabled={!available || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>}
+    {loadSignal === undefined && !syncMode && <div><Button disabled={!available || result.state === "loading"} onClick={() => submit(true)}>{t("periodCurve.load")}</Button></div>}
     {!available && <Text role="status">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text role="status">{t("periodEvidence.loading")}</Text>}
