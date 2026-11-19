@@ -1654,6 +1654,7 @@
     "formatTcxDesc": "Garmin Training Center XML — includes HR/power",
     "formatGpxDesc": "GPS Exchange — universal GPS format",
     "formatCsvDesc": "Spreadsheet — for analysis in Excel/Google Sheets",
+    "cadenceUnavailable": "The cadence unit could not be verified, so cadence was omitted from the FIT or TCX file. You can save the original values as CSV.",
     "errorAlert": "An error occurred during export",
     "phaseActivities": "Loading activity list…",
     "phaseActivitiesLoaded": "{{count}} activities loaded",

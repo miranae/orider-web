@@ -5,9 +5,9 @@ import { generateTcx } from "../utils/exportTcx";
 import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
-import { exportFilename } from "../utils/exportSport";
+import { exportFilename, exportSportOf } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
-import { isLegacyStravaStreams, readStreamCadenceUnit } from "../services/activityStreamSource";
+import { readStreamCadenceUnit } from "../services/activityStreamSource";
 import { logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
@@ -49,18 +49,19 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
       if (!stillCurrent()) return;
       const fileCadenceUnit = readStreamCadenceUnit(currentStreams);
-      // Keep the original FIT/TCX encoding when the Strava server is still on the legacy response.
-      const encoderActivity = isLegacyStravaStreams(currentStreams) ? { ...activity, type: "Ride" } : activity;
+      const missingFootCadenceUnit = (format === "fit" || format === "tcx") && exportSportOf(activity).footCadence
+        && fileCadenceUnit !== "spm" && fileCadenceUnit !== "strides_per_minute"
+        && Array.isArray(currentStreams.cadence) && currentStreams.cadence.some(value => Number.isFinite(value) && value >= 0);
       switch (format) {
         case "fit": {
-          const data = generateFit(encoderActivity, currentStreams, fileCadenceUnit);
+          const data = generateFit(activity, currentStreams, fileCadenceUnit);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
           downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
           break;
         }
         case "tcx": {
-          const xml = generateTcx(encoderActivity, currentStreams, fileCadenceUnit);
+          const xml = generateTcx(activity, currentStreams, fileCadenceUnit);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }
@@ -77,6 +78,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           break;
         }
       }
+      if (missingFootCadenceUnit) showToast(t("export.cadenceUnavailable"), "info");
     } catch (err) {
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       showToast(t("export.errorAlert"), "error");

@@ -1,6 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { useStrava } from "./useStrava";
-import { isLegacyStravaStreams, readStreamCadenceUnit } from "../services/activityStreamSource";
+import { readStreamCadenceUnit } from "../services/activityStreamSource";
 import {
   mockCallableInvocations,
   setCallableImplementation,
@@ -39,7 +39,6 @@ describe("useStrava", () => {
     await act(async () => {
       const data = await result.current.getStreams(42, { includeCadenceUnit: true });
       expect(data).toMatchObject(streams);
-      expect(isLegacyStravaStreams(data as typeof streams)).toBe(true);
       expect(readStreamCadenceUnit(data as typeof streams)).toBeUndefined();
     });
   });

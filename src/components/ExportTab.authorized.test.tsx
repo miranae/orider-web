@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import ExportTab from "./ExportTab";
-import { markLegacyStravaStreams, markVerifiedStreamCadence } from "../services/activityStreamSource";
+import { markVerifiedStreamCadence } from "../services/activityStreamSource";
 import type { Activity } from "@shared/types";
 const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new Uint8Array()), toast: vi.fn() }));
 vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
@@ -66,10 +66,13 @@ it("checks the live account again before writing a delayed public file", async (
   expect(mocks.fit).not.toHaveBeenCalled();
 });
 
-it("preserves the pre-contract FIT encoding while Strava still serves a legacy response", async () => {
+it("preserves the running sport and offers raw CSV when an older backend omits a cadence unit", async () => {
   const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const streams = markLegacyStravaStreams({ userId: "owner", time: [0], cadence: [85] });
+  const streams = { userId: "owner", time: [0], cadence: [85] };
   render(<ExportTab activity={run} streams={streams} />);
   await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(mocks.fit).toHaveBeenCalledWith({ ...run, type: "Ride" }, streams, undefined);
+  expect(mocks.fit).toHaveBeenCalledWith(run, streams, undefined);
+  expect(mocks.toast).toHaveBeenCalledWith(expect.stringMatching(/cadenceUnavailable|cadence unit|케이던스/iu), "info");
+  await act(async () => fireEvent.click(screen.getByText("CSV")));
+  expect(mocks.csv).toHaveBeenCalledWith(streams);
 });
