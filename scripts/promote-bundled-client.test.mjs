@@ -84,8 +84,8 @@ test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot p
 test("promotion is one production job without application install, rebuild, rehearsal or artifact transfer",()=>{
   const workflow=readFileSync(new URL("../.github/workflows/promote-hosting.yml",import.meta.url),"utf8");
   for(const removed of ["npm run build","actions/download-artifact","verify-bundled-hosting","inputs.phase","environment: stage"])assert.ok(!workflow.includes(removed),removed);
-  assert.doesNotMatch(workflow,/npm ci(?! --prefix "\$parser_workspace")/);
-  assert.match(workflow,/if ! jq -e '\.productionEntry[\s\S]*?npm ci --prefix "\$parser_workspace"/);
+  assert.equal(workflow.match(/npm ci/g)?.length,1);
+  assert.match(workflow,/if ! jq -e '\.productionEntry[\s\S]*?cd "\$parser_workspace" && npm ci --include=dev/);
   assert.deepEqual([...workflow.matchAll(/^  ([A-Za-z_-]+):$/gm)].map(match=>match[1]).filter(name=>["prepare","promote"].includes(name)),["promote"]);
   assert.match(workflow,/--phase snapshot[\s\S]*?--phase rollback/);
   assert.match(workflow,/Retain recovery receipt[^\n]+\n[^\n]+failure\(\)[^\n]+\n\s+continue-on-error: true\n\s+uses: actions\/upload-artifact@v4/);
