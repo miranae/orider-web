@@ -59,7 +59,7 @@ it("uses the activity start for timed TCX lap boundaries even when the first sam
   const startTime = Date.parse("2026-11-19T07:00:00Z");
   const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 120_000 } } as Activity;
   const source = markRawPartStreams({
-    time: Array.from({ length: 41 }, (_, index) => index),
+    calories: 0, time: Array.from({ length: 41 }, (_, index) => index),
     heartrate: Array(41).fill(150),
     laps: [
       { durationMs: 60_000, distanceKm: 1, startTimeMs: startTime, endTimeMs: startTime + 60_000 },
@@ -78,7 +78,7 @@ it("keeps recorded intervals or the full timeline without allocating distance to
   const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 90_000, elapsedTimeMillis: 125_000, distance: 1100 } } as Activity;
   const time = Array.from({ length: 126 }, (_, index) => index);
   const source = markRawPartStreams({
-    time, heartrate: time.map(() => 150),
+    calories: 0, time, heartrate: time.map(() => 150),
     laps: [
       { durationMs: 60_000, distanceKm: 0.5, startTimeMs: startTime, endTimeMs: startTime + 60_000 },
       { durationMs: 30_000, distanceKm: 0.5, startTimeMs: startTime + 60_000, endTimeMs: startTime + 120_000 },
@@ -101,7 +101,7 @@ it("does not infer paused time from an end-only lap", () => {
   const startTime = Date.parse("2026-11-19T07:00:00Z");
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 60, 75, 90, 120].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150, 150],
+    userId: "owner", calories: 0, time: [0, 60, 75, 90, 120].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
       { endTimeMs: startTime + 120_000, durationMs: 30_000 },
@@ -117,7 +117,7 @@ it("keeps recorded laps when only blank grid slots follow the last observation",
   const startTime = Date.parse("2026-11-19T07:00:00Z");
   const activity = { startTime, type: "Run", summary: { distance: 1100 } } as Activity;
   const source = markRawPartStreams({
-    time: [0, 1, 2, 3], heartrate: [150, 150, null, null],
+    calories: 0, time: [0, 1, 2, 3], heartrate: [150, 150, null, null],
     laps: [{ durationMs: 1000, distanceKm: 1, startTimeMs: startTime, endTimeMs: startTime + 1000 }],
   } as unknown as ActivityStreams, "d".repeat(64), startTime);
   const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
@@ -130,7 +130,7 @@ it("exports a speed-only observation in a recorded indoor lap", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const xml = generateTcx(activity, {
-    userId: "owner", time: [0, 1], velocity_smooth: [2.7, 3.1],
+    userId: "owner", calories: 0, time: [0, 1], velocity_smooth: [2.7, 3.1],
     laps: [{ startTimeMs: startTime, endTimeMs: startTime + 1000, durationMs: 1000 }],
   } as ActivityStreams);
   expect(xml).toContain("<ext:Speed>2.7</ext:Speed>");
@@ -144,7 +144,7 @@ it("keeps recorded laps or all gap observations according to the requested TCX e
     ridingTimeMillis: 9000, elapsedTimeMillis: 15_000, distance: 120,
   } } as Activity;
   const streams = {
-    userId: "owner", time: [0, 5, 7, 10, 12, 15].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150, 150, 150],
+    userId: "owner", calories: 0, time: [0, 5, 7, 10, 12, 15].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 5000, durationMs: 5000, distanceKm: 0.05 },
       { startTimeMs: startTime + 10_000, endTimeMs: startTime + 12_000, durationMs: 2000, distanceKm: 0.05 },
@@ -167,7 +167,7 @@ it("preserves recorded distances even when there is no activity distance for the
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 30, 60, 61].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150],
+    userId: "owner", calories: 0, time: [0, 30, 60, 61].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 30_000, durationMs: 30_000, distanceKm: 1 },
       { startTimeMs: startTime + 30_000, endTimeMs: startTime + 60_000, durationMs: 30_000, distanceKm: 1 },
@@ -187,7 +187,7 @@ it("keeps moving-time legacy samples separate from native elapsed lap clocks", (
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 60, 61, 90, 120], heartrate: [150, 150, 150, 150, 150],
+    userId: "owner", calories: 0, time: [0, 60, 61, 90, 120], heartrate: [150, 150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
       { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
@@ -217,7 +217,7 @@ it("does not slide adjacent duration-only laps by a sample interval on a verifie
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const time = Array.from({ length: 122 }, (_, index) => index);
   const streams = markRawPartStreams({
-    time, heartrate: time.map(() => 150),
+    calories: 0, time, heartrate: time.map(() => 150),
     laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
   } as ActivityStreams, "f".repeat(64), startTime);
   const prepared = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
@@ -232,7 +232,7 @@ it("keeps sparse observation gaps from moving verified duration-only lap boundar
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const time = Array.from({ length: 131 }, (_, index) => index);
   const streams = markRawPartStreams({
-    time, heartrate: time.map(index => [30, 125, 130].includes(index) ? 150 : null),
+    calories: 0, time, heartrate: time.map(index => [30, 125, 130].includes(index) ? 150 : null),
     laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
   } as unknown as ActivityStreams, "f".repeat(64), startTime);
   const exportFile = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
@@ -261,7 +261,7 @@ it("does not assign a gap to a lap with an unknown end", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 60, 75, 90, 120].map(time => startTime + time * 1000), heartrate: [145, 146, 147, 148, 149],
+    userId: "owner", calories: 0, time: [0, 60, 75, 90, 120].map(time => startTime + time * 1000), heartrate: [145, 146, 147, 148, 149],
     laps: [
       { startTimeMs: startTime, durationMs: 60_000, distanceKm: 1 },
       { startTimeMs: startTime + 90_000, endTimeMs: startTime + 120_000, durationMs: 30_000, distanceKm: 0.5 },
@@ -289,7 +289,7 @@ it("leaves samples after an ambiguous gap unassigned without losing the full exp
   const activity = { startTime, type: "Run", summary: { distance: 1200, elapsedTimeMillis: 180_000 } } as Activity;
   const time = Array.from({ length: 181 }, (_, index) => index);
   const streams = markRawPartStreams({
-    time, heartrate: time.map(index => index <= 60 || index >= 120 ? 150 : null),
+    calories: 0, time, heartrate: time.map(index => index <= 60 || index >= 120 ? 150 : null),
     laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
   } as unknown as ActivityStreams, "e".repeat(64), startTime);
   const exportFile = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
@@ -304,7 +304,7 @@ it("does not turn late sparse points into a lap ending after the recorded activi
   const activity = { startTime, endTime: startTime + 130_000, type: "Run", summary: {} } as Activity;
   const time = Array.from({ length: 131 }, (_, index) => index);
   const streams = markRawPartStreams({
-    time, heartrate: time.map(index => [30, 60, 125, 130].includes(index) ? 150 : null),
+    calories: 0, time, heartrate: time.map(index => [30, 60, 125, 130].includes(index) ? 150 : null),
     laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
   } as unknown as ActivityStreams, "f".repeat(64), startTime);
   const file = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
@@ -329,7 +329,7 @@ it("uses recorded boundaries when the stream supplies an absolute clock", () => 
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 60, 75, 120, 150, 180].map(second => startTime + second * 1000), heartrate: [150, 150, 150, 150, 150, 150],
+    userId: "owner", calories: 0, time: [0, 60, 75, 120, 150, 180].map(second => startTime + second * 1000), heartrate: [150, 150, 150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
       { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
@@ -357,7 +357,7 @@ it("keeps the track for a single lap proven to span the complete activity even w
   const activity = { startTime, type: "Run", summary: { elapsedTimeMillis: 60_000, ridingTimeMillis: 60_000 } } as Activity;
   const time = Array.from({ length: 61 }, (_, index) => index);
   const raw = markRawPartStreams({
-    time, heartrate: time.map(() => 150), laps: [{ durationMs: 60_000, distanceKm: 1 }],
+    calories: 0, time, heartrate: time.map(() => 150), laps: [{ durationMs: 60_000, distanceKm: 1 }],
   } as ActivityStreams, "a".repeat(64), startTime);
   const file = prepareTcxExport(activity, prepareActivityFileStreams(activity, raw, "tcx"));
   expect(file.canKeepRecordedLaps).toBe(true);
@@ -393,7 +393,7 @@ it("does not use matching numeric endpoints as proof of the legacy sample clock"
   const activity = { startTime, type: "Run", summary: {
     distance: 1200, elapsedTimeMillis: 180_000, ridingTimeMillis: 120_000,
   } } as Activity;
-  const streams = { userId: "owner", time: [0, 60, 120, 180], heartrate: [150, 150, 150, 150], laps: [
+  const streams = { userId: "owner", calories: 0, time: [0, 60, 120, 180], heartrate: [150, 150, 150, 150], laps: [
     { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
     { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
   ] } as ActivityStreams;
@@ -417,7 +417,7 @@ it("accepts a recorded Strava elapsed total without treating inferred provider e
 it("keeps trackpoints when a continuous native lap schedule makes both legacy clocks coincide", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 120_000 } } as Activity;
-  const streams = { userId: "owner", time: [0, 60, 61, 120], heartrate: [150, 151, 152, 153], laps: [
+  const streams = { userId: "owner", calories: 0, time: [0, 60, 61, 120], heartrate: [150, 151, 152, 153], laps: [
     { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
     { startTimeMs: startTime + 60_000, endTimeMs: startTime + 120_000, durationMs: 60_000 },
   ] } as ActivityStreams;
@@ -471,7 +471,7 @@ it("keeps native Strava time and does not assign full activity calories to a par
 it("does not invent timestamps for missing observations on an epoch clock", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: { distance: 1000, elapsedTimeMillis: 65_000 } } as Activity;
-  const streams = { userId: "owner", time: [startTime + 30_000, null, startTime + 60_000],
+  const streams = { userId: "owner", calories: 0, time: [startTime + 30_000, null, startTime + 60_000],
     heartrate: [150, 199, 152], laps: [
       { startTimeMs: startTime + 20_000, endTimeMs: startTime + 65_000, durationMs: 45_000, distanceKm: 0.8 },
     ],
@@ -489,7 +489,7 @@ it("does not infer a Strava clock for linked native sensor offsets", () => {
   const activity = { startTime, source: "strava", type: "Run", summary: { distance: 1000, elapsedTimeMillis: 180_000 },
     activityPresentationV1: { version: 1, activityRevision: null, contentSelectedRevision: null, sensorOriginActivityId: "orider_original" },
   } as Activity;
-  const samples = { userId: "owner", time: [0, 60, 61, 120], heartrate: [150, 151, 199, 152], laps: [
+  const samples = { userId: "owner", calories: 0, time: [0, 60, 61, 120], heartrate: [150, 151, 199, 152], laps: [
     { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
     { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
   ] } as ActivityStreams;
@@ -508,4 +508,21 @@ it("does not infer Strava elapsed time from a matching timer and sample range", 
   expect(result.canKeepRecordedLaps).toBe(false);
   expect(result.canExportAllAsTcx).toBe(false);
   expect(() => result.render("activity")).toThrow();
+});
+
+it("requires a recorded calorie value for TCX with laps", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Ride", summary: { distance: 1000, elapsedTimeMillis: 60_000 } } as Activity;
+  const streams = { userId: "owner", time: [0, 60], heartrate: [150, 151],
+    laps: [{ startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000, distanceKm: 1 }],
+  } as ActivityStreams;
+  const missing = prepareTcxExport(activity, streams);
+  expect(missing.requiresCsv).toBe(true);
+  expect(missing.canKeepRecordedLaps).toBe(false);
+  expect(missing.canExportAllAsTcx).toBe(false);
+  expect(() => missing.render("recorded")).toThrow("TCX_LAP_CALORIES_UNAVAILABLE");
+  expect(() => missing.render("activity")).toThrow("TCX_LAP_CALORIES_UNAVAILABLE");
+
+  const withSummary = { ...activity, summary: { ...activity.summary, calories: 210 } };
+  expect(prepareTcxExport(withSummary, streams).render("recorded")).toContain("<Calories>210</Calories>");
 });

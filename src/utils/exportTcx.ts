@@ -136,22 +136,28 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const validRecordedDuration = recordedDuration != null;
   const summaryLapDuration = activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
     ? recordedDuration : undefined;
-  const requiresCsv = !laps.length && activityTime && !validRecordedDuration
-    && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
-  const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
+  const activityCalories = [streams.calories, summary.calories].find((value): value is number =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 65535);
+  // Garmin's TCX schema requires an unsigned calorie value on every lap.
+  const hasMissingLapCalories = laps.length > 0 && activityCalories == null;
+  const requiresCsv = hasMissingLapCalories || (!laps.length && activityTime && !validRecordedDuration
+    && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000);
+  const canExportAllAsTcx = !hasMissingLapCalories && typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
     && summaryLapDuration != null && !hasUntimedObservations;
   const lapCoversActivity = laps.length === 1 && (fullActivityLap
     || (recordedDuration != null && laps[0]?.start === 0 && laps[0].endTime === recordedDuration / 1000
       && onlyLap?.startTimeMs === startMs && onlyLap.endTimeMs === startMs + recordedDuration));
   const hasUnallocatedCalories = laps.length > 0 && !lapCoversActivity
-    && Number.isFinite(streams.calories) && (streams.calories ?? 0) > 0;
+    && (activityCalories ?? 0) > 0;
   return {
     hasUnassigned,
     canExportAllAsTcx,
-    canKeepRecordedLaps: laps.length > 0 && canKeepRecordedLaps && !hasUnallocatedCalories,
+    canKeepRecordedLaps: laps.length > 0 && canKeepRecordedLaps && !hasMissingLapCalories && !hasUnallocatedCalories,
     hasUnallocatedCalories,
+    hasMissingLapCalories,
     requiresCsv,
     render(mode: TcxLapMode): string {
+      if (hasMissingLapCalories) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
       if (requiresCsv) throw new Error("TCX_ELAPSED_UNAVAILABLE");
       if (mode === "recorded" && hasUnallocatedCalories) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
       if (laps.length && !canKeepRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) throw new Error("TCX_LAP_CLOCK_UNAVAILABLE");
@@ -159,13 +165,13 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       const lines = [...header];
       if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
         for (const lap of laps) {
-          const calories = lapCoversActivity ? streams.calories ?? 0 : 0;
+          const calories = lapCoversActivity ? activityCalories ?? 0 : 0;
           writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, calories, lap.first, lap.end);
         }
       } else {
         const duration = ((mode === "activity" ? summaryLapDuration
           : activityTime ? recordedDuration ?? summary.ridingTimeMillis : summary.ridingTimeMillis) || 0) / 1000;
-        writeLap(lines, startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
+        writeLap(lines, startMs, duration, summary.distance || 0, activityCalories ?? 0, 0, indices.length);
 
       }
       lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');

@@ -175,7 +175,7 @@ it("finishes a download when unrelated activity metadata changes during verifica
 
 it("asks how to handle unassigned TCX observations and downloads the chosen edition", async () => {
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
-  const samples = { userId: "owner", time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145],
+  const samples = { userId: "owner", calories: 0, time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145],
     laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
   } as unknown as ActivityStreams;
   const resolve = vi.fn().mockResolvedValue(samples);
@@ -207,7 +207,7 @@ it("writes the latest recorded summary when verification outlasts a metadata ref
 it("refreshes the TCX choice before using it on changed lap inputs", async () => {
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
   const samples = {
-    userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145],
+    userId: "owner", calories: 0, time: [0, 120, 125], heartrate: [140, 150, 145],
     laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
   } as ActivityStreams;
   const first = markVerifiedStreamCadence(samples, "a".repeat(64), null);
@@ -240,7 +240,7 @@ it("keeps raw cadence in CSV when an all-sample TCX lacks an elapsed-time total"
 it("drops obsolete lap options if the new activity fits its recorded laps", async () => {
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
   const laps = [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }];
-  const initial = { userId: "owner", time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145], laps } as ActivityStreams;
+  const initial = { userId: "owner", calories: 0, time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145], laps } as ActivityStreams;
   const latest = { ...initial, time: [0, 120].map(second => run.startTime + second * 1000), heartrate: [140, 150] };
   const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
   const click = vi.mocked(HTMLAnchorElement.prototype.click);
@@ -301,7 +301,7 @@ it("keeps the requested single-lap TCX when refreshed samples now fit the record
     { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime, endTimeMs: run.startTime + 60_000 },
     { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime + 60_000, endTimeMs: run.startTime + 120_000 },
   ];
-  const initial = { userId: "owner", time: [0, 60, 61, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145, 146, 147], laps } as ActivityStreams;
+  const initial = { userId: "owner", calories: 0, time: [0, 60, 61, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145, 146, 147], laps } as ActivityStreams;
   const latest = { ...initial, time: [0, 60, 61, 120].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145, 146] };
   const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
   const url = vi.spyOn(URL, "createObjectURL");
@@ -329,7 +329,7 @@ it("asks again instead of substituting another format if the selected TCX totals
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
   const latestRun = { ...run, summary: { ...run.summary, elapsedTimeMillis: undefined } };
   const laps = [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }];
-  const initial = { userId: "owner", time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145], laps } as ActivityStreams;
+  const initial = { userId: "owner", calories: 0, time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145], laps } as ActivityStreams;
   const latest = { ...initial, time: [0, 120].map(second => run.startTime + second * 1000), heartrate: [140, 150] };
   const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
   const click = vi.mocked(HTMLAnchorElement.prototype.click);
@@ -348,7 +348,7 @@ it("retains the selected single-lap layout while an updated stream asks for its 
     { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime, endTimeMs: run.startTime + 60_000 },
     { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime + 60_000, endTimeMs: run.startTime + 120_000 },
   ];
-  const initial = markVerifiedStreamCadence({ userId: "owner", time: [0, 60, 120, 125].map(time => run.startTime + time * 1000),
+  const initial = markVerifiedStreamCadence({ userId: "owner", calories: 0, time: [0, 60, 120, 125].map(time => run.startTime + time * 1000),
     cadence: [170, 171, 172, 173], laps } as ActivityStreams, "a".repeat(64), "spm");
   const latest = markVerifiedStreamCadence({ ...initial, time: initial.time?.slice(0, 3), cadence: [170, 171, 172] }, "b".repeat(64), null);
   const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
@@ -372,10 +372,13 @@ it("retains the selected single-lap layout while an updated stream asks for its 
   }
 });
 
-it("offers CSV when the TCX totals cannot represent the recorded activity calories", async () => {
+it.each([
+  [270, /calories are available for the whole activity|칼로리는 활동 전체 수치|tcxCaloriesHelp/iu],
+  [undefined, /TCX requires a calorie value|TCX는 랩마다 칼로리|tcxCaloriesMissing/iu],
+])("offers CSV when the TCX lap calories cannot be represented (activity calories %s)", async (calories, help) => {
   const run = { ...activity, type: "Run", source: "strava", summary: {} } as Activity;
   const samples = {
-    userId: "owner", time: [0, 59, 115], heartrate: [140, 150, 145], calories: 270,
+    userId: "owner", time: [0, 59, 115], heartrate: [140, 150, 145], calories,
     laps: [
       { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime, endTimeMs: run.startTime + 60_000 },
       { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime + 60_000, endTimeMs: run.startTime + 120_000 },
@@ -383,7 +386,7 @@ it("offers CSV when the TCX totals cannot represent the recorded activity calori
   } as ActivityStreams;
   render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={async () => samples} />);
   await act(async () => fireEvent.click(screen.getByText("TCX")));
-  expect(screen.getByText(/calories are available for the whole activity|칼로리는 활동 전체 수치|tcxCaloriesHelp/iu)).toBeVisible();
+  expect(screen.getByText(help)).toBeVisible();
   expect(screen.queryByRole("button", { name: /keep recorded laps|기록된 랩 유지|tcxLapsChoice.recorded/iu })).toBeNull();
   await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
   expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(samples);
