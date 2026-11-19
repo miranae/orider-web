@@ -178,6 +178,26 @@ describe("훈련 스냅샷 영속 캐시", () => {
     },
   );
 
+  it("removes and reports an invalid legacy envelope only for its matching owner", async () => {
+    const legacyKey = "orider.trainingSurfaceCache.v2";
+    const invalid = JSON.stringify({ schema: -1, uid: key.uid, scope, entries: [] });
+    localStorage.setItem(legacyKey, invalid);
+    vi.mocked(captureError).mockClear();
+    const other = await freshCache();
+    other.prepareTrainingSurfaceCacheOwner("other");
+    expect(captureError).not.toHaveBeenCalled();
+    expect(localStorage.getItem(legacyKey)).toBe(invalid);
+
+    const current = await freshCache();
+    current.prepareTrainingSurfaceCacheOwner(key.uid);
+    expect(localStorage.getItem(legacyKey)).toBeNull();
+    expect(current.getTrainingSurfaceCache(key)).toBeNull();
+    expect(captureError).toHaveBeenCalledWith(
+      new Error("Training snapshot restore failed (TypeError)"),
+      { tags: { source: "trainingSurfaceCache.restore" } },
+    );
+  });
+
   it("로그아웃은 구버전 prefix까지 삭제하고 다른 저장소는 유지한다", async () => {
     const cache = await freshCache();
     cache.prepareTrainingSurfaceCacheOwner(key.uid);

@@ -179,9 +179,9 @@ function restore(uid: string): void {
     const scoped = disk.getItem(scopedKey);
     const encoded = scoped ?? disk.getItem(LEGACY_STORAGE_KEY);
     if (encoded === null) return;
-    const rejectSnapshot = (error: unknown) => {
+    const rejectSnapshot = (error: unknown, rejectedKey = scoped === null ? null : scopedKey) => {
       reportRestoreFailure(error);
-      if (scoped !== null) disk.removeItem(scopedKey);
+      if (rejectedKey !== null) disk.removeItem(rejectedKey);
     };
     if (encoded.length > CACHE_MAX_BYTES || new TextEncoder().encode(encoded).byteLength > CACHE_MAX_BYTES) {
       rejectSnapshot(new RangeError("Training snapshot exceeds the storage limit"));
@@ -190,9 +190,12 @@ function restore(uid: string): void {
     let envelope: unknown;
     try { envelope = JSON.parse(encoded); }
     catch (error) { rejectSnapshot(error); return; }
-    if (!isRecord(envelope) || envelope.schema !== TRAINING_SURFACE_CACHE_SCHEMA_VERSION
-      || envelope.uid !== uid || envelope.scope !== scope || !Array.isArray(envelope.entries) || envelope.entries.length > CACHE_MAX_ENTRIES) {
-      if (scoped !== null) rejectSnapshot(new TypeError("Training snapshot is incompatible with its storage key"));
+    const currentOwner = isRecord(envelope) && envelope.uid === uid && envelope.scope === scope;
+    if (!currentOwner || envelope.schema !== TRAINING_SURFACE_CACHE_SCHEMA_VERSION
+      || !Array.isArray(envelope.entries) || envelope.entries.length > CACHE_MAX_ENTRIES) {
+      if (scoped !== null || currentOwner) {
+        rejectSnapshot(new TypeError("Training snapshot is incompatible with its storage key"), scoped === null ? LEGACY_STORAGE_KEY : scopedKey);
+      }
       return;
     }
     const now = Date.now();
