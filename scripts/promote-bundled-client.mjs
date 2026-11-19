@@ -120,11 +120,15 @@ async function verifyGatewayReadiness(url, fetcher) {
 export async function verifyClientPromotion(options, fetcher = fetch) {
   const receipt = json(join(options.directory, "promotion.json"));
   // Check reachability and the login callable for the production browser origin.
-  const { firebaseFunctionsBase, socialAuthFunctionsBase } = receipt.runtime;
+  const { aiApiBase, firebaseFunctionsBase, socialAuthFunctionsBase } = receipt.runtime;
   await Promise.all([
     verifyGatewayReadiness(`${firebaseFunctionsBase}/readyz`, fetcher),
     ...productionOrigins.flatMap(origin => [
       verifyBundledCallable({ base: firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher }),
+      verifyBundledCallable({
+        base: aiApiBase, origin, name: "v1/activity-narrative", fetcher,
+        requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" },
+      }),
       verifyBundledCallable({
         base: firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher,
         requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
