@@ -1,0 +1,153 @@
+name: Promote verified Hosting artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Rehearse prepares the exact files without publishing
+        type: choice
+        options: [rehearse, promote]
+        default: rehearse
+      candidate_run_id:
+        description: Successful Deploy (Hosting → stage) run ID
+        required: true
+      candidate_run_attempt:
+        description: Successful run attempt
+        required: true
+        default: '1'
+
+permissions:
+  contents: read
+  actions: read
+
+# 운영 게시자를 하나로 직렬화한다. 기존 태그 배포도 같은 그룹을 쓴다.
+concurrency:
+  group: deploy-hosting-production
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      frontend_source: ${{ steps.prepare.outputs.frontend_source }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install verification tools (no build)
+        run: npm ci
+      - name: Restore successful development candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
+          CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+        run: |
+          set -euo pipefail
+          node -e 'for(const v of [process.env.CANDIDATE_RUN,process.env.CANDIDATE_ATTEMPT])if(!/^[1-9][0-9]*$/.test(v||""))throw Error("positive run/attempt required")'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" > "$RUNNER_TEMP/candidate-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/candidate-artifacts.json"
+          node --input-type=module <<'JS'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {validateCandidateRun} from './scripts/promote-bundled-client.mjs';
+          const read = name => JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/${name}.json`));
+          const artifacts = read('candidate-artifacts').artifacts.filter(a => a.name.startsWith('stage-client-'));
+          if(artifacts.length!==1) throw Error('one retained client candidate required');
+          validateCandidateRun(read('candidate-run'),artifacts[0],process.env.CANDIDATE_ATTEMPT);
+          writeFileSync(`${process.env.RUNNER_TEMP}/candidate-artifact.json`,JSON.stringify(artifacts[0]));
+          JS
+          artifact_name=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/candidate-artifact.json")).name')
+          gh run download "$CANDIDATE_RUN" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$RUNNER_TEMP/client-candidate"
+      - name: Prepare identical compiled files with production runtime
+        id: prepare
+        env:
+          CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+        run: |
+          set -euo pipefail
+          node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate" --directory "$RUNNER_TEMP/client-promotion" --run "$RUNNER_TEMP/candidate-run.json" --artifact "$RUNNER_TEMP/candidate-artifact.json" --attempt "$CANDIDATE_ATTEMPT"
+          source_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-promotion/promotion.json")).frontendSourceSha')
+          git merge-base --is-ancestor "$source_sha" origin/main
+          echo "frontend_source=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "Reused development candidate: $source_sha. JavaScript/static files unchanged; runtime and Hosting routes prepared for production. No build or production publication." >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain prepared promotion evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-promotion-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          retention-days: 90
+          path: |
+            dist
+            firebase.bundled-production.json
+            ${{ runner.temp }}/client-promotion/promotion.json
+
+  promote:
+    if: inputs.phase == 'promote'
+    needs: prepare
+    runs-on: [self-hosted, macOS, ARM64, web-hosting]
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      CLIENT_PROMOTION_DIRECTORY: ${{ runner.temp }}/client-production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: client-promotion-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/client-ready
+      - name: Restore prepared production files
+        run: |
+          node --input-type=module <<'JS'
+          import {readdirSync,cpSync,mkdirSync} from 'node:fs';
+          import {join,dirname} from 'node:path';
+          const root=join(process.env.RUNNER_TEMP,'client-ready');
+          const find=(dir,name)=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?find(join(dir,e.name),name):e.name===name?[join(dir,e.name)]:[]);
+          const configs=find(root,'firebase.bundled-production.json'),receipts=find(root,'promotion.json');
+          if(configs.length!==1||receipts.length!==1)throw Error('one prepared client required');
+          cpSync(join(dirname(configs[0]),'dist'),'dist',{recursive:true});
+          cpSync(configs[0],'firebase.bundled-production.json');
+          mkdirSync(process.env.CLIENT_PROMOTION_DIRECTORY);
+          cpSync(receipts[0],join(process.env.CLIENT_PROMOTION_DIRECTORY,'promotion.json'));
+          JS
+      - name: Verify unchanged files and exact production backend
+        run: node scripts/promote-bundled-client.mjs --phase verify
+      - name: Auth (production Hosting only)
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - name: Publish verified artifact (no build)
+        env:
+          FRONTEND_SOURCE: ${{ needs.prepare.outputs.frontend_source }}
+        run: |
+          set -euo pipefail
+          npm install -g firebase-tools
+          firebase deploy --config firebase.bundled-production.json --only hosting --project miranae-orider-g1 --non-interactive --token '${{ steps.auth.outputs.access_token }}' --message "client-promotion:$FRONTEND_SOURCE:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
+      - name: Verify production entry, runtime and aliases
+        run: |
+          node scripts/promote-bundled-client.mjs --phase check-files
+          node scripts/verify-bundled-hosting.mjs --environment production
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {stageHtmlEntry} from './scripts/lib/stage-artifact-manifest.mjs';
+          const get=async path=>{const r=await fetch(`https://orider.co.kr/${path}?promotion=${process.env.GITHUB_RUN_ID}`,{cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error(`production ${path} HTTP${r.status}`);return r.text();};
+          if(await get('runtime-config.json')!==readFileSync('dist/runtime-config.json','utf8'))throw Error('production runtime differs');
+          if(stageHtmlEntry(await get(''))!==stageHtmlEntry(readFileSync('dist/index.html','utf8')))throw Error('production entry differs');
+          JS
+      - name: Record promoted source
+        env:
+          FRONTEND_SOURCE: ${{ needs.prepare.outputs.frontend_source }}
+        run: echo "Published verified frontend $FRONTEND_SOURCE from development run ${{ inputs.candidate_run_id }}/${{ inputs.candidate_run_attempt }} without rebuilding. Production entry bytes, runtime and HTTP aliases verified." >> "$GITHUB_STEP_SUMMARY"

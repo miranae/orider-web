@@ -35,6 +35,7 @@ const contracts = [
   'scripts/eslint-embedded-firebase.test.mjs',
   'scripts/prepare-bundled-stage.test.mjs',
   'scripts/prepare-bundled-production.test.mjs',
+  'scripts/promote-bundled-client.test.mjs',
 ];
 
 function runGate({ feature = false, fail = '' } = {}) {
