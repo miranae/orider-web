@@ -1164,6 +1164,37 @@ it("releases an old continuation's busy state when the injected app changes", as
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
 
+it("removes existing public cards and ignores an older continuation after a block revision", async () => {
+  const profile = { nickname: "Public rider", profilePublic: true };
+  setDocData("users_public/athlete-1", profile);
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let blocked = false;
+  let resolveOld!: (value: Awaited<ReturnType<typeof loadActivityDiscovery>>) => void;
+  const page = (description: string, cursor: string | null) => ({
+    expiresAt: Date.now() + 600000,
+    items: [createMockActivity({ id: description, userId: "athlete-1", description })] as never,
+    nextCursor: cursor,
+    exhausted: cursor === null,
+  });
+  vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
+    if (blocked) return { ...page("", null), items: [] };
+    if (request.cursor) return new Promise(resolve => { resolveOld = resolve; });
+    return page("Visible before block", "next");
+  });
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("Visible before block");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    await waitFor(() => expect(resolveOld).toBeDefined());
+    blocked = true;
+    act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "blocked" }));
+    await waitFor(() => expect(screen.queryByText("Visible before block")).not.toBeInTheDocument());
+    await act(async () => resolveOld(page("Late private activity", null)));
+    expect(screen.queryByText("Late private activity")).not.toBeInTheDocument();
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
 it("observes first signal insertion on existing documents whose counters start at version zero", async () => {
   setDocData("users_public/athlete-1", { nickname: "Initial version rider", profilePublic: false });
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });

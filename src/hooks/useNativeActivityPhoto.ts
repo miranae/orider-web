@@ -24,6 +24,8 @@ export function useNativeActivityPhoto(photo: NativePhotoReference | undefined, 
   useEffect(() => {
     if (!enabled || !visible || !activityId || !photoId) return;
     let active = true;
+    const viewer = services.auth.currentUser;
+    const current = () => active && services.auth.currentUser === viewer && services.isSessionApproved?.(viewer) !== false;
     let url: string | null = null;
     // 주기 재확인 없음: 보이는 사진마다 30초마다 getActivityPhotoData 를 불러, 사진이 많은 화면을
     // 띄워 두면 호출이 끝없이 쌓였다. 탭을 숨기면 바이트를 지우고 돌아올 때 다시 받으며(위 visible),
@@ -46,11 +48,15 @@ export function useNativeActivityPhoto(photo: NativePhotoReference | undefined, 
     };
     setResult(null);
     void loadNativeActivityPhoto(services, { activityId, photoId }).then(blob => {
-      if (!active) return;
+      if (!current()) return;
       url = URL.createObjectURL(blob);
       verifiedAt = Date.now();
       setResult({ key, services, url, error: null });
-    }).catch(error => { if (active) setResult({ key, services, url: null, error }); });
+    }).catch(error => {
+      if (!(error instanceof Error && error.message === "account_changed"))
+        logClientError("useNativeActivityPhoto.load", error, { activityId, photoId }, services, viewer, current);
+      if (current()) setResult({ key, services, url: null, error });
+    });
     window.addEventListener("focus", focus);
     return () => { active = false; window.removeEventListener("focus", focus); if (url) URL.revokeObjectURL(url); };
   }, [key, services, activityId, photoId, attempt, enabled, visible]);
