@@ -76,18 +76,21 @@ test("basic gateway readiness accepts a different backend commit without broad c
     await verifyClientPromotion(f,async url=>{urls.push(String(url));return Response.json({status:"ok",sourceSha:"e".repeat(40),topologyHash:"f".repeat(64)});});
     assert.deepEqual(urls,["https://orider-bundle-default-api-289663940841.asia-northeast3.run.app/readyz"]);
     await assert.rejects(verifyClientPromotion(f,async()=>new Response("not ready",{status:503})),/unavailable/);
+    await assert.rejects(verifyClientPromotion(f,async()=>new Response("<html>error</html>")),/response body is invalid.*\/readyz/);
   }finally{f.cleanup();}
 });
 
-test("one public release check validates the HTML, runtime and sitemap rewrite",async()=>{
+test("one public release check validates the HTML, entry, runtime and sitemap rewrite",async()=>{
   const f=fixture();try{
     prepareClientPromotion(f);const urls=[];
     const fetcher=async url=>{
       urls.push(url.pathname);
       if (url.pathname === "/sitemap.xml") return new Response("<urlset/>", {headers:{"content-type":"application/xml"}});
-      return new Response(readFileSync(join(f.workspace,"dist",url.pathname==="/"?"index.html":url.pathname.slice(1))));
+      const file = join(f.workspace, "dist", url.pathname === "/" ? "index.html" : url.pathname.slice(1));
+      return new Response(readFileSync(file), {headers:{"content-type":url.pathname.endsWith(".js") ? "application/javascript" : "text/plain"}});
     };
-    await verifyPublishedPromotion(f,fetcher);assert.deepEqual(urls.sort(),["/","/runtime-config.json","/sitemap.xml"]);
+    await verifyPublishedPromotion(f,fetcher);assert.deepEqual(urls.sort(),["/","/assets/index-abc.js","/runtime-config.json","/sitemap.xml"]);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>url.pathname.endsWith(".js") ? new Response("<html>fallback</html>", {headers:{"content-type":"text/html"}}) : fetcher(url)),/did not return JavaScript/);
     await assert.rejects(verifyPublishedPromotion(f,async url=>url.pathname === "/sitemap.xml" ? new Response("not found", {status:404}) : fetcher(url)),/sitemap.xml.*HTTP404/);
     await assert.rejects(verifyPublishedPromotion(f,async url=>url.pathname === "/runtime-config.json" ? new Response("stale") : fetcher(url)),/differs/);
   }finally{f.cleanup();}

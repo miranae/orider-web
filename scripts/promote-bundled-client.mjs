@@ -57,8 +57,13 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     || !candidate.artifactManifest.some(([path]) => path === "index.html")) throw new Error("sealed development runtime/entry mismatch");
   // The Vite shell uses root-relative assets. A base element can redirect them
   // to the development origin when the same HTML is published to production.
-  if (/<base(?:[\t\n\f\r />]|$)/iu.test(readFileSync(join(sourceDist, "index.html"), "utf8"))) {
+  const html = readFileSync(join(sourceDist, "index.html"), "utf8");
+  if (/<base(?:[\t\n\f\r />]|$)/iu.test(html)) {
     throw new Error("development entry HTML must not set a base URL");
+  }
+  const entry = candidate.entry ?? html.match(/\bsrc\s*=\s*(["'])\/(assets\/index-[A-Za-z0-9_-]+\.js)\1/u)?.[2];
+  if (!/^assets\/index-[A-Za-z0-9_-]+\.js$/u.test(entry ?? "") || !candidate.artifactManifest.some(([path]) => path === entry)) {
+    throw new Error("verified Vite entry is missing from the development artifact");
   }
   const runtime = bundledFunctionsConfig(candidateRuntime, "production");
   const hosting = bundledHostingConfig(json(configs[0]), "production");
@@ -77,7 +82,7 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     candidateArchive: { bucket: artifact.bucket, object: artifact.object, generation: artifact.generation, sha256: artifact.sha256 },
     backend: { sourceSha: candidate.backendSourceSha, topologyHash: candidate.backendTopologyHash },
     originalArtifactHash: candidate.artifactHash, artifactManifest: expected, runtime,
-    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), rebuilt: false };
+    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), entry, rebuilt: false };
   save(join(directory, "promotion.json"), receipt);
   return receipt;
 }
@@ -98,14 +103,16 @@ export async function verifyClientPromotion(options, fetcher = fetch) {
     await response.body?.cancel();
     throw new Error(`production gateway unavailable at ${url}: HTTP${response.status}`);
   }
-  const ready = await response.json();
-  if (ready.status !== "ok") throw new Error("production gateway is not ready");
+  let ready;
+  try { ready = await response.json(); }
+  catch (cause) { throw new Error(`production gateway GET response body is invalid at ${url}`, { cause }); }
+  if (ready?.status !== "ok") throw new Error(`production gateway is not ready at ${url}`);
   return receipt;
 }
 export async function verifyPublishedPromotion({ directory, origin = "https://orider.co.kr" }, fetcher = fetch) {
   const receipt = json(join(directory, "promotion.json")), expected = new Map(receipt.artifactManifest);
-  // Check the published shell and runtime once, with the sitemap rewrite in the same batch.
-  await Promise.all(["index.html", "runtime-config.json", "sitemap.xml"].map(async path => {
+  // Check the previously validated Vite entry in parallel with the shell and sitemap.
+  await Promise.all(["index.html", "runtime-config.json", receipt.entry, "sitemap.xml"].map(async path => {
     const url = new URL(path === "index.html" ? "/" : `/${path}`, origin); url.searchParams.set("promotion", receipt.frontendSourceSha);
     const response = await fetchPromotionResource(url, fetcher);
     if (!response.ok) { await response.body?.cancel(); throw new Error(`published ${url} HTTP${response.status}`); }
@@ -116,7 +123,15 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
       }
       return;
     }
-    if (hash(Buffer.from(await response.arrayBuffer())) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact`);
+    const mime = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+    if (path === receipt.entry && !["application/javascript", "text/javascript"].includes(mime)) {
+      await response.body?.cancel();
+      throw new Error(`published entry did not return JavaScript at ${url}`);
+    }
+    let bytes;
+    try { bytes = Buffer.from(await response.arrayBuffer()); }
+    catch (cause) { throw new Error(`published GET response body could not be read at ${url}`, { cause }); }
+    if (hash(bytes) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact`);
   }));
   return receipt;
 }
