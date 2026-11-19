@@ -71,6 +71,53 @@ it("loads public totals without owner authentication and fences guest-to-login t
   setCallableImplementation("getPublicAthleteTotals", () => { services.auth.currentUser = { uid: "viewer" } as never; return root(); });
   await expect(loadPublicAthleteTotals(services, "target", () => true)).rejects.toThrow("session-changed");
 });
+it("sends embedded guest totals without credentials even when the SDK user changes during the request", async () => {
+  services.auth.currentUser = null;
+  services.scope = "embedded";
+  services.isSessionApproved = viewer => viewer === null;
+  services.functions = { app: { options: { projectId: "test-project" } } } as FirebaseServices["functions"];
+  services.getAppCheckToken = vi.fn().mockResolvedValue("embedded-app-check");
+  const lateUser = { uid: "late", getIdToken: vi.fn().mockResolvedValue("unapproved") };
+  const request = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    services.auth.currentUser = lateUser as never;
+    return Response.json({ result: root() });
+  });
+  try {
+    await expect(loadPublicAthleteTotals(services, "target", () => true)).rejects.toThrow("session-changed");
+    expect(request).toHaveBeenCalledWith(expect.stringMatching(/\/getPublicAthleteTotals$/), expect.objectContaining({
+      method: "POST", credentials: "omit", redirect: "error",
+      headers: { "Content-Type": "application/json", "X-Firebase-AppCheck": "embedded-app-check" },
+      body: JSON.stringify({ data: { userId: "target" } }),
+    }));
+    expect(lateUser.getIdToken).not.toHaveBeenCalled();
+    expect(mockCallableInvocations).toHaveLength(0);
+  } finally {
+    request.mockRestore();
+  }
+});
+it("drops an embedded totals request when approval changes while the captured viewer token is pending", async () => {
+  let resolveToken!: (value: string) => void;
+  const token = new Promise<string>(resolve => { resolveToken = resolve; });
+  const approved = { uid: "viewer", getIdToken: vi.fn(() => token) };
+  const replacement = { uid: "viewer", getIdToken: vi.fn().mockResolvedValue("new-session") };
+  services.auth.currentUser = approved as never;
+  services.scope = "embedded";
+  services.isSessionApproved = viewer => viewer === (approved as never);
+  services.getAppCheckToken = vi.fn().mockResolvedValue("embedded-app-check");
+  const request = vi.spyOn(globalThis, "fetch");
+  try {
+    const pending = loadPublicAthleteTotals(services, "target", () => true);
+    await Promise.resolve();
+    expect(approved.getIdToken).toHaveBeenCalledOnce();
+    services.auth.currentUser = replacement as never;
+    resolveToken("previous-session");
+    await expect(pending).rejects.toThrow("session-changed");
+    expect(request).not.toHaveBeenCalled();
+    expect(replacement.getIdToken).not.toHaveBeenCalled();
+  } finally {
+    request.mockRestore();
+  }
+});
 it("validates public pending/failed without inventing zero and rejects malformed ready values", () => {
   for (const state of ["pending", "failed"]) expect(parsePublicAthleteTotals({ schemaVersion: 1, state, revision: 0 })).toEqual({ schemaVersion: 1, state, revision: 0 });
   expect(parsePublicAthleteTotals({ schemaVersion: 1, state: "ready", revision: 0 })).toBeNull();

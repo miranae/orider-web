@@ -2,6 +2,7 @@ import { httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { AthletePhoto } from "../components/athlete/AthletePhotoGallery";
 import type { Activity } from "@shared/types";
+import { getRuntimeConfig, isEmulatorRuntime, isFunctionsGatewayRuntime } from "./runtimeConfig";
 export interface AthleteProfileTotals {
   integrityFailed?: true;
   schemaVersion: 1; ownerUid: string; epoch: string; state: "pending" | "ready" | "failed"; revision: number;
@@ -33,21 +34,73 @@ export async function loadPublicAthleteTotals(services: FirebaseServices, uid: s
   if (!totals) throw new Error("athlete-profile-invalid-totals");
   return totals;
 }
+
+async function callEmbeddedPublicTotals<T>(
+  services: FirebaseServices,
+  owner: FirebaseServices["auth"]["currentUser"],
+  data: unknown,
+  valid: () => boolean,
+  signal: AbortSignal,
+): Promise<T> {
+  // Bind credentials to the approved viewer before fetch. The callable SDK resolves live Auth after invocation.
+  const [appCheck, authToken] = await Promise.all([services.getAppCheckToken(), owner?.getIdToken()]);
+  if (!valid()) throw new Error("athlete-profile-session-changed");
+  const config = getRuntimeConfig();
+  const emulator = isEmulatorRuntime();
+  if (!appCheck && !emulator) throw new Error("app-check/empty-token");
+  if (owner && !authToken) throw new Error("athlete-profile-empty-auth-token");
+  const project = services.functions.app.options.projectId;
+  const region = config.firebaseFunctionsRegion || "us-central1";
+  const base = emulator && project ? `http://localhost:${Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001)}/${project}/${region}`
+    : isFunctionsGatewayRuntime(config) ? config.firebaseFunctionsBase
+    : project ? `https://${region}-${project}.cloudfunctions.net` : undefined;
+  if (!base) throw new Error("athlete-profile-endpoint-unavailable");
+  const response = await fetch(`${base}/getPublicAthleteTotals`, {
+    method: "POST",
+    credentials: "omit",
+    redirect: "error",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      ...(appCheck ? { "X-Firebase-AppCheck": appCheck } : {}),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    },
+    body: JSON.stringify({ data }),
+  });
+  const payload = await response.json() as { result?: T; data?: T; error?: { status?: string } };
+  if (!response.ok || payload.error) {
+    const status = payload.error?.status;
+    const code = status && /^[A-Z_]+$/.test(status) ? status.toLowerCase().replace(/_/g, "-") : "unavailable";
+    throw Object.assign(new Error("athlete-profile-callable-failed"), { code: `functions/${code}` });
+  }
+  return (payload.result ?? payload.data) as T;
+}
+
 export async function callAthleteProfile<T>(services: FirebaseServices, uid: string, name: string, data: unknown, current: () => boolean, publicTotals = false): Promise<T> {
   const owner = services.auth.currentUser;
+  const embeddedPublicTotals = services.scope === "embedded" && publicTotals && name === "getPublicAthleteTotals";
+  const controller = new AbortController();
   let expired = false, timer: ReturnType<typeof setTimeout> | undefined;
-  const valid = () => !expired && current() && services.auth.currentUser === owner && (publicTotals && name === "getPublicAthleteTotals" || owner?.uid === uid);
+  const valid = () => !expired && current() && services.auth.currentUser === owner
+    && (!embeddedPublicTotals || services.isSessionApproved?.(owner) === true)
+    && (publicTotals && name === "getPublicAthleteTotals" || owner?.uid === uid);
   try {
     return await Promise.race([
       (async () => {
         if (!valid()) throw new Error("athlete-profile-session-changed");
         await services.ensureAppCheckReady();
         if (!valid()) throw new Error("athlete-profile-session-changed");
-        const response = await httpsCallable<unknown, T>(services.functions, name)(data);
+        const result = embeddedPublicTotals
+          ? await callEmbeddedPublicTotals<T>(services, owner, data, valid, controller.signal)
+          : (await httpsCallable<unknown, T>(services.functions, name)(data)).data;
         if (!valid()) throw new Error("athlete-profile-session-changed");
-        return response.data;
+        return result;
       })(),
-      new Promise<never>((_, reject) => { timer = setTimeout(() => { expired = true; reject(new Error("athlete-profile-timeout")); }, 12000); }),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => {
+        expired = true;
+        reject(new Error("athlete-profile-timeout"));
+        controller.abort();
+      }, 12000); }),
     ]);
   } finally { if (timer) clearTimeout(timer); }
 }
