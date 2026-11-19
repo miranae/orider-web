@@ -46,6 +46,24 @@ async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
   }
   return health.topologyHash;
 }
+export async function verifyStageAiRevision(sourceSha, token, fetcher = fetch) {
+  if (!SHA.test(sourceSha || "") || !token) throw new Error("stage AI revision verification requires source SHA and access token");
+  const name = "projects/orider-dev/locations/asia-northeast3/services/dev-bundle-ai-api";
+  const url = `https://run.googleapis.com/v2/${name}`;
+  let response;
+  try { response = await fetcher(url, { headers: { Authorization: `Bearer ${token}` }, redirect: "error", signal: AbortSignal.timeout(20000) }); }
+  catch { throw new Error(`stage AI service GET transport failed at ${url}`); }
+  if (!response.ok) { await response.body?.cancel(); throw new Error(`stage AI service GET HTTP${response.status} at ${url}`); }
+  let service;
+  try { service = await response.json(); }
+  catch { throw new Error(`stage AI service GET invalid JSON at ${url}`); }
+  const traffic = service?.trafficStatuses;
+  if (service?.name !== name || service.labels?.["orider-source"] !== sourceSha || service.reconciling
+    || service.terminalCondition?.state !== "CONDITION_SUCCEEDED" || !service.latestReadyRevision
+    || traffic?.length !== 1 || traffic[0].percent !== 100
+    || traffic[0].revision?.split("/").at(-1) !== service.latestReadyRevision.split("/").at(-1))
+    throw new Error(`stage AI serving revision differs from ${sourceSha} at ${url}`);
+}
 export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
   const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
   for (const origin of ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"]) {
@@ -149,6 +167,7 @@ async function main() {
   const receipt = phase === "prepare" ? await prepareBundledStage({ directory,
     backendSourceSha: args["--backend-source"], frontendSourceSha: git(process.cwd(), "rev-parse", "HEAD"), githubEnv: process.env.GITHUB_ENV })
     : phase === "seal" ? await sealBundledStage(directory) : await verifyBundledStage(directory, fetch, { identityOnly: phase === "verify-identity" });
+  if (phase === "verify-identity") await verifyStageAiRevision(receipt.backendSourceSha, process.env.HOSTING_ACCESS_TOKEN);
   console.log(JSON.stringify({ phase, frontendSourceSha: receipt.frontendSourceSha, backendSourceSha: receipt.backendSourceSha, backendTopologyHash: receipt.backendTopologyHash, complete: receipt.complete === true }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

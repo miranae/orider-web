@@ -229,6 +229,8 @@ jobs:
       - name: Verify bundled production Hosting entry bytes and HTTP aliases
         id: bundle_verify
         if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
           node scripts/verify-bundled-hosting.mjs --environment production
           node scripts/prepare-bundled-production.mjs --phase verify-identity

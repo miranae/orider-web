@@ -172,6 +172,8 @@ jobs:
           set -e
           if [ "$status" -ne 0 ] && ! grep -q "is the current active version" "$log"; then exit "$status"; fi
       - name: Verify production entry, runtime and aliases
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
           node scripts/verify-bundled-hosting.mjs --environment production
           node scripts/promote-bundled-client.mjs --phase verify-identity

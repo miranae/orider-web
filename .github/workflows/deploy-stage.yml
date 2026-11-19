@@ -197,6 +197,8 @@ jobs:
           if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
       - name: Verify bundled development Hosting entry bytes and HTTP aliases
         if: inputs.transport == 'bundled-development'
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
           node scripts/verify-bundled-hosting.mjs --environment development
           node scripts/prepare-bundled-stage.mjs --phase verify-identity

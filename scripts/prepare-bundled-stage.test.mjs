@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
 import { verifyBundledHosting } from "./verify-bundled-hosting.mjs";
 import { stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
-import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
-import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
+import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, verifyHostedAssets, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
+import { prepareBundledStage, sealBundledStage, verifyBundledStage, verifyStageAiRevision } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841",
@@ -241,6 +241,37 @@ test("development rollback is wired after the live checks and before artifact pu
   assert.ok(workflow.indexOf("--phase rollback") > workflow.indexOf("Development detail response mismatch"));
   assert.ok(workflow.indexOf("--phase rollback") < workflow.indexOf("Retain verified bundled client artifact"));
   assert.match(workflow, /if: always\(\) && \(failure\(\) \|\| cancelled\(\)\).*steps\.hosting_snapshot\.outcome == 'success'/);
+});
+
+test("stage AI serving revision must belong to the accepted backend source", async () => {
+  const name = "projects/orider-dev/locations/asia-northeast3/services/dev-bundle-ai-api";
+  const revision = `${name}/revisions/current`, sha = "b".repeat(40);
+  const service = { name, labels: { "orider-source": sha }, terminalCondition: { state: "CONDITION_SUCCEEDED" },
+    latestReadyRevision: revision, trafficStatuses: [{ revision, percent: 100 }] };
+  await verifyStageAiRevision(sha, "fixture", async () => Response.json(service));
+  await assert.rejects(verifyStageAiRevision("c".repeat(40), "fixture", async () => Response.json(service)), /serving revision differs/u);
+  await assert.rejects(verifyStageAiRevision(sha, "fixture", async () => Response.json({ ...service,
+    trafficStatuses: [{ revision: `${name}/revisions/previous`, percent: 100 }],
+  })), /serving revision differs/u);
+});
+
+test("the finalized live Hosting inventory must contain lazy JavaScript and CSS", async () => {
+  const site = "sites/orider-dev", channel = `${site}/channels/live`, version = `${site}/versions/current`;
+  const pages = [];
+  const fetcher = async (url, options) => {
+    assert.equal(options.headers.Authorization, "Bearer fixture");
+    if (url.endsWith(channel)) return Response.json({ name: channel, release: {
+      name: `${site}/releases/current`, version: { name: version },
+    } });
+    const cursor = new URL(url).searchParams.get("pageToken");
+    pages.push(cursor);
+    return Response.json(cursor ? { files: [{ path: "/assets/lazy.css", status: "ACTIVE" }] }
+      : { files: [{ path: "/assets/entry.js", status: "ACTIVE" }], nextPageToken: "second" });
+  };
+  const options = { token: "fixture", environment: "development", fetcher };
+  await verifyHostedAssets(["/assets/entry.js", "/assets/lazy.css"], options);
+  assert.deepEqual(pages, [null, "second"]);
+  await assert.rejects(verifyHostedAssets(["/assets/absent.js"], options), /missing 1 compiled assets.*absent.js/u);
 });
 
 test("production rollback targets only the live production release owned by the attempt", async () => {

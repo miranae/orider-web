@@ -59,6 +59,28 @@ export async function verifyStagePublishPointer(snapshot, { token, fetcher = fet
   }
   return { verified: true, version: snapshot.previousVersion };
 }
+export async function verifyHostedAssets(assetPaths, { token, environment, fetcher = fetch }) {
+  const target = hostingTarget(environment, "true");
+  const live = await request(target, fetcher, token, "GET", API + target.channel);
+  const version = currentVersion(live, target), missing = new Set(assetPaths);
+  const tokens = new Set();
+  let nextPageToken;
+  do {
+    const params = new URLSearchParams({ status: "ACTIVE", pageSize: "1000" });
+    if (nextPageToken) params.set("pageToken", nextPageToken);
+    const page = await request(target, fetcher, token, "GET", `${API}${version}/files?${params}`);
+    for (const row of page.files ?? []) {
+      if (row.status === "ACTIVE") missing.delete(row.path);
+    }
+    nextPageToken = page.nextPageToken;
+    if (nextPageToken && tokens.has(nextPageToken)) throw new Error(`${target.label} Hosting files GET repeated a page for ${version}`);
+    tokens.add(nextPageToken);
+  } while (nextPageToken && missing.size > 0);
+  if (missing.size > 0) throw new Error(`${target.label} Hosting ${version} missing ${missing.size} compiled assets, including ${[...missing][0]}`);
+  const after = await request(target, fetcher, token, "GET", API + target.channel);
+  if (currentVersion(after, target) !== version || releaseName(after, target) !== releaseName(live, target))
+    throw new Error(`${target.label} Hosting changed while verifying the published assets`);
+}
 export async function rollbackStageHosting(snapshot, { token, fetcher = fetch, serializedWrites, environment = "development", pause = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
   const target = hostingTarget(environment, serializedWrites); validateSnapshot(snapshot, target);
   let channel = await request(target, fetcher, token, "GET", API + target.channel);
