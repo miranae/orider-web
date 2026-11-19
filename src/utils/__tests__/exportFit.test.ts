@@ -282,3 +282,15 @@ it("validates elapsed time before quantizing FIT record timestamps", () => {
   const session = readSession(generateFit(activity, prepared, "spm"));
   expect(session.get(7)).toBe(1950);
 });
+
+it("does not use empty trailing raw grid slots as FIT observations", () => {
+  const startTime = 1_700_000_000_000;
+  const source = makeActivity({ type: "Run", startTime, endTime: startTime + 1000 });
+  const activity = { ...source, summary: { ...source.summary, ridingTimeMillis: 1000, elapsedTimeMillis: 1000 } };
+  const raw = markRawPartStreams({ userId: "owner", time: [0, 1, 2, 3], cadence: [170, 172] }, "a".repeat(64), startTime);
+  const prepared = prepareActivityFileStreams(activity, raw, "fit");
+  expect(prepared.time).toEqual([0, 1]);
+  const session = readSession(generateFit(activity, prepared, "spm"));
+  expect(session.get(7)).toBe(1000);
+  expect(session.get(253)! - session.get(2)!).toBe(1);
+});

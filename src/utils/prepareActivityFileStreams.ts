@@ -111,8 +111,15 @@ export function prepareActivityFileStreams(activity: Activity, streams: Activity
   const timed = alignRawPartTimeline(activity, streams);
   if (format !== "fit" || !usesVerifiedActivityTime(timed)) return timed;
   // FIT timestamps are integer seconds. At each second keep the last observed value per channel.
-  const fitTimes = timestampsOf(activity, timed).map(timestamp => timestamp === null ? null : Math.round(timestamp / 1000) * 1000);
+  const observationTimes = timestampsOf(activity, timed).map((timestamp, index) => {
+    const observed = timed.latlng?.[index] != null || Number.isFinite(timed.distance?.[index])
+      || Number.isFinite(timed.altitude?.[index]) || Number.isFinite(timed.velocity_smooth?.[index])
+      || Number.isFinite(timed.cadence?.[index]) || Number.isFinite(timed.heartrate?.[index]) || Number.isFinite(timed.watts?.[index]);
+    return observed ? timestamp : null;
+  });
+  const fitTimes = observationTimes.map(timestamp => timestamp === null ? null : Math.round(timestamp / 1000) * 1000);
   const fit = combineTimedStreams(timed, fitTimes, { userId: timed.userId }, []);
-  fit[originalFitEnd] = timed.time?.at(-1);
+  const lastObservation = observationTimes.reduce<number | null>((last, timestamp) => timestamp ?? last, null);
+  if (lastObservation != null) fit[originalFitEnd] = lastObservation / 1000;
   return fit;
 }

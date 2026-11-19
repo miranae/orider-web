@@ -27,6 +27,10 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const verifiedRelativeClock = usesVerifiedActivityTime(streams);
   const recordedClock = unit !== "relative_sec" && streams.laps?.some(lap => Number.isFinite(lap.startTimeMs) || Number.isFinite(lap.endTimeMs));
   const activityTime = verifiedRelativeClock || recordedClock;
+  const summary = activity.summary;
+  const elapsed = summary.elapsedTimeMillis;
+  const recordedDuration = typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed
+    : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : undefined;
   const relSecAt = (index: number) => {
     const value = streams.time?.[index];
     if (!recordedClock || value == null || !Number.isFinite(value)) return relativeAt(index);
@@ -74,8 +78,10 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
     const nextObservedStart = Math.max(timedAt(next) ?? previousEnd, previousEnd);
+    const observedEnd = timedAt(indices.length - 1) ?? 0;
+    const latestPossibleEnd = recordedDuration == null ? observedEnd : Math.min(observedEnd, recordedDuration / 1000);
     const observedPause = verifiedRelativeClock && duration > 0 && laps.length > 0 && timedAt(next - 1) === previousEnd
-      && nextObservedStart - previousEnd >= duration;
+      && nextObservedStart - previousEnd >= duration && nextObservedStart + duration <= latestPossibleEnd;
     const start = recordedStart ?? (recordedEnd != null || (verifiedRelativeClock && !observedPause) ? previousEnd : nextObservedStart);
     const nextStartMs = streams.laps?.[lapIndex + 1]?.startTimeMs;
     const boundedByNextLap = recordedEnd == null && recordedStart != null && typeof nextStartMs === "number"
@@ -97,10 +103,6 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     previousEnd = end;
   }
   hasUnassigned ||= laps.length > 0 && next < indices.length;
-  const summary = activity.summary;
-  const elapsed = summary.elapsedTimeMillis;
-  const recordedDuration = typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed
-    : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : undefined;
   const lastObservation = timedAt(indices.length - 1);
   const validRecordedDuration = recordedDuration != null && Number.isFinite(recordedDuration)
     && recordedDuration >= Math.max(summary.ridingTimeMillis || 0, (lastObservation ?? 0) * 1000);

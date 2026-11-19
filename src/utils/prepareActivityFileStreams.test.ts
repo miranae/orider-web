@@ -293,3 +293,18 @@ it("preserves a second lap across an observed pause after the first lap boundary
   const [, , second] = exportFile.render("recorded").split(/<Lap StartTime="/u);
   expect(second).toContain(new Date(startTime + 180_000).toISOString());
 });
+
+it("does not turn late sparse points into a lap ending after the recorded activity", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, endTime: startTime + 130_000, type: "Run", summary: {} } as Activity;
+  const time = Array.from({ length: 131 }, (_, index) => index);
+  const streams = markRawPartStreams({
+    time, heartrate: time.map(index => [30, 60, 125, 130].includes(index) ? 150 : null),
+    laps: [{ durationMs: 60_000 }, { durationMs: 60_000 }],
+  } as unknown as ActivityStreams, "f".repeat(64), startTime);
+  const file = prepareTcxExport(activity, prepareActivityFileStreams(activity, streams, "tcx"));
+  expect(file.hasUnassigned).toBe(true);
+  const [, , second] = file.render("recorded").split(/<Lap StartTime="/u);
+  expect(second).toMatch(new RegExp(new Date(startTime + 60_000).toISOString()));
+  expect(second).not.toContain(new Date(startTime + 125_000).toISOString());
+});
