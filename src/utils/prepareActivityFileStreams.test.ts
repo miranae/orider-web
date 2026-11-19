@@ -269,7 +269,10 @@ it("does not assign a gap to a lap with an unknown end", () => {
   } as ActivityStreams;
   const prepared = prepareTcxExport(activity, streams);
   expect(prepared.hasUnassigned).toBe(true);
-  expect(prepared.canKeepRecordedLaps).toBe(false);
+  expect(prepared.canKeepRecordedLaps).toBe(true);
+  const xml = prepared.render("recorded");
+  expect(xml).toContain(`<Lap StartTime="${new Date(startTime + 90_000).toISOString()}">`);
+  expect(xml).not.toContain(new Date(startTime + 75_000).toISOString());
 });
 
 it("keeps the timer when a contradictory TCX elapsed total is shorter than it", () => {
@@ -437,4 +440,21 @@ it("offers a summary lap to preserve unallocated recorded activity calories", ()
   expect(file.hasUnassigned).toBe(false);
   expect(file.hasUnallocatedCalories).toBe(true);
   expect(file.render("activity")).toContain("<Calories>270</Calories>");
+});
+
+it("keeps native Strava time and does not assign full activity calories to a partial lap", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, source: "strava", type: "Run", summary: {
+    distance: 1200, elapsedTimeMillis: 120_000, ridingTimeMillis: 100_000,
+  } } as Activity;
+  const streams = { userId: "owner", time: [30, 60, 90], heartrate: [150, 151, 152], calories: 380, laps: [
+    { startTimeMs: startTime + 30_000, endTimeMs: startTime + 90_000, durationMs: 60_000, distanceKm: 0.6 },
+  ] } as ActivityStreams;
+  const result = prepareTcxExport(activity, streams);
+  const xml = result.render("recorded");
+  expect(xml).toContain(`<Lap StartTime="${new Date(startTime + 30_000).toISOString()}">`);
+  expect(xml).toContain("<Value>152</Value>");
+  expect(xml).not.toContain("<Calories>380</Calories>");
+  expect(result.hasUnallocatedCalories).toBe(true);
+  expect(result.render("activity")).toContain("<Calories>380</Calories>");
 });

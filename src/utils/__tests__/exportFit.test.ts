@@ -322,3 +322,13 @@ it("uses the native legacy elapsed field and its independent moving time", () =>
     expect(fit.get(253)! - fit.get(2)!).toBe(120);
   }
 });
+
+it("does not rebase delayed absolute FIT samples to the activity start", () => {
+  const startTime = 1_700_000_000_000;
+  const base = makeActivity({ startTime });
+  const activity = { ...base, summary: { ...base.summary, ridingTimeMillis: 60_000, elapsedTimeMillis: 75_000 } };
+  const file = generateFit(activity, { userId: "owner", time: [startTime + 30_000, startTime + 90_000], heartrate: [150, 152] });
+  const session = readSession(file);
+  expect(session.get(7)).toBe(0xFFFFFFFF);
+  expect(session.get(253)! - session.get(2)!).toBe(90);
+});

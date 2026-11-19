@@ -3,6 +3,7 @@ import { cadenceWriter, type ExportCadenceUnit } from "./exportCadence";
 import { readUnroundedFitEnd, resolveRecordedElapsedMs, usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
+import { detectTimestampUnit } from "./timestampUnit";
 
 /** FIT 파일 바이너리 생성 */
 /** @param cadenceUnit 활동 지표의 저장 케이던스 단위 — 러닝 케이던스를 한 발 기준으로 바꾸는 데 쓴다. */
@@ -12,7 +13,11 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const cadence = cadenceWriter(sport, cadenceUnit);
   const startDate = new Date(activity.startTime);
   const garminEpoch = new Date("1989-12-31T00:00:00Z").getTime();
-  const timed = usesVerifiedActivityTime(streams);
+  const preparedClock = usesVerifiedActivityTime(streams);
+  const firstTime = streams.time?.find(value => Number.isFinite(value));
+  const timeUnit = firstTime == null ? "relative_sec" : detectTimestampUnit(firstTime);
+  const absoluteClock = !preparedClock && timeUnit !== "relative_sec";
+  const timed = preparedClock || absoluteClock;
   const startSeconds = (startDate.getTime() - garminEpoch) / 1000;
   const startTimestamp = timed ? Math.round(startSeconds) : Math.floor(startSeconds);
   const len = streams.time?.length || streams.latlng?.length || 0;
@@ -22,11 +27,23 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const distanceM = activity.summary.distance || 0;
   // streams.time 단위 정규화(상대 초) — 절대 epoch 입력 시 startTimestamp + t 가 uint32 를
   // 넘겨 FIT 타임스탬프가 손상되던 버그 방지(TCX/GPX 와 동일 수정).
-  const relSecAt = makeRelSecAt(streams.time);
+  const relativeAt = makeRelSecAt(streams.time);
+  const absoluteMsAt = (index: number) => {
+    const sample = streams.time?.[index];
+    if (!absoluteClock || sample == null || !Number.isFinite(sample)) return undefined;
+    return timeUnit === "epoch_sec" ? sample * 1000 : sample;
+  };
+  const relSecAt = (index: number) => {
+    const absolute = absoluteMsAt(index);
+    return absolute == null ? relativeAt(index) : Math.round((absolute - garminEpoch) / 1000) - startTimestamp;
+  };
   const endRel = relSecAt(len - 1);
-  const lastObserved = readUnroundedFitEnd(streams) ?? endRel ?? 0;
+  const absoluteEnd = absoluteMsAt(len - 1);
+  const lastObserved = readUnroundedFitEnd(streams)
+    ?? (absoluteEnd == null ? endRel ?? 0 : (absoluteEnd - activity.startTime) / 1000);
   const recordedElapsed = resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000)));
-  const elapsedMs = recordedElapsed ?? (timed ? 0xFFFFFFFF : activity.summary.ridingTimeMillis || 0);
+  const elapsedMs = recordedElapsed ?? (preparedClock || (absoluteClock && activity.summary.elapsedTimeMillis != null)
+    ? 0xFFFFFFFF : activity.summary.ridingTimeMillis || 0);
   const endTimestamp = recordedElapsed != null
     ? timed ? Math.round(startSeconds + recordedElapsed / 1000) : startTimestamp + Math.round(recordedElapsed / 1000)
     : startTimestamp + Math.round(timed ? Math.max(endRel ?? 0, durationMs / 1000)
