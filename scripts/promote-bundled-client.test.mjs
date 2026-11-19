@@ -62,21 +62,36 @@ test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot p
 });
 test("promotion is one production job without application install, rebuild, rehearsal or artifact transfer",()=>{
   const workflow=readFileSync(new URL("../.github/workflows/promote-hosting.yml",import.meta.url),"utf8");
-  for(const removed of ["npm ci","npm run build","actions/download-artifact","actions/upload-artifact","verify-bundled-hosting","inputs.phase","environment: stage"])assert.ok(!workflow.includes(removed),removed);
+  for(const removed of ["npm ci","npm run build","actions/download-artifact","verify-bundled-hosting","inputs.phase","environment: stage"])assert.ok(!workflow.includes(removed),removed);
   assert.deepEqual([...workflow.matchAll(/^  ([A-Za-z_-]+):$/gm)].map(match=>match[1]).filter(name=>["prepare","promote"].includes(name)),["promote"]);
   assert.match(workflow,/--phase snapshot[\s\S]*?--phase rollback/);
+  assert.match(workflow,/Retain recovery receipt[^\n]+\n[^\n]+failure\(\)[^\n]+\n\s+continue-on-error: true\n\s+uses: actions\/upload-artifact@v4/);
   assert.match(workflow,/attestations: read/);
   assert.match(workflow,/environment: production/);assert.match(workflow,/GCP_WORKLOAD_IDENTITY_PROVIDER/);assert.match(workflow,/if: always\(\)/);assert.match(workflow,/--jq \.created_at/);
   const stage=readFileSync(new URL("../.github/workflows/deploy-stage.yml",import.meta.url),"utf8");assert.match(stage,/name: stage-client-[\s\S]*?include-hidden-files: true/);
 });
 
-test("basic gateway readiness accepts a different backend commit without broad contract probes",async()=>{
+test("checks gateway readiness and the login route without binding the backend commit",async()=>{
   const f=fixture();try{
-    prepareClientPromotion(f);const urls=[];
-    await verifyClientPromotion(f,async url=>{urls.push(String(url));return Response.json({status:"ok",sourceSha:"e".repeat(40),topologyHash:"f".repeat(64)});});
-    assert.deepEqual(urls,["https://orider-bundle-default-api-289663940841.asia-northeast3.run.app/readyz"]);
-    await assert.rejects(verifyClientPromotion(f,async()=>new Response("not ready",{status:503})),/unavailable/);
-    await assert.rejects(verifyClientPromotion(f,async()=>new Response("<html>error</html>")),/response body is invalid.*\/readyz/);
+    prepareClientPromotion(f);
+    const headers = {
+      "access-control-allow-origin":"https://orider.co.kr",
+      "access-control-allow-methods":"POST",
+      "access-control-allow-headers":"authorization,content-type,x-firebase-appcheck",
+    };
+    const calls = [];
+    const fetcher = async (url, init = {}) => {
+      const path = new URL(url).pathname;
+      calls.push([path, init.method ?? "GET"]);
+      if (path === "/readyz") return Response.json({status:"ok",sourceSha:"e".repeat(40),topologyHash:"f".repeat(64)});
+      if (init.method === "OPTIONS") return new Response(null, {status:204,headers});
+      return Response.json({error:{status:"INVALID_ARGUMENT"}}, {status:400,headers});
+    };
+    await verifyClientPromotion(f,fetcher);
+    assert.deepEqual(calls,[["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"]]);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("not ready",{status:503}) : fetcher(url,init)),/unavailable/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("<html>error</html>") : fetcher(url,init)),/response body is invalid.*\/readyz/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" ? new Response(null,{status:404}) : fetcher(url,init)),/socialAuthStart browser preflight rejected/);
   }finally{f.cleanup();}
 });
 

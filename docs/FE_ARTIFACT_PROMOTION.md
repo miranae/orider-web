@@ -6,8 +6,8 @@
 
 1. 고정된 GCS generation·SHA-256으로 검증본을 복원하고 GitHub 출처 증명과 파일 manifest를 각각 한 번 확인합니다.
 2. JS·CSS·HTML·정적 파일은 그대로 복사하고, runtime 주소와 Hosting rewrite만 운영용으로 바꿉니다. 기능 플래그는 개발 검증본 값을 유지합니다.
-3. 운영 gateway의 `/readyz`를 한 번 확인한 뒤 Hosting에 게시합니다.
-4. 공개 HTML, 진입 JS, runtime이 준비한 바이트와 같은지, 사이트맵 경로가 XML을 반환하는지 함께 확인합니다. 게시·검증 실패 시 이 작업이 게시한 릴리스만 직전 버전으로 되돌립니다.
+3. 운영 gateway의 `/readyz`와 운영 브라우저의 소셜 로그인 호출 경로를 병렬로 한 번 확인한 뒤 Hosting에 게시합니다.
+4. 공개 HTML, 진입 JS, runtime이 준비한 바이트와 같은지, 사이트맵 경로가 XML을 반환하는지 함께 확인합니다. 게시·검증 실패 시 이 작업이 게시한 릴리스만 직전 버전으로 되돌리고, 복구 영수증은 실패한 실행에서만 보관합니다.
 
 앱 의존성 설치·재빌드·중간 Actions artifact 전달·별도 필수 rehearsal·predeploy 재검증은 없습니다. Firebase CLI는 runner에 있으면 재사용하고 없을 때만 설치합니다. BE commit/topology 값은 검증본의 출처 기록으로 남기며 FE 게시 조건으로 사용하지 않습니다. 추가·변경·삭제는 완성된 dist 전체로 반영합니다. 후보의 source·archive 무결성 및 검토된 main 이력/동일 Git tree 확인은 유지합니다.
 

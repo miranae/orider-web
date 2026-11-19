@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
+import { verifyBundledCallable } from "./lib/bundled-callable-probe.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
@@ -94,19 +95,32 @@ async function fetchPromotionResource(url, fetcher) {
   }
 }
 
-export async function verifyClientPromotion(options, fetcher = fetch) {
-  const receipt = json(join(options.directory, "promotion.json"));
-  // 운영 API 주소의 기본 상태만 확인한다. 앱 게시를 BE commit과 결속하지 않는다.
-  const url = `${receipt.runtime.firebaseFunctionsBase}/readyz`;
+async function rejectPromotionResponse(response, message) {
+  const error = new Error(message);
+  try { await response.body?.cancel(); }
+  catch (cause) { error.cause = cause; }
+  throw error;
+}
+
+async function verifyGatewayReadiness(url, fetcher) {
   const response = await fetchPromotionResource(url, fetcher);
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new Error(`production gateway unavailable at ${url}: HTTP${response.status}`);
-  }
+  if (!response.ok) return rejectPromotionResponse(response, `production gateway unavailable at ${url}: HTTP${response.status}`);
   let ready;
   try { ready = await response.json(); }
   catch (cause) { throw new Error(`production gateway GET response body is invalid at ${url}`, { cause }); }
   if (ready?.status !== "ok") throw new Error(`production gateway is not ready at ${url}`);
+}
+
+export async function verifyClientPromotion(options, fetcher = fetch) {
+  const receipt = json(join(options.directory, "promotion.json"));
+  // Check reachability and the login callable for the production browser origin.
+  await Promise.all([
+    verifyGatewayReadiness(`${receipt.runtime.firebaseFunctionsBase}/readyz`, fetcher),
+    verifyBundledCallable({
+      base: receipt.runtime.socialAuthFunctionsBase, origin: "https://orider.co.kr", name: "socialAuthStart", fetcher,
+      responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+    }),
+  ]);
   return receipt;
 }
 export async function verifyPublishedPromotion({ directory, origin = "https://orider.co.kr" }, fetcher = fetch) {
@@ -115,18 +129,18 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
   await Promise.all(["index.html", "runtime-config.json", receipt.entry, "sitemap.xml"].map(async path => {
     const url = new URL(path === "index.html" ? "/" : `/${path}`, origin); url.searchParams.set("promotion", receipt.frontendSourceSha);
     const response = await fetchPromotionResource(url, fetcher);
-    if (!response.ok) { await response.body?.cancel(); throw new Error(`published ${url} HTTP${response.status}`); }
+    if (!response.ok) return rejectPromotionResponse(response, `published ${url} HTTP${response.status}`);
     if (path === "sitemap.xml") {
-      await response.body?.cancel();
       if (!/^(?:application|text)\/xml(?:;|$)/iu.test(response.headers.get("content-type") ?? "")) {
-        throw new Error(`published sitemap alias did not return XML at ${url}`);
+        return rejectPromotionResponse(response, `published sitemap alias did not return XML at ${url}`);
       }
+      try { await response.body?.cancel(); }
+      catch (cause) { throw new Error(`published sitemap GET response could not be closed at ${url}`, { cause }); }
       return;
     }
     const mime = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
     if (path === receipt.entry && !["application/javascript", "text/javascript"].includes(mime)) {
-      await response.body?.cancel();
-      throw new Error(`published entry did not return JavaScript at ${url}`);
+      return rejectPromotionResponse(response, `published entry did not return JavaScript at ${url}`);
     }
     let bytes;
     try { bytes = Buffer.from(await response.arrayBuffer()); }

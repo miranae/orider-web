@@ -102,6 +102,14 @@ jobs:
         env:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/production-hosting-before.json"
+      - name: Retain recovery receipt after a production publication failure
+        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosting-promotion-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 1
+          path: ${{ runner.temp }}/production-hosting-before.json
       - name: Report actual elapsed time
         if: always()
         env:
