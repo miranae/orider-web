@@ -912,6 +912,7 @@
   "src/utils/exportCsv.ts",
   "src/utils/exportFit.ts",
   "src/utils/exportGpx.ts",
+  "src/utils/exportSport.ts",
   "src/utils/exportTcx.ts",
   "src/utils/firebaseErrors.ts",
   "src/utils/firestoreSessionRecovery.ts",
