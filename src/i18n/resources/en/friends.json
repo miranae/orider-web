@@ -70,6 +70,8 @@
   "search.placeholder": "Email, nickname or friend code",
   "search.submit": "Search",
   "search.hint": "Find people by email, nickname or friend code",
+  "search.previewTitle": "Find people you train with",
+  "search.previewDescription": "Search by nickname or friend code. Once you become friends, you can see the activities they share with you.",
   "search.loginRequired": "Sign in to find people.",
   "search.loginAction": "Sign in to find people",
   "search.resultsLabel": "Search results",

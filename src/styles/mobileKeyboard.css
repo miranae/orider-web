@@ -1,0 +1,26 @@
+/* Action bars remain reachable in document flow while the keyboard owns space.
+   Navigation reserves a separate flex row instead of covering the scroll area. */
+.mobile-form-actions { position: sticky; bottom: 0; }
+.mobile-form-actions--fixed { position: fixed; }
+@media (max-width: 63.999rem) {
+  /* The web tab bar has its own layout row; embedded screens have no tab bar. */
+  :root:has(.mobile-tab-bar) .mobile-form-actions--fixed {
+    bottom: calc(var(--space-8) + var(--dim-divider-thickness) + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (max-width: 63.999rem), (pointer: coarse) {
+  :root .mobile-form-actions[data-editing-action],
+  :root .coach-question-launcher.fixed[data-editing-action] { position: static; }
+  :root:has(:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"]), textarea, select, [contenteditable="true"], [contenteditable=""]):focus) {
+    .mobile-form-actions { position: static; }
+    .coach-question-launcher.fixed { position: static; }
+  }
+}
+
+/* Overlay-only keyboards shrink the visual viewport without changing dvh.
+   Values are shared by active dialogs and restored after the last one closes. */
+:root .mobile-dialog-viewport {
+  top: var(--dialog-viewport-top, 0px);
+  bottom: auto;
+  height: var(--dialog-viewport-height, 100dvh);
+}

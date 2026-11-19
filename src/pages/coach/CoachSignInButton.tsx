@@ -6,7 +6,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { Button } from "../../theme/components";
 
 /** label 을 주면 기본 문구(기록을 저장하려면 로그인) 대신 쓴다 — 화면 맥락에 맞는 행동 문구용 */
-export default function CoachSignInButton({ label }: { label?: string } = {}) {
+export default function CoachSignInButton({ label, primary = false }: { label?: string; primary?: boolean } = {}) {
   const { t } = useTranslation("common");
   const { signIn } = useAuth();
   const { showToast } = useToast();
@@ -22,5 +22,5 @@ export default function CoachSignInButton({ label }: { label?: string } = {}) {
       setPending(false);
     }
   }
-  return <Button disabled={pending} loading={pending} onClick={() => { void handleSignIn(); }}>{label ?? t("auth.loginValue")}</Button>;
+  return <Button variant={primary ? "primary" : "secondary"} disabled={pending} loading={pending} onClick={() => { void handleSignIn(); }}>{label ?? t("auth.loginValue")}</Button>;
 }

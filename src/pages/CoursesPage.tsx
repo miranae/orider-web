@@ -11,6 +11,7 @@ import type { LngLatBounds } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { getMapboxToken } from "../utils/mapbox";
+import { isEnterSubmit } from "../utils/isEnterSubmit";
 import { ChevronDown } from "lucide-react";
 import { ErrorState, LoadingSkeleton, Resolvable } from "../components/redesign";
 import { Button, buttonClass, Chip, Text, Input } from "../theme/components";
@@ -223,29 +224,17 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
     setHoveredId(null);
   }, []);
 
-  const handleSearch = () => {
-    const nextQuery = inputValue.trim();
+  const applySearch = (nextQuery: string) => {
     setSearchQuery(nextQuery);
-    setSelectedId(null);
-    setHoveredId(null);
+    handleClearSelection();
 
     const nextParams = new URLSearchParams(searchParams);
     if (nextQuery) nextParams.set("q", nextQuery);
     else nextParams.delete("q");
     setSearchParams(nextParams, { replace: true });
   };
-  useEffect(() => {
-    if (inputValue.trim() === queryParam) return;
-    const timer = setTimeout(() => {
-      const next = new URLSearchParams(searchParams);
-      const q = inputValue.trim();
-      if (q) next.set("q", q); else next.delete("q");
-      setSearchParams(next, { replace: true });
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [inputValue, queryParam, searchParams, setSearchParams]);
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (isEnterSubmit(e.nativeEvent)) applySearch(inputValue.trim());
   };
 
   const scrollToCard = useCallback((id: string) => {
@@ -310,7 +299,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
           <div data-testid="E1-1" className="relative flex-1">
             <button
               aria-label={t("search.submit")}
-              onClick={handleSearch}
+              onClick={() => applySearch(inputValue.trim())}
               className={buttonClass({ variant: "ghost", className: "course-search-action transition-colors" })}
               style={{ color: "var(--ink-3)" }}
             >
@@ -319,11 +308,16 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
               </svg>
             </button>
             <Input data-testid="E1-1-1"
-              type="text"
+              type="search"
+              enterKeyHint="search"
               aria-label={t("search.placeholder")}
               placeholder={t("search.placeholder")}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setInputValue(value);
+                if (value === "" && searchQuery) applySearch("");
+              }}
               onKeyDown={handleKeyDown}
               className="course-search-input w-full"
 

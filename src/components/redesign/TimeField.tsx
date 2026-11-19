@@ -1,3 +1,4 @@
+import { observeViewport, visibleViewport } from "../../services/visibleViewport";
 import { createPortal } from "react-dom";
 import { useLayoutEffect, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -62,11 +63,10 @@ export default function TimeField({
   const { t, i18n } = useTranslation("common");
   const resolvedPlaceholder = placeholder ?? t("field.timePlaceholder");
   const [open, setOpen] = useState(false);
-  const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ left: 0, top: 0 });
+  const [position, setPosition] = useState({ left: 0, top: 0, maxHeight: window.innerHeight - 24, maxWidth: window.innerWidth - 24 });
   const hourListRef = useRef<HTMLDivElement>(null);
   const minuteListRef = useRef<HTMLDivElement>(null);
 
@@ -81,33 +81,28 @@ export default function TimeField({
     return list;
   }, [minuteStep]);
 
-  // 공간 부족 시 위로 열기
-  useEffect(() => {
-    if (!open || !triggerRef.current || portal) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    setOpenUp(spaceBelow < 280 && rect.top > 280);
-  }, [open, portal]);
-
   useLayoutEffect(() => {
-    if (!open || !portal) return;
+    if (!open) return;
     const place = () => {
-      if (!triggerRef.current || !popupRef.current) return;
+      if (!triggerRef.current || !popupRef.current || !containerRef.current) return;
       const trigger = triggerRef.current.getBoundingClientRect();
+      const container = containerRef.current.getBoundingClientRect();
       const popup = popupRef.current.getBoundingClientRect();
       const margin = 12;
+      const bounds = visibleViewport();
+      const maxHeight = Math.max(0, bounds.height - margin * 2);
+      const maxWidth = Math.max(0, bounds.width - margin * 2);
+      const popupHeight = Math.min(popupRef.current.scrollHeight + popup.height - popupRef.current.clientHeight, maxHeight);
+      const popupWidth = Math.min(popup.width, maxWidth);
       const below = trigger.bottom + 4;
-      const preferred = below + popup.height <= window.innerHeight - margin ? below : trigger.top - popup.height - 4;
-      setPosition({
-        left: Math.max(margin, Math.min(trigger.left, window.innerWidth - margin - popup.width)),
-        top: Math.max(margin, Math.min(preferred, window.innerHeight - margin - popup.height)),
-      });
+      const preferred = below + popupHeight <= bounds.bottom - margin ? below : trigger.top - popupHeight - 4;
+      const left = Math.max(bounds.left + margin, Math.min(trigger.left, bounds.right - margin - popupWidth));
+      const top = Math.max(bounds.top + margin, Math.min(preferred, bounds.bottom - margin - popupHeight));
+      setPosition({ left: portal ? left : left - container.left, top: portal ? top : top - container.top, maxHeight, maxWidth });
     };
     place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
-  }, [open, portal]);
+    return observeViewport(place);
+  }, [open, portal, position.maxWidth]);
 
   // 외부 클릭 닫기
   useEffect(() => {
@@ -199,17 +194,19 @@ export default function TimeField({
           aria-label={t("field.selectTimeAria")}
           style={{
             position: portal ? "fixed" : "absolute",
-            top: portal ? position.top : openUp ? "auto" : "calc(100% + 4px)",
-            bottom: !portal && openUp ? "calc(100% + 4px)" : "auto",
-            left: portal ? position.left : 0,
+            top: position.top,
+            left: position.left,
             zIndex: portal ? 1000 : 50,
-            ...(portal ? { maxWidth: "calc(100vw - 24px)", maxHeight: "calc(100dvh - 24px)", overflowY: "auto" as const, boxSizing: "border-box" as const } : {}),
+            maxWidth: position.maxWidth,
+            maxHeight: position.maxHeight,
+            overflowY: "auto",
+            boxSizing: "border-box",
             background: "var(--bg-1)",
             border: "1px solid var(--line)",
             borderRadius: "var(--r-md)",
             padding: 'var(--space-3)',
             boxShadow: "0 12px 32px color-mix(in srgb, var(--bg-0) 45%, transparent)",
-            minWidth: 220,
+            minWidth: Math.min(220, position.maxWidth),
           }}
         >
           <div className="flex" style={{ gap: "var(--space-2)" }}>

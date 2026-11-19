@@ -5,7 +5,7 @@ import { loadActivityRouteEvidence, validateRouteEvidenceResponse, validRouteCom
 import { routeFixture, routeResponse, backendCanonicalWireFixture, currentCanonicalContractFixture } from "./activityRouteEvidence.fixture";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), config: { appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" } }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn(() => mocks.call) }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.config }));
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: () => mocks.config }));
 beforeEach(() => mocks.call.mockReset().mockResolvedValue({ data: routeResponse() }));
 describe("explicit owner route evidence", () => {
   it("calls only explicit route mode with AppCheck and the route revision name", async () => {

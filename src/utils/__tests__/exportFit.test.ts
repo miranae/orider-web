@@ -210,11 +210,25 @@ describe('exportFit', () => {
       expect(read.fractional).toEqual([0, 0]);
     });
 
+    it('carries fractional cadence rounding into the next whole step without writing the reserved byte', () => {
+      const streams = { userId: 'u1', time: [0, 1], cadence: [84.999, 254.999] };
+      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, 'strides_per_minute'));
+      expect(read.cadence).toEqual([85, 254]);
+      expect(read.fractional).toEqual([0, 127]);
+    });
+
     it('omits run cadence when its unit is unknown instead of guessing', () => {
       const streams = { userId: 'u1', time: [0, 1], cadence: [168, 169] };
       const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, null));
       expect(read.fields).not.toContain(4);
       expect(read.fields).not.toContain(53);
+    });
+
+    it('encodes cadence above the file range as missing, never a wrapped zero', () => {
+      const streams = { userId: 'u1', time: [0, 1], cadence: [256, 85] };
+      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, 'strides_per_minute'));
+      expect(read.cadence).toEqual([0xff, 85]);
+      expect(read.fractional).toEqual([0xff, 0]);
     });
 
     it('keeps cycling cadence in rpm without a fractional field', () => {

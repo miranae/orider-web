@@ -41,7 +41,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const hasLatLng = !!streams.latlng?.length;
   const hasAlt = !!streams.altitude?.length;
   const hasHr = !!streams.heartrate?.length;
-  const hasCad = !!streams.cadence?.length && streams.cadence.some(v => cadence.whole(v) != null);
+  const hasCad = Array.isArray(streams.cadence) && streams.cadence.some(v => cadence.whole(v) != null);
   const hasPower = !!streams.watts?.length;
   const hasSpeed = !!streams.velocity_smooth?.length;
 
@@ -83,13 +83,14 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
       recBytes.push(...uint16LE(encoded));
     }
     if (hasHr) recBytes.push(streams.heartrate![i] ?? 0xFF);
-    if (hasCad) recBytes.push(cadence.whole(streams.cadence![i]) ?? 0xFF);
+    const fitCadence = hasCad ? cadence.fit(streams.cadence?.[i]) : null;
+    if (hasCad) recBytes.push(fitCadence?.whole ?? 0xFF);
     if (hasPower) recBytes.push(...uint16LE(streams.watts![i] ?? 0xFFFF));
     if (hasSpeed) {
       const speedMs = streams.velocity_smooth![i] ?? 0;
       recBytes.push(...uint16LE(Math.round(speedMs * 1000)));
     }
-    if (hasCad && cadence.footCadence) recBytes.push(cadence.fraction(streams.cadence![i]) ?? 0xFF);
+    if (hasCad && cadence.footCadence) recBytes.push(fitCadence?.fraction ?? 0xFF);
 
     buf.writeData(0, recBytes);
   }

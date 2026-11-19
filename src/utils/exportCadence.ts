@@ -20,27 +20,30 @@ export interface CadenceWriter {
   footCadence: boolean;
   /** Integer cadence for the file, or `null` to write nothing. */
   whole(value: number | null | undefined): number | null;
-  /** FIT `fractional_cadence` in 1/128 units for foot sports; `null` when absent. */
-  fraction(value: number | null | undefined): number | null;
+  /** FIT cadence bytes, rounding the full value before splitting into integer and 1/128 parts. */
+  fit(value: number | null | undefined): { whole: number; fraction: number } | null;
 }
 
 export function cadenceWriter(sport: Pick<ExportSport, "footCadence">, unit: ExportCadenceUnit | undefined): CadenceWriter {
   const toFileUnit = (value: number | null | undefined): number | null => {
     if (value == null || !Number.isFinite(value) || value < 0) return null;
-    if (!sport.footCadence) return value;
-    if (unit === "spm") return value / 2;
-    if (unit === "strides_per_minute") return value;
-    return null;
+    const sample = !sport.footCadence || unit === "strides_per_minute" ? value : unit === "spm" ? value / 2 : null;
+    // FIT reserves 255 for an invalid cadence; TCX accepts an integer byte.
+    return sample != null && sample < 255 ? sample : null;
   };
   return {
     footCadence: sport.footCadence,
     whole: value => {
       const v = toFileUnit(value);
-      return v == null ? null : sport.footCadence ? Math.floor(v) : v;
+      return v == null ? null : Math.floor(v);
     },
-    fraction: value => {
+    fit: value => {
       const v = toFileUnit(value);
-      return v == null || !sport.footCadence ? null : Math.min(127, Math.round((v - Math.floor(v)) * 128));
+      if (v == null) return null;
+      if (!sport.footCadence) return { whole: Math.floor(v), fraction: 0 };
+      // 255 is reserved for missing cadence, so saturate at the largest valid encoded value.
+      const steps = Math.min(255 * 128 - 1, Math.round(v * 128));
+      return { whole: Math.floor(steps / 128), fraction: steps % 128 };
     },
   };
 }
