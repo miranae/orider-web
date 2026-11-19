@@ -103,8 +103,17 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
         for (const lap of laps) writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
       } else {
-        const duration = (laps.length ? recordedDuration : summary.ridingTimeMillis) || 0;
-        writeLap(lines, startMs, duration / 1000, summary.distance || 0, streams.calories || 0, 0, indices.length);
+        const lastObservation = timedAt(indices.length - 1);
+        const firstObservation = timedAt(0);
+        const usesRecordedDuration = recordedDuration != null && Number.isFinite(recordedDuration)
+          && recordedDuration >= 0 && (lastObservation == null || recordedDuration / 1000 >= lastObservation);
+        const useObservationWindow = !laps.length && verifiedRelativeClock && !usesRecordedDuration
+          && firstObservation != null && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
+        const lapStart = useObservationWindow ? startMs + firstObservation * 1000 : startMs;
+        const duration = useObservationWindow ? lastObservation - firstObservation
+          : ((usesRecordedDuration ? recordedDuration : summary.ridingTimeMillis) || 0) / 1000;
+        writeLap(lines, lapStart, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
+        if (useObservationWindow) lines.push("<Notes>Lap time covers the exported observations. Activity elapsed time is unavailable.</Notes>");
       }
       lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
       return lines.join('\n');

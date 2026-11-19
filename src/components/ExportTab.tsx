@@ -140,7 +140,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           }
           clearCadencePrompt();
           setTcxPrompt(null);
-          if (prepared.hasUnassigned && tcxMode === "csv") {
+          if (tcxMode === "csv") {
             const originalSamples = prepareActivityFileStreams(fileActivity, currentStreams, "tcx");
             downloadBlob(new Blob([generateCsv(originalSamples)], { type: "text/csv" }), exportFilename(fileActivity, "csv"));
           } else {

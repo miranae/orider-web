@@ -239,3 +239,16 @@ it("keeps sparse observation gaps from moving verified duration-only lap boundar
   expect(second).toContain(new Date(startTime + 60_000).toISOString());
   expect(second).not.toContain(new Date(startTime + 125_000).toISOString());
 });
+
+
+it("anchors a no-lap raw TCX file to its actual observation window when elapsed time is absent", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: { distance: 500, ridingTimeMillis: 60_000 } } as Activity;
+  const time = Array.from({ length: 61 }, (_, index) => index);
+  const streams = markRawPartStreams({ time, heartrate: time.map(() => 150) } as ActivityStreams, "f".repeat(64), startTime + 30_000);
+  const tcx = generateTcx(activity, prepareActivityFileStreams(activity, streams, "tcx"));
+  expect(tcx).toContain(`<Lap StartTime="${new Date(startTime + 30_000).toISOString()}">`);
+  expect(tcx).toContain("<TotalTimeSeconds>60</TotalTimeSeconds>");
+  expect(tcx).toContain(new Date(startTime + 90_000).toISOString());
+  expect(tcx).toContain("Activity elapsed time is unavailable.");
+});

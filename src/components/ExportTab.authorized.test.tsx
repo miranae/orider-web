@@ -252,3 +252,17 @@ it("drops obsolete lap options if the new activity fits its recorded laps", asyn
   expect(screen.queryByRole("button", { name: option })).toBeNull();
   expect(click).toHaveBeenCalledOnce();
 });
+
+
+it("honors a CSV choice even when the updated activity now fits its laps", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
+  const laps = [{ durationMs: 120_000, distanceKm: 1 }];
+  const initial = { userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145], laps } as ActivityStreams;
+  const latest = { ...initial, time: [0, 120], heartrate: [140, 150] };
+  const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
+  render(<ExportTab activity={run} streams={initial} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  const option = /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu;
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: option })));
+  expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(latest);
+});
