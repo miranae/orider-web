@@ -34,7 +34,7 @@ function renderLegacyOwnerRun(source: Activity["source"] = "orider", publicActiv
 
 it.each(["orider", "apple_health", "health_connect"] as const)("loads legacy owner %s runs together with their authorized cadence units", async source => {
   const streams = markVerifiedStreamCadence({ time: [0, 1], cadence: [170, 172] }, "a".repeat(64), "spm");
-  mocks.streams.mockResolvedValueOnce({ activityId: "a", state: "available", streams });
+  mocks.streams.mockResolvedValueOnce({ activityId: "a", state: "available", sourceLayer: "api_streams", streams });
   const before = vi.mocked(getDoc).mock.calls.length;
   const { result } = renderLegacyOwnerRun(source);
   await waitFor(() => expect(result.current.streams?.cadence).toEqual([170, 172]));
@@ -42,6 +42,20 @@ it.each(["orider", "apple_health", "health_connect"] as const)("loads legacy own
   expect(result.current.streams?.userId).toBe("owner");
   expect(mocks.streams).toHaveBeenCalledExactlyOnceWith("a");
   expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
+});
+
+it("keeps the saved legacy analysis axes when the authorized input is a sparse raw-parts grid", async () => {
+  mocks.streams.mockResolvedValueOnce({
+    activityId: "a", state: "available", sourceLayer: "raw_parts",
+    streams: markVerifiedStreamCadence({ time: [0, 1, 2], cadence: [170, null, 172] } as never, "a".repeat(64), "spm"),
+  });
+  vi.mocked(getDoc).mockResolvedValueOnce({
+    exists: () => true, data: () => ({ json: JSON.stringify({ time: [0, 2], cadence: [170, 172], latlng: [[37, 127], [38, 128]] }) }),
+  } as Awaited<ReturnType<typeof getDoc>>);
+  const { result } = renderLegacyOwnerRun();
+  await waitFor(() => expect(result.current.streams?.cadence).toEqual([170, 172]));
+  expect(result.current.streams?.latlng).toHaveLength(2);
+  expect(readStreamCadenceUnit(result.current.streams!)).toBeUndefined();
 });
 
 it("keeps legacy owner streams when the public detail feature is disabled", async () => {
@@ -83,9 +97,12 @@ it("discards a legacy Strava stream from a replaced SDK session", async () => {
     activityId: run.id, activity: run, userId: "owner", getStreams, t,
   }), { wrapper: ({ children }: { children: ReactNode }) => <FirebaseServicesProvider services={services}>{children}</FirebaseServicesProvider> });
   expect(getStreams).toHaveBeenCalledExactlyOnceWith(123, { includeCadenceUnit: true });
+  expect(result.current.loadingStreams).toBe(true);
   auth.currentUser = { uid: "different" } as User;
   await act(async () => resolve({ cadence: [85] }));
   expect(result.current.streams).toBeNull();
+  expect(result.current.loadingStreams).toBe(false);
+  expect(result.current.showStreamSpinner).toBe(false);
 });
 
 

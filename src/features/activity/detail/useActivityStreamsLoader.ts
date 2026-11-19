@@ -198,7 +198,9 @@ export function useActivityStreamsLoader({
         });
         if (!isCurrent()) return null;
         if (result?.state === "available" && result.activityId === activityId && result.streams) {
-          return { ...result.streams, userId: activity.userId };
+          // A raw-parts grid can contain nullable, independently sampled channels.
+          // Keep the existing legacy analysis and export axes in that case.
+          return result.sourceLayer === "raw_parts" ? loadStoredStreams() : { ...result.streams, userId: activity.userId };
         }
         if (result && (result.activityId !== activityId || !["pending", "unavailable"].includes(result.state))) {
           throw new Error("STREAMS_MISSING");
@@ -249,7 +251,7 @@ export function useActivityStreamsLoader({
       }
     }).finally(() => {
       clearTimeout(timer);
-      if (!isCurrent()) return;
+      if (!active) return;
       setShowStreamSpinner(false);
       setLoadingStreams(false);
     });
