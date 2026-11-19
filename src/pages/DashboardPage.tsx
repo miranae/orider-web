@@ -1,3 +1,4 @@
+import { usePageDataTiming } from "../hooks/usePageDataTiming";
 import WeeklyTssBars from "../components/dashboard/WeeklyTrainingLoadBars";
 export { default as WeeklyTssBars } from "../components/dashboard/WeeklyTrainingLoadBars";
 export type { WeeklyTssBar } from "../components/dashboard/WeeklyTrainingLoadBars";
@@ -136,6 +137,16 @@ export function CommunityLogo({
   );
 }
 
+export function dashboardDataReadiness(keyword: string | null,
+  search: { active: boolean; searchedKeyword: string; loading: boolean; error: boolean },
+  feedLoading: boolean, feedError: boolean, authLoading: boolean) {
+  if (keyword) {
+    const pending = authLoading || !search.active || search.searchedKeyword !== keyword || search.loading;
+    return { loading: pending, ready: !pending, failed: !pending && search.error };
+  }
+  return { loading: authLoading || feedLoading, ready: !authLoading && !feedLoading, failed: feedError };
+}
+
 export function normalizeDashboardDiscipline(value: string | null): Discipline | null {
   if (value === "bike" || value === "run" || value === "swim" || value === "tri") {
     return value;
@@ -245,6 +256,9 @@ function DashboardContent() {
   };
 
   const queryParam = searchParams.get("q")?.trim() ?? "";
+  const dataReadiness = dashboardDataReadiness(queryParam || (activitySearch.active ? activitySearch.searchedKeyword : null),
+    activitySearch, loading, !!feedError, authLoading);
+  usePageDataTiming("dashboard", `${feedLocation.key}:${feedLocation.search}`, dataReadiness.loading, dataReadiness.ready, dataReadiness.failed);
   const { search: searchActivities, reset: resetActivitySearch } = activitySearch;
   useEffect(() => {
     if (queryParam) searchActivities(queryParam, mobileDatePreset);

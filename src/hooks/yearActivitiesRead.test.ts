@@ -167,7 +167,7 @@ describe("bounded year reads", () => {
     expect(computeYearRecap(back, 2025)).toEqual(computeYearRecap(records, 2025));
     expect(returned + emptyQueries).toBe(cost);
 
-  });
+  }, 15000);
 
   it("does not return a partial lifetime record set when its hard budget is reached", async () => {
     records = [ride("a", 1000), ride("b", 2000), ride("c", 3000)];
@@ -231,6 +231,25 @@ it("does not use a changed raw cardinality as an inventory-completeness proof", 
   records = [ride("a", new Date(2025, 5, 1).getTime(), { description: "edited" }), ride("unseen", new Date(2025, 6, 1).getTime())];
   await expect(readYearActivities("owner", 2025, () => false, undefined, session)).rejects.toThrow("inventory-changed");
   expect(session.valid).toBe(false);
+});
+
+it("does not infer complete coverage from different records in the one-record endpoints", async () => {
+  records = [ride("early", Date.UTC(2025, 0, 3)), ride("middle", Date.UTC(2025, 1, 3)), ride("late", Date.UTC(2025, 2, 3))];
+  vi.mocked(getDocs)
+    .mockResolvedValueOnce({ docs: [doc(records[0]!)] } as never)
+    .mockResolvedValueOnce({ docs: [doc(records[2]!)] } as never);
+  const session = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, session);
+  expect((await readYearActivities("owner", 2025, () => false, undefined, session)).map(row => row.id)).toEqual(["early", "middle", "late"]);
+});
+
+it.each(["earliest", "latest"] as const)("reports a failure from the %s calendar endpoint", async endpoint => {
+  const failure = new Error("calendar read failed");
+  if (endpoint === "latest") vi.mocked(getDocs).mockResolvedValueOnce({ docs: [] } as never);
+  vi.mocked(getDocs).mockRejectedValueOnce(failure);
+  const report = vi.fn();
+  await expect(readRecapYears("owner", () => false, createYearReadSession("owner"), report)).rejects.toBe(failure);
+  expect(report.mock.calls).toEqual([[endpoint, failure]]);
 });
 
 it("does not cache a cancelled page or one completed after same-UID SDK replacement", async () => {

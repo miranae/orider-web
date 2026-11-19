@@ -5,7 +5,7 @@ import Modal from "../../components/Modal";
 import { localeTag } from "../../utils/localeDate";
 import { CalendarDays, CircleAlert, Download, PencilLine, LockKeyhole, MapPin, Megaphone, Search, Send } from "lucide-react";
 import "../ExploreReview.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -56,6 +56,8 @@ interface ParticipantRow {
   bib: number | null;
   realName: string;
   nickname: string;
+  identityPending: boolean;
+  searchableNames: string[];
   category: string | null;
   age: number | null;
   gender: "M" | "F" | "X" | null;
@@ -164,6 +166,11 @@ export default function EventParticipantsPage() {
   const { t } = useTranslation("event");
   const dialog = useDialog();
 
+  const scope = useMemo(() => ({ eventId, user, firestore, owner: services.auth.currentUser }), [eventId, user, firestore, services.auth.currentUser]);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const loadGeneration = useRef(0);
+  const [loadedScope, setLoadedScope] = useState<typeof scope | null>(null);
   const [event, setEvent] = useState<EventHead | null>(null);
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,11 +195,17 @@ export default function EventParticipantsPage() {
   }, [toast]);
 
   const load = useCallback(async () => {
-    if (!eventId) return;
+    if (!eventId || scopeRef.current !== scope || services.auth.currentUser !== scope.owner) return;
+    const generation = ++loadGeneration.current;
+    const current = () => generation === loadGeneration.current && scopeRef.current === scope && services.auth.currentUser === scope.owner;
     setLoading(true);
     setLoadError(null);
+    setParticipants([]);
+    setDrawer(null);
+    setSelected(new Set());
     try {
       const evtSnap = await getDoc(doc(firestore, "events", eventId));
+      if (!current()) return;
       if (!evtSnap.exists()) {
         setEvent(null);
         return;
@@ -232,26 +245,9 @@ export default function EventParticipantsPage() {
 
       const partsSnap = await getDocs(collection(firestore, `events/${eventId}/participants`));
 
-      // 닉네임 비정규화 — users/{uid}.nickname
-      const userIds = partsSnap.docs.map((d) => d.id);
-      const userMap = new Map<string, { nickname: string; team: string }>();
-      await Promise.all(
-        userIds.map(async (uid) => {
-          try {
-            const profile = await getPublicUserProfile(uid, services.firestore);
-            userMap.set(uid, {
-              nickname: profile?.nickname || t("participantsView.defaultRider"),
-              team: profile?.team || "—",
-            });
-          } catch {
-            userMap.set(uid, { nickname: t("participantsView.defaultRider"), team: "—" });
-          }
-        })
-      );
-
+      if (!current()) return;
       const rows: ParticipantRow[] = partsSnap.docs.map((p) => {
         const data = p.data();
-        const u = userMap.get(p.id);
         const status = (data.status as ParticipantStatus) || "REGISTERED";
         const finishedAt = typeof data.finishedAt === "number" ? data.finishedAt
           : data.finishedAt?.toMillis?.() ?? (typeof data.finishedAt?._seconds === "number" ? data.finishedAt._seconds * 1000 : null);
@@ -260,8 +256,10 @@ export default function EventParticipantsPage() {
         return {
           userId: p.id,
           bib: typeof data.bib === "number" ? data.bib : null,
-          realName: data.realName || u?.nickname || t("participantsView.defaultRider"),
-          nickname: u?.nickname || t("participantsView.defaultRider"),
+          realName: data.realName || t("participantsView.defaultRider"),
+          nickname: t("participantsView.defaultRider"),
+          identityPending: !data.realName && typeof data.bib !== "number",
+          searchableNames: typeof data.realName === "string" && data.realName ? [data.realName] : [],
           category: data.category ?? null,
           age: data.birth ? ageFromBirth(data.birth) : null,
           gender: data.gender ?? null,
@@ -271,7 +269,7 @@ export default function EventParticipantsPage() {
           verificationPending,
           cpProgress: typeof data.cpProgress === "number" ? data.cpProgress : 0,
           bestTime: info.resultContractVersion >= 2 && !verifiedFinisher ? "—" : data.bestTime || "—",
-          team: u?.team || "—",
+          team: "—",
           // 무료 이벤트: REFUNDED 외 모두 paid 취급. 유료 이벤트: REGISTERED는 미결제, 그 외 paid.
           // 명시적인 data.paid 필드가 있으면 우선.
           paid:
@@ -285,16 +283,54 @@ export default function EventParticipantsPage() {
         };
       });
       setParticipants(rows);
+      // 권한이 확인된 참가 기록을 먼저 표시한다. 공개 프로필은 최대 4개 동시 조회 후 한 번에 반영한다.
+      // CSV 내보내기는 아직 비활성 버튼이며, 프로필 보강은 화면의 참가자 행에만 적용한다.
+      let nextProfile = 0;
+      const profiles = new Map<string, { nickname: string; team: string; verifiedNickname?: string }>();
+      const canonicalNames = new Set(partsSnap.docs.filter(participant => participant.data().realName).map(participant => participant.id));
+      const identitiesPending = new Set(rows.filter(row => row.identityPending).map(row => row.userId));
+      const hydrateProfiles = async () => {
+        while (current() && nextProfile < partsSnap.docs.length) {
+          const participant = partsSnap.docs[nextProfile++]!;
+          try {
+            const profile = await getPublicUserProfile(participant.id, services.firestore);
+            if (!current()) return;
+            const nickname = profile?.nickname || t("participantsView.defaultRider");
+            const identity = { nickname, team: profile?.team || "—", verifiedNickname: profile?.nickname };
+            profiles.set(participant.id, identity);
+            if (profile?.nickname && identitiesPending.has(participant.id)) {
+              setParticipants(previous => previous.map(row => row.userId === participant.id
+                ? { ...row, nickname, team: identity.team, realName: nickname, identityPending: false, searchableNames: [nickname] } : row));
+            }
+          } catch (error) {
+            logClientError("EventParticipantsPage.loadPublicProfile", error, { eventId }, services, scope.owner);
+          }
+        }
+      };
+      void Promise.all(Array.from({ length: Math.min(4, partsSnap.docs.length) }, hydrateProfiles)).then(() => {
+        if (!current()) return;
+        const enrich = (row: ParticipantRow) => {
+          const profile = profiles.get(row.userId);
+          return profile ? { ...row, nickname: profile.nickname, team: profile.team, identityPending: false,
+            searchableNames: profile.verifiedNickname ? [...new Set([...row.searchableNames, profile.verifiedNickname])] : row.searchableNames,
+            realName: !canonicalNames.has(row.userId) && row.realName === t("participantsView.defaultRider") ? profile.nickname : row.realName,
+          } : { ...row, identityPending: false };
+        };
+        setParticipants(previous => previous.map(enrich));
+        setDrawer(previous => previous ? enrich(previous) : previous);
+      });
     } catch (err) {
-      logClientError("EventParticipantsPage.load", err, { eventId });
-      setLoadError(err instanceof Error ? err.message : t("participantsView.loadError"));
+      const active = current();
+      logClientError("EventParticipantsPage.load", err, { eventId }, services, scope.owner, active ? "" : "superseded");
+      if (active) setLoadError(err instanceof Error ? err.message : t("participantsView.loadError"));
     } finally {
-      setLoading(false);
+      if (current()) { setLoadedScope(scope); setLoading(false); }
     }
-  }, [eventId, t]);
+  }, [eventId, t, scope, firestore, services]);
 
   useEffect(() => {
     void load();
+    return () => { loadGeneration.current += 1; };
   }, [load]);
 
   const isHost = !!event && !!user && (user.uid === event.creatorId || event.hostIds.includes(user.uid));
@@ -305,8 +341,7 @@ export default function EventParticipantsPage() {
     if (q) {
       r = r.filter(
         (p) =>
-          p.realName.toLowerCase().includes(q) ||
-          p.nickname.toLowerCase().includes(q) ||
+          p.searchableNames.some(name => name.toLowerCase().includes(q)) ||
           String(p.bib ?? "").includes(q) ||
           p.phone.includes(q)
       );
@@ -346,9 +381,12 @@ export default function EventParticipantsPage() {
     });
   }
 
+  const canSelectAll = filtered.length > 0 && filtered.every(row => !row.identityPending);
+  const allSelected = canSelectAll && filtered.every(row => selected.has(row.userId));
   function toggleAll() {
-    if (selected.size === filtered.length) setSelected(new Set());
-    else setSelected(new Set(filtered.map((r) => r.userId)));
+    if (!canSelectAll) return;
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(filtered.map(row => row.userId)));
   }
 
   async function handleAssignBibs(mode: "sequential" | "category" | "random") {
@@ -416,7 +454,7 @@ export default function EventParticipantsPage() {
       </div>
     );
   }
-  if (loading) {
+  if (loading || loadedScope !== scope) {
     return (
       <div className="max-w-4xl mx-auto py-6">
         <LoadingSkeleton kind="list" count={8} />
@@ -715,7 +753,8 @@ export default function EventParticipantsPage() {
                   <th style={{ width: 36, padding: "10px 16px", textAlign: "left" }}>
                     <input
                       type="checkbox"
-                      checked={selected.size === filtered.length && filtered.length > 0}
+                      checked={allSelected}
+                      disabled={!canSelectAll}
                       onChange={toggleAll}
                       aria-label={t("participantsView.selectAll")}
                     />
@@ -778,6 +817,7 @@ export default function EventParticipantsPage() {
                           <input
                             type="checkbox"
                             checked={isSelected}
+                            disabled={p.identityPending}
                             onChange={() => toggleSelect(p.userId)}
                             aria-label={t("participantsView.selectRow", { name: p.realName })}
                           />
@@ -798,6 +838,7 @@ export default function EventParticipantsPage() {
                         <td style={{ padding: "var(--space-3) var(--space-2)" }}>
                           <Button
                             type="button"
+                            disabled={p.identityPending}
                             onClick={() => setDrawer(p)}
                             style={{
                               textAlign: "left",
@@ -869,6 +910,7 @@ export default function EventParticipantsPage() {
                         <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right" }}>
                           <Button
                             type="button"
+                            disabled={p.identityPending}
                             onClick={() => setDrawer(p)}
                             aria-label={t("participantsView.viewDetail", { name: p.realName })}
                             style={{

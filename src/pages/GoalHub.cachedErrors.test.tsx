@@ -24,14 +24,19 @@ beforeEach(() => {
 });
 
 describe("GoalHub cached plan read failures with the real model", () => {
-  it.each(["goal", "plan"])("retains saved information, explains %s failure, and recovers through retry", async stage => {
+  it.each(["goal", "plan"])("shows the valid goal, explains %s failure, and recovers through retry", async stage => {
     const reads = vi.mocked(getDocs);
     if (stage === "plan") reads.mockResolvedValueOnce({ empty: false, docs: [{ id: "fresh-goal", data: () => ({ title: "Confirmed goal", discipline: "bike", eventDate: Date.now() + 86400000 }) }] } as never);
     reads.mockRejectedValueOnce(new Error("offline"));
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { authenticated: true, user: { uid: "owner" }, route: "/ko/coach/goals?sport=bike" });
     expect(await screen.findByRole("alert")).toHaveTextContent("기존 목표를 확인하지 못했습니다");
-    expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Saved goal");
-    expect(screen.getByText("저장된 이전 정보를 표시하고 있습니다.")).toBeVisible();
+    if (stage === "goal") {
+      expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Saved goal");
+      expect(screen.getByText("저장된 이전 정보를 표시하고 있습니다.")).toBeVisible();
+    } else {
+      expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Confirmed goal");
+      expect(screen.queryByText("저장된 이전 정보를 표시하고 있습니다.")).not.toBeInTheDocument();
+    }
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "목표 관리" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "목표 변경" })).toBeDisabled();

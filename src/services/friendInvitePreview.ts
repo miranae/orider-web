@@ -1,6 +1,6 @@
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { isFunctionsGatewayRuntime, isEmulatorRuntime } from "./runtimeConfig";
+import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 export interface FriendInviteProfile { userId: string; nickname: string; photoURL: string | null }
 const connected = new WeakSet<object>();
 export async function resolveFriendInvitePreview(services: FirebaseServices, friendCode: string): Promise<FriendInviteProfile | null> {
@@ -9,7 +9,7 @@ export async function resolveFriendInvitePreview(services: FirebaseServices, fri
   const viewer = services.auth.currentUser;
   const current = () => { if (services.auth.currentUser !== viewer) throw Error("account_changed"); };
   await services.ensureAppCheckReady(); current();
-  const functions = isFunctionsGatewayRuntime() ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
+  const functions = isFunctionsGatewayRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
   if (isEmulatorRuntime() && !connected.has(functions)) {
     connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001)); connected.add(functions);
   }

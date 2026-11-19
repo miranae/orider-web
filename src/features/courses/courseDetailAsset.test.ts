@@ -49,10 +49,10 @@ describe("코스 상세 정적 트랙", () => {
     });
     const onData = vi.fn(); const onError = vi.fn();
     const stop = subscribeCourseDetail(services(), "course", onData, onError);
-    await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(1));
-    expect(onData.mock.calls[0][0]).toMatchObject({ id: "course", elevationProfile: [{ d: 0, e: 1 }] });
-    changed?.();
     await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(2));
+    expect(onData.mock.calls[1][0]).toMatchObject({ id: "course", elevationProfile: [{ d: 0, e: 1 }] });
+    changed?.();
+    await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(3));
     expect(fetcher).toHaveBeenCalledTimes(3);
     expect(sdk.getDoc).not.toHaveBeenCalled(); expect(sdk.onSnapshot).toHaveBeenCalledTimes(1); expect(onError).not.toHaveBeenCalled();
     stop(); changed?.(); await Promise.resolve(); expect(fetcher).toHaveBeenCalledTimes(3);
@@ -71,9 +71,9 @@ describe("코스 상세 정적 트랙", () => {
     vi.stubGlobal("fetch", fetcher);
     const service = services(); const first = vi.fn();
     const stopFirst = subscribeCourseDetail(service, "course", first, vi.fn());
-    await vi.waitFor(() => expect(first).toHaveBeenCalledTimes(1)); stopFirst();
+    await vi.waitFor(() => expect(first).toHaveBeenCalledTimes(2)); stopFirst();
     const second = vi.fn(); const stopSecond = subscribeCourseDetail(service, "course", second, vi.fn());
-    await vi.waitFor(() => expect(second).toHaveBeenCalledTimes(1)); stopSecond();
+    await vi.waitFor(() => expect(second).toHaveBeenCalledTimes(2)); stopSecond();
     expect(fetcher).toHaveBeenCalledTimes(3);
     expect(responses.size).toBe(1);
   });
@@ -84,7 +84,7 @@ describe("코스 상세 정적 트랙", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(fields(revision)))).mockResolvedValueOnce(new Response(body));
     vi.stubGlobal("fetch", fetcher);
     const onData = vi.fn(); const stop = subscribeCourseDetail(service, "course", onData, vi.fn());
-    await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(1)); stop();
+    await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(2)); stop();
     expect(service.getAppCheckToken).toHaveBeenCalledTimes(1);
     expect(fetcher.mock.calls[1][1].headers["X-Firebase-AppCheck"]).toBe("app-check-token");
   });
@@ -104,8 +104,8 @@ describe("코스 상세 정적 트랙", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(revision)))).mockResolvedValueOnce(new Response(body + " ")));
     sdk.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: "최신 코스", elevationProfile: [] }) });
     const onData = vi.fn(); const stop = subscribeCourseDetail(services(), "course", onData, vi.fn());
-    await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(1));
-    expect(sdk.getDoc).toHaveBeenCalledTimes(1); expect(onData.mock.calls[0][0].name).toBe("최신 코스"); stop();
+    await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(2));
+    expect(sdk.getDoc).toHaveBeenCalledTimes(1); expect(onData.mock.calls[1][0].name).toBe("최신 코스"); stop();
   });
   it("종료나 계정 전환 전 응답은 게시하지 않는다", async () => {
     let resolve!: (response: Response) => void;
@@ -130,4 +130,99 @@ describe("코스 상세 정적 트랙", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 404 })));
     expect(await loadCourseSource(services(), "gone")).toBeNull();
   });
+});
+
+
+it("publishes current metadata while elevation is pending and discards late geometry after account replacement", async () => {
+  const revision = await hash(body);
+  let resolve!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(revision))))
+    .mockImplementationOnce(() => new Promise<Response>(done => { resolve = done; })));
+  const service = services(); const onData = vi.fn(); const onError = vi.fn();
+  const stop = subscribeCourseDetail(service, "course", onData, onError);
+  await vi.waitFor(() => expect(onData).toHaveBeenCalledWith(expect.objectContaining({ name: "코스", trackLoadState: "loading" })));
+  expect(onData.mock.calls[0][0].elevationProfile).toBeUndefined();
+  await vi.waitFor(() => expect(resolve).toBeDefined());
+  service.auth.currentUser = { uid: "new-owner" } as never;
+  resolve(new Response(body));
+  await new Promise(done => setTimeout(done, 20));
+  expect(onData).toHaveBeenCalledTimes(1);
+  expect(onError).not.toHaveBeenCalled(); stop();
+});
+
+it("removes the old elevation when a new track revision is waiting", async () => {
+  const revision = await hash(body); const nextBody = body + " "; const nextRevision = await hash(nextBody);
+  let resolve!: (response: Response) => void;
+  const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(revision))))
+    .mockResolvedValueOnce(new Response(body)).mockResolvedValueOnce(new Response(JSON.stringify(fields(nextRevision))))
+    .mockImplementationOnce(() => new Promise<Response>(done => { resolve = done; }));
+  vi.stubGlobal("fetch", fetcher);
+  let changed!: () => void;
+  sdk.onSnapshot.mockImplementation((_path, next) => { changed = () => next({ exists: () => true }); queueMicrotask(changed); return vi.fn(); });
+  const onData = vi.fn(); const stop = subscribeCourseDetail(services(), "course", onData, vi.fn());
+  await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
+  changed();
+  await vi.waitFor(() => expect(resolve).toBeDefined());
+  expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackVersion: nextRevision, trackLoadState: "loading" }));
+  expect(onData.mock.lastCall![0].elevationProfile).toBeUndefined();
+  resolve(new Response(nextBody));
+  await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackVersion: nextRevision, trackLoadState: "ready" })));
+  stop();
+});
+
+it.each(["unavailable", "permission-denied"])("keeps asset failures local except current access denial: %s", async code => {
+  const revision = await hash(body);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(revision)))).mockRejectedValueOnce(new Error("asset unavailable")));
+  sdk.getDoc.mockRejectedValueOnce(Object.assign(new Error(code), { code }));
+  const onData = vi.fn(); const onError = vi.fn(); const stop = subscribeCourseDetail(services(), "course", onData, onError);
+  if (code === "permission-denied") {
+    await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+    expect(onData).toHaveBeenLastCalledWith(null);
+  } else {
+    await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ name: "코스", trackLoadState: "error" })));
+    expect(onError).not.toHaveBeenCalled();
+  }
+  stop();
+});
+
+
+it.each(["newer-response", "account", "dispose"])("never publishes delayed metadata JSON after %s invalidation", async invalidation => {
+  const revision = await hash(body);
+  let resolveBody!: (value: unknown) => void;
+  const pending = new Promise(resolve => { resolveBody = resolve; });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({ ok: true, status: 200, json: () => pending }).mockResolvedValueOnce(new Response("", { status: 404 })));
+  let changed!: () => void;
+  sdk.onSnapshot.mockImplementation((_path, next) => { changed = () => next({ exists: () => true }); queueMicrotask(changed); return vi.fn(); });
+  const service = services(); const onData = vi.fn(); const stop = subscribeCourseDetail(service, "course", onData, vi.fn());
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+  if (invalidation === "newer-response") { changed(); await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(null)); }
+  if (invalidation === "account") service.auth.currentUser = { uid: "new-owner" } as never;
+  if (invalidation === "dispose") stop();
+  resolveBody(fields(revision));
+  await new Promise(done => setTimeout(done, 10));
+  expect(onData.mock.calls.some(([value]) => value !== null)).toBe(false);
+  stop();
+});
+
+
+it("does not replace the current verified in-memory track with a late older version", async () => {
+  const revision = await hash(body); const nextBody = body + " "; const nextRevision = await hash(nextBody);
+  let resolveOld!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(revision))))
+    .mockImplementationOnce(() => new Promise<Response>(done => { resolveOld = done; }))
+    .mockResolvedValueOnce(new Response(JSON.stringify(fields(nextRevision)))).mockResolvedValueOnce(new Response(nextBody))
+    .mockResolvedValueOnce(new Response(JSON.stringify(fields(nextRevision)))));
+  let changed!: () => void;
+  sdk.onSnapshot.mockImplementation((_path, next) => { changed = () => next({ exists: () => true }); queueMicrotask(changed); return vi.fn(); });
+  const onData = vi.fn(); const stop = subscribeCourseDetail(services(), "course", onData, vi.fn());
+  await vi.waitFor(() => expect(resolveOld).toBeDefined());
+  changed();
+  await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackVersion: nextRevision, trackLoadState: "ready" })));
+  resolveOld(new Response(body));
+  await new Promise(done => setTimeout(done, 20));
+  changed();
+  await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(4));
+  expect(fetch).toHaveBeenCalledTimes(5);
+  expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackVersion: nextRevision, trackLoadState: "ready" }));
+  stop();
 });

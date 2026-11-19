@@ -36,6 +36,20 @@ describe("ActivityMediaPanel no-map state", () => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
   });
 
+  it("keeps run/peak range highlights distinct from explicit segment camera commands", () => {
+    const activity = createMockActivity();
+    const photoPosition: [number,number] = [38,128];
+    const props = { activity, streams:null, sport:"ride" as const, hasTrack:true, summary:activity.summary,
+      markerPosition:null, hoveredSegment:null, selectedSegmentRange:null, photos:[], uploadedPhotos:[],
+      flyToPosition:photoPosition, t:i18n.getFixedT("en","activity") as TFunction<"activity"> };
+    const view = render(<ActivityMediaPanel {...props} selectedRunRange={{startIndex:1,endIndex:3}} />);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({highlightRange:{startIndex:1,endIndex:3},flyToRange:null,flyToPosition:photoPosition});
+    view.rerender(<ActivityMediaPanel {...props} selectedRunRange={{startIndex:1,endIndex:3}} />);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({highlightRange:{startIndex:1,endIndex:3},flyToRange:null,flyToPosition:photoPosition});
+    view.rerender(<ActivityMediaPanel {...props} selectedSegmentRange={{startIndex:1,endIndex:3,requestId:2}} />);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({flyToRange:{startIndex:1,endIndex:3,requestId:2},flyToPosition:undefined});
+  });
+
   it("keeps an unrequested route distinct from missing GPS, retries explicitly, and displays independent geometry", async () => {
     const user = userEvent.setup(), onLoad = vi.fn();
     const activity = createMockActivity({ source: "orider", thumbnailTrack: "" });
@@ -208,4 +222,14 @@ describe("owner map actions without a map", () => {
     expect(placements).toContain("inline");
     expect(placements).not.toContain("overlay");
   });
+});
+
+it("renders public detail pieces without joining the full stream or reusing a stale image", () => {
+ const parts: [number,number][][] = [[[37,127],[37.01,127.01]],[[38,128],[38.01,128.01]]];
+ const activity = createMockActivity({thumbnailTrack:"old-joined",mapImageUrl:"https://example.test/old"});
+ render(<ActivityMediaPanel activity={activity} allowOwnerPreview={false} publicRouteParts={parts}
+  streams={{latlng:[[37,127],[38,128]]} as ActivityStreams} sport="ride" hasTrack summary={activity.summary}
+  markerPosition={[37,127]} hoveredSegment={null} selectedRunRange={{startIndex:0,endIndex:1}}
+  photos={[]} uploadedPhotos={[]} flyToPosition={null} t={i18n.getFixedT("en","activity") as TFunction<"activity">}/>);
+ expect(mapProps.mock.lastCall?.[0]).toMatchObject({routeParts:parts,polyline:undefined,fallbackImageUrl:null,markerPosition:null,highlightRange:undefined});
 });

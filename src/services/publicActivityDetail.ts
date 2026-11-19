@@ -1,10 +1,11 @@
-import { markRawPartStreams } from "./activityStreamSource";
+import { decodePublicMapPolylineParts } from "./publicActivityMaps";
+import { markRawPartStreams, markStreamCadenceUnit } from "./activityStreamSource";
 import { validatedRunEffortFacts } from "./personalDataApi";
 import { announceActivityContentChange } from "./activityContentChanged";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { ActivityFeedComment, ActivityFeedContent } from "@shared/types/activity-feed-content";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { isFunctionsGatewayRuntime, isEmulatorRuntime } from "./runtimeConfig";
+import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 
 /** Activity ACL-authorized detail; never fall back to direct private document reads. */
 export interface PublicActivityDetail {
@@ -20,7 +21,7 @@ export interface PublicActivityDetail {
   nativeMemoRevision?: string | null;
   nativeCoverPhotoId?: string | null;
   nativeCoverRevision?: string;
-  mapPreview?: { imageUrl: string | null; encodedPolyline: string | null };
+  mapPreview?: { imageUrl: string | null; encodedPolyline: string | null; encodedPolylineParts?: string[] };
   uploadedPhotosTruncated?: boolean;
   content: Pick<ActivityFeedContent, "status" | "activityId" | "comments"> & Partial<ActivityFeedContent>;
 }
@@ -50,7 +51,7 @@ export function createPublicActivityClient(services: FirebaseServices, options: 
     await services.ensureAppCheckReady();
     if (expired) throw new Error("activity_request_timeout");
     assertAccount();
-    const functions = isFunctionsGatewayRuntime() ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
+    const functions = isFunctionsGatewayRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
     if (isEmulatorRuntime() && !emulatorClients.has(functions)) {
       connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
       emulatorClients.add(functions);
@@ -72,15 +73,21 @@ export function createPublicActivityClient(services: FirebaseServices, options: 
     async load(activityId: string) {
       const data = await call<PublicActivityDetail>("getActivityPublicDetail", { activityId });
       if (data.activity?.id !== activityId || data.content?.activityId !== activityId || typeof data.viewerHasKudos !== "boolean") throw new Error("invalid_public_activity");
+      if (data.mapPreview?.encodedPolylineParts !== undefined) {
+        if (data.mapPreview.encodedPolyline !== null || !decodePublicMapPolylineParts(data.mapPreview.encodedPolylineParts)) throw new Error("invalid_public_activity");
+        data.mapPreview = { ...data.mapPreview, imageUrl: null };
+      }
       return data;
     },
     async streams(activityId: string) {
-      const result = await call<{ state: string; activityId: string; streamInputRevision: string | null; sourceLayer: string | null; reason: string | null; streams: import("@shared/types").ActivityStreams | null; runningBestEffortsFacts?: import("@shared/types/running-best-efforts-facts").RunningBestEffortsFacts }>("getActivityPublicStreams", { activityId, includeRunEffortFacts: true });
+      const result = await call<{ state: string; activityId: string; streamInputRevision: string | null; sourceLayer: string | null; cadenceUnit?: unknown; reason: string | null; streams: import("@shared/types").ActivityStreams | null; runningBestEffortsFacts?: import("@shared/types/running-best-efforts-facts").RunningBestEffortsFacts }>("getActivityPublicStreams", { activityId, includeRunEffortFacts: true });
       if (result.activityId !== activityId || !["available", "pending", "unavailable", "changed_input"].includes(result.state)) throw new Error("invalid_activity_streams");
       if (result.state !== "available") return result;
       if (!result.streamInputRevision || !/^[a-f0-9]{64}$/.test(result.streamInputRevision) || !["raw_parts", "api_streams"].includes(result.sourceLayer ?? "") || !result.streams || Array.isArray(result.streams)) throw new Error("invalid_activity_streams");
       const streams = result.sourceLayer === "raw_parts" ? markRawPartStreams(result.streams, result.streamInputRevision) : result.streams;
-      return { ...result, streams: { ...streams, runningBestEffortsFacts: validatedRunEffortFacts(result.runningBestEffortsFacts, result.streamInputRevision) ?? undefined } };
+      return { ...result, streams: markStreamCadenceUnit({
+        ...streams, runningBestEffortsFacts: validatedRunEffortFacts(result.runningBestEffortsFacts, result.streamInputRevision) ?? undefined,
+      }, result.cadenceUnit) };
     },
     setNativeMemo: (activityId: string, memo: string, expectedMemoRevision: string) => call<{ status: "updated" | "unchanged"; memoRevision: string }>("setActivityNativeMemo", { activityId, memo, expectedMemoRevision }),
     photos: (activityId: string) => call<{ photos: NonNullable<PublicActivityDetail["content"]["photos"]>; truncated: boolean }>("getActivityPublicPhotos", { activityId }),

@@ -1,4 +1,4 @@
-import { getRuntimeConfig, bundledFunctionsBase } from "./runtimeConfig";
+import { bundledFunctionsBase, getRuntimeConfig } from "./runtimeConfig";
 import { getApps, initializeApp } from "firebase/app";
 import { getFunctions, httpsCallable, httpsCallableFromURL, type Functions } from "firebase/functions";
 

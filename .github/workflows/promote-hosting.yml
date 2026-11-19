@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   actions: read
+  attestations: read
   id-token: write
 
 concurrency:
@@ -25,6 +26,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, macOS, ARM64, web-hosting]
     environment: production
+    env:
+      ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
+      ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -50,6 +54,7 @@ jobs:
           token_format: access_token
       - name: Restore validated development candidate
         env:
+          GH_TOKEN: ${{ github.token }}
           HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
           CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
@@ -62,10 +67,36 @@ jobs:
           set -euo pipefail
           candidate_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-candidate/archive.json")).frontendSourceSha')
           if ! git cat-file -e "$candidate_sha^{commit}"; then git fetch --no-tags origin "$candidate_sha"; fi
+          # Install only the two locked HTML parser packages in an isolated workspace.
+          parser_workspace="$RUNNER_TEMP/client-promotion-html-parser"
+          mkdir "$parser_workspace"
+          node - "$parser_workspace" <<'JS'
+          const {readFileSync,writeFileSync}=require("node:fs");
+          const {join}=require("node:path");
+          const workspace=process.argv[2];
+          const locked=JSON.parse(readFileSync("package-lock.json","utf8")).packages;
+          const resolved=Object.fromEntries(["parse5","entities"].map(name=>[`node_modules/${name}`,locked[`node_modules/${name}`]]));
+          const root={name:"client-promotion-html-parser",version:"1.0.0",dependencies:{parse5:resolved["node_modules/parse5"].version}};
+          writeFileSync(join(workspace,"package.json"),JSON.stringify(root));
+          writeFileSync(join(workspace,"package-lock.json"),JSON.stringify({...root,lockfileVersion:3,packages:{"":root,...resolved}}));
+          JS
+          (cd "$parser_workspace" && npm ci --include=dev --ignore-scripts --no-fund --no-audit)
+          export NODE_PATH="$parser_workspace/node_modules"
+          echo "NODE_PATH=$NODE_PATH" >> "$GITHUB_ENV"
           node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate/payload" --run "$RUNNER_TEMP/client-candidate/run.json" --artifact "$RUNNER_TEMP/client-candidate/archive.json" --attempt "$CANDIDATE_ATTEMPT"
           node scripts/promote-bundled-client.mjs --phase verify
           echo "PREPARED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+      - name: Record the previous production release
+        id: hosting_snapshot
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          source_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.CLIENT_PROMOTION_DIRECTORY+"/promotion.json")).frontendSourceSha')
+          export HOSTING_DEPLOYMENT_MARKER="client-promotion:$source_sha:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
+          node scripts/bundled-stage-hosting-release.mjs --phase snapshot --file "$RUNNER_TEMP/production-hosting-before.json"
       - name: Publish the same compiled files
+        id: publish
         env:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
@@ -81,6 +112,20 @@ jobs:
           echo "PUBLIC_CHECK_STARTED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
           node scripts/promote-bundled-client.mjs --phase published
           echo "VERIFIED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+      - name: Restore the previous production release on publication failure
+        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != ''
+        timeout-minutes: 3
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/production-hosting-before.json"
+      - name: Retain recovery receipt after a production publication failure
+        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosting-promotion-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 1
+          path: ${{ runner.temp }}/production-hosting-before.json
       - name: Report actual elapsed time
         if: always()
         env:

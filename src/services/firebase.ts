@@ -11,7 +11,7 @@ import {
   ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
-import { assertIsolatedStageRuntime, getRuntimeConfig, isFunctionsGatewayRuntime, isEmulatorRuntime } from "./runtimeConfig";
+import { isFunctionsGatewayRuntime, assertIsolatedStageRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 
 let app: FirebaseApp;
 let _auth: Auth;

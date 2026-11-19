@@ -22,9 +22,10 @@ const DashboardPage = lazy(() => import("../pages/DashboardPage"));
 const ExplorePage = lazy(() => import("../pages/ExplorePage"));
 const CoursesPage = lazy(() => import("../pages/CoursesPage"));
 import { TopNav } from "./redesign";
+import LoadingSkeleton from "./redesign/states/LoadingSkeleton";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
-import { resolveDetailHub, isHubSubRoute } from "../config/navHubs";
+import { resolveDetailHub, resolveNavHighlight, isHubSubRoute } from "../config/navHubs";
 import { rememberHubLocation } from "../services/hubReturn";
 import { EnteringShell, RetainedHubPages } from "./RetainedHubPages";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
@@ -108,6 +109,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const path = stripLangPrefix(location.pathname);
   const activeNav = resolveDetailHub(path, location.state);
+  const highlightNav = resolveNavHighlight(path, location.state);
   const mainRef = useRef<HTMLElement>(null);
   const outlet = useOutlet();
   useMainScrollPosition(mainRef, user);
@@ -167,7 +169,7 @@ export default function Layout() {
   return (
     <div className="flex flex-col" style={{ height: "100dvh", background: 'var(--bg-0)', color: 'var(--ink-1)' }}>
       <TopNav
-        active={activeNav}
+        active={highlightNav}
         notifications={notifications}
         notificationStatus={notificationStatus}
         notificationFooter={notificationFooter}
@@ -180,7 +182,7 @@ export default function Layout() {
       />
 
       {/* 홈은 대시보드 셸, 다른 페이지는 콘텐츠 셸. 기본 허브 화면은 탭을 오가는 동안 살려 둔다. */}
-      <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+      <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0">
         <RetainedHubPages path={path} hub={activeNav} owner={user?.uid ?? null}>
           {path === "/" ? (
             <div className="site-shell md:px-6 md:py-6" data-page-shell="home">
@@ -191,11 +193,13 @@ export default function Layout() {
           ) : (
             <EnteringShell className={`site-shell site-shell--padded py-6${path.startsWith("/coach/") || path === "/athlete/me/activities" ? " coach-surface" : ""}`} data-page-shell="content">
               {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
-              <Suspense fallback={<div style={{ height: 200 }} />}>
+              <Suspense fallback={<LoadingSkeleton kind="list" />}>
                 {path === "/explore/segments" && <ExplorePage />}
                 {path === "/explore/courses" && <CoursesPage />}
               </Suspense>
-              {(path.startsWith("/coach/") || path === "/clubs" || path.startsWith("/club/")) ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}>{outlet}</GlossaryProvider> : outlet}
+              <Suspense fallback={<LoadingSkeleton kind="card" count={2} />}>
+                {(path.startsWith("/coach/") || path === "/clubs" || path.startsWith("/club/")) ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}>{outlet}</GlossaryProvider> : outlet}
+              </Suspense>
             </EnteringShell>
           )}
         </RetainedHubPages>
@@ -213,7 +217,7 @@ export default function Layout() {
       </footer>
 
       {/* Mobile bottom tab bar */}
-      <MobileTabBar active={activeNav} />
+      <MobileTabBar active={highlightNav} />
 
       {/* Mobile notification bottom sheet */}
       {notifOpen && (

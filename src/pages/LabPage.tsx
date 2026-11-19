@@ -31,7 +31,9 @@ import {
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { useAuth } from "../contexts/AuthContext";
-import { Resolvable } from "../components/redesign";
+import { ErrorState, Resolvable } from "../components/redesign";
+import { logClientError } from "../services/errorLogger";
+import { executeFirestoreSessionRecovery, firestoreRecoveryLogContext, prepareFirestoreSessionRecovery } from "../utils/firestoreSessionRecovery";
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
 import {
@@ -115,16 +117,19 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
   const uid = user?.uid ?? null;
   const [searchParams] = useSearchParams();
   // 코스 상세 임베드(#3235)에서도 그려진다 — 싱글턴 대신 주입된 인스턴스(#847).
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
 
   // ── 코스 목록 (내 코스) + URL courseId 직접 로드 ──────────────────────
   const [courses, setCourses] = useState<CourseLite[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
+  const [failedCourseId, setFailedCourseId] = useState<string | null>(null);
+  const [courseRetry, setCourseRetry] = useState(0);
   const appliedUrlCourseIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!uid || embedded) {
-      setCourses([]);
+      setCourses(current => current.length ? [] : current);
       return;
     }
     const q = query(
@@ -159,10 +164,13 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
       return;
     }
     let cancelled = false;
+    const viewer = services.auth.currentUser;
+    const isCurrent = () => !cancelled && services.auth.currentUser === viewer;
     getDoc(doc(firestore, "courses", urlCourseId)).then((snap) => {
-      if (cancelled || !snap.exists()) return;
+      if (!isCurrent() || !snap.exists()) return;
       const data = snap.data();
       if (!isVisibleCourseDocData(data)) return;
+      setFailedCourseId(null);
       if (appliedUrlCourseIdRef.current !== urlCourseId) {
         appliedUrlCourseIdRef.current = urlCourseId;
         setSelectedId(urlCourseId);
@@ -181,11 +189,17 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
               ...prev,
             ],
       );
+    }).catch(error => {
+      const current = isCurrent();
+      const recovery = prepareFirestoreSessionRecovery(error);
+      logClientError("LabPage.loadCourse", error, { courseId: urlCourseId, ...firestoreRecoveryLogContext(recovery) }, services, viewer, current ? "" : "superseded");
+      executeFirestoreSessionRecovery(recovery);
+      if (current) setFailedCourseId(urlCourseId);
     });
     return () => {
       cancelled = true;
     };
-  }, [firestore, urlCourseId, courses]);
+  }, [firestore, services, urlCourseId, courses, courseRetry, uid]);
 
   const selectedCourse = useMemo(
     () => courses.find((c) => c.id === selectedId) ?? null,
@@ -314,6 +328,12 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
         <div className={embedded ? "course-simulation-notice" : undefined}><Alert variant="warning" title={t("beta.title")}>
           {t("beta.body")}
         </Alert></div>
+        {failedCourseId && failedCourseId === urlCourseId && !courses.some(course => course.id === urlCourseId) && (
+          <ErrorState compact title={courseT("error.loadFailed")} onRetry={() => {
+            setFailedCourseId(null);
+            setCourseRetry(attempt => attempt + 1);
+          }} />
+        )}
         {embedded && selectedCourse && segments.length === 0 && <Alert variant="info">{t("course.noProfile")}</Alert>}
 
         {/* 코스 선택 */}

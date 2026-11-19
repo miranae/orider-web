@@ -6,6 +6,16 @@ import { getCurrentUser } from "../__tests__/mocks/firebase";
 import SettingsPage from "./SettingsPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
+const deviceCode = vi.hoisted(() => {
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  return { pending, release: () => release() };
+});
+vi.mock("../components/settings/PaneDevice", async () => {
+  await deviceCode.pending;
+  return { PaneDevice: () => <div>장치 설정 준비됨</div> };
+});
+
 // Mock useExport (heavy, not needed for these tests)
 vi.mock("../hooks/useExport", () => ({
   useExport: () => ({
@@ -143,4 +153,15 @@ it("offers the existing training fields at their settings destination and keeps 
   view.rerender(<SettingsPage tab="training" />);
   expect(screen.getByText("로그인이 필요합니다.")).toBeInTheDocument();
   expect(screen.queryByLabelText("FTP")).not.toBeInTheDocument();
+});
+
+
+it("keeps the settings navigation and active heading while the device pane downloads", async () => {
+  renderWithProviders(<SettingsPage tab="device" />, { authenticated: true, route: "/ko/settings/device" });
+  expect(await screen.findByRole("heading", { name: "설정" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "기기" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /계정/ })).toBeInTheDocument();
+  expect(screen.getByRole("status", { name: "불러오는 중" })).toBeInTheDocument();
+  await act(async () => deviceCode.release());
+  expect(await screen.findByText("장치 설정 준비됨")).toBeInTheDocument();
 });

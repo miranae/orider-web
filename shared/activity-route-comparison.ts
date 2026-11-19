@@ -12,7 +12,7 @@ export interface ActivityRouteEvidence {
   coverage: "complete" | "partial" | "unknown";
   points: readonly ObservedRoutePoint[];
 }
-export interface ObservedRoutePoint { lat: number; lon: number; elapsedSec: number }
+export interface ObservedRoutePoint { lat: number; lon: number; elapsedSec: number; segmentBreakBefore?: boolean }
 
 /** 확정 지표 문서의 별도 근거다. GPS 입력 revision이나 시간축을 공유하지 않는다. */
 export type ActivityCanonicalAverage = {

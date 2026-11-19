@@ -1,9 +1,11 @@
+import { readStreamCadenceUnit } from "./activityStreamSource";
+import { encodePolyline } from "../utils/polyline";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { createPublicActivityClient } from "./publicActivityDetail";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), getFunctions: vi.fn(() => ({})), httpsCallable: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ getFunctions: mocks.getFunctions, httpsCallable: (...args: unknown[]) => { mocks.httpsCallable(...args); return mocks.call; }, connectFunctionsEmulator: vi.fn() }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false, isFunctionsGatewayRuntime: () => false }));
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
 beforeEach(() => { vi.clearAllMocks(); mocks.ready.mockResolvedValue(undefined); mocks.call.mockResolvedValue({ data: { activity: { id: "a" }, content: { activityId: "a" }, viewerHasKudos: false } }); });
 function services(uid: string | null): FirebaseServices { return { auth: { currentUser: uid ? { uid, isAnonymous: false } : null }, functions: { app: { name: "embedded" } }, ensureAppCheckReady: mocks.ready } as unknown as FirebaseServices; }
 describe("public activity transport", () => {
@@ -79,9 +81,10 @@ it("rejects the old response after same-uid reauthentication", async () => {
 
 it("reads full activity streams and preserves independent nullable sensor axes", async () => {
   const streams = { time: [], latlng: [], importedSensorObservationsV1: { version: 1, timeMs: [0, 500, 1000], watts: [200, null, 0], routeTimeMs: [] } };
-  mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", streams } });
+  mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", cadenceUnit: "spm", streams } });
   const result = await createPublicActivityClient(services(null)).streams("a");
   expect(result.streams).toMatchObject(streams);
+  expect(readStreamCadenceUnit(result.streams!)).toBe("spm");
   expect(mocks.call).toHaveBeenCalledWith({ activityId: "a", includeRunEffortFacts: true });
 });
 it("rejects full streams with missing source binding or a different activity", async () => {
@@ -112,4 +115,15 @@ it("aborts fallback before AppCheck finishes without late dispatch", async () =>
  const controller = new AbortController(); const promise = createPublicActivityClient(services("owner"), { timeoutMs: 3000, signal: controller.signal }).load("a");
  controller.abort(); await expect(promise).rejects.toThrow("activity_request_aborted"); ready(); await Promise.resolve();
  expect(mocks.call).not.toHaveBeenCalled();
+});
+
+it("validates segmented public detail geometry and never reuses its old image", async () => {
+ const encodedPolylineParts = [encodePolyline([[37,127],[37.01,127.01]]),encodePolyline([[38,128],[38.01,128.01]])];
+ const result = { activity:{id:"a"},content:{activityId:"a"},viewerHasKudos:false,mapPreview:{encodedPolyline:null,encodedPolylineParts,imageUrl:"https://example.test/old"} };
+ mocks.call.mockResolvedValueOnce({data:result});
+ expect((await createPublicActivityClient(services(null)).load("a")).mapPreview).toEqual({...result.mapPreview,imageUrl:null});
+ for (const encodedPolylineParts of [[],["_"],Array(101).fill("????")]) {
+  mocks.call.mockResolvedValueOnce({data:{...result,mapPreview:{...result.mapPreview,encodedPolylineParts}}});
+  await expect(createPublicActivityClient(services(null)).load("a")).rejects.toThrow("invalid_public_activity");
+ }
 });

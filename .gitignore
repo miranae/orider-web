@@ -35,6 +35,7 @@ production-monitor-results/
 source-deployment.json
 
 /firebase.bundled-stage.json
-/firebase.bundled-production.json
 firebase-stage-deploy.log
+
+/firebase.bundled-production.json
 firebase-deploy.log

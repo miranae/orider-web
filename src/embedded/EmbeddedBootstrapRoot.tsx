@@ -18,6 +18,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -664,6 +665,10 @@ export default function EmbeddedBootstrapRoot({
   const selectionGeneration = useRef(0);
   const activeSelectionRequestId = useRef<string | undefined>(undefined);
   const authorizationAttempt = useRef(0);
+  useLayoutEffect(() => () => {
+    sessionAccepted.current = false;
+    authorizationAttempt.current += 1;
+  }, []);
   const surfaceLoadingFlow = useRef<SurfaceLoadingFlow | null>(null);
   const embedded = initEmbeddedFirebase();
   // 브리지·인증 구독은 Firestore 인스턴스와 무관하다. 계정 전환으로 Firestore 가 새로 만들어져도
@@ -679,6 +684,7 @@ export default function EmbeddedBootstrapRoot({
   const isSessionApproved = useCallback((viewer: FirebaseServices["auth"]["currentUser"]) =>
     sessionAccepted.current && viewer === controlServices.auth.currentUser
     && viewer?.isAnonymous !== true && (viewer?.uid ?? null) === acceptedUid.current, [controlServices.auth]);
+  const hostDiagnosticServices = useMemo(() => ({ ...controlServices, isSessionApproved }), [controlServices, isSessionApproved]);
   const approvalAttempt = authorizationAttempt.current;
   const services = useMemo<FirebaseServices>(
     () => ({
@@ -695,9 +701,9 @@ export default function EmbeddedBootstrapRoot({
     void isolateEmbeddedAccount(null).then(
       () => setFirestore(getEmbeddedFirestore()),
       // 실패하면 소유 계정이 유지되어 다음 sessionAccepted 가 격리를 다시 시도한다.
-      (err: unknown) => logClientError("embedded.accountIsolation.release", err, { phase: "logout" }),
+      (err: unknown) => logClientError("embedded.accountIsolation.release", err, undefined, hostDiagnosticServices),
     );
-  }, [accountReleaseRequest]);
+  }, [accountReleaseRequest, hostDiagnosticServices]);
 
   const safeSend = useCallback((
     type: Parameters<EmbeddedBridge["send"]>[0],
@@ -707,12 +713,10 @@ export default function EmbeddedBootstrapRoot({
     try {
       bridge.send(type, payload, requestId);
     } catch {
-      const viewer = controlServices.auth.currentUser;
-      const approvedViewer = viewer?.isAnonymous !== true && (viewer?.uid === acceptedUid.current || viewer?.uid === authorizedUid.current) ? viewer : null;
-      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type }, controlServices, approvedViewer,
-        () => isSessionApproved(approvedViewer));
+      logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type },
+        hostDiagnosticServices, null, type);
     }
-  }, [bridge, controlServices, isSessionApproved]);
+  }, [bridge, hostDiagnosticServices]);
 
   const handleTrainingShellReady = useCallback((
     surface: TrainingSurfaceKind,
@@ -1135,7 +1139,7 @@ export default function EmbeddedBootstrapRoot({
     const unsubscribeAuth = onIdTokenChanged(controlServices.auth, (user) => {
       observeSdkViewer(user);
       const onCacheError = (error: unknown) =>
-        logClientError("embedded.authChangeCacheReset", error, {}, controlServices, user, () => false);
+        logClientError("embedded.authChangeCacheReset", error, {}, hostDiagnosticServices);
       const lockedUid = acceptedUid.current;
       if (user?.isAnonymous === true) {
         const requestId = activeSelectionRequestId.current;
@@ -1201,7 +1205,7 @@ export default function EmbeddedBootstrapRoot({
       runStartChannel.dispose();
       bridge.dispose();
     };
-  }, [bridge, commitSurfaceSelection, controlServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
+  }, [bridge, commitSurfaceSelection, controlServices, hostDiagnosticServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
 
   const selectedTrainingSurface = isStandaloneSurfaceKind(surfaceKind)
     ? null

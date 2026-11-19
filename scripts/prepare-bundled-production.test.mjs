@@ -19,7 +19,7 @@ function fixture() {
   const git = (...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "fixture"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.test"); git("add", "."); git("commit", "-m", "fixture");
   let health = { status: "ok", exposure: "public", sourceSha: "b".repeat(40), topologyHash: "c".repeat(64) };
-  const calls = [], fetcher = async (url, options) => { calls.push(url); return url.endsWith("/api/v1/profile") ? Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 }) : url.endsWith("/api/strava/webhook") ? new Response("Forbidden", { status: 403 }) : url.endsWith("/readyz") ? Response.json(health) : /\/oriderReadinessMissing[a-f0-9]+$/u.test(url) ? Response.json({ error: "unknown-bundle-function" }, { status: 404 }) : options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": "https://orider.co.kr", "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": "https://orider.co.kr" } }); };
+  const calls = [], fetcher = async (url, options) => { calls.push(url); return url.endsWith("/api/v1/profile") ? Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 }) : url.endsWith("/api/strava/webhook") ? new Response("Forbidden", { status: 403 }) : url.endsWith("/readyz") ? Response.json(health) : /\/oriderReadinessMissing[a-f0-9]+$/u.test(url) ? Response.json({ error: "unknown-bundle-function" }, { status: 404 }) : options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } }); };
   const prepare = (patch = {}) => prepareBundledProduction({ source, workspace, directory, fetcher, backendSourceSha: "b".repeat(40), backendTopologyHash: "c".repeat(64), ...patch });
   const build = runtime => { mkdirSync(resolve(workspace, "dist")); writeFileSync(resolve(workspace, "dist/runtime-config.json"), JSON.stringify(runtime)); };
   return { workspace, directory, prepare, fetcher, calls, build, setHealth: next => { health = next; }, cleanup: () => rmSync(root, { recursive: true, force: true }) };
@@ -35,8 +35,12 @@ test("production opt-in derives routing from normal release flags and keeps cano
     const config = JSON.parse(readFileSync(resolve(f.workspace, "firebase.bundled-production.json"))).hosting;
     assert.equal(config.site, "miranae-orider-g1"); assert.ok(config.rewrites.filter(rule => rule.run).every(rule => rule.run.serviceId === "orider-bundle-default-api"));
     assert.match(config.predeploy, /predeploy-guard/); assert.match(config.predeploy, /prepare-bundled-production\.mjs --phase verify/);
-    await verifyBundledProduction(f.directory, f.fetcher);
-    assert.equal(f.calls.filter(url => !url.endsWith("/readyz")).length, 89);
+    const origins = new Set();
+    await verifyBundledProduction(f.directory, (url, options) => {
+      if (options.method === "OPTIONS" && url.endsWith("/getActivityDiscovery")) origins.add(options.headers.Origin);
+      return f.fetcher(url, options);
+    });
+    assert.deepEqual([...origins], ["https://orider.co.kr", "https://www.orider.co.kr", "https://miranae-orider-g1.web.app", "https://miranae-orider-g1.firebaseapp.com"]);
     assert.ok(f.calls.includes(`${runtime.firebaseFunctionsBase}/getActivityDiscovery`));
   } finally { f.cleanup(); }
 });
@@ -51,6 +55,7 @@ test("backend drift and replaced runtime block production deployment preparation
     await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
     f.setHealth({ status: "ok", exposure: "public", sourceSha: "d".repeat(40), topologyHash: "c".repeat(64) });
     await assert.rejects(verifyBundledProduction(f.directory, f.fetcher), /backend changed/);
+    await assert.rejects(verifyBundledProduction(f.directory, f.fetcher, { identityOnly: true }), /backend changed/);
     writeFileSync(resolve(f.workspace, "dist/runtime-config.json"), JSON.stringify(source));
     await assert.rejects(verifyBundledProduction(f.directory, f.fetcher), /built production runtime/);
   } finally { f.cleanup(); }
@@ -67,7 +72,7 @@ test("production workflow remains tag-only and routing changes are explicit defa
   assert.match(workflow, /if: env\.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'/);
   assert.match(workflow, /startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.ok(workflow.indexOf("Verify release commit is on main") < workflow.indexOf("Prepare selected production transport"));
-  assert.ok(workflow.indexOf("prepare-bundled-production.mjs --phase verify") < workflow.indexOf("firebase deploy --config"));
+  assert.match(workflow, /config=firebase\.bundled-production\.json/u);
 });
 
 test("production preparation rejects absent or mismatched approved backend pins", async () => {
@@ -76,11 +81,20 @@ test("production preparation rejects absent or mismatched approved backend pins"
     try { await assert.rejects(f.prepare(pins), /pins required|backend changed/); } finally { f.cleanup(); }
   }
 });
+test("readiness errors preserve the gateway and HTTP status when the response stream fails", async () => {
+  const f = fixture();
+  try {
+    const interrupted = new ReadableStream({ start(controller) { controller.error(new Error("stream interrupted")); } });
+    await assert.rejects(f.prepare({ fetcher: async () => new Response(interrupted, { status: 503 }) }), /gateway is unavailable at https:\/\/[^ ]+\/readyz HTTP 503/u);
+  } finally { f.cleanup(); }
+});
 test("bundled production rejects a missing social callable before Hosting", async () => {
   const f = fixture();
   try {
     await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
-    await assert.rejects(verifyBundledProduction(f.directory, url => url.endsWith("/readyz") ? f.fetcher(url) : Promise.resolve(Response.json({}, { status: 404 }))), /bundled (callable|missing-route control)/);
+    await assert.rejects(verifyBundledProduction(f.directory, (url, options) => url.endsWith("/socialAuthStart")
+      ? Promise.resolve(new Response(new ReadableStream({ start(controller) { controller.error(new Error("preflight body interrupted")); } }), { status: 404 }))
+      : f.fetcher(url, options)), /bundled callable socialAuthStart browser preflight rejected origin https:\/\/www\.orider\.co\.kr at https:\/\/[^ ]+\/socialAuthStart HTTP 404/u);
   } finally { f.cleanup(); }
 });
 

@@ -108,6 +108,8 @@ describe("athlete monthly activities", () => {
     vi.mocked(getDocs).mockImplementationOnce((async q => { const result = await original(q); cancelled = true; return result; }) as never);
     expect(await loadAthleteChartActivities("athlete", true, () => cancelled)).toBeNull();
     expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]?.find(item => item.type === "limit")?.args[0]).toBe(1);
+    expect(fake.requests.flat().some(item => item.type === "where" && item.args[0] === "startTime")).toBe(false);
   });
 
 });

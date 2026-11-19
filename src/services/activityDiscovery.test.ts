@@ -4,6 +4,7 @@ import { BUNDLED_FUNCTIONS_BASES, BUNDLED_AI_BASES, type RuntimeConfig } from '.
 import type {FirebaseServices} from '../contexts/FirebaseServicesContext';
 import {loadActivityDiscovery,mapDiscoveryActivity} from './activityDiscovery';
 import {activityFeedSourceRevision,resolveActivityMemo} from './activityFeedContent';
+import * as errorLogger from './errorLogger';
 const mocks=vi.hoisted(()=>({call:vi.fn(),ready:vi.fn(),getFunctions:vi.fn(()=>({kind:'regional'})),callable:vi.fn(),config:{appEnvironment:'stage'} as RuntimeConfig}));
 vi.mock('firebase/functions',()=>({getFunctions:mocks.getFunctions,httpsCallable:(...args:unknown[])=>{mocks.callable(...args);return mocks.call;},connectFunctionsEmulator:vi.fn()}));
 vi.mock('./runtimeConfig',async importOriginal=>{const actual=await importOriginal<typeof import('./runtimeConfig')>();return{...actual,getRuntimeConfig:()=>mocks.config,isEmulatorRuntime:()=>false,isFunctionsGatewayRuntime:()=>actual.isFunctionsGatewayRuntime(mocks.config)};});
@@ -40,6 +41,37 @@ it('never dispatches after readiness resolves for an aborted request',async()=>{
  const controller=new AbortController(),pending=loadActivityDiscovery(services,{scope:'all'},controller.signal);
  const rejected=expect(pending).rejects.toThrow('request_aborted');controller.abort();await rejected;ready();await Promise.resolve();expect(mocks.call).not.toHaveBeenCalled();
 });
+it('reports an actual late web callable failure after returning cancellation to the caller', async () => {
+ let rejectCall!: (error: Error) => void;
+ mocks.call.mockImplementationOnce(() => new Promise<never>((_, reject) => { rejectCall = reject; }));
+ const controller = new AbortController();
+ const report = vi.fn();
+ const rejected = expect(loadActivityDiscovery(services, { scope: 'athlete', targetUid: 'owner' }, controller.signal, report))
+  .rejects.toThrow('request_aborted');
+ await vi.waitFor(() => expect(rejectCall).toBeTypeOf('function'));
+ controller.abort();
+ await rejected;
+ const failure = Object.assign(new Error('service unavailable'), { code: 'functions/unavailable' });
+ rejectCall(failure);
+ await vi.waitFor(() => expect(report).toHaveBeenCalledExactlyOnceWith(failure));
+});
+it('records a late web search failure after deadline even without a reporting callback', async () => {
+ vi.useFakeTimers();
+ const report = vi.spyOn(errorLogger, 'logClientError').mockImplementation(() => undefined);
+ let rejectCall!: (error: Error) => void;
+ mocks.call.mockImplementationOnce(() => new Promise<never>((_, reject) => { rejectCall = reject; }));
+ try {
+  const rejected = expect(loadActivityDiscovery(services, { scope: 'athlete', targetUid: 'owner', keyword: 'ride' }))
+   .rejects.toThrow('request_timeout');
+  await vi.advanceTimersByTimeAsync(15000);
+  await rejected;
+  const failure = Object.assign(new Error('late search error'), { code: 'functions/permission-denied' });
+  rejectCall(failure);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(report).toHaveBeenCalledWith('activityDiscovery.lateFailure', failure,
+   { scope: 'athlete', continuation: false }, services, services.auth.currentUser, '', expect.any(Function));
+ } finally { vi.useRealTimers(); report.mockRestore(); }
+});
 it('bounds readiness and rejects late dispatch at the total deadline',async()=>{
  vi.useFakeTimers();try{let ready!:()=>void;mocks.ready.mockImplementation(()=>new Promise<void>(done=>{ready=done;}));
  const pending=loadActivityDiscovery(services,{scope:'all'}),rejected=expect(pending).rejects.toThrow('request_timeout');
@@ -49,6 +81,83 @@ it('bounds readiness and rejects late dispatch at the total deadline',async()=>{
 it('rejects same-uid session replacement while awaiting AppCheck before dispatch',async()=>{
  mocks.ready.mockImplementation(async()=>{(services.auth as {currentUser:unknown}).currentUser={...viewer};});
  await expect(loadActivityDiscovery(services,{scope:'all'})).rejects.toThrow('account_changed');expect(mocks.call).not.toHaveBeenCalled();
+});
+
+it('does not let a late login supply the credentials for an approved guest continuation', async () => {
+ bundled('development');
+ const auth = { app, currentUser: null as FirebaseServices['auth']['currentUser'] };
+ const embedded = { ...services, scope: 'embedded' as const, auth: auth as FirebaseServices['auth'],
+  getAppCheckToken: vi.fn().mockResolvedValue('embedded-check'), isSessionApproved: () => auth.currentUser === null };
+ const unapproved = { uid: 'late-viewer', getIdToken: vi.fn() };
+ const request = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+  auth.currentUser = unapproved as never;
+  return Response.json({ result: page() });
+ });
+ try {
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner', cursor: 'ad1.next' })).rejects.toThrow('account_changed');
+  expect(request).toHaveBeenCalledWith(`${BUNDLED_FUNCTIONS_BASES.development}/getActivityDiscovery`, expect.objectContaining({
+   credentials: 'omit', headers: { 'Content-Type': 'application/json', 'X-Firebase-AppCheck': 'embedded-check' },
+   body: expect.stringContaining('ad1.next'),
+  }));
+  expect(unapproved.getIdToken).not.toHaveBeenCalled();
+  expect(mocks.call).not.toHaveBeenCalled();
+ } finally { request.mockRestore(); }
+});
+
+it('records transport failures and preserves permission errors from non-JSON gateway responses', async () => {
+ bundled('development');
+ const embedded = { ...services, scope: 'embedded' as const,
+  auth: { ...services.auth, currentUser: null }, isSessionApproved: () => true,
+  getAppCheckToken: vi.fn().mockResolvedValue('embedded-check') };
+ const request = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('network failed'))
+  .mockResolvedValueOnce(new Response('forbidden', { status: 403 }))
+  .mockResolvedValueOnce(Response.json({ error: { status: 'UNAUTHENTICATED' } }, { status: 401 }))
+  .mockResolvedValueOnce(Response.json({ error: { status: ['PERMISSION_DENIED'] } }, { status: 403 }))
+  .mockResolvedValueOnce(Response.json({ result: {} }));
+ const report = vi.spyOn(errorLogger, 'logClientError').mockImplementation(() => undefined);
+ try {
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toThrow('network failed');
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toMatchObject({ code: 'functions/permission-denied' });
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toMatchObject({ code: 'functions/unauthenticated' });
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toMatchObject({ code: 'functions/permission-denied' });
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toThrow('invalid_activity_discovery');
+  expect(report.mock.calls.map(([, , context]) => context)).toEqual([
+   { route: 'getActivityDiscovery', phase: 'transport', status: undefined },
+   { route: 'getActivityDiscovery', phase: 'body', status: 403 },
+   { route: 'getActivityDiscovery', phase: 'http', status: 401 },
+   { route: 'getActivityDiscovery', phase: 'http', status: 403 },
+   { route: 'getActivityDiscovery', phase: 'contract', status: undefined },
+  ]);
+  expect(report.mock.calls.map(call => call[5])).toEqual([
+   'getActivityDiscovery:transport:', 'getActivityDiscovery:body:403', 'getActivityDiscovery:http:401',
+   'getActivityDiscovery:http:403', 'getActivityDiscovery:contract:',
+  ]);
+ } finally { request.mockRestore(); report.mockRestore(); }
+});
+
+it('records embedded App Check rejection and separately records token readiness timeouts', async () => {
+ bundled('development');
+ const check = vi.fn().mockRejectedValueOnce(new Error('mock-check-failed'));
+ const embedded = { ...services, scope: 'embedded' as const,
+  auth: { ...services.auth, currentUser: null }, isSessionApproved: () => true, getAppCheckToken: check };
+ const report = vi.spyOn(errorLogger, 'logClientError').mockImplementation(() => undefined);
+ const request = vi.spyOn(globalThis, 'fetch');
+ try {
+  await expect(loadActivityDiscovery(embedded, { scope: 'all' })).rejects.toThrow('mock-check-failed');
+  vi.useFakeTimers();
+  let resolveCheck!: (token: string) => void;
+  check.mockImplementationOnce(() => new Promise<string>(resolve => { resolveCheck = resolve; }));
+  const timedOut = expect(loadActivityDiscovery(embedded, { scope: 'all' })).rejects.toThrow('request_timeout');
+  await vi.advanceTimersByTimeAsync(15000);
+  await timedOut;
+  resolveCheck('late-check');
+  await Promise.resolve();
+  expect(request).not.toHaveBeenCalled();
+  expect(report.mock.calls.map(([, , context]) => context)).toEqual([
+   { route: 'getActivityDiscovery', phase: 'app-check', status: undefined },
+   { route: 'getActivityDiscovery', phase: 'timeout', status: undefined },
+  ]);
+ } finally { vi.useRealTimers(); report.mockRestore(); request.mockRestore(); }
 });
 
 it('keeps an unrecorded TCX distance unknown before and after metrics, while preserving recorded zero',()=>{

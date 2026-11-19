@@ -55,8 +55,7 @@ approval gates still apply. No variable or production deployment is changed by
 this preparation. The production AI address remains the existing canonical
 `orider-ai-api-h5zqzw3n4a-du.a.run.app` service.
 
-This hotfix ports transport and deployment tooling onto production main only.
-It does not import the unreleased DEV business/UI changes or its older parity profile.
+The canonical development deployment selects reviewed main source for production business-feature parity. Keeping this tooling in the DEV source branch does not deploy that branch or promote its unreleased features.
 
 Production opt-in also requires the independently reviewed repository pins
 `ORIDER_BUNDLED_BACKEND_SOURCE_SHA` (40 hex) and `ORIDER_BUNDLED_TOPOLOGY_HASH`

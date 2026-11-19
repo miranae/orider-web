@@ -192,7 +192,7 @@ describe("ExplorePage", () => {
     const ExplorePage = await loadExplorePage();
     renderWithProviders(<ExplorePage />, { route: "/explore/segments?sport=bike" });
     await screen.findByText("남산 업힐");
-    const input = screen.getByRole("textbox", { name: "세그먼트 이름 또는 지역" });
+    const input = screen.getByRole("searchbox", { name: "세그먼트 이름 또는 지역" });
     vi.useFakeTimers();
     try {
       fireEvent.change(input, { target: { value: "남" } });

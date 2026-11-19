@@ -2,6 +2,9 @@ import { httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { AthletePhoto } from "../components/athlete/AthletePhotoGallery";
 import type { Activity } from "@shared/types";
+import { callApprovedActivityRead, reportApprovedActivityReadFailure } from "../embedded/callApprovedActivityRead";
+import { getRuntimeConfig } from "./runtimeConfig";
+import { logClientError } from "./errorLogger";
 export interface AthleteProfileTotals {
   integrityFailed?: true;
   schemaVersion: 1; ownerUid: string; epoch: string; state: "pending" | "ready" | "failed"; revision: number;
@@ -28,26 +31,54 @@ export function parsePublicAthleteTotals(value: unknown): PublicAthleteTotals | 
   return v;
 }
 export async function loadPublicAthleteTotals(services: FirebaseServices, uid: string, current: () => boolean): Promise<PublicAthleteTotals> {
+  const viewer = services.auth.currentUser;
   const value = await callAthleteProfile<unknown>(services, uid, "getPublicAthleteTotals", { userId: uid }, current, true);
   const totals = parsePublicAthleteTotals(value);
-  if (!totals) throw new Error("athlete-profile-invalid-totals");
+  if (!totals) {
+    if (services.scope === "embedded") reportApprovedActivityReadFailure(services, viewer, "getPublicAthleteTotals", "contract");
+    throw new Error("athlete-profile-invalid-totals");
+  }
   return totals;
 }
+
 export async function callAthleteProfile<T>(services: FirebaseServices, uid: string, name: string, data: unknown, current: () => boolean, publicTotals = false): Promise<T> {
   const owner = services.auth.currentUser;
+  const embeddedPublicTotals = services.scope === "embedded" && publicTotals && name === "getPublicAthleteTotals";
+  const controller = new AbortController();
   let expired = false, timer: ReturnType<typeof setTimeout> | undefined;
-  const valid = () => !expired && current() && services.auth.currentUser === owner && (publicTotals && name === "getPublicAthleteTotals" || owner?.uid === uid);
+  const valid = () => !expired && current() && services.auth.currentUser === owner
+    && (!embeddedPublicTotals || services.isSessionApproved?.(owner) === true)
+    && (publicTotals && name === "getPublicAthleteTotals" || owner?.uid === uid);
+  const assertCurrent = () => { if (!valid()) throw new Error("athlete-profile-session-changed"); };
   try {
     return await Promise.race([
       (async () => {
-        if (!valid()) throw new Error("athlete-profile-session-changed");
-        await services.ensureAppCheckReady();
-        if (!valid()) throw new Error("athlete-profile-session-changed");
-        const response = await httpsCallable<unknown, T>(services.functions, name)(data);
-        if (!valid()) throw new Error("athlete-profile-session-changed");
-        return response.data;
+        assertCurrent();
+        let result: T;
+        try {
+          if (!embeddedPublicTotals) {
+            await services.ensureAppCheckReady();
+            assertCurrent();
+          }
+          result = embeddedPublicTotals
+            ? await callApprovedActivityRead<T>(services, owner, "getPublicAthleteTotals",
+              getRuntimeConfig().firebaseFunctionsRegion || "us-central1", data, assertCurrent, controller.signal)
+            : (await httpsCallable<unknown, T>(services.functions, name)(data)).data;
+        } catch (error) {
+          if (expired && publicTotals && !embeddedPublicTotals && name === "getPublicAthleteTotals"
+            && (!(error instanceof Error) || error.message !== "athlete-profile-session-changed")) {
+            logClientError("athleteProfile.publicTotalsLateFailure", error, { operation: name }, services, owner, "", current);
+          }
+          throw error;
+        }
+        assertCurrent();
+        return result;
       })(),
-      new Promise<never>((_, reject) => { timer = setTimeout(() => { expired = true; reject(new Error("athlete-profile-timeout")); }, 12000); }),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => {
+        expired = true;
+        reject(new Error("athlete-profile-timeout"));
+        controller.abort(new DOMException("athlete-profile-timeout", "TimeoutError"));
+      }, 12000); }),
     ]);
   } finally { if (timer) clearTimeout(timer); }
 }

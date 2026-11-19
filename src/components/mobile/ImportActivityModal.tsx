@@ -239,5 +239,5 @@ function ImportActivitySession({ open, onClose, user, services }: ImportActivity
 
 function ImportDialogShell({ title, onClose, busy = false, children }: {title: string; onClose: () => void; busy?: boolean; children: ReactNode}) {
   const ref = useRetainedTrainingDialog(onClose, busy);
-  return <TrainingDialogPortal><div ref={ref} tabIndex={-1} className="fixed inset-0 z-[200] flex flex-col justify-end" data-testid="P1-3" role="dialog" aria-modal="true" aria-label={title}>{children}</div></TrainingDialogPortal>;
+  return <TrainingDialogPortal><div ref={ref} tabIndex={-1} className="mobile-dialog-viewport fixed inset-0 z-[200] flex flex-col justify-end" data-testid="P1-3" role="dialog" aria-modal="true" aria-label={title}>{children}</div></TrainingDialogPortal>;
 }

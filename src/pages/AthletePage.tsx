@@ -53,6 +53,11 @@ import { ICON_SIZE } from "../theme/tokens/icon";
 import { segmentStatusResolve } from "../components/segment/segmentStatusResolve";
 import { Resolvable } from "../components/redesign";
 
+function publishedPhotos(activity: Activity) {
+  return activity.feedContentV1?.sourceRevision === activityFeedSourceRevision(activity)
+    ? boundedFeedContent(activity.feedContentV1)?.photos ?? [] : [];
+}
+
 function uniquePhotos(photos: AthletePhoto[]) {
   const seen = new Set<string>();
   return photos.filter(photo => {
@@ -199,6 +204,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const readIdentity = profileReadIdentity.current;
   const viewerRevisionRef = useRef({ identity: readIdentity, revision: "0" });
   if (viewerRevisionRef.current.identity !== readIdentity) viewerRevisionRef.current = { identity: readIdentity, revision: "0" };
+  const publicPresenceRef = useRef<{ identity: typeof readIdentity; state: "unknown" | "present" | "deleted"; deletions: number; revision: string }>({
+    identity: readIdentity, state: "unknown", deletions: 0, revision: "0",
+  });
+  if (publicPresenceRef.current.identity !== readIdentity) publicPresenceRef.current = { identity: readIdentity, state: "unknown", deletions: 0, revision: "0" };
   const [viewIdentity, setViewIdentity] = useState(readIdentity);
   useEffect(() => { setViewIdentity(readIdentity); }, [readIdentity]);
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -257,7 +266,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     setTotalsSignals(null);
     const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => {
       const failed = (error: unknown) => {
-          logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer, current);
+          logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer, kind, current);
           if (current()) {
             setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
           }
@@ -270,6 +279,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             const revision: unknown = snapshot.data()?.[field];
             const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
             if (kind === "viewer") viewerRevisionRef.current.revision = signal.revision;
+            if (kind === "public") {
+              const presence = publicPresenceRef.current;
+              presence.revision = signal.revision;
+              if (signal.present && (!signal.fromCache || presence.state === "unknown")) presence.state = "present";
+              if (!signal.present && !signal.fromCache && presence.state === "present") {
+                presence.state = "deleted";
+                presence.deletions += 1;
+              }
+            }
             setTotalsSignals(previous => {
               const current = previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation };
               const prior = current[kind];
@@ -289,14 +307,21 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return () => { active = false; if (signalGeneration.current === generation) signalGeneration.current++; stopPublic?.(); stopViewer?.(); };
   }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity && totalsSignals.generation === signalGeneration.current ? totalsSignals : null;
-  const publicAccessRevision = currentSignals?.public?.revision ?? "0";
+  const publicAccessRevision = publicPresenceRef.current.revision;
+  const publicProfileDeleted = publicPresenceRef.current.state === "deleted";
+  const publicProfileDeletions = publicPresenceRef.current.deletions;
   const viewerAccessRevision = currentSignals?.viewer && !currentSignals.viewer.error
     ? currentSignals.viewer.revision : viewerRevisionRef.current.revision;
+  const activityRowsRevision = JSON.stringify([publicAccessRevision, publicProfileDeletions, viewerAccessRevision]);
   const activityAccessCurrent = useCallback(() => profileReadIdentity.current === readIdentity
     && services.auth.currentUser === readIdentity.viewer
     && services.isSessionApproved?.(readIdentity.viewer) !== false
-    && viewerRevisionRef.current.revision === viewerAccessRevision, [readIdentity, services, viewerAccessRevision]);
-  const accessRevision = useMemo(() => ({ publicAccessRevision, viewerAccessRevision }), [publicAccessRevision, viewerAccessRevision]);
+    && publicPresenceRef.current.state !== "deleted"
+    && publicPresenceRef.current.deletions === publicProfileDeletions
+    && publicPresenceRef.current.revision === publicAccessRevision
+    && viewerRevisionRef.current.revision === viewerAccessRevision, [publicAccessRevision, publicProfileDeletions, readIdentity, services, viewerAccessRevision]);
+  const accessRevision = useMemo(() => ({ publicAccessRevision, publicProfileDeleted, publicProfileDeletions, viewerAccessRevision }),
+    [publicAccessRevision, publicProfileDeleted, publicProfileDeletions, viewerAccessRevision]);
   const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized });
   if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline || publicTotalsScopeRef.current.publicTotalsAuthorized !== publicTotalsAuthorized)
     publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized };
@@ -324,7 +349,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       })
       .catch(error => {
         if (error instanceof Error && error.message === "athlete-profile-session-changed") return;
-        logClientError("AthletePage.publicTotals", error, { targetUid: userId }, services, readIdentity.viewer, current);
+        logClientError("AthletePage.publicTotals", error, { targetUid: userId }, services, readIdentity.viewer, "", current);
         if (current()) setPublicTotalsError(true);
       });
     return () => { receipt.active = false; clearTimeout(expiry); };
@@ -450,8 +475,19 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
   const profileReadReady = sessionAuthorized && (isOwnProfile || !profileLoading);
-  const activityAccessAllowed = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
-  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true, accessRevision);
+  const activityAccessAllowed = isOwnProfile || (!publicProfileDeleted && (profileForPage?.profilePublic !== false || friendStatus === "friends"));
+  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && activityAccessAllowed, true, accessRevision);
+  const publicPhotoAccess = useMemo(() => ({ readIdentity, accessRevision, generation: publicGlobal.generation }),
+    [readIdentity, accessRevision, publicGlobal.generation]);
+  const photoRevealScope = useMemo(() => ({ access: publicPhotoAccess, items: publicGlobal.items }), [publicPhotoAccess, publicGlobal.items]);
+  const photoRevealScopeRef = useRef(photoRevealScope);
+  photoRevealScopeRef.current = photoRevealScope;
+  const pendingPhotoReveal = useRef<{ scope: typeof photoRevealScope; controller: AbortController } | null>(null);
+  const [photoRevealStatus, setPhotoRevealStatus] = useState<{ scope: typeof photoRevealScope; status: "loading" | "error" } | null>(null);
+  const [verifiedPublicPhotos, setVerifiedPublicPhotos] = useState<{ access: typeof publicPhotoAccess; photos: Map<string, AthletePhoto> } | null>(null);
+  useEffect(() => () => {
+    if (pendingPhotoReveal.current?.scope === photoRevealScope) pendingPhotoReveal.current.controller.abort();
+  }, [photoRevealScope]);
   const chartCurrent = chartScope?.identity === readIdentity && chartScope.year === chartYear;
   const chartActivities = isOwnProfile ? chartCurrent ? ownChartActivities : [] : publicGlobal.items;
   const chartLoading = isOwnProfile ? ownChartLoading || !chartCurrent && !ownChartError : publicGlobal.status === "loading";
@@ -514,7 +550,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setLoadingMore(false);
       setActivityReadError(false);
       setDisplayActivities([]);
-      setActivityResultRevision(viewerAccessRevision);
+      setActivityResultRevision(activityRowsRevision);
       setLastActivityDoc(null);
       setPublicActivityCursor(null);
       setHasMoreActivities(true);
@@ -557,7 +593,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     load();
     return () => { cancelled = true; if (activityGeneration.current === generation) activityGeneration.current++; };
-  }, [userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, viewerAccessRevision, activityAttempt]);
+  }, [userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, activityRowsRevision, activityAttempt]);
 
   // 본인 차트는 선택한 연도와 최근 28일의 검증된 범위만 읽는다.
   useEffect(() => {
@@ -600,6 +636,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!profileReadReady) return;
     if (!activityAccessAllowed) {
       setSearchResults([]);
+      setPublicSearchCursor(null);
+      setPublicSearchError(false);
       setSearchLoading(false);
       return;
     }
@@ -607,7 +645,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     let cancelled = false;
     setSearchLoading(true);
     setSearchResults([]);
-    setSearchResultRevision(viewerAccessRevision);
+    setSearchResultRevision(activityRowsRevision);
     setPublicSearchCursor(null); setPublicSearchError(false);
 
     const token = searchQuery
@@ -640,10 +678,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }).finally(() => { if (current()) setSearchLoading(false); });
 
     return () => { cancelled = true; };
-  }, [searchQuery, userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, viewerAccessRevision]);
+  }, [searchQuery, userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, activityRowsRevision]);
 
   const loadMorePublicSearch = async () => {
-    if (!userId || !publicSearchCursor || searchLoading || isOwnProfile || searchResultRevision !== viewerAccessRevision) return;
+    if (!userId || !publicSearchCursor || searchLoading || isOwnProfile || searchResultRevision !== activityRowsRevision) return;
     const identity = readIdentity;
     const current = activityAccessCurrent;
     if (!profileReadReady || !current()) return;
@@ -666,7 +704,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   };
 
   const handleLoadMoreActivities = async () => {
-    if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore || activityResultRevision !== viewerAccessRevision) return;
+    if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore || activityResultRevision !== activityRowsRevision) return;
     if (!profileReadReady) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
     const identity = readIdentity;
@@ -919,7 +957,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const canViewProfile = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
   const canViewFriends = isOwnProfile;
   const canSendFriendRequest = profileForPage?.friendRequestsAllowed !== false;
-  const activities = (activityResultRevision === viewerAccessRevision ? displayActivities : []).map((a) =>
+  const activities = (activityResultRevision === activityRowsRevision ? displayActivities : []).map((a) =>
     !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
   );
   const isMe = isOwnProfile;
@@ -938,28 +976,101 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const profilePhotos = useMemo(() => {
     const seen = new Set<string>();
     if (isOwnProfile) return ownerPhotoItems;
-    return chartActivities.filter(activity => activity.userId === userId).sort((a, b) => b.startTime - a.startTime).flatMap(activity => {
-      if (activity.feedContentV1?.sourceRevision !== activityFeedSourceRevision(activity)) return [];
-      return (boundedFeedContent(activity.feedContentV1)?.photos ?? []).flatMap(photo => {
+    return chartActivities.filter(activity => activity.userId === userId).sort((a, b) => b.startTime - a.startTime).flatMap(activity =>
+      publishedPhotos(activity).flatMap(photo => {
         const identity = athletePhotoIdentity(photo);
         if (seen.has(identity)) return [];
         seen.add(identity);
         return [{ ...photo, activityId: activity.id }];
-      });
-    });
+      }));
   }, [chartActivities, userId, isOwnProfile, ownerPhotoItems]);
-  const recentPhotos = profilePhotos.slice(0, mediaVisible.photos);
-  const publicPhotosBuffered = !isOwnProfile && Date.now() < publicGlobal.authorizedUntil && profilePhotos.length > mediaVisible.photos;
+  const photoKey = (photo: AthletePhoto) => JSON.stringify([photo.activityId, athletePhotoIdentity(photo)]);
+  const recentPhotos = profilePhotos.slice(0, mediaVisible.photos).map(photo =>
+    !isOwnProfile && verifiedPublicPhotos?.access === publicPhotoAccess
+      ? verifiedPublicPhotos.photos.get(photoKey(photo)) ?? photo : photo);
+  const publicPhotosBuffered = !isOwnProfile && profilePhotos.length > mediaVisible.photos;
+  const currentPhotoRevealStatus = photoRevealStatus?.scope === photoRevealScope ? photoRevealStatus.status : null;
+  const showMorePublicPhotos = async () => {
+    const current = () => photoRevealScopeRef.current === photoRevealScope && activityAccessCurrent()
+      && publicPresenceRef.current.state !== "deleted" && document.visibilityState !== "hidden";
+    if (!userId || !current() || pendingPhotoReveal.current?.scope === photoRevealScope) return;
+    const revealFrom = mediaVisible.photos;
+    if (!publicPhotosBuffered) {
+      if (Date.now() < publicGlobal.authorizedUntil) setMediaVisible(value => ({ ...value, photos: revealFrom + 6 }));
+      await publicGlobal.more();
+      return;
+    }
+    const controller = new AbortController();
+    const request = { scope: photoRevealScope, controller };
+    pendingPhotoReveal.current = request;
+    setPhotoRevealStatus({ scope: photoRevealScope, status: "loading" });
+    const logPageFailure = (error: unknown, pageIndex?: number) =>
+      logClientError("AthletePage.publicPhotos", error, { pageIndex }, services, readIdentity.viewer, String(pageIndex ?? ""), current);
+    const handleFailures = async (failures: Array<{ error: unknown; pageIndex?: number }>) => {
+      let restartRequired = false;
+      let failed = false;
+      for (const { error, pageIndex } of failures) {
+        const code = (error as { code?: string })?.code;
+        const message = error instanceof Error ? error.message : "";
+        if (message === "request_aborted" || message === "account_changed"
+          || (controller.signal.aborted && (error === controller.signal.reason || (error instanceof Error && error.name === "AbortError")))) continue;
+        logPageFailure(error, pageIndex);
+        failed = true;
+        restartRequired ||= code === "functions/permission-denied" || code === "functions/not-found" || code === "functions/unauthenticated"
+          || code === "functions/failed-precondition";
+      }
+      if (!failed || !current()) return;
+      if (restartRequired) await publicGlobal.refresh();
+      else setPhotoRevealStatus({ scope: photoRevealScope, status: "error" });
+    };
+    try {
+      const buffered = profilePhotos.slice(revealFrom, revealFrom + 6);
+      const cursors = new Set(buffered.map(photo => publicGlobal.pageStartById.get(photo.activityId)));
+      if (cursors.has(undefined)) throw new Error("public-photo-source-missing");
+      const results = await Promise.allSettled([...cursors].map((cursor, pageIndex) => loadActivityDiscovery(services, {
+        scope: "athlete", targetUid: userId, order: "id_asc", limit: 20, ...(cursor ? { cursor } : {}),
+      }, controller.signal, error => logPageFailure(error, pageIndex))));
+      const failures = results.flatMap((result, pageIndex) => result.status === "rejected" ? [{ error: result.reason, pageIndex }] : []);
+      if (failures.length > 0) { await handleFailures(failures); return; }
+      if (!current() || controller.signal.aborted) return;
+      const fresh = new Map<string, AthletePhoto>();
+      const pages = results.flatMap(result => result.status === "fulfilled" ? [result.value] : []);
+      for (const page of pages) for (const activity of page.items) {
+        if (activity.userId !== userId) continue;
+        for (const photo of publishedPhotos(activity)) {
+          const currentPhoto = { ...photo, activityId: activity.id };
+          fresh.set(photoKey(currentPhoto), currentPhoto);
+        }
+      }
+      const verified = buffered.map(photo => fresh.get(photoKey(photo)));
+      if (verified.some(photo => !photo)) {
+        await publicGlobal.refresh();
+        return;
+      }
+      setVerifiedPublicPhotos(previous => {
+        const photos = new Map(previous?.access === publicPhotoAccess ? previous.photos : undefined);
+        for (const photo of verified) if (photo) photos.set(photoKey(photo), photo);
+        return { access: publicPhotoAccess, photos };
+      });
+      setMediaVisible(value => ({ ...value, photos: Math.max(value.photos, revealFrom + buffered.length) }));
+    } catch (error) {
+      await handleFailures([{ error }]);
+    } finally {
+      if (pendingPhotoReveal.current === request) pendingPhotoReveal.current = null;
+      if (current()) setPhotoRevealStatus(value => value?.scope === photoRevealScope && value.status === "loading" ? null : value);
+    }
+  };
   const highlights = useMemo(() => isOwnProfile ? ownerHighlightItems.slice(0, mediaVisible.highlights) : [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime).flatMap(activity => (activity.topAchievements ?? []).slice(0, 3).map(achievement => ({ ...achievement, activityId: activity.id }))).slice(0, 12), [acceptedChartActivities, isOwnProfile, ownerHighlights, mediaCurrent, mediaVisible.highlights]);
 
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용
   const baseActivities = useMemo(() => {
+    if (publicProfileDeleted) return [];
     if (!isSearchActive) return selectedPeriod || !isOwnProfile && (sport !== "all" || filterType !== "all") ? [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime) : activities;
-    return (searchResultRevision === viewerAccessRevision ? searchResults : []).map((a) =>
+    return (searchResultRevision === activityRowsRevision ? searchResults : []).map((a) =>
       !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
     );
-  }, [isSearchActive, activities, searchResults, searchResultRevision, viewerAccessRevision, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
+  }, [publicProfileDeleted, isSearchActive, activities, searchResults, searchResultRevision, activityRowsRevision, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
 
   const hasLocalFilter = !!selectedPeriod || sport !== "all" || filterType !== "all";
   const publicFiltersApplied = !isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all");
@@ -1240,10 +1351,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               {publicGlobal.status !== "partial" && publicGlobal.status !== "complete" && <Text as="p" role="status">
                 {t(publicGlobal.status === "limit" ? "profile.publicMediaLimit" : `publicGlobal.${publicGlobal.status}`)}
               </Text>}
-              {(publicPhotosBuffered || publicGlobal.status === "partial") && <Button size="sm" onClick={() => {
-                if (Date.now() < publicGlobal.authorizedUntil) setMediaVisible(visible => ({ ...visible, photos: visible.photos + 6 }));
-                if (!publicPhotosBuffered || Date.now() >= publicGlobal.authorizedUntil) void publicGlobal.more();
-              }}>{t(publicPhotosBuffered ? "profile.moreCachedPhotos" : "profile.morePublicMediaActivities")}</Button>}
+              {currentPhotoRevealStatus === "error" && <Text as="p" role="status">{t("profile.mediaError")}</Text>}
+              {(publicPhotosBuffered || publicGlobal.status === "partial") && <Button size="sm" disabled={currentPhotoRevealStatus === "loading"} onClick={() => void showMorePublicPhotos()}>{t(publicPhotosBuffered ? "profile.moreCachedPhotos" : "profile.morePublicMediaActivities")}</Button>}
               {["error", "restart", "stale"].includes(publicGlobal.status) && <Button size="sm" onClick={publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>
                 {t("common:button.retry")}
               </Button>}

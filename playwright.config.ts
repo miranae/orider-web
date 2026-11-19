@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: './e2e/tests',
   // Synthetic hooks are wired only by each suite's dedicated Vite config.
   // 전용 fixture/포트/브라우저 설정: e2e/{club-week-resilience,club-meeting-entry,running-parity,club-spectator}.config.ts.
-  testIgnore: ['**/club-week-resilience.spec.ts', '**/club-meeting-entry.spec.ts', '**/running-parity.spec.ts', '**/club-spectator-continuity.spec.ts'],
+  testIgnore: ['**/mobile-keyboard.spec.ts', '**/club-week-resilience.spec.ts', '**/club-meeting-entry.spec.ts', '**/running-parity.spec.ts', '**/club-spectator-continuity.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

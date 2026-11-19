@@ -25,7 +25,7 @@ import {
   ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
-import { assertIsolatedStageRuntime, getRuntimeConfig, isFunctionsGatewayRuntime } from "../services/runtimeConfig";
+import { isFunctionsGatewayRuntime, assertIsolatedStageRuntime, getRuntimeConfig } from "../services/runtimeConfig";
 import { clearActivityDerivedDocumentCache } from "../features/fitness/activityDerivedDocumentCache";
 import { trainingSurfaceCacheScope } from "./trainingSurfaceCache";
 import { verifySelectedAuthPersistence } from "./authPersistence";

@@ -11,6 +11,7 @@ import type { LngLatBounds } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { getMapboxToken } from "../utils/mapbox";
+import { isEnterSubmit } from "../utils/isEnterSubmit";
 import { ChevronDown } from "lucide-react";
 import { ErrorState, LoadingSkeleton, Resolvable } from "../components/redesign";
 import { Button, buttonClass, Chip, Text, Input } from "../theme/components";
@@ -223,29 +224,17 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
     setHoveredId(null);
   }, []);
 
-  const handleSearch = () => {
-    const nextQuery = inputValue.trim();
+  const applySearch = (nextQuery: string) => {
     setSearchQuery(nextQuery);
-    setSelectedId(null);
-    setHoveredId(null);
+    handleClearSelection();
 
     const nextParams = new URLSearchParams(searchParams);
     if (nextQuery) nextParams.set("q", nextQuery);
     else nextParams.delete("q");
     setSearchParams(nextParams, { replace: true });
   };
-  useEffect(() => {
-    if (inputValue.trim() === queryParam) return;
-    const timer = setTimeout(() => {
-      const next = new URLSearchParams(searchParams);
-      const q = inputValue.trim();
-      if (q) next.set("q", q); else next.delete("q");
-      setSearchParams(next, { replace: true });
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [inputValue, queryParam, searchParams, setSearchParams]);
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (isEnterSubmit(e.nativeEvent)) applySearch(inputValue.trim());
   };
 
   const scrollToCard = useCallback((id: string) => {
@@ -291,7 +280,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
         <div className="course-catalog-head">
           <div className="min-w-0">
             <Text data-testid="E1-0" as="h1" variant="pageTitle" className="explore-page-title">{t("title")}</Text>
-            <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
+            <p className="course-catalog-subtitle text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
               {t("subtitle")}
             </p>
           </div>
@@ -301,7 +290,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
             </Link></span>
           ) : (
             <Link data-testid="E1-5-2" to="/tools/virtual-power" className={`${buttonClass({ variant: 'secondary', className: 'whitespace-nowrap' })}`}>
-              {t("guest.compareCta", { defaultValue: "이 코스 내 기록과 비교하기" })}
+              {t("guest.compareCta")}
             </Link>
           )}
         </div>
@@ -310,7 +299,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
           <div data-testid="E1-1" className="relative flex-1">
             <button
               aria-label={t("search.submit")}
-              onClick={handleSearch}
+              onClick={() => applySearch(inputValue.trim())}
               className={buttonClass({ variant: "ghost", className: "course-search-action transition-colors" })}
               style={{ color: "var(--ink-3)" }}
             >
@@ -319,11 +308,16 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
               </svg>
             </button>
             <Input data-testid="E1-1-1"
-              type="text"
+              type="search"
+              enterKeyHint="search"
               aria-label={t("search.placeholder")}
               placeholder={t("search.placeholder")}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setInputValue(value);
+                if (value === "" && searchQuery) applySearch("");
+              }}
               onKeyDown={handleKeyDown}
               className="course-search-input w-full"
 
@@ -344,14 +338,15 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
                 {s.label}
               </Chip>
             ))}
+            {/* 모바일 전용(데스크톱은 CSS 로 숨김): 정렬 칩과 같은 줄에 두어 목록이 한 줄 더 위에서 시작한다 */}
+            <div className="course-catalog-filter-toolbar">
+              <Chip selectable aria-expanded={mobileFiltersOpen} aria-controls="course-catalog-filter-controls" onClick={() => setMobileFiltersOpen(open => !open)}>{t("filter.conditions", { count: activeFilterCount })}<ChevronDown aria-hidden="true" size={ICON_SIZE.sm} /></Chip>
+              {activeFilterCount > 0 && <Button data-testid="course-mobile-reset" variant="secondary" size="sm" onClick={resetFilters}>{t("filter.reset")}</Button>}
+            </div>
           </div>
         </div>
 
-        {/* 노면/난이도 다축 필터(#489) + 거리/고도/지역 탐색 필터(#243) */}
-        <div className="course-catalog-filter-toolbar">
-          <Chip selectable aria-expanded={mobileFiltersOpen} aria-controls="course-catalog-filter-controls" onClick={() => setMobileFiltersOpen(open => !open)}>{t("filter.conditions", { count: activeFilterCount })}<ChevronDown aria-hidden="true" size={ICON_SIZE.sm} /></Chip>
-          {activeFilterCount > 0 && <Button data-testid="course-mobile-reset" variant="secondary" size="sm" onClick={resetFilters}>{t("filter.reset")}</Button>}
-        </div>
+        {/* 노면/난이도 다축 필터(#489) + 거리/고도/지역 탐색 필터(#243) — 접기 토글은 모바일에서 정렬 칩 줄에 있다 */}
         <div id="course-catalog-filter-controls" data-collapsed={!mobileFiltersOpen} data-testid="E1-3" className="course-catalog-filters" style={COURSES_FILTER_ROW_STYLE}>
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("edit.surface")}</span>
@@ -500,12 +495,11 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
           </div>
         )}
         {!mapUnavailable && (
-          <div className="lg:hidden">
+          <div className="course-catalog-map-toggle mobile-form-actions lg:hidden">
             <Button data-testid="E1-4-1"
               type="button"
               variant="secondary"
               onClick={() => setMobileMapOpen((open) => !open)}
-              className="w-full justify-center"
               aria-expanded={mobileMapOpen}
             >
               {mobileMapOpen ? t("map.hideMobileMap") : t("map.showMobileMap")}

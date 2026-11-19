@@ -1,6 +1,8 @@
+import { encodePolyline } from "../../../utils/polyline";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: "metric" }) }));
 import { ActivityPublicAccess } from "./ActivityPublicAccess";
 import type { PublicActivityDetail } from "../../../services/publicActivityDetail";
 import { PUBLIC_ACCESS_VERIFIED_TTL_MS } from "../../../hooks/usePublicActivitySession";
@@ -160,4 +162,15 @@ it("keeps an identical revalidation response from re-rendering the detail", asyn
  await waitFor(() => expect(state.load).toHaveBeenCalledTimes(2));
  await act(async () => {});
  expect(seen.at(-1)).toBe(before);
+});
+
+it("passes bounded disconnected detail geometry separately and drops it during ACL revalidation", async () => {
+ const parts: [number,number][][] = [[[37,127],[37.01,127.01]],[[38,128],[38.01,128.01]]];
+ state.load.mockResolvedValue({ ...detail, mapPreview: { encodedPolyline:null, encodedPolylineParts:parts.map(encodePolyline), imageUrl:"https://example.test/stale-joined" } });
+ render(<MemoryRouter><ActivityPublicAccess {...options}>{({model,routeParts}) => <output data-testid="segmented-model">{JSON.stringify({parts:routeParts,track:model.activity?.thumbnailTrack,image:model.activity?.mapImageUrl})}</output>}</ActivityPublicAccess></MemoryRouter>);
+ await waitFor(() => expect(screen.getByTestId("segmented-model")).toHaveTextContent(JSON.stringify({parts,track:"",image:null})));
+ state.load.mockReturnValue(new Promise(() => {}));
+ act(() => document.dispatchEvent(new Event("visibilitychange")));
+ expect(screen.getByTestId("segmented-model")).toHaveTextContent('{"track":"","image":null}');
+ expect(screen.getByTestId("segmented-model")).not.toBeVisible();
 });

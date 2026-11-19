@@ -2,7 +2,7 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { createWebNotificationClient } from "./webNotifications";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ getFunctions: () => ({}), httpsCallable: () => mocks.call, connectFunctionsEmulator: vi.fn() }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false, isFunctionsGatewayRuntime: () => false }));
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
 const services = () => ({ auth: { currentUser: { uid: "viewer", isAnonymous: false } }, functions: { app: {} }, ensureAppCheckReady: mocks.ready } as unknown as FirebaseServices);
 beforeEach(() => { vi.clearAllMocks(); mocks.ready.mockResolvedValue(undefined); });
 it("strips unavailable notification identifiers and body even if a stale field is returned", async () => {

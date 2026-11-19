@@ -11,7 +11,7 @@ import EmbeddedBootstrapRoot from "./EmbeddedBootstrapRoot";
 
 const isolated = vi.hoisted(() => ({
   auth: { currentUser: null, authStateReady: vi.fn().mockResolvedValue(undefined) },
-  firestore: { instance: "embedded-only" }, functions: { app: { name: "embedded-only" } },
+  firestore: { instance: "embedded-only" }, functions: { app: { name: "embedded-only", options: { projectId: "embedded-project" } } },
   ordinaryInit: vi.fn(),
 }));
 // Keep shared SDK network fakes, but remove the ordinary app that otherwise hides missing injection.
@@ -46,7 +46,7 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
     mapPreview: { imageUrl: null, encodedPolyline: null },
   });
   const listCursors: (string | undefined)[] = [];
-  setCallableImplementation("getActivityDiscovery", (request) => {
+  const discovery = (request: unknown) => {
     const { cursor, order } = request as { cursor?: string; order?: string };
     if (order === "id_asc") return { data: {
       items: [discoveryItem("filter-inventory-ride", "Isolated Strava ride", "strava")],
@@ -58,12 +58,17 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
     return { data: { items: [discoveryItem(next ? "second-ride" : "first-ride", next ? "Second isolated ride" : "First isolated ride")],
       nextCursor: next ? null : "ad1.signed", exhausted: next, scannedCount: 1, totalCount: null,
       expiresAt: Date.now() + 600_000, order: "startTime_desc", includesUndated: false, consistency: "current_authorized_seek_pages" } };
-  });
-  setCallableImplementation("getPublicAthleteTotals", () => ({ data: {
+  };
+  const requestRead = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+    if (String(url).endsWith("/getActivityDiscovery")) {
+      return Response.json({ result: discovery(JSON.parse(String(init?.body)).data).data });
+    }
+    return Response.json({ result: {
     schemaVersion: 1, ownerUid: "rider-1", epoch: "isolated-totals", state: "ready", revision: 1, count: 42,
     distance: 125_000, timeDisplayMillis: 3_600_000, elevation: 650,
     unknownDistanceCount: 0, unknownTimeCount: 0, unknownElevationCount: 0,
-  } }));
+    } });
+  });
   let page = 0;
   setCallableImplementation("getPublicSegmentMetadata", () => ({ data: {
     items: [{ id: `segment-${page}`, name: page === 0 ? "First isolated segment" : "Next isolated segment", distance: 1000 }],
@@ -87,16 +92,23 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   await screen.findByText("42회");
   const totalValues = [...screen.getByTestId("P0-1").querySelectorAll("strong")].map(value => value.textContent?.trim());
   expect(totalValues).toEqual(["42회", "125 km", expect.stringContaining("1"), "650 m"]);
-  const totalsFactories = vi.mocked(httpsCallable).mock.calls.filter(([, name]) => name === "getPublicAthleteTotals");
-  expect(totalsFactories.length).toBeGreaterThan(0);
-  for (const [instance] of totalsFactories) expect(instance).toBe(isolated.functions);
+  expect(requestRead).toHaveBeenCalledWith(expect.stringMatching(/embedded-project.*\/getPublicAthleteTotals$/), expect.objectContaining({
+    credentials: "omit",
+    headers: { "Content-Type": "application/json", "X-Firebase-AppCheck": "embedded-token" },
+    body: JSON.stringify({ data: { userId: "rider-1" } }),
+  }));
+  expect(vi.mocked(httpsCallable).mock.calls.some(([, name]) => name === "getPublicAthleteTotals")).toBe(false);
   await screen.findByRole("link", { name: "First isolated ride" });
   fireEvent.click(screen.getByRole("button", { name: "더 보기", exact: true }));
   await screen.findByRole("link", { name: "Second isolated ride" });
-  const activityFactories = vi.mocked(httpsCallable).mock.calls.filter(([, name]) => name === "getActivityDiscovery");
+  expect(requestRead).toHaveBeenCalledWith(expect.stringMatching(/embedded-project.*\/getActivityDiscovery$/), expect.objectContaining({
+    credentials: "omit",
+    headers: { "Content-Type": "application/json", "X-Firebase-AppCheck": "embedded-token" },
+    body: expect.stringContaining("ad1.signed"),
+  }));
   expect(listCursors[0]).toBeUndefined();
   expect(listCursors.filter(Boolean)).toEqual(["ad1.signed"]);
-  for (const [instance] of activityFactories) expect(instance).toBe(isolated.functions);
+  expect(vi.mocked(httpsCallable).mock.calls.some(([, name]) => name === "getActivityDiscovery")).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Strava", exact: true }));
   await screen.findByRole("link", { name: "Isolated Strava ride" });
   fireEvent.click(await screen.findByRole("tab", { name: "만든 구간", exact: true }));
@@ -112,4 +124,5 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   expect(reads.length).toBeGreaterThan(0);
   for (const [instance, ...segments] of reads) expect(instance, segments.join("/")).toBe(isolated.firestore);
   expect(send.mock.calls.some(([type]) => type === "surface.error")).toBe(false);
+  requestRead.mockRestore();
 });

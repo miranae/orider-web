@@ -114,3 +114,18 @@ it("calls public discovery through the injected embedded session instead of the 
   expect(httpsCallable).toHaveBeenLastCalledWith(services.functions, "listVisibleEventEnvelopes");
   expect(mockCallableInvocations.at(-1)).toEqual({ name: "listVisibleEventEnvelopes", data: { publicOnly: true, statuses: ["OPEN", "LIVE"], limit: 250 } });
 });
+
+it("requests the next event for every group together, preserving exclusions and incomplete groups", async () => {
+  const { getGroupNextEventPage } = await import("./eventDiscovery");
+  const services = { auth: { currentUser: { uid: "embedded" } }, functions: {}, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+  setCallableResult("getGroupNextEvents", { data: { rows: [{ id: "next", data: { info: { groupId: "a", startTime: 100 } } }], incompleteGroupIds: ["b"] } });
+  const page = await getGroupNextEventPage(["a", "b"], false, "excluded", services);
+  expect(mockCallableInvocations.at(-1)).toEqual({ name: "getGroupNextEvents", data: { groupIds: ["a", "b"], publicOnly: false, excludeEventId: "excluded" } });
+  expect(page?.docs[0].id).toBe("next");
+  expect(page?.incompleteGroupIds).toEqual(["b"]);
+  const failure = Object.assign(new Error("backend failed"), { code: "functions/unavailable" });
+  setCallableImplementation("getGroupNextEvents", () => { throw failure; });
+  await expect(getGroupNextEventPage(["a"], false, undefined, services)).rejects.toBe(failure);
+  setCallableImplementation("getGroupNextEvents", () => { throw Object.assign(new Error("not deployed"), { code: "functions/not-found" }); });
+  expect(await getGroupNextEventPage(["a"], false, undefined, services)).toBeNull();
+});

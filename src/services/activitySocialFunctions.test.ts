@@ -1,11 +1,7 @@
 import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 import { functions } from "./firebase";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
-vi.mock("./runtimeConfig", async importOriginal => {
-  const actual = await importOriginal<typeof import("./runtimeConfig")>();
-  return { ...actual, getRuntimeConfig: vi.fn(() => ({ appEnvironment: "production" })),
-    isFunctionsGatewayRuntime: () => actual.isFunctionsGatewayRuntime(getRuntimeConfig()), isEmulatorRuntime: vi.fn(() => false) };
-});
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: vi.fn(() => ({ appEnvironment: "production" })), isEmulatorRuntime: vi.fn(() => false) }));
 beforeEach(() => { vi.resetModules(); vi.mocked(getFunctions).mockClear(); vi.mocked(connectFunctionsEmulator).mockClear(); vi.mocked(isEmulatorRuntime).mockReturnValue(false); vi.mocked(getRuntimeConfig).mockReturnValue({ appEnvironment: "production" } as never); });
 afterEach(() => vi.unstubAllEnvs());
 it("uses the social callable region lazily", async () => {

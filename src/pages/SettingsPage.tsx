@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
+import LoadingSkeleton from "../components/redesign/states/LoadingSkeleton";
 import SignInRequired from "../components/SignInRequired";
 import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -9,14 +12,14 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import MobileSettingsPage from "../components/mobile/MobileSettingsPage";
 import "../components/settings/settings.css";
 
-import { PaneThresholds } from "../components/settings/PaneThresholds";
-import { PaneAccount } from "../components/settings/PaneAccount";
-import { PaneEquipment } from "../components/settings/PaneEquipment";
-import { PaneConnections } from "../components/settings/PaneConnections";
-import { PaneHealthSources } from "../components/settings/PaneHealthSources";
-import { PaneDevice } from "../components/settings/PaneDevice";
-import { PaneApp } from "../components/settings/PaneApp";
-import { PaneDeveloper } from "../components/settings/PaneDeveloper";
+const PaneThresholds = lazy(() => import("../components/settings/PaneThresholds").then(module => ({ default: module.PaneThresholds })));
+const PaneAccount = lazy(() => import("../components/settings/PaneAccount").then(module => ({ default: module.PaneAccount })));
+const PaneEquipment = lazy(() => import("../components/settings/PaneEquipment").then(module => ({ default: module.PaneEquipment })));
+const PaneConnections = lazy(() => import("../components/settings/PaneConnections").then(module => ({ default: module.PaneConnections })));
+const PaneHealthSources = lazy(() => import("../components/settings/PaneHealthSources").then(module => ({ default: module.PaneHealthSources })));
+const PaneDevice = lazy(() => import("../components/settings/PaneDevice").then(module => ({ default: module.PaneDevice })));
+const PaneApp = lazy(() => import("../components/settings/PaneApp").then(module => ({ default: module.PaneApp })));
+const PaneDeveloper = lazy(() => import("../components/settings/PaneDeveloper").then(module => ({ default: module.PaneDeveloper })));
 import { LocalizedLink } from "../components/LocalizedLink";
 import { LegacySettingsRedirect } from "../components/routing/LegacyRedirect";
 import { Text } from "../theme/components";
@@ -26,7 +29,7 @@ import { ICON_SIZE } from "../theme/tokens/icon";
 function SettingsPanes({ section, discipline }: { section: SectionId; discipline: "bike" | "run" | "swim" | "tri" }) {
   const { t } = useTranslation("settings");
   return (
-    <>
+    <Suspense fallback={<LoadingSkeleton kind="card" />} key={section}>
       {section === "training" && <section id="thresholds"><PaneThresholds discipline={discipline} /><LocalizedLink to="/settings/device" className="ds-tap-target">{t("training.deviceStatus")}</LocalizedLink></section>}
       {section === "account" && <PaneAccount />}
       {section === "gear" && <PaneEquipment />}
@@ -35,7 +38,7 @@ function SettingsPanes({ section, discipline }: { section: SectionId; discipline
       {section === "developer" && <PaneDeveloper />}
       {section === "display" && <PaneApp part="display" />}
       {section === "data" && <PaneApp part="data" />}
-    </>
+    </Suspense>
   );
 }
 
@@ -45,7 +48,7 @@ function SettingsPanes({ section, discipline }: { section: SectionId; discipline
  */
 export default function SettingsPage({ tab }: { tab?: SectionId }) {
   const { t } = useTranslation("settings");
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const isMobile = useMobile();
   const navigate = useLocalizedNavigate();
   const [searchParams] = useSearchParams();
@@ -55,6 +58,8 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
   if (tab === "gear" && searchParams.get("panel") === "data-pages") return <Navigate to={{ pathname: location.pathname.replace(/athlete\/me\/gear$/, "settings/device"), search: location.search, hash: location.hash }} replace />;
 
   if (!tab && !(isMobile && !searchParams.has("section"))) return <LegacySettingsRedirect />;
+
+  if (authLoading) return <LoadingSkeleton kind="card" />;
 
   if (!user || tab === "training" && user.isAnonymous) {
     return (
@@ -90,7 +95,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
     );
   }
 
-  if (section === "gear") return <main className="space-y-4"><Text as="h1" variant="pageTitle">{t("nav.equipmentLabel")}</Text><PaneEquipment /></main>;
+  if (section === "gear") return <main className="space-y-4"><Text as="h1" variant="pageTitle">{t("nav.equipmentLabel")}</Text><SettingsPanes section={section} discipline={discipline} /></main>;
 
   return (
     <div className="settings-layout">

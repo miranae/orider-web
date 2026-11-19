@@ -1,3 +1,5 @@
+import { readBoardCount, clearBoardCountCache } from "./countCache";
+import { clearBoardPageCursors, nearestBoardPageCursor, saveBoardPageCursor } from "./pageCursorCache";
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "../../hooks/usePagedSearch";
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import {
@@ -5,6 +7,7 @@ import {
   query,
   where,
   orderBy,
+  documentId,
   limit,
   startAfter,
   getDocs,
@@ -20,7 +23,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 // 임베드(앱 탐색 탭 게시판)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
-import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { useFirebaseServices, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useAuth } from "../../contexts/AuthContext";
 import type { BoardPost, BoardType } from "@shared/types";
 import { logClientError } from "../../services/errorLogger";
@@ -50,7 +53,9 @@ const subscribeBoardMutations = (listener: () => void) => {
   boardMutationListeners.add(listener);
   return () => { boardMutationListeners.delete(listener); };
 };
-function notifyBoardMutation() {
+function notifyBoardMutation(services: FirebaseServices) {
+  clearBoardPageCursors(services);
+  clearBoardCountCache(services);
   boardMutationRevision += 1;
   for (const listener of boardMutationListeners) listener();
 }
@@ -62,7 +67,8 @@ const useBoardMutationRevision = () => useSyncExternalStore(subscribeBoardMutati
  */
 export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?: string, keyword?: string, excludeTags: string[] = [], initialPage = 1, ownerOnly = false) {
   const { user } = useAuth();
-  const { firestore, functions } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore, functions } = services;
   // 쿼리는 "로그인 여부"에만 의존(비로그인=공개글만). user 객체는 auth init 중 레퍼런스가
   // 여러 번 바뀌어 effect 를 중복 발사(count 쿼리 N회)시키므로, 안정적인 uid 문자열을 dep 로 쓴다.
   const uid = user?.uid ?? null;
@@ -93,15 +99,12 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   // 페이지별 마지막 문서 스냅샷 캐시
   const pageLastDocs = useRef<{ key: string; docs: Map<number, DocumentSnapshot> }>({ key: "", docs: new Map() });
 
-  // 총개수(count) 캐시 — 같은 필터(filterKey+로그인여부)면 effect 가 여러 번 돌아도(인증
-  // 정착·리렌더 등) count 쿼리를 1회만 친다. count 는 page 와 무관(전체 개수)이라 필터별 1회로 충분.
-  // refresh() 시 refreshKey 가 바뀌어 새 키 → 자동 재조회(새 글 반영).
-  const countCacheRef = useRef<Map<string, number>>(new Map());
-
-  const refresh = () => { setRefreshKey((k) => k + 1); setPage(1); };
+  // Count reuse is scoped to the injected Firebase session and survives list remounts.
+  const refresh = () => { clearBoardCountCache(services); clearBoardPageCursors(services); setRefreshKey((k) => k + 1); setPage(1); };
 
   // 필터 변경 시 1페이지로 리셋 (실제 값 변경만 감지, strict mode 안전)
   const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, mutationRevision, ownerOnly, uid]);
+  const cursorScope = JSON.stringify([uid, ownerOnly, boardType, pageSize, tag ?? null, excludeKey]);
   const [loadedFilterKey, setLoadedFilterKey] = useState<string | null>(null);
   useEffect(() => {
     // URL이 필터와 페이지의 정본이다. 뒤로가기와 상세 화면 복귀도 같은 페이지를 읽는다.
@@ -149,29 +152,22 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
         // 총 개수(페이지네이션 "N개" 라벨용)는 글 렌더에 불필요 → 비차단으로 발사한다.
         // 목록 쿼리가 count 왕복을 기다리지 않아 콘텐츠가 더 빨리 뜬다(전: count→목록 순차 2왕복).
         // count 실패는 라벨에만 영향이라 무시.
-        const countKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, mutationRevision, ownerOnly, ownerOnly ? uid : uid ? "1" : "0"]);
-        const cachedCount = countCacheRef.current.get(countKey);
-        if (cachedCount !== undefined) {
-          // 같은 필터 — 캐시된 총개수 사용, 네트워크 count 생략(중복 발사 제거).
-          setTotal(cachedCount);
-          setTotalPages(Math.max(1, Math.ceil(cachedCount / pageSize)));
-        } else {
-          getCountFromServer(query(collection(firestore, "board_posts"), ...baseConstraints))
-            .then((countSnap) => {
-              const totalCount = countSnap.data().count;
-              countCacheRef.current.set(countKey, totalCount);
-              if (cancelled) return;
-              setTotal(totalCount);
-              setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
-            })
-            .catch(() => { /* 라벨용 count 실패는 목록과 무관 — 무시 */ });
-        }
+        const countKey = JSON.stringify([boardType, tag ?? null, keyword ?? "", excludeKey, mutationRevision, ownerOnly, uid ?? null]);
+        void readBoardCount(services, countKey, async () =>
+          (await getCountFromServer(query(collection(firestore, "board_posts"), ...baseConstraints))).data().count)
+          .then(totalCount => {
+            if (cancelled) return;
+            setTotal(totalCount);
+            setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
+          })
+          .catch(error => logClientError("board:count", error, { ownerOnly }, services));
 
         try {
           // 페이지 쿼리 (실제 콘텐츠)
           const pageConstraints: QueryConstraint[] = [
             ...baseConstraints,
             orderBy("createdAt", "desc"),
+            orderBy(documentId(), "desc"),
           ];
 
           if (page === 1) {
@@ -181,17 +177,20 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
             if (lastDoc) {
               pageConstraints.push(startAfter(lastDoc), limit(pageSize));
             } else {
-              // 캐시 없으면 offset 스킵 (앞 페이지 건너뛸 때)
-              const skipCount = (page - 1) * pageSize;
-              const skipSnap = await getDocs(
-                query(collection(firestore, "board_posts"), ...baseConstraints, orderBy("createdAt", "desc"), limit(skipCount))
-              );
-              if (cancelled) return;
-              const lastVisible = skipSnap.docs[skipSnap.docs.length - 1];
-              if (lastVisible) {
-                pageConstraints.push(startAfter(lastVisible), limit(pageSize));
+              const anchor = nearestBoardPageCursor(firestore, cursorScope, page, services);
+              const skipCount = (page - 1 - (anchor?.page ?? 0)) * pageSize;
+              if (anchor && skipCount === 0) {
+                pageConstraints.push(startAfter(anchor.value, anchor.id), limit(pageSize));
               } else {
-                pageConstraints.push(limit(pageSize));
+                const skipSnap = await getDocs(query(collection(firestore, "board_posts"), ...baseConstraints,
+                  orderBy("createdAt", "desc"), orderBy(documentId(), "desc"),
+                  ...(anchor ? [startAfter(anchor.value, anchor.id)] : []), limit(skipCount)));
+                if (cancelled) return;
+                const lastVisible = skipSnap.docs[skipSnap.docs.length - 1];
+                if (lastVisible) {
+                  saveBoardPageCursor(firestore, cursorScope, page - 1, lastVisible, services);
+                  pageConstraints.push(startAfter(lastVisible), limit(pageSize));
+                } else pageConstraints.push(...(anchor ? [startAfter(anchor.value, anchor.id)] : []), limit(pageSize));
               }
             }
           }
@@ -206,6 +205,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
           if (snap.docs.length > 0) {
             if (pageLastDocs.current.key !== filterKey) pageLastDocs.current = { key: filterKey, docs: new Map() };
             pageLastDocs.current.docs.set(page, snap.docs[snap.docs.length - 1]!);
+            saveBoardPageCursor(firestore, cursorScope, page, snap.docs[snap.docs.length - 1]!, services);
           }
         } catch (err) {
           if (cancelled) return;
@@ -219,7 +219,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       fetchPage();
       return () => { cancelled = true; };
     }
-  }, [firestore, boardType, pageSize, tag, keyword, excludeKey, refreshKey, mutationRevision, page, uid, ownerOnly, pagedSearch]);
+  }, [firestore, boardType, pageSize, tag, keyword, excludeKey, refreshKey, mutationRevision, page, uid, ownerOnly, pagedSearch, cursorScope, services]);
 
   const goToPage = (p: number) => {
     if (p >= 1 && p <= totalPages) setPage(p);
@@ -319,7 +319,8 @@ export function useReportBoardContent() {
 export function useCreatePost() {
   const { t } = useTranslation("board");
   const { user, profile } = useAuth();
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const [submitting, setSubmitting] = useState(false);
 
   const createPost = async (data: {
@@ -361,11 +362,11 @@ export function useCreatePost() {
 
       if (postId) {
         await setDoc(doc(firestore, "board_posts", postId), postData);
-        notifyBoardMutation();
+        notifyBoardMutation(services);
         return postId;
       }
       const docRef = await addDoc(collection(firestore, "board_posts"), postData);
-      notifyBoardMutation();
+      notifyBoardMutation(services);
       return docRef.id;
     } finally {
       setSubmitting(false);
@@ -379,7 +380,8 @@ export function useCreatePost() {
  * 게시글 삭제(soft delete)를 위한 훅
  */
 export function useDeletePost() {
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const [deleting, setDeleting] = useState(false);
 
   const deletePost = async (postId: string) => {
@@ -387,7 +389,7 @@ export function useDeletePost() {
     try {
       const postRef = doc(firestore, "board_posts", postId);
       await updateDoc(postRef, { deletedAt: Date.now() });
-      notifyBoardMutation();
+      notifyBoardMutation(services);
     } finally {
       setDeleting(false);
     }
@@ -400,7 +402,8 @@ export function useDeletePost() {
  * 게시글 복구(soft delete 취소)를 위한 훅
  */
 export function useRestorePost() {
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const [restoring, setRestoring] = useState(false);
 
   const restorePost = async (postId: string) => {
@@ -408,7 +411,7 @@ export function useRestorePost() {
     try {
       const postRef = doc(firestore, "board_posts", postId);
       await updateDoc(postRef, { deletedAt: null });
-      notifyBoardMutation();
+      notifyBoardMutation(services);
     } finally {
       setRestoring(false);
     }

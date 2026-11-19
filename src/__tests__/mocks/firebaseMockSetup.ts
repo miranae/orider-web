@@ -5,6 +5,7 @@
 import { vi } from "vitest";
 import {
   addAuthListener,
+  addTokenListener,
   getCurrentUser,
   mockSetDoc,
   mockDeleteDoc,
@@ -23,20 +24,22 @@ import {
 let authCurrentUserOverride: unknown | undefined;
 const sdkUsers = new WeakMap<object, object>();
 
+const webAuth = {
+  get currentUser() {
+    if (authCurrentUserOverride !== undefined) return authCurrentUserOverride;
+    const user = getCurrentUser();
+    if (!user) return null;
+    if (!sdkUsers.has(user)) sdkUsers.set(user, { ...user, getIdToken: vi.fn().mockResolvedValue("test-id-token") });
+    return sdkUsers.get(user);
+  },
+  set currentUser(value: unknown) {
+    authCurrentUserOverride = value;
+  },
+};
+
 // ─── services/firebase.ts ─────────────────────────────────
 vi.mock("../../services/firebase", () => ({
-  auth: {
-    get currentUser() {
-      if (authCurrentUserOverride !== undefined) return authCurrentUserOverride;
-      const user = getCurrentUser();
-      if (!user) return null;
-      if (!sdkUsers.has(user)) sdkUsers.set(user, { ...user, getIdToken: vi.fn().mockResolvedValue("test-id-token") });
-      return sdkUsers.get(user);
-    },
-    set currentUser(value: unknown) {
-      authCurrentUserOverride = value;
-    },
-  },
+  auth: webAuth,
   // 소비처는 주입된 서비스(useFirebaseServices)의 firestore.app 으로 Storage 버킷을 읽는다.
   firestore: { app: { options: { storageBucket: "test" } } },
   storage: { app: { options: { storageBucket: "test" } } },
@@ -61,7 +64,8 @@ vi.mock("firebase/analytics", () => ({
 // ─── firebase/auth ────────────────────────────────────────
 vi.mock("firebase/auth", () => ({
   onAuthStateChanged: vi.fn((_auth: unknown, cb: (user: unknown) => void) => addAuthListener(cb)),
-  onIdTokenChanged: vi.fn((_auth: unknown, cb: (user: unknown) => void) => addAuthListener(cb)),
+  onIdTokenChanged: vi.fn((auth: { currentUser: unknown }, cb: (user: unknown) => void) =>
+    auth === webAuth ? addAuthListener(() => cb(webAuth.currentUser)) : addTokenListener(auth, cb)),
   signInWithPopup: mockSignInWithPopup,
   signInWithRedirect: vi.fn().mockResolvedValue(undefined),
   getRedirectResult: vi.fn().mockResolvedValue(null),
@@ -71,7 +75,8 @@ vi.mock("firebase/auth", () => ({
 }));
 
 // ─── firebase/firestore ──────────────────────────────────
-vi.mock("firebase/firestore", () => {
+vi.mock("firebase/firestore", async () => {
+  const { Timestamp } = await vi.importActual<typeof import("firebase/firestore")>("firebase/firestore");
   const doc = vi.fn((_fs: unknown, ...pathSegments: string[]) => {
     const path = pathSegments.join("/");
     return { path, id: pathSegments[pathSegments.length - 1] };
@@ -177,7 +182,7 @@ vi.mock("firebase/firestore", () => {
     startAfter: vi.fn((...args: unknown[]) => ({ type: "startAfter", args })),
     writeBatch: mockWriteBatch,
     serverTimestamp: vi.fn(() => Date.now()),
-    Timestamp: { now: () => ({ toMillis: () => Date.now() }) },
+    Timestamp,
     getCountFromServer: vi.fn(async () => ({ data: () => ({ count: 0 }) })),
     count: vi.fn(() => ({ type: "count" })),
     sum: vi.fn((field: string) => ({ type: "sum", field })),

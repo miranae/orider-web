@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
-import { setDocData, simulateLogin, simulateLogout } from "../__tests__/mocks/firebase";
+import { setDocData, simulateLogin, simulateLogout, simulateTokenChange } from "../__tests__/mocks/firebase";
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
 
 const mocks = vi.hoisted(() => {
@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => {
     captureClubServices: vi.fn(),
     isolate: vi.fn(async (_uid: string | null) => {}),
     consumeHandoff: vi.fn().mockResolvedValue(undefined),
+    firestore: { instance: "embedded" },
+    functions: {},
     auth: {
       get currentUser() { return state.currentUser; },
       authStateReady: vi.fn().mockResolvedValue(undefined),
@@ -21,13 +23,13 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("./embeddedFirebase", () => ({
-  initEmbeddedFirebase: () => ({ app: {}, auth: mocks.auth, firestore: { instance: "embedded" }, functions: {} }),
+  initEmbeddedFirebase: () => ({ app: {}, auth: mocks.auth, firestore: mocks.firestore, functions: mocks.functions }),
   ensureEmbeddedAppCheckReady: vi.fn().mockResolvedValue(undefined),
   getEmbeddedAppCheckToken: vi.fn().mockResolvedValue("token"),
   embeddedAccountReady: () => true,
   embeddedAuthPersistsSession: () => false,
   embeddedFirestoreOwnerUid: () => null,
-  getEmbeddedFirestore: () => ({ instance: "embedded" }),
+  getEmbeddedFirestore: () => mocks.firestore,
   isolateEmbeddedAccount: (uid: string | null) => mocks.isolate(uid),
 }));
 vi.mock("../services/appHandoff", () => ({ consumeAppHandoffCode: mocks.consumeHandoff }));
@@ -221,7 +223,7 @@ describe("app tab hub embeds", () => {
     await authorize(bridge, { contractVersion: 1 });
     act(() => bridge.emit(message("host.sessionAccepted", accepted)));
     await screen.findByTestId("clubs-surface");
-    act(() => { mocks.state.currentUser = { uid: "late-account" }; simulateLogin({ uid: "late-account" }); });
+    act(() => { mocks.state.currentUser = { uid: "late-account" }; simulateTokenChange(mocks.auth); });
     await waitFor(() => expect(screen.queryByTestId("clubs-surface")).not.toBeInTheDocument());
     expect(bridge.sent).toContainEqual(expect.objectContaining({ type: "surface.error", payload: { code: "auth_uid_changed" } }));
     act(() => bridge.emit(message("host.sessionAccepted", accepted)));

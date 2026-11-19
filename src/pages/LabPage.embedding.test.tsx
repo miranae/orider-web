@@ -7,6 +7,8 @@ vi.mock("../hooks/useGear", () => ({ useGear: () => ({ items: [] }) }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null }) }));
 import { getDoc } from "firebase/firestore";
 import LabPage from "./LabPage";
+import { logClientError } from "../services/errorLogger";
+vi.mock("../services/errorLogger", async importOriginal => ({ ...await importOriginal<typeof import("../services/errorLogger")>(), logClientError: vi.fn() }));
 import i18n from "i18next";
 import koLab from "../i18n/resources/ko/lab.json";
 describe("course preparation calculator", () => {
@@ -35,6 +37,15 @@ describe("course preparation calculator", () => {
     const target = screen.getByRole("textbox", {name:"목표 시간 (h:mm:ss 또는 mm:ss)"}) as HTMLInputElement;
     expect(target.labels?.length).toBe(1);
     expect(document.getElementById(target.getAttribute("aria-describedby")!)).toBeInTheDocument();
+  });
+
+  it("logs a failed preset course read and retries in the preparation tab", async () => {
+    const error = new Error("permission-denied");
+    vi.mocked(getDoc).mockRejectedValueOnce(error);
+    render(<MemoryRouter initialEntries={["/ko/course/current"]}><LabPage presetCourseId="current" embedded /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
+    expect(vi.mocked(logClientError).mock.calls[0]?.slice(0, 3)).toEqual(["LabPage.loadCourse", error, expect.objectContaining({ courseId: "current", firestoreRecoveryAction: "not-applicable" })]);
+    expect(await screen.findByText("예측 결과")).toBeInTheDocument();
   });
 
   it("uses the detail course without a duplicate page heading, selector or course statistics", async () => {

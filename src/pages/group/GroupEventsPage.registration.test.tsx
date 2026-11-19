@@ -2,11 +2,11 @@ import { installEventDiscoveryFixture } from "../../__tests__/fixtures/eventDisc
 vi.mock("../../services/clubMeetings",()=>{ const api = {listClubMeetings:vi.fn(async()=>({meetings:[],nextCursor:null}))}; return { ...api, createClubMeetingsApi: () => api }; });
 import { listClubMeetings, type ClubMeetingListItem } from "../../services/clubMeetings";
 import { getDoc } from "firebase/firestore";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { setCollectionDocs, setDocData } from "../../__tests__/mocks/firebase";
+import { setCollectionDocs, setDocData, simulateLogin } from "../../__tests__/mocks/firebase";
 import GroupEventsPage from "./GroupEventsPage";
 const roleState=vi.hoisted(()=>({error:null as Error|null,retry:vi.fn()}));
 vi.mock("../../hooks/useGroup", () => ({
@@ -152,4 +152,51 @@ describe("club event registration actions", () => {
     expect(await screen.findByRole("link", { name: "참가 신청" })).toHaveAttribute("href", "/ko/event/event-1/register");
     expect(screen.queryByRole("link", { name: "확인 · 취소" })).not.toBeInTheDocument();
   });
+});
+
+
+it("shows current race rows while meeting and RSVP enrichment are still pending", async () => {
+  installEventDiscoveryFixture(); roleState.error = null;
+  setCollectionDocs("events", [{ id: "event-1", info: { name: "Club event", groupId: "club", status: "OPEN", startTime: Date.now() + 86400000 } }]);
+  let resolveMeetings!: (value: Awaited<ReturnType<typeof listClubMeetings>>) => void;
+  vi.mocked(listClubMeetings).mockReturnValueOnce(new Promise(resolve => { resolveMeetings = resolve; }));
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let resolveParticipant!: (value: unknown) => void;
+  vi.mocked(getDoc).mockImplementation(((ref: { path: string }) => ref.path === "events/event-1/participants/test-uid"
+    ? new Promise(resolve => { resolveParticipant = resolve; }) : original(ref as never)) as typeof getDoc);
+  try {
+    showPage();
+    expect(await screen.findByRole("link", { name: "Club event" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "이벤트 보기" })).toHaveAttribute("href", "/ko/event/event-1");
+    expect(screen.queryByRole("link", { name: "참가 신청" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "불러오는 중" })).toBeInTheDocument();
+    await waitFor(() => expect(resolveParticipant).toBeDefined());
+    await act(async () => resolveParticipant({ exists: () => true, data: () => ({ status: "REGISTERED" }) }));
+    expect(await screen.findByRole("link", { name: "확인 · 취소" })).toBeInTheDocument();
+    await act(async () => resolveMeetings({ meetings: [], nextCursor: null }));
+    expect(screen.queryByRole("status", { name: "불러오는 중" })).not.toBeInTheDocument();
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
+});
+
+
+it("discards pending RSVP enrichment after an exact SDK session replacement with the same UID", async () => {
+  installEventDiscoveryFixture(); roleState.error = null;
+  vi.mocked(listClubMeetings).mockResolvedValue({ meetings: [], nextCursor: null });
+  setCollectionDocs("events", [{ id: "event-1", info: { name: "Club event", groupId: "club", status: "OPEN", startTime: Date.now() + 86400000 } }]);
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  const pending: Array<(value: unknown) => void> = [];
+  vi.mocked(getDoc).mockImplementation(((ref: { path: string }) => ref.path === "events/event-1/participants/test-uid"
+    ? new Promise(resolve => { pending.push(resolve); }) : original(ref as never)) as typeof getDoc);
+  try {
+    showPage();
+    await waitFor(() => expect(pending).toHaveLength(1));
+    expect(screen.getByRole("link", { name: "Club event" })).toBeInTheDocument();
+    act(() => simulateLogin({ uid: "test-uid" }));
+    await waitFor(() => expect(pending).toHaveLength(2));
+    await act(async () => pending[0]!({ exists: () => true, data: () => ({ status: "REGISTERED" }) }));
+    expect(screen.queryByRole("link", { name: "확인 · 취소" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "이벤트 보기" })).toBeInTheDocument();
+    await act(async () => pending[1]!({ exists: () => false }));
+    expect(await screen.findByRole("link", { name: "참가 신청" })).toBeInTheDocument();
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
 });

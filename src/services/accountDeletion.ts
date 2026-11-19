@@ -9,7 +9,7 @@ function functionsEmulatorPort(): number {
   return Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001);
 }
 
-const deletionFunctions = isFunctionsGatewayRuntime()
+const deletionFunctions = isFunctionsGatewayRuntime(getRuntimeConfig())
   ? functions : getFunctions(functions.app, "asia-northeast3");
 if (isEmulatorRuntime() && deletionFunctions !== functions) connectFunctionsEmulator(deletionFunctions, "localhost", functionsEmulatorPort());
 

@@ -3,13 +3,34 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { assertStageEntryArtifact } from "./lib/stage-artifact-manifest.mjs";
+import { assertStageEntryArtifact, stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 const ORIGINS = { development: "https://orider-dev.web.app", production: "https://orider.co.kr" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+async function readPublishedText(url, fetcher, { contentType } = {}) {
+  let response;
+  try { response = await fetcher(url, { credentials: "omit", redirect: "error", cache: "no-store",
+    headers: { "User-Agent": "Mozilla/5.0 ORiderHostingAcceptance" }, signal: AbortSignal.timeout(20000) }); }
+  catch { throw new Error(`bundled Hosting GET transport failed at ${url}`); }
+  if (response.status !== 200) { await response.body?.cancel(); throw new Error(`bundled Hosting GET HTTP${response.status} at ${url}`); }
+  const actualType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  if (contentType && actualType !== contentType) { await response.body?.cancel(); throw new Error(`bundled Hosting GET content type differs at ${url}: expected=${contentType} actual=${actualType || "missing"}`); }
+  try { return await response.text(); }
+  catch { throw new Error(`bundled Hosting GET body failed at ${url}`); }
+}
 export async function verifyBundledHosting({ environment, directory = "dist", fetcher = fetch }) {
   if (!Object.hasOwn(ORIGINS, environment)) throw new Error("approved Hosting environment required");
-  const base = ORIGINS[environment], entry = assertStageEntryArtifact(directory), expected = readFileSync(resolve(directory, entry));
+  const base = ORIGINS[environment], entry = assertStageEntryArtifact(directory, base), expected = readFileSync(resolve(directory, entry));
+  if (environment === "production") {
+    for (const path of ["/", "/ko/course/nonexistent"]) {
+      const liveHtml = `${base}${path}`;
+      const markup = await readPublishedText(liveHtml, fetcher, { contentType: "text/html" });
+      if (stageHtmlEntry(markup, liveHtml, base) !== entry) throw new Error(`bundled Hosting entry differs at ${liveHtml}`);
+    }
+    const runtimeUrl = `${base}/runtime-config.json`;
+    if (await readPublishedText(runtimeUrl, fetcher) !== readFileSync(resolve(directory, "runtime-config.json"), "utf8"))
+      throw new Error(`bundled Hosting runtime differs at ${runtimeUrl}`);
+  }
   const url = `${base}/${entry}`; let response;
   try { response = await fetcher(url, { credentials: "omit", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled Hosting entry GET transport failed at ${url}`); }
@@ -21,7 +42,17 @@ export async function verifyBundledHosting({ environment, directory = "dist", fe
   await verifyBundledHttpAliases({ base, fetcher });
   return { verified: true, environment, entry };
 }
+export async function verifyPublishedBundledHosting(options, pause = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+  for (let attempt = 1; ; attempt++) {
+    try { return await verifyBundledHosting(options); }
+    catch (error) {
+      if (options.environment !== "production" || attempt >= 3) throw error;
+      console.warn(`Production Hosting verification attempt ${attempt}: ${error.message}`);
+      await pause(5000);
+    }
+  }
+}
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.length !== 4 || process.argv[2] !== "--environment") throw new Error("Hosting environment required");
-  console.log(JSON.stringify(await verifyBundledHosting({ environment: process.argv[3] })));
+  console.log(JSON.stringify(await verifyPublishedBundledHosting({ environment: process.argv[3] })));
 }

@@ -1,3 +1,4 @@
+import { encodePolyline } from "../../utils/polyline";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import {
@@ -15,6 +16,7 @@ const routeMapControl = vi.hoisted(() => ({
   delayedOnLoad: null as (() => void) | null,
   liveCanvas: false,
   liveMounts: 0,
+  parts: undefined as [number, number][][] | undefined,
 }));
 
 vi.mock("../RouteMap", async () => {
@@ -23,10 +25,13 @@ vi.mock("../RouteMap", async () => {
     default: function RouteMapMock({
       onLoad,
       pixelRatio,
+      routeParts,
     }: {
       onLoad?: () => void;
       pixelRatio?: number;
+      routeParts?: [number, number][][];
     }) {
+      routeMapControl.parts = routeParts;
       // 업로드 캡처 뷰포트만 pixelRatio 를 고정한다. 실시간 지도는 세션 스냅샷용으로만 onLoad 를 받는다.
       const preserveDrawingBuffer = pixelRatio != null;
       const canvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -98,6 +103,20 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
     routeMapControl.delayedOnLoad = null;
     routeMapControl.liveCanvas = false;
     routeMapControl.liveMounts = 0;
+    routeMapControl.parts = undefined;
+  });
+
+  it("renders transferred track pieces independently and never publishes a joined canonical image", async () => {
+    const parts: [number, number][][] = [[[37,127],[37.01,127.01]], [[38,128],[38.01,128.01]]];
+    liveMaps.maps[baseProps.activityId] = { activityId: baseProps.activityId, revision: "gap-1", privacyEnabled: false,
+      contentRevision: 2, contentSelectedRevision: 2,
+      mapPreview: { encodedPolyline: null, encodedPolylineParts: parts.map(encodePolyline), imageUrl: null } };
+    const view = renderWithProviders(<PublicActivityRouteThumbnail {...baseProps} />,
+      {authenticated:true, user:{uid:baseProps.userId}});
+    await waitFor(() => expect(view.getByTestId("route-map")).toBeInTheDocument());
+    expect(routeMapControl.parts).toEqual(parts);
+    expect(thumbnailInvocations()).toHaveLength(0);
+    expect(view.queryByTestId("capture-map")).not.toBeInTheDocument();
   });
 
   it.each([{}, { contentRevision: 1, contentSelectedRevision: 1 }])("publishes with the live route head instead of missing/stale card revisions: %j", async cardRevisions => {

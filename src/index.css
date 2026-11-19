@@ -1,6 +1,7 @@
 /* Pretendard / JetBrains Mono 는 web/index.html 의 <link> 로 직접 로드.
  * CSS @import 는 부모 CSS 파싱을 차단하는 직렬 요청 — index.html link 가 빠름. */
 @import "tailwindcss";
+@import "./styles/mobileKeyboard.css";
 @plugin "@tailwindcss/typography";
 @theme {
   --color-bg-0: var(--bg-0);

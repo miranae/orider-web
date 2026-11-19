@@ -2,8 +2,10 @@ import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/
 import type { Activity, ActivitySummary } from '@shared/types';
 import type { ActivityDiscoveryItem, ActivityDiscoveryRequest, ActivityDiscoveryResponse } from '@shared/activity-discovery';
 import type { FirebaseServices } from '../contexts/FirebaseServicesContext';
-import { isFunctionsGatewayRuntime, isEmulatorRuntime } from './runtimeConfig';
+import { callApprovedActivityRead, reportApprovedActivityReadFailure } from '../embedded/callApprovedActivityRead';
+import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from './runtimeConfig';
 import { activityFeedSourceRevision } from './activityFeedContent';
+import { logClientError } from './errorLogger';
 export type { ActivityDiscoveryRequest } from '@shared/activity-discovery';
 export type DiscoveryActivity = Activity & { discoveryFacts: ActivityDiscoveryItem['activity']['effectiveFacts']; activityRevision: string };
 const finite = (value: unknown): number | null => typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;
@@ -26,26 +28,67 @@ export function mapDiscoveryActivity(item: ActivityDiscoveryItem): DiscoveryActi
 }
 const connected=new WeakSet<object>();
 type DiscoveryPage = Omit<ActivityDiscoveryResponse,'items'>&{items:DiscoveryActivity[]};
-export async function loadActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,signal?:AbortSignal):Promise<DiscoveryPage>{
+export async function loadActivityDiscovery(
+ services: FirebaseServices, request: ActivityDiscoveryRequest, signal?: AbortSignal, onLateFailure?: (error: unknown) => void,
+): Promise<DiscoveryPage> {
+ const controller = new AbortController();
+ const viewer = services.auth.currentUser;
+ const signedInAt = viewer?.metadata?.lastSignInTime;
  let active=true, rejectAbort: (error: Error)=>void = () => {};
- const abort = () => { active=false; rejectAbort(Error('request_aborted')); };
+ const stop = (message: string, reason?: DOMException) => { active=false; rejectAbort(Error(message)); controller.abort(reason); };
+ const abort = () => stop('request_aborted');
  const aborted = new Promise<never>((_,reject)=>{rejectAbort=reject;});
- const timer=setTimeout(()=>{active=false;rejectAbort(Error('request_timeout'));},15000);
+ const timer=setTimeout(()=>stop('request_timeout',new DOMException('request_timeout','TimeoutError')),15000);
  signal?.addEventListener('abort',abort,{once:true});
  if(signal?.aborted)abort();
- try { return await Promise.race([readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');}),aborted]); }
+ const read = readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');},controller.signal)
+  .catch(error => {
+   const cancelled = error === controller.signal.reason || error?.name === 'AbortError'
+    || error?.message === 'request_aborted' || error?.message === 'account_changed';
+   if (services.scope !== 'embedded' && controller.signal.aborted && !cancelled) {
+    if (onLateFailure) onLateFailure(error);
+    else logClientError('activityDiscovery.lateFailure', error, { scope: request.scope, continuation: Boolean(request.cursor) },
+     services, viewer, '', () => services.auth.currentUser === viewer && viewer?.metadata?.lastSignInTime === signedInAt);
+   }
+   throw error;
+  });
+ try { return await Promise.race([read,aborted]); }
  finally {active=false;clearTimeout(timer);signal?.removeEventListener('abort',abort);}
 }
-async function readActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,assertActive:()=>void):Promise<DiscoveryPage>{
+async function readActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,assertActive:()=>void,signal:AbortSignal):Promise<DiscoveryPage>{
  const viewer=services.auth.currentUser;
  const app=services.auth.app;
- const assertCurrent=()=>{assertActive();if(services.auth.app!==app||services.auth.currentUser!==viewer||services.isSessionApproved?.(viewer)===false)throw Error('account_changed');};
- assertCurrent();await services.ensureAppCheckReady();assertCurrent();
- const functions=isFunctionsGatewayRuntime()?services.functions:getFunctions(services.functions.app,'asia-northeast3');
- if(isEmulatorRuntime()&&!connected.has(functions)){connectFunctionsEmulator(functions,'localhost',Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT||5001));connected.add(functions);}
- const {data}=await httpsCallable<ActivityDiscoveryRequest,ActivityDiscoveryResponse>(functions,'getActivityDiscovery',{timeout:10000})(request);assertCurrent();
+ const signedInAt=viewer?.metadata?.lastSignInTime;
+ const embedded=services.scope==='embedded';
+ const assertCurrent=()=>{
+  assertActive();
+  const approval=services.isSessionApproved?.(viewer);
+  if(services.auth.app!==app||services.auth.currentUser!==viewer||viewer?.metadata?.lastSignInTime!==signedInAt
+   ||(embedded?approval!==true:approval===false))throw Error('account_changed');
+ };
+ assertCurrent();
+ if(!embedded){await services.ensureAppCheckReady();assertCurrent();}
+ const data=embedded
+  ? await callApprovedActivityRead<ActivityDiscoveryResponse>(services,viewer,'getActivityDiscovery','asia-northeast3',request,assertCurrent,signal)
+  : await fetchSdkDiscovery(services,request);
+ assertCurrent();
+ try {
+  return validateDiscoveryPage(data,request);
+ } catch (error) {
+  if (embedded) reportApprovedActivityReadFailure(services,viewer,'getActivityDiscovery','contract');
+  throw error;
+ }
+}
+
+function validateDiscoveryPage(data: ActivityDiscoveryResponse, request: ActivityDiscoveryRequest): DiscoveryPage {
  if(!data||!Array.isArray(data.items)||data.items.length>Math.min(request.limit??20,20)||!Number.isFinite(data.expiresAt)||data.expiresAt<=Date.now()||data.totalCount!==null||data.consistency!=='current_authorized_seek_pages'||!Number.isInteger(data.scannedCount)||data.scannedCount<0||data.scannedCount>50||typeof data.exhausted!=='boolean'||data.exhausted!==(data.nextCursor===null)||data.nextCursor!==null&&(typeof data.nextCursor!=='string'||!data.nextCursor.startsWith('ad1.'))||data.order!==(request.order??'startTime_desc')||data.includesUndated!==(data.order==='id_asc'&&request.fromInclusive===undefined&&request.toExclusive===undefined))throw Error('invalid_activity_discovery');
  const ids=new Set<string>();
  for(const item of data.items){const a=item?.activity;if(request.anchorActivityId&&item.anchorBoundCoRider!==true)throw Error('invalid_activity_discovery');if(item.viewerHasKudos!==undefined&&typeof item.viewerHasKudos!=='boolean')throw Error('invalid_activity_discovery');if(!a||typeof a.id!=='string'||!a.id||ids.has(a.id)||typeof a.userId!=='string'||!a.userId||a.externalId!==null||!a.effectiveFacts||a.effectiveFacts.thresholdBasis!==null||!item.mapPreview||!item.content||!['ready','pending'].includes(item.content.status)||typeof item.presentationRevision!=='string'||!/^[a-f0-9]{64}$/.test(item.presentationRevision))throw Error('invalid_activity_discovery');if(item.generatedSummary&&(!/^[a-f0-9]{64}$/.test(item.generatedSummary.inputDigest)||!/^[a-z0-9][a-z0-9._-]{0,99}$/i.test(item.generatedSummary.formatterVersion)||!['ko','en'].every(lang=>{const text=item.generatedSummary!.text?.[lang as 'ko'|'en'];return typeof text==='string'&&text.trim().length>0&&text.length<=3500;})))throw Error('invalid_activity_discovery');ids.add(a.id);}
  return {...data,items:data.items.map(mapDiscoveryActivity)};
+}
+
+async function fetchSdkDiscovery(services: FirebaseServices, request: ActivityDiscoveryRequest): Promise<ActivityDiscoveryResponse> {
+ const functions=isFunctionsGatewayRuntime(getRuntimeConfig())?services.functions:getFunctions(services.functions.app,'asia-northeast3');
+ if(isEmulatorRuntime()&&!connected.has(functions)){connectFunctionsEmulator(functions,'localhost',Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT||5001));connected.add(functions);}
+ return (await httpsCallable<ActivityDiscoveryRequest,ActivityDiscoveryResponse>(functions,'getActivityDiscovery',{timeout:10000})(request)).data;
 }

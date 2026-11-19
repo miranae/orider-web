@@ -4,12 +4,12 @@
 
 입력은 개발 배포의 `candidate_run_id`와 `candidate_run_attempt`(보통 `1`) 두 개입니다. 한 production job에서 다음 순서로 진행합니다.
 
-1. 고정된 GCS generation·SHA-256으로 검증본을 복원하고 파일 manifest를 한 번 확인합니다.
+1. 고정된 GCS generation·SHA-256으로 검증본을 복원하고 GitHub 출처 증명과 파일 manifest를 각각 한 번 확인합니다.
 2. JS·CSS·HTML·정적 파일은 그대로 복사하고, runtime 주소와 Hosting rewrite만 운영용으로 바꿉니다. 기능 플래그는 개발 검증본 값을 유지합니다.
-3. 운영 gateway의 `/readyz`를 한 번 확인한 뒤 Hosting에 게시합니다.
-4. 공개 HTML과 runtime이 준비한 바이트와 같은지 한 번 확인합니다.
+3. 운영 gateway의 `/readyz`와 운영 브라우저의 소셜 로그인 호출 경로를 병렬로 한 번 확인한 뒤 Hosting에 게시합니다.
+4. 공개 HTML, 진입 JS, runtime이 준비한 바이트와 같은지, 사이트맵과 기존 HTTP 경로가 올바르게 응답하는지 함께 확인합니다. 게시·검증 실패 시 이 작업이 게시한 릴리스만 직전 버전으로 되돌리고, 복구 영수증은 실패한 실행에서만 보관합니다.
 
-앱 의존성 설치·재빌드·중간 Actions artifact 전달·별도 필수 rehearsal·predeploy 재검증은 없습니다. Firebase CLI는 runner에 있으면 재사용하고 없을 때만 설치합니다. BE commit/topology 값은 검증본의 출처 기록으로 남기며 FE 게시 조건으로 사용하지 않습니다. 추가·변경·삭제는 완성된 dist 전체로 반영합니다. 후보의 source·archive 무결성 및 검토된 main 이력/동일 Git tree 확인은 유지합니다.
+서명된 개발 영수증에 기록된 진입 파일을 사용합니다. 운영의 딥링크 HTML 검사를 위해 잠긴 파서 두 패키지만 임시 경로에 설치합니다. 앱 의존성을 설치하거나 재빌드하지 않습니다. 중간 Actions artifact 전달, 필수 rehearsal 및 predeploy 재검증은 없습니다. Firebase CLI는 runner에 있으면 재사용하고 없을 때만 설치합니다. BE commit/topology 값은 검증본의 출처 기록으로 남기며 FE 게시 조건으로 사용하지 않습니다. 추가·변경·삭제는 완성된 dist 전체로 반영합니다. 후보의 source·archive 무결성 및 검토된 main 이력/동일 Git tree 확인은 유지합니다.
 
 실행에는 기존 production Environment의 `GCP_WORKLOAD_IDENTITY_PROVIDER`와 `GCP_SERVICE_ACCOUNT`를 사용합니다. 운영 배포 계정의 Hosting 권한과 기존 릴리스 버킷 `deploy-candidates/hosting/` 경로의 읽기 권한은 준비되어 있습니다. production Environment의 별도 수동 승인 단계 없이 같은 운영 자격 증명을 사용합니다. 개발 배포와 개발 계정 설정은 변경하지 않습니다.
 
@@ -25,4 +25,4 @@ GitHub 실행 기록의 보관 기간과 무관하게 GCS에 보관한 개발 �
 
 ## English
 
-Build and validate once in development. One production job restores the immutable GCS candidate, checks its files once, replaces only runtime routing and Hosting rewrites, publishes it, and checks the public HTML/runtime once. It does not install application dependencies, rebuild, transfer intermediate Actions artifacts, require a rehearsal, or require an exact backend commit. The configured production credentials have Hosting deployment access and read access to the existing private candidate prefix; no separate manual approval or IAM setup step is required. Timing includes the workflow dispatch/setup period; use the completed run's `updated_at - created_at` for the final total including cleanup.
+Build and validate once in development. One production job restores the immutable GCS candidate, verifies GitHub provenance and checks its files once, replaces only runtime routing and Hosting rewrites, publishes it, and checks the public HTML, JavaScript entry, runtime and sitemap once. It restores the previous version only if this run published the failed release. It does not install application dependencies, rebuild, transfer intermediate Actions artifacts, require a rehearsal, or require an exact backend commit. The configured production credentials have Hosting deployment access and read access to the existing private candidate prefix; no separate manual approval or IAM setup step is required. Timing includes the workflow dispatch/setup period; use the completed run's `updated_at - created_at` for the final total including cleanup.

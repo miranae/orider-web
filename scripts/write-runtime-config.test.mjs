@@ -1,13 +1,17 @@
 import { PUBLIC_CLUB_ENDPOINT, publicClubEndpoint, withPublicClubEndpoint, verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, cpSync, readFileSync, rmSync, writeFileSync, mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { productionDataConfig, productionBuildEnv, resolveProductionBuildFlags, verifyProductionDataCors } from "./lib/production-data-config.mjs";
+import { bundledFunctionsConfig, bundledHostingConfig, BUNDLED_FUNCTIONS, BUNDLED_AI } from "./lib/bundled-functions-config.mjs";
+import { stageProductionParityConfig, stageProductionParityBuildEnv, STAGE_FUNCTIONS, STAGE_AI_API, STAGE_PERSONAL_API } from "./lib/stage-production-parity.mjs";
+import { readPinnedProductionRuntime, checkedJsonFetch } from "./lib/production-release-attestation.mjs";
+import { stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
+import { gzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { bundledFunctionsConfig, bundledHostingConfig, BUNDLED_FUNCTIONS, BUNDLED_AI } from "./lib/bundled-functions-config.mjs";
 
 const requiredEnv = {
   VITE_FIREBASE_API_KEY: "api-key", VITE_FIREBASE_AUTH_DOMAIN: "auth.example", VITE_FIREBASE_PROJECT_ID: "project",
@@ -59,7 +63,7 @@ test("boolean VITE flags read at runtime are all emitted by the writer", () => {
   const reader = readFileSync("src/services/runtimeConfig.ts", "utf8");
   const writer = readFileSync("scripts/write-runtime-config.mjs", "utf8");
   // 빌드 시점에만 의미가 있는 스위치 — runtime-config.json 에 실릴 값이 아니다.
-  const buildOnly = new Set(["VITE_USE_BUILD_ENV_FALLBACK"]);
+  const buildOnly = new Set(["VITE_USE_BUILD_ENV_FALLBACK", "VITE_REQUIRE_BUNDLED_RUNTIME"]);
   const readerFlags = new Set(
     [...reader.matchAll(/import\.meta\.env\.(VITE_[A-Z0-9_]+) === "true"/g)]
       .map((m) => m[1])
@@ -137,6 +141,88 @@ function productionFixture() {
     activitySubscriptionsEnabled: true, activitySubscriptionsBackendReady: true, futureFeatureEnabled: true,
   };
 }
+
+test("stage parity preserves production data and every flag while routing execution to development", () => {
+  const source = productionFixture();
+  const stage = stageProductionParityConfig(source);
+  for (const [key, value] of Object.entries(source)) {
+    if (key.endsWith("Enabled") || key === "activitySubscriptionsBackendReady" || key.startsWith("firebase") && !["firebaseFunctionsBase"].includes(key)) assert.equal(stage[key], value, key);
+  }
+  assert.equal(stage.appEnvironment, "production");
+  assert.equal(stage.deploymentProfile, "production-parity-stage");
+  assert.equal(stage.firebaseFunctionsBase, STAGE_FUNCTIONS);
+  assert.equal(stage.aiApiBase, STAGE_AI_API);
+  assert.equal(stage.personalApiBase, STAGE_PERSONAL_API);
+  assert.equal(stage.publicClubApiUrl, `${STAGE_FUNCTIONS}/publicClubs`);
+  assert.equal(stage.socialAuthFunctionsBase, "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net");
+  assert.equal(stage.stravaRedirectUri, source.stravaRedirectUri);
+  assert.equal(source.appEnvironment, "production");
+  const env = stageProductionParityBuildEnv(source);
+  assert.equal(env.VITE_MODE, "production");
+  assert.equal(env.VITE_FIREBASE_FUNCTIONS_BASE, STAGE_FUNCTIONS);
+  assert.equal(env.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED, "true");
+  assert.equal(env.VITE_ACTIVITY_SUBSCRIPTIONS_ENABLED, "true");
+  assert.equal(env.VITE_CANONICAL_ROLLOUT_ENABLED, "false");
+  for (const patch of [{ appEnvironment: "stage" }, { firebaseProjectId: "orider-dev" }, { useEmulators: true }]) assert.throws(() => stageProductionParityConfig({ ...source, ...patch }));
+});
+
+test("stage parity runtime writer ignores conflicting local and production routes", () => {
+  const directory = mkdtempSync(join(tmpdir(), "orider-stage-parity-"));
+  try {
+    const source = join(directory, "source.json"), output = join(directory, "runtime.json");
+    writeFileSync(source, JSON.stringify(productionFixture()));
+    execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], {
+      env: { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source, STAGE_PARITY_SOURCE_SHA: "a".repeat(40), STAGE_PARITY_HOSTING_VERSION: "sites/miranae-orider-g1/versions/abc", VITE_MODE: "production", VITE_FIREBASE_FUNCTIONS_BASE: "https://evil.example" }, stdio: "pipe",
+    });
+    assert.deepEqual(JSON.parse(readFileSync(output, "utf8")), stageProductionParityConfig(productionFixture(), {sourceSha:"a".repeat(40),hostingVersion:"sites/miranae-orider-g1/versions/abc"}));
+    for (const conflicting of [{ env: { PRODUCTION_RUNTIME_CONFIG_PATH: source }, args: [] }, { env: {}, args: ["--production-source", source] }]) {
+      assert.throws(() => execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output, ...conflicting.args], {
+        env: { ...process.env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source, ...conflicting.env }, stdio: "pipe",
+      }), /mutually exclusive/);
+    }
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("parity source attestation rejects modified entry HTML and untracked build inputs before reading cloud state", () => {
+  const directory = mkdtempSync(join(tmpdir(), "orider-stage-source-"));
+  try {
+    const git = args => execFileSync("git", ["-c", "core.hooksPath=/dev/null", ...args], { cwd: directory, encoding: "utf8", stdio: "pipe" });
+    git(["init"]); writeFileSync(join(directory, "index.html"), "production entry"); writeFileSync(join(directory, "firebase.stage.json"), "{}"); git(["add", "."]);
+    git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "fixture"]);
+    const sha = git(["rev-parse", "HEAD"]).trim();
+    const run = () => execFileSync(process.execPath, [join(process.cwd(), "scripts/prepare-stage-production-parity.mjs"), "--source-sha", sha, "--reviewed-head", sha, "--out", directory + "-output"], { cwd: directory, stdio: "pipe" });
+    writeFileSync(join(directory, "index.html"), "unreleased entry");
+    assert.throws(run, /reviewed source HEAD, clean state or transport patch changed/);
+    git(["checkout", "--", "index.html"]); writeFileSync(join(directory, "injected.js"), "unreleased input");
+    assert.throws(run, /untracked build inputs.*injected.js/s);
+    rmSync(join(directory,"injected.js")); writeFileSync(join(directory,"firebase.stage.json"),"changed allowed path");
+    assert.throws(run, /reviewed source HEAD, clean state or transport patch changed/);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("parity runtime binds live bytes to a successful production SHA and unchanged Hosting version", async () => {
+  const sha = "a".repeat(40), runtime = JSON.stringify(productionFixture()), html = '<script src="/assets/index-fixture.js"></script>', asset = "production bundle";
+  const files = { "/runtime-config.json": runtime, "/index.html": html, "/assets/index-fixture.js": asset };
+  const release = { version: "sites/miranae-orider-g1/versions/abc", releaseTime: "2026-11-17T00:01:00Z",
+    fileHashes: Object.fromEntries(Object.entries(files).map(([path, bytes]) => [path, createHash("sha256").update(gzipSync(bytes, { level: 9 })).digest("hex")])) };
+  const deployment = { sourceSha: sha, startedAt: "2026-11-17T00:00:00Z", succeededAt: "2026-11-17T00:02:00Z" };
+  const options = { readRelease: async () => release, readDeployment: async () => deployment,
+    readFile: async path => ({ raw: gzipSync(files[path], { level: 9 }), body: Buffer.from(files[path]) }) };
+  const actual = await readPinnedProductionRuntime(sha, options);
+  assert.deepEqual(actual.source, productionFixture()); assert.equal(actual.release.version, release.version);
+  await assert.rejects(readPinnedProductionRuntime("b".repeat(40), options), /does not bind/);
+  await assert.rejects(readPinnedProductionRuntime(sha, { ...options, readFile: async () => ({ raw: Buffer.from("{}"), body: Buffer.from("{}") }) }), /pinned Hosting version|entry missing/);
+  let calls = 0;
+  await assert.rejects(readPinnedProductionRuntime(sha, { ...options, readRelease: async () => ++calls === 1 ? release : { ...release, version: "other" } }), /Hosting changed/);
+  const original = console.error, events = [];
+  console.error = value => events.push(JSON.parse(value));
+  try {
+    await assert.rejects(checkedJsonFetch("read-production-runtime-config", "https://orider.co.kr/runtime-config.json", {}, async () => { throw new TypeError("network unavailable"); }), /read-production-runtime-config failed/);
+    await assert.rejects(checkedJsonFetch("read-production-runtime-config", "https://orider.co.kr/runtime-config.json", {}, async () => new Response("invalid json")), /read-production-runtime-config failed/);
+    assert.equal(events.length, 2); assert.ok(events.every(event => event.operation === "read-production-runtime-config" && event.target === "https://orider.co.kr/runtime-config.json"));
+    assert.ok(events.every(event => !Object.keys(event).some(key => /token|header|body/i.test(key))));
+  } finally { console.error = original; }
+});
 
 test("pins production read/write routes and all flags through runtime writer despite conflicting stage env", () => {
   const directory = mkdtempSync(join(tmpdir(), "orider-production-data-"));
@@ -240,6 +326,74 @@ test("public club deployment preflight is read only and fails closed on cache, f
   await assert.rejects(verifyPublicClubApi({ publicClubApiUrl: PUBLIC_CLUB_ENDPOINT }, "https://unapproved.test", fake));
 });
 
+test("parity public club read logs bounded operation context for transport and JSON failures", async () => {
+  const config={appEnvironment:"production",deploymentProfile:"production-parity-stage",publicClubApiUrl:`${STAGE_FUNCTIONS}/publicClubs`};
+  const original=console.error,events=[]; console.error=value=>events.push(JSON.parse(value));
+  try {
+    await assert.rejects(verifyPublicClubApi(config,"https://orider-dev.web.app",async()=>{throw Object.assign(new Error("sensitive raw message"),{code:"ENOTFOUND"});}),/verification failed/);
+    await assert.rejects(verifyPublicClubApi(config,"https://orider-dev.web.app",async()=>({ok:true,status:200,headers:new Headers({"access-control-allow-origin":"https://orider-dev.web.app","cache-control":"no-store"}),json:async()=>{throw new SyntaxError("sensitive response body");}})),/verification failed/);
+    assert.equal(events.length,2);assert.ok(events.every(event=>event.operation==="verify-public-club-api"&&event.method==="GET"&&event.target===`${STAGE_FUNCTIONS}/publicClubs?size=1`));
+    assert.ok(!JSON.stringify(events).includes("sensitive"));
+  } finally {console.error=original;}
+});
+
+test("Hosting predeploy rejects a replaced app bundle before consulting live production", () => {
+  const directory=realpathSync(mkdtempSync(join(tmpdir(),"orider-stage-artifact-")));
+  try {
+    const source=join(directory,"source.json"),runtime=JSON.stringify(stageProductionParityConfig(productionFixture(),{sourceSha:"a".repeat(40),hostingVersion:"sites/miranae-orider-g1/versions/abc"}));
+    mkdirSync(join(directory,"dist/assets"),{recursive:true});
+    writeFileSync(source,JSON.stringify(productionFixture()));writeFileSync(join(directory,"firebase.stage.json"),readFileSync("firebase.stage.json"));
+    const html='<script src="assets/index-fixture.js"></script>';
+    writeFileSync(join(directory,"dist/index.html"),html);writeFileSync(join(directory,"dist/assets/index-fixture.js"),"replaced bundle");writeFileSync(join(directory,"dist/runtime-config.json"),runtime);
+    const hash=value=>createHash("sha256").update(value).digest("hex"),receipt=join(directory,"build.json");
+    writeFileSync(receipt,JSON.stringify({sourceSha:"a".repeat(40),reviewedHead:"b".repeat(40),artifactDirectory:join(directory,"dist"),deploymentDirectory:directory,entry:"assets/index-fixture.js",indexSha256:hash(html),entrySha256:hash("reviewed bundle"),runtimeSha256:hash(runtime)}));
+    assert.throws(()=>execFileSync(process.execPath,[join(process.cwd(),"scripts/check-isolated-stage.mjs")],{cwd:directory,env:{...process.env,PRODUCTION_RUNTIME_CONFIG_PATH:"",STAGE_PARITY_PRODUCTION_RUNTIME_PATH:source,STAGE_PARITY_SOURCE_SHA:"a".repeat(40),STAGE_PARITY_HOSTING_VERSION:"sites/miranae-orider-g1/versions/abc",STAGE_PARITY_REVIEWED_HEAD:"b".repeat(40),STAGE_PARITY_BUILD_RECEIPT_PATH:receipt},stdio:"pipe"}),/prepared artifact differs/);
+  }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+test("parity artifact manifest checks every file and rejects missing, added or linked chunks before remote validation", async () => {
+  for (const change of ["replaced", "missing", "added", "symlink", "directory-symlink"]) {
+    const directory = mkdtempSync(join(tmpdir(), "orider-stage-manifest-"));
+    try {
+      mkdirSync(join(directory, "assets"));
+      writeFileSync(join(directory, "index.html"), '<script src="assets/index-fixture.js"></script>');
+      writeFileSync(join(directory, "assets/index-fixture.js"), "unchanged entry");
+      const chunk = join(directory, "assets/lazy-fixture.js");
+      writeFileSync(chunk, "reviewed dynamic chunk");
+      const manifest = stageArtifactManifest(directory);
+      assert.deepEqual(manifest.map(([path]) => path), ["assets/index-fixture.js", "assets/lazy-fixture.js", "index.html"]);
+      assert.deepEqual(stageArtifactManifest(directory), manifest);
+      let calls = 0;
+      await verifyStageArtifacts(directory, manifest, async () => { calls++; });
+      assert.equal(calls, 1);
+      if (change === "replaced") writeFileSync(chunk, "unreviewed dynamic chunk");
+      if (change === "missing") rmSync(chunk);
+      if (change === "added") writeFileSync(join(directory, "assets/injected.js"), "unexpected");
+      if (change === "symlink") { rmSync(chunk); symlinkSync("index-fixture.js", chunk); }
+      if (change === "directory-symlink") symlinkSync("assets", join(directory, "linked-assets"));
+      await assert.rejects(verifyStageArtifacts(directory, manifest, async () => { calls++; }), /prepared artifact/);
+      assert.equal(calls, 1, "invalid local artifacts must fail before remote checks");
+      assert.equal(readFileSync(join(directory, "assets/index-fixture.js"), "utf8"), "unchanged entry");
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  }
+});
+
+test("parity predeploy rechecks all artifacts after awaiting remote metadata", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "orider-stage-race-"));
+  try {
+    writeFileSync(join(directory, "index.html"), "unchanged entry");
+    const chunk = join(directory, "lazy.js");
+    writeFileSync(chunk, "reviewed chunk");
+    const manifest = stageArtifactManifest(directory);
+    await assert.rejects(verifyStageArtifacts(directory, manifest, async () => {
+      await Promise.resolve();
+      writeFileSync(chunk, "changed during remote validation");
+    }), /prepared artifact differs/);
+    assert.equal(readFileSync(join(directory, "index.html"), "utf8"), "unchanged entry");
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+
 test("bundled client promotion changes reviewed addresses while preserving all feature flags", () => {
   const source = productionFixture();
   const development = bundledFunctionsConfig(source, "development");
@@ -287,18 +441,6 @@ test("bundled runtime writer is explicit and rejects mixed deployment sources", 
 
     assert.throws(() => execFileSync(process.execPath, ["scripts/write-runtime-config.mjs", "--out", output], { env: { ...env, STAGE_PARITY_PRODUCTION_RUNTIME_PATH: source }, stdio: "pipe" }), /mixed/);
   } finally { rmSync(directory, { recursive: true, force: true }); }
-});
-
-test("public club transport failures identify profile and endpoint without leaking the underlying error", async () => {
-  for (const environment of ["development", "production"]) {
-    const config = bundledFunctionsConfig(productionFixture(), environment);
-    const origin = environment === "development" ? "https://orider-dev.web.app" : "https://orider.co.kr";
-    await assert.rejects(verifyPublicClubApi(config, origin, async () => { throw new Error("PRIVATE_DNS_DIAGNOSTIC"); }), error => {
-      assert.match(error.message, new RegExp(`public club bundled-${environment} GET`));
-      assert.ok(error.message.includes(`${config.publicClubApiUrl}?size=1`));
-      assert.match(error.message, /transport failed/); assert.doesNotMatch(error.message, /PRIVATE_DNS/); return true;
-    });
-  }
 });
 
 test("legacy workflow explicitly removes empty inherited bundle variables before the strict writer", () => {

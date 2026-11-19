@@ -109,6 +109,7 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
   const { t } = useTranslation("activity");
   const [expandedOutlet, setExpandedOutlet] = useState<HTMLDivElement | null>(null);
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+  // 분리 원본은 상세에서만 조회한다. 배치 목록에 안전한 선이 없으면 지도 조회를 추가하지 않는다.
   const hasMap = !!activity.thumbnailTrack;
   const photos = (content?.photos ?? []).slice(0, hasMap ? 5 : 4);
   const photoCount = Math.max(photos.length, content?.totalPhotoCount ?? activity.photoCount);

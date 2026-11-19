@@ -1,3 +1,5 @@
+import { captureError } from "../services/sentry";
+
 export const TRAINING_SURFACE_CACHE_SCHEMA_VERSION = 2;
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -5,7 +7,11 @@ const SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 12;
 const CACHE_MAX_BYTES = 512 * 1024;
 const STORAGE_PREFIX = "orider.trainingSurfaceCache.";
-const STORAGE_KEY = `${STORAGE_PREFIX}v2`;
+const LEGACY_STORAGE_KEY = `${STORAGE_PREFIX}v2`;
+
+function storageKey(uid: string, scope: string): string {
+  return `${LEGACY_STORAGE_KEY}:${encodeURIComponent(uid)}:${scope}`;
+}
 
 export type TrainingCacheSurface = "fitness" | "fitness-timeseries" | "fitness-summary" | "plan" | "plan-snapshot" | "run30";
 
@@ -131,9 +137,17 @@ function purgeDisk(onError?: (error: unknown) => void): void {
   }
 }
 
-function persist(): void {
+function reportSnapshotStorageError(operation: "persist" | "restore" | "migrate", error: unknown): void {
+  // JSON 파싱 오류가 캐시 내용의 일부를 메시지에 포함할 수 있다.
+  const errorName = error instanceof Error || error instanceof DOMException ? error.name : typeof error;
+  captureError(new Error(`Training snapshot ${operation} failed (${errorName})`), {
+    tags: { source: `trainingSurfaceCache.${operation}` },
+  });
+}
+
+function persist(onError = (error: unknown) => reportSnapshotStorageError("persist", error)): boolean {
   const scope = trainingSurfaceCacheScope();
-  if (!ownerUid || !scope) return;
+  if (!ownerUid || !scope || ownerScope !== scope) return false;
   try {
     const snapshots = [...entries.values()].filter((entry) =>
       entry.expiresAt > Date.now() && validKey(entry.key, ownerUid!)
@@ -144,26 +158,46 @@ function persist(): void {
       if (new TextEncoder().encode(encoded).byteLength <= CACHE_MAX_BYTES) break;
       snapshots.shift();
     }
-    storage()?.setItem(STORAGE_KEY, encoded);
-  } catch {
+    const disk = storage(onError);
+    if (!disk) return false;
+    disk.setItem(storageKey(ownerUid, scope), encoded);
+    return true;
+  } catch (error) {
     // 디스크 저장 실패 시에도 이미 검증된 메모리 값은 유지한다.
+    onError(error);
+    return false;
   }
 }
 
 function restore(uid: string): void {
   const scope = trainingSurfaceCacheScope();
   if (!scope) return;
+  const reportRestoreFailure = (error: unknown) => reportSnapshotStorageError("restore", error);
   try {
-    const encoded = storage()?.getItem(STORAGE_KEY);
-    if (!encoded) return;
+    const disk = storage(reportRestoreFailure);
+    if (!disk) return;
+    const scopedKey = storageKey(uid, scope);
+    const scoped = disk.getItem(scopedKey);
+    const encoded = scoped ?? disk.getItem(LEGACY_STORAGE_KEY);
+    if (encoded === null) return;
+    const rejectSnapshot = (error: unknown, rejectedKey = scoped === null ? null : scopedKey) => {
+      reportRestoreFailure(error);
+      if (rejectedKey !== null) disk.removeItem(rejectedKey);
+    };
     if (encoded.length > CACHE_MAX_BYTES || new TextEncoder().encode(encoded).byteLength > CACHE_MAX_BYTES) {
-      purgeDisk();
+      rejectSnapshot(new RangeError("Training snapshot exceeds the storage limit"));
       return;
     }
-    const envelope: unknown = JSON.parse(encoded);
-    if (!isRecord(envelope) || envelope.schema !== TRAINING_SURFACE_CACHE_SCHEMA_VERSION
-      || envelope.uid !== uid || envelope.scope !== scope || !Array.isArray(envelope.entries) || envelope.entries.length > CACHE_MAX_ENTRIES) {
-      purgeDisk();
+    let decoded: unknown;
+    try { decoded = JSON.parse(encoded); }
+    catch (error) { rejectSnapshot(error); return; }
+    const envelope: Record<string, unknown> = isRecord(decoded) ? decoded : {};
+    const currentOwner = envelope.uid === uid && envelope.scope === scope;
+    if (!currentOwner || envelope.schema !== TRAINING_SURFACE_CACHE_SCHEMA_VERSION
+      || !Array.isArray(envelope.entries) || envelope.entries.length > CACHE_MAX_ENTRIES) {
+      if (scoped !== null || currentOwner) {
+        rejectSnapshot(new TypeError("Training snapshot is incompatible with its storage key"), scoped === null ? LEGACY_STORAGE_KEY : scopedKey);
+      }
       return;
     }
     const now = Date.now();
@@ -173,9 +207,17 @@ function restore(uid: string): void {
         || !validSnapshot(entry.key.surface, entry.value, uid)) continue;
       entries.set(serializeKey(entry.key), entry as unknown as CacheEntry);
     }
-    persist();
-  } catch {
-    purgeDisk();
+    if (scoped !== null) {
+      persist(reportRestoreFailure);
+    } else {
+      const reportMigrationFailure = (error: unknown) => reportSnapshotStorageError("migrate", error);
+      if (persist(reportMigrationFailure)) {
+        try { disk.removeItem(LEGACY_STORAGE_KEY); }
+        catch (error) { reportMigrationFailure(error); }
+      }
+    }
+  } catch (error) {
+    reportRestoreFailure(error);
   }
 }
 
@@ -233,6 +275,15 @@ export function removeTrainingSurfaceCache(key: TrainingSurfaceCacheKey): void {
   if (ownerUid !== key.uid || ownerScope !== trainingSurfaceCacheScope()) return;
   entries.delete(serializeKey(key));
   persist();
+}
+
+export function removeTrainingPlanCacheForSport(uid: string, sport: string, onError: (error: unknown) => void): void {
+  if (ownerUid !== uid || ownerScope !== trainingSurfaceCacheScope()) return;
+  for (const [serialized, entry] of entries) {
+    if (entry.key.uid === uid && entry.key.sport === sport && (entry.key.surface === "plan" || entry.key.surface === "plan-snapshot"))
+      entries.delete(serialized);
+  }
+  persist(onError);
 }
 
 /** 변경 성공 후 같은 종목의 다른 언어 스냅샷도 fresh로 재사용하지 않는다. */

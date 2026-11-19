@@ -6,13 +6,15 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
+import { assertStageEntryArtifact, stageArtifactManifest, stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
+import { verifyBundledCallable, verifyBundledHttpAliases, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
 const save = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + "\n", { flag: "wx" });
 const sha = /^[a-f0-9]{40}$/u, digest = /^[a-f0-9]{64}$/u;
+const productionOrigins = ["https://orider.co.kr", "https://www.orider.co.kr", "https://miranae-orider-g1.web.app", "https://miranae-orider-g1.firebaseapp.com"];
 
 export { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
 import { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
@@ -55,6 +57,14 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
   if (candidateRuntime.deploymentProfile !== "bundled-development"
     || hash(readFileSync(join(sourceDist, "runtime-config.json"))) !== candidate.runtimeHash
     || !candidate.artifactManifest.some(([path]) => path === "index.html")) throw new Error("sealed development runtime/entry mismatch");
+  // The signed development receipt proves how browsers resolve the entry at
+  // the production origin. Older receipts use the same HTML parser on demand.
+  const entry = candidate.productionEntry ?? assertStageEntryArtifact(sourceDist, "https://orider.co.kr");
+  const entryPattern = /^assets\/index-[A-Za-z0-9_-]+\.js$/u;
+  if (!entryPattern.test(entry) || (candidate.entry !== undefined && candidate.entry !== entry)
+    || !candidate.artifactManifest.some(([file]) => file === entry)) {
+    throw new Error("verified Vite entry is missing from the development artifact");
+  }
   const runtime = bundledFunctionsConfig(candidateRuntime, "production");
   const hosting = bundledHostingConfig(json(configs[0]), "production");
   if (hosting.hosting.site !== "orider-dev" || hosting.hosting.public !== "dist" || hosting.hosting.target) throw new Error("development Hosting identity mismatch");
@@ -72,28 +82,99 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     candidateArchive: { bucket: artifact.bucket, object: artifact.object, generation: artifact.generation, sha256: artifact.sha256 },
     backend: { sourceSha: candidate.backendSourceSha, topologyHash: candidate.backendTopologyHash },
     originalArtifactHash: candidate.artifactHash, artifactManifest: expected, runtime,
-    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), rebuilt: false };
+    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), entry, rebuilt: false };
   save(join(directory, "promotion.json"), receipt);
   return receipt;
 }
+async function fetchPromotionResource(url, fetcher) {
+  try {
+    return await fetcher(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
+  } catch (cause) {
+    throw new Error(`Hosting promotion GET transport failed at ${url}`, { cause });
+  }
+}
+
+async function rejectPromotionResponse(response, message) {
+  const error = new Error(message);
+  try { await response.body?.cancel(); }
+  catch (cause) { error.cause = cause; }
+  throw error;
+}
+
+async function verifyGatewayReadiness(url, fetcher) {
+  const response = await fetchPromotionResource(url, fetcher);
+  if (!response.ok) return rejectPromotionResponse(response, `production gateway unavailable at ${url}: HTTP${response.status}`);
+  let ready;
+  try { ready = await response.json(); }
+  catch (cause) { throw new Error(`production gateway GET response body is invalid at ${url}`, { cause }); }
+  if (ready?.status !== "ok") throw new Error(`production gateway is not ready at ${url}`);
+}
+
 export async function verifyClientPromotion(options, fetcher = fetch) {
   const receipt = json(join(options.directory, "promotion.json"));
-  // 운영 API 주소의 기본 상태만 확인한다. 앱 게시를 BE commit과 결속하지 않는다.
-  const response = await fetcher(`${receipt.runtime.firebaseFunctionsBase}/readyz`, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`production gateway unavailable HTTP${response.status}`); }
-  const ready = await response.json();
-  if (ready.status !== "ok") throw new Error("production gateway is not ready");
+  // Check reachability and the login callable for the production browser origin.
+  const { aiApiBase, firebaseFunctionsBase, socialAuthFunctionsBase } = receipt.runtime;
+  await Promise.all([
+    verifyGatewayReadiness(`${firebaseFunctionsBase}/readyz`, fetcher),
+    verifyBundledRouteControl({ base: firebaseFunctionsBase, origin: productionOrigins[0], fetcher }),
+    ...productionOrigins.flatMap(origin => [
+      verifyBundledCallable({ base: firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher }),
+      verifyBundledCallable({
+        base: aiApiBase, origin, name: "v1/activity-narrative", fetcher,
+        requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" },
+      }),
+      verifyBundledCallable({
+        base: firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher,
+        requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+      }),
+      verifyBundledCallable({
+        base: socialAuthFunctionsBase, origin, name: "socialAuthStart", fetcher,
+        responseContract: [
+          { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+          { status: 401, field: "status", value: "UNAUTHENTICATED" },
+        ],
+      }),
+    ]),
+  ]);
   return receipt;
 }
 export async function verifyPublishedPromotion({ directory, origin = "https://orider.co.kr" }, fetcher = fetch) {
   const receipt = json(join(directory, "promotion.json")), expected = new Map(receipt.artifactManifest);
-  // Hosting은 한 버전으로 게시한다. HTML과 runtime 두 파일을 한 번씩 확인한다.
-  await Promise.all(["index.html", "runtime-config.json"].map(async path => {
+  // Check the previously validated Vite entry in parallel with the shell and sitemap.
+  const deepLink = "ko/course/nonexistent";
+  const verifyPublishedResource = async path => {
     const url = new URL(path === "index.html" ? "/" : `/${path}`, origin); url.searchParams.set("promotion", receipt.frontendSourceSha);
-    const response = await fetcher(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
-    if (!response.ok) { await response.body?.cancel(); throw new Error(`published ${path} HTTP${response.status}`); }
-    if (hash(Buffer.from(await response.arrayBuffer())) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact`);
-  }));
+    const response = await fetchPromotionResource(url, fetcher);
+    if (!response.ok) return rejectPromotionResponse(response, `published ${url} HTTP${response.status}`);
+    if (path === "sitemap.xml") {
+      if (!/^(?:application|text)\/xml(?:;|$)/iu.test(response.headers.get("content-type") ?? "")) {
+        return rejectPromotionResponse(response, `published sitemap alias did not return XML at ${url}`);
+      }
+      try { await response.body?.cancel(); }
+      catch (cause) { throw new Error(`published sitemap GET response could not be closed at ${url}`, { cause }); }
+      return;
+    }
+    const mime = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+    if ((path === "index.html" || path === deepLink) && mime !== "text/html") {
+      return rejectPromotionResponse(response, `published page did not return HTML at ${url}`);
+    }
+    if (path === receipt.entry && !["application/javascript", "text/javascript"].includes(mime)) {
+      return rejectPromotionResponse(response, `published entry did not return JavaScript at ${url}`);
+    }
+    let bytes;
+    try { bytes = Buffer.from(await response.arrayBuffer()); }
+    catch (cause) { throw new Error(`published GET response body could not be read at ${url}`, { cause }); }
+    if (path === deepLink) {
+      const liveEntry = stageHtmlEntry(bytes.toString("utf8"), String(url), origin);
+      if (liveEntry !== receipt.entry) throw new Error(`published deep link entry differs at ${url}`);
+      return;
+    }
+    if (hash(bytes) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact at ${url}`);
+  };
+  await Promise.all([
+    ...["index.html", deepLink, "runtime-config.json", receipt.entry, "sitemap.xml"].map(verifyPublishedResource),
+    verifyBundledHttpAliases({ base: origin, fetcher }),
+  ]);
   return receipt;
 }
 async function main() {

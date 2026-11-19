@@ -17,12 +17,16 @@ function assertSource(workspace, expected = head(workspace)) {
   if (head(workspace) !== expected || execFileSync("git", ["status", "--porcelain", "--untracked-files=normal"], { cwd: workspace, encoding: "utf8" }).trim()) throw new Error("bundled production requires the pinned clean source");
   return expected;
 }
-async function health(runtime, fetcher, expected) {
+export async function verifyBundledProductionIdentity(runtime, expected, fetcher = fetch) {
   const url = `${runtime.firebaseFunctionsBase}/readyz`;
   let response;
   try { response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled production health transport failed at ${url}`); }
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled production gateway is unavailable at ${url} HTTP ${response.status}`); }
+  if (!response.ok) {
+    const error = new Error(`bundled production gateway is unavailable at ${url} HTTP ${response.status}`);
+    try { await response.body?.cancel(); } catch (cause) { error.cause = cause; }
+    throw error;
+  }
   let value;
   try { value = await response.json(); } catch { throw new Error(`bundled production health invalid JSON at ${url}`); }
   if (!value || typeof value !== "object" || Array.isArray(value) || value.status !== "ok" || value.exposure !== "public" || typeof value.sourceSha !== "string" || !/^[a-f0-9]{40}$/u.test(value.sourceSha)
@@ -38,7 +42,7 @@ export async function prepareBundledProduction({ source, workspace = process.cwd
   const frontendSourceSha = assertSource(workspace);
   const runtime = bundledFunctionsConfig(source, "production");
   if (!/^[a-f0-9]{40}$/u.test(backendSourceSha || "") || !/^[a-f0-9]{64}$/u.test(backendTopologyHash || "")) throw new Error("reviewed production backend source and topology pins required");
-  const backend = await health(runtime, fetcher, { sourceSha: backendSourceSha, topologyHash: backendTopologyHash });
+  const backend = await verifyBundledProductionIdentity(runtime, { sourceSha: backendSourceSha, topologyHash: backendTopologyHash }, fetcher);
   const hosting = bundledHostingConfig(json(resolve(workspace, "firebase.json")), "production");
   delete hosting.hosting.target;
   hosting.hosting.site = "miranae-orider-g1";
@@ -55,7 +59,7 @@ export async function prepareBundledProduction({ source, workspace = process.cwd
   if (githubEnv) appendFileSync(githubEnv, Object.entries(environment).map(([key, value]) => `${key}=${value}`).join("\n") + "\n");
   return receipt;
 }
-export async function verifyBundledProduction(directory, fetcher = fetch) {
+export async function verifyBundledProduction(directory, fetcher = fetch, { identityOnly = false } = {}) {
   directory = resolve(directory);
   const receipt = json(resolve(directory, "preparation.json"));
   assertSource(receipt.workspace, receipt.frontendSourceSha);
@@ -65,22 +69,31 @@ export async function verifyBundledProduction(directory, fetcher = fetch) {
   const expected = bundledFunctionsConfig(json(resolve(directory, "source-runtime.json")), "production");
   const actual = json(resolve(receipt.workspace, "dist/runtime-config.json"));
   if (!isDeepStrictEqual(actual, expected)) throw new Error("built production runtime differs from normal release flags");
-  await verifyBundledProductionBackend(expected, receipt.backend, fetcher);
+  if (identityOnly) await verifyBundledProductionIdentity(expected, receipt.backend, fetcher);
+  else await verifyBundledProductionBackend(expected, receipt.backend, fetcher);
   if (hash(readFileSync(receipt.hostingPath)) !== receipt.hostingHash
     || !isDeepStrictEqual(json(resolve(receipt.workspace, "dist/runtime-config.json")), expected)) throw new Error("production output changed during verification");
   return receipt;
 }
 export async function verifyBundledProductionBackend(runtime, backend, fetcher = fetch) {
-  await health(runtime, fetcher, backend);
-  await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", fetcher });
+  await verifyBundledProductionIdentity(runtime, backend, fetcher);
   const manifest = json(new URL("./contracts/social-callables.json", import.meta.url));
+  const primaryOrigin = "https://orider.co.kr";
+  await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin: primaryOrigin, fetcher });
   for (const { name } of manifest.callables) {
-    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name, fetcher });
+    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: primaryOrigin, name, fetcher });
   }
-  await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
-  await verifyBundledCallable({ base: runtime.aiApiBase, origin: "https://orider.co.kr", name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  for (const origin of [primaryOrigin, "https://www.orider.co.kr", "https://miranae-orider-g1.web.app", "https://miranae-orider-g1.firebaseapp.com"]) {
+    if (origin !== primaryOrigin) {
+      for (const name of ["getActivityDiscovery", "socialAuthStart"]) {
+        await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name, fetcher });
+      }
+    }
+    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
+    await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  }
   await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
-  await health(runtime, fetcher, backend);
+  await verifyBundledProductionIdentity(runtime, backend, fetcher);
 }
 async function main() {
   const args = {};
@@ -91,10 +104,10 @@ async function main() {
   }
   if (process.env.ORIDER_FUNCTIONS_TRANSPORT !== "production") throw new Error("explicit production bundled transport required");
   const phase = args["--phase"], directory = args["--directory"] || process.env.BUNDLED_PRODUCTION_DIRECTORY;
-  if (!["prepare", "verify"].includes(phase) || !directory || phase === "prepare" && !args["--source"]
-    || phase === "verify" && args["--source"]) throw new Error("production phase/source/directory required");
+  if (!["prepare", "verify", "verify-identity"].includes(phase) || !directory || phase === "prepare" && !args["--source"]
+    || phase !== "prepare" && args["--source"]) throw new Error("production phase/source/directory required");
   const receipt = phase === "prepare" ? await prepareBundledProduction({ source: json(resolve(args["--source"])), directory, githubEnv: process.env.GITHUB_ENV, backendSourceSha: process.env.BUNDLED_BACKEND_SOURCE_SHA, backendTopologyHash: process.env.BUNDLED_BACKEND_TOPOLOGY_HASH })
-    : await verifyBundledProduction(directory);
+    : await verifyBundledProduction(directory, fetch, { identityOnly: phase === "verify-identity" });
   console.log(JSON.stringify({ phase, frontendSourceSha: receipt.frontendSourceSha, backendSourceSha: receipt.backend.sourceSha, backendTopologyHash: receipt.backend.topologyHash }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadPublicAthleteTotals, parsePublicAthleteTotals, callAthleteProfile, loadAthleteProfilePreview, parseAthleteProfile, type AthletePreviewCursor } from "./athleteProfile";
 import { mockCallableInvocations, setCallableResult as setResult, setCallableImplementation } from "../__tests__/mocks/firebase";
+import * as errorLogger from "./errorLogger";
 const setCallableResult = (name: string, data: unknown) => setResult(name, { data: name === "getAthleteProfilePreview" ? { pendingCount: 0, coverageComplete: true, retryCursor: null, ...(data as object) } : data });
 let services: FirebaseServices;
 beforeEach(() => { services = { auth: { currentUser: { uid: "owner" } }, functions: {}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices; });
@@ -70,6 +71,69 @@ it("loads public totals without owner authentication and fences guest-to-login t
   await expect(loadPublicAthleteTotals(services, "target", () => true)).resolves.toMatchObject({ count: 4 });
   setCallableImplementation("getPublicAthleteTotals", () => { services.auth.currentUser = { uid: "viewer" } as never; return root(); });
   await expect(loadPublicAthleteTotals(services, "target", () => true)).rejects.toThrow("session-changed");
+});
+it("records a normal web totals callable failure that arrives after the request deadline", async () => {
+  vi.useFakeTimers();
+  services.auth.currentUser = null;
+  let rejectCall!: (reason: Error) => void;
+  setCallableImplementation("getPublicAthleteTotals", () => new Promise<never>((_, reject) => { rejectCall = reject; }));
+  const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+  try {
+    const request = expect(loadPublicAthleteTotals(services, "target", () => true)).rejects.toThrow("athlete-profile-timeout");
+    await vi.advanceTimersByTimeAsync(12000);
+    await request;
+    const failure = Object.assign(new Error("late service failure"), { code: "functions/unavailable" });
+    rejectCall(failure);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(log.mock.calls.some(([source, error]) => source === "athleteProfile.publicTotalsLateFailure" && error === failure)).toBe(true);
+  } finally { vi.useRealTimers(); log.mockRestore(); }
+});
+it("sends embedded guest totals without credentials even when the SDK user changes during the request", async () => {
+  services.auth.currentUser = null;
+  services.scope = "embedded";
+  services.isSessionApproved = viewer => viewer === null;
+  services.functions = { app: { options: { projectId: "test-project" } } } as FirebaseServices["functions"];
+  services.getAppCheckToken = vi.fn().mockResolvedValue("embedded-app-check");
+  const lateUser = { uid: "late", getIdToken: vi.fn().mockResolvedValue("unapproved") };
+  const request = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    services.auth.currentUser = lateUser as never;
+    return Response.json({ result: root() });
+  });
+  try {
+    await expect(loadPublicAthleteTotals(services, "target", () => true)).rejects.toThrow("session-changed");
+    expect(request).toHaveBeenCalledWith(expect.stringMatching(/\/getPublicAthleteTotals$/), expect.objectContaining({
+      method: "POST", credentials: "omit", redirect: "error",
+      headers: { "Content-Type": "application/json", "X-Firebase-AppCheck": "embedded-app-check" },
+      body: JSON.stringify({ data: { userId: "target" } }),
+    }));
+    expect(lateUser.getIdToken).not.toHaveBeenCalled();
+    expect(mockCallableInvocations).toHaveLength(0);
+  } finally {
+    request.mockRestore();
+  }
+});
+it("drops an embedded totals request when approval changes while the captured viewer token is pending", async () => {
+  let resolveToken!: (value: string) => void;
+  const token = new Promise<string>(resolve => { resolveToken = resolve; });
+  const approved = { uid: "viewer", getIdToken: vi.fn(() => token) };
+  const replacement = { uid: "viewer", getIdToken: vi.fn().mockResolvedValue("new-session") };
+  services.auth.currentUser = approved as never;
+  services.scope = "embedded";
+  services.isSessionApproved = viewer => viewer === (approved as never);
+  services.getAppCheckToken = vi.fn().mockResolvedValue("embedded-app-check");
+  const request = vi.spyOn(globalThis, "fetch");
+  try {
+    const pending = loadPublicAthleteTotals(services, "target", () => true);
+    await Promise.resolve();
+    expect(approved.getIdToken).toHaveBeenCalledOnce();
+    services.auth.currentUser = replacement as never;
+    resolveToken("previous-session");
+    await expect(pending).rejects.toThrow("session-changed");
+    expect(request).not.toHaveBeenCalled();
+    expect(replacement.getIdToken).not.toHaveBeenCalled();
+  } finally {
+    request.mockRestore();
+  }
 });
 it("validates public pending/failed without inventing zero and rejects malformed ready values", () => {
   for (const state of ["pending", "failed"]) expect(parsePublicAthleteTotals({ schemaVersion: 1, state, revision: 0 })).toEqual({ schemaVersion: 1, state, revision: 0 });

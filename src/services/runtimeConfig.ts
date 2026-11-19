@@ -57,20 +57,20 @@ export interface RuntimeConfig {
   canonicalRolloutEnabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
-  /** Explicit bundled transport; feature flags remain those of this release. */
-  deploymentProfile?: "bundled-development" | "bundled-production";
+  /** 운영 UI/계산 경로를 유지하면서 개발 실행 주소만 선택하는 배포 프로필. */
+  deploymentProfile?: "production-parity-stage" | "bundled-development" | "bundled-production";
   useEmulators?: boolean;
 }
 
 let runtimeConfig: RuntimeConfig = readBuildFallbackConfig();
-let loaded = false;
+let runtimeLoad: Promise<RuntimeConfig> | undefined;
 
 function readBuildFallbackConfig(): RuntimeConfig {
-  const allowBuildFallback =
+  const allowBuildFallback = import.meta.env.VITE_REQUIRE_BUNDLED_RUNTIME !== "true" && (
     import.meta.env.DEV ||
     import.meta.env.MODE === "test" ||
     import.meta.env.VITE_USE_EMULATORS === "true" ||
-    import.meta.env.VITE_USE_BUILD_ENV_FALLBACK === "true";
+    import.meta.env.VITE_USE_BUILD_ENV_FALLBACK === "true");
 
   if (!allowBuildFallback) {
     return {
@@ -144,26 +144,50 @@ function withoutEmptyValues(config: RuntimeConfig): RuntimeConfig {
   ) as RuntimeConfig;
 }
 
-export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
-  if (loaded) return runtimeConfig;
-  loaded = true;
-
-  if (typeof window === "undefined") return runtimeConfig;
-
-  try {
-    const response = await fetch(`/runtime-config.json?v=${Date.now()}`, {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-    if (!response.ok) return runtimeConfig;
-
-    const remote = withoutEmptyValues((await response.json()) as RuntimeConfig);
-    runtimeConfig = { ...runtimeConfig, ...remote };
-  } catch {
-    // Local dev and tests may not provide runtime-config.json; Vite env fallback remains.
+async function fetchRuntimeConfig(): Promise<RuntimeConfig> {
+  const requireBundled = import.meta.env.VITE_REQUIRE_BUNDLED_RUNTIME === "true";
+  if (typeof window === "undefined") {
+    if (requireBundled) throw new Error("bundled/runtime-config-browser-required");
+    return runtimeConfig;
   }
 
+  let response: Response;
+  try {
+    response = await fetch(`/runtime-config.json?v=${Date.now()}`, {
+      cache: "no-store", credentials: "same-origin",
+    });
+  } catch (error) {
+    if (requireBundled) throw Object.assign(new Error("bundled/runtime-config-network"), { cause: error });
+    return runtimeConfig;
+  }
+  if (!response.ok) {
+    if (requireBundled) throw new Error(`bundled/runtime-config-http-${response.status}`);
+    return runtimeConfig;
+  }
+
+  let remote: RuntimeConfig;
+  try {
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new TypeError("Expected a runtime config object");
+    remote = withoutEmptyValues(payload as RuntimeConfig);
+  } catch (error) {
+    if (requireBundled) throw Object.assign(new Error("bundled/runtime-config-json"), { cause: error instanceof Error ? error.name : undefined });
+    const diagnostic = new Error("legacy/runtime-config-json");
+    void import("./sentry").then(({ captureError }) => {
+      captureError(diagnostic, { tags: { source: "runtime-config" } });
+    }).catch(() => {
+      // eslint-disable-next-line no-console -- the telemetry module may be unavailable at startup.
+      console.warn(diagnostic.message);
+    });
+    return runtimeConfig;
+  }
+  if (requireBundled && !bundledFunctionsBase(remote)) throw new Error("bundled/runtime-config-profile");
+  runtimeConfig = { ...runtimeConfig, ...remote };
   return runtimeConfig;
+}
+
+export function loadRuntimeConfig(): Promise<RuntimeConfig> {
+  return runtimeLoad ??= fetchRuntimeConfig();
 }
 
 export function getRuntimeConfig(): RuntimeConfig {
@@ -176,7 +200,18 @@ export function isEmulatorRuntime(): boolean {
 
 export function resetRuntimeConfigForTests(config: RuntimeConfig = {}): void {
   runtimeConfig = { ...readBuildFallbackConfig(), ...withoutEmptyValues(config) };
-  loaded = false;
+  runtimeLoad = undefined;
+}
+
+export const STAGE_PARITY_GATEWAY = "https://stage-parity-default-818364001341.asia-northeast3.run.app";
+export const STAGE_PARITY_AI = "https://stage-parity-ai-818364001341.asia-northeast3.run.app";
+export function isStageParityRuntime(config: RuntimeConfig = getRuntimeConfig()): boolean {
+  return config.appEnvironment === "production" && config.deploymentProfile === "production-parity-stage"
+    && config.firebaseFunctionsBase === STAGE_PARITY_GATEWAY;
+}
+/** 업무 기능은 appEnvironment를 계속 사용하고 실행 클라이언트만 이 프로필을 따른다. */
+export function isStageComputeRuntime(config: RuntimeConfig = getRuntimeConfig()): boolean {
+  return config.appEnvironment === "stage" || isStageParityRuntime(config);
 }
 
 export const BUNDLED_AI_BASES = {
@@ -190,7 +225,7 @@ export const BUNDLED_FUNCTIONS_BASES = {
 
 /** 검증한 공통 라우팅을 환경 주소만 바꿔 사용한다. 잘못된 설정은 리전 함수로 폴백하지 않는다. */
 export function bundledFunctionsBase(config: RuntimeConfig = getRuntimeConfig()): string | undefined {
-  if (config.deploymentProfile === undefined) return undefined;
+  if (config.deploymentProfile === undefined || config.deploymentProfile === "production-parity-stage") return undefined;
   if (config.deploymentProfile !== "bundled-development" && config.deploymentProfile !== "bundled-production") throw new Error("bundled/unknown-profile");
   const environment = config.deploymentProfile === "bundled-development" ? "development" : "production";
   const base = BUNDLED_FUNCTIONS_BASES[environment];
@@ -205,7 +240,7 @@ export function bundledFunctionsBase(config: RuntimeConfig = getRuntimeConfig())
 
 /** SDK 실행 주소 선택에만 사용한다. 분석 전용 QA 허용 범위를 넓히지 않는다. */
 export function isFunctionsGatewayRuntime(config: RuntimeConfig = getRuntimeConfig()): boolean {
-  return bundledFunctionsBase(config) !== undefined || config.appEnvironment === "stage";
+  return bundledFunctionsBase(config) !== undefined || isStageComputeRuntime(config);
 }
 
 /** Shared data is intentional; analysis stays isolated and Auth needs an explicit reviewed exception. */
@@ -222,18 +257,24 @@ export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = glo
       || config.firebaseMessagingSenderId !== "289663940841") throw new Error("bundled/execution-identity-mismatch");
     return;
   }
-  if (config.deploymentProfile !== undefined) throw new Error("bundled/unknown-profile");
   const developmentHost = hostname === "orider-dev.web.app" || hostname === "orider-dev.firebaseapp.com";
+  const parity = isStageParityRuntime(config);
+  if (config.deploymentProfile !== undefined && (!parity || !developmentHost || origin !== `https://${hostname}`)) {
+    throw new Error("stage/parity-profile-mismatch");
+  }
   if (developmentHost && config.appEnvironment === "production") {
     if (origin !== `https://${hostname}` || config.firebaseProjectId !== "miranae-orider-g1"
       || config.firebaseAuthDomain !== "miranae-orider-g1.firebaseapp.com"
       || !/^miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)$/.test(config.firebaseStorageBucket ?? "")
       || config.firebaseAppId !== "1:289663940841:web:ba08cdae154286e6499878"
       || config.firebaseMessagingSenderId !== "289663940841" || config.firebaseFunctionsRegion !== "asia-northeast3"
-      || config.useEmulators === true || config.socialAuthFunctionsBase
-      || (config.firebaseFunctionsBase && config.firebaseFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")
-      || config.personalApiBase !== "https://orider.co.kr"
-      || config.aiApiBase !== "https://orider-ai-api-h5zqzw3n4a-du.a.run.app") throw new Error("development/production-data-profile-mismatch");
+      || config.useEmulators === true
+      || (parity ? config.socialAuthFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net" : Boolean(config.socialAuthFunctionsBase))
+      || (parity ? config.firebaseFunctionsBase !== STAGE_PARITY_GATEWAY : config.firebaseFunctionsBase && config.firebaseFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")
+      || config.personalApiBase !== (parity ? STAGE_PARITY_GATEWAY : "https://orider.co.kr")
+      || config.aiApiBase !== (parity ? STAGE_PARITY_AI : "https://orider-ai-api-h5zqzw3n4a-du.a.run.app")
+      || parity && config.publicClubApiUrl !== `${STAGE_PARITY_GATEWAY}/publicClubs`
+      || parity && config.stravaRedirectUri !== "https://orider-strava.web.app/strava/callback") throw new Error("development/production-data-profile-mismatch");
     return;
   }
   if (config.socialAuthFunctionsBase && (config.appEnvironment !== "stage" || origin !== "https://orider-dev.web.app"

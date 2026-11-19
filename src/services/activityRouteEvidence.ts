@@ -55,7 +55,8 @@ export function validateRouteEvidenceResponse(value: unknown, activityId: string
     let previous = -1;
     for (const raw of Array.from(route.points)) {
       const point = record(raw);
-      if (!point || Object.keys(point).length !== 3 || typeof point.lat !== "number" || !Number.isFinite(point.lat) || Math.abs(point.lat) > 90
+      if (!point || Object.keys(point).some(key => !["lat", "lon", "elapsedSec", "segmentBreakBefore"].includes(key))
+        || point.segmentBreakBefore !== undefined && typeof point.segmentBreakBefore !== "boolean" || typeof point.lat !== "number" || !Number.isFinite(point.lat) || Math.abs(point.lat) > 90
         || typeof point.lon !== "number" || !Number.isFinite(point.lon) || Math.abs(point.lon) > 180
         || !finite(point.elapsedSec) || point.elapsedSec <= previous) return invalid();
       previous = point.elapsedSec;

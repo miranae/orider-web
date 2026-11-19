@@ -24,8 +24,10 @@ export function useNativeActivityPhoto(photo: NativePhotoReference | undefined, 
   useEffect(() => {
     if (!enabled || !visible || !activityId || !photoId) return;
     let active = true;
-    const viewer = services.auth.currentUser;
-    const current = () => active && services.auth.currentUser === viewer && services.isSessionApproved?.(viewer) !== false;
+    const viewer = services.auth?.currentUser;
+    const signedInAt = viewer?.metadata?.lastSignInTime;
+    const current = () => active && services.auth?.currentUser === viewer && viewer?.metadata?.lastSignInTime === signedInAt
+      && services.isSessionApproved?.(viewer ?? null) !== false;
     let url: string | null = null;
     // 주기 재확인 없음: 보이는 사진마다 30초마다 getActivityPhotoData 를 불러, 사진이 많은 화면을
     // 띄워 두면 호출이 끝없이 쌓였다. 탭을 숨기면 바이트를 지우고 돌아올 때 다시 받으며(위 visible),
@@ -53,8 +55,9 @@ export function useNativeActivityPhoto(photo: NativePhotoReference | undefined, 
       verifiedAt = Date.now();
       setResult({ key, services, url, error: null });
     }).catch(error => {
-      if (!(error instanceof Error && error.message === "account_changed"))
-        logClientError("useNativeActivityPhoto.load", error, { activityId, photoId }, services, viewer, current);
+      if (!(error instanceof Error && error.message === "account_changed")) {
+        logClientError("useNativeActivityPhoto.load", error, { activityId, photoId }, services, viewer, current() ? "" : "superseded", current);
+      }
       if (current()) setResult({ key, services, url: null, error });
     });
     window.addEventListener("focus", focus);

@@ -1,3 +1,5 @@
+import { hasRouteLine } from "../../../utils/routeGeometry";
+import type { SampledPoint } from "./activityDetailUtils";
 import { detectConsistentTimestampUnit } from "../../../utils/timestampUnit";
 
 export interface RouteElapsedAxisInput {
@@ -79,4 +81,14 @@ export function parseElapsedBoundary(value: string): number | null {
   const minutes = parts.length === 3 ? parts[1]! : parts[0]!;
   if (seconds >= 60 || parts.length === 3 && minutes >= 60) return null;
   return (parts.length === 3 ? parts[0]! * 3600 : 0) + minutes * 60 + seconds;
+}
+
+/** Shared by the actual analysis page and its local chart/map fixture. */
+export function visualRouteSelection(range: readonly [number, number] | null, sampled: readonly SampledPoint[],
+  positions: readonly unknown[] | undefined, importedRange?: { startIndex: number; endIndex: number }) {
+  if (!range || !Array.isArray(positions)) return null;
+  if (sampled.some(point => point.routeSourceIndex !== undefined)) return importedRange ?? null;
+  const startIndex = sampled[range[0]]?.sourceIndex, endIndex = sampled[range[1]]?.sourceIndex;
+  if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || startIndex! < 0 || endIndex! <= startIndex! || endIndex! >= positions.length) return null;
+  return hasRouteLine(positions.slice(startIndex, endIndex! + 1)) ? { startIndex: startIndex!, endIndex: endIndex! } : null;
 }

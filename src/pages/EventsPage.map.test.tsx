@@ -1,3 +1,4 @@
+import * as errorLogger from "../services/errorLogger";
 import { getDoc } from "firebase/firestore";
 import { installEventDiscoveryFixture } from "../__tests__/fixtures/eventDiscovery";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -51,6 +52,22 @@ describe("event map camera intent", () => {
     await act(async()=>finish({data:{rows:[{id:"late",data:{info:{status:"OPEN",visibility:"PUBLIC",courseIds:["no-read-after-navigation"]}}}],nextCursor:"~ed1_"+"d".repeat(48)}}));
     expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1);
     expect(getDoc).not.toHaveBeenCalled();
+  });
+
+  it("keeps diagnostics for discovery failures after the page is gone", async () => {
+    let reject!: (error: Error) => void;
+    setCallableImplementation("listVisibleEventEnvelopes", () => new Promise((_, fail) => { reject = fail; }));
+    const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+    try {
+      const view = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+      await waitFor(() => expect(reject).toBeDefined());
+      view.unmount();
+      await act(async () => reject(new Error("discovery offline")));
+
+      const call = log.mock.calls.find(([source]) => source === "EventsPage.loadEvents");
+      expect(call?.[1]).toMatchObject({ message: "discovery offline" });
+      expect(call?.[6]?.()).toBe(false);
+    } finally { log.mockRestore(); }
   });
 
   it("keeps an incomplete private window bounded until Next and then shows public, legacy and GROUP rows", async () => {
@@ -172,6 +189,28 @@ describe("event status tabs", () => {
   });
 });
 
+describe("event view toggle", () => {
+  it("renders list/calendar/map as filter chips whose selected state follows the active view", async () => {
+    setCollectionDocs("events", [
+      { id: "open", info: { name: "Open ride", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: Date.now() + 86_400_000 } },
+    ]);
+    renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Open ride", { exact: true })).toBeInTheDocument();
+    const group = screen.getByRole("group", { name: eventStrings["view.label"] });
+    const list = within(group).getByRole("button", { name: eventStrings["view.list"] });
+    const calendar = within(group).getByRole("button", { name: eventStrings["view.calendar"] });
+    for (const toggle of [list, calendar]) {
+      expect(toggle).toHaveClass("ds-chip", "ds-chip--selectable");
+      expect(toggle).not.toHaveClass("ds-btn--outline");
+    }
+    expect(list).toHaveAttribute("aria-pressed", "true");
+    expect(calendar).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(calendar);
+    expect(calendar).toHaveAttribute("aria-pressed", "true");
+    expect(list).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
 describe("앱 임베드 탐색 이벤트 (#1485)", () => {
   it("기본 웹 Firebase 가 초기화되지 않은 임베드에서도 주입된 세션으로 목록을 불러온다", async () => {
     const { httpsCallable } = await import("firebase/functions");
@@ -190,5 +229,67 @@ describe("앱 임베드 탐색 이벤트 (#1485)", () => {
     } finally {
       vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
     }
+  });
+});
+
+
+it("shows discovery before optional course and participation reads settle, preserving unknown membership", async () => {
+  setCollectionDocs("events", [{ id: "progressive", info: { name: "Ready discovery", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: Date.now() + 60_000, courseIds: ["slow-course"] } }]);
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  let rejectCourse!: (error: Error) => void;
+  let rejectParticipant!: (error: Error) => void;
+  const course = new Promise<never>((_, reject) => { rejectCourse = reject; });
+  const participant = new Promise<never>((_, reject) => { rejectParticipant = reject; });
+  vi.mocked(getDoc).mockImplementation((...args) => {
+    const path = (args[0] as { path?: string }).path;
+    return path === "courses/slow-course" ? course : path === "events/progressive/participants/test-uid" ? participant : original(...args);
+  });
+  try {
+    renderWithProviders(<EventsPage />, { route: "/ko/explore/events", authenticated: true });
+    expect(await screen.findByText("Ready discovery", { exact: true })).toBeInTheDocument();
+    await waitFor(() => expect(getDoc).toHaveBeenCalledWith(expect.objectContaining({ path: "events/progressive/participants/test-uid" })));
+    const summary = screen.getByText(eventStrings["summary.myEvents"]).parentElement!;
+    expect(summary).toHaveTextContent("—");
+    await act(async () => { rejectCourse(new Error("thumbnail offline")); rejectParticipant(new Error("participation offline")); });
+    expect(screen.getByText("Ready discovery", { exact: true })).toBeInTheDocument();
+    expect(summary).toHaveTextContent("—");
+    expect(screen.queryByText(eventStrings["dashboard.errorLoadEvent"])).not.toBeInTheDocument();
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
+});
+
+describe("event summary strip", () => {
+  const future = Date.now() + 86_400_000;
+  const myEventLabels = [eventStrings["summary.myEvents"], eventStrings["summary.myEventsShort"]];
+
+  it("hides the all-zero strip from guests and leaves the availability note", async () => {
+    setCollectionDocs("events", [
+      { id: "done", info: { name: "Finished ride", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000 } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Finished ride", { exact: true })).toBeInTheDocument();
+    expect(container.querySelector(".event-summary")).toBeNull();
+    expect(screen.getByText(new RegExp(eventStrings["availability.title"]))).toBeInTheDocument();
+  });
+
+  it("shows guests live and open counts without a my-events column", async () => {
+    setCollectionDocs("events", [
+      { id: "open", info: { name: "Open ride", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: future } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Open ride", { exact: true })).toBeInTheDocument();
+    const summary = container.querySelector(".event-summary");
+    expect(summary).not.toBeNull();
+    expect(summary?.children).toHaveLength(2);
+    for (const label of myEventLabels) expect(summary?.textContent).not.toContain(label);
+  });
+
+  it("keeps all three columns, including my events, for signed-in riders", async () => {
+    setCollectionDocs("events", [
+      { id: "done", info: { name: "Finished ride", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000 } },
+    ]);
+    const { container } = renderWithProviders(<EventsPage />, { route: "/ko/explore/events", authenticated: true });
+    expect(await screen.findByText("Finished ride", { exact: true })).toBeInTheDocument();
+    const summary = await waitFor(() => { const el = container.querySelector(".event-summary"); expect(el).not.toBeNull(); return el; });
+    expect(summary?.children).toHaveLength(3);
   });
 });

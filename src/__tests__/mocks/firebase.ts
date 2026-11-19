@@ -17,6 +17,24 @@ export interface MockUser {
 
 let _currentUser: MockUser | null = null;
 const _authListeners: Set<AuthCallback> = new Set();
+type TokenAuth = { currentUser: unknown };
+type TokenCallback = (user: unknown) => void;
+let tokenListeners = new WeakMap<TokenAuth, Set<TokenCallback>>();
+
+export function addTokenListener(auth: TokenAuth, cb: TokenCallback) {
+  let listeners = tokenListeners.get(auth);
+  if (!listeners) {
+    listeners = new Set();
+    tokenListeners.set(auth, listeners);
+  }
+  listeners.add(cb);
+  cb(auth.currentUser);
+  return () => listeners.delete(cb);
+}
+
+export function simulateTokenChange(auth: TokenAuth) {
+  tokenListeners.get(auth)?.forEach(cb => cb(auth.currentUser));
+}
 
 export function simulateLogin(user?: Partial<MockUser>) {
   _currentUser = {
@@ -158,6 +176,7 @@ export function recordCallableInvocation(name: string, data: unknown) {
 export function resetAllMocks() {
   _currentUser = null;
   _authListeners.clear();
+  tokenListeners = new WeakMap();
   mockDocData.clear();
   mockCollectionData.clear();
   _snapshotListeners.clear();

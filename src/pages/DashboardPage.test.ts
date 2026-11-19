@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Activity } from "@shared/types";
-import { dashboardPlanDiscipline, filterFeedActivities, normalizeDashboardDiscipline } from "./DashboardPage";
+import { dashboardDataReadiness, dashboardPlanDiscipline, filterFeedActivities, normalizeDashboardDiscipline } from "./DashboardPage";
 
 function activity(id: string, userId: string): Activity {
   return {
@@ -76,4 +76,21 @@ describe("normalizeDashboardDiscipline", () => {
     expect(dashboardPlanDiscipline(value)).toBe(expected);
   });
 
+});
+
+describe("dashboard displayed data readiness", () => {
+  const search = { active: true, searchedKeyword: "ride", loading: false, error: false };
+  it("waits for the active requested search even when the background feed is ready", () => {
+    expect(dashboardDataReadiness("ride", { ...search, loading: true }, false, false, false))
+      .toEqual({ loading: true, ready: false, failed: false });
+    expect(dashboardDataReadiness("new-query", search, false, false, false).ready).toBe(false);
+    expect(dashboardDataReadiness("ride", { ...search, active: false }, false, false, false).ready).toBe(false);
+  });
+  it("reports search failure independently of the background feed and preserves normal feed timing", () => {
+    expect(dashboardDataReadiness("ride", { ...search, error: true }, false, false, false))
+      .toEqual({ loading: false, ready: true, failed: true });
+    expect(dashboardDataReadiness(null, search, true, false, false).ready).toBe(false);
+    expect(dashboardDataReadiness(null, search, false, false, true).ready).toBe(false);
+    expect(dashboardDataReadiness(null, search, false, false, false).ready).toBe(true);
+  });
 });

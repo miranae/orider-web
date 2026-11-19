@@ -3,7 +3,7 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadNativeActivityCover, setNativeActivityCover, authorizeNativeActivityPhoto, isLegacyActivityPhotoUrl, loadNativeActivityPhoto, setProviderPhotosHidden, uploadNativeActivityPhoto } from "./nativeActivityPhoto";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), getFunctions: vi.fn(() => ({})), callable: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ getFunctions: mocks.getFunctions, httpsCallable: (...args: unknown[]) => { mocks.callable(...args); return mocks.call; }, connectFunctionsEmulator: vi.fn() }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false, isFunctionsGatewayRuntime: () => false }));
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
 const services = (uid: string | null = "owner") => ({ auth: { currentUser: uid ? { uid, isAnonymous: false } : null }, functions: { app: { name: "test" } }, ensureAppCheckReady: mocks.ready } as unknown as FirebaseServices);
 const photo = { activityId: "ride", photoId: "photo" };
 beforeEach(() => { vi.clearAllMocks(); mocks.ready.mockResolvedValue(undefined); mocks.call.mockResolvedValue({ data: { base64: "aW1hZ2U=", contentType: "image/webp" } }); });
@@ -39,6 +39,28 @@ it("does not send a photo read if the host revokes approval while App Check is p
   ready();
   await expect(pending).rejects.toThrow("account_changed");
   expect(mocks.call).not.toHaveBeenCalled();
+});
+it("binds an embedded photo read to the approved guest before a late sign-in can change SDK credentials", async () => {
+  const source = services(null);
+  source.scope = "embedded";
+  source.functions = { app: { options: { projectId: "test-project" } } } as FirebaseServices["functions"];
+  source.getAppCheckToken = vi.fn().mockResolvedValue("embed-check");
+  source.isSessionApproved = user => user === null && source.auth.currentUser === null;
+  const late = { uid: "late", getIdToken: vi.fn().mockResolvedValue("unapproved-token") };
+  const request = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    source.auth.currentUser = late as never;
+    return Response.json({ result: { base64: "aW1hZ2U=", contentType: "image/webp" } });
+  });
+  try {
+    await expect(loadNativeActivityPhoto(source, photo)).rejects.toThrow("account_changed");
+    expect(request).toHaveBeenCalledWith("https://asia-northeast3-test-project.cloudfunctions.net/getActivityPhotoData",
+      expect.objectContaining({
+        headers: { "Content-Type": "application/json", "X-Firebase-AppCheck": "embed-check" },
+        credentials: "omit", body: JSON.stringify({ data: photo }),
+      }));
+    expect(late.getIdToken).not.toHaveBeenCalled();
+    expect(mocks.call).not.toHaveBeenCalled();
+  } finally { request.mockRestore(); }
 });
 it("uploads bounded bytes and owner-only location through the server without Storage URL writes", async () => {
   await uploadNativeActivityPhoto(services(), photo, new Blob(["image"], { type: "image/webp" }), [37, 127]);
@@ -104,6 +126,23 @@ it("isolates service, photo and replacement-account scopes including same uid", 
   expect(mocks.call).toHaveBeenCalledTimes(4);
   settle({ data: { base64: "aW1hZ2U=", contentType: "image/png" } });
   await rejected;
+});
+it("reauthorizes an overlapping photo request when the same Firebase user signs in again", async () => {
+  const source = services();
+  const metadata = { lastSignInTime: "first sign-in" };
+  Object.assign(source.auth.currentUser!, { metadata });
+  let settle!: (data: unknown) => void;
+  mocks.call.mockReturnValueOnce(new Promise(resolve => { settle = resolve; }));
+  const prior = expect(loadNativeActivityPhoto(source, photo)).rejects.toThrow("account_changed");
+  await vi.waitFor(() => expect(mocks.call).toHaveBeenCalledTimes(1));
+
+  metadata.lastSignInTime = "second sign-in";
+  mocks.call.mockRejectedValueOnce(new Error("permission-denied"));
+  await expect(loadNativeActivityPhoto(source, photo)).rejects.toThrow("permission-denied");
+  expect(mocks.call).toHaveBeenCalledTimes(2);
+
+  settle({ data: { base64: "aW1hZ2U=", contentType: "image/webp" } });
+  await prior;
 });
 it("announces an activity content change only after hiding or restoring Strava photos succeeds", async () => {
   const changed = vi.fn();

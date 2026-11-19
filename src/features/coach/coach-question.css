@@ -18,7 +18,7 @@
   position: relative;
   display: flex;
   width: 100%;
-  max-height: 88dvh;
+  max-height: calc(var(--dialog-viewport-height, 100dvh) * 0.88);
   flex-direction: column;
   gap: var(--space-4);
   overflow: hidden;
@@ -744,7 +744,7 @@
   .coach-sheet__header-actions .ds-btn { flex-shrink: 0; }
 
   .coach-sheet__dock {
-    max-height: 45dvh;
+    max-height: calc(var(--dialog-viewport-height, 100dvh) * 0.45);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -775,7 +775,7 @@
 
 @media (min-width: 768px) {
   .coach-sheet { align-items: center; padding: var(--space-6); }
-  .coach-sheet__panel { width: min(100%, 30rem); max-height: min(88dvh, 50rem); border-radius: var(--r-xl); }
+  .coach-sheet__panel { width: min(100%, 30rem); max-height: min(calc(var(--dialog-viewport-height, 100dvh) * 0.88), 50rem); border-radius: var(--r-xl); }
   .coach-sheet__dock { margin: 0; padding: var(--space-3) 0 0; }
 }
 

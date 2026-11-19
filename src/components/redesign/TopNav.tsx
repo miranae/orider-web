@@ -24,7 +24,7 @@ const mobileMenuItemClass = `rounded-[var(--r-md)] ${navFocusClass}`;
 
 // 데스크톱 메뉴와 모바일 하단 탭은 config/navHubs.ts 의 기본 허브를 공유한다.
 interface TopNavProps {
-  active: HubKey;
+  active: HubKey | null;
   notifications?: Notification[];
   notificationStatus?: ReactNode;
   notificationFooter?: ReactNode;
@@ -536,7 +536,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                   disabled={signInPending}
                   style={{ gap: "var(--space-1-5)" }}
                 >
-                  <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
+                  <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('button.login')}
                 </Button>
               </div>
 
@@ -574,7 +574,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             </details>}
           </div>
           {!user && <div className="mobile-navigation-section"><Button onClick={() => { void handleSignInWithGoogle(); closeMobileMenuForNavigation(); }} disabled={signInPending}>
-            <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
+            <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('button.login')}
           </Button></div>}
             {/* 언어 선택 */}
             <div className="mobile-navigation-language">

@@ -23,8 +23,14 @@ const route = "/ko/plan?sport=run&goalId=goal-owned&weekId=week-next&dayIndex=0&
 describe("read-only running plan target route", () => {
   it("opens a date-only log handoff in the requested week without a run-start preview", async () => {
     setup(); model.mobile = true;
-    renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
-    expect(await screen.findByTestId("plan-presentation")).toHaveAttribute("data-week-offset", "1");
+    const { container } = renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
+    const calendar = await screen.findByTestId("plan-presentation");
+    const comparison = container.querySelector("#plan-load-comparison");
+    const recordLink = screen.getByRole("link", { name: "활동 기록·수행 확인" });
+    expect(comparison).toBeVisible();
+    expect(comparison?.compareDocumentPosition(recordLink)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(comparison?.compareDocumentPosition(calendar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(calendar).toHaveAttribute("data-week-offset", "1");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByTestId("workout-editor")).not.toBeInTheDocument();
   });

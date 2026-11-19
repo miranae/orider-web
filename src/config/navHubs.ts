@@ -122,6 +122,15 @@ export function isDetailRoute(path: string): boolean {
   if (kind === "activity" || kind === "course") return suffix === "edit";
   return kind === "event" && /^(?:register|results|host(?:\/(?:edit|participants))?)$/.test(suffix);
 }
+/**
+ * 내비게이션에 "지금 여기" 로 켤 허브. 어느 허브에도 속하지 않는 경로(계산기·약관·파트너십 등)는
+ * null — getActiveHub 의 home 폴백은 허브 복귀 기억용이고, 화면에 홈을 켜면 홈에 있다고 잘못 알린다.
+ */
+export function resolveNavHighlight(path: string, state?: unknown): HubKey | null {
+  if (isDetailRoute(path)) return resolveDetailHub(path, state);
+  return HUBS.find((h) => h.match(path))?.key ?? null;
+}
+
 export function resolveDetailHub(path: string, state?: unknown): HubKey {
   if (!isDetailRoute(path)) return getActiveHub(path);
   const fromHub = state && typeof state === "object" ? (state as { fromHub?: unknown }).fromHub : undefined;

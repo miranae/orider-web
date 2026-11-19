@@ -1,42 +1,108 @@
-/** 지도와 같은 투영 및 단일 배율로 대체 경로의 실제 비율을 유지한다. */
-export function buildStaticRoutePath(positions: [number, number][], segmentStarts: readonly number[] = []): string | null {
-  if (positions.length < 2) return null;
-  const starts = new Set(segmentStarts);
-  let previousLongitude: number | null = null;
-  const projected = positions.map(([lat, lng]) => {
-    // 잘못된 좌표를 건너뛸 때 서로 떨어진 구간을 연결하지 않는다.
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 85.0511 || Math.abs(lng) > 180) return null;
-    let longitude = lng;
-    if (previousLongitude !== null) {
-      while (longitude - previousLongitude > 180) longitude -= 360;
-      while (longitude - previousLongitude < -180) longitude += 360;
-    }
-    previousLongitude = longitude;
-    return [longitude * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360))] as const;
-  });
-  const valid = projected.filter(point => point !== null);
-  if (valid.length < 2) return null;
-  const minX = Math.min(...valid.map(point => point[0]));
-  const maxX = Math.max(...valid.map(point => point[0]));
-  const minY = Math.min(...valid.map(point => point[1]));
-  const maxY = Math.max(...valid.map(point => point[1]));
-  const pad = 16;
-  const width = 320;
-  const height = 160;
-  const scale = Math.min(
-    maxX > minX ? (width - pad * 2) / (maxX - minX) : Infinity,
-    maxY > minY ? (height - pad * 2) / (maxY - minY) : Infinity,
-  );
+import { unwrapLongitudeNear, isRoutePosition, routeSlots, drawableRouteSlots, projectRouteSlots, type RouteSlot } from "./routeGeometry";
+
+type Pixel = [number, number];
+type Range = { startIndex: number; endIndex: number };
+type StaticGeometry = { path: string | null; points: Pixel[]; selectionPath?: string | null; selectionPoints?: Pixel[] };
+
+function trace(pixels: (Pixel | null)[], starts: Set<number>): string | null {
   let move = true;
-  return projected.map((point, index) => {
-    if (point === null) {
-      move = true;
-      return "";
-    }
-    const x = Number.isFinite(scale) ? width / 2 + (point[0] - (minX + maxX) / 2) * scale : width / 2;
-    const y = Number.isFinite(scale) ? height / 2 + (point[1] - (minY + maxY) / 2) * scale : height / 2;
+  const path = pixels.map((point, index) => {
+    if (!point) { move = true; return ""; }
     const command = move || starts.has(index) ? "M" : "L";
     move = false;
-    return `${command} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    return `${command} ${point[0].toFixed(1)} ${point[1].toFixed(1)}`;
   }).filter(Boolean).join(" ");
+  return path || null;
+}
+
+/** 지도와 같은 투영 및 단일 배율로 대체 경로와 선택 구간의 실제 비율을 유지한다. */
+export function buildStaticRouteGeometry(positions: readonly RouteSlot[], segmentStarts: readonly number[] = [],
+  { pointsOnly = false, range, selectedPosition }: { pointsOnly?: boolean; range?: Range; selectedPosition?: [number,number] } = {}): StaticGeometry {
+  const normalized = routeSlots(positions);
+  const lines = pointsOnly ? [] : drawableRouteSlots(normalized, segmentStarts);
+  const hasLine = lines.some(isRoutePosition);
+  const selectedIndex = range && Number.isInteger(range.startIndex) && range.startIndex === range.endIndex ? range.startIndex : null;
+  const starts = new Set(segmentStarts);
+  const worldSlots = projectRouteSlots(normalized, pointsOnly ? normalized.map((_, index) => index) : segmentStarts);
+  const project = (point: RouteSlot) => {
+    if (!point) return null;
+    const latitude = Math.max(-85.0511, Math.min(85.0511, point[0]));
+    return [point[1] * Math.PI / 180, -Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360))] as const;
+  };
+  const projected = worldSlots.map((point, index) => project(!hasLine || lines[index] ? point : null));
+  const selectedEdges = new Set<number>();
+  if (hasLine && range && Number.isInteger(range.startIndex) && Number.isInteger(range.endIndex)) {
+    let start = Math.max(0, Math.min(range.startIndex, range.endIndex));
+    let end = Math.min(normalized.length - 1, Math.max(range.startIndex, range.endIndex));
+    while (start <= end && !normalized[start]) start++;
+    while (end >= start && !normalized[end]) end--;
+    if (start <= end) {
+      for (const index of [start, end]) {
+        selectedEdges.add(index);
+        if (!projected[index]) projected[index] = project(worldSlots[index] ?? null);
+      }
+    }
+  }
+  let selectedProjected: ReturnType<typeof project> = null;
+  if (isRoutePosition(selectedPosition)) {
+    const [latitude, longitude] = selectedPosition;
+    const longitudeScale = Math.cos(latitude * Math.PI / 180);
+    let nearest = Infinity, selectedLongitude = longitude;
+    worldSlots.forEach((point, index) => {
+      if (!point || (hasLine && !lines[index])) return;
+      const candidate = unwrapLongitudeNear(longitude, point[1]);
+      const distance = (latitude - point[0]) ** 2 + ((candidate - point[1]) * longitudeScale) ** 2;
+      if (distance < nearest) {
+        nearest = distance;
+        selectedLongitude = candidate;
+      }
+    });
+    selectedProjected = project([latitude, selectedLongitude]);
+  }
+  let count = 0, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const point of projected) {
+    if (!point) continue;
+    count++;
+    minX = Math.min(minX, point[0]); maxX = Math.max(maxX, point[0]);
+    minY = Math.min(minY, point[1]); maxY = Math.max(maxY, point[1]);
+  }
+  if (selectedProjected) {
+    count++;
+    minX = Math.min(minX, selectedProjected[0]); maxX = Math.max(maxX, selectedProjected[0]);
+    minY = Math.min(minY, selectedProjected[1]); maxY = Math.max(maxY, selectedProjected[1]);
+  }
+  if (count === 0) return { path: null, points: [] };
+  const pad = 16, width = 320, height = 160;
+  const scale = Math.min(maxX > minX ? (width - pad * 2) / (maxX - minX) : Infinity,
+    maxY > minY ? (height - pad * 2) / (maxY - minY) : Infinity);
+  const toPixel = (point: readonly [number,number] | null): Pixel | null => {
+    if (!point) return null;
+    const x = Number.isFinite(scale) ? width / 2 + (point[0] - (minX + maxX) / 2) * scale : width / 2;
+    const y = Number.isFinite(scale) ? height / 2 + (point[1] - (minY + maxY) / 2) * scale : height / 2;
+    return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+  };
+  const pixels = projected.map(toPixel);
+  const geometry: StaticGeometry = hasLine ? { path: trace(pixels.map((point, index) => lines[index] ? point : null), starts), points: [] }
+    : { path: null, points: pixels.filter((point): point is Pixel => point !== null) };
+  if (range && Number.isInteger(range.startIndex) && Number.isInteger(range.endIndex)) {
+    const lo = Math.max(0, Math.min(range.startIndex, range.endIndex));
+    const hi = Math.min(pixels.length - 1, Math.max(range.startIndex, range.endIndex));
+    const selected = hasLine ? drawableRouteSlots(normalized.slice(lo, hi + 1), segmentStarts.map(index => index - lo)) : null;
+    const selection = pixels.map((point, index) => index >= lo && index <= hi && (!selected || selected[index - lo]) ? point : null);
+    geometry.selectionPath = hasLine && selectedIndex == null ? trace(selection, starts) : null;
+    geometry.selectionPoints = selectedIndex != null ? pixels[selectedIndex] ? [pixels[selectedIndex]!] : []
+      : hasLine ? [...selectedEdges].filter(index => !geometry.selectionPath || !selected?.[index - lo])
+        .map(index => pixels[index]!).filter((point): point is Pixel => point !== null)
+        : selection.filter((point): point is Pixel => point !== null);
+  }
+  const selectedPixel = toPixel(selectedProjected);
+  if (selectedPixel) {
+    geometry.selectionPoints ??= [];
+    if (!geometry.selectionPoints.some(point => point[0] === selectedPixel[0] && point[1] === selectedPixel[1])) geometry.selectionPoints.push(selectedPixel);
+  }
+  return geometry;
+}
+
+export function buildStaticRoutePath(positions: readonly RouteSlot[], segmentStarts: readonly number[] = []): string | null {
+  return buildStaticRouteGeometry(positions, segmentStarts).path;
 }

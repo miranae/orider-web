@@ -21,6 +21,7 @@ type StreamPhoto = {
 type ActivityMediaPanelProps = {
   activity: Activity;
   allowOwnerPreview?: boolean;
+  publicRouteParts?: [number, number][][];
   streams: ActivityStreams | null;
   sport: SportCategory;
   hasTrack: boolean;
@@ -28,8 +29,10 @@ type ActivityMediaPanelProps = {
   summary: Activity["summary"];
   markerPosition: [number, number] | null;
   hoveredSegment: SegmentEffortData | null;
+  /** Chart highlight only, including split/peak ranges; never an imperative camera request. */
   selectedRunRange?: { startIndex: number; endIndex: number };
-  selectedSegmentRange?: { startIndex: number; endIndex: number } | null;
+  /** Explicit segment camera command. requestId distinguishes repeated clicks on the same range. */
+  selectedSegmentRange?: { startIndex: number; endIndex: number; requestId?: number } | null;
   photos: StreamPhoto[];
   uploadedPhotos: UploadedPhoto[];
   flyToPosition: [number, number] | null;
@@ -43,6 +46,7 @@ type ActivityMediaPanelProps = {
 export function ActivityMediaPanel({
   activity,
   allowOwnerPreview = true,
+  publicRouteParts,
   streams,
   sport,
   hasTrack,
@@ -63,20 +67,21 @@ export function ActivityMediaPanel({
   const mapId = useId();
   const independentRoute = !streams?.latlng?.length ? activityIndependentRoute(streams) : null;
 
-  if (hasTrack || activity.mapImageUrl) {
+  if (hasTrack || publicRouteParts?.length || activity.mapImageUrl) {
     return (
       <div className="activity-detail-route-frame" data-map-expanded={mapExpanded}>
         <div id={mapId} className="activity-detail-resizable-map">
           <RouteMap
-            polyline={activity.thumbnailTrack}
+            routeParts={publicRouteParts}
+            polyline={publicRouteParts ? undefined : activity.thumbnailTrack}
             latlng={streams?.latlng?.length ? streams.latlng : independentRoute ?? undefined}
             height="activity-detail-route-map"
             interactive
             showRouteEndpoints
             routeLineWidth={3}
             navigationLabels={{ zoomIn: t("page.mapView.zoomIn"), zoomOut: t("page.mapView.zoomOut"), fitRoute: t("page.mapView.fitRoute") }}
-            markerPosition={independentRoute ? null : markerPosition}
-            highlightRange={independentRoute ? undefined : hoveredSegment ? {
+            markerPosition={publicRouteParts || independentRoute ? null : markerPosition}
+            highlightRange={publicRouteParts || independentRoute ? undefined : hoveredSegment ? {
               startIndex: hoveredSegment.startIndex,
               endIndex: hoveredSegment.endIndex,
             } : selectedRunRange}
@@ -88,9 +93,10 @@ export function ActivityMediaPanel({
                 .filter((p) => p.location)
                 .map((p) => ({ id: `upload-${p.id}`, url: p.url, nativePhoto: p.nativePhoto, location: p.location!, caption: null as string | null })),
             ]}
-            flyToRange={independentRoute ? undefined : selectedSegmentRange}
+            flyToRange={publicRouteParts || independentRoute ? undefined : selectedSegmentRange}
+            rangeUsesRawSamples
             flyToPosition={independentRoute || selectedSegmentRange ? undefined : flyToPosition}
-            fallbackImageUrl={activity.mapImageUrl}
+            fallbackImageUrl={publicRouteParts ? null : activity.mapImageUrl}
           />
           <MapResizeControls expanded={mapExpanded} controlsId={mapId}
             expandLabel={t("page.mapView.expand")} collapseLabel={t("page.mapView.collapse")}

@@ -274,7 +274,8 @@ if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh r
 requireIncludes(deployWorkflow, "vars.ORIDER_FUNCTIONS_TRANSPORT || 'legacy'", "deploy.yml explicit transport default");
 requireIncludes(deployWorkflow, "node scripts/prepare-bundled-production.mjs --phase prepare", "deploy.yml normal production flags");
 requireIncludes(deployWorkflow, "if: env.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'", "deploy.yml legacy Functions contract scope");
-requireBefore(deployWorkflow, "node scripts/prepare-bundled-production.mjs --phase verify", "firebase deploy --config", "deploy.yml bundled backend identity gate");
+requireIncludes(readFileSync("scripts/prepare-bundled-production.mjs", "utf8"),
+  'hosting.hosting.predeploy += " && node scripts/prepare-bundled-production.mjs --phase verify"', "bundled backend deploy-time verification");
 requireIncludes(deployWorkflow, "config=firebase.bundled-production.json", "deploy.yml bundled Hosting config");
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
@@ -285,12 +286,16 @@ requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime
 requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "node scripts/check-canonical-deploy-env.mjs", "deploy-stage.yml canonical runtime source");
 requireIncludes(stageDeployWorkflow, "workflow_dispatch:", "deploy-stage.yml manual trigger");
 if (/^  (?:push|pull_request):/m.test(stageDeployWorkflow)) fail("deploy-stage.yml must not automatically deploy merged development code");
+requireIncludes(stageDeployWorkflow, "group: deploy-hosting-stage", "deploy-stage.yml shared writer lock");
+requireIncludes(stageDeployWorkflow, "cancel-in-progress: false", "deploy-stage.yml serialized writer");
+requireIncludes(stageDeployWorkflow, 'if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then', "deploy-stage.yml operator contract");
+requireBefore(stageDeployWorkflow, 'if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then', "google-github-actions/auth", "deploy-stage.yml pre-auth writer contract");
 requireIncludes(stageDeployWorkflow, "source_ref:", "deploy-stage.yml explicit source");
 requireIncludes(stageDeployWorkflow, "backend_source_sha:", "deploy-stage.yml pinned backend");
 requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase prepare", "deploy-stage.yml bundled preparation");
 requireIncludes(stageDeployWorkflow, "node scripts/prepare-bundled-stage.mjs --phase seal", "deploy-stage.yml actual artifact validation");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
-requireIncludes(stageDeployWorkflow, "if: github.event_name == 'workflow_dispatch'", "deploy-stage.yml manual source guard");
+requireIncludes(stageDeployWorkflow, "if: github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')", "deploy-stage.yml manual source guard");
 requireIncludes(stageDeployWorkflow, "runs-on: ubuntu-latest", "deploy-stage.yml disposable runner");
 checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, 'config=firebase.stage.json', "deploy-stage.yml legacy deploy config");

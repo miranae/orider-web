@@ -28,6 +28,25 @@ it("retains rows on 429 retry, but discards expired or denied continuation", asy
  await act(()=>result.current.more()); expect(result.current.status).toBe("error"); expect(result.current.items).toHaveLength(1);
  await act(()=>result.current.more()); expect(result.current.status).toBe("restart"); expect(result.current.items).toHaveLength(0);
 });
+it("an explicit refresh aborts a pending continuation and prevents it from restoring old results", async () => {
+  let finishOld!: (value: ReturnType<typeof page>) => void;
+  let signal!: AbortSignal;
+  mocks.load.mockResolvedValueOnce(page(["previous"], "ad1.next"))
+    .mockImplementationOnce((_services, _request, currentSignal: AbortSignal) => {
+      signal = currentSignal;
+      return new Promise(resolve => { finishOld = resolve; });
+    }).mockResolvedValueOnce(page([]));
+  const { result } = renderHook(() => useAthletePublicPeriod("target", "", "", true, true));
+  await waitFor(() => expect(result.current.status).toBe("partial"));
+  let oldRequest!: Promise<void>;
+  act(() => { oldRequest = result.current.more(); });
+  await act(() => result.current.refresh());
+  expect(signal.aborted).toBe(true);
+  expect(result.current.items).toEqual([]);
+  await act(async () => { finishOld(page(["late"])); await oldRequest; });
+  expect(result.current.items).toEqual([]);
+  expect(mocks.load.mock.calls[2][1]).not.toHaveProperty("cursor");
+});
 it("logs its own deadline as a timeout even if abort immediately rejects the transport", async () => {
   vi.useFakeTimers();
   try {
@@ -39,7 +58,7 @@ it("logs its own deadline as a timeout even if abort immediately rejects the tra
     expect(result.current.status).toBe("error");
     expect(mocks.log).toHaveBeenCalledWith(
       "useAthletePublicPeriod.read", new Error("request_timeout"), expect.objectContaining({ targetUid: "target" }),
-      mocks.services, mocks.services.auth.currentUser, expect.any(Function),
+      mocks.services, mocks.services.auth.currentUser, "", expect.any(Function),
     );
   } finally { vi.useRealTimers(); }
 });
@@ -83,6 +102,23 @@ it("discards buffered rows when a live access signal changes", async () => {
   expect(result.current.items).toEqual([]);
   await waitFor(() => expect(result.current.status).toBe("complete"));
   expect(mocks.load.mock.calls[1][1]).not.toHaveProperty("cursor");
+});
+
+it("records late callable failures after an access signal cancels a pending page", async () => {
+  let reportLate!: (error: unknown) => void;
+  mocks.load.mockImplementationOnce((_services, _request, signal: AbortSignal, report: typeof reportLate) => {
+    reportLate = report;
+    return new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("request_aborted")), { once: true }));
+  }).mockResolvedValueOnce(page(["current"]));
+  const { result, rerender } = renderHook(({ revision }) => useAthletePublicPeriod("target", "", "", true, true, revision),
+    { initialProps: { revision: { viewer: "old" } } });
+  rerender({ revision: { viewer: "new" } });
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["current"]));
+  const failure = Object.assign(new Error("old response failed"), { code: "functions/unavailable" });
+  reportLate(failure);
+  expect(mocks.log).toHaveBeenCalledWith("useAthletePublicPeriod.read", failure,
+    { targetUid: "target", global: true, continuation: false }, mocks.services, mocks.services.auth.currentUser, "", expect.any(Function));
+  expect(result.current.items.map(item => item.id)).toEqual(["current"]);
 });
 
 it("hides old rows while backgrounded and refreshes on return", async () => {

@@ -1,18 +1,21 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("../contexts/LocaleContext", () => ({ useLocale: () => ({ units: "metric" }) }));
 import { track } from "../services/analytics";
 vi.mock("../services/analytics", () => ({ track: vi.fn() }));
 import ActivityDetailRoute from "./ActivityDetailRoute";
-const mocks = vi.hoisted(() => ({ load: vi.fn(), getDocs: vi.fn(), uid: "viewer", enabled: true, auth: { currentUser: { uid: "viewer" } }, owner: vi.fn() }));
+const mocks = vi.hoisted(() => ({ load: vi.fn(), getDocs: vi.fn(), uid: "viewer", enabled: true, auth: { currentUser: { uid: "viewer" } }, owner: vi.fn(), ownerProps: vi.fn() }));
 vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ publicActivityDetailEnabled: mocks.enabled }) }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.auth.currentUser, loading: false }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => services }));
 const services = { auth: mocks.auth, firestore: {} };
 vi.mock("../services/publicActivityDetail", () => ({ isPublicActivityAccessError: (error: { code?: string }) => ["functions/permission-denied", "functions/not-found", "functions/failed-precondition"].includes(error.code ?? ""), createPublicActivityClient: () => ({ load: mocks.load }) }));
 vi.mock("firebase/firestore", () => ({ collection: vi.fn(), documentId: () => "__name__", getDocs: mocks.getDocs, query: vi.fn(), where: vi.fn(), limit: vi.fn() }));
-vi.mock("./ActivityPage", () => ({ default: () => { mocks.owner(); return <div>owner analysis</div>; } }));
-vi.mock("../embedded/surfaces/PublicActivitySurface", () => ({ default: ({ detailMeasurement }: { detailMeasurement?: (outcome: string) => void }) => <div>public detail<button onClick={() => detailMeasurement?.("success")}>body painted</button></div> }));
+vi.mock("./ActivityPage", () => ({ default: (props: { initialOwnerActivity?: unknown; detailMeasurement?: (outcome: string) => void; publicAccess?: { detailMeasurement?: (outcome: string) => void } }) => {
+  if (props.publicAccess) return <div>public detail<button onClick={() => props.publicAccess?.detailMeasurement?.("success")}>body painted</button></div>;
+  mocks.owner(); mocks.ownerProps(props); return <div>owner analysis</div>;
+} }));
 function route() { return <MemoryRouter initialEntries={["/activity/native"]}><Routes><Route path="/activity/:activityId" element={<ActivityDetailRoute />} /></Routes></MemoryRouter>; }
 afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); mocks.enabled = true; mocks.uid = "viewer"; mocks.auth.currentUser.uid = "viewer"; mocks.getDocs.mockResolvedValue({ docs: [] }); });
@@ -108,4 +111,21 @@ it("cancels the old exact SDK session and never counts its late response", async
  expect(track).toHaveBeenCalledTimes(1);
  expect(track).toHaveBeenCalledWith("activity_detail_ready",expect.objectContaining({outcome:"cancelled"}));
  view.unmount(); expect(track).toHaveBeenCalledTimes(2);
+});
+
+it("keeps pending access in the detail layout and mounts no owner actions", () => {
+ mocks.load.mockReturnValueOnce(new Promise(() => {}));
+ render(route());
+ expect(screen.getAllByRole("status").length).toBeGreaterThan(0);
+ expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+ expect(document.querySelector(".orider-embedded-state")).toBeNull();
+ expect(mocks.owner).not.toHaveBeenCalled();
+});
+it("hands the authorized owner projection to a display-only bootstrap", async () => {
+ const activity = { id: "native", userId: "viewer", description: "Ready overview", summary: { distance: 12000 } };
+ mocks.load.mockResolvedValueOnce({ activity });
+ render(route());
+ await screen.findByText("owner analysis");
+ expect(mocks.ownerProps).toHaveBeenCalledWith(expect.objectContaining({ initialOwnerActivity: activity }));
+ expect(mocks.load).toHaveBeenCalledTimes(1);
 });
