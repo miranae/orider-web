@@ -114,10 +114,16 @@ function describeDiagnosticFailure(error: unknown): { code: string } {
   return { code: "unknown" };
 }
 
+/** Report a safe diagnostic without making an authenticated request. */
+export function reportClientDiagnostic(source: string, code: string, context?: Record<string, unknown>): void {
+  if (shouldSuppressClientError(source, code)) return;
+  if (!getRuntimeConfig().sentryDsn) console.warn("[client-diagnostic]", { source, code });
+  captureError(new Error(code), { tags: { source }, extra: context });
+}
 
 /** Send only sanitized diagnostics for a request whose account has been replaced. */
 export function reportPreviousAccountFailure(source: string, error: unknown, context?: Record<string, unknown>): void {
   const { code } = describeDiagnosticFailure(error);
-  if (code === "account_changed" || shouldSuppressClientError(source, code)) return;
-  captureError(new Error(code), { tags: { source }, extra: { ...context, code } });
+  if (code === "account_changed") return;
+  reportClientDiagnostic(source, code, { ...context, code });
 }

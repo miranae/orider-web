@@ -4,7 +4,7 @@ import * as runtimeConfig from "./runtimeConfig";
 import { captureError } from "./sentry";
 import * as sentry from "./sentry";
 import { mockCallableInvocations } from "../__tests__/mocks/firebase";
-import { __resetClientErrorDedupeForTests, logClientError } from "./errorLogger";
+import { __resetClientErrorDedupeForTests, logClientError, reportPreviousAccountFailure } from "./errorLogger";
 import { ensureAppCheckReady } from "./firebase";
 
 // Global cache setup already imports the logger, so spy on its existing binding.
@@ -97,4 +97,19 @@ it("uses injected logging transport and drops a stale SDK user after AppCheck", 
   vi.mocked(services.ensureAppCheckReady).mockResolvedValue(undefined);
   logClientError("named.current", new Error("current"), {}, services);
   await vi.waitFor(() => expect(httpsCallable).toHaveBeenCalledWith(services.functions, "logClientError"));
+});
+
+it("records a sanitized previous-account diagnostic when Sentry is disabled", () => {
+  __resetClientErrorDedupeForTests();
+  vi.mocked(ensureAppCheckReady).mockClear();
+  const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), sentryDsn: undefined });
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  try {
+    reportPreviousAccountFailure("ExportTab.previousAccount", new Error("Network request for old-account-id"), { format: "tcx" });
+    expect(warn).toHaveBeenCalledExactlyOnceWith("[client-diagnostic]", { source: "ExportTab.previousAccount", code: "network_error" });
+    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+  } finally {
+    runtime.mockRestore();
+    warn.mockRestore();
+  }
 });
