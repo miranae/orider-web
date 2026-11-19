@@ -117,14 +117,16 @@ export async function sealBundledStage(directory, fetcher = fetch) {
   save(resolve(state.directory, "build.json"), receipt);
   return receipt;
 }
-export async function verifyBundledStage(directory, fetcher = fetch) {
+export async function verifyBundledStage(directory, fetcher = fetch, { identityOnly = false } = {}) {
   const { prepared, runtime } = readPrepared(directory), receipt = json(resolve(directory, "build.json"));
   if (receipt.complete !== true || Object.entries(prepared).some(([key, value]) => !isDeepStrictEqual(receipt[key], value))
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
   assertStageEntryArtifact(prepared.artifactDirectory);
   await verifyStageArtifacts(prepared.artifactDirectory, receipt.artifactManifest, async () => {
-    await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
-    await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+    if (!identityOnly) {
+      await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
+      await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+    }
     await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   });
   readPrepared(directory);
@@ -138,12 +140,12 @@ async function main() {
     args[key] = process.argv[index + 1];
   }
   const phase = args["--phase"], directory = args["--directory"] || process.env.BUNDLED_STAGE_DIRECTORY;
-  if (!["prepare", "seal", "verify"].includes(phase) || !directory) throw new Error("bundled stage phase/directory required");
+  if (!["prepare", "seal", "verify", "verify-identity"].includes(phase) || !directory) throw new Error("bundled stage phase/directory required");
   if (phase !== "prepare" && args["--backend-source"]) throw new Error("backend source is fixed by the preparation receipt");
   if (process.env.STAGE_FIREBASE_PROJECT_ID !== "orider-dev") throw new Error("bundled stage project must be orider-dev");
   const receipt = phase === "prepare" ? await prepareBundledStage({ directory,
     backendSourceSha: args["--backend-source"], frontendSourceSha: git(process.cwd(), "rev-parse", "HEAD"), githubEnv: process.env.GITHUB_ENV })
-    : phase === "seal" ? await sealBundledStage(directory) : await verifyBundledStage(directory);
+    : phase === "seal" ? await sealBundledStage(directory) : await verifyBundledStage(directory, fetch, { identityOnly: phase === "verify-identity" });
   console.log(JSON.stringify({ phase, frontendSourceSha: receipt.frontendSourceSha, backendSourceSha: receipt.backendSourceSha, backendTopologyHash: receipt.backendTopologyHash, complete: receipt.complete === true }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

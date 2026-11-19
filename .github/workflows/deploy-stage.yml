@@ -191,17 +191,14 @@ jobs:
           if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
       - name: Verify bundled development Hosting entry bytes and HTTP aliases
         if: inputs.transport == 'bundled-development'
-        run: node scripts/verify-bundled-hosting.mjs --environment development
+        run: |
+          node scripts/verify-bundled-hosting.mjs --environment development
+          node scripts/prepare-bundled-stage.mjs --phase verify-identity
       - name: Archive verified client in durable private release storage
         if: inputs.transport == 'bundled-development'
         env:
           HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: node scripts/hosting-candidate-archive.mjs --phase archive --build "$BUNDLED_STAGE_DIRECTORY/build.json" --directory "$RUNNER_TEMP/durable-client"
-      - name: Attest the reviewed main candidate archive
-        if: inputs.transport == 'bundled-development' && github.ref == 'refs/heads/main' && steps.source.outputs.sha == github.sha
-        uses: actions/attest@v4
-        with:
-          subject-path: ${{ runner.temp }}/durable-client/candidate.tgz
       - name: Restore previous development release after failed publication verification
         timeout-minutes: 3
         if: always() && (failure() || cancelled()) && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success' && steps.deploy.outcome != 'skipped'
@@ -234,3 +231,9 @@ jobs:
           SELECTED_TRANSPORT: ${{ inputs.transport }}
         run: |
           printf 'Frontend source: `%s`\nBackend source: `%s`\nTransport: `%s`\nDevelopment Hosting only; production not deployed.\n' "$FRONTEND_SOURCE" "$BACKEND_SOURCE" "$SELECTED_TRANSPORT" >> "$GITHUB_STEP_SUMMARY"
+      # This final operation signs acceptance only after publication, recovery and artifact steps have settled.
+      - name: Attest the reviewed main candidate archive
+        if: inputs.transport == 'bundled-development' && github.ref == 'refs/heads/main' && steps.source.outputs.sha == github.sha
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ runner.temp }}/durable-client/candidate.tgz

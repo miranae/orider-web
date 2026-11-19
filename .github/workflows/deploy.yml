@@ -237,6 +237,13 @@ jobs:
           ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
           ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
         run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/production-hosting-before.json"
+      - name: Retain production Hosting recovery receipt on failure
+        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.bundle_verify.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosting-tag-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 1
+          path: ${{ runner.temp }}/production-hosting-before.json
 
       - name: Create GitHub Release notes
         env:

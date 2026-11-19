@@ -395,6 +395,8 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     const readProduction = (url, options) => {
       if (url === "https://orider.co.kr/" || url.endsWith("/ko/course/nonexistent")) return new Response(readFileSync(resolve(production.directory, "index.html")));
       if (url.endsWith("/runtime-config.json")) return new Response(readFileSync(resolve(production.directory, "runtime-config.json")));
+      if (url.endsWith("/sitemap.xml")) return new Response('<?xml version="1.0"?><urlset></urlset>');
+      if (url.endsWith("/og-thumbnail/.webp")) return new Response("activityId required", { status: 400 });
       return fetcher(url, options);
     };
     assert.equal((await verifyBundledHosting({ ...production, fetcher: readProduction })).verified, true);
@@ -404,6 +406,9 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     await assert.rejects(verifyBundledHosting({ ...production,
       fetcher: (url, options) => url.endsWith("/ko/course/nonexistent") ? new Response(null, { status: 404 }) : readProduction(url, options),
     }), /GET HTTP404 at https:\/\/orider\.co\.kr\/ko\/course\/nonexistent/u);
+    await assert.rejects(verifyBundledHosting({ ...production,
+      fetcher: (url, options) => url.endsWith("/sitemap.xml") ? new Response("<html></html>") : readProduction(url, options),
+    }), /sitemap is not XML/u);
     for (const [status, mime, body] of [[404, "text/javascript", "missing"], [200, "text/html", "<html>fallback</html>"], [200, "application/javascript", "wrong bytes"]]) {
       await assert.rejects(verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher: async () => new Response(body, { status, headers: { "content-type": mime } }) }), /https:\/\/orider-dev.web.app\/assets\/index-fixture.js/);
     }
