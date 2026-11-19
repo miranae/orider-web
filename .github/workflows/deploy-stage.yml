@@ -199,7 +199,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stage-client-${{ steps.source.outputs.sha }}
-          retention-days: 7
+          include-hidden-files: true
+          retention-days: 90
           path: |
             dist
             firebase.bundled-stage.json

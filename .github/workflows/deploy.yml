@@ -12,7 +12,7 @@ permissions:
   id-token: write # Workload Identity Federation OIDC 토큰 발급용(키리스 인증)
 
 concurrency:
-  group: deploy-hosting-production-${{ github.ref_name }}
+  group: deploy-hosting-production
   cancel-in-progress: false
 
 jobs:
