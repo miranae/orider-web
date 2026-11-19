@@ -24,9 +24,19 @@ import { buildMonthCells, firstPolylinePoint } from "../features/event/discovery
 import { ICON_SIZE } from "../theme/tokens/icon";
 import TabNav from "../components/TabNav";
 
-const MapGL = lazy(() => Promise.all([import("react-map-gl/mapbox"), import("mapbox-gl/dist/mapbox-gl.css")]).then(([module]) => module));
-const Marker = lazy(() => import("react-map-gl/mapbox").then(module => ({ default: module.Marker })));
-const Popup = lazy(() => import("react-map-gl/mapbox").then(module => ({ default: module.Popup })));
+async function loadEventMap() {
+  try {
+    const [map] = await Promise.all([import("react-map-gl/mapbox"), import("mapbox-gl/dist/mapbox-gl.css")]);
+    return map;
+  } catch (error) {
+    logClientError("EventsPage.mapChunk", error);
+    throw error;
+  }
+}
+
+const MapGL = lazy(loadEventMap);
+const Marker = lazy(() => loadEventMap().then(module => ({ default: module.Marker })));
+const Popup = lazy(() => loadEventMap().then(module => ({ default: module.Popup })));
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
 type DisplayEventStatus = EventStatus | "PAST";
