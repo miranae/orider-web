@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
-import { generateTcx } from "../utils/exportTcx";
+import { prepareTcxExport, type TcxLapMode } from "../utils/exportTcx";
 import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
@@ -60,11 +60,20 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
   }>>>({});
   const visibleCadencePrompts = Object.values(cadencePrompts).filter(prompt => prompt?.activityScope === activityScope
     && prompt.streams === streams && prompt.account === renderedAccount && prompt.resolverScope === resolverScope);
+  const [tcxPrompt, setTcxPrompt] = useState<{
+    activityScope: string;
+    streams: ActivityStreams;
+    account: typeof renderedAccount;
+    resolverScope: object | undefined;
+    cadenceChoice: CadenceChoice | undefined;
+  } | null>(null);
+  const pendingTcx = tcxPrompt?.activityScope === activityScope && tcxPrompt.streams === streams
+    && tcxPrompt.account === renderedAccount && tcxPrompt.resolverScope === resolverScope ? tcxPrompt : null;
   const generation = useRef(0);
   const formatRequests = useRef(new Map<string, number>());
   useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activityScope, streams, resolverScope, getExportAccount]);
 
-  const handleExport = useCallback(async (format: string, choice?: CadenceChoice) => {
+  const handleExport = useCallback(async (format: string, choice?: CadenceChoice, tcxMode?: TcxLapMode) => {
     const account = getExportAccount?.();
     if (account !== renderedAccount) return;
     const scope = generation.current;
@@ -92,16 +101,17 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         && (!time || time.every((value, index) => Object.is(value, pendingCadence.time?.[index])))
         && cadence?.length === pendingCadence.samples.length && cadence?.every((value, index) => Object.is(value, pendingCadence.samples[index])));
       if (missingFootCadenceUnit && !chosenUnitApplies) {
+        if (format === "tcx") setTcxPrompt(null);
         setCadencePrompts(current => ({ ...current, [format]: {
           activityScope, streams, account, resolverScope, format, samples: [...cadence], time: time?.slice(), revision,
         } }));
         return;
       }
-      clearCadencePrompt();
       const fileCadenceUnit = choice === "omit" ? undefined : missingFootCadenceUnit ? choice : verifiedUnit;
       const fileStreams = choice === "omit" ? { ...currentStreams, cadence: undefined } : currentStreams;
       switch (format) {
         case "fit": {
+          clearCadencePrompt();
           const data = generateFit(activity, prepareActivityFileStreams(activity, fileStreams, format), fileCadenceUnit);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
@@ -109,7 +119,14 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           break;
         }
         case "tcx": {
-          const xml = generateTcx(activity, prepareActivityFileStreams(activity, fileStreams, format), fileCadenceUnit);
+          const prepared = prepareTcxExport(activity, prepareActivityFileStreams(activity, fileStreams, format), fileCadenceUnit);
+          if (prepared.hasUnassigned && !tcxMode) {
+            setTcxPrompt({ activityScope, streams, account, resolverScope, cadenceChoice: choice });
+            return;
+          }
+          clearCadencePrompt();
+          setTcxPrompt(null);
+          const xml = prepared.render(tcxMode ?? "recorded");
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }
@@ -134,6 +151,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       logClientError("ExportTab.export", err, { activityId: activity.id, format }, firebaseServices);
       if (stillCurrent()) {
         clearCadencePrompt();
+        if (format === "tcx") setTcxPrompt(null);
         showToast(t("export.errorAlert"), "error");
       }
     }
@@ -157,7 +175,22 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         </p>
       </div>
 
-      {visibleCadencePrompts.map(prompt => prompt && (
+      {pendingTcx && (
+        <fieldset className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
+          <legend className="font-semibold">{t("export.tcxLapsTitle")}</legend>
+          <p className="text-[length:var(--fs-sm)]">{t("export.tcxLapsHelp")}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(["recorded", "activity"] as const).map(mode => (
+              <button key={mode} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
+                onClick={() => { void handleExport("tcx", pendingTcx.cadenceChoice, mode); }}>
+                {t(`export.tcxLapsChoice.${mode}`)}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {visibleCadencePrompts.filter(prompt => prompt?.format !== "tcx" || !pendingTcx).map(prompt => prompt && (
         <fieldset key={prompt.format} className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
           <legend className="font-semibold">{t("export.cadenceUnitTitle")} · {prompt.format.toUpperCase()}</legend>
           <p className="text-[length:var(--fs-sm)]">{t("export.cadenceUnitHelp")}</p>

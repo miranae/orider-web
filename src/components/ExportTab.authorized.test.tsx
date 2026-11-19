@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import ExportTab from "./ExportTab";
 import { markVerifiedStreamCadence } from "../services/activityStreamSource";
-import type { Activity } from "@shared/types";
+import type { Activity, ActivityStreams } from "@shared/types";
 const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new Uint8Array()), toast: vi.fn() }));
 vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
 vi.mock("../utils/exportCsv", () => ({ generateCsv: mocks.csv }));
@@ -170,4 +170,21 @@ it("finishes a download when unrelated activity metadata changes during verifica
     resolveCurrentStreams={async () => samples} authorizationScope={authorizationScope} />);
   await act(async () => finish(samples));
   expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(activity, samples, undefined);
+});
+
+
+it("asks how to handle unassigned TCX observations and downloads the chosen edition", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
+  const samples = { userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145],
+    laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
+  } as unknown as ActivityStreams;
+  const resolve = vi.fn().mockResolvedValue(samples);
+  const click = vi.mocked(HTMLAnchorElement.prototype.click);
+  click.mockClear();
+  render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  expect(click).not.toHaveBeenCalled();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples|모든 표본을 한 랩|tcxLapsChoice.activity/iu })));
+  expect(resolve).toHaveBeenCalledTimes(2);
+  expect(click).toHaveBeenCalledOnce();
 });

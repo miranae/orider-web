@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { markRawPartStreams, markVerifiedStreamCadence, readStreamCadenceUnit } from "../services/activityStreamSource";
 import { applyVerifiedCadenceUnit, prepareActivityFileStreams } from "./prepareActivityFileStreams";
-import { generateTcx } from "./exportTcx";
+import { generateTcx, prepareTcxExport } from "./exportTcx";
 
 it("writes each GPS observation at its own time and offsets sensor samples from the actual activity start", () => {
   const startTime = Date.parse("2026-11-19T07:00:00Z");
@@ -70,7 +70,7 @@ it("uses the activity start for timed TCX lap boundaries even when the first sam
   expect(secondLap).toContain("2026-11-19T07:01:01.000Z");
 });
 
-it("preserves recorded intervals when the activity total accounts for a cooldown segment", () => {
+it("keeps recorded intervals or the full timeline without allocating distance to a cooldown", () => {
   const startTime = Date.parse("2026-11-19T07:00:00Z");
   const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 90_000, elapsedTimeMillis: 125_000, distance: 1100 } } as Activity;
   const time = Array.from({ length: 126 }, (_, index) => index);
@@ -81,13 +81,17 @@ it("preserves recorded intervals when the activity total accounts for a cooldown
       { durationMs: 30_000, distanceKm: 0.5, endTimeMs: startTime + 120_000 },
     ],
   } as ActivityStreams, "d".repeat(64), startTime);
-  const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
-  const [, first, second, cooldown] = xml.split(/<Lap StartTime="/u);
+  const prepared = prepareTcxExport(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
+  expect(prepared.hasUnassigned).toBe(true);
+  const [, first, second] = prepared.render("recorded").split(/<Lap StartTime="/u);
   expect(first).toContain("<DistanceMeters>500</DistanceMeters>");
   expect(second).toContain("<DistanceMeters>500</DistanceMeters>");
   expect(second).toContain("2026-11-19T07:01:15.000Z");
-  expect(cooldown).toContain("<DistanceMeters>100</DistanceMeters>");
-  expect(cooldown).toContain("2026-11-19T07:02:05.000Z");
+  expect(second).not.toContain("2026-11-19T07:02:05.000Z");
+  const full = prepared.render("activity");
+  expect(full.match(/<Lap StartTime="/gu)).toHaveLength(1);
+  expect(full).toContain("<DistanceMeters>1100</DistanceMeters>");
+  expect(full).toContain("2026-11-19T07:02:05.000Z");
 });
 
 it("does not infer paused time from an end-only lap", () => {
@@ -132,7 +136,7 @@ it("exports a speed-only observation in a recorded indoor lap", () => {
 });
 
 
-it("preserves every recorded lap and keeps unassigned observations in a TCX extension", () => {
+it("keeps recorded laps or all gap observations according to the requested TCX edition", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {
     ridingTimeMillis: 9000, elapsedTimeMillis: 15_000, distance: 120,
@@ -144,14 +148,16 @@ it("preserves every recorded lap and keeps unassigned observations in a TCX exte
       { startTimeMs: startTime + 10_000, endTimeMs: startTime + 12_000, durationMs: 2000, distanceKm: 0.05 },
     ],
   } as ActivityStreams;
-  const xml = generateTcx(activity, streams, "spm");
-  expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(2);
-  expect(xml.match(/<DistanceMeters>50<\/DistanceMeters>/gu)).toHaveLength(2);
-  const [, extension] = xml.split("<orider:UnassignedTracks>");
-  expect(extension).toContain("<orider:ActivityDistanceMeters>120</orider:ActivityDistanceMeters>");
-  expect(extension).toContain("<orider:ActivityElapsedSeconds>15</orider:ActivityElapsedSeconds>");
-  expect(extension).toContain(new Date(startTime + 7000).toISOString());
-  expect(extension).toContain(new Date(startTime + 15_000).toISOString());
+  const prepared = prepareTcxExport(activity, streams, "spm");
+  const recorded = prepared.render("recorded");
+  expect(recorded.match(/<Lap StartTime="/gu)).toHaveLength(2);
+  expect(recorded.match(/<DistanceMeters>50<\/DistanceMeters>/gu)).toHaveLength(2);
+  expect(recorded).not.toContain(new Date(startTime + 7000).toISOString());
+  const full = prepared.render("activity");
+  expect(full).toContain("<DistanceMeters>120</DistanceMeters>");
+  expect(full).toContain("<TotalTimeSeconds>15</TotalTimeSeconds>");
+  expect(full).toContain(new Date(startTime + 7000).toISOString());
+  expect(full).toContain(new Date(startTime + 15_000).toISOString());
 });
 
 
@@ -168,5 +174,7 @@ it("preserves recorded distances even when there is no activity distance for the
   const xml = generateTcx(activity, streams, "spm");
   expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(2);
   expect(xml.match(/<DistanceMeters>1000<\/DistanceMeters>/gu)).toHaveLength(2);
-  expect(xml.split("<orider:UnassignedTracks>")[1]).toContain(new Date(startTime + 61_000).toISOString());
+  const full = prepareTcxExport(activity, streams, "spm").render("activity");
+  expect(full).toContain(new Date(startTime + 61_000).toISOString());
+  expect(full).toContain("<DistanceMeters>NaN</DistanceMeters>");
 });

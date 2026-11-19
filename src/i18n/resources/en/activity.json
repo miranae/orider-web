@@ -1654,6 +1654,12 @@
     "formatTcxDesc": "Garmin Training Center XML — includes HR/power",
     "formatGpxDesc": "GPS Exchange — universal GPS format",
     "formatCsvDesc": "Spreadsheet — for analysis in Excel/Google Sheets",
+    "tcxLapsTitle": "TCX lap options",
+    "tcxLapsHelp": "Some samples fall outside the recorded laps. Keep the recorded laps or save all samples in one lap using the activity totals.",
+    "tcxLapsChoice": {
+      "recorded": "Keep recorded laps",
+      "activity": "Save all samples in one lap"
+    },
     "cadenceUnitTitle": "Cadence unit",
     "cadenceUnitHelp": "Choose the unit used by the recording device, or download the original cadence as CSV.",
     "cadenceChoice": {
