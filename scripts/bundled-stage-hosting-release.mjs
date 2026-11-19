@@ -34,7 +34,11 @@ async function request(target, fetcher, token, method, url, body) {
   try { response = await fetcher(url, { method, redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000),
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
   catch { throw new Error(`${target.label} Hosting ${method} transport failed at ${url}`); }
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`${target.label} Hosting ${method} failed at ${url}: HTTP${response.status}`); }
+  if (!response.ok) {
+    const error = new Error(`${target.label} Hosting ${method} failed at ${url}: HTTP${response.status}`);
+    try { await response.body?.cancel(); } catch (cause) { error.cause = cause; }
+    throw error;
+  }
   try {
     const data = await response.json();
     if (!data || typeof data !== "object" || Array.isArray(data)) throw new TypeError("expected a response object");

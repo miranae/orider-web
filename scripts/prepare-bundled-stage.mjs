@@ -34,7 +34,11 @@ async function requestJson(url, fetcher) {
   let response;
   try { response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled stage metadata transport failed at ${url}`); }
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled stage public metadata unavailable at ${url} HTTP ${response.status}`); }
+  if (!response.ok) {
+    const error = new Error(`bundled stage public metadata unavailable at ${url} HTTP ${response.status}`);
+    try { await response.body?.cancel(); } catch (cause) { error.cause = cause; }
+    throw error;
+  }
   try { return await response.json(); } catch { throw new Error(`bundled stage metadata invalid JSON at ${url}`); }
 }
 async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
@@ -106,13 +110,11 @@ function readPrepared(directory) {
   if (hosting.site !== "orider-dev" || hosting.target || hosting.public !== "dist" || hosting.rewrites.some(rule => rule.function)) throw new Error("bundled stage Hosting boundary mismatch");
   return { directory, prepared, runtime };
 }
-export async function sealBundledStage(directory, fetcher = fetch) {
-  const state = readPrepared(directory), { prepared, runtime } = state;
+export async function sealBundledStage(directory) {
+  const state = readPrepared(directory), { prepared } = state;
   if (hash(readFileSync(resolve(prepared.artifactDirectory, "runtime-config.json"))) !== prepared.runtimeHash) throw new Error("built runtime differs from the prepared development profile");
   assertStageEntryArtifact(prepared.artifactDirectory);
   const manifest = stageArtifactManifest(prepared.artifactDirectory);
-  await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
-  readPrepared(directory);
   const receipt = { ...prepared, complete: true, artifactManifest: manifest, artifactHash: hash(JSON.stringify(manifest)), verifiedAt: new Date().toISOString() };
   save(resolve(state.directory, "build.json"), receipt);
   return receipt;
