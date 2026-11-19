@@ -9,7 +9,8 @@ const ORIGINS = { development: "https://orider-dev.web.app", production: "https:
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 async function readPublishedText(url, fetcher) {
   let response;
-  try { response = await fetcher(url, { credentials: "omit", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
+  try { response = await fetcher(url, { credentials: "omit", redirect: "error", cache: "no-store",
+    headers: { "User-Agent": "Mozilla/5.0 ORiderHostingAcceptance" }, signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled Hosting GET transport failed at ${url}`); }
   if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled Hosting GET HTTP${response.status} at ${url}`); }
   try { return await response.text(); }
@@ -19,9 +20,11 @@ export async function verifyBundledHosting({ environment, directory = "dist", fe
   if (!Object.hasOwn(ORIGINS, environment)) throw new Error("approved Hosting environment required");
   const base = ORIGINS[environment], entry = assertStageEntryArtifact(directory, base), expected = readFileSync(resolve(directory, entry));
   if (environment === "production") {
-    const liveHtml = `${base}/`;
-    const markup = await readPublishedText(liveHtml, fetcher);
-    if (stageHtmlEntry(markup, liveHtml, base) !== entry) throw new Error(`bundled Hosting entry differs at ${liveHtml}`);
+    for (const path of ["/", "/ko/course/nonexistent"]) {
+      const liveHtml = `${base}${path}`;
+      const markup = await readPublishedText(liveHtml, fetcher);
+      if (stageHtmlEntry(markup, liveHtml, base) !== entry) throw new Error(`bundled Hosting entry differs at ${liveHtml}`);
+    }
     const runtimeUrl = `${base}/runtime-config.json`;
     if (await readPublishedText(runtimeUrl, fetcher) !== readFileSync(resolve(directory, "runtime-config.json"), "utf8"))
       throw new Error(`bundled Hosting runtime differs at ${runtimeUrl}`);

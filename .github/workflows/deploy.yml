@@ -171,7 +171,7 @@ jobs:
             release_message=(--message "bundled-production:$RELEASE_SHA:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT")
           fi
           set +e
-          "${deploy_env[@]}" firebase deploy --config "$config" --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "$HOSTING_ACCESS_TOKEN" "${release_message[@]}" 2>&1 | tee firebase-deploy.log
+          "${deploy_env[@]}" firebase deploy --config "$config" --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "$HOSTING_ACCESS_TOKEN" ${release_message[@]+"${release_message[@]}"} 2>&1 | tee firebase-deploy.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-deploy.log; then

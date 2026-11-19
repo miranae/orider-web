@@ -59,6 +59,7 @@ test("workflow rehearsal has no production environment and promotion has no buil
   const stage=readFileSync(new URL("../.github/workflows/deploy-stage.yml",import.meta.url),"utf8");assert.match(stage,/name: stage-client-[\s\S]*?include-hidden-files: true/);
   assert.match(stage,/refs\/heads\/main' && steps\.source\.outputs\.sha == github\.sha[\s\S]*?uses: actions\/attest@v4/u);
   assert.match(workflow,/needs\.prepare\.outputs\.artifact_name/u);
+  assert.match(workflow,/inputs\.phase == 'promote' && 'deploy-hosting-production'/u);
   assert.match(workflow,/steps\.hosting_snapshot\.outcome == 'success'[\s\S]*?--phase rollback/u);
 });
 

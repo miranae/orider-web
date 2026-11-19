@@ -24,7 +24,7 @@ permissions:
 
 # 운영 게시자를 하나로 직렬화한다. 기존 태그 배포도 같은 그룹을 쓴다.
 concurrency:
-  group: deploy-hosting-production
+  group: ${{ inputs.phase == 'promote' && 'deploy-hosting-production' || format('rehearse-hosting-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:

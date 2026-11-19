@@ -60,6 +60,9 @@ jobs:
           fi
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main +refs/heads/dev:refs/remotes/origin/dev
           selected_sha=$(git rev-parse HEAD)
+          if [ "$GITHUB_REF" = refs/heads/main ] && [ "$selected_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::The signing workflow on main only runs its own reviewed source. Use the dev workflow for other development sources."; exit 1
+          fi
           if ! git merge-base --is-ancestor "$selected_sha" origin/main && ! git merge-base --is-ancestor "$selected_sha" origin/dev; then
             echo "::error::Selected frontend source $selected_sha must be an ancestor of reviewed origin/main or origin/dev"; exit 1
           fi

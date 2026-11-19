@@ -94,8 +94,8 @@ export function verifyPromotionFiles({ workspace = process.cwd(), directory }) {
 }
 export async function verifyClientPromotion(options, fetcher = fetch) {
   const receipt = verifyPromotionFiles(options);
-  await verifyBundledProductionBackend(receipt.runtime, receipt.backend, fetcher);
   await verifyPublicClubApi(receipt.runtime, PRODUCTION_ORIGIN, fetcher);
+  await verifyBundledProductionBackend(receipt.runtime, receipt.backend, fetcher);
   verifyPromotionFiles(options);
   return receipt;
 }

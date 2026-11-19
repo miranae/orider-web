@@ -129,6 +129,8 @@ test("development workflow is manual-only and seals the selected artifact before
   assert.match(workflow, /git merge-base --is-ancestor "\$selected_sha" origin\/main/);
   assert.match(workflow, /git merge-base --is-ancestor "\$selected_sha" origin\/dev/);
   assert.ok(workflow.indexOf("git merge-base --is-ancestor") < workflow.indexOf("run: node scripts/prepare-bundled-stage.mjs")); assert.match(workflow, /backend_source_sha:/);
+  const mainSourceGuard = workflow.indexOf("[ \"$GITHUB_REF\" = refs/heads/main ] && [ \"$selected_sha\" != \"$GITHUB_SHA\" ]");
+  assert.ok(mainSourceGuard >= 0 && mainSourceGuard < workflow.indexOf("run: node scripts/prepare-bundled-stage.mjs"));
   assert.match(workflow, /default: bundled-development/);
   assert.match(workflow, /--project orider-dev/); assert.doesNotMatch(workflow, /--project miranae-orider-g1/);
   assert.ok(workflow.indexOf("--phase seal") < workflow.indexOf("google-github-actions/auth"));
@@ -391,7 +393,7 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     assert.ok(calls.every(({ options }) => options.method !== "POST"));
     const production = { environment: "production", directory: resolve(f.workspace, "dist") };
     const readProduction = (url, options) => {
-      if (url === "https://orider.co.kr/") return new Response(readFileSync(resolve(production.directory, "index.html")));
+      if (url === "https://orider.co.kr/" || url.endsWith("/ko/course/nonexistent")) return new Response(readFileSync(resolve(production.directory, "index.html")));
       if (url.endsWith("/runtime-config.json")) return new Response(readFileSync(resolve(production.directory, "runtime-config.json")));
       return fetcher(url, options);
     };
@@ -399,6 +401,9 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     await assert.rejects(verifyBundledHosting({ ...production,
       fetcher: (url, options) => url.endsWith("/runtime-config.json") ? new Response("{}") : readProduction(url, options),
     }), /runtime differs at https:\/\/orider\.co\.kr\/runtime-config\.json/u);
+    await assert.rejects(verifyBundledHosting({ ...production,
+      fetcher: (url, options) => url.endsWith("/ko/course/nonexistent") ? new Response(null, { status: 404 }) : readProduction(url, options),
+    }), /GET HTTP404 at https:\/\/orider\.co\.kr\/ko\/course\/nonexistent/u);
     for (const [status, mime, body] of [[404, "text/javascript", "missing"], [200, "text/html", "<html>fallback</html>"], [200, "application/javascript", "wrong bytes"]]) {
       await assert.rejects(verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher: async () => new Response(body, { status, headers: { "content-type": mime } }) }), /https:\/\/orider-dev.web.app\/assets\/index-fixture.js/);
     }
