@@ -20,13 +20,13 @@ function setup(discipline = "run") {
   ], goalMatchesDiscipline: true, loading: false, loadError: null, freshLoaded: true, isTodayCell: (day: { date: number }) => day.date === date - 86400000 };
 }
 const route = "/ko/plan?sport=run&goalId=goal-owned&weekId=week-next&dayIndex=0&date=2026-10-01";
-it("shows the running plan as plan-vs-record only, without previews or the weekly plan", async () => {
-  // 러닝 훈련 계획은 제목·종목 탭·날짜 이동·계획 대비 기록만 둔다(2026-11-19) — 다음 러닝 미리보기도 열지 않는다.
+it("opens the exact running session requested by a deep link", async () => {
   setup(); model.mobile = false;
   renderWithProviders(<PlanPage />, { authenticated: true, route });
   expect(await screen.findByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01");
   expect(screen.queryByTestId("plan-presentation")).not.toBeInTheDocument();
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  const preview = await screen.findByRole("dialog");
+  expect(within(preview).getByText("정확한 다음 러닝")).toBeVisible();
   expect(screen.queryByTestId("workout-editor")).not.toBeInTheDocument();
 });
 

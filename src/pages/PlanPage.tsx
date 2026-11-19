@@ -300,7 +300,8 @@ export function PlanView({ model, startMode = WEB_START_MODE }: {
       </>);
     }
     return <>
-      {goalLink}
+      {goalLink}{targetNotice}
+      {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
       <details key={user.uid} className="site-shell" open={runPlanOpen} onToggle={event => {
         setOpenRunPlanOwner(event.currentTarget.open ? user.uid : null);
       }}>
