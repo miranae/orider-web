@@ -14,6 +14,7 @@ interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
   resolveCurrentStreams?: () => Promise<ActivityStreams>;
+  resolveOwnerCadenceStreams?: () => Promise<ActivityStreams>;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -34,20 +35,23 @@ const FORMATS = [
   { id: "csv", label: "CSV", descKey: "export.formatCsvDesc", icon: "📊" },
 ] as const;
 
-export default function ExportTab({ activity, streams, resolveCurrentStreams }: ExportTabProps) {
+export default function ExportTab({ activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
-  useEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams]);
+  useEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams, resolveOwnerCadenceStreams]);
 
   const handleExport = useCallback(async (format: string) => {
     const request = generation.current;
     try {
-      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
+      const cadenceFormat = format === "fit" || format === "tcx";
+      const resolver = resolveCurrentStreams ?? (cadenceFormat && readStreamCadenceUnit(streams) === undefined
+        ? resolveOwnerCadenceStreams : undefined);
+      const currentStreams = resolver ? await resolver() : streams;
       if (request !== generation.current) return;
       const verifiedUnit = readStreamCadenceUnit(currentStreams);
       // Legacy owner-only native data predates the server field. Do not infer units for a newly authorized public stream.
-      const fileCadenceUnit = verifiedUnit === undefined && !resolveCurrentStreams && activity.source === "orider"
+      const fileCadenceUnit = verifiedUnit === undefined && !resolver && activity.source === "orider"
         ? "spm" : verifiedUnit;
       switch (format) {
         case "fit": {
@@ -79,7 +83,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

@@ -43,3 +43,17 @@ it.each([
   await act(async () => fireEvent.click(screen.getByText("FIT")));
   expect(mocks.fit).toHaveBeenCalledWith(run, current, expected);
 });
+
+it("reloads verified samples and cadence for a legacy owner Strava FIT export", async () => {
+  const run = { ...activity, type: "Run", source: "strava" } as Activity;
+  const before = { userId: "owner", time: [0], cadence: [84] };
+  const current = markVerifiedStreamCadence({ ...before, cadence: [85] }, "b".repeat(64), "strides_per_minute");
+  const resolveOwnerCadenceStreams = vi.fn().mockResolvedValue(current);
+  render(<ExportTab activity={run} streams={before} resolveOwnerCadenceStreams={resolveOwnerCadenceStreams} />);
+  await act(async () => fireEvent.click(screen.getByText("CSV")));
+  expect(resolveOwnerCadenceStreams).not.toHaveBeenCalled();
+  expect(mocks.csv).toHaveBeenCalledWith(before);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  expect(resolveOwnerCadenceStreams).toHaveBeenCalledOnce();
+  expect(mocks.fit).toHaveBeenCalledWith(run, current, "strides_per_minute");
+});

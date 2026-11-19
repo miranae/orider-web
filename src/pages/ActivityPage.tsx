@@ -69,6 +69,7 @@ import {
   collection, query, where, orderBy, onSnapshot,
 } from "firebase/firestore";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { createPublicActivityClient } from "../services/publicActivityDetail";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
@@ -210,6 +211,12 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // Inline description editing
   // Photo upload/delete
   const photoServices = useFirebaseServices();
+  const getOwnerExportStreams = useCallback(async () => {
+    if (!activityId || !isActivityOwner) throw new Error("STREAMS_MISSING");
+    const response = await createPublicActivityClient(photoServices).streams(activityId);
+    if (response.state !== "available" || !response.streams) throw new Error("STREAMS_MISSING");
+    return response.streams;
+  }, [activityId, isActivityOwner, photoServices]);
   const uploadedPhotoIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}`;
   const [publicPhotosBusy, setPublicPhotosBusy] = useState(false);
   const [publicPhotosError, setPublicPhotosError] = useState<string | null>(null);
@@ -1529,7 +1536,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
 
       <Modal open={showExport} onClose={() => setShowExport(false)} title={t("tab.export")} maxWidth="max-w-3xl">
         <div>
-        {streams ? <ExportTab activity={activity} streams={streams} resolveCurrentStreams={publicAccess ? async () => {
+        {streams ? <ExportTab activity={activity} streams={streams}
+          resolveOwnerCadenceStreams={!publicAccess && isActivityOwner && activity.source === "strava" && sport === "run" ? getOwnerExportStreams : undefined}
+          resolveCurrentStreams={publicAccess ? async () => {
           const result = await publicAccess.session.client.streams(activity.id);
           if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");
           return result.streams;
