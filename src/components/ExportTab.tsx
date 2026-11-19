@@ -70,6 +70,8 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
   const pendingTcx = tcxPrompt?.activityScope === activityScope && tcxPrompt.streams === streams
     && tcxPrompt.account === renderedAccount && tcxPrompt.resolverScope === resolverScope ? tcxPrompt : null;
   const generation = useRef(0);
+  const latestActivity = useRef(activity);
+  useLayoutEffect(() => { latestActivity.current = activity; }, [activity]);
   const formatRequests = useRef(new Map<string, number>());
   useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activityScope, streams, resolverScope, getExportAccount]);
 
@@ -89,11 +91,12 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(format) : streams;
       if (!stillCurrent()) return;
+      const fileActivity = latestActivity.current;
       const verifiedUnit = readStreamCadenceUnit(currentStreams);
       const cadence = currentStreams.cadence;
       const time = currentStreams.time;
       const revision = readVerifiedStreamRevision(currentStreams);
-      const missingFootCadenceUnit = (format === "fit" || format === "tcx") && exportSportOf(activity).footCadence
+      const missingFootCadenceUnit = (format === "fit" || format === "tcx") && exportSportOf(fileActivity).footCadence
         && verifiedUnit !== "spm" && verifiedUnit !== "strides_per_minute"
         && Array.isArray(cadence) && cadence.some(value => Number.isFinite(value) && value >= 0);
       const chosenUnitApplies = choice === "omit" || (choice !== undefined && pendingCadence?.format === format
@@ -112,14 +115,14 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       switch (format) {
         case "fit": {
           clearCadencePrompt();
-          const data = generateFit(activity, prepareActivityFileStreams(activity, fileStreams, format), fileCadenceUnit);
+          const data = generateFit(fileActivity, prepareActivityFileStreams(fileActivity, fileStreams, format), fileCadenceUnit);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
-          downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
+          downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(fileActivity, "fit"));
           break;
         }
         case "tcx": {
-          const prepared = prepareTcxExport(activity, prepareActivityFileStreams(activity, fileStreams, format), fileCadenceUnit);
+          const prepared = prepareTcxExport(fileActivity, prepareActivityFileStreams(fileActivity, fileStreams, format), fileCadenceUnit);
           if (prepared.hasUnassigned && !tcxMode) {
             setTcxPrompt({ activityScope, streams, account, resolverScope, cadenceChoice: choice });
             return;
@@ -127,18 +130,18 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           clearCadencePrompt();
           setTcxPrompt(null);
           const xml = prepared.render(tcxMode ?? "recorded");
-          downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
+          downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(fileActivity, "tcx"));
           break;
         }
         case "csv": {
           const csv = generateCsv(currentStreams);
-          downloadBlob(new Blob([csv], { type: "text/csv" }), exportFilename(activity, "csv"));
+          downloadBlob(new Blob([csv], { type: "text/csv" }), exportFilename(fileActivity, "csv"));
           break;
         }
         case "gpx": {
-          const gpx = generateGpx(activity, currentStreams);
+          const gpx = generateGpx(fileActivity, currentStreams);
           if (gpx) {
-            downloadBlob(new Blob([gpx], { type: "application/gpx+xml" }), exportFilename(activity, "gpx"));
+            downloadBlob(new Blob([gpx], { type: "application/gpx+xml" }), exportFilename(fileActivity, "gpx"));
           }
           break;
         }

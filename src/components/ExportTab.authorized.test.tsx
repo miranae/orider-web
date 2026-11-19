@@ -169,7 +169,7 @@ it("finishes a download when unrelated activity metadata changes during verifica
   view.rerender(<ExportTab activity={{ ...activity, kudosCount: 3 }} streams={samples}
     resolveCurrentStreams={async () => samples} authorizationScope={authorizationScope} />);
   await act(async () => finish(samples));
-  expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(activity, samples, undefined);
+  expect(mocks.fit).toHaveBeenCalledExactlyOnceWith({ ...activity, kudosCount: 3 }, samples, undefined);
 });
 
 
@@ -187,4 +187,18 @@ it("asks how to handle unassigned TCX observations and downloads the chosen edit
   await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples|모든 표본을 한 랩|tcxLapsChoice.activity/iu })));
   expect(resolve).toHaveBeenCalledTimes(2);
   expect(click).toHaveBeenCalledOnce();
+});
+
+
+it("writes the latest recorded summary when verification outlasts a metadata refresh", async () => {
+  const original = { ...activity, summary: { distance: 1000, ridingTimeMillis: 60_000 } } as Activity;
+  const latest = { ...original, summary: { ...original.summary, distance: 1200 } };
+  const samples = { userId: "owner", time: [0], watts: [200] };
+  let finish!: (value: typeof samples) => void;
+  const resolve = () => new Promise<typeof samples>(done => { finish = done; });
+  const view = render(<ExportTab activity={original} streams={samples} resolveCurrentStreams={resolve} />);
+  fireEvent.click(screen.getByText("FIT"));
+  view.rerender(<ExportTab activity={latest} streams={samples} resolveCurrentStreams={resolve} />);
+  await act(async () => finish(samples));
+  expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(latest, samples, undefined);
 });

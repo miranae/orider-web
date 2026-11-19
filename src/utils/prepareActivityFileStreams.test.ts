@@ -98,7 +98,7 @@ it("does not infer paused time from an end-only lap", () => {
   const startTime = Date.parse("2026-11-19T07:00:00Z");
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 60, 75, 90, 120], heartrate: [150, 150, 150, 150, 150],
+    userId: "owner", time: [0, 60, 75, 90, 120].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
       { endTimeMs: startTime + 120_000, durationMs: 30_000 },
@@ -142,7 +142,7 @@ it("keeps recorded laps or all gap observations according to the requested TCX e
     ridingTimeMillis: 9000, elapsedTimeMillis: 15_000, distance: 120,
   } } as Activity;
   const streams = {
-    userId: "owner", time: [0, 5, 7, 10, 12, 15], heartrate: [150, 150, 150, 150, 150, 150],
+    userId: "owner", time: [0, 5, 7, 10, 12, 15].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 5000, durationMs: 5000, distanceKm: 0.05 },
       { startTimeMs: startTime + 10_000, endTimeMs: startTime + 12_000, durationMs: 2000, distanceKm: 0.05 },
@@ -165,7 +165,7 @@ it("preserves recorded distances even when there is no activity distance for the
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 30, 60, 61], heartrate: [150, 150, 150, 150],
+    userId: "owner", time: [0, 30, 60, 61].map(time => startTime + time * 1000), heartrate: [150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 30_000, durationMs: 30_000, distanceKm: 1 },
       { startTimeMs: startTime + 30_000, endTimeMs: startTime + 60_000, durationMs: 30_000, distanceKm: 1 },
@@ -177,4 +177,31 @@ it("preserves recorded distances even when there is no activity distance for the
   const full = prepareTcxExport(activity, streams, "spm").render("activity");
   expect(full).toContain(new Date(startTime + 61_000).toISOString());
   expect(full).toContain("<DistanceMeters>NaN</DistanceMeters>");
+});
+
+
+it("keeps moving-time legacy samples separate from native elapsed lap clocks", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const streams = {
+    userId: "owner", time: [0, 60, 61, 90, 120], heartrate: [150, 150, 150, 150, 150],
+    laps: [
+      { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
+      { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
+    ],
+  } as ActivityStreams;
+  const prepared = prepareTcxExport(activity, streams, "spm");
+  const [, , second] = prepared.render("recorded").split(/<Lap StartTime="/u);
+  expect(prepared.hasUnassigned).toBe(false);
+  expect(second).toContain(new Date(startTime + 61_000).toISOString());
+});
+
+it("uses recorded activity endpoints when the elapsed summary is absent", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, endTime: startTime + 600_000, type: "Run", summary: {
+    distance: 1000, ridingTimeMillis: 300_000,
+  } } as Activity;
+  const streams = { userId: "owner", time: [0, 300], laps: [{ durationMs: 1000 }] } as ActivityStreams;
+  const xml = prepareTcxExport(activity, streams, "spm").render("activity");
+  expect(xml).toContain("<TotalTimeSeconds>600</TotalTimeSeconds>");
 });

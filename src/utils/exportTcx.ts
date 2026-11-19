@@ -24,8 +24,9 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const relativeAt = makeRelSecAt(streams.time);
   const firstTime = streams.time?.find(value => Number.isFinite(value));
   const unit = firstTime == null ? "relative_sec" : detectTimestampUnit(firstTime);
-  const recordedClock = streams.laps?.some(lap => Number.isFinite(lap.startTimeMs) || Number.isFinite(lap.endTimeMs)) && firstTime != null;
-  const activityTime = usesVerifiedActivityTime(streams) || recordedClock;
+  const verifiedRelativeClock = usesVerifiedActivityTime(streams);
+  const recordedClock = unit !== "relative_sec" && streams.laps?.some(lap => Number.isFinite(lap.startTimeMs) || Number.isFinite(lap.endTimeMs));
+  const activityTime = verifiedRelativeClock || recordedClock;
   const relSecAt = (index: number) => {
     const value = streams.time?.[index];
     if (!recordedClock || value == null || !Number.isFinite(value)) return relativeAt(index);
@@ -72,7 +73,8 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       ? (lap.endTimeMs - startMs) / 1000 : undefined;
     const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
-    const start = recordedStart ?? (activityTime ? previousEnd : Math.max(timedAt(next) ?? previousEnd, previousEnd));
+    const nextObservedStart = Math.max(timedAt(next) ?? previousEnd, previousEnd);
+    const start = recordedStart ?? (recordedEnd != null || (verifiedRelativeClock && laps.length === 0) ? previousEnd : nextObservedStart);
     const end = recordedEnd ?? start + duration;
     if (recordedStart != null) {
       const first = next;
@@ -95,10 +97,9 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
         for (const lap of laps) writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
       } else {
         const elapsed = summary.elapsedTimeMillis;
-        const duration = laps.length
-          ? typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0
-            ? elapsed / 1000 : Math.max((summary.ridingTimeMillis || 0) / 1000, timedAt(indices.length - 1) ?? 0)
-          : (summary.ridingTimeMillis || 0) / 1000;
+        const activityElapsed = typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed
+          : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : NaN;
+        const duration = laps.length ? activityElapsed / 1000 : (summary.ridingTimeMillis || 0) / 1000;
         const distance = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
           ? summary.distance : laps.length ? NaN : 0;
         writeLap(lines, startMs, duration, distance, streams.calories || 0, 0, indices.length);
