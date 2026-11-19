@@ -120,7 +120,7 @@ vi.mock("../services/appHandoff", () => ({
 }));
 
 vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
-  default: ({ onReady }: { onReady: () => void }) => {
+  default: function MockActivityAnalysisSurface({ onReady }: { onReady: () => void }) {
     const services = useFirebaseServices();
     mocks.surfaceHookMounts();
     mocks.surfaceServices(services);
