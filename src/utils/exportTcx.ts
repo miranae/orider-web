@@ -140,8 +140,8 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const activityCalories = typeof streams.calories === "number" && Number.isFinite(streams.calories)
     && streams.calories >= 0 && streams.calories <= 65535 ? streams.calories : undefined;
   // Garmin's TCX schema requires an unsigned calorie value on every lap.
-  const hasMissingLapCalories = laps.length > 0 && activityCalories == null;
-  const requiresCsv = hasMissingLapCalories || (!laps.length && activityTime && !validRecordedDuration
+  const hasMissingLapCalories = activityCalories == null;
+  const requiresCsv = (laps.length > 0 && hasMissingLapCalories) || (!laps.length && activityTime && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000);
   const canExportAllAsTcx = !hasMissingLapCalories && typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
     && summaryLapDuration != null && !hasUntimedObservations;
@@ -158,7 +158,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     hasMissingLapCalories,
     requiresCsv,
     render(mode: TcxLapMode): string {
-      if (hasMissingLapCalories) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
+      if (hasMissingLapCalories && (laps.length > 0 || mode === "activity")) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
       if (requiresCsv) throw new Error("TCX_ELAPSED_UNAVAILABLE");
       if (mode === "recorded" && hasUnallocatedCalories) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
       if (laps.length && !canKeepRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) throw new Error("TCX_LAP_CLOCK_UNAVAILABLE");

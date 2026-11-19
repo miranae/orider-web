@@ -391,3 +391,22 @@ it.each([
   await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
   expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(samples);
 });
+
+it("offers CSV when refreshed authorization removes both laps and calories from a selected TCX", async () => {
+  const run = { ...activity, type: "Run", source: "strava",
+    summary: { distance: 1100, elapsedTimeMillis: 120_000, calories: 270 } } as Activity;
+  const latest = { userId: "owner", time: [0, 59, 115], heartrate: [140, 150, 145] } as ActivityStreams;
+  const initial = { ...latest, calories: 270, laps: [
+    { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime, endTimeMs: run.startTime + 60_000 },
+    { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime + 60_000, endTimeMs: run.startTime + 120_000 },
+  ] } as ActivityStreams;
+  const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
+  const click = vi.mocked(HTMLAnchorElement.prototype.click);
+  click.mockClear();
+  render(<ExportTab activity={run} streams={initial} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples|모든 표본을 한 랩|tcxLapsChoice.activity/iu })));
+  expect(click).not.toHaveBeenCalled();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
+  expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(latest);
+});

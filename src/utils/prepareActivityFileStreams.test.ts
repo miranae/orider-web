@@ -1,6 +1,7 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { markRawPartStreams, markVerifiedStreamCadence, readStreamCadenceUnit } from "../services/activityStreamSource";
+import * as sentry from "../services/sentry";
 import { applyVerifiedCadenceUnit, prepareActivityFileStreams } from "./prepareActivityFileStreams";
 import { generateTcx, prepareTcxExport } from "./exportTcx";
 
@@ -347,7 +348,7 @@ it("keeps an explicit activity-summary export on the recorded elapsed clock afte
   const activity = { startTime, type: "Run", summary: {
     distance: 1000, elapsedTimeMillis: 130_000, ridingTimeMillis: 120_000,
   } } as Activity;
-  const streams = { userId: "owner", time: [0, 120, 125].map(second => startTime + second * 1000), heartrate: [150, 150, 150] };
+  const streams = { userId: "owner", calories: 0, time: [0, 120, 125].map(second => startTime + second * 1000), heartrate: [150, 150, 150] };
   expect(prepareTcxExport(activity, streams).render("activity")).toContain("<TotalTimeSeconds>130</TotalTimeSeconds>");
 });
 
@@ -525,5 +526,25 @@ it("requires a recorded calorie value for TCX with laps", () => {
 
   const withSummary = { ...activity, summary: { ...activity.summary, calories: 210 } };
   expect(prepareTcxExport(withSummary, streams).requiresCsv).toBe(true);
+  const refreshed = prepareTcxExport(withSummary, { ...streams, laps: undefined });
+  expect(refreshed.canExportAllAsTcx).toBe(false);
+  expect(() => refreshed.render("activity")).toThrow("TCX_LAP_CALORIES_UNAVAILABLE");
   expect(prepareTcxExport(withSummary, { ...streams, calories: 210 }).render("recorded")).toContain("<Calories>210</Calories>");
+});
+
+it("reports an unsupported stream cadence unit without logging the response value", () => {
+  const capture = vi.spyOn(sentry, "captureError").mockImplementation(() => undefined);
+  try {
+    const streams = { userId: "owner", cadence: [160] } as ActivityStreams;
+    const revision = "a".repeat(64);
+    expect(readStreamCadenceUnit(markVerifiedStreamCadence(streams, revision, null))).toBeNull();
+    expect(capture).not.toHaveBeenCalled();
+    expect(readStreamCadenceUnit(markVerifiedStreamCadence(streams, revision, "unexpected-unit"))).toBeNull();
+    expect(capture).toHaveBeenCalledExactlyOnceWith(
+      new Error("INVALID_ACTIVITY_STREAM_CADENCE_UNIT"),
+      { tags: { source: "activityStreamSource" }, extra: { valueType: "string" } },
+    );
+  } finally {
+    capture.mockRestore();
+  }
 });
