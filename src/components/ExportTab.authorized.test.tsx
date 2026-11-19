@@ -55,3 +55,12 @@ it("does not apply the old cadence choice to changed authorized samples", async 
   expect(confirm()).toBeVisible();
   expect(resolve).toHaveBeenCalledTimes(2);
 });
+
+it("exports the rest of a legacy run when the user does not know the cadence unit", async () => {
+  const run = { ...activity, type: "Run", source: "health_connect" } as Activity;
+  const streams = { cadence: [180], heartrate: [155], time: [0] };
+  render(<ExportTab activity={run} streams={streams} />);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceUnitOption.omit/iu })));
+  expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(run, { ...streams, cadence: undefined });
+});

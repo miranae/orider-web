@@ -18,7 +18,7 @@ interface ExportTabProps {
 }
 
 type ExportFormat = "fit" | "tcx" | "gpx" | "csv";
-type FootCadenceUnit = "spm" | "strides_per_minute";
+type CadenceChoice = "spm" | "strides_per_minute" | "omit";
 type CadencePrompt = ExportTabProps & { format: "fit" | "tcx"; samples: string };
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -49,15 +49,15 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
   useEffect(() => { generation.current++; return () => { generation.current++; }; },
     [activity.id, activity.type, activity.source, streams, resolveCurrentStreams]);
 
-  const handleExport = useCallback(async (format: ExportFormat, choice?: { unit: FootCadenceUnit; samples: string }) => {
+  const handleExport = useCallback(async (format: ExportFormat, choice?: { unit: CadenceChoice; samples: string }) => {
     const request = generation.current;
     setCadencePrompt(null);
     try {
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
       if (request !== generation.current) return;
-      let fileStreams = currentStreams;
+      let fileStreams = choice?.unit === "omit" ? { ...currentStreams, cadence: undefined } : currentStreams;
       if ((format === "fit" || format === "tcx")
-        && needsExportCadenceUnit(activity, currentStreams, exportSportOf(activity))) {
+        && needsExportCadenceUnit(activity, fileStreams, exportSportOf(activity))) {
         const samples = JSON.stringify([currentStreams.time, currentStreams.cadence]);
         if (!choice || choice.samples !== samples) {
           setCadencePrompt({ activity, streams, resolveCurrentStreams, format, samples });
@@ -120,7 +120,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
           <legend className="font-semibold">{t("export.cadenceUnitTitle")}</legend>
           <p className="text-[length:var(--fs-sm)]">{t("export.cadenceUnitHelp")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {(["spm", "strides_per_minute"] as const).map(unit => (
+            {(["spm", "strides_per_minute", "omit"] as const).map(unit => (
               <button key={unit} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
                 onClick={() => { void handleExport(pending.format, { unit, samples: pending.samples }); }}>
                 {t(`export.cadenceUnitOption.${unit}`)}

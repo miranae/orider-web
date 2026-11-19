@@ -1654,7 +1654,8 @@
     "cadenceUnitHelp": "This recording has no cadence unit. Choose the original unit to include cadence in FIT or TCX. CSV preserves the original values.",
     "cadenceUnitOption": {
       "spm": "Steps per minute (both feet)",
-      "strides_per_minute": "Strides per minute (one foot)"
+      "strides_per_minute": "Strides per minute (one foot)",
+      "omit": "Export without cadence"
     },
     "formatFitDesc": "Garmin FIT binary — compatible with most apps",
     "formatTcxDesc": "Garmin Training Center XML — includes HR/power",
