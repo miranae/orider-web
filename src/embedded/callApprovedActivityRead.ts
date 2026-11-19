@@ -100,10 +100,10 @@ export async function callApprovedActivityRead<T>(
       payload = null;
     }
     if (!response.ok || payload?.error) {
-      const status = payload?.error?.status;
-      const code = status && /^[A-Z_]+$/.test(status) ? status.toLowerCase().replace(/_/g, "-")
-        : httpErrorCodes[response.status] ?? "unavailable";
       if (!bodyFailed) report("http", response.status);
+      const status = payload?.error?.status;
+      const code = typeof status === "string" && /^[A-Z_]+$/.test(status) ? status.toLowerCase().replace(/_/g, "-")
+        : httpErrorCodes[response.status] ?? "unavailable";
       throw Object.assign(new Error("embedded-callable-failed"), { code: `functions/${code}` });
     }
     if (!payload || typeof payload !== "object" || !("result" in payload || "data" in payload)) {
