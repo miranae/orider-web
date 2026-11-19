@@ -427,6 +427,13 @@ export default function EventsPage() {
 
   const { live: liveCount, open: openCount } = useMemo(() => eventAvailability(events, now), [events, now]);
   const myCount = myEventIds.size;
+  // 로그아웃 방문자에게 "내 이벤트 0" 은 의미가 없고, 진행·모집이 모두 0 이면 아래 안내 문구가 같은 사실을 말한다.
+  const summaryItems = [
+    { lbl: t("status.live"), val: liveCount, sub: t("summary.liveNow"), dot: "var(--lime)" },
+    { lbl: t("status.open"), val: openCount, sub: t("summary.canRegister"), dot: "var(--aqua)" },
+    ...(user ? [{ lbl: t(isMobile ? "summary.myEventsShort" : "summary.myEvents"), val: myCount, sub: t("summary.thisSeason"), dot: "var(--ink-2)" }] : []),
+  ];
+  const showSummary = events.length > 0 && (!!user || liveCount + openCount > 0);
   const activeAdvancedCount = [typeFilter, regionFilter, datePreset, difficultyFilter].filter((value) => value !== "ALL").length;
   const calendarCells = useMemo(() => buildMonthCells(filtered, calendarMonth), [calendarMonth, filtered]);
   const monthEvents = useMemo(() => calendarCells.filter(cell => cell.inMonth).flatMap(cell => cell.events), [calendarCells]);
@@ -458,17 +465,17 @@ export default function EventsPage() {
       <div data-testid="E3-1" className="event-type-filters" role="group" aria-label={t("filter.typeLabel")}>
         {TYPE_FILTERS.map((item) => {
           const active = typeFilter === item.k;
-          return <Button key={item.k} size="sm" variant={active ? "outline" : "secondary"} dense onClick={() => setTypeFilter(item.k)} aria-pressed={active}>
+          return <Chip key={item.k} selectable selected={active} onClick={() => setTypeFilter(item.k)}>
             {item.icon && <span aria-hidden="true">{item.icon}</span>} {item.label}
-          </Button>;
+          </Chip>;
         })}
       </div>
       {regions.length > 0 && <div data-testid="E3-1-1"><DropdownSelect label={t("filter.region")} value={regionFilter} onChange={setRegionFilter}
         options={[{ value: "ALL", label: t("filter.allRegions") }, ...regions.map(region => ({ value: region, label: region }))]} /></div>}
       <div className="event-date-filters" role="group" aria-label={t("filter.dateLabel")}>
-        {(["ALL", "WEEKEND", "MONTH"] as const).map((preset) => <Button key={preset} size="sm" dense variant={datePreset === preset ? "outline" : "secondary"} aria-pressed={datePreset === preset} onClick={() => setDatePreset(preset)}>
+        {(["ALL", "WEEKEND", "MONTH"] as const).map((preset) => <Chip key={preset} selectable selected={datePreset === preset} onClick={() => setDatePreset(preset)}>
           {t(`filter.date.${preset.toLowerCase()}`)}
-        </Button>)}
+        </Chip>)}
       </div>
       <DropdownSelect label={t("filter.difficulty")} value={difficultyFilter} onChange={value => setDifficultyFilter(value as "ALL" | EventDifficulty)}
         options={[{ value: "ALL", label: t("filter.allDifficulties") }, ...(["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).map(difficulty => ({ value: difficulty, label: t(`difficulty.${difficulty.toLowerCase()}`) }))]} />
@@ -526,13 +533,13 @@ export default function EventsPage() {
         </Card>
       )}
 
-      {/* 요약 strip — 3컬럼 (진행중/모집중/내 참가) */}
-      {events.length > 0 && (
+      {/* 요약 strip — 진행중/모집중 (+로그인 시 내 참가) */}
+      {showSummary && (
         <div
           className="event-summary"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateColumns: `repeat(${summaryItems.length}, 1fr)`,
             gap: 1,
             background: "var(--line-soft)",
             border: "1px solid var(--line-soft)",
@@ -540,11 +547,7 @@ export default function EventsPage() {
             overflow: "hidden",
           }}
         >
-          {[
-            { lbl: t("status.live"), val: liveCount, sub: t("summary.liveNow"), dot: "var(--lime)" },
-            { lbl: t("status.open"), val: openCount, sub: t("summary.canRegister"), dot: "var(--aqua)" },
-            { lbl: t(isMobile ? "summary.myEventsShort" : "summary.myEvents"), val: myCount, sub: t("summary.thisSeason"), dot: "var(--ink-2)" },
-          ].map((s) => (
+          {summaryItems.map((s) => (
             <div
               key={s.lbl}
               style={{
@@ -593,9 +596,9 @@ export default function EventsPage() {
       <div className="flex items-center justify-between flex-wrap" style={{ gap: "var(--space-2)" }}>
         <div className="flex" role="group" aria-label={t("view.label")} style={{ gap: "var(--space-1)" }}>
           {(["LIST", "CALENDAR", "MAP"] as const).map((item) => (
-            <Button data-testid="E3-0-2" key={item} size="sm" dense variant={view === item ? "outline" : "secondary"} aria-pressed={view === item} onClick={() => setView(item)}>
+            <Chip data-testid="E3-0-2" key={item} selectable selected={view === item} onClick={() => setView(item)}>
               {t(`view.${item.toLowerCase()}`)}
-            </Button>
+            </Chip>
           ))}
         </div>
         <span data-testid="E3-1-2" className="event-view-count">{filtered.length} / {events.length}</span>
