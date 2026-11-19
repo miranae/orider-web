@@ -13,6 +13,7 @@ permissions:
 
 concurrency:
   group: deploy-hosting-production
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -205,9 +206,9 @@ jobs:
             echo "::error::해시 자산이 immutable 캐시가 아님 — 헤더 규칙 회귀 의심: $CC"
             exit 1
           fi
-          curl -fsSL -H 'Cache-Control: no-cache' "https://orider.co.kr/$LIVE" -o live-entry.js
+          curl -fsSL -H 'Cache-Control: no-cache' "https://orider.co.kr/$LIVE" -o "$RUNNER_TEMP/live-entry.js"
           BUILT_ENTRY_SHA256=$(shasum -a 256 "dist/$BUILT" | awk '{print $1}')
-          LIVE_ENTRY_SHA256=$(shasum -a 256 live-entry.js | awk '{print $1}')
+          LIVE_ENTRY_SHA256=$(shasum -a 256 "$RUNNER_TEMP/live-entry.js" | awk '{print $1}')
           if [ "$BUILT_ENTRY_SHA256" != "$LIVE_ENTRY_SHA256" ]; then
             echo "::error::라이브 entry bundle 내용이 빌드 산출물과 다름"
             exit 1
@@ -228,7 +229,9 @@ jobs:
       - name: Verify bundled production Hosting entry bytes and HTTP aliases
         id: bundle_verify
         if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
-        run: node scripts/verify-bundled-hosting.mjs --environment production
+        run: |
+          node scripts/verify-bundled-hosting.mjs --environment production
+          node scripts/prepare-bundled-production.mjs --phase verify-identity
       - name: Restore previous production Hosting release after bundled publication failure
         if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != '' && steps.bundle_verify.outcome != 'success'
         timeout-minutes: 3

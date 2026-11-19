@@ -25,6 +25,7 @@ permissions:
 
 concurrency:
   group: deploy-hosting-stage
+  queue: max
   cancel-in-progress: false
 
 jobs:

@@ -25,6 +25,7 @@ permissions:
 # 운영 게시자를 하나로 직렬화한다. 기존 태그 배포도 같은 그룹을 쓴다.
 concurrency:
   group: ${{ inputs.phase == 'promote' && 'deploy-hosting-production' || format('rehearse-hosting-{0}', github.run_id) }}
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -62,12 +63,17 @@ jobs:
           set -euo pipefail
           node -e 'for(const v of [process.env.CANDIDATE_RUN,process.env.CANDIDATE_ATTEMPT])if(!/^[1-9][0-9]*$/.test(v||""))throw Error("positive run/attempt required")'
           # Run metadata may expire. Artifact attestation is verified before extracting the private archive.
-          status=$(curl -sS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/attempts/$CANDIDATE_ATTEMPT" -o "$RUNNER_TEMP/candidate-run.json" -w '%{http_code}')
+          if status=$(curl -sS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/attempts/$CANDIDATE_ATTEMPT" -o "$RUNNER_TEMP/candidate-run.json" -w '%{http_code}'); then
+            :
+          else
+            transport_status=$?
+            echo "::error::GitHub Actions GET failed for candidate $CANDIDATE_RUN/$CANDIDATE_ATTEMPT (curl=$transport_status)"; exit 1
+          fi
           run_args=()
           if [ "$status" = 200 ]; then
             run_args=(--run "$RUNNER_TEMP/candidate-run.json")
           elif [ "$status" != 404 ]; then
-            echo "::error::Candidate run metadata HTTP$status"; exit 1
+            echo "::error::GitHub Actions GET candidate $CANDIDATE_RUN/$CANDIDATE_ATTEMPT returned HTTP$status"; exit 1
           fi
           node scripts/hosting-candidate-archive.mjs --phase restore --run-id "$CANDIDATE_RUN" --attempt "$CANDIDATE_ATTEMPT" --directory "$RUNNER_TEMP/client-candidate" "${run_args[@]}"
       - name: Prepare identical compiled files with production runtime
@@ -162,8 +168,8 @@ jobs:
           firebase deploy --config firebase.bundled-production.json --only hosting --project miranae-orider-g1 --non-interactive --token "$HOSTING_ACCESS_TOKEN" --message "client-promotion:$FRONTEND_SOURCE:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
       - name: Verify production entry, runtime and aliases
         run: |
-          node scripts/promote-bundled-client.mjs --phase check-files
           node scripts/verify-bundled-hosting.mjs --environment production
+          node scripts/promote-bundled-client.mjs --phase verify-identity
       - name: Restore this run's previous production Hosting release on failure
         if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != ''
         timeout-minutes: 3

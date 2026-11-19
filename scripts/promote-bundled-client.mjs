@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { stageArtifactManifest, assertStageEntryArtifact } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
-import { verifyBundledProductionBackend } from "./prepare-bundled-production.mjs";
+import { verifyBundledProductionBackend, verifyBundledProductionIdentity } from "./prepare-bundled-production.mjs";
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
@@ -111,8 +111,12 @@ async function main() {
   let receipt;
   if (args["--phase"] === "prepare") receipt = prepareClientPromotion({ ...options, archive: args["--archive"], run: json(args["--run"]), artifact: json(args["--artifact"]), attempt: args["--attempt"] });
   else if (args["--phase"] === "verify") receipt = await verifyClientPromotion(options);
+  else if (args["--phase"] === "verify-identity") {
+    receipt = verifyPromotionFiles(options);
+    await verifyBundledProductionIdentity(receipt.runtime, receipt.backend);
+  }
   else if (args["--phase"] === "check-files") receipt = verifyPromotionFiles(options);
-  else throw new Error("prepare/verify/check-files phase required");
+  else throw new Error("prepare/verify/verify-identity/check-files phase required");
   console.log(JSON.stringify({ phase: args["--phase"], frontendSourceSha: receipt.frontendSourceSha, backend: receipt.backend, candidateRunId: receipt.candidateRunId, rebuilt: false, entry: receipt.entry }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

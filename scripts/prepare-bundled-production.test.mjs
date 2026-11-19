@@ -55,6 +55,7 @@ test("backend drift and replaced runtime block production deployment preparation
     await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
     f.setHealth({ status: "ok", exposure: "public", sourceSha: "d".repeat(40), topologyHash: "c".repeat(64) });
     await assert.rejects(verifyBundledProduction(f.directory, f.fetcher), /backend changed/);
+    await assert.rejects(verifyBundledProduction(f.directory, f.fetcher, { identityOnly: true }), /backend changed/);
     writeFileSync(resolve(f.workspace, "dist/runtime-config.json"), JSON.stringify(source));
     await assert.rejects(verifyBundledProduction(f.directory, f.fetcher), /built production runtime/);
   } finally { f.cleanup(); }

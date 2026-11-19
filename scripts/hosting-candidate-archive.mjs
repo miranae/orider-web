@@ -9,6 +9,7 @@ import { isDeepStrictEqual } from "node:util";
 import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 
 export const HOSTING_CANDIDATE_BUCKET = "miranae-orider-g1-release-evidence";
+const STAGE_WORKFLOW = ".github/workflows/deploy-stage.yml";
 const sha = /^[a-f0-9]{40}$/u, digest = /^[a-f0-9]{64}$/u, positive = /^[1-9][0-9]*$/u;
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
@@ -18,7 +19,8 @@ export function hostingCandidateObject(runId, attempt) {
   return `deploy-candidates/hosting/${runId}/${attempt}/candidate.tgz`;
 }
 function validateRun(run, attempt) {
-  if (run.repository?.full_name !== "miranae/orider-web" || run.path !== ".github/workflows/deploy-stage.yml"
+  if (run.repository?.full_name !== "miranae/orider-web" || run.head_branch !== "main"
+    || ![STAGE_WORKFLOW, `${STAGE_WORKFLOW}@main`, `${STAGE_WORKFLOW}@refs/heads/main`].includes(run.path)
     || run.event !== "workflow_dispatch" || (run.kind === "archived-stage-acceptance" ? run.stageAcceptanceComplete !== true : run.status !== "completed" || run.conclusion !== "success")
     || run.run_attempt !== Number(attempt) || !Number.isSafeInteger(run.id) || run.id < 1 || !sha.test(run.head_sha || "")) throw new Error("successful selected development run/attempt required");
 }
@@ -63,7 +65,7 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
   directory = resolve(directory); mkdirSync(directory, { recursive: true });
   const payload = join(directory, "payload"); mkdirSync(payload);
   cpSync(dist, join(payload, "dist"), { recursive: true }); cpSync(hosting, join(payload, "firebase.bundled-stage.json")); cpSync(buildReceipt, join(payload, "build.json"));
-  const provenance = { schemaVersion: 1, repository: "miranae/orider-web", workflowPath: ".github/workflows/deploy-stage.yml",
+  const provenance = { schemaVersion: 1, repository: "miranae/orider-web", workflowPath: STAGE_WORKFLOW,
     runId: String(runId), attempt: String(attempt), stageAcceptanceComplete: true, workflowSourceSha, frontendSourceSha: candidate.frontendSourceSha, artifactHash: candidate.artifactHash };
   save(join(payload, "candidate.json"), provenance);
   const path = join(directory, "candidate.tgz");
@@ -111,12 +113,12 @@ export async function restoreHostingCandidate({ run, runId, attempt, directory, 
   const object = hostingCandidateObject(runId, attempt), stored = await readArchive({ object, token, fetcher }), metadata = stored.metadata;
   const archive = { kind: "gcs", bucket: stored.bucket, object: stored.name, generation: stored.generation, sha256: metadata?.sha256,
     frontendSourceSha: metadata?.frontendSourceSha, workflowSourceSha: metadata?.workflowSourceSha, artifactHash: metadata?.artifactHash };
-  const archivedRun = { kind: "archived-stage-acceptance", repository: { full_name: metadata?.repository }, path: metadata?.workflowPath, event: "workflow_dispatch",
+  const archivedRun = { kind: "archived-stage-acceptance", repository: { full_name: metadata?.repository }, path: metadata?.workflowPath, event: "workflow_dispatch", head_branch: "main",
     id: Number(runId), run_attempt: Number(attempt), head_sha: archive.workflowSourceSha, stageAcceptanceComplete: metadata?.stageAcceptanceComplete === "true" };
   validateArchivedCandidate(archivedRun, archive, attempt);
   if (run) { validateArchivedCandidate(run, archive, attempt); if (run.id !== Number(runId)) throw new Error("selected run identity mismatch"); }
   else run = archivedRun;
-  if (metadata.repository !== "miranae/orider-web" || metadata.workflowPath !== run.path || metadata.runId !== String(run.id) || metadata.attempt !== String(attempt)) throw new Error("private client archive provenance mismatch");
+  if (metadata.repository !== "miranae/orider-web" || metadata.workflowPath !== STAGE_WORKFLOW || metadata.runId !== String(run.id) || metadata.attempt !== String(attempt)) throw new Error("private client archive provenance mismatch");
   const bytes = await readArchive({ object, generation: archive.generation, token, fetcher });
   if (hash(bytes) !== archive.sha256) throw new Error("private client archive checksum mismatch");
   directory = resolve(directory); mkdirSync(directory);

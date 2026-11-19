@@ -26,7 +26,7 @@ function fixture() {
   delete config.hosting.target; config.hosting.site="orider-dev"; config.hosting.public="dist"; write(configPath,config);
   const manifest = stageArtifactManifest(dist), receipt = {schemaVersion:1,mode:"bundled-development-client",complete:true,frontendSourceSha,backendSourceSha:"b".repeat(40),backendTopologyHash:"c".repeat(64),artifactManifest:manifest,artifactHash:hash(JSON.stringify(manifest)),runtimeHash:hash(readFileSync(join(dist,"runtime-config.json"))),hostingHash:hash(readFileSync(configPath))};
   write(join(archive,"build.json"),receipt);
-  const run = {id:123,run_attempt:1,head_sha:frontendSourceSha,repository:{full_name:"miranae/orider-web"},path:".github/workflows/deploy-stage.yml",event:"workflow_dispatch",status:"completed",conclusion:"success"};
+  const run = {id:123,run_attempt:1,head_sha:frontendSourceSha,head_branch:"main",repository:{full_name:"miranae/orider-web"},path:".github/workflows/deploy-stage.yml",event:"workflow_dispatch",status:"completed",conclusion:"success"};
   const artifact = {kind:"gcs",bucket:HOSTING_CANDIDATE_BUCKET,object:"deploy-candidates/hosting/123/1/candidate.tgz",generation:"456",sha256:"f".repeat(64),frontendSourceSha,workflowSourceSha:run.head_sha,artifactHash:receipt.artifactHash};
   return {root,archive,workspace,directory,dist,run,artifact,attempt:1,receipt,write,git,cleanup:()=>rmSync(root,{recursive:true,force:true})};
 }
@@ -48,7 +48,8 @@ test("missing hidden files, changed payload, added stale files, wrong source/run
 });
 test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot promote",()=>{
   const f=fixture();try{
-    for(const patch of [{conclusion:"failure"},{run_attempt:2},{path:".github/workflows/ci.yml"},{repository:{full_name:"other/repo"}},{event:"pull_request"}])assert.throws(()=>validateCandidateRun({...f.run,...patch},f.artifact,1),/selected/);
+    for(const patch of [{conclusion:"failure"},{run_attempt:2},{path:".github/workflows/ci.yml"},{head_branch:"dev"},{repository:{full_name:"other/repo"}},{event:"pull_request"}])assert.throws(()=>validateCandidateRun({...f.run,...patch},f.artifact,1),/selected/);
+    assert.equal(validateCandidateRun({...f.run,path:`${f.run.path}@main`},f.artifact,1),f.artifact.frontendSourceSha);
     assert.throws(()=>validateCandidateRun(f.run,{...f.artifact,generation:""},1),/pinned/);
     assert.throws(()=>validateCandidateRun(f.run,{...f.artifact,frontendSourceSha:"e".repeat(40)},1),/reviewed workflow source/);
   }finally{f.cleanup();}
