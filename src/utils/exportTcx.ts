@@ -84,7 +84,6 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   };
 
   let next = 0;
-  let previousEnd = 0;
   const timedAt = (cursor: number) => {
     const index = indices[cursor];
     return index == null ? null : relSecAt(index) ?? index;
@@ -92,7 +91,9 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const lastObservation = timedAt(indices.length - 1);
   const recordedDuration = resolveRecordedElapsedMs(activity, Math.max(summary.ridingTimeMillis || 0,
     Math.round((lastObservation ?? 0) * 1000)));
-  const onlyLap = streams.laps?.length === 1 ? streams.laps[0] : undefined;
+  const streamLaps = streams.laps ?? [];
+  const hasRecordedLaps = streamLaps.length > 0;
+  const onlyLap = streamLaps.length === 1 ? streamLaps[0] : undefined;
   const fullActivityLap = onlyLap != null && onlyLap.durationMs > 0 && onlyLap.durationMs === recordedDuration
     && (onlyLap.startTimeMs == null || onlyLap.startTimeMs === startMs)
     && (onlyLap.endTimeMs == null || onlyLap.endTimeMs === startMs + recordedDuration);
@@ -100,7 +101,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   let hasUnassigned = hasUntimedObservations;
   let canKeepRecordedLaps = true;
   let sharedClockPrefix = true;
-  for (const [lapIndex, lap] of (streams.laps ?? []).entries()) {
+  for (const [lapIndex, lap] of streamLaps.entries()) {
     const clock = nativeLapClock[lapIndex];
     sharedClockPrefix &&= clock != null && clock.start === clock.timerStart && clock.end === clock.timerEnd;
     const clockMatchesTrack = !ambiguousNativeClock || sharedClockPrefix;
@@ -109,10 +110,14 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       ? (lap.endTimeMs - startMs) / 1000 : undefined;
     const recordedStart = (activityTime || ambiguousNativeClock) && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
-    const start = fullActivityLap && recordedStart == null ? 0 : recordedStart ?? previousEnd;
+    if (recordedStart == null && !fullActivityLap) {
+      canKeepRecordedLaps = false;
+      continue;
+    }
+    const start = recordedStart ?? 0;
     const end = recordedEnd ?? start + duration;
     const hasRecordedBounds = (recordedStart != null && recordedEnd != null) || fullActivityLap;
-    const canAssignTrack = clockMatchesTrack && (!(activityTime || hasNativeLapTimes) || hasRecordedBounds);
+    const canAssignTrack = clockMatchesTrack && hasRecordedBounds;
     if (canAssignTrack && recordedStart != null) {
       const first = next;
       while (next < indices.length && (timedAt(next) ?? Infinity) < recordedStart) next++;
@@ -124,15 +129,11 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       if (time > end) break;
       next++;
     }
-    // A duration-only lap can retain its recorded metrics, but its track on an
-    // elapsed clock is unknown without a recorded boundary.
-    canKeepRecordedLaps &&= (!(activityTime || hasNativeLapTimes) || recordedStart != null || fullActivityLap);
     const validDistance = typeof lap.distanceKm === "number" && Number.isFinite(lap.distanceKm) && lap.distanceKm >= 0;
     laps.push({ start, endTime: end, duration, distance: validDistance ? lap.distanceKm * 1000 : 0,
       first, end: next });
-    previousEnd = end;
   }
-  hasUnassigned ||= laps.length > 0 && (next < indices.length || !canKeepRecordedLaps);
+  hasUnassigned ||= hasRecordedLaps && (next < indices.length || !canKeepRecordedLaps);
   const validRecordedDuration = recordedDuration != null;
   const summaryLapDuration = activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
     ? recordedDuration : undefined;
@@ -141,30 +142,30 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     && streams.calories >= 0 && streams.calories <= 65535 ? streams.calories : undefined;
   // Garmin's TCX schema requires an unsigned calorie value on every lap.
   const hasMissingLapCalories = activityCalories == null;
-  const requiresCsv = (laps.length > 0 && hasMissingLapCalories) || (!laps.length && activityTime && !validRecordedDuration
+  const requiresCsv = (hasRecordedLaps && hasMissingLapCalories) || (!hasRecordedLaps && activityTime && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000);
   const canExportAllAsTcx = !hasMissingLapCalories && typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
     && summaryLapDuration != null && !hasUntimedObservations;
-  const lapCoversActivity = laps.length === 1 && (fullActivityLap
+  const lapCoversActivity = streamLaps.length === 1 && (fullActivityLap
     || (recordedDuration != null && laps[0]?.start === 0 && laps[0].endTime === recordedDuration / 1000
       && onlyLap?.startTimeMs === startMs && onlyLap.endTimeMs === startMs + recordedDuration));
-  const hasUnallocatedCalories = laps.length > 0 && !lapCoversActivity
+  const hasUnallocatedCalories = hasRecordedLaps && !lapCoversActivity
     && (activityCalories ?? 0) > 0;
   return {
     hasUnassigned,
     canExportAllAsTcx,
-    canKeepRecordedLaps: laps.length > 0 && canKeepRecordedLaps && !hasMissingLapCalories && !hasUnallocatedCalories,
+    canKeepRecordedLaps: hasRecordedLaps && canKeepRecordedLaps && !hasMissingLapCalories && !hasUnallocatedCalories,
     hasUnallocatedCalories,
     hasMissingLapCalories,
     requiresCsv,
     render(mode: TcxLapMode): string {
-      if (hasMissingLapCalories && (laps.length > 0 || mode === "activity")) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
+      if (hasMissingLapCalories && (hasRecordedLaps || mode === "activity")) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
       if (requiresCsv) throw new Error("TCX_ELAPSED_UNAVAILABLE");
       if (mode === "recorded" && hasUnallocatedCalories) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
-      if (laps.length && !canKeepRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) throw new Error("TCX_LAP_CLOCK_UNAVAILABLE");
+      if (hasRecordedLaps && !canKeepRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) throw new Error("TCX_LAP_CLOCK_UNAVAILABLE");
       if (mode === "activity" && !canExportAllAsTcx) throw new Error("TCX_ACTIVITY_CLOCK_UNAVAILABLE");
       const lines = [...header];
-      if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
+      if (hasRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) {
         for (const lap of laps) {
           const calories = lapCoversActivity ? activityCalories ?? 0 : 0;
           writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, calories, lap.first, lap.end);

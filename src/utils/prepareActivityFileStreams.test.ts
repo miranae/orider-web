@@ -548,3 +548,17 @@ it("reports an unsupported stream cadence unit without logging the response valu
     capture.mockRestore();
   }
 });
+
+it("never derives a later legacy lap start from the previous lap timer", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, source: "orider", type: "Ride",
+    summary: { distance: 1000, elapsedTimeMillis: 150_000, ridingTimeMillis: 150_000 } } as Activity;
+  const streams = { userId: "owner", calories: 0, time: [0, 60, 90, 150], heartrate: [150, 151, 152, 153],
+    laps: [{ durationMs: 60_000, distanceKm: 0.5 }, { durationMs: 60_000, distanceKm: 0.5 }],
+  } as ActivityStreams;
+  const prepared = prepareTcxExport(activity, streams);
+  expect(prepared.canKeepRecordedLaps).toBe(false);
+  expect(() => prepared.render("recorded")).toThrow("TCX_LAP_CLOCK_UNAVAILABLE");
+  expect(prepared.canExportAllAsTcx).toBe(true);
+  expect(prepared.render("activity").match(/<Trackpoint>/gu)).toHaveLength(4);
+});
