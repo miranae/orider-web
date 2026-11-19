@@ -2,7 +2,7 @@ import { httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { AthletePhoto } from "../components/athlete/AthletePhotoGallery";
 import type { Activity } from "@shared/types";
-import { callApprovedActivityRead } from "../embedded/callApprovedActivityRead";
+import { callApprovedActivityRead, reportApprovedActivityReadFailure } from "../embedded/callApprovedActivityRead";
 import { getRuntimeConfig } from "./runtimeConfig";
 export interface AthleteProfileTotals {
   integrityFailed?: true;
@@ -30,9 +30,13 @@ export function parsePublicAthleteTotals(value: unknown): PublicAthleteTotals | 
   return v;
 }
 export async function loadPublicAthleteTotals(services: FirebaseServices, uid: string, current: () => boolean): Promise<PublicAthleteTotals> {
+  const viewer = services.auth.currentUser;
   const value = await callAthleteProfile<unknown>(services, uid, "getPublicAthleteTotals", { userId: uid }, current, true);
   const totals = parsePublicAthleteTotals(value);
-  if (!totals) throw new Error("athlete-profile-invalid-totals");
+  if (!totals) {
+    if (services.scope === "embedded") reportApprovedActivityReadFailure(services, viewer, "getPublicAthleteTotals", "contract");
+    throw new Error("athlete-profile-invalid-totals");
+  }
   return totals;
 }
 
