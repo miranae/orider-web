@@ -79,3 +79,12 @@ AI 분석 등 저장된 분석 결과는 데이터나 분석기 판이 바뀌어
 ### P12. 부작용이 있는 새 코드는 실패를 남긴다
 외부 호출·Firebase IO·캐시 갱신처럼 부작용이 있는 새 코드는 실패를 `logClientError` 등으로 기록합니다. 빈 `catch {}` 로 삼키지 않습니다.
 *New side-effecting code must log failures (e.g. `logClientError`); no silent catches.*
+
+### P13. 기본 검증과 복구로 배포를 안정적으로 유지한다
+
+- 정상 배포에서는 대상 환경과 검증한 커밋·산출물을 확인하고, 게시 결과와 핵심 경로의 동작을 확인합니다. 기존 실패 로그와 이전 정상 버전 복구 수단을 사용합니다.
+- 이미 검증한 산출물과 증거를 재사용합니다. 기본 흐름에 중복 빌드·검증, 파일별 추가·변경·삭제 재확인, 대기, 승인, 다음 배포 차단을 추가하려면 그 단계가 막는 장애를 제시해야 합니다. 플랫폼이 산출물 전체를 버전으로 게시하면 파일 목록은 게시 단위로 다룹니다.
+- 배포 리뷰에서 수정이나 추가 검사를 머지 조건으로 삼으려면 지원되는 작업 흐름에서 재현되는 실패와 실제 영향을 제시합니다. 대상 환경이나 산출물 오류, 배포 불능, 서비스 장애, 데이터 손상, 권한 위반, 기존 복구 수단의 실패가 해당합니다. 기존 확인으로 잡히는 경우에는 같은 검증을 추가하지 않습니다.
+- 운영자가 수용한 짧은 전환 순단이나, 현재 서비스를 계속 제공하면서 기존 후보로 다시 실행할 수 있는 실패는 그 자체로 머지를 차단하지 않습니다. 정상 개발·배포가 느려지는 변경은 기본 경로에 넣기 전에 효과와 비용을 따로 검토합니다.
+
+*Keep the normal release path short. Verify the target, reviewed artifact and critical live behavior, and retain the existing recovery path. Reuse build and test evidence. Require a reproducible failure and concrete impact before adding a blocking release control. Accepted brief transition interruptions and recoverable failures that preserve the live release do not block a merge on their own.*
