@@ -1,63 +1,18 @@
 import type { Activity, ActivityStreams } from "@shared/types";
-import { cadenceWriter, type CadenceWriter, type ExportCadenceUnit } from "./exportCadence";
 import { exportSportOf } from "./exportSport";
-import { activitySensorOrigin } from "../features/activity/detail/activitySensorOrigin";
-import { resolveRecordedElapsedMs, usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { makeRelSecAt } from "./streamTime";
-import { detectTimestampUnit } from "./timestampUnit";
 
-export type TcxLapMode = "recorded" | "activity";
-
-export function generateTcx(activity: Activity, streams: ActivityStreams, cadenceUnit?: ExportCadenceUnit): string {
-  return prepareTcxExport(activity, streams, cadenceUnit).render("recorded");
-}
-
-/** @param cadenceUnit 활동 지표의 저장 케이던스 단위 — 러닝 케이던스를 한 발 기준으로 바꾸는 데 쓴다. */
-export function prepareTcxExport(activity: Activity, streams: ActivityStreams, cadenceUnit?: ExportCadenceUnit) {
+export function generateTcx(activity: Activity, streams: ActivityStreams): string {
   const sport = exportSportOf(activity);
-  const cadence = cadenceWriter(sport, cadenceUnit);
   const startDate = new Date(activity.startTime);
   const startMs = startDate.getTime();
   const len = streams.time?.length || streams.latlng?.length || 0;
 
   // streams.time 단위 정규화(상대 초) — 공용 헬퍼. 절대 epoch 입력 시 트랙포인트 시간이
   // 서기 5만년대로 오버플로우하던 버그 방지. 랩 분할/트랙포인트 시간이 동일 기준으로 계산된다.
-  const relativeAt = makeRelSecAt(streams.time);
-  const firstTime = streams.time?.find(value => Number.isFinite(value));
-  const unit = firstTime == null ? "relative_sec" : detectTimestampUnit(firstTime);
-  const verifiedRelativeClock = usesVerifiedActivityTime(streams);
-  const recordedClock = unit !== "relative_sec";
-  const summary = activity.summary;
-  let lapTimer = 0;
-  const nativeLapClock = (streams.laps ?? []).map(lap => {
-    const timerStart = lapTimer;
-    lapTimer += lap.durationMs / 1000;
-    return {
-      start: ((lap.startTimeMs ?? NaN) - startMs) / 1000,
-      end: ((lap.endTimeMs ?? NaN) - startMs) / 1000,
-      timerStart,
-      timerEnd: lapTimer,
-    };
-  });
-  const boundedLaps = nativeLapClock.length > 0 && nativeLapClock.every((lap, index) =>
-    Number.isFinite(lap.start) && Number.isFinite(lap.end) && lap.end > lap.start
-    && lap.start >= (nativeLapClock[index - 1]?.end ?? 0));
-  // Where both clocks have identical origins and offsets, the stored samples can
-  // be attached to those laps without resolving the legacy clock convention.
-  const coincidentClocks = boundedLaps && nativeLapClock.every(lap => lap.start === lap.timerStart && lap.end === lap.timerEnd);
-  const stravaElapsedClock = activity.source === "strava" && activitySensorOrigin(activity) == null;
-  const activityTime = verifiedRelativeClock || recordedClock || coincidentClocks || stravaElapsedClock;
-  const hasNativeLapTimes = nativeLapClock.some(lap => Number.isFinite(lap.start) || Number.isFinite(lap.end));
-  const ambiguousNativeClock = !activityTime && hasNativeLapTimes;
-  const relSecAt = (index: number) => {
-    const value = streams.time?.[index];
-    if (value == null || !Number.isFinite(value)) return relativeAt(index);
-    if (unit === "epoch_ms") return (value - startMs) / 1000;
-    if (unit === "epoch_sec") return value - startMs / 1000;
-    return value;
-  };
+  const relSecAt = makeRelSecAt(streams.time);
 
-  const header = [
+  const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ext="http://www.garmin.com/xmlschemas/ActivityExtension/v2">',
     '<Activities>',
@@ -65,131 +20,51 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     `<Id>${startDate.toISOString()}</Id>`,
   ];
 
-  const observedIndices = Array.from({ length: len }, (_, index) => index).filter(index =>
-    !activityTime || streams.latlng?.[index] != null || Number.isFinite(streams.distance?.[index])
-    || Number.isFinite(streams.altitude?.[index]) || Number.isFinite(streams.heartrate?.[index])
-    || Number.isFinite(streams.watts?.[index]) || Number.isFinite(streams.velocity_smooth?.[index]) || cadence.whole(streams.cadence?.[index]) != null);
-  const indices = observedIndices.filter(index => !activityTime || Number.isFinite(relSecAt(index)));
-  const hasUntimedObservations = indices.length !== observedIndices.length;
-  const writeTrack = (lines: string[], first: number, end: number) => {
-    if (first === end) return;
-    lines.push('<Track>');
-    for (const index of indices.slice(first, end)) writeTrackpoint(lines, streams, index, startMs, relSecAt(index), cadence);
-    lines.push('</Track>');
-  };
-  const writeLap = (lines: string[], when: number, duration: number, distance: number, calories: number, first: number, end: number) => {
-    openLap(lines, when, duration, distance, calories);
-    writeTrack(lines, first, end);
-    lines.push('</Lap>');
-  };
+  // 랩 정보가 있으면 랩별 Lap 생성, 없으면 전체를 단일 Lap으로
+  if (streams.laps && streams.laps.length > 0) {
+    let trackIdx = 0;
+    for (const lap of streams.laps) {
+      const lapSeconds = (lap.durationMs || 0) / 1000;
+      const lapDistanceM = (lap.distanceKm || 0) * 1000;
+      lines.push('<Lap>');
+      lines.push(`<TotalTimeSeconds>${lapSeconds}</TotalTimeSeconds>`);
+      lines.push(`<DistanceMeters>${lapDistanceM}</DistanceMeters>`);
+      lines.push('<Track>');
 
-  let next = 0;
-  const timedAt = (cursor: number) => {
-    const index = indices[cursor];
-    return index == null ? null : relSecAt(index) ?? index;
-  };
-  const lastObservation = timedAt(indices.length - 1);
-  const recordedDuration = resolveRecordedElapsedMs(activity, Math.max(summary.ridingTimeMillis || 0,
-    Math.round((lastObservation ?? 0) * 1000)));
-  const streamLaps = streams.laps ?? [];
-  const hasRecordedLaps = streamLaps.length > 0;
-  const onlyLap = streamLaps.length === 1 ? streamLaps[0] : undefined;
-  const fullActivityLap = onlyLap != null && onlyLap.durationMs > 0 && onlyLap.durationMs === recordedDuration
-    && (onlyLap.startTimeMs == null || onlyLap.startTimeMs === startMs)
-    && (onlyLap.endTimeMs == null || onlyLap.endTimeMs === startMs + recordedDuration);
-  const laps: Array<{ start: number; endTime: number; duration: number; distance: number; first: number; end: number }> = [];
-  let hasUnassigned = hasUntimedObservations;
-  let canKeepRecordedLaps = true;
-  let sharedClockPrefix = true;
-  for (const [lapIndex, lap] of streamLaps.entries()) {
-    const clock = nativeLapClock[lapIndex];
-    sharedClockPrefix &&= clock != null && clock.start === clock.timerStart && clock.end === clock.timerEnd;
-    const clockMatchesTrack = !ambiguousNativeClock || sharedClockPrefix;
-    const duration = (lap.durationMs || 0) / 1000;
-    const recordedEnd = (activityTime || ambiguousNativeClock) && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
-      ? (lap.endTimeMs - startMs) / 1000 : undefined;
-    const recordedStart = (activityTime || ambiguousNativeClock) && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
-      ? (lap.startTimeMs - startMs) / 1000 : undefined;
-    if (recordedStart == null && !fullActivityLap) {
-      canKeepRecordedLaps = false;
-      continue;
-    }
-    const start = recordedStart ?? 0;
-    const end = recordedEnd ?? start + duration;
-    const hasRecordedBounds = (recordedStart != null && recordedEnd != null) || fullActivityLap;
-    const canAssignTrack = clockMatchesTrack && hasRecordedBounds;
-    if (canAssignTrack && recordedStart != null) {
-      const first = next;
-      while (next < indices.length && (timedAt(next) ?? Infinity) < recordedStart) next++;
-      hasUnassigned ||= next > first;
-    }
-    const first = next;
-    while (canAssignTrack && next < indices.length) {
-      const time = timedAt(next) ?? Infinity;
-      if (time > end) break;
-      next++;
-    }
-    const validDistance = typeof lap.distanceKm === "number" && Number.isFinite(lap.distanceKm) && lap.distanceKm >= 0;
-    laps.push({ start, endTime: end, duration, distance: validDistance ? lap.distanceKm * 1000 : 0,
-      first, end: next });
-  }
-  hasUnassigned ||= hasRecordedLaps && (next < indices.length || !canKeepRecordedLaps);
-  const validRecordedDuration = recordedDuration != null;
-  const summaryLapDuration = activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
-    ? recordedDuration : undefined;
-  // Export only calories delivered with the currently authorized streams.
-  const activityCalories = typeof streams.calories === "number" && Number.isFinite(streams.calories)
-    && streams.calories >= 0 && streams.calories <= 65535 ? streams.calories : undefined;
-  // Garmin's TCX schema requires an unsigned calorie value on every lap.
-  const hasMissingLapCalories = activityCalories == null;
-  const requiresCsv = (hasRecordedLaps && hasMissingLapCalories) || (!hasRecordedLaps && activityTime && !validRecordedDuration
-    && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000);
-  const canExportAllAsTcx = !hasMissingLapCalories && typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
-    && summaryLapDuration != null && !hasUntimedObservations;
-  const lapCoversActivity = streamLaps.length === 1 && (fullActivityLap
-    || (recordedDuration != null && laps[0]?.start === 0 && laps[0].endTime === recordedDuration / 1000
-      && onlyLap?.startTimeMs === startMs && onlyLap.endTimeMs === startMs + recordedDuration));
-  const hasUnallocatedCalories = hasRecordedLaps && !lapCoversActivity
-    && (activityCalories ?? 0) > 0;
-  return {
-    hasUnassigned,
-    canExportAllAsTcx,
-    canKeepRecordedLaps: hasRecordedLaps && canKeepRecordedLaps && !hasMissingLapCalories && !hasUnallocatedCalories,
-    hasUnallocatedCalories,
-    hasMissingLapCalories,
-    requiresCsv,
-    render(mode: TcxLapMode): string {
-      if (hasMissingLapCalories && (hasRecordedLaps || mode === "activity")) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
-      if (requiresCsv) throw new Error("TCX_ELAPSED_UNAVAILABLE");
-      if (mode === "recorded" && hasUnallocatedCalories) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
-      if (hasRecordedLaps && !canKeepRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) throw new Error("TCX_LAP_CLOCK_UNAVAILABLE");
-      if (mode === "activity" && !canExportAllAsTcx) throw new Error("TCX_ACTIVITY_CLOCK_UNAVAILABLE");
-      const lines = [...header];
-      if (hasRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) {
-        for (const lap of laps) {
-          const calories = lapCoversActivity ? activityCalories ?? 0 : 0;
-          writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, calories, lap.first, lap.end);
-        }
-      } else {
-        const duration = ((mode === "activity" ? summaryLapDuration
-          : activityTime ? recordedDuration ?? summary.ridingTimeMillis : summary.ridingTimeMillis) || 0) / 1000;
-        writeLap(lines, startMs, duration, summary.distance || 0, activityCalories ?? 0, 0, indices.length);
-
+      // 현재 랩에 해당하는 트랙포인트 수 추정 (상대 초 기반)
+      const lapEndTime = (relSecAt(trackIdx) ?? 0) + lapSeconds;
+      while (trackIdx < len) {
+        const tSec = relSecAt(trackIdx) ?? trackIdx;
+        if (tSec > lapEndTime && trackIdx > 0) break;
+        writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx), !sport.footCadence);
+        trackIdx++;
       }
-      lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
-      return lines.join('\n');
-    },
-  };
+
+      lines.push('</Track>', '</Lap>');
+    }
+    // 남은 트랙포인트가 있으면 마지막 랩에 포함
+    if (trackIdx < len) {
+      // 이미 닫힌 마지막 Lap 뒤에 추가 포인트 — 무시 (사소한 오차)
+    }
+  } else {
+    lines.push('<Lap>');
+    lines.push(`<TotalTimeSeconds>${(activity.summary.ridingTimeMillis || 0) / 1000}</TotalTimeSeconds>`);
+    lines.push(`<DistanceMeters>${activity.summary.distance || 0}</DistanceMeters>`);
+    lines.push(`<Calories>${streams.calories || 0}</Calories>`);
+    lines.push('<Track>');
+
+    for (let i = 0; i < len; i++) {
+      writeTrackpoint(lines, streams, i, startMs, relSecAt(i), !sport.footCadence);
+    }
+
+    lines.push('</Track>', '</Lap>');
+  }
+
+  lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
+  return lines.join('\n');
 }
 
-function openLap(lines: string[], startMs: number, duration: number, distance: number, calories: number) {
-  const caloriesField = Number.isFinite(calories) ? Math.round(Math.max(0, Math.min(65535, calories))) : 0;
-  lines.push(`<Lap StartTime="${new Date(startMs).toISOString()}">`,
-    `<TotalTimeSeconds>${duration}</TotalTimeSeconds>`, `<DistanceMeters>${distance}</DistanceMeters>`,
-    `<Calories>${caloriesField}</Calories>`, '<Intensity>Active</Intensity>', '<TriggerMethod>Manual</TriggerMethod>');
-}
-
-function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, startMs: number, relSec: number | null, cadence: CadenceWriter) {
+function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, startMs: number, relSec: number | null, includeBikeCadence: boolean) {
   const time = relSec != null ? new Date(startMs + relSec * 1000).toISOString() : new Date(startMs).toISOString();
   lines.push('<Trackpoint>');
   lines.push(`<Time>${time}</Time>`);
@@ -211,20 +86,13 @@ function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, s
     lines.push(`<Value>${streams.heartrate[i]}</Value>`);
     lines.push('</HeartRateBpm>');
   }
-  const cad = cadence.whole(streams.cadence?.[i]);
-  // Trackpoint <Cadence> 는 자전거 rpm 이다. 러닝은 TPX 확장의 RunCadence(한 발 기준)에 싣는다.
-  if (cad != null && !cadence.footCadence) {
-    lines.push(`<Cadence>${cad}</Cadence>`);
+  if (includeBikeCadence && streams.cadence?.[i] != null) {
+    lines.push(`<Cadence>${streams.cadence[i]}</Cadence>`);
   }
-  const runCadence = cadence.footCadence ? cad : null;
-  const speed = streams.velocity_smooth?.[i];
-  const hasSpeed = typeof speed === "number" && Number.isFinite(speed) && speed >= 0;
-  if (hasSpeed || streams.watts?.[i] != null || runCadence != null) {
+  if (streams.watts?.[i] != null) {
     lines.push('<Extensions>');
     lines.push('<ext:TPX>');
-    if (hasSpeed) lines.push(`<ext:Speed>${speed}</ext:Speed>`);
-    if (runCadence != null) lines.push(`<ext:RunCadence>${runCadence}</ext:RunCadence>`);
-    if (streams.watts?.[i] != null) lines.push(`<ext:Watts>${streams.watts[i]}</ext:Watts>`);
+    lines.push(`<ext:Watts>${streams.watts[i]}</ext:Watts>`);
     lines.push('</ext:TPX>');
     lines.push('</Extensions>');
   }

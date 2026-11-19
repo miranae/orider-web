@@ -89,36 +89,15 @@ describe('generateTcx', () => {
     expect(tcx).not.toContain('<ext:Watts>');
   });
 
+  it('keeps cycling cadence without labelling running samples as cycling cadence', () => {
+    const streams = { userId: 'u1', time: [0], heartrate: [150], cadence: [90] };
+    expect(generateTcx(makeActivity({ type: 'Run' }), streams)).not.toContain('<Cadence>');
+    expect(generateTcx(makeActivity({ type: 'Ride' }), streams)).toContain('<Cadence>90</Cadence>');
+  });
+
   it('writes the activity sport (TCX allows only Running, Biking and Other)', () => {
     const streams = { userId: 'u1', time: [0], latlng: [[37.5, 127.0]] as [number, number][] };
     expect(generateTcx(makeActivity({ type: 'Run' }), streams)).toContain('<Activity Sport="Running">');
     expect(generateTcx(makeActivity({ type: 'Walk' }), streams)).toContain('<Activity Sport="Other">');
-  });
-
-  it('writes run cadence as one-foot RunCadence instead of the cycling Cadence element', () => {
-    const streams = { userId: 'u1', time: [0, 1], cadence: [168, 169] };
-    const xml = generateTcx(makeActivity({ type: 'Run' }), streams, 'spm');
-    expect(xml).toContain('<ext:RunCadence>84</ext:RunCadence>');
-    expect(xml).not.toContain('<Cadence>');
-  });
-
-  it('omits run cadence when its unit is unknown', () => {
-    const streams = { userId: 'u1', time: [0], cadence: [168] };
-    const xml = generateTcx(makeActivity({ type: 'Run' }), streams, null);
-    expect(xml).not.toContain('Cadence>');
-  });
-
-  it('omits cadence outside the file range without dropping the trackpoint', () => {
-    const streams = { userId: 'u1', time: [0], cadence: [256] };
-    const xml = generateTcx(makeActivity({ type: 'Run' }), streams, 'strides_per_minute');
-    expect(xml).not.toContain('RunCadence');
-    expect(xml).toContain('<Trackpoint>');
-  });
-
-  it('keeps cycling cadence in the Cadence element', () => {
-    const streams = { userId: 'u1', time: [0], cadence: [90] };
-    const xml = generateTcx(makeActivity({ type: 'Ride' }), streams, 'rpm');
-    expect(xml).toContain('<Cadence>90</Cadence>');
-    expect(xml).not.toContain('RunCadence');
   });
 });

@@ -4,11 +4,9 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
-import type { ActivityStreams } from "@shared/types";
-import { markStreamCadenceUnit } from "../services/activityStreamSource";
 
 export function useStrava() {
-  const { auth, functions } = useFirebaseServices();
+  const { functions } = useFirebaseServices();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,25 +87,22 @@ export function useStrava() {
     }
   }, [functions]);
 
-  const getStreams = useCallback(async (stravaActivityId: number, options?: { includeCadenceUnit?: boolean }) => {
-    const account = auth.currentUser;
+  const getStreams = useCallback(async (stravaActivityId: number) => {
     setLoading(true);
     setError(null);
     try {
       const fn = httpsCallable(functions, "stravaGetActivityStreams");
-      const payload = options?.includeCadenceUnit ? { stravaActivityId, includeCadenceUnit: true } : { stravaActivityId };
       let result: unknown;
       try {
-        result = await fn(payload);
+        result = await fn({ stravaActivityId });
       } catch (firstError) {
         // Callable 응답 파싱은 네트워크/런타임 경계에서 간헐적으로 실패할 수
         // 있다. 스트림 읽기는 멱등이므로 같은 요청을 한 번만 재시도한다.
-        if (auth.currentUser !== account || !(firstError instanceof Error) || !firstError.message.includes("Response is not valid JSON object")) {
+        if (!(firstError instanceof Error) || !firstError.message.includes("Response is not valid JSON object")) {
           throw firstError;
         }
-        result = await fn(payload);
+        result = await fn({ stravaActivityId });
       }
-      if (auth.currentUser !== account) throw new Error("account_changed");
       // Firebase callable 응답은 보통 `data`로 오지만, 런타임이 섞인 배포에서는
       // 같은 payload가 `result`로 노출될 수 있다. 성공한 스트림 응답이
       // undefined로 바뀌어 분석 없음 상태가 되는 것을 막는다.
@@ -116,17 +111,15 @@ export function useStrava() {
       if (!streams || typeof streams !== "object" || Array.isArray(streams)) {
         throw new Error("STREAMS_INVALID");
       }
-      const response = streams as Record<string, unknown>;
-      if (!options?.includeCadenceUnit || response.contract !== "strava-stream-cadence-v1") return response;
-      if (!response.streams || typeof response.streams !== "object" || Array.isArray(response.streams)) throw new Error("STREAMS_INVALID");
-      return markStreamCadenceUnit(response.streams as ActivityStreams, response.cadenceUnit);
+      return streams as Record<string, unknown>;
     } catch (e) {
-      if (auth.currentUser === account) setError(e instanceof Error ? e.message : "Stream fetch failed");
+      const msg = e instanceof Error ? e.message : "Stream fetch failed";
+      setError(msg);
       throw e;
     } finally {
       setLoading(false);
     }
-  }, [auth, functions]);
+  }, [functions]);
 
   const disconnectStrava = async (operationId: string) => {
     setLoading(true);

@@ -1,11 +1,9 @@
 import { renderHook, act } from "@testing-library/react";
 import { useStrava } from "./useStrava";
-import { readStreamCadenceUnit } from "../services/activityStreamSource";
 import {
   mockCallableInvocations,
   setCallableImplementation,
   setCallableResult,
-  simulateLogin,
 } from "../__tests__/mocks/firebase";
 
 const mocks = vi.hoisted(() => ({
@@ -21,41 +19,6 @@ vi.mock("../services/analytics", () => ({ track: mocks.track }));
 vi.mock("../services/errorLogger", () => ({ logClientError: mocks.logClientError }));
 
 describe("useStrava", () => {
-  it("keeps a provider cadence unit on exactly the returned legacy owner samples", async () => {
-    const streams = { userId: "owner", time: [0, 1], cadence: [84, 85], heartrate: [140, 142] };
-    setCallableResult("stravaGetActivityStreams", { data: { contract: "strava-stream-cadence-v1", streams, cadenceUnit: "strides_per_minute" } });
-    const { result } = renderHook(() => useStrava());
-    await act(async () => {
-      const data = await result.current.getStreams(42, { includeCadenceUnit: true });
-      expect(data).toMatchObject(streams);
-      expect(readStreamCadenceUnit(data as typeof streams)).toBe("strides_per_minute");
-    });
-    expect(mockCallableInvocations).toContainEqual({ name: "stravaGetActivityStreams", data: { stravaActivityId: 42, includeCadenceUnit: true } });
-  });
-
-  it("does not dispatch a provider retry under a replacement account", async () => {
-    simulateLogin({ uid: "original" });
-    setCallableImplementation("stravaGetActivityStreams", () => {
-      simulateLogin({ uid: "replacement" });
-      return Promise.reject(new Error("Response is not valid JSON object"));
-    });
-    const { result } = renderHook(() => useStrava());
-    await act(async () => {
-      await expect(result.current.getStreams(42, { includeCadenceUnit: true })).rejects.toThrow("Response is not valid JSON object");
-    });
-    expect(mockCallableInvocations.filter(call => call.name === "stravaGetActivityStreams")).toHaveLength(1);
-  });
-
-  it("preserves a pre-contract rollout response, including its stored samples", async () => {
-    const streams = { userId: "owner", time: [0], cadence: [85] };
-    setCallableResult("stravaGetActivityStreams", { data: streams });
-    const { result } = renderHook(() => useStrava());
-    await act(async () => {
-      const data = await result.current.getStreams(42, { includeCadenceUnit: true });
-      expect(data).toMatchObject(streams);
-      expect(readStreamCadenceUnit(data as typeof streams)).toBeUndefined();
-    });
-  });
   it("forwards granted scopes when reconnecting for publishing", async () => {
     setCallableResult("stravaExchangeToken", { data: { athleteId: 123 } });
     const { result } = renderHook(() => useStrava());

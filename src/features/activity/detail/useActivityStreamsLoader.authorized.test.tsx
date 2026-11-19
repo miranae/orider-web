@@ -1,38 +1,14 @@
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { getDoc } from "firebase/firestore";
-import type { User } from "firebase/auth";
 import type { Activity } from "@shared/types";
-import { FirebaseServicesProvider, useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
-import type { ReactNode } from "react";
 import { useActivityStreamsLoader } from "./useActivityStreamsLoader";
 const mocks = vi.hoisted(() => ({ streams: vi.fn() }));
-vi.mock("../../../services/publicActivityDetail", () => ({ createPublicActivityClient: () => mocks, isPublicActivityAccessError: (error: {code?: string}) => ["functions/permission-denied", "functions/not-found", "functions/failed-precondition"].includes(error.code ?? "") }));
+vi.mock("../../../services/publicActivityDetail", () => ({ createPublicActivityClient: () => mocks, isPublicActivityAccessError: (error: {code?: string}) => error.code === "functions/permission-denied" }));
 const t = (key: string) => key;
 const getStreams = vi.fn();
 const activity = { id: "a", userId: "owner", source: "orider", type: "VirtualRide" } as Activity;
 beforeEach(() => { mocks.streams.mockReset(); getStreams.mockClear(); });
-it("discards a legacy Strava stream from a replaced SDK session", async () => {
-  let resolve!: (value: unknown) => void;
-  getStreams.mockReturnValueOnce(new Promise(yes => { resolve = yes; }));
-  const serviceTemplate = renderHook(() => useFirebaseServices());
-  const auth = { currentUser: { uid: "owner" } as User };
-  const services = { ...serviceTemplate.result.current, auth: auth as ReturnType<typeof useFirebaseServices>["auth"] };
-  serviceTemplate.unmount();
-  const run = { ...activity, id: "strava_123", source: "strava", type: "Run", stravaActivityId: 123 } as Activity;
-  const { result } = renderHook(() => useActivityStreamsLoader({
-    activityId: run.id, activity: run, userId: "owner", getStreams, t,
-  }), { wrapper: ({ children }: { children: ReactNode }) => <FirebaseServicesProvider services={services}>{children}</FirebaseServicesProvider> });
-  expect(getStreams).toHaveBeenCalledExactlyOnceWith(123, { includeCadenceUnit: true });
-  expect(result.current.loadingStreams).toBe(true);
-  auth.currentUser = { uid: "different" } as User;
-  await act(async () => resolve({ cadence: [85] }));
-  expect(result.current.streams).toBeNull();
-  expect(result.current.loadingStreams).toBe(false);
-  expect(result.current.showStreamSpinner).toBe(false);
-});
-
-
 it("uses the authorized full-resolution reader without raw Firestore or provider reads, retaining streams on social refresh", async () => {
   const streams = { time: [0, .5, 1], watts: [200, 0, 150] };
   mocks.streams.mockResolvedValue({ state: "available", activityId: "a", streams });

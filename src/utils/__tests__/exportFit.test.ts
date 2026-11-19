@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { generateFit, crc16, degreesToSemicircles } from '../exportFit';
-import { markRawPartStreams } from '../../services/activityStreamSource';
-import { prepareActivityFileStreams } from '../prepareActivityFileStreams';
 
 const makeActivity = (overrides = {}) => ({
   id: 'test',
@@ -27,7 +25,7 @@ const makeActivity = (overrides = {}) => ({
 });
 
 /** Reads sport/sub_sport from the session message (global 18). The writer uses no compressed headers or developer fields. */
-function readSession(data: Uint8Array): Map<number, number> {
+function readSessionSport(data: Uint8Array): { sport: number; subSport: number } {
   const end = data[0]! + (data[4]! | (data[5]! << 8) | (data[6]! << 16) | (data[7]! << 24));
   const definitions = new Map<number, { global: number; fields: [number, number][] }>();
   let i = data[0]!;
@@ -46,61 +44,11 @@ function readSession(data: Uint8Array): Map<number, number> {
     const values = new Map<number, number>();
     for (const [num, size] of definition.fields) {
       if (size === 1) values.set(num, data[i]!);
-      if (size === 4) values.set(num, new DataView(data.buffer, data.byteOffset + i, 4).getUint32(0, true));
       i += size;
     }
-    if (definition.global === 18) return values;
+    if (definition.global === 18) return { sport: values.get(5)!, subSport: values.get(6)! };
   }
   throw new Error('session message not found');
-}
-
-function readSessionSport(data: Uint8Array): { sport: number; subSport: number } {
-  const values = readSession(data);
-  return { sport: values.get(5)!, subSport: values.get(6)! };
-}
-
-it("uses actual elapsed time on a verified grid and keeps the FIT timer time independent", () => {
-  const startTime = 1700000000000;
-  const base = makeActivity({ type: "Run", startTime, endTime: 0 });
-  const time = Array.from({ length: 61 }, (_, index) => index);
-  const raw = markRawPartStreams({ userId: "owner", time, cadence: time.map(() => 170) }, "a".repeat(64), startTime + 30_000);
-  const prepared = prepareActivityFileStreams(base, raw, "fit");
-  const unknown = readSession(generateFit(base, prepared, "spm"));
-  expect(unknown.get(7)).toBe(0xFFFFFFFF);
-  expect(unknown.get(8)).toBe(60_000);
-  const known = readSession(generateFit({ ...base, endTime: startTime + 100_000,
-    summary: { ...base.summary, elapsedTimeMillis: 100_000 } }, prepared, "spm"));
-  expect(known.get(7)).toBe(100_000);
-  expect(known.get(8)).toBe(60_000);
-});
-
-/** Reads cadence (field 4) and fractional_cadence (field 53) from every record message (global 20). */
-function readRecordCadence(data: Uint8Array): { fields: number[]; cadence: number[]; fractional: number[] } {
-  const end = data[0]! + (data[4]! | (data[5]! << 8) | (data[6]! << 16) | (data[7]! << 24));
-  const definitions = new Map<number, { global: number; fields: [number, number][] }>();
-  const out = { fields: [] as number[], cadence: [] as number[], fractional: [] as number[] };
-  let i = data[0]!;
-  while (i < end) {
-    const header = data[i++]!;
-    const local = header & 0x0f;
-    if (header & 0x40) {
-      const count = data[i + 4]!;
-      const fields: [number, number][] = [];
-      for (let f = 0; f < count; f++) fields.push([data[i + 5 + f * 3]!, data[i + 6 + f * 3]!]);
-      const global = data[i + 2]! | (data[i + 3]! << 8);
-      definitions.set(local, { global, fields });
-      if (global === 20) out.fields = fields.map(([num]) => num);
-      i += 5 + count * 3;
-      continue;
-    }
-    const definition = definitions.get(local)!;
-    for (const [num, size] of definition.fields) {
-      if (definition.global === 20 && num === 4) out.cadence.push(data[i]!);
-      if (definition.global === 20 && num === 53) out.fractional.push(data[i]!);
-      i += size;
-    }
-  }
-  return out;
 }
 
 describe('exportFit', () => {
@@ -219,47 +167,21 @@ describe('exportFit', () => {
       expect(encodedAltitude).toBe(0xFFFF);
     });
 
-    it('writes one-foot cadence for an Orider run stored in spm, keeping the half step', () => {
-      const streams = { userId: 'u1', time: [0, 1, 2], cadence: [168, 169, 170] };
-      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, 'spm'));
-      expect(read.cadence).toEqual([84, 84, 85]);
-      expect(read.fractional).toEqual([0, 64, 0]);
-    });
-
-    it('keeps a run already stored in strides per minute', () => {
-      const streams = { userId: 'u1', time: [0, 1], cadence: [84, 85] };
-      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, 'strides_per_minute'));
-      expect(read.cadence).toEqual([84, 85]);
-      expect(read.fractional).toEqual([0, 0]);
-    });
-
-    it('omits run cadence when its unit is unknown instead of guessing', () => {
-      const streams = { userId: 'u1', time: [0, 1], cadence: [168, 169] };
-      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, null));
-      expect(read.fields).not.toContain(4);
-      expect(read.fields).not.toContain(53);
-    });
-
-    it('encodes cadence above the file range as missing, never a wrapped zero', () => {
-      const streams = { userId: 'u1', time: [0, 1], cadence: [256, 85] };
-      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, 'strides_per_minute'));
-      expect(read.cadence).toEqual([0xff, 85]);
-      expect(read.fractional).toEqual([0xff, 0]);
-    });
-
-    it('keeps cycling cadence in rpm without a fractional field', () => {
-      const streams = { userId: 'u1', time: [0, 1], cadence: [90, 91] };
-      const read = readRecordCadence(generateFit(makeActivity({ type: 'Ride' }), streams, 'rpm'));
-      expect(read.cadence).toEqual([90, 91]);
-      expect(read.fields).not.toContain(53);
-    });
-
     it('writes the activity sport to the session instead of always cycling', () => {
       const streams = { userId: 'u1', time: [0, 1], latlng: [[37.5, 127.0], [37.501, 127.001]] as [number, number][] };
       expect(readSessionSport(generateFit(makeActivity({ type: 'Run' }), streams))).toEqual({ sport: 1, subSport: 0 });
       expect(readSessionSport(generateFit(makeActivity({ type: 'ride' }), streams))).toEqual({ sport: 2, subSport: 0 });
+      expect(readSessionSport(generateFit(makeActivity({ type: 'VirtualRun' }), streams))).toEqual({ sport: 1, subSport: 58 });
       expect(readSessionSport(generateFit(makeActivity({ type: 'VirtualRide' }), streams))).toEqual({ sport: 2, subSport: 58 });
       expect(readSessionSport(generateFit(makeActivity({ type: 'Workout' }), streams))).toEqual({ sport: 0, subSport: 0 });
+    });
+
+    it('does not interpret unlabelled foot cadence as FIT cycles per minute', () => {
+      const streams = { userId: 'u1', time: [0], heartrate: [150] };
+      const run = makeActivity({ type: 'Run' });
+      expect(generateFit(run, { ...streams, cadence: [180] })).toEqual(generateFit(run, streams));
+      const ride = makeActivity({ type: 'Ride' });
+      expect(generateFit(ride, { ...streams, cadence: [90] })).not.toEqual(generateFit(ride, streams));
     });
 
     it('absolute epoch-ms time normalizes — byte-identical to relative-second (regression)', () => {
@@ -271,88 +193,4 @@ describe('exportFit', () => {
       expect(Array.from(abs)).toEqual(Array.from(rel));
     });
   });
-});
-
-it("validates elapsed time before quantizing FIT record timestamps", () => {
-  const startTime = 1_700_000_000_000;
-  const source = makeActivity({ type: "Run", startTime });
-  const activity = { ...source, summary: { ...source.summary, ridingTimeMillis: 1000, elapsedTimeMillis: 1950 } };
-  const streams = markRawPartStreams({ userId: "owner", time: [0, 1], cadence: [170, 172] }, "a".repeat(64), startTime + 900);
-  const prepared = prepareActivityFileStreams(activity, streams, "fit");
-  expect(prepared.time).toEqual([1, 2]);
-  const session = readSession(generateFit(activity, prepared, "spm"));
-  expect(session.get(7)).toBe(1950);
-});
-
-it("does not use empty trailing raw grid slots as FIT observations", () => {
-  const startTime = 1_700_000_000_000;
-  const source = makeActivity({ type: "Run", startTime, endTime: startTime + 1000 });
-  const activity = { ...source, summary: { ...source.summary, ridingTimeMillis: 1000, elapsedTimeMillis: 1000 } };
-  const raw = markRawPartStreams({ userId: "owner", time: [0, 1, 2, 3], cadence: [170, 172] }, "a".repeat(64), startTime);
-  const prepared = prepareActivityFileStreams(activity, raw, "fit");
-  expect(prepared.time).toEqual([0, 1]);
-  const session = readSession(generateFit(activity, prepared, "spm"));
-  expect(session.get(7)).toBe(1000);
-  expect(session.get(253)! - session.get(2)!).toBe(1);
-});
-
-it("quantizes verified FIT records against the absolute start clock", () => {
-  const startTime = 1_700_000_000_900;
-  const source = makeActivity({ type: "Run", startTime, endTime: startTime + 1000 });
-  const activity = { ...source, summary: { ...source.summary, ridingTimeMillis: 1000, elapsedTimeMillis: 1000 } };
-  const raw = markRawPartStreams({ userId: "owner", time: [0], cadence: [170] }, "a".repeat(64), startTime + 200);
-  const prepared = prepareActivityFileStreams(activity, raw, "fit");
-  expect(prepared.time).toEqual([0]);
-  const session = readSession(generateFit(activity, prepared, "spm"));
-  expect(session.get(253)! - session.get(2)!).toBe(1);
-  expect(session.get(7)).toBe(1000);
-});
-
-it("uses the native legacy elapsed field and its independent moving time", () => {
-  const startTime = 1_700_000_000_000;
-  const source = makeActivity({ type: "Run", startTime, source: "orider" });
-  const activity = { ...source, source: "orider" as const, summary: {
-    ...source.summary, ridingTimeMillis: 120_000, movingTimeSec: 90,
-  } };
-  const raw = markRawPartStreams({ userId: "owner", time: [0, 1], cadence: [170, 172] }, "a".repeat(64), startTime);
-  for (const streams of [{ userId: "owner", time: [0, 90] }, prepareActivityFileStreams(activity, raw, "fit")]) {
-    const fit = readSession(generateFit(activity, streams, "spm"));
-    expect(fit.get(7)).toBe(120_000);
-    expect(fit.get(8)).toBe(90_000);
-    expect(fit.get(253)! - fit.get(2)!).toBe(120);
-  }
-});
-
-it("does not rebase delayed absolute FIT samples to the activity start", () => {
-  const startTime = 1_700_000_000_000;
-  const base = makeActivity({ startTime });
-  const activity = { ...base, summary: { ...base.summary, ridingTimeMillis: 60_000, elapsedTimeMillis: 75_000 } };
-  const file = generateFit(activity, { userId: "owner", time: [startTime + 30_000, startTime + 90_000], heartrate: [150, 152] });
-  const session = readSession(file);
-  expect(session.get(7)).toBe(0xFFFFFFFF);
-  expect(session.get(253)! - session.get(2)!).toBe(90);
-});
-
-it("leaves elapsed time missing when only a nonzero timer is recorded", () => {
-  const base = makeActivity({ type: "Run" });
-  const activity = { ...base, summary: { ...base.summary, movingTimeSec: 60, ridingTimeMillis: undefined } };
-  const file = generateFit(activity as unknown as Parameters<typeof generateFit>[0], { userId: "owner", time: [0, 60] });
-  const session = readSession(file);
-  expect(session.get(7)).toBe(0xFFFFFFFF);
-  expect(session.get(8)).toBe(60_000);
-});
-
-it("validates FIT totals against the last dated observation even when the final row has no timestamp", () => {
-  const startTime = 1_700_000_000_000;
-  const base = makeActivity({ startTime });
-  const strava = { ...base, source: "strava" as const,
-    summary: { ...base.summary, ridingTimeMillis: 60_000 } };
-  const samples = { userId: "owner", time: [startTime + 30_000, startTime + 90_000, null],
-    heartrate: [150, 152, 199] } as unknown as Parameters<typeof generateFit>[1];
-  for (const elapsedTimeMillis of [undefined, 75_000]) {
-    const activity = { ...strava, summary: { ...strava.summary, elapsedTimeMillis } };
-    const session = readSession(generateFit(activity, samples));
-    expect(session.get(7)).toBe(0xFFFFFFFF);
-    expect(session.get(253)! - session.get(2)!).toBe(90);
-  }
 });

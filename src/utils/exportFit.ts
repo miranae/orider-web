@@ -1,58 +1,22 @@
 import type { Activity, ActivityStreams } from "@shared/types";
-import { cadenceWriter, type ExportCadenceUnit } from "./exportCadence";
-import { readUnroundedFitEnd, resolveRecordedElapsedMs, usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
-import { detectTimestampUnit } from "./timestampUnit";
 
 /** FIT 파일 바이너리 생성 */
-/** @param cadenceUnit 활동 지표의 저장 케이던스 단위 — 러닝 케이던스를 한 발 기준으로 바꾸는 데 쓴다. */
-export function generateFit(activity: Activity, streams: ActivityStreams, cadenceUnit?: ExportCadenceUnit): Uint8Array {
-  const buf = new FitWriter();
+export function generateFit(activity: Activity, streams: ActivityStreams): Uint8Array {
   const sport = exportSportOf(activity);
-  const cadence = cadenceWriter(sport, cadenceUnit);
+  const buf = new FitWriter();
   const startDate = new Date(activity.startTime);
   const garminEpoch = new Date("1989-12-31T00:00:00Z").getTime();
-  const preparedClock = usesVerifiedActivityTime(streams);
-  const firstTime = streams.time?.find(value => Number.isFinite(value));
-  const timeUnit = firstTime == null ? "relative_sec" : detectTimestampUnit(firstTime);
-  const absoluteClock = !preparedClock && timeUnit !== "relative_sec";
-  const timed = preparedClock || absoluteClock;
-  const startSeconds = (startDate.getTime() - garminEpoch) / 1000;
-  const startTimestamp = timed ? Math.round(startSeconds) : Math.floor(startSeconds);
+  const startTimestamp = Math.floor((startDate.getTime() - garminEpoch) / 1000);
   const len = streams.time?.length || streams.latlng?.length || 0;
-  const movingSeconds = activity.summary.movingTimeSec;
-  const durationMs = typeof movingSeconds === "number" && Number.isFinite(movingSeconds) && movingSeconds >= 0
-    ? movingSeconds * 1000 : activity.summary.ridingTimeMillis || 0;
+  const durationMs = activity.summary.ridingTimeMillis || 0;
   const distanceM = activity.summary.distance || 0;
   // streams.time 단위 정규화(상대 초) — 절대 epoch 입력 시 startTimestamp + t 가 uint32 를
   // 넘겨 FIT 타임스탬프가 손상되던 버그 방지(TCX/GPX 와 동일 수정).
-  const relativeAt = makeRelSecAt(streams.time);
-  const absoluteMsAt = (index: number) => {
-    const sample = streams.time?.[index];
-    if (!absoluteClock || sample == null || !Number.isFinite(sample)) return undefined;
-    return timeUnit === "epoch_sec" ? sample * 1000 : sample;
-  };
-  const relSecAt = (index: number) => {
-    const absolute = absoluteMsAt(index);
-    return absolute == null ? relativeAt(index) : Math.round((absolute - garminEpoch) / 1000) - startTimestamp;
-  };
-  let lastIndex = len - 1;
-  while (absoluteClock && lastIndex >= 0 && absoluteMsAt(lastIndex) == null) lastIndex--;
-  const endRel = relSecAt(lastIndex);
-  const absoluteEnd = absoluteMsAt(lastIndex);
-  const lastObserved = readUnroundedFitEnd(streams)
-    ?? (absoluteEnd == null ? endRel ?? 0 : (absoluteEnd - activity.startTime) / 1000);
-  const recordedElapsed = resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000)));
-  const legacyElapsed = activity.summary.ridingTimeMillis;
-  const canUseLegacyElapsed = !preparedClock && (!absoluteClock || activity.summary.elapsedTimeMillis == null)
-    && typeof legacyElapsed === "number" && Number.isFinite(legacyElapsed)
-    && legacyElapsed >= Math.max(durationMs, absoluteClock ? Math.round(lastObserved * 1000) : 0);
-  const elapsedMs = recordedElapsed ?? (canUseLegacyElapsed ? legacyElapsed : 0xFFFFFFFF);
-  const endTimestamp = recordedElapsed != null
-    ? timed ? Math.round(startSeconds + recordedElapsed / 1000) : startTimestamp + Math.round(recordedElapsed / 1000)
-    : startTimestamp + Math.round(timed ? Math.max(endRel ?? 0, durationMs / 1000)
-      : endRel ?? Math.floor(durationMs / 1000));
+  const relSecAt = makeRelSecAt(streams.time);
+  const endRel = relSecAt(len - 1);
+  const endTimestamp = startTimestamp + Math.round(endRel ?? Math.floor(durationMs / 1000));
 
   // File ID 메시지 (mesg 0)
   buf.writeDefinition(0, 0, [
@@ -74,7 +38,8 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const hasLatLng = !!streams.latlng?.length;
   const hasAlt = !!streams.altitude?.length;
   const hasHr = !!streams.heartrate?.length;
-  const hasCad = Array.isArray(streams.cadence) && streams.cadence.some(v => cadence.whole(v) != null);
+  // Running cadence in FIT uses one-foot cycles. The original samples remain available in CSV.
+  const hasCad = !sport.footCadence && !!streams.cadence?.length;
   const hasPower = !!streams.watts?.length;
   const hasSpeed = !!streams.velocity_smooth?.length;
 
@@ -90,13 +55,10 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   if (hasCad) recordFields.push([4, 1, 2]);    // cadence: uint8
   if (hasPower) recordFields.push([7, 2, 132]); // power: uint16
   if (hasSpeed) recordFields.push([6, 2, 132]); // speed: uint16 (scale 1000)
-  // 러닝·하이킹 cadence 는 한 발 기준 — 홀수 spm 의 반 걸음은 fractional_cadence(1/128)로 보존한다.
-  if (hasCad && cadence.footCadence) recordFields.push([53, 1, 2]); // fractional_cadence: uint8
 
   buf.writeDefinition(0, 20, recordFields);
 
   for (let i = 0; i < len; i++) {
-    if (absoluteClock && absoluteMsAt(i) == null) continue;
     const recBytes: number[] = [];
     const relSec = relSecAt(i) ?? i; // null(샘플 누락) → 인덱스를 초로 근사
     recBytes.push(...uint32LE(startTimestamp + Math.round(relSec)));
@@ -117,13 +79,12 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
       recBytes.push(...uint16LE(encoded));
     }
     if (hasHr) recBytes.push(streams.heartrate![i] ?? 0xFF);
-    if (hasCad) recBytes.push(cadence.whole(streams.cadence![i]) ?? 0xFF);
+    if (hasCad) recBytes.push(streams.cadence![i] ?? 0xFF);
     if (hasPower) recBytes.push(...uint16LE(streams.watts![i] ?? 0xFFFF));
     if (hasSpeed) {
-      const speedMs = streams.velocity_smooth![i];
-      recBytes.push(...uint16LE(speedMs == null ? 0xFFFF : Math.round(speedMs * 1000)));
+      const speedMs = streams.velocity_smooth![i] ?? 0;
+      recBytes.push(...uint16LE(Math.round(speedMs * 1000)));
     }
-    if (hasCad && cadence.footCadence) recBytes.push(cadence.fraction(streams.cadence![i]) ?? 0xFF);
 
     buf.writeData(0, recBytes);
   }
@@ -141,7 +102,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   buf.writeData(0, [
     ...uint32LE(endTimestamp),
     ...uint32LE(startTimestamp),
-    ...uint32LE(Math.round(elapsedMs)),     // total_elapsed_time
+    ...uint32LE(Math.round(durationMs)),   // total_elapsed_time
     ...uint32LE(Math.round(durationMs)),   // total_timer_time
     ...uint32LE(Math.round(distanceM * 100)), // total_distance (cm)
     sport.fitSport,
@@ -162,7 +123,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   buf.writeData(0, [
     ...uint32LE(endTimestamp),
     ...uint32LE(startTimestamp),
-    ...uint32LE(Math.round(elapsedMs)),
+    ...uint32LE(Math.round(durationMs)),
     ...uint32LE(Math.round(durationMs)),
     ...uint32LE(Math.round(distanceM * 100)),
     9,  // event: lap

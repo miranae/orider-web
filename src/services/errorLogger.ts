@@ -97,33 +97,3 @@ export function debugLog(scope: string, payload: Record<string, unknown>): void 
   if (typeof console === "undefined") return;
   console.debug(`[${scope}]`, payload);
 }
-
-/** Error details safe to record when the requesting account is no longer active. */
-function describeDiagnosticFailure(error: unknown): { code: string } {
-  const rawCode = error && typeof error === "object" && "code" in error ? error.code : null;
-  if (typeof rawCode === "string" && /^(functions|firestore)\/(aborted|cancelled|deadline-exceeded|failed-precondition|internal|invalid-argument|not-found|permission-denied|resource-exhausted|unauthenticated|unavailable|unknown|unimplemented)$/u.test(rawCode)) {
-    return { code: rawCode };
-  }
-  if (error instanceof Error) {
-    if (error.message === "account_changed") return { code: "account_changed" };
-    if (error.message === "activity_request_timeout") return { code: "timeout" };
-    if (error.message.includes("Response is not valid JSON object")) return { code: "invalid_callable_response" };
-    if (error.message === "invalid_activity_streams" || error.message === "activity_stream_identity_mismatch") return { code: error.message };
-    if (/network|failed to fetch|load failed/iu.test(error.message)) return { code: "network_error" };
-  }
-  return { code: "unknown" };
-}
-
-/** Report a safe diagnostic without making an authenticated request. */
-export function reportClientDiagnostic(source: string, code: string, context?: Record<string, unknown>): void {
-  if (shouldSuppressClientError(source, code)) return;
-  if (!getRuntimeConfig().sentryDsn) console.warn("[client-diagnostic]", { source, code });
-  captureError(new Error(code), { tags: { source }, extra: context });
-}
-
-/** Send only sanitized diagnostics for a request whose account has been replaced. */
-export function reportPreviousAccountFailure(source: string, error: unknown, context?: Record<string, unknown>): void {
-  const { code } = describeDiagnosticFailure(error);
-  if (code === "account_changed") return;
-  reportClientDiagnostic(source, code, { ...context, code });
-}

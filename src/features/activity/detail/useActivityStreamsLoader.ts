@@ -13,7 +13,7 @@ import type { Activity, ActivityStreams } from "@shared/types";
 import { auth as defaultAuth, firestore as defaultFirestore, functions as defaultFunctions, ensureAppCheckReady as defaultEnsureAppCheckReady } from "../../../services/firebase";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
 import type { Functions } from "firebase/functions";
-import { debugLog, reportPreviousAccountFailure, logClientError } from "../../../services/errorLogger";
+import { debugLog, logClientError } from "../../../services/errorLogger";
 import {
   getActivityStreams,
   getActivityStreamsWithAuth,
@@ -29,7 +29,7 @@ interface UseActivityStreamsLoaderArgs {
   activityId: string | undefined;
   activity: Activity | null;
   userId: string | undefined;
-  getStreams: (stravaId: number, options?: { includeCadenceUnit?: boolean }) => Promise<unknown>;
+  getStreams: (stravaId: number) => Promise<unknown>;
   t: (key: string) => string;
   enabled?: boolean;
   publicAccess?: boolean;
@@ -140,7 +140,6 @@ export function useActivityStreamsLoader({
     lastLoad.current = inputs;
     if (unchanged && retainedStreams.current) return;
     let active = true;
-    const isCurrent = () => active && auth.currentUser === sdkUser;
     setLoadedScope(scope);
     setStreams(null);
     setStreamsError(null);
@@ -168,23 +167,16 @@ export function useActivityStreamsLoader({
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-      loadCanonicalActivityStreams(activityId, activity.userId, services, {
-        includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run",
-        useCanonicalApi: !!sensorOriginId,
-      }).then(parsed => {
-        if (isCurrent()) setStreams(parsed);
-      }).catch(err => {
-        if (auth.currentUser !== sdkUser) {
-          reportPreviousAccountFailure("ActivityStreams.previousAccount", err, { source: source ?? "unknown" });
-          return;
-        }
+      loadCanonicalActivityStreams(activityId, activity.userId, services, { includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run", ...(sensorOriginId ? { useCanonicalApi: true } : {}) }).then((parsed) => {
+        if (active) setStreams(parsed);
+      }).catch((err) => {
+        if (!active) return;
         logClientError("ActivityPage.streams", err, {
           activityId,
           source: source ?? "unknown",
           visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
           isOwn: !!userId && activity.userId === userId,
-        }, services);
-        if (!isCurrent()) return;
+        });
         setStreamsError(err instanceof Error && err.message !== "STREAMS_MISSING"
           ? err.message
           : t("page.streamsMissing"));
@@ -197,22 +189,17 @@ export function useActivityStreamsLoader({
       return () => { active = false; clearTimeout(timer); };
     }
 
-    if (!stravaId || (sdkUser && userId && sdkUser.uid !== userId)) return;
+    if (!stravaId) return;
 
     setLoadingStreams(true);
     setStreamsError(null);
-    const timer = setTimeout(() => { if (isCurrent()) setShowStreamSpinner(true); }, 500);
-    const ownerRun = sdkUser?.uid === userId && !sdkUser?.isAnonymous && userId === activity.userId && disciplineOfType(activity.type) === "run";
-    const providerStreams = ownerRun ? getStreams(stravaId, { includeCadenceUnit: true }) : getStreams(stravaId);
-    providerStreams.then((data) => {
-      if (isCurrent()) setStreams(data as unknown as ActivityStreams);
+    const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
+    getStreams(stravaId).then((data) => {
+      if (active) setStreams(data as unknown as ActivityStreams);
     }).catch((err) => {
-      if (auth.currentUser !== sdkUser) {
-        reportPreviousAccountFailure("ActivityStreams.previousAccount", err, { source: "strava" });
-        return;
-      }
+      if (!active) return;
       if (isStreamNotCachedError(err)) {
-        if (isCurrent()) setStreamsError(t("page.streamsNotCached"));
+        setStreamsError(t("page.streamsNotCached"));
       } else {
         logClientError("ActivityPage.streams", err, {
           activityId,
@@ -220,8 +207,7 @@ export function useActivityStreamsLoader({
           stravaId,
           visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
           isOwn: !!userId && activity.userId === userId,
-        }, services);
-        if (!isCurrent()) return;
+        });
         const message = err instanceof Error ? err.message : "";
         setStreamsError(message === "STREAMS_INVALID" ? t("page.streamsErrorFallback") : message || t("page.streamsErrorFallback"));
       }
