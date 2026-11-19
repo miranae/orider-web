@@ -108,6 +108,13 @@ describe('generateTcx', () => {
     expect(xml).not.toContain('Cadence>');
   });
 
+  it('omits cadence outside the file range without dropping the trackpoint', () => {
+    const streams = { userId: 'u1', time: [0], cadence: [256] };
+    const xml = generateTcx(makeActivity({ type: 'Run' }), streams, 'strides_per_minute');
+    expect(xml).not.toContain('RunCadence');
+    expect(xml).toContain('<Trackpoint>');
+  });
+
   it('keeps cycling cadence in the Cadence element', () => {
     const streams = { userId: 'u1', time: [0], cadence: [90] };
     const xml = generateTcx(makeActivity({ type: 'Ride' }), streams, 'rpm');

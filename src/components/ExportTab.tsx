@@ -49,14 +49,23 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
     const stillCurrent = () => request === generation.current && getExportAccount?.() === account;
     try {
       const cadenceFormat = format === "fit" || format === "tcx";
+      const cachedCadence = Array.isArray(streams.cadence) ? streams.cadence : null;
       const needsOwnerCadence = cadenceFormat && readStreamCadenceUnit(streams) === undefined
-        && Array.isArray(streams.cadence) && streams.cadence.some(value => Number.isFinite(value) && value >= 0);
+        && cachedCadence?.some(value => Number.isFinite(value) && value >= 0);
       let currentStreams = streams;
+      let fileCadenceUnit = readStreamCadenceUnit(streams);
       if (resolveCurrentStreams) {
         currentStreams = await resolveCurrentStreams();
-      } else if (needsOwnerCadence && resolveOwnerCadenceStreams) {
+        fileCadenceUnit = readStreamCadenceUnit(currentStreams);
+      } else if (needsOwnerCadence && cachedCadence && resolveOwnerCadenceStreams) {
         try {
-          currentStreams = await resolveOwnerCadenceStreams() ?? streams;
+          const verified = await resolveOwnerCadenceStreams();
+          const cadence = verified?.cadence;
+          // The owner may have richer cached GPS and sensor channels. Reuse only the unit for identical samples.
+          if (verified && Array.isArray(cadence) && cadence.length === cachedCadence.length
+            && cachedCadence.every((sample, index) => sample === cadence[index])) {
+            fileCadenceUnit = readStreamCadenceUnit(verified);
+          }
         } catch (error) {
           const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
           const scopeChanged = error instanceof Error && ["account_changed", "activity_stream_changed"].includes(error.message);
@@ -68,7 +77,6 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
         }
       }
       if (!stillCurrent()) return;
-      const fileCadenceUnit = readStreamCadenceUnit(currentStreams);
       switch (format) {
         case "fit": {
           const data = generateFit(activity, currentStreams, fileCadenceUnit);

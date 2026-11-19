@@ -27,16 +27,15 @@ export interface CadenceWriter {
 export function cadenceWriter(sport: Pick<ExportSport, "footCadence">, unit: ExportCadenceUnit | undefined): CadenceWriter {
   const toFileUnit = (value: number | null | undefined): number | null => {
     if (value == null || !Number.isFinite(value) || value < 0) return null;
-    if (!sport.footCadence) return value;
-    if (unit === "spm") return value / 2;
-    if (unit === "strides_per_minute") return value;
-    return null;
+    const sample = !sport.footCadence || unit === "strides_per_minute" ? value : unit === "spm" ? value / 2 : null;
+    // FIT reserves 255 for an invalid cadence; TCX accepts an integer byte.
+    return sample != null && sample < 255 ? sample : null;
   };
   return {
     footCadence: sport.footCadence,
     whole: value => {
       const v = toFileUnit(value);
-      return v == null ? null : sport.footCadence ? Math.floor(v) : v;
+      return v == null ? null : Math.floor(v);
     },
     fraction: value => {
       const v = toFileUnit(value);

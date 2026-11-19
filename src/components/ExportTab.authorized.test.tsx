@@ -44,10 +44,10 @@ it.each([
   expect(mocks.fit).toHaveBeenCalledWith(run, current, expected);
 });
 
-it("reloads verified samples and cadence for a legacy owner Strava FIT export", async () => {
+it("verifies legacy owner Strava cadence without replacing the other cached samples", async () => {
   const run = { ...activity, type: "Run", source: "strava" } as Activity;
-  const before = { userId: "owner", time: [0], cadence: [84] };
-  const current = markVerifiedStreamCadence({ ...before, cadence: [85] }, "b".repeat(64), "strides_per_minute");
+  const before = { userId: "owner", time: [0], heartrate: [142], cadence: [84] };
+  const current = markVerifiedStreamCadence({ userId: "owner", cadence: [84] }, "b".repeat(64), "strides_per_minute");
   const resolveOwnerCadenceStreams = vi.fn().mockResolvedValue(current);
   render(<ExportTab activity={run} streams={before} resolveOwnerCadenceStreams={resolveOwnerCadenceStreams} />);
   await act(async () => fireEvent.click(screen.getByText("CSV")));
@@ -55,7 +55,16 @@ it("reloads verified samples and cadence for a legacy owner Strava FIT export", 
   expect(mocks.csv).toHaveBeenCalledWith(before);
   await act(async () => fireEvent.click(screen.getByText("FIT")));
   expect(resolveOwnerCadenceStreams).toHaveBeenCalledOnce();
-  expect(mocks.fit).toHaveBeenCalledWith(run, current, "strides_per_minute");
+  expect(mocks.fit).toHaveBeenCalledWith(run, before, "strides_per_minute");
+});
+
+it("does not attach a unit to legacy owner samples when the returned cadence differs", async () => {
+  const run = { ...activity, type: "Run", source: "strava" } as Activity;
+  const before = { userId: "owner", time: [0], cadence: [170] };
+  const current = markVerifiedStreamCadence({ userId: "owner", cadence: [85] }, "b".repeat(64), "strides_per_minute");
+  render(<ExportTab activity={run} streams={before} resolveOwnerCadenceStreams={async () => current} />);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  expect(mocks.fit).toHaveBeenCalledWith(run, before, undefined);
 });
 
 it.each([null, new Error("activity_request_timeout"),

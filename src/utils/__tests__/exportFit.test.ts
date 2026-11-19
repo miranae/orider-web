@@ -217,6 +217,13 @@ describe('exportFit', () => {
       expect(read.fields).not.toContain(53);
     });
 
+    it('encodes cadence above the file range as missing, never a wrapped zero', () => {
+      const streams = { userId: 'u1', time: [0, 1], cadence: [256, 85] };
+      const read = readRecordCadence(generateFit(makeActivity({ type: 'Run' }), streams, 'strides_per_minute'));
+      expect(read.cadence).toEqual([0xff, 85]);
+      expect(read.fractional).toEqual([0xff, 0]);
+    });
+
     it('keeps cycling cadence in rpm without a fractional field', () => {
       const streams = { userId: 'u1', time: [0, 1], cadence: [90, 91] };
       const read = readRecordCadence(generateFit(makeActivity({ type: 'Ride' }), streams, 'rpm'));
