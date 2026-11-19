@@ -5,7 +5,7 @@ import { announceActivityContentChange } from "./activityContentChanged";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { ActivityFeedComment, ActivityFeedContent } from "@shared/types/activity-feed-content";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { isStageComputeRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 
 /** Activity ACL-authorized detail; never fall back to direct private document reads. */
 export interface PublicActivityDetail {
@@ -51,7 +51,7 @@ export function createPublicActivityClient(services: FirebaseServices, options: 
     await services.ensureAppCheckReady();
     if (expired) throw new Error("activity_request_timeout");
     assertAccount();
-    const functions = isStageComputeRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
+    const functions = isFunctionsGatewayRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
     if (isEmulatorRuntime() && !emulatorClients.has(functions)) {
       connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
       emulatorClients.add(functions);

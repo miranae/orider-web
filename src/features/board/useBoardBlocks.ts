@@ -3,14 +3,14 @@ import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/
 import { useAuth } from '../../contexts/AuthContext';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useFirebaseServices, type FirebaseServices } from '../../contexts/FirebaseServicesContext';
-import { isEmulatorRuntime, isStageComputeRuntime, getRuntimeConfig } from '../../services/runtimeConfig';
+import { isEmulatorRuntime, isFunctionsGatewayRuntime, getRuntimeConfig } from '../../services/runtimeConfig';
 import { logClientError } from '../../services/errorLogger';
 
 /** `functions` 는 호출부의 useFirebaseServices() 인스턴스 — 임베드는 별도 Firebase app 이다(#847). */
 export async function setBoardAuthorBlocked(targetUid: string, blocked: boolean, services: Pick<FirebaseServices, 'auth' | 'functions' | 'ensureAppCheckReady'>) {
   const { functions } = services;
   const requestUser = services.auth.currentUser;
-  const socialFunctions = isStageComputeRuntime(getRuntimeConfig()) ? functions : getFunctions(functions.app, 'asia-northeast3');
+  const socialFunctions = isFunctionsGatewayRuntime(getRuntimeConfig()) ? functions : getFunctions(functions.app, 'asia-northeast3');
   if (isEmulatorRuntime()) connectFunctionsEmulator(socialFunctions, 'localhost', Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
   try {
     await httpsCallable(socialFunctions, 'setActivitySocialBlock')({ targetUid, blocked });

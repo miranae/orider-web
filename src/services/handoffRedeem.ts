@@ -1,4 +1,4 @@
-import { getRuntimeConfig } from "./runtimeConfig";
+import { bundledFunctionsBase, getRuntimeConfig } from "./runtimeConfig";
 import { getApps, initializeApp } from "firebase/app";
 import { getFunctions, httpsCallable, httpsCallableFromURL, type Functions } from "firebase/functions";
 
@@ -20,7 +20,7 @@ export async function redeemHandoffCode(source: Functions, code: string): Promis
     ?? initializeApp(source.app.options, appName);
   const redeem = httpsCallableFromURL<{ code: string }, { token: string }>(
     getFunctions(app),
-    "https://auth.orider.co.kr/webHandoffRedeem",
+    bundledFunctionsBase(runtimeConfig) ? `${bundledFunctionsBase(runtimeConfig)}/webHandoffRedeem` : "https://auth.orider.co.kr/webHandoffRedeem",
     { timeout: 15_000 },
   );
   const { data } = await redeem({ code });
