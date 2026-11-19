@@ -458,3 +458,34 @@ it("keeps native Strava time and does not assign full activity calories to a par
   expect(result.hasUnallocatedCalories).toBe(true);
   expect(result.render("activity")).toContain("<Calories>380</Calories>");
 });
+
+it("does not invent timestamps for missing observations on an epoch clock", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: { distance: 1000, elapsedTimeMillis: 65_000 } } as Activity;
+  const streams = { userId: "owner", time: [startTime + 30_000, null, startTime + 60_000],
+    heartrate: [150, 199, 152], laps: [
+      { startTimeMs: startTime + 20_000, endTimeMs: startTime + 65_000, durationMs: 45_000, distanceKm: 0.8 },
+    ],
+  } as unknown as ActivityStreams;
+  const file = prepareTcxExport(activity, streams);
+  expect(file.hasUnassigned).toBe(true);
+  expect(file.canExportAllAsTcx).toBe(false);
+  const xml = file.render("recorded");
+  expect(xml).not.toContain("<Value>199</Value>");
+  expect(xml).toContain("<Value>152</Value>");
+});
+
+it("does not infer a Strava clock for linked native sensor offsets", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, source: "strava", type: "Run", summary: { distance: 1000, elapsedTimeMillis: 180_000 },
+    activityPresentationV1: { version: 1, activityRevision: null, contentSelectedRevision: null, sensorOriginActivityId: "orider_original" },
+  } as Activity;
+  const samples = { userId: "owner", time: [0, 60, 61, 120], heartrate: [150, 151, 199, 152], laps: [
+    { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
+    { startTimeMs: startTime + 120_000, endTimeMs: startTime + 180_000, durationMs: 60_000 },
+  ] } as ActivityStreams;
+  const file = prepareTcxExport(activity, samples);
+  expect(file.hasUnassigned).toBe(true);
+  expect(file.canExportAllAsTcx).toBe(false);
+  expect(file.render("recorded")).not.toContain("<Value>199</Value>");
+});

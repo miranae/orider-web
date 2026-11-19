@@ -98,9 +98,9 @@ export function applyVerifiedCadenceUnit(activity: Activity, displayed: Activity
   const originalCount = displayed.cadence?.filter(value => Number.isFinite(value) && value >= 0).length ?? 0;
   if (!original.length || original.length !== originalCount || !confirmed.length) return displayed;
 
-  // Legacy streams carry no revision. Only identical observed samples prove the unit applies to this file.
-  if (!baseRevision && (original.length !== confirmed.length
-    || original.some(([time, cadence], index) => time !== confirmed[index]?.[0] || cadence !== confirmed[index]?.[1]))) return displayed;
+  // The same activity revision may expose different sensor projections.
+  if (original.length !== confirmed.length
+    || original.some(([time, cadence], index) => time !== confirmed[index]?.[0] || cadence !== confirmed[index]?.[1])) return displayed;
   return markStreamCadenceUnit(displayed, readStreamCadenceUnit(verified));
 }
 

@@ -332,3 +332,12 @@ it("does not rebase delayed absolute FIT samples to the activity start", () => {
   expect(session.get(7)).toBe(0xFFFFFFFF);
   expect(session.get(253)! - session.get(2)!).toBe(90);
 });
+
+it("leaves elapsed time missing when only a nonzero timer is recorded", () => {
+  const base = makeActivity({ type: "Run" });
+  const activity = { ...base, summary: { ...base.summary, movingTimeSec: 60, ridingTimeMillis: undefined } };
+  const file = generateFit(activity as unknown as Parameters<typeof generateFit>[0], { userId: "owner", time: [0, 60] });
+  const session = readSession(file);
+  expect(session.get(7)).toBe(0xFFFFFFFF);
+  expect(session.get(8)).toBe(60_000);
+});

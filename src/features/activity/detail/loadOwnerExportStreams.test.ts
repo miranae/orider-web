@@ -41,7 +41,7 @@ it.each(["orider", "apple_health", "health_connect"] as const)("binds a verified
 
 it("keeps the complete existing timeline when a matching revision confirms the unit", async () => {
   const streams = markVerifiedStreamCadence({
-    time: [0, null, 1, 60], cadence: [170, 174, 172, null], heartrate: [222, 223, 224, null],
+    time: [0, null, 2, 60], cadence: [170, 174, 172, null], heartrate: [222, 223, 224, null],
   } as unknown as ActivityStreams, revision, "spm");
   mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams });
   const existing = markVerifiedStreamCadence({
@@ -153,4 +153,11 @@ it("retains the original authorized file after malformed optional unit data", as
   mocks.streams.mockRejectedValue(new Error("invalid_activity_streams"));
   expect(await loadOwnerExportStreams(run, displayed, "fit", ownerServices())).toBe(displayed);
   expect(logClientError).toHaveBeenCalled();
+});
+
+it("does not borrow cadence units from a different projection of the same revision", async () => {
+  const parsed = markVerifiedStreamCadence({ time: [0, 2], cadence: [170, 172] }, revision, "spm");
+  mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "api_streams", streams: parsed });
+  const existing = markVerifiedStreamCadence({ time: [0, 2], cadence: [85, 86] }, revision, null);
+  expect(await loadOwnerExportStreams(run, existing, "fit", ownerServices())).toBe(existing);
 });

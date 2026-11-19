@@ -58,6 +58,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     samples: NonNullable<ActivityStreams["cadence"]>;
     time: ActivityStreams["time"];
     revision: string | undefined;
+    tcxMode: TcxChoice | undefined;
   }>>>({});
   const visibleCadencePrompts = Object.values(cadencePrompts).filter(prompt => prompt?.activityScope === activityScope
     && prompt.streams === streams && prompt.account === renderedAccount && prompt.resolverScope === resolverScope);
@@ -118,7 +119,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       if (missingFootCadenceUnit && !chosenUnitApplies) {
         if (format === "tcx") setTcxPrompt(null);
         setCadencePrompts(current => ({ ...current, [format]: {
-          activityScope, streams, account, resolverScope, format, samples: [...cadence], time: time?.slice(), revision,
+          activityScope, streams, account, resolverScope, format, samples: [...cadence], time: time?.slice(), revision, tcxMode,
         } }));
         return;
       }
@@ -229,7 +230,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
           <div className="mt-3 flex flex-wrap gap-2">
             {(["spm", "strides_per_minute", "omit"] as const).map(choice => (
               <button key={choice} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
-                onClick={() => { void handleExport(prompt.format, choice); }}>
+                onClick={() => { void handleExport(prompt.format, choice, prompt.tcxMode); }}>
                 {t(`export.cadenceChoice.${choice}`)}
               </button>
             ))}

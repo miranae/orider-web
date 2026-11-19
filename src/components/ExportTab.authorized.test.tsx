@@ -341,3 +341,33 @@ it("asks again instead of substituting another format if the selected TCX totals
   expect(click).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: /keep recorded laps|기록된 랩 유지|tcxLapsChoice.recorded/iu })).toBeVisible();
 });
+
+it("retains the selected single-lap layout while an updated stream asks for its cadence unit", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
+  const laps = [
+    { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime, endTimeMs: run.startTime + 60_000 },
+    { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime + 60_000, endTimeMs: run.startTime + 120_000 },
+  ];
+  const initial = markVerifiedStreamCadence({ userId: "owner", time: [0, 60, 120, 125].map(time => run.startTime + time * 1000),
+    cadence: [170, 171, 172, 173], laps } as ActivityStreams, "a".repeat(64), "spm");
+  const latest = markVerifiedStreamCadence({ ...initial, time: initial.time?.slice(0, 3), cadence: [170, 171, 172] }, "b".repeat(64), null);
+  const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
+  const url = vi.spyOn(URL, "createObjectURL");
+  try {
+    render(<ExportTab activity={run} streams={initial} resolveCurrentStreams={resolve} />);
+    await act(async () => fireEvent.click(screen.getByText("TCX")));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples|모든 표본을 한 랩|tcxLapsChoice.activity/iu })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /both feet|양발|cadenceChoice.spm/iu })));
+    const blob = url.mock.calls.at(-1)?.[0];
+    const xml = await new Promise<string>((done, fail) => {
+      const reader = new FileReader();
+      reader.onload = () => done(String(reader.result));
+      reader.onerror = fail;
+      reader.readAsText(blob as Blob);
+    });
+    expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(1);
+    expect(xml).toContain("<DistanceMeters>1100</DistanceMeters>");
+  } finally {
+    url.mockRestore();
+  }
+});

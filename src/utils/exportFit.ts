@@ -42,8 +42,10 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const lastObserved = readUnroundedFitEnd(streams)
     ?? (absoluteEnd == null ? endRel ?? 0 : (absoluteEnd - activity.startTime) / 1000);
   const recordedElapsed = resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000)));
-  const elapsedMs = recordedElapsed ?? (preparedClock || (absoluteClock && activity.summary.elapsedTimeMillis != null)
-    ? 0xFFFFFFFF : activity.summary.ridingTimeMillis || 0);
+  const legacyElapsed = activity.summary.ridingTimeMillis;
+  const canUseLegacyElapsed = !preparedClock && (!absoluteClock || activity.summary.elapsedTimeMillis == null)
+    && typeof legacyElapsed === "number" && Number.isFinite(legacyElapsed) && legacyElapsed >= durationMs;
+  const elapsedMs = recordedElapsed ?? (canUseLegacyElapsed ? legacyElapsed : 0xFFFFFFFF);
   const endTimestamp = recordedElapsed != null
     ? timed ? Math.round(startSeconds + recordedElapsed / 1000) : startTimestamp + Math.round(recordedElapsed / 1000)
     : startTimestamp + Math.round(timed ? Math.max(endRel ?? 0, durationMs / 1000)

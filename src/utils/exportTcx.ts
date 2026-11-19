@@ -1,6 +1,7 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import { cadenceWriter, type CadenceWriter, type ExportCadenceUnit } from "./exportCadence";
 import { exportSportOf } from "./exportSport";
+import { activitySensorOrigin } from "../features/activity/detail/activitySensorOrigin";
 import { resolveRecordedElapsedMs, usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { makeRelSecAt } from "./streamTime";
 import { detectTimestampUnit } from "./timestampUnit";
@@ -44,7 +45,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   // Where both clocks have identical origins and offsets, the stored samples can
   // be attached to those laps without resolving the legacy clock convention.
   const coincidentClocks = boundedLaps && nativeLapClock.every(lap => lap.start === lap.timerStart && lap.end === lap.timerEnd);
-  const activityTime = verifiedRelativeClock || recordedClock || coincidentClocks || activity.source === "strava";
+  const activityTime = verifiedRelativeClock || recordedClock || coincidentClocks || (activity.source === "strava" && activitySensorOrigin(activity) == null);
   const hasNativeLapTimes = nativeLapClock.some(lap => Number.isFinite(lap.start) || Number.isFinite(lap.end));
   const ambiguousNativeClock = !activityTime && hasNativeLapTimes;
   const relSecAt = (index: number) => {
@@ -63,10 +64,12 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     `<Id>${startDate.toISOString()}</Id>`,
   ];
 
-  const indices = Array.from({ length: len }, (_, index) => index).filter(index =>
+  const observedIndices = Array.from({ length: len }, (_, index) => index).filter(index =>
     !activityTime || streams.latlng?.[index] != null || Number.isFinite(streams.distance?.[index])
     || Number.isFinite(streams.altitude?.[index]) || Number.isFinite(streams.heartrate?.[index])
     || Number.isFinite(streams.watts?.[index]) || Number.isFinite(streams.velocity_smooth?.[index]) || cadence.whole(streams.cadence?.[index]) != null);
+  const indices = observedIndices.filter(index => !activityTime || Number.isFinite(relSecAt(index)));
+  const hasUntimedObservations = indices.length !== observedIndices.length;
   const writeTrack = (lines: string[], first: number, end: number) => {
     if (first === end) return;
     lines.push('<Track>');
@@ -93,7 +96,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
     && (onlyLap.startTimeMs == null || onlyLap.startTimeMs === startMs)
     && (onlyLap.endTimeMs == null || onlyLap.endTimeMs === startMs + recordedDuration);
   const laps: Array<{ start: number; endTime: number; duration: number; distance: number; first: number; end: number }> = [];
-  let hasUnassigned = false;
+  let hasUnassigned = hasUntimedObservations;
   let canKeepRecordedLaps = true;
   let sharedClockPrefix = true;
   for (const [lapIndex, lap] of (streams.laps ?? []).entries()) {
@@ -135,7 +138,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const requiresCsv = !laps.length && activityTime && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
   const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
-    && summaryLapDuration != null;
+    && summaryLapDuration != null && !hasUntimedObservations;
   const lapCoversActivity = laps.length === 1 && (fullActivityLap
     || (recordedDuration != null && laps[0]?.start === 0 && laps[0].endTime === recordedDuration / 1000
       && onlyLap?.startTimeMs === startMs && onlyLap.endTimeMs === startMs + recordedDuration));
