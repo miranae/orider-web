@@ -15,7 +15,7 @@ it("exports the newly authorized streams rather than cached props", async () => 
   const resolve = vi.fn().mockResolvedValue(current);
   render(<ExportTab activity={activity} streams={{ watts: [999] }} resolveCurrentStreams={resolve} />);
   await act(async () => fireEvent.click(screen.getByText("CSV")));
-  expect(resolve).toHaveBeenCalledOnce(); expect(mocks.csv).toHaveBeenCalledWith(current);
+  expect(resolve).toHaveBeenCalledExactlyOnceWith("csv"); expect(mocks.csv).toHaveBeenCalledWith(current);
 });
 it("does not export after permission denial", async () => {
   render(<ExportTab activity={activity} streams={{ watts: [999] }} resolveCurrentStreams={async () => { throw new Error("permission-denied"); }} />);

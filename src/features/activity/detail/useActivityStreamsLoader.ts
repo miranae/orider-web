@@ -168,50 +168,18 @@ export function useActivityStreamsLoader({
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-      const ownerRun = !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run";
-      const loadStoredStreams = () => loadCanonicalActivityStreams(activityId, activity.userId, services, {
-        includeRunEffortFacts: ownerRun,
+      loadCanonicalActivityStreams(activityId, activity.userId, services, {
+        includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run",
         useCanonicalApi: !!sensorOriginId,
-      });
-      const config = getRuntimeConfig();
-      const streamContext = {
-        activityId,
-        source: source ?? "unknown",
-        visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
-        isOwn: !!userId && activity.userId === userId,
-      };
-      const loadStreams = async () => {
-        if (!ownerRun || sdkUser?.uid !== userId || sdkUser?.isAnonymous
-          || config.appEnvironment === "stage" || config.publicActivityDetailEnabled !== true) {
-          return loadStoredStreams();
-        }
-        // Export consumes this payload and its revision-bound cadence unit together.
-        const result = await createPublicActivityClient(firebaseServices).streams(activityId).catch(error => {
-          const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-          // The Firebase SDK uses this default message for a bare HTTP 404.
-          // An application not-found response supplies its own message and must remain denied.
-          const endpointMissing = error instanceof Error && code === "functions/not-found" && error.message === "not-found";
-          if (!isCurrent() || (isPublicActivityAccessError(error) && !endpointMissing) || code === "functions/unauthenticated"
-            || (error instanceof Error && ["account_changed", "invalid_activity_streams"].includes(error.message))) throw error;
-          logClientError("ActivityStreams.ownerCanonicalFallback", error, streamContext, services);
-          return null;
-        });
-        if (!isCurrent()) return null;
-        if (result?.state === "available" && result.activityId === activityId && result.streams) {
-          // A raw-parts grid can contain nullable, independently sampled channels.
-          // Keep the existing legacy analysis and export axes in that case.
-          return result.sourceLayer === "raw_parts" ? loadStoredStreams() : { ...result.streams, userId: activity.userId };
-        }
-        if (result && (result.activityId !== activityId || !["pending", "unavailable"].includes(result.state))) {
-          throw new Error("STREAMS_MISSING");
-        }
-        if (result) debugLog("streams.owner_canonical_fallback", { ...streamContext, state: result.state, reason: result.reason });
-        return loadStoredStreams();
-      };
-      loadStreams().then(parsed => {
-        if (isCurrent() && parsed) setStreams(parsed);
-      }).catch((err) => {
-        logClientError("ActivityPage.streams", err, streamContext, services);
+      }).then(parsed => {
+        if (isCurrent()) setStreams(parsed);
+      }).catch(err => {
+        logClientError("ActivityPage.streams", err, {
+          activityId,
+          source: source ?? "unknown",
+          visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
+          isOwn: !!userId && activity.userId === userId,
+        }, services);
         if (!isCurrent()) return;
         setStreamsError(err instanceof Error && err.message !== "STREAMS_MISSING"
           ? err.message

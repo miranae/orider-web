@@ -13,7 +13,7 @@ import { logClientError } from "../services/errorLogger";
 interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
-  resolveCurrentStreams?: () => Promise<ActivityStreams>;
+  resolveCurrentStreams?: (format: string) => Promise<ActivityStreams>;
   getExportAccount?: () => object | null;
 }
 
@@ -38,15 +38,17 @@ const FORMATS = [
 export default function ExportTab({ activity, streams, resolveCurrentStreams, getExportAccount }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
+  const renderedAccount = getExportAccount?.();
   const generation = useRef(0);
   useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity, streams, resolveCurrentStreams, getExportAccount]);
 
   const handleExport = useCallback(async (format: string) => {
     const request = generation.current;
     const account = getExportAccount?.();
+    if (account !== renderedAccount) return;
     const stillCurrent = () => request === generation.current && getExportAccount?.() === account;
     try {
-      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
+      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(format) : streams;
       if (!stillCurrent()) return;
       const fileCadenceUnit = readStreamCadenceUnit(currentStreams);
       const missingFootCadenceUnit = (format === "fit" || format === "tcx") && exportSportOf(activity).footCadence
@@ -81,9 +83,9 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       if (missingFootCadenceUnit) showToast(t("export.cadenceUnavailable"), "info");
     } catch (err) {
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
-      showToast(t("export.errorAlert"), "error");
+      if (stillCurrent()) showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, getExportAccount, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, getExportAccount, renderedAccount, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

@@ -7,6 +7,7 @@ import type { JourneyOutcome } from "../services/journeyMeasurement";
 import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
 import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
 import { isPublicActivityAccessError } from "../services/publicActivityDetail";
+import { loadOwnerExportStreams } from "../features/activity/detail/loadOwnerExportStreams";
 import { useAuthorizedActivityComments } from "../features/activity/detail/useAuthorizedActivityComments";
 import { ActivityPublicAccess, type ActivityPublicAccessState } from "../features/activity/detail/ActivityPublicAccess";
 import type { PublicActivitySessionOptions } from "../hooks/usePublicActivitySession";
@@ -211,6 +212,13 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // Photo upload/delete
   const photoServices = useFirebaseServices();
   const getExportAccount = useCallback(() => photoServices.auth.currentUser, [photoServices.auth]);
+  const resolveCurrentExportStreams = useCallback(async (format: string) => {
+    if (!activity || !streams) throw new Error("STREAMS_MISSING");
+    if (!publicAccess) return loadOwnerExportStreams(activity, streams, format, photoServices);
+    const result = await publicAccess.session.client.streams(activity.id);
+    if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");
+    return result.streams;
+  }, [activity, streams, photoServices, publicAccess]);
   const uploadedPhotoIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}`;
   const [publicPhotosBusy, setPublicPhotosBusy] = useState(false);
   const [publicPhotosError, setPublicPhotosError] = useState<string | null>(null);
@@ -1532,11 +1540,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <div>
         {streams ? <ExportTab activity={activity} streams={streams}
           getExportAccount={getExportAccount}
-          resolveCurrentStreams={publicAccess ? async () => {
-          const result = await publicAccess.session.client.streams(activity.id);
-          if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");
-          return result.streams;
-        } : undefined} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
+          resolveCurrentStreams={resolveCurrentExportStreams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
         </div>
       </Modal>
       <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />

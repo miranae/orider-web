@@ -1,13 +1,9 @@
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { getDoc } from "firebase/firestore";
-import { FirebaseError } from "firebase/app";
 import type { User } from "firebase/auth";
 import type { Activity } from "@shared/types";
 import { FirebaseServicesProvider, useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
-import { markVerifiedStreamCadence, readStreamCadenceUnit } from "../../../services/activityStreamSource";
-import * as logger from "../../../services/errorLogger";
-import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
 import type { ReactNode } from "react";
 import { useActivityStreamsLoader } from "./useActivityStreamsLoader";
 const mocks = vi.hoisted(() => ({ streams: vi.fn() }));
@@ -16,75 +12,6 @@ const t = (key: string) => key;
 const getStreams = vi.fn();
 const activity = { id: "a", userId: "owner", source: "orider", type: "VirtualRide" } as Activity;
 beforeEach(() => { mocks.streams.mockReset(); getStreams.mockClear(); });
-afterEach(() => resetRuntimeConfigForTests());
-
-function renderLegacyOwnerRun(source: Activity["source"] = "orider", publicActivityDetailEnabled = true) {
-  resetRuntimeConfigForTests({ appEnvironment: "production", publicActivityDetailEnabled });
-  const serviceTemplate = renderHook(() => useFirebaseServices());
-  const services = {
-    ...serviceTemplate.result.current,
-    auth: { currentUser: { uid: "owner" } } as ReturnType<typeof useFirebaseServices>["auth"],
-  };
-  serviceTemplate.unmount();
-  const run = { ...activity, source, type: "Run" } as Activity;
-  return renderHook(() => useActivityStreamsLoader({
-    activityId: run.id, activity: run, userId: "owner", getStreams, t,
-  }), { wrapper: ({ children }: { children: ReactNode }) => <FirebaseServicesProvider services={services}>{children}</FirebaseServicesProvider> });
-}
-
-it.each(["orider", "apple_health", "health_connect"] as const)("loads legacy owner %s runs together with their authorized cadence units", async source => {
-  const streams = markVerifiedStreamCadence({ time: [0, 1], cadence: [170, 172] }, "a".repeat(64), "spm");
-  mocks.streams.mockResolvedValueOnce({ activityId: "a", state: "available", sourceLayer: "api_streams", streams });
-  const before = vi.mocked(getDoc).mock.calls.length;
-  const { result } = renderLegacyOwnerRun(source);
-  await waitFor(() => expect(result.current.streams?.cadence).toEqual([170, 172]));
-  expect(readStreamCadenceUnit(result.current.streams!)).toBe("spm");
-  expect(result.current.streams?.userId).toBe("owner");
-  expect(mocks.streams).toHaveBeenCalledExactlyOnceWith("a");
-  expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
-});
-
-it("keeps the saved legacy analysis axes when the authorized input is a sparse raw-parts grid", async () => {
-  mocks.streams.mockResolvedValueOnce({
-    activityId: "a", state: "available", sourceLayer: "raw_parts",
-    streams: markVerifiedStreamCadence({ time: [0, 1, 2], cadence: [170, null, 172] } as never, "a".repeat(64), "spm"),
-  });
-  vi.mocked(getDoc).mockResolvedValueOnce({
-    exists: () => true, data: () => ({ json: JSON.stringify({ time: [0, 2], cadence: [170, 172], latlng: [[37, 127], [38, 128]] }) }),
-  } as Awaited<ReturnType<typeof getDoc>>);
-  const { result } = renderLegacyOwnerRun();
-  await waitFor(() => expect(result.current.streams?.cadence).toEqual([170, 172]));
-  expect(result.current.streams?.latlng).toHaveLength(2);
-  expect(readStreamCadenceUnit(result.current.streams!)).toBeUndefined();
-});
-
-it("keeps legacy owner streams when the public detail feature is disabled", async () => {
-  vi.mocked(getDoc).mockResolvedValueOnce({
-    exists: () => true, data: () => ({ json: JSON.stringify({ time: [0, 1], cadence: [170, 172] }) }),
-  } as Awaited<ReturnType<typeof getDoc>>);
-  const { result } = renderLegacyOwnerRun("orider", false);
-  await waitFor(() => expect(result.current.streams?.cadence).toEqual([170, 172]));
-  expect(mocks.streams).not.toHaveBeenCalled();
-});
-
-it("retains legacy streams when an enabled deployment has no streams endpoint yet", async () => {
-  mocks.streams.mockRejectedValueOnce(new FirebaseError("functions/not-found", "not-found"));
-  vi.mocked(getDoc).mockResolvedValueOnce({
-    exists: () => true, data: () => ({ json: JSON.stringify({ time: [0, 1], cadence: [170, 172] }) }),
-  } as Awaited<ReturnType<typeof getDoc>>);
-  const { result } = renderLegacyOwnerRun();
-  await waitFor(() => expect(result.current.streams?.cadence).toEqual([170, 172]));
-  expect(mocks.streams).toHaveBeenCalledOnce();
-});
-
-it("does not read legacy streams when the server reports that an activity is missing", async () => {
-  mocks.streams.mockRejectedValueOnce(new FirebaseError("functions/not-found", "활동을 찾을 수 없습니다."));
-  const before = vi.mocked(getDoc).mock.calls.length;
-  const { result } = renderLegacyOwnerRun();
-  await waitFor(() => expect(result.current.streamsError).toBe("활동을 찾을 수 없습니다."));
-  expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
-});
-
 it("discards a legacy Strava stream from a replaced SDK session", async () => {
   let resolve!: (value: unknown) => void;
   getStreams.mockReturnValueOnce(new Promise(yes => { resolve = yes; }));
@@ -105,39 +32,6 @@ it("discards a legacy Strava stream from a replaced SDK session", async () => {
   expect(result.current.showStreamSpinner).toBe(false);
 });
 
-
-it("does not fall back to cached streams after a revision change, malformed response, or access denial", async () => {
-  mocks.streams.mockResolvedValueOnce({ activityId: "a", state: "changed_input", streams: null })
-    .mockRejectedValueOnce({ code: "functions/permission-denied" })
-    .mockRejectedValueOnce(new Error("invalid_activity_streams"));
-  const before = vi.mocked(getDoc).mock.calls.length;
-  const { result } = renderLegacyOwnerRun();
-  await waitFor(() => expect(result.current.streamsError).toBe("page.streamsMissing"));
-  await act(async () => { await result.current.retryStreams(); });
-  await waitFor(() => expect(result.current.streamsError).toBe("page.streamsMissing"));
-  await act(async () => { await result.current.retryStreams(); });
-  await waitFor(() => expect(result.current.streamsError).toBe("invalid_activity_streams"));
-  expect(result.current.streams).toBeNull();
-  expect(mocks.streams).toHaveBeenCalledTimes(3);
-  expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
-});
-it("records an owner stream failure that arrives after leaving the activity", async () => {
-  const log = vi.spyOn(logger, "logClientError").mockImplementation(() => {});
-  try {
-    let reject!: (reason: Error) => void;
-    mocks.streams.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
-    const before = vi.mocked(getDoc).mock.calls.length;
-    const { unmount } = renderLegacyOwnerRun();
-    unmount();
-    const failure = new Error("network failure");
-    await act(async () => { reject(failure); });
-    expect(log).toHaveBeenCalledWith("ActivityPage.streams", failure,
-      expect.objectContaining({ activityId: "a", source: "orider" }), expect.anything());
-    expect(vi.mocked(getDoc).mock.calls.length).toBe(before);
-  } finally {
-    log.mockRestore();
-  }
-});
 
 it("uses the authorized full-resolution reader without raw Firestore or provider reads, retaining streams on social refresh", async () => {
   const streams = { time: [0, .5, 1], watts: [200, 0, 150] };
