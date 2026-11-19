@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import AthletePhotoGallery, { athletePhotoIdentity } from "./AthletePhotoGallery";
 import { simulateLogin } from "../../__tests__/mocks/firebase";
+import * as errorLogger from "../../services/errorLogger";
 const load = vi.hoisted(() => vi.fn());
 vi.mock("../../services/nativeActivityPhoto", async importOriginal => ({...await importOriginal<typeof import("../../services/nativeActivityPhoto")>(),loadNativeActivityPhoto:load}));
 beforeEach(() => { load.mockReset().mockResolvedValue(new Blob(["photo"], {type:"image/webp"})); });
@@ -22,6 +23,24 @@ it("uses native activity/photo identities rather than collapsing empty URLs", ()
   expect(athletePhotoIdentity({url:"",nativePhoto:{activityId:"a",photoId:"p1"}})).not.toBe(athletePhotoIdentity({url:"",nativePhoto:{activityId:"a",photoId:"p2"}}));
   expect(athletePhotoIdentity({url:"",nativePhoto:{activityId:"a",photoId:"p1"}})).not.toBe(athletePhotoIdentity({url:"",nativePhoto:{activityId:"b",photoId:"p1"}}));
   expect(athletePhotoIdentity({url:"https://example.test/photo"})).toBe("https://example.test/photo");
+});
+it("reports a failed published photo without including its URL and lets viewers navigate onward", async () => {
+  const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+  renderWithProviders(<AthletePhotoGallery photos={[
+    { id: "p1", url: "https://example.test/photo?token=secret", caption: "First", activityId: "a1" },
+    { id: "p2", url: "https://example.test/next", caption: "Next", activityId: "a2" },
+  ]} />);
+  fireEvent.click(screen.getAllByRole("button", { name: "활동 사진 보기" })[0]!);
+  const dialog = within(await screen.findByRole("dialog"));
+  fireEvent.error(dialog.getByRole("img", { name: "First" }));
+  expect(dialog.queryByRole("img", { name: "First" })).toBeNull();
+  expect(dialog.getByRole("status")).toBeInTheDocument();
+  expect(logger.mock.calls[0]?.slice(0, 3)).toEqual([
+    "AthletePhotoGallery.image", new Error("athlete-photo/image-load-failed"), { placement: "viewer" },
+  ]);
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
+  expect(dialog.getByRole("img", { name: "Next" })).toBeInTheDocument();
+  logger.mockRestore();
 });
 it("keeps native full-view failures retryable and removes old bytes on account changes", async () => {
   const create = vi.spyOn(URL,"createObjectURL").mockReturnValue("blob:private-photo");
