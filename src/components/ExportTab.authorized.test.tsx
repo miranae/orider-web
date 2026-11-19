@@ -68,7 +68,8 @@ it.each([null, new Error("activity_request_timeout"),
   expect(lookup).toHaveBeenCalledOnce();
   expect(mocks.fit).toHaveBeenCalledWith(run, cached, undefined);
   lookup.mockClear();
-  view.rerender(<ExportTab activity={run} streams={{ ...cached, cadence: [] }} resolveOwnerCadenceStreams={lookup} />);
+  const malformed = { ...cached, cadence: { 0: 85, length: 1 } } as unknown as typeof cached;
+  view.rerender(<ExportTab activity={run} streams={malformed} resolveOwnerCadenceStreams={lookup} />);
   await act(async () => fireEvent.click(screen.getByText("FIT")));
   expect(lookup).not.toHaveBeenCalled();
   expect(mocks.fit).toHaveBeenCalledTimes(2);

@@ -216,12 +216,13 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     if (!activityId || !isActivityOwner || !viewer || viewer.uid !== activity?.userId) throw new Error("account_changed");
     const response = await createPublicActivityClient(photoServices).streams(activityId);
     if (response.state === "changed_input") throw new Error("activity_stream_changed");
-    if (!response.streams) {
+    if (response.state !== "available" || !response.streams) {
       const reason = typeof response.reason === "string" && /^[a-z_]{1,64}$/u.test(response.reason) ? response.reason : undefined;
       logClientError("ActivityPage.ownerExportCadenceUnavailable", new Error("owner_export_cadence_stream_unavailable"), {
         state: response.state, reason,
         ...(photoServices.auth.currentUser === viewer ? { activityId } : {}),
       });
+      return null;
     }
     return response.streams;
   }, [activityId, activity?.userId, isActivityOwner, photoServices]);

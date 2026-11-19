@@ -41,7 +41,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   const hasLatLng = !!streams.latlng?.length;
   const hasAlt = !!streams.altitude?.length;
   const hasHr = !!streams.heartrate?.length;
-  const hasCad = !!streams.cadence?.length && streams.cadence.some(v => cadence.whole(v) != null);
+  const hasCad = Array.isArray(streams.cadence) && streams.cadence.some(v => cadence.whole(v) != null);
   const hasPower = !!streams.watts?.length;
   const hasSpeed = !!streams.velocity_smooth?.length;
 

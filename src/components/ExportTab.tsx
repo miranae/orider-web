@@ -41,7 +41,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
-  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount]);
+  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity, streams, resolveCurrentStreams, resolveOwnerCadenceStreams, getExportAccount]);
 
   const handleExport = useCallback(async (format: string) => {
     const request = generation.current;
@@ -50,7 +50,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
     try {
       const cadenceFormat = format === "fit" || format === "tcx";
       const needsOwnerCadence = cadenceFormat && readStreamCadenceUnit(streams) === undefined
-        && streams.cadence?.some(value => Number.isFinite(value) && value >= 0);
+        && Array.isArray(streams.cadence) && streams.cadence.some(value => Number.isFinite(value) && value >= 0);
       let currentStreams = streams;
       if (resolveCurrentStreams) {
         currentStreams = await resolveCurrentStreams();
