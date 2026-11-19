@@ -16,27 +16,32 @@ export function isLegacyActivityPhotoUrl(url: string): boolean {
 const connected = new WeakSet<object>();
 async function call<T>(services: FirebaseServices, name: string, payload: object): Promise<T> {
   const viewer = services.auth.currentUser;
+  const signedInAt = viewer?.metadata?.lastSignInTime;
+  const isCurrent = () => services.auth.currentUser === viewer && viewer?.metadata?.lastSignInTime === signedInAt;
   await services.ensureAppCheckReady();
-  if (services.auth.currentUser !== viewer) throw new Error("account_changed");
+  if (!isCurrent()) throw new Error("account_changed");
   const functions = isStageComputeRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
   if (isEmulatorRuntime() && !connected.has(functions)) {
     connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
     connected.add(functions);
   }
   const result = await httpsCallable<object, T>(functions, name, { timeout: 30000 })(payload);
-  if (services.auth.currentUser !== viewer) throw new Error("account_changed");
+  if (!isCurrent()) throw new Error("account_changed");
   return result.data;
 }
 // Coalesce only overlapping reads. Settled bytes/permissions are never cached.
-// A replacement Firebase User (even with the same uid) gets a new request scope.
+// A new sign-in gets a new request scope even when Firebase reuses its User object.
 const pendingReads = new WeakMap<FirebaseServices, {
-  viewer: FirebaseServices["auth"]["currentUser"]; requests: Map<string, Promise<unknown>>;
+  viewer: FirebaseServices["auth"]["currentUser"];
+  signedInAt: string | undefined;
+  requests: Map<string, Promise<unknown>>;
 }>();
 function sharePhotoRead<T>(services: FirebaseServices, photo: NativePhotoReference, kind: "bytes" | "access", read: () => Promise<T>): Promise<T> {
   const viewer = services.auth.currentUser;
+  const signedInAt = viewer?.metadata?.lastSignInTime;
   let scope = pendingReads.get(services);
-  if (!scope || scope.viewer !== viewer) {
-    scope = { viewer, requests: new Map() };
+  if (!scope || scope.viewer !== viewer || scope.signedInAt !== signedInAt) {
+    scope = { viewer, signedInAt, requests: new Map() };
     pendingReads.set(services, scope);
   }
   const key = JSON.stringify([kind, photo.activityId, photo.photoId]);

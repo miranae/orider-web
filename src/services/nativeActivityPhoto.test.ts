@@ -93,6 +93,23 @@ it("isolates service, photo and replacement-account scopes including same uid", 
   settle({ data: { base64: "aW1hZ2U=", contentType: "image/png" } });
   await rejected;
 });
+it("reauthorizes an overlapping photo request when the same Firebase user signs in again", async () => {
+  const source = services();
+  const metadata = { lastSignInTime: "first sign-in" };
+  Object.assign(source.auth.currentUser!, { metadata });
+  let settle!: (data: unknown) => void;
+  mocks.call.mockReturnValueOnce(new Promise(resolve => { settle = resolve; }));
+  const prior = expect(loadNativeActivityPhoto(source, photo)).rejects.toThrow("account_changed");
+  await vi.waitFor(() => expect(mocks.call).toHaveBeenCalledTimes(1));
+
+  metadata.lastSignInTime = "second sign-in";
+  mocks.call.mockRejectedValueOnce(new Error("permission-denied"));
+  await expect(loadNativeActivityPhoto(source, photo)).rejects.toThrow("permission-denied");
+  expect(mocks.call).toHaveBeenCalledTimes(2);
+
+  settle({ data: { base64: "aW1hZ2U=", contentType: "image/webp" } });
+  await prior;
+});
 it("announces an activity content change only after hiding or restoring Strava photos succeeds", async () => {
   const changed = vi.fn();
   window.addEventListener("orider:activity-content-changed", changed);
