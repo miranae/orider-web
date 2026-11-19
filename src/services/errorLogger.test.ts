@@ -159,18 +159,49 @@ it("does not suppress the first identical error from a new injected app", () => 
   expect(next.ensureAppCheckReady).toHaveBeenCalledOnce();
 });
 
-it("keeps diagnostics for approved and revoked host sessions without resolving live callable credentials", () => {
+it("uses only the approved viewer's token for the embedded backup when Sentry is unconfigured", async () => {
   __resetClientErrorDedupeForTests();
   vi.mocked(captureError).mockClear();
-  const viewer = { uid: "embedded" };
-  let approved = true;
-  const services = { auth: { currentUser: viewer }, functions: { app: { name: "embedded-log" } },
+  const viewer = { uid: "embedded", getIdToken: vi.fn().mockResolvedValue("approved-token") };
+  const services = { auth: { currentUser: viewer }, functions: { app: { options: { projectId: "test-project" } } },
     ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+    getAppCheckToken: vi.fn().mockResolvedValue("embed-appcheck"),
+    isSessionApproved: () => true } as unknown as FirebaseServices;
+  const config = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ appEnvironment: "production" });
+  const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
+  try {
+    logClientError("embedded.approved", new Error("pending"), {}, services, services.auth.currentUser);
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith(
+      "https://asia-northeast3-test-project.cloudfunctions.net/logClientError",
+      expect.objectContaining({ headers: {
+        "Content-Type": "application/json", "X-Firebase-AppCheck": "embed-appcheck", Authorization: "Bearer approved-token",
+      } }),
+    ));
+    expect(captureError).toHaveBeenCalledTimes(1);
+    expect(httpsCallable).not.toHaveBeenCalledWith(services.functions, "logClientError");
+  } finally { config.mockRestore(); post.mockRestore(); }
+});
+
+it("retains approved-session diagnostics when approval is revoked during token acquisition", async () => {
+  __resetClientErrorDedupeForTests();
+  vi.mocked(captureError).mockClear();
+  let resolveToken!: (token: string) => void;
+  const viewer = { uid: "embedded", getIdToken: vi.fn(() => new Promise<string>(resolve => { resolveToken = resolve; })) };
+  let approved = true;
+  const services = { auth: { currentUser: viewer }, functions: { app: { options: { projectId: "test-project" } } },
+    getAppCheckToken: vi.fn().mockResolvedValue("embed-appcheck"),
     isSessionApproved: () => approved } as unknown as FirebaseServices;
-  logClientError("embedded.revoked", new Error("pending"), {}, services, services.auth.currentUser);
-  approved = false;
-  logClientError("embedded.revoked", new Error("pending"), {}, services, services.auth.currentUser);
-  expect(captureError).toHaveBeenCalledTimes(2);
-  expect(services.ensureAppCheckReady).not.toHaveBeenCalled();
-  expect(httpsCallable).not.toHaveBeenCalledWith(services.functions, "logClientError");
+  const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
+  try {
+    logClientError("embedded.revoked", new Error("pending"), {}, services, services.auth.currentUser);
+    approved = false;
+    const replacement = { uid: "embedded", getIdToken: vi.fn() };
+    services.auth.currentUser = replacement as never;
+    resolveToken("previous-token");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(captureError).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+    expect(replacement.getIdToken).not.toHaveBeenCalled();
+  } finally { post.mockRestore(); }
 });

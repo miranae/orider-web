@@ -1,6 +1,7 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { captureError } from "./sentry";
 import { getRuntimeConfig } from "./runtimeConfig";
+import { approvedCallableEndpoint, postApprovedCallable } from "../embedded/approvedCallableGateway";
 import { httpsCallable, type HttpsCallable } from "firebase/functions";
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 오류 로깅 기본값. 임베드 데이터 요청 오류는 services를 주입할 수 있다.
 import { ensureAppCheckReady, functions } from "./firebase";
@@ -74,7 +75,8 @@ export function logClientError(
   source: string,
   error: unknown,
   context?: Record<string, unknown>,
-  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady" | "isSessionApproved">,
+  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady" | "isSessionApproved">
+    & Partial<Pick<FirebaseServices, "getAppCheckToken">>,
   requestViewer?: FirebaseServices["auth"]["currentUser"],
   dedupeScope = "",
   isRequestCurrent?: () => boolean,
@@ -95,9 +97,8 @@ export function logClientError(
     { tags: { source }, extra: context }
   );
 
-  // The backup callable resolves live Auth. Host-approved sessions report through Sentry
-  // so a change between dispatch and token acquisition cannot attach another account.
-  if (getRuntimeConfig().appEnvironment === "stage" || services?.isSessionApproved) return;
+  const config = getRuntimeConfig();
+  if (config.appEnvironment === "stage") return;
 
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
   const stack = error instanceof Error ? error.stack : undefined;
@@ -105,13 +106,26 @@ export function logClientError(
   if (services ? !services.auth || !services.functions : !functions) return;
   // Report late failures to Sentry, but never send them through a different account's callable.
   if (!requestIsCurrent()) return;
+  const payload = { source, message, stack, context };
   void (async () => {
     try {
+      if (services?.isSessionApproved) {
+        // The SDK callable resolves live Auth. Use only the approved viewer's captured credentials.
+        const endpoint = approvedCallableEndpoint(config, services.functions, "asia-northeast3", "logClientError");
+        const [appCheck, authToken] = await Promise.all([services.getAppCheckToken?.(), user?.getIdToken()]);
+        if (!requestIsCurrent()) return;
+        if (!endpoint || (!appCheck && config.useEmulators !== true) || (user && !authToken)) {
+          throw new Error("embedded-error-backup-unavailable");
+        }
+        const response = await postApprovedCallable(endpoint, payload, appCheck ?? null, authToken);
+        if (!response.ok) throw new Error("embedded-error-backup-rejected");
+        return;
+      }
       await (services?.ensureAppCheckReady ?? ensureAppCheckReady)();
       if (!requestIsCurrent()) return;
       const fn = services ? httpsCallable(services.functions, "logClientError") : getLogClientErrorFn();
       if (!fn) return; // initFirebase 전 — 서버 로깅 skip (Sentry 큐로 충분)
-      await fn({ source, message, stack, context });
+      await fn(payload);
     } catch {
       console.warn("[errorLogger] 서버 에러 로깅 실패:", message);
     }

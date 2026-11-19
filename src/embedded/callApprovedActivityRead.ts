@@ -1,6 +1,7 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
-import { getRuntimeConfig, isEmulatorRuntime, isFunctionsGatewayRuntime } from "../services/runtimeConfig";
+import { getRuntimeConfig } from "../services/runtimeConfig";
+import { approvedCallableEndpoint, postApprovedCallable } from "./approvedCallableGateway";
 
 const httpErrorCodes: Partial<Record<number, string>> = {
   400: "invalid-argument", 401: "unauthenticated", 403: "permission-denied", 404: "not-found",
@@ -21,9 +22,7 @@ export async function callApprovedActivityRead<T>(
 ): Promise<T> {
   const report = (phase: ReadPhase, status?: number) => {
     logClientError("embedded.activityRead", new Error(`embedded-callable-${phase}-failed`),
-      { route, phase, status }, services, viewer, route, () => {
-        try { assertCurrent(); return true; } catch { return false; }
-      });
+      { route, phase, status }, services, viewer, route);
   };
   const reportTimeout = () => {
     if (signal.reason instanceof DOMException && signal.reason.name === "TimeoutError") report("timeout");
@@ -32,11 +31,10 @@ export async function callApprovedActivityRead<T>(
     && (error === signal.reason || (error instanceof Error && error.name === "AbortError"));
 
   const config = getRuntimeConfig();
-  const emulator = isEmulatorRuntime();
   const appCheckForRequest = async () => {
     try {
       const token = await services.getAppCheckToken();
-      if (!token && !emulator) throw new Error("app-check/empty-token");
+      if (!token && config.useEmulators !== true) throw new Error("app-check/empty-token");
       return token;
     } catch (error) {
       report("app-check");
@@ -61,29 +59,15 @@ export async function callApprovedActivityRead<T>(
     // The callable SDK resolves live Auth after invocation. Resolve the approved viewer's token explicitly.
     const [appCheck, authToken] = await Promise.all([appCheckForRequest(), viewerTokenForRequest()]);
     assertCurrent();
-    const project = services.functions.app.options.projectId;
-    const base = emulator && project ? `http://localhost:${Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001)}/${project}/${region}`
-      : isFunctionsGatewayRuntime(config) ? config.firebaseFunctionsBase
-      : project ? `https://${region}-${project}.cloudfunctions.net` : undefined;
-    if (!base) {
+    const endpoint = approvedCallableEndpoint(config, services.functions, region, route);
+    if (!endpoint) {
       report("endpoint");
       throw new Error("embedded-callable-endpoint-unavailable");
     }
 
     let response: Response;
     try {
-      response = await fetch(`${base}/${route}`, {
-        method: "POST",
-        credentials: "omit",
-        redirect: "error",
-        signal,
-        headers: {
-          "Content-Type": "application/json",
-          ...(appCheck ? { "X-Firebase-AppCheck": appCheck } : {}),
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        },
-        body: JSON.stringify({ data }),
-      });
+      response = await postApprovedCallable(endpoint, data, appCheck, authToken, signal);
     } catch (error) {
       if (!cancelled(error)) report("transport");
       throw error;
