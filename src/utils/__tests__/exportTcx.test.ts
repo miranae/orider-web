@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { markStreamCadenceUnit } from "../../services/activityStreamSource";
 import { generateTcx } from '../exportTcx';
 
 const makeActivity = (overrides = {}) => ({
@@ -95,7 +96,16 @@ describe('generateTcx', () => {
     const native = generateTcx(makeActivity({ type: 'Run', source: 'orider' }), { ...streams, cadence: [180] });
     const provider = generateTcx(makeActivity({ type: 'Run', source: 'strava' }), streams);
     expect(native).toContain('<ext:RunCadence>90</ext:RunCadence>');
+    const recorded = makeActivity({ id: 'orider_run', type: 'Run', source: 'orider' });
+    const selfOrigin = { ...recorded, activityPresentationV1: {
+      version: 1, activityRevision: null, contentSelectedRevision: null, sensorOriginActivityId: recorded.id,
+    } } as Activity;
+    expect(generateTcx(selfOrigin, { ...streams, cadence: [180] })).toContain('<ext:RunCadence>90</ext:RunCadence>');
+    expect(generateTcx({ ...recorded, source: undefined }, { ...streams, cadence: [180] })).toContain('<ext:RunCadence>90</ext:RunCadence>');
     expect(provider).toContain('<ext:RunCadence>90</ext:RunCadence>');
+    const imported = makeActivity({ type: 'Run', source: 'health_connect' });
+    expect(generateTcx(imported, markStreamCadenceUnit({ ...streams, cadence: [180] }, 'spm')))
+      .toContain('<ext:RunCadence>90</ext:RunCadence>');
     expect(generateTcx(makeActivity({ type: 'Ride' }), streams)).toContain('<Cadence>90</Cadence>');
   });
 

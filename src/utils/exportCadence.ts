@@ -1,12 +1,21 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import { activitySensorOrigin } from "../features/activity/detail/activitySensorOrigin";
-import { isRawPartStreams } from "../services/activityStreamSource";
+import { isRawPartStreams, readStreamCadenceUnit } from "../services/activityStreamSource";
 import type { ExportSport } from "./exportSport";
+import { getStravaActivityId } from "./stravaActivity";
 
 function footCadenceScale(activity: Activity, streams: ActivityStreams): number | undefined {
-  if (activitySensorOrigin(activity) != null) return undefined;
-  if (activity.source === "orider") return 0.5; // Native steps per minute count both feet.
-  if (activity.source === "strava" && !isRawPartStreams(streams)) return 1; // Provider cadence counts strides.
+  const unit = readStreamCadenceUnit(streams);
+  if (unit === "spm") return 0.5;
+  if (unit === "strides_per_minute") return 1;
+  if (unit === null) return undefined;
+
+  const origin = activitySensorOrigin(activity);
+  if (origin != null && origin !== activity.id) return undefined;
+  const legacyNative = activity.source == null && activity.id?.startsWith("orider_");
+  if (activity.source === "orider" || legacyNative) return 0.5;
+  const legacyProvider = activity.source == null && getStravaActivityId(activity) != null;
+  if ((activity.source === "strava" || legacyProvider) && !isRawPartStreams(streams)) return 1;
   return undefined;
 }
 
