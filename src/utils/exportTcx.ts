@@ -1,7 +1,11 @@
 import type { Activity, ActivityStreams } from "@shared/types";
+import { cadenceWriter } from "./exportCadence";
+import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
 export function generateTcx(activity: Activity, streams: ActivityStreams): string {
+  const sport = exportSportOf(activity);
+  const cadence = cadenceWriter(activity, streams, sport);
   const startDate = new Date(activity.startTime);
   const startMs = startDate.getTime();
   const len = streams.time?.length || streams.latlng?.length || 0;
@@ -14,7 +18,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ext="http://www.garmin.com/xmlschemas/ActivityExtension/v2">',
     '<Activities>',
-    '<Activity Sport="Biking">',
+    `<Activity Sport="${sport.tcxSport}">`,
     `<Id>${startDate.toISOString()}</Id>`,
   ];
 
@@ -34,7 +38,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
       while (trackIdx < len) {
         const tSec = relSecAt(trackIdx) ?? trackIdx;
         if (tSec > lapEndTime && trackIdx > 0) break;
-        writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx));
+        writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx), cadence.cyclesAt(trackIdx), sport.footCadence);
         trackIdx++;
       }
 
@@ -52,7 +56,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
     lines.push('<Track>');
 
     for (let i = 0; i < len; i++) {
-      writeTrackpoint(lines, streams, i, startMs, relSecAt(i));
+      writeTrackpoint(lines, streams, i, startMs, relSecAt(i), cadence.cyclesAt(i), sport.footCadence);
     }
 
     lines.push('</Track>', '</Lap>');
@@ -62,7 +66,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams): strin
   return lines.join('\n');
 }
 
-function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, startMs: number, relSec: number | null) {
+function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, startMs: number, relSec: number | null, cadence: number | undefined, footCadence: boolean) {
   const time = relSec != null ? new Date(startMs + relSec * 1000).toISOString() : new Date(startMs).toISOString();
   lines.push('<Trackpoint>');
   lines.push(`<Time>${time}</Time>`);
@@ -84,13 +88,15 @@ function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, s
     lines.push(`<Value>${streams.heartrate[i]}</Value>`);
     lines.push('</HeartRateBpm>');
   }
-  if (streams.cadence?.[i] != null) {
-    lines.push(`<Cadence>${streams.cadence[i]}</Cadence>`);
-  }
-  if (streams.watts?.[i] != null) {
+  const recordedCadence = cadence == null ? undefined : Math.floor(cadence);
+  if (recordedCadence != null && !footCadence) lines.push(`<Cadence>${recordedCadence}</Cadence>`);
+  const runCadence = footCadence ? recordedCadence : undefined;
+  const watts = streams.watts?.[i];
+  if (watts != null || runCadence != null) {
     lines.push('<Extensions>');
     lines.push('<ext:TPX>');
-    lines.push(`<ext:Watts>${streams.watts[i]}</ext:Watts>`);
+    if (runCadence != null) lines.push(`<ext:RunCadence>${runCadence}</ext:RunCadence>`);
+    if (watts != null) lines.push(`<ext:Watts>${watts}</ext:Watts>`);
     lines.push('</ext:TPX>');
     lines.push('</Extensions>');
   }

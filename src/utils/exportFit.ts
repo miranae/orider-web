@@ -1,8 +1,12 @@
 import type { Activity, ActivityStreams } from "@shared/types";
+import { cadenceWriter } from "./exportCadence";
+import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
 /** FIT 파일 바이너리 생성 */
 export function generateFit(activity: Activity, streams: ActivityStreams): Uint8Array {
+  const sport = exportSportOf(activity);
+  const cadence = cadenceWriter(activity, streams, sport);
   const buf = new FitWriter();
   const startDate = new Date(activity.startTime);
   const garminEpoch = new Date("1989-12-31T00:00:00Z").getTime();
@@ -36,7 +40,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
   const hasLatLng = !!streams.latlng?.length;
   const hasAlt = !!streams.altitude?.length;
   const hasHr = !!streams.heartrate?.length;
-  const hasCad = !!streams.cadence?.length;
+  const hasCad = cadence.available;
   const hasPower = !!streams.watts?.length;
   const hasSpeed = !!streams.velocity_smooth?.length;
 
@@ -52,6 +56,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
   if (hasCad) recordFields.push([4, 1, 2]);    // cadence: uint8
   if (hasPower) recordFields.push([7, 2, 132]); // power: uint16
   if (hasSpeed) recordFields.push([6, 2, 132]); // speed: uint16 (scale 1000)
+  if (hasCad && sport.footCadence) recordFields.push([53, 1, 2]); // fractional_cadence: 1/128 cycle
 
   buf.writeDefinition(0, 20, recordFields);
 
@@ -76,13 +81,17 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
       recBytes.push(...uint16LE(encoded));
     }
     if (hasHr) recBytes.push(streams.heartrate![i] ?? 0xFF);
-    if (hasCad) recBytes.push(streams.cadence![i] ?? 0xFF);
+    const cycles = hasCad ? cadence.cyclesAt(i) : undefined;
+    if (hasCad) recBytes.push(cycles == null ? 0xFF : Math.floor(cycles));
     if (hasPower) recBytes.push(...uint16LE(streams.watts![i] ?? 0xFFFF));
     if (hasSpeed) {
       const speedMs = streams.velocity_smooth![i] ?? 0;
       recBytes.push(...uint16LE(Math.round(speedMs * 1000)));
     }
 
+    if (hasCad && sport.footCadence) {
+      recBytes.push(cycles == null ? 0xFF : Math.min(127, Math.round((cycles - Math.floor(cycles)) * 128)));
+    }
     buf.writeData(0, recBytes);
   }
 
@@ -102,8 +111,8 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
     ...uint32LE(Math.round(durationMs)),   // total_elapsed_time
     ...uint32LE(Math.round(durationMs)),   // total_timer_time
     ...uint32LE(Math.round(distanceM * 100)), // total_distance (cm)
-    2, // sport: cycling
-    0, // sub_sport: generic
+    sport.fitSport,
+    sport.fitSubSport,
   ]);
 
   // Lap 메시지 (mesg 19) — 최소 1개 필수
