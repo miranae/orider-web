@@ -53,6 +53,11 @@ import { ICON_SIZE } from "../theme/tokens/icon";
 import { segmentStatusResolve } from "../components/segment/segmentStatusResolve";
 import { Resolvable } from "../components/redesign";
 
+function publishedPhotos(activity: Activity) {
+  return activity.feedContentV1?.sourceRevision === activityFeedSourceRevision(activity)
+    ? boundedFeedContent(activity.feedContentV1)?.photos ?? [] : [];
+}
+
 function uniquePhotos(photos: AthletePhoto[]) {
   const seen = new Set<string>();
   return photos.filter(photo => {
@@ -461,6 +466,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const profileReadReady = sessionAuthorized && (isOwnProfile || !profileLoading);
   const activityAccessAllowed = isOwnProfile || (!publicProfileDeleted && (profileForPage?.profilePublic !== false || friendStatus === "friends"));
   const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && profileReadReady && activityAccessAllowed, true, accessRevision);
+  const photoRevealScope = useMemo(() => ({ readIdentity, accessRevision, generation: publicGlobal.generation, items: publicGlobal.items }),
+    [readIdentity, accessRevision, publicGlobal.generation, publicGlobal.items]);
+  const photoRevealScopeRef = useRef(photoRevealScope);
+  photoRevealScopeRef.current = photoRevealScope;
+  const pendingPhotoReveal = useRef<{ scope: typeof photoRevealScope; controller: AbortController } | null>(null);
+  const [photoRevealStatus, setPhotoRevealStatus] = useState<{ scope: typeof photoRevealScope; status: "loading" | "error" } | null>(null);
+  useEffect(() => () => {
+    if (pendingPhotoReveal.current?.scope === photoRevealScope) pendingPhotoReveal.current.controller.abort();
+  }, [photoRevealScope]);
   const chartCurrent = chartScope?.identity === readIdentity && chartScope.year === chartYear;
   const chartActivities = isOwnProfile ? chartCurrent ? ownChartActivities : [] : publicGlobal.items;
   const chartLoading = isOwnProfile ? ownChartLoading || !chartCurrent && !ownChartError : publicGlobal.status === "loading";
@@ -947,18 +961,61 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const profilePhotos = useMemo(() => {
     const seen = new Set<string>();
     if (isOwnProfile) return ownerPhotoItems;
-    return chartActivities.filter(activity => activity.userId === userId).sort((a, b) => b.startTime - a.startTime).flatMap(activity => {
-      if (activity.feedContentV1?.sourceRevision !== activityFeedSourceRevision(activity)) return [];
-      return (boundedFeedContent(activity.feedContentV1)?.photos ?? []).flatMap(photo => {
+    return chartActivities.filter(activity => activity.userId === userId).sort((a, b) => b.startTime - a.startTime).flatMap(activity =>
+      publishedPhotos(activity).flatMap(photo => {
         const identity = athletePhotoIdentity(photo);
         if (seen.has(identity)) return [];
         seen.add(identity);
         return [{ ...photo, activityId: activity.id }];
-      });
-    });
+      }));
   }, [chartActivities, userId, isOwnProfile, ownerPhotoItems]);
   const recentPhotos = profilePhotos.slice(0, mediaVisible.photos);
   const publicPhotosBuffered = !isOwnProfile && Date.now() < publicGlobal.authorizedUntil && profilePhotos.length > mediaVisible.photos;
+  const currentPhotoRevealStatus = photoRevealStatus?.scope === photoRevealScope ? photoRevealStatus.status : null;
+  const showMorePublicPhotos = async () => {
+    const current = () => photoRevealScopeRef.current === photoRevealScope && activityAccessCurrent()
+      && publicPresenceRef.current.state !== "deleted" && document.visibilityState !== "hidden";
+    if (!userId || !current() || pendingPhotoReveal.current?.scope === photoRevealScope) return;
+    const revealFrom = mediaVisible.photos;
+    if (!publicPhotosBuffered) {
+      if (Date.now() < publicGlobal.authorizedUntil) setMediaVisible(value => ({ ...value, photos: revealFrom + 6 }));
+      await publicGlobal.more();
+      return;
+    }
+    const controller = new AbortController();
+    const request = { scope: photoRevealScope, controller };
+    pendingPhotoReveal.current = request;
+    setPhotoRevealStatus({ scope: photoRevealScope, status: "loading" });
+    try {
+      const buffered = profilePhotos.slice(revealFrom, revealFrom + 6);
+      const cursors = new Set(buffered.map(photo => publicGlobal.pageStartById.get(photo.activityId)));
+      if (cursors.has(undefined)) throw new Error("public-photo-source-missing");
+      const pages = await Promise.all([...cursors].map(cursor => loadActivityDiscovery(services, {
+        scope: "athlete", targetUid: userId, order: "id_asc", limit: 20, ...(cursor ? { cursor } : {}),
+      }, controller.signal)));
+      if (!current() || controller.signal.aborted) return;
+      const fresh = new Map(pages.flatMap(page => page.items.filter(activity => activity.userId === userId)
+        .map(activity => [activity.id, new Set(publishedPhotos(activity).map(athletePhotoIdentity))] as const)));
+      if (!buffered.every(photo => fresh.get(photo.activityId)?.has(athletePhotoIdentity(photo)))) {
+        await publicGlobal.refresh();
+        return;
+      }
+      setMediaVisible(value => ({ ...value, photos: Math.max(value.photos, revealFrom + buffered.length) }));
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      logClientError("AthletePage.publicPhotos", error, {}, services, readIdentity.viewer, "", current);
+      if (!current()) return;
+      const code = (error as { code?: string })?.code;
+      if (code === "functions/permission-denied" || code === "functions/not-found" || code === "functions/unauthenticated") {
+        await publicGlobal.refresh();
+      } else {
+        setPhotoRevealStatus({ scope: photoRevealScope, status: "error" });
+      }
+    } finally {
+      if (pendingPhotoReveal.current === request) pendingPhotoReveal.current = null;
+      if (current()) setPhotoRevealStatus(value => value?.scope === photoRevealScope && value.status === "loading" ? null : value);
+    }
+  };
   const highlights = useMemo(() => isOwnProfile ? ownerHighlightItems.slice(0, mediaVisible.highlights) : [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime).flatMap(activity => (activity.topAchievements ?? []).slice(0, 3).map(achievement => ({ ...achievement, activityId: activity.id }))).slice(0, 12), [acceptedChartActivities, isOwnProfile, ownerHighlights, mediaCurrent, mediaVisible.highlights]);
 
   // 검색 활성 시: 서버 검색 결과 사용
@@ -1249,11 +1306,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               {publicGlobal.status !== "partial" && publicGlobal.status !== "complete" && <Text as="p" role="status">
                 {t(publicGlobal.status === "limit" ? "profile.publicMediaLimit" : `publicGlobal.${publicGlobal.status}`)}
               </Text>}
-              {(publicPhotosBuffered || publicGlobal.status === "partial") && <Button size="sm" onClick={() => {
-                if (publicPresenceRef.current.state === "deleted") return;
-                if (Date.now() < publicGlobal.authorizedUntil) setMediaVisible(visible => ({ ...visible, photos: visible.photos + 6 }));
-                if (!publicPhotosBuffered || Date.now() >= publicGlobal.authorizedUntil) void publicGlobal.more();
-              }}>{t(publicPhotosBuffered ? "profile.moreCachedPhotos" : "profile.morePublicMediaActivities")}</Button>}
+              {currentPhotoRevealStatus === "error" && <Text as="p" role="status">{t("profile.mediaError")}</Text>}
+              {(publicPhotosBuffered || publicGlobal.status === "partial") && <Button size="sm" disabled={currentPhotoRevealStatus === "loading"} onClick={() => void showMorePublicPhotos()}>{t(publicPhotosBuffered ? "profile.moreCachedPhotos" : "profile.morePublicMediaActivities")}</Button>}
               {["error", "restart", "stale"].includes(publicGlobal.status) && <Button size="sm" onClick={publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>
                 {t("common:button.retry")}
               </Button>}

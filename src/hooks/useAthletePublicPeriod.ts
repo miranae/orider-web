@@ -11,8 +11,8 @@ export function publicPeriodBounds(from: string, to: string) {
   const valid = (day: string, time: number) => /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(time) && new Date(time + 32400000).toISOString().slice(0, 10) === day;
   return valid(from, start) && valid(to, last) && start <= last && last - start < 366 * 86400000 ? { start, end: last + 86400000 } : null;
 }
-type Result = { items: Activity[]; cursor: string | null; expiresAt: number; authorizedUntil: number; pages: number; status: "loading" | "partial" | "complete" | "error" | "restart" | "stale" | "limit" };
-const empty = (): Result => ({ items: [], cursor: null, expiresAt: 0, authorizedUntil: 0, pages: 0, status: "loading" });
+type Result = { items: Activity[]; pageStartById: ReadonlyMap<string, string | null>; cursor: string | null; expiresAt: number; authorizedUntil: number; pages: number; status: "loading" | "partial" | "complete" | "error" | "restart" | "stale" | "limit" };
+const empty = (): Result => ({ items: [], pageStartById: new Map(), cursor: null, expiresAt: 0, authorizedUntil: 0, pages: 0, status: "loading" });
 /** One explicit page per action. No public activity payload or cursor is persisted. */
 export function useAthletePublicPeriod(targetUid: string, from: string, to: string, enabled = true, global = false, accessRevision?: object | null) {
   const services = useFirebaseServices(), auth = services.auth, sdkUser = auth.currentUser, app = auth.app;
@@ -55,8 +55,12 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
       if (!current()) return;
       if (page.nextCursor && page.nextCursor === previous.cursor) throw Error("invalid_activity_discovery");
       const items = new Map(previous.items.map(item => [item.id, item]));
-      for (const item of page.items) items.set(item.id, item);
-      session.current = { items: [...items.values()], cursor: page.nextCursor, expiresAt: page.expiresAt, authorizedUntil: previous.authorizedUntil || requestedAt + 30000, pages: previous.pages + 1, status: page.exhausted ? "complete" : global && previous.pages + 1 >= 10 ? "limit" : "partial" };
+      const pageStartById = new Map(previous.pageStartById);
+      for (const item of page.items) {
+        items.set(item.id, item);
+        pageStartById.set(item.id, previous.cursor);
+      }
+      session.current = { items: [...items.values()], pageStartById, cursor: page.nextCursor, expiresAt: page.expiresAt, authorizedUntil: previous.authorizedUntil || requestedAt + 30000, pages: previous.pages + 1, status: page.exhausted ? "complete" : global && previous.pages + 1 >= 10 ? "limit" : "partial" };
     } catch (error) {
       const code = String((error as {code?: string})?.code ?? (error as Error)?.message ?? error);
       const context = { targetUid, global, continuation: Boolean(previous.cursor) };

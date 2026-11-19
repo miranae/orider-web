@@ -1237,7 +1237,7 @@ it("observes first signal insertion on existing documents whose counters start a
   expect(screen.queryByText("7회")).not.toBeInTheDocument();
 });
 
-it("drops buffered public photos when an existing version-zero profile is deleted", async () => {
+async function seedBufferedPublicPhotos() {
   const { activityFeedSourceRevision } = await import("../services/activityFeedContent");
   setDocData("users_public/athlete-1", { nickname: "Legacy rider", profilePublic: true });
   setCollectionDocs("activities", [0, 1].map(ride => {
@@ -1253,6 +1253,10 @@ it("drops buffered public photos when an existing version-zero profile is delete
       memo: null, photos, totalPhotoCount: photos.length,
     } };
   }));
+}
+
+it("drops buffered public photos when an existing version-zero profile is deleted", async () => {
+  await seedBufferedPublicPhotos();
   const view = renderWithProviders(<AthletePage />);
   const showBuffered = await screen.findByRole("button", { name: "사진 6개 더 보기" });
   expect(view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger")).toHaveLength(6);
@@ -1260,6 +1264,36 @@ it("drops buffered public photos when an existing version-zero profile is delete
   fireEvent.click(showBuffered);
   expect(screen.queryByRole("button", { name: "사진 6개 더 보기" })).not.toBeInTheDocument();
   expect(view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger, .athlete-cover .athlete-photo-trigger")).toHaveLength(0);
+});
+
+it.each([true, false])("checks buffered photo permissions again before revealing (allowed=%s)", async allowed => {
+  await seedBufferedPublicPhotos();
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let verifyPhotos = false;
+  let release!: () => void;
+  const verification = new Promise<void>(resolve => { release = resolve; });
+  const checked = vi.fn();
+  vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request, signal) => {
+    if (verifyPhotos && request.order === "id_asc") {
+      checked(request);
+      await verification;
+      if (!allowed) throw Object.assign(new Error("not found"), { code: "functions/not-found" });
+    }
+    return original(services, request, signal);
+  });
+  try {
+    const view = renderWithProviders(<AthletePage />);
+    const photoCount = () => view.container.querySelectorAll(".athlete-photo-strip .athlete-photo-trigger").length;
+    const showBuffered = await screen.findByRole("button", { name: "사진 6개 더 보기" });
+    verifyPhotos = true;
+    fireEvent.click(showBuffered);
+    await waitFor(() => expect(checked).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: "athlete", targetUid: "athlete-1", order: "id_asc", limit: 20 }),
+    ));
+    expect(photoCount()).toBe(6);
+    await act(async () => release());
+    await waitFor(() => expect(photoCount()).toBe(allowed ? 8 : 0));
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
 
 it.each(["success", "failure"])("ignores an older public continuation's %s and busy completion after visibility restarts the first page", async outcome => {
