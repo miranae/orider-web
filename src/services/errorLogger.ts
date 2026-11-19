@@ -108,7 +108,7 @@ function describeDiagnosticFailure(error: unknown): { code: string } {
     if (error.message === "account_changed") return { code: "account_changed" };
     if (error.message === "activity_request_timeout") return { code: "timeout" };
     if (error.message.includes("Response is not valid JSON object")) return { code: "invalid_callable_response" };
-    if (error.message === "invalid_activity_streams") return { code: "invalid_activity_streams" };
+    if (error.message === "invalid_activity_streams" || error.message === "activity_stream_identity_mismatch") return { code: error.message };
     if (/network|failed to fetch|load failed/iu.test(error.message)) return { code: "network_error" };
   }
   return { code: "unknown" };

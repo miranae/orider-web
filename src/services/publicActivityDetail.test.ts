@@ -99,6 +99,11 @@ it("rejects full streams with missing source binding or a different activity", a
   mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streams: { watts: [1] } } });
   await expect(createPublicActivityClient(services("viewer")).streams("a")).rejects.toThrow("invalid_activity_streams");
 });
+it("keeps an activity identity mismatch distinct from malformed optional data", async () => {
+  mocks.call.mockResolvedValue({ data: { activityId: "other", state: "available" } });
+  await expect(createPublicActivityClient(services("owner")).streams("a")).rejects.toThrow("activity_stream_identity_mismatch");
+});
+
 it.each([null, 1, "not a stream", []])("rejects malformed stream payloads (%j)", async streams => {
   const response = { activityId: "a", state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", streams };
   mocks.call.mockResolvedValue({ data: response });

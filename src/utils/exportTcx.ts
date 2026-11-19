@@ -39,7 +39,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
   const indices = Array.from({ length: len }, (_, index) => index).filter(index =>
     !activityTime || streams.latlng?.[index] != null || Number.isFinite(streams.distance?.[index])
     || Number.isFinite(streams.altitude?.[index]) || Number.isFinite(streams.heartrate?.[index])
-    || Number.isFinite(streams.watts?.[index]) || cadence.whole(streams.cadence?.[index]) != null);
+    || Number.isFinite(streams.watts?.[index]) || Number.isFinite(streams.velocity_smooth?.[index]) || cadence.whole(streams.cadence?.[index]) != null);
   const writeLap = (when: number, duration: number, distance: number, calories: number, first: number, end: number) => {
     openLap(lines, when, duration, distance, calories);
     if (first < end) {
@@ -78,8 +78,13 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
   } else {
     // A TCX track requires a lap with a distance. Use the recorded activity total when points
     // fall outside the recorded laps, rather than inventing distances for extra laps.
-    writeLap(startMs, (activity.summary.ridingTimeMillis || 0) / 1000, activity.summary.distance || 0,
-      streams.calories || 0, 0, indices.length);
+    const summary = activity.summary;
+    const recordedElapsed = typeof summary.elapsedTimeMillis === "number" && Number.isFinite(summary.elapsedTimeMillis)
+      ? summary.elapsedTimeMillis / 1000 : null;
+    const duration = laps?.length
+      ? recordedElapsed ?? Math.max((summary.ridingTimeMillis || 0) / 1000, timedAt(indices.length - 1) ?? 0)
+      : (summary.ridingTimeMillis || 0) / 1000;
+    writeLap(startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
   }
 
   lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
@@ -121,9 +126,12 @@ function writeTrackpoint(lines: string[], streams: ActivityStreams, i: number, s
     lines.push(`<Cadence>${cad}</Cadence>`);
   }
   const runCadence = cadence.footCadence ? cad : null;
-  if (streams.watts?.[i] != null || runCadence != null) {
+  const speed = streams.velocity_smooth?.[i];
+  const hasSpeed = typeof speed === "number" && Number.isFinite(speed) && speed >= 0;
+  if (hasSpeed || streams.watts?.[i] != null || runCadence != null) {
     lines.push('<Extensions>');
     lines.push('<ext:TPX>');
+    if (hasSpeed) lines.push(`<ext:Speed>${speed}</ext:Speed>`);
     if (runCadence != null) lines.push(`<ext:RunCadence>${runCadence}</ext:RunCadence>`);
     if (streams.watts?.[i] != null) lines.push(`<ext:Watts>${streams.watts[i]}</ext:Watts>`);
     lines.push('</ext:TPX>');

@@ -72,7 +72,7 @@ it("uses the activity start for timed TCX lap boundaries even when the first sam
 
 it("uses the recorded total when TCX has observations outside recorded laps", () => {
   const startTime = Date.parse("2026-11-19T07:00:00Z");
-  const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 125_000, distance: 1100 } } as Activity;
+  const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 90_000, elapsedTimeMillis: 125_000, distance: 1100 } } as Activity;
   const time = Array.from({ length: 126 }, (_, index) => index);
   const source = markRawPartStreams({
     time, heartrate: time.map(() => 150),
@@ -84,6 +84,7 @@ it("uses the recorded total when TCX has observations outside recorded laps", ()
   const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
   expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(1);
   expect(xml).toContain("<DistanceMeters>1100</DistanceMeters>");
+  expect(xml).toContain("<TotalTimeSeconds>125</TotalTimeSeconds>");
   expect(xml).toContain("2026-11-19T07:01:15.000Z");
   expect(xml).toContain("2026-11-19T07:02:05.000Z");
 });
@@ -114,4 +115,16 @@ it("keeps recorded laps when only blank grid slots follow the last observation",
   const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
   expect(xml).toContain("<DistanceMeters>1000</DistanceMeters>");
   expect(xml).not.toContain("2026-11-19T07:00:03.000Z");
+});
+
+
+it("exports a speed-only observation in a recorded indoor lap", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const xml = generateTcx(activity, {
+    userId: "owner", time: [0, 1], velocity_smooth: [2.7, 3.1],
+    laps: [{ startTimeMs: startTime, endTimeMs: startTime + 1000, durationMs: 1000 }],
+  } as ActivityStreams);
+  expect(xml).toContain("<ext:Speed>2.7</ext:Speed>");
+  expect(xml).toContain("<ext:Speed>3.1</ext:Speed>");
 });

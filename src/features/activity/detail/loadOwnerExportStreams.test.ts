@@ -88,8 +88,8 @@ it("uses the legacy file source for an unmounted callable endpoint", async () =>
 it.each([
   new FirebaseError("functions/not-found", "활동을 찾을 수 없습니다."),
   new FirebaseError("functions/permission-denied", "permission denied"),
-  new Error("invalid_activity_streams"),
-])("fails closed on explicit denial or malformed data (%s)", async failure => {
+  new Error("activity_stream_identity_mismatch"),
+])("fails closed on explicit denial or an identity mismatch (%s)", async failure => {
   mocks.streams.mockRejectedValue(failure);
   await expect(loadOwnerExportStreams(run, displayed, "fit", ownerServices())).rejects.toBe(failure);
   expect(logClientError).toHaveBeenCalledWith("ActivityStreams.ownerExport", failure,
@@ -146,4 +146,11 @@ it("keeps the owner’s displayed export available when only cadence verificatio
   mocks.streams.mockResolvedValue({ activityId: run.id, state: "changed_input", streams: null, reason: "input_revision_changed" });
   expect(await loadOwnerExportStreams(run, displayed, "fit", ownerServices())).toBe(displayed);
   expect(mocks.streams).toHaveBeenCalledOnce();
+});
+
+
+it("retains the original authorized file after malformed optional unit data", async () => {
+  mocks.streams.mockRejectedValue(new Error("invalid_activity_streams"));
+  expect(await loadOwnerExportStreams(run, displayed, "fit", ownerServices())).toBe(displayed);
+  expect(logClientError).toHaveBeenCalled();
 });

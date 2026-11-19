@@ -39,7 +39,7 @@ export async function loadOwnerExportStreams(
     // Firebase assigns this default message to a bare HTTP 404.
     const endpointMissing = error instanceof Error && code === "functions/not-found" && error.message === "not-found";
     if ((isPublicActivityAccessError(error) && !endpointMissing) || code === "functions/unauthenticated"
-      || (error instanceof Error && ["account_changed", "invalid_activity_streams"].includes(error.message))) throw error;
+      || (error instanceof Error && ["account_changed", "activity_stream_identity_mismatch"].includes(error.message))) throw error;
     return null;
   });
   if (services.auth.currentUser !== account) throw new Error("account_changed");
