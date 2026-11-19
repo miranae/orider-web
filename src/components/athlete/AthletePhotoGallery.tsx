@@ -16,19 +16,21 @@ export function athletePhotoIdentity(photo: Pick<AthletePhoto, "url" | "nativePh
   return isNativePhotoReference(photo.nativePhoto) ? JSON.stringify([photo.nativePhoto.activityId, photo.nativePhoto.photoId]) : photo.url;
 }
 
-function PublishedPhotoImage({ photo, thumbnail = false }: { photo: AthletePhoto; thumbnail?: boolean }) {
+function GalleryPhotoImage({ src, caption, thumbnail = false, native = false }: {
+  src: string; caption: string | null; thumbnail?: boolean; native?: boolean;
+}) {
   const { t } = useTranslation("athlete");
   const services = useFirebaseServices();
   const viewer = services.auth?.currentUser;
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  if (failedUrl === photo.url) return <Text as="span" variant="caption" role="status">{t("profile.mediaError")}</Text>;
+  if (failedUrl === src) return <Text as="span" variant="caption" role="status">{t("profile.mediaError")}</Text>;
   return <img
-    src={photo.url}
-    alt={photo.caption ?? ""}
+    src={src}
+    alt={caption ?? ""}
     loading={thumbnail ? "lazy" : undefined}
     onError={() => {
-      setFailedUrl(photo.url);
-      logClientError("AthletePhotoGallery.image", new Error("athlete-photo/image-load-failed"),
+      setFailedUrl(src);
+      logClientError("AthletePhotoGallery.image", new Error(native ? "athlete-photo/image-decode-failed" : "athlete-photo/image-load-failed"),
         { placement: thumbnail ? "thumbnail" : "viewer" }, services, viewer);
     }}
   />;
@@ -56,13 +58,13 @@ export default function AthletePhotoGallery({ photos: inputPhotos, cover = false
   }, [index, photo, photos]);
   return <>
     <div className={cover ? `athlete-cover${photos.length ? ` athlete-cover--photos athlete-cover--${photos.length}` : ""}` : "athlete-photo-strip"} aria-label={t("profile.recentPhotos")}>
-      {photos.map(item => <button key={`${item.activityId}-${item.id}`} className="athlete-photo-trigger" type="button" onClick={() => setSelected(`${item.activityId}-${item.id}`)} aria-label={t("profile.openPhoto")}>{item.nativePhoto ? <NativeActivityPhotoImage nativePhoto={item.nativePhoto} alt={item.caption ?? ""} loading="lazy" /> : <PublishedPhotoImage photo={item} thumbnail />}</button>)}
+      {photos.map(item => <button key={`${item.activityId}-${item.id}`} className="athlete-photo-trigger" type="button" onClick={() => setSelected(`${item.activityId}-${item.id}`)} aria-label={t("profile.openPhoto")}>{item.nativePhoto ? <NativeActivityPhotoImage nativePhoto={item.nativePhoto} alt={item.caption ?? ""} loading="lazy" /> : <GalleryPhotoImage src={item.url} caption={item.caption} thumbnail />}</button>)}
       {!cover && !photos.length && <p>{t("profile.noPhotos")}</p>}
     </div>
     <Modal open={!!photo} onClose={() => setSelected(null)} title={t("profile.recentPhotos")} maxWidth="max-w-4xl">
       {photo && <div className="athlete-photo-viewer">
-        {!photo.nativePhoto ? <PublishedPhotoImage key={photo.url} photo={photo} />
-          : nativePreview.url ? <img src={nativePreview.url} alt={photo.caption ?? ""} />
+        {!photo.nativePhoto ? <GalleryPhotoImage key={photo.url} src={photo.url} caption={photo.caption} />
+          : nativePreview.url ? <GalleryPhotoImage key={nativePreview.url} src={nativePreview.url} caption={photo.caption} native />
           : <Text role="status">{activityT(nativePreview.error ? "publicDetail.photosFailed" : "detail.loadingData")}</Text>}
         {photo.nativePhoto && nativePreview.error != null && <Button size="sm" onClick={nativePreview.retry}>{activityT("page.retry")}</Button>}
         {photo.caption && <p>{photo.caption}</p>}

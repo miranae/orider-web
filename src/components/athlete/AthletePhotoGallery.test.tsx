@@ -57,6 +57,29 @@ it("keeps native full-view failures retryable and removes old bytes on account c
   expect(await within(dialog).findByRole("button",{name:"다시 시도"})).toBeEnabled();
   create.mockRestore();
 });
+it("reports native thumbnail and full-view decoding failures without logging the image URL", async () => {
+  const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:corrupt-native-photo");
+  const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+  try {
+    renderWithProviders(<AthletePhotoGallery photos={[{
+      id: "photo", activityId: "ride", url: "", caption: "Corrupt",
+      nativePhoto: { activityId: "ride", photoId: "photo" },
+    }]} />, { authenticated: true });
+    const trigger = screen.getByRole("button", { name: "활동 사진 보기" });
+    fireEvent.error(await within(trigger).findByRole("img", { name: "Corrupt" }));
+    expect(within(trigger).queryByRole("img")).toBeNull();
+    expect(within(trigger).getByRole("status")).toBeInTheDocument();
+    fireEvent.click(trigger);
+    const dialog = within(await screen.findByRole("dialog"));
+    fireEvent.error(await dialog.findByRole("img", { name: "Corrupt" }));
+    expect(dialog.queryByRole("img")).toBeNull();
+    expect(dialog.getByRole("status")).toBeInTheDocument();
+    expect(logger.mock.calls.map(call => call.slice(0, 3))).toEqual([
+      ["NativeActivityPhotoImage.decode", new Error("activity-photo-image-decode-failed"), {}],
+      ["AthletePhotoGallery.image", new Error("athlete-photo/image-decode-failed"), { placement: "viewer" }],
+    ]);
+  } finally { logger.mockRestore(); create.mockRestore(); }
+});
 it("never renders a legacy native download URL", () => {
   renderWithProviders(<AthletePhotoGallery photos={[{id:"old",activityId:"ride",url:"https://firebasestorage.googleapis.com/v0/b/bucket/o/activity_photos%2Fride%2Fold?token=old",caption:"Legacy"}]} />);
   expect(screen.queryByRole("img")).toBeNull(); expect(screen.queryByRole("button",{name:"활동 사진 보기"})).toBeNull();
