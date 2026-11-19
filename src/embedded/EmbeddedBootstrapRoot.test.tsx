@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { simulateTokenChange } from "../__tests__/mocks/firebase";
 import i18n from "../i18n";
+import { useFirebaseServices, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { HOST_THEME_CHANGE_EVENT } from "../contexts/ThemeContext";
 
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => {
     queryProviderMounts: vi.fn(),
     queryClientCreations: vi.fn(),
     surfaceHookMounts: vi.fn(),
+    surfaceServices: vi.fn<(services: FirebaseServices) => void>(),
     fitnessSurfaceMounts: vi.fn(),
     planSurfaceMounts: vi.fn(),
     surfaceModuleLoads: vi.fn(),
@@ -119,7 +121,9 @@ vi.mock("../services/appHandoff", () => ({
 
 vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
   default: ({ onReady }: { onReady: () => void }) => {
+    const services = useFirebaseServices();
     mocks.surfaceHookMounts();
+    mocks.surfaceServices(services);
     mocks.surfaceReadyCallbacks.activityAnalysis = onReady;
     return <div data-testid="analysis-surface" />;
   },
@@ -243,6 +247,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     mocks.queryProviderMounts.mockClear();
     mocks.queryClientCreations.mockClear();
     mocks.surfaceHookMounts.mockClear();
+    mocks.surfaceServices.mockClear();
     mocks.fitnessSurfaceMounts.mockClear();
     mocks.planSurfaceMounts.mockClear();
     mocks.surfaceLifecycle.mockClear();
@@ -1439,6 +1444,24 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       type: "surface.error",
       payload: { code: "auth_uid_changed" },
     }));
+  });
+
+  it("revokes the approval held by a mounted surface when the root unmounts", async () => {
+    const bridge = createFakeBridge();
+    const { unmount } = renderBootstrap(bridge);
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await screen.findByTestId("analysis-surface");
+
+    const services = mocks.surfaceServices.mock.lastCall![0];
+    const viewer = services.auth.currentUser;
+    expect(services.isSessionApproved?.(viewer)).toBe(true);
+
+    unmount();
+    expect(services.auth.currentUser).toBe(viewer);
+    expect(services.isSessionApproved?.(viewer)).toBe(false);
   });
 
   it("rejects unknown payload keys and arbitrary CSS values", async () => {

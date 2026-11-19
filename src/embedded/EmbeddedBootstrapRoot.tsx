@@ -18,6 +18,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -664,6 +665,10 @@ export default function EmbeddedBootstrapRoot({
   const selectionGeneration = useRef(0);
   const activeSelectionRequestId = useRef<string | undefined>(undefined);
   const authorizationAttempt = useRef(0);
+  useLayoutEffect(() => () => {
+    sessionAccepted.current = false;
+    authorizationAttempt.current += 1;
+  }, []);
   const surfaceLoadingFlow = useRef<SurfaceLoadingFlow | null>(null);
   const embedded = initEmbeddedFirebase();
   // 브리지·인증 구독은 Firestore 인스턴스와 무관하다. 계정 전환으로 Firestore 가 새로 만들어져도
