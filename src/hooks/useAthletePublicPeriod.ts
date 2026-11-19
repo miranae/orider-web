@@ -51,7 +51,7 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
     session.current = { ...previous, status: "loading" }; setState({ generation: seq, result: session.current });
     let deadline: ReturnType<typeof setTimeout> | undefined;
     try {
-      const page = await Promise.race([loadActivityDiscovery(services, { scope: "athlete", targetUid, ...(global ? { order: "id_asc" as const } : { fromInclusive: bounds!.start, toExclusive: bounds!.end }), limit: 20, ...(previous.cursor ? { cursor: previous.cursor } : {}) }, requestController.signal), new Promise<never>((_, reject) => { deadline = setTimeout(() => { requestController.abort(); reject(Error("request_timeout")); }, 15000); })]);
+      const page = await Promise.race([loadActivityDiscovery(services, { scope: "athlete", targetUid, ...(global ? { order: "id_asc" as const } : { fromInclusive: bounds!.start, toExclusive: bounds!.end }), limit: 20, ...(previous.cursor ? { cursor: previous.cursor } : {}) }, requestController.signal), new Promise<never>((_, reject) => { deadline = setTimeout(() => { reject(Error("request_timeout")); requestController.abort(); }, 15000); })]);
       if (!current()) return;
       if (page.nextCursor && page.nextCursor === previous.cursor) throw Error("invalid_activity_discovery");
       const items = new Map(previous.items.map(item => [item.id, item]));

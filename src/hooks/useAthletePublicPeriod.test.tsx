@@ -28,6 +28,21 @@ it("retains rows on 429 retry, but discards expired or denied continuation", asy
  await act(()=>result.current.more()); expect(result.current.status).toBe("error"); expect(result.current.items).toHaveLength(1);
  await act(()=>result.current.more()); expect(result.current.status).toBe("restart"); expect(result.current.items).toHaveLength(0);
 });
+it("logs its own deadline as a timeout even if abort immediately rejects the transport", async () => {
+  vi.useFakeTimers();
+  try {
+    mocks.load.mockImplementationOnce((_services, _request, signal: AbortSignal) => new Promise((_, reject) => {
+      signal.addEventListener("abort", () => reject(new Error("request_aborted")), { once: true });
+    }));
+    const { result } = renderHook(() => useAthletePublicPeriod("target", "2026-01-01", "2026-01-31"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(result.current.status).toBe("error");
+    expect(mocks.log).toHaveBeenCalledWith(
+      "useAthletePublicPeriod.read", new Error("request_timeout"), expect.objectContaining({ targetUid: "target" }),
+      mocks.services, mocks.services.auth.currentUser, "", expect.any(Function),
+    );
+  } finally { vi.useRealTimers(); }
+});
 it("rejects an elapsed cursor before dispatch", async () => {
  mocks.load.mockResolvedValueOnce({...page(["a"],"ad1.next"),expiresAt:Date.now()-1});
  const {result}=renderHook(()=>useAthletePublicPeriod("target","2026-01-01","2026-01-31"));
