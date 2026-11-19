@@ -118,7 +118,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams }: 
       {pending && (
         <fieldset className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
           <legend className="font-semibold">{t("export.cadenceUnitTitle")}</legend>
-          <p className="text-sm">{t("export.cadenceUnitHelp")}</p>
+          <p className="text-[length:var(--fs-sm)]">{t("export.cadenceUnitHelp")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {(["spm", "strides_per_minute"] as const).map(unit => (
               <button key={unit} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
