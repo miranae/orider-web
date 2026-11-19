@@ -30,7 +30,7 @@ function fixture() {
     if (url === "https://orider.co.kr/runtime-config.json") return Response.json(source);
     if (url.endsWith("/readyz")) return Response.json(health);
     if (/\/oriderReadinessMissing[a-f0-9]+$/u.test(url)) return Response.json({ error: "unknown-bundle-function" }, { status: 404 });
-    if (/\/(getActivityDiscovery|getActivityPublicMaps|socialAuthStart|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } });
+    if (/\/(getActivityDiscovery|getActivityPublicMaps|getCreatorRecipeEmailQuota|sendCreatorRecipeEmail|socialAuthStart|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } });
     if (url.endsWith("/api/v1/profile")) return Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 });
     if (url.endsWith("/api/strava/webhook")) return new Response("Forbidden", { status: 403 });
     if (url.endsWith("/publicClubs?size=1")) {
@@ -272,7 +272,7 @@ test("production rollback targets only the live production release owned by the 
 });
 
 test("missing browser routes block development before publication without credentials", async () => {
-  for (const path of ["/getActivityPublicMaps", "/webHandoffRedeem", "/v1/activity-narrative"]) {
+  for (const path of ["/getActivityPublicMaps", "/getCreatorRecipeEmailQuota", "/sendCreatorRecipeEmail", "/webHandoffRedeem", "/v1/activity-narrative"]) {
     const f = fixture();
     try {
       await assert.rejects(f.prepare({ fetcher: (url, options) => url.endsWith(path)
@@ -394,7 +394,7 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     assert.ok(calls.every(({ options }) => options.method !== "POST"));
     const production = { environment: "production", directory: resolve(f.workspace, "dist") };
     const readProduction = (url, options) => {
-      if (url === "https://orider.co.kr/" || url.endsWith("/ko/course/nonexistent")) return new Response(readFileSync(resolve(production.directory, "index.html")));
+      if (url === "https://orider.co.kr/" || url.endsWith("/ko/course/nonexistent")) return new Response(readFileSync(resolve(production.directory, "index.html")), { headers: { "Content-Type": "text/html; charset=utf-8" } });
       if (url.endsWith("/runtime-config.json")) return new Response(readFileSync(resolve(production.directory, "runtime-config.json")));
       if (url.endsWith("/sitemap.xml")) return new Response('<?xml version="1.0"?><urlset></urlset>');
       if (url.endsWith("/og-thumbnail/.webp")) return new Response("activityId required", { status: 400 });
@@ -407,6 +407,9 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     await assert.rejects(verifyBundledHosting({ ...production,
       fetcher: (url, options) => url.endsWith("/ko/course/nonexistent") ? new Response(null, { status: 404 }) : readProduction(url, options),
     }), /GET HTTP404 at https:\/\/orider\.co\.kr\/ko\/course\/nonexistent/u);
+    await assert.rejects(verifyBundledHosting({ ...production,
+      fetcher: (url, options) => url.endsWith("/ko/course/nonexistent") ? new Response('<script type="module" src="/assets/index-fixture.js"></script>') : readProduction(url, options),
+    }), /content type differs.*expected=text\/html.*actual=text\/plain/u);
     await assert.rejects(verifyBundledHosting({ ...production,
       fetcher: (url, options) => url.endsWith("/sitemap.xml") ? new Response("<html></html>") : readProduction(url, options),
     }), /sitemap is not XML/u);

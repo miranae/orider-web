@@ -7,12 +7,14 @@ import { assertStageEntryArtifact, stageHtmlEntry } from "./lib/stage-artifact-m
 import { verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 const ORIGINS = { development: "https://orider-dev.web.app", production: "https://orider.co.kr" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
-async function readPublishedText(url, fetcher, status = 200) {
+async function readPublishedText(url, fetcher, { status = 200, contentType } = {}) {
   let response;
   try { response = await fetcher(url, { credentials: "omit", redirect: "error", cache: "no-store",
     headers: { "User-Agent": "Mozilla/5.0 ORiderHostingAcceptance" }, signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled Hosting GET transport failed at ${url}`); }
   if (response.status !== status) { await response.body?.cancel(); throw new Error(`bundled Hosting GET HTTP${response.status} at ${url}`); }
+  const actualType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  if (contentType && actualType !== contentType) { await response.body?.cancel(); throw new Error(`bundled Hosting GET content type differs at ${url}: expected=${contentType} actual=${actualType || "missing"}`); }
   try { return await response.text(); }
   catch { throw new Error(`bundled Hosting GET body failed at ${url}`); }
 }
@@ -22,7 +24,7 @@ export async function verifyBundledHosting({ environment, directory = "dist", fe
   if (environment === "production") {
     for (const path of ["/", "/ko/course/nonexistent"]) {
       const liveHtml = `${base}${path}`;
-      const markup = await readPublishedText(liveHtml, fetcher);
+      const markup = await readPublishedText(liveHtml, fetcher, { contentType: "text/html" });
       if (stageHtmlEntry(markup, liveHtml, base) !== entry) throw new Error(`bundled Hosting entry differs at ${liveHtml}`);
     }
     const runtimeUrl = `${base}/runtime-config.json`;
@@ -33,7 +35,7 @@ export async function verifyBundledHosting({ environment, directory = "dist", fe
     if (!/^\s*(?:<\?xml[^>]*>\s*)?<(?:urlset|sitemapindex)[\s>]/u.test(sitemap))
       throw new Error(`bundled Hosting sitemap is not XML at ${sitemapUrl}`);
     const thumbnailUrl = `${base}/og-thumbnail/.webp`;
-    if ((await readPublishedText(thumbnailUrl, fetcher, 400)).trim() !== "activityId required")
+    if ((await readPublishedText(thumbnailUrl, fetcher, { status: 400 })).trim() !== "activityId required")
       throw new Error(`bundled Hosting thumbnail alias differs at ${thumbnailUrl}`);
   }
   const url = `${base}/${entry}`; let response;

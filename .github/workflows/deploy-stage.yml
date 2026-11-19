@@ -186,10 +186,12 @@ jobs:
           fi
           # 일반 브라우저의 상세 URL도 같은 개발 번들을 반환해야 한다.
           detail_url="https://orider-dev.web.app/ko/course/nonexistent?cacheBust=${FRONTEND_SOURCE}"
-          if ! detail_status=$(curl -sS --connect-timeout 10 --max-time 30 -A 'Mozilla/5.0 ORiderStageAcceptance' -H 'Cache-Control: no-cache' "$detail_url" -o "$RUNNER_TEMP/live-detail.html" -w '%{http_code}'); then
-            echo "::error::Development detail transport failed: url=$detail_url expected=HTTP200 actual=${detail_status:-transport-error}"; exit 1
+          if ! detail_response=$(curl -sS --connect-timeout 10 --max-time 30 -A 'Mozilla/5.0 ORiderStageAcceptance' -H 'Cache-Control: no-cache' "$detail_url" -o "$RUNNER_TEMP/live-detail.html" -w '%{http_code}\t%{content_type}'); then
+            echo "::error::Development detail transport failed: url=$detail_url expected=HTTP200 actual=transport-error"; exit 1
           fi
+          IFS=$'\t' read -r detail_status detail_type <<< "$detail_response"
           if [ "$detail_status" != 200 ]; then echo "::error::Development detail response mismatch: url=$detail_url expected=HTTP200 actual=HTTP$detail_status"; exit 1; fi
+          case "$detail_type" in text/html|text/html\;*) ;; *) echo "::error::Development detail is not text/html: url=$detail_url"; exit 1 ;; esac
           detail=$(entry "$RUNNER_TEMP/live-detail.html" || true)
           if [ "$detail" != "$built" ]; then echo "::error::Development detail entry mismatch: expected=$built actual=${detail:-<missing>}"; exit 1; fi
           if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
@@ -221,7 +223,7 @@ jobs:
         if: inputs.transport == 'bundled-development'
         uses: actions/upload-artifact@v4
         with:
-          name: stage-client-${{ steps.source.outputs.sha }}
+          name: stage-client-${{ steps.source.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           include-hidden-files: true
           retention-days: 1
           path: |
