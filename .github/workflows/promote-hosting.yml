@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   actions: read
+  attestations: read
   id-token: write
 
 concurrency:
@@ -25,6 +26,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, macOS, ARM64, web-hosting]
     environment: production
+    env:
+      ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
+      ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -50,6 +54,7 @@ jobs:
           token_format: access_token
       - name: Restore validated development candidate
         env:
+          GH_TOKEN: ${{ github.token }}
           HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
           CANDIDATE_ATTEMPT: ${{ inputs.candidate_run_attempt }}
@@ -65,7 +70,17 @@ jobs:
           node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate/payload" --run "$RUNNER_TEMP/client-candidate/run.json" --artifact "$RUNNER_TEMP/client-candidate/archive.json" --attempt "$CANDIDATE_ATTEMPT"
           node scripts/promote-bundled-client.mjs --phase verify
           echo "PREPARED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+      - name: Record the previous production release
+        id: hosting_snapshot
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          source_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.CLIENT_PROMOTION_DIRECTORY+"/promotion.json")).frontendSourceSha')
+          export HOSTING_DEPLOYMENT_MARKER="client-promotion:$source_sha:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
+          node scripts/bundled-stage-hosting-release.mjs --phase snapshot --file "$RUNNER_TEMP/production-hosting-before.json"
       - name: Publish the same compiled files
+        id: publish
         env:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
@@ -81,6 +96,12 @@ jobs:
           echo "PUBLIC_CHECK_STARTED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
           node scripts/promote-bundled-client.mjs --phase published
           echo "VERIFIED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"
+      - name: Restore the previous production release on publication failure
+        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != ''
+        timeout-minutes: 3
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/production-hosting-before.json"
       - name: Report actual elapsed time
         if: always()
         env:

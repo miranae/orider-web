@@ -55,6 +55,11 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
   if (candidateRuntime.deploymentProfile !== "bundled-development"
     || hash(readFileSync(join(sourceDist, "runtime-config.json"))) !== candidate.runtimeHash
     || !candidate.artifactManifest.some(([path]) => path === "index.html")) throw new Error("sealed development runtime/entry mismatch");
+  // The Vite shell uses root-relative assets. A base element can redirect them
+  // to the development origin when the same HTML is published to production.
+  if (/<base(?:[\t\n\f\r />]|$)/iu.test(readFileSync(join(sourceDist, "index.html"), "utf8"))) {
+    throw new Error("development entry HTML must not set a base URL");
+  }
   const runtime = bundledFunctionsConfig(candidateRuntime, "production");
   const hosting = bundledHostingConfig(json(configs[0]), "production");
   if (hosting.hosting.site !== "orider-dev" || hosting.hosting.public !== "dist" || hosting.hosting.target) throw new Error("development Hosting identity mismatch");
@@ -76,22 +81,41 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
   save(join(directory, "promotion.json"), receipt);
   return receipt;
 }
+async function fetchPromotionResource(url, fetcher) {
+  try {
+    return await fetcher(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
+  } catch (cause) {
+    throw new Error(`Hosting promotion GET transport failed at ${url}`, { cause });
+  }
+}
+
 export async function verifyClientPromotion(options, fetcher = fetch) {
   const receipt = json(join(options.directory, "promotion.json"));
   // 운영 API 주소의 기본 상태만 확인한다. 앱 게시를 BE commit과 결속하지 않는다.
-  const response = await fetcher(`${receipt.runtime.firebaseFunctionsBase}/readyz`, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`production gateway unavailable HTTP${response.status}`); }
+  const url = `${receipt.runtime.firebaseFunctionsBase}/readyz`;
+  const response = await fetchPromotionResource(url, fetcher);
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`production gateway unavailable at ${url}: HTTP${response.status}`);
+  }
   const ready = await response.json();
   if (ready.status !== "ok") throw new Error("production gateway is not ready");
   return receipt;
 }
 export async function verifyPublishedPromotion({ directory, origin = "https://orider.co.kr" }, fetcher = fetch) {
   const receipt = json(join(directory, "promotion.json")), expected = new Map(receipt.artifactManifest);
-  // Hosting은 한 버전으로 게시한다. HTML과 runtime 두 파일을 한 번씩 확인한다.
-  await Promise.all(["index.html", "runtime-config.json"].map(async path => {
+  // Check the published shell and runtime once, with the sitemap rewrite in the same batch.
+  await Promise.all(["index.html", "runtime-config.json", "sitemap.xml"].map(async path => {
     const url = new URL(path === "index.html" ? "/" : `/${path}`, origin); url.searchParams.set("promotion", receipt.frontendSourceSha);
-    const response = await fetcher(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20000) });
-    if (!response.ok) { await response.body?.cancel(); throw new Error(`published ${path} HTTP${response.status}`); }
+    const response = await fetchPromotionResource(url, fetcher);
+    if (!response.ok) { await response.body?.cancel(); throw new Error(`published ${url} HTTP${response.status}`); }
+    if (path === "sitemap.xml") {
+      await response.body?.cancel();
+      if (!/^(?:application|text)\/xml(?:;|$)/iu.test(response.headers.get("content-type") ?? "")) {
+        throw new Error(`published sitemap alias did not return XML at ${url}`);
+      }
+      return;
+    }
     if (hash(Buffer.from(await response.arrayBuffer())) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact`);
   }));
   return receipt;
