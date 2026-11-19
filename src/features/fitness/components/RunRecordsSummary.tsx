@@ -20,13 +20,13 @@ function duration(seconds: number) {
  */
 export default function RunRecordsSummary({ evidence, readiness = false, sourceBoard = false, openInApp = false }: { evidence: RunEvidence; readiness?: boolean; sourceBoard?: boolean; openInApp?: boolean }) {
   const { t } = useTranslation("fitness");
+  const inApp = useFirebaseServices().scope === "embedded";
   const qualified = qualifiedRunRecords(evidence);
   if (sourceBoard && !readiness && qualified.length === 0) return <div data-testid="K5-4" className="run-records-board__all-link"><LocalizedLink data-testid="K5-4-2" to="/athlete/me/records?sport=run">{t("runRecords.viewAll")}</LocalizedLink></div>;
   // 웹 코치 분석: 준비 상태면 제목·설명 없이 버튼만 남긴다. 버튼은 웹 페이지 대신 앱을 연다.
   const bare = openInApp && readiness;
   // 휴대폰 웹에서는 각 목적지에 맞는 앱 화면을 연다. 앱이 열리지 않으면 원래 웹 페이지로 간다.
   // 데스크톱과 앱 안(임베드)에서는 원래 웹 페이지로 그대로 간다.
-  const inApp = useFirebaseServices().scope === "embedded";
   const openInAppClick = (appPath: string) => openInApp && !inApp ? (event: { preventDefault: () => void; currentTarget: { href: string } }) => {
     if (!canOpenOriderApp()) return;
     event.preventDefault();
