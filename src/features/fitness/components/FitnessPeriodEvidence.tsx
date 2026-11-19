@@ -140,7 +140,8 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
       <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />
       <RunPeriodComparisonPanel response={result.response} />
       <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} zonesOpen={loadSignal !== undefined || syncMode} />
-      {discipline === "run" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}
+      {/* Stage 전용 — 운영 조회는 stage 요청을 거부하므로 운영에서는 두지 않는다. */}
+      {discipline === "run" && getRuntimeConfig().appEnvironment === "stage" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}
     </Stack>}
     </Stack>
   </Container>;
