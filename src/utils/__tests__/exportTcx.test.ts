@@ -1,4 +1,6 @@
+import type { Activity } from "@shared/types";
 import { describe, it, expect } from 'vitest';
+import { markStreamCadenceUnit } from "../../services/activityStreamSource";
 import { generateTcx } from '../exportTcx';
 
 const makeActivity = (overrides = {}) => ({
@@ -87,5 +89,30 @@ describe('generateTcx', () => {
     expect(tcx).toContain('<Activity Sport="Biking">');
     expect(tcx).not.toContain('<HeartRateBpm>');
     expect(tcx).not.toContain('<ext:Watts>');
+  });
+
+  it('keeps cycling cadence without labelling running samples as cycling cadence', () => {
+    const streams = { userId: 'u1', time: [0], heartrate: [150], cadence: [90] };
+    expect(generateTcx(makeActivity({ type: 'Run' }), streams)).not.toContain('<Cadence>');
+    const native = generateTcx(makeActivity({ type: 'Run', source: 'orider' }), { ...streams, cadence: [180] });
+    const provider = generateTcx(makeActivity({ type: 'Run', source: 'strava' }), streams);
+    expect(native).toContain('<ext:RunCadence>90</ext:RunCadence>');
+    const recorded = makeActivity({ id: 'orider_run', type: 'Run', source: 'orider' });
+    const selfOrigin = { ...recorded, activityPresentationV1: {
+      version: 1, activityRevision: null, contentSelectedRevision: null, sensorOriginActivityId: recorded.id,
+    } } as Activity;
+    expect(generateTcx(selfOrigin, { ...streams, cadence: [180] })).toContain('<ext:RunCadence>90</ext:RunCadence>');
+    expect(generateTcx({ ...recorded, source: undefined }, { ...streams, cadence: [180] })).toContain('<ext:RunCadence>90</ext:RunCadence>');
+    expect(provider).toContain('<ext:RunCadence>90</ext:RunCadence>');
+    const imported = makeActivity({ type: 'Run', source: 'health_connect' });
+    expect(generateTcx(imported, markStreamCadenceUnit({ ...streams, cadence: [180] }, 'spm')))
+      .toContain('<ext:RunCadence>90</ext:RunCadence>');
+    expect(generateTcx(makeActivity({ type: 'Ride' }), streams)).toContain('<Cadence>90</Cadence>');
+  });
+
+  it('writes the activity sport (TCX allows only Running, Biking and Other)', () => {
+    const streams = { userId: 'u1', time: [0], latlng: [[37.5, 127.0]] as [number, number][] };
+    expect(generateTcx(makeActivity({ type: 'Run' }), streams)).toContain('<Activity Sport="Running">');
+    expect(generateTcx(makeActivity({ type: 'Walk' }), streams)).toContain('<Activity Sport="Other">');
   });
 });
