@@ -86,7 +86,8 @@ test("bundled production rejects a missing social callable before Hosting", asyn
   try {
     await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
     await assert.rejects(verifyBundledProduction(f.directory, (url, options) => url.endsWith("/socialAuthStart")
-      ? Promise.resolve(Response.json({}, { status: 404 })) : f.fetcher(url, options)), /bundled callable socialAuthStart browser preflight rejected/);
+      ? Promise.resolve(new Response(new ReadableStream({ start(controller) { controller.error(new Error("preflight body interrupted")); } }), { status: 404 }))
+      : f.fetcher(url, options)), /bundled callable socialAuthStart browser preflight rejected origin https:\/\/www\.orider\.co\.kr at https:\/\/[^ ]+\/socialAuthStart HTTP 404/u);
   } finally { f.cleanup(); }
 });
 
