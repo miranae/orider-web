@@ -43,7 +43,9 @@ it("masks the previous detail immediately on same-UID session replacement", asyn
   expect(await screen.findByText(/health_connect/)).toBeVisible();
 });
 it("hides existing analysis during current-permission revalidation and removes it after denial", async () => {
+  const visibilityRegistration = vi.spyOn(document, "addEventListener");
   render(<Probe />); await screen.findByText(/health_connect/);
+  await waitFor(() => expect(visibilityRegistration).toHaveBeenCalledWith("visibilitychange", expect.any(Function)));
   state.load.mockRejectedValue({ code: "functions/permission-denied" });
   act(() => document.dispatchEvent(new Event("visibilitychange")));
   expect(screen.getByText(/health_connect/)).not.toBeVisible();
@@ -70,8 +72,10 @@ it("preserves the authorized layout but blocks stale content during refresh, the
   expect(shield).not.toHaveStyle({ height: "2400px" });
 });
 it("removes the preserved layout when current access is denied", async () => {
+  const visibilityRegistration = vi.spyOn(document, "addEventListener");
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ height: 2400 } as DOMRect);
   render(<Probe />); await screen.findByText(/health_connect/);
+  await waitFor(() => expect(visibilityRegistration).toHaveBeenCalledWith("visibilitychange", expect.any(Function)));
   state.load.mockRejectedValue({ code: "functions/permission-denied" });
   act(() => document.dispatchEvent(new Event("visibilitychange")));
   await waitFor(() => expect(screen.queryByText(/health_connect/)).not.toBeInTheDocument());
