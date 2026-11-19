@@ -25,7 +25,10 @@ export async function verifyBundledCallable({ base, origin, name, fetcher, reque
   const response = await request("POST", { headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(requestBody) });
   let payload;
   try { payload = await response.json(); } catch { throw new Error(`bundled callable ${name} returned invalid JSON at ${url}`); }
-  if (![origin, "*"].includes(response.headers.get("access-control-allow-origin")) || !(responseContract ? response.status === responseContract.status && payload?.error?.[responseContract.field] === responseContract.value : classifyCallableProbe(response.status, payload).ok)) {
+  const matches = responseContract
+    ? [responseContract].flat().some(({ status, field, value }) => response.status === status && payload?.error?.[field] === value)
+    : classifyCallableProbe(response.status, payload).ok;
+  if (![origin, "*"].includes(response.headers.get("access-control-allow-origin")) || !matches) {
     throw new Error(`bundled callable ${name} rejected unauthenticated browser contract at ${url} HTTP ${response.status}`);
   }
 }

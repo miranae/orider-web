@@ -118,7 +118,10 @@ export async function verifyClientPromotion(options, fetcher = fetch) {
     verifyGatewayReadiness(`${receipt.runtime.firebaseFunctionsBase}/readyz`, fetcher),
     verifyBundledCallable({
       base: receipt.runtime.socialAuthFunctionsBase, origin: "https://orider.co.kr", name: "socialAuthStart", fetcher,
-      responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+      responseContract: [
+        { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+        { status: 401, field: "status", value: "UNAUTHENTICATED" },
+      ],
     }),
   ]);
   return receipt;

@@ -89,6 +89,9 @@ test("checks gateway readiness and the login route without binding the backend c
     };
     await verifyClientPromotion(f,fetcher);
     assert.deepEqual(calls,[["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"]]);
+    await verifyClientPromotion(f,async(url,init)=>init.method === "POST"
+      ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers})
+      : fetcher(url,init));
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("not ready",{status:503}) : fetcher(url,init)),/unavailable/);
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("<html>error</html>") : fetcher(url,init)),/response body is invalid.*\/readyz/);
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" ? new Response(null,{status:404}) : fetcher(url,init)),/socialAuthStart browser preflight rejected/);
