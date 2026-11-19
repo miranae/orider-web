@@ -61,7 +61,10 @@ it("uses the activity start for timed TCX lap boundaries even when the first sam
   const source = markRawPartStreams({
     time: Array.from({ length: 41 }, (_, index) => index),
     heartrate: Array(41).fill(150),
-    laps: [{ durationMs: 60_000, distanceKm: 1 }, { durationMs: 60_000, distanceKm: 1 }],
+    laps: [
+      { durationMs: 60_000, distanceKm: 1, startTimeMs: startTime, endTimeMs: startTime + 60_000 },
+      { durationMs: 60_000, distanceKm: 1, startTimeMs: startTime + 60_000, endTimeMs: startTime + 120_000 },
+    ],
   } as ActivityStreams, "c".repeat(64), startTime + 30_000);
   const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
   const [, firstLap, secondLap] = xml.split(/<Lap StartTime="/u);
@@ -248,7 +251,8 @@ it("requires recorded elapsed time for a no-lap TCX when the observation window 
   const streams = markRawPartStreams({ time, heartrate: time.map(() => 150) } as ActivityStreams, "f".repeat(64), startTime + 30_000);
   const raw = prepareActivityFileStreams(activity, streams, "tcx");
   expect(prepareTcxExport(activity, raw).requiresCsv).toBe(true);
-  const tcx = generateTcx({ ...activity, endTime: startTime + 100_000 }, raw);
+  const tcx = generateTcx({ ...activity, endTime: startTime + 100_000,
+    summary: { ...activity.summary, elapsedTimeMillis: 50_000 } }, raw);
   expect(tcx).toContain("<TotalTimeSeconds>100</TotalTimeSeconds>");
   expect(tcx).toContain(new Date(startTime + 90_000).toISOString());
 });
@@ -308,4 +312,16 @@ it("does not turn late sparse points into a lap ending after the recorded activi
   const [, , second] = file.render("recorded").split(/<Lap StartTime="/u);
   expect(second).toMatch(new RegExp(new Date(startTime + 60_000).toISOString()));
   expect(second).not.toContain(new Date(startTime + 125_000).toISOString());
+});
+
+
+it("preserves a legacy moving-time axis when a lap has no verified elapsed source", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, endTime: startTime + 180_000, type: "Run", summary: {
+    distance: 1000, elapsedTimeMillis: 180_000, ridingTimeMillis: 120_000,
+  } } as Activity;
+  const streams = { userId: "owner", time: [0, 60, 120], heartrate: [150, 150, 150] };
+  const xml = generateTcx(activity, streams);
+  expect(xml).toContain("<TotalTimeSeconds>120</TotalTimeSeconds>");
+  expect(xml).not.toContain("<TotalTimeSeconds>180</TotalTimeSeconds>");
 });

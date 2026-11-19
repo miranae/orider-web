@@ -279,6 +279,7 @@ it("exports raw CSV after elapsed time and cadence metadata change during confir
   await act(async () => fireEvent.click(screen.getByText("TCX")));
   view.rerender(<ExportTab activity={{ ...run, summary: { ...run.summary, elapsedTimeMillis: 130_000 } }} streams={samples} resolveCurrentStreams={resolve} />);
   await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
+  expect(resolve).toHaveBeenLastCalledWith("csv");
   expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(next);
 });
 

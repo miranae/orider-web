@@ -68,7 +68,8 @@ it("uses actual elapsed time on a verified grid and keeps the FIT timer time ind
   const unknown = readSession(generateFit(base, prepared, "spm"));
   expect(unknown.get(7)).toBe(0xFFFFFFFF);
   expect(unknown.get(8)).toBe(60_000);
-  const known = readSession(generateFit({ ...base, endTime: startTime + 100_000 }, prepared, "spm"));
+  const known = readSession(generateFit({ ...base, endTime: startTime + 100_000,
+    summary: { ...base.summary, elapsedTimeMillis: 50_000 } }, prepared, "spm"));
   expect(known.get(7)).toBe(100_000);
   expect(known.get(8)).toBe(60_000);
 });

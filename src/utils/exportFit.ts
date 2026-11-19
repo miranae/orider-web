@@ -1,6 +1,6 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import { cadenceWriter, type ExportCadenceUnit } from "./exportCadence";
-import { readUnroundedFitEnd, usesVerifiedActivityTime } from "./prepareActivityFileStreams";
+import { readUnroundedFitEnd, resolveRecordedElapsedMs, usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
@@ -20,14 +20,11 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   // 넘겨 FIT 타임스탬프가 손상되던 버그 방지(TCX/GPX 와 동일 수정).
   const relSecAt = makeRelSecAt(streams.time);
   const endRel = relSecAt(len - 1);
-  const recordedElapsed = activity.summary.elapsedTimeMillis ?? (Number.isFinite(activity.endTime)
-    && activity.endTime >= activity.startTime ? activity.endTime - activity.startTime : undefined);
   const lastObserved = readUnroundedFitEnd(streams) ?? endRel ?? 0;
-  const confirmedElapsed = typeof recordedElapsed === "number" && Number.isFinite(recordedElapsed)
-    && recordedElapsed >= Math.max(durationMs, Math.round(lastObserved * 1000));
   const timed = usesVerifiedActivityTime(streams);
-  const elapsedMs = timed ? confirmedElapsed ? recordedElapsed : 0xFFFFFFFF : durationMs;
-  const endTimestamp = startTimestamp + Math.round(timed && confirmedElapsed
+  const recordedElapsed = timed ? resolveRecordedElapsedMs(activity, Math.max(durationMs, Math.round(lastObserved * 1000))) : undefined;
+  const elapsedMs = timed ? recordedElapsed ?? 0xFFFFFFFF : durationMs;
+  const endTimestamp = startTimestamp + Math.round(recordedElapsed != null
     ? recordedElapsed / 1000 : endRel ?? Math.floor(durationMs / 1000));
 
   // File ID 메시지 (mesg 0)

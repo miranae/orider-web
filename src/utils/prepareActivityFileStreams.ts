@@ -103,6 +103,13 @@ export function applyVerifiedCadenceUnit(activity: Activity, displayed: Activity
   return markStreamCadenceUnit(displayed, readStreamCadenceUnit(verified));
 }
 
+export function resolveRecordedElapsedMs(activity: Activity, minimumMs: number): number | undefined {
+  const summary = activity.summary.elapsedTimeMillis;
+  if (typeof summary === "number" && Number.isFinite(summary) && summary >= minimumMs) return summary;
+  const endpointDuration = activity.endTime - activity.startTime;
+  return Number.isFinite(endpointDuration) && endpointDuration >= minimumMs ? endpointDuration : undefined;
+}
+
 export function readUnroundedFitEnd(streams: ActivityStreams): number | undefined {
   return (streams as Partial<TimedFileStreams>)[originalFitEnd];
 }

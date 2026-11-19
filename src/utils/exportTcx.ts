@@ -1,7 +1,7 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import { cadenceWriter, type CadenceWriter, type ExportCadenceUnit } from "./exportCadence";
 import { exportSportOf } from "./exportSport";
-import { usesVerifiedActivityTime } from "./prepareActivityFileStreams";
+import { resolveRecordedElapsedMs, usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { makeRelSecAt } from "./streamTime";
 import { detectTimestampUnit } from "./timestampUnit";
 
@@ -28,9 +28,6 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const recordedClock = unit !== "relative_sec" && streams.laps?.some(lap => Number.isFinite(lap.startTimeMs) || Number.isFinite(lap.endTimeMs));
   const activityTime = verifiedRelativeClock || recordedClock;
   const summary = activity.summary;
-  const elapsed = summary.elapsedTimeMillis;
-  const recordedDuration = typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed
-    : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : undefined;
   const relSecAt = (index: number) => {
     const value = streams.time?.[index];
     if (!recordedClock || value == null || !Number.isFinite(value)) return relativeAt(index);
@@ -95,14 +92,20 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       if (time > end || (boundedByNextLap && time === end)) break;
       next++;
     }
+    // A duration-only lap can retain its recorded metrics, but its track on an
+    // elapsed clock is unknown without a recorded boundary.
+    const unverifiedLapTrack = verifiedRelativeClock && recordedStart == null && recordedEnd == null;
+    hasUnassigned ||= unverifiedLapTrack && first < next;
     const validDistance = typeof lap.distanceKm === "number" && Number.isFinite(lap.distanceKm) && lap.distanceKm >= 0;
-    laps.push({ start, duration, distance: validDistance ? lap.distanceKm * 1000 : 0, first, end: next });
+    laps.push({ start, duration, distance: validDistance ? lap.distanceKm * 1000 : 0,
+      first, end: unverifiedLapTrack ? first : next });
     previousEnd = end;
   }
   hasUnassigned ||= laps.length > 0 && next < indices.length;
   const lastObservation = timedAt(indices.length - 1);
-  const validRecordedDuration = recordedDuration != null && Number.isFinite(recordedDuration)
-    && recordedDuration >= Math.max(summary.ridingTimeMillis || 0, (lastObservation ?? 0) * 1000);
+  const recordedDuration = resolveRecordedElapsedMs(activity, Math.max(summary.ridingTimeMillis || 0,
+    Math.round((lastObservation ?? 0) * 1000)));
+  const validRecordedDuration = recordedDuration != null;
   const requiresCsv = !laps.length && verifiedRelativeClock && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
   const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
@@ -117,7 +120,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
         for (const lap of laps) writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
       } else {
-        const duration = ((validRecordedDuration ? recordedDuration : summary.ridingTimeMillis) || 0) / 1000;
+        const duration = ((activityTime || laps.length ? recordedDuration ?? summary.ridingTimeMillis : summary.ridingTimeMillis) || 0) / 1000;
         writeLap(lines, startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
       }
       lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');

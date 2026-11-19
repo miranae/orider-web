@@ -93,7 +93,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       if (sensorFormat && pendingCadence) setCadencePrompts(current => ({ ...current, [sensorFormat]: undefined }));
     };
     try {
-      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(format) : streams;
+      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(tcxMode === "csv" ? "csv" : format) : streams;
       if (!stillCurrent()) return;
       const fileActivity = latestActivity.current;
       if (tcxMode === "csv") {
