@@ -19,11 +19,28 @@ let _logClientErrorFn: HttpsCallable<unknown, unknown> | null = null;
 const RECENT_ERROR_WINDOW_MS = 10_000;
 const MAX_RECENT_ERROR_KEYS = 200;
 const ERROR_BACKUP_TIMEOUT_MS = 10_000;
-const EMBEDDED_LIFECYCLE_FAILURES = new Map([
+const EMBEDDED_ANONYMOUS_FAILURES = new Map([
   ["embedded.authChangeCacheReset", "embedded-cache-reset-failed"],
   ["embedded.bridgeSend", "embedded-bridge/send-failed"],
   ["embedded.accountIsolation.release", "embedded-account-isolation-release-failed"],
+  ["embedded.activityRead", "embedded-callable-read-failed"],
 ]);
+
+function anonymousEmbeddedContext(source: string, context?: Record<string, unknown>) {
+  if (source === "embedded.bridgeSend") {
+    return { type: WEB_MESSAGE_TYPES.find(type => type === context?.type) };
+  }
+  if (source === "embedded.activityRead") {
+    const route = ["getActivityDiscovery", "getPublicAthleteTotals"].find(route => route === context?.route);
+    const phase = ["app-check", "id-token", "endpoint", "transport", "body", "http", "timeout", "contract"]
+      .find(phase => phase === context?.phase);
+    const rawStatus = context?.status;
+    const status = typeof rawStatus === "number" && Number.isInteger(rawStatus) && rawStatus >= 100 && rawStatus <= 599
+      ? rawStatus : undefined;
+    return { route, phase, status };
+  }
+  return undefined;
+}
 type ErrorTimes = Map<string, number>;
 const recentClientErrors: ErrorTimes = new Map();
 let scopedClientErrors = new WeakMap<object, { guest: ErrorTimes; users: WeakMap<object, ErrorTimes> }>();
@@ -90,11 +107,10 @@ export function logClientError(
 ) {
   // These lifecycle diagnostics contain no account data. App Check allows recording
   // failures before host approval or during revocation without borrowing a user's token.
-  const anonymousMessage = services?.isSessionApproved ? EMBEDDED_LIFECYCLE_FAILURES.get(source) : undefined;
+  const anonymousMessage = services?.isSessionApproved ? EMBEDDED_ANONYMOUS_FAILURES.get(source) : undefined;
   const anonymousDiagnostic = anonymousMessage !== undefined;
   const diagnosticError = anonymousMessage === undefined ? error : new Error(anonymousMessage);
-  const diagnosticContext = !anonymousDiagnostic ? context : source === "embedded.bridgeSend"
-    ? { type: WEB_MESSAGE_TYPES.find(type => type === context?.type) } : undefined;
+  const diagnosticContext = anonymousDiagnostic ? anonymousEmbeddedContext(source, context) : context;
   const message = diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError);
   const user = anonymousDiagnostic ? null : requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
   const signedInAt = user?.metadata?.lastSignInTime ?? "";

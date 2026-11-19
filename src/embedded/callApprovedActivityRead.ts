@@ -20,7 +20,7 @@ export function reportApprovedActivityReadFailure(
   status?: number,
 ) {
   logClientError("embedded.activityRead", new Error(`embedded-callable-${phase}-failed`),
-    { route, phase, status }, services, viewer, `${route}:${status ?? ""}`);
+    { route, phase, status }, services, viewer, `${route}:${phase}:${status ?? ""}`);
 }
 
 export async function callApprovedActivityRead<T>(

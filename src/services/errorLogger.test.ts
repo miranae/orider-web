@@ -255,6 +255,7 @@ it.each([
   { source: "embedded.authChangeCacheReset", message: "embedded-cache-reset-failed", context: undefined },
   { source: "embedded.bridgeSend", message: "embedded-bridge/send-failed", context: { type: "bootstrap.ready" } },
   { source: "embedded.accountIsolation.release", message: "embedded-account-isolation-release-failed", context: undefined },
+  { source: "embedded.activityRead", message: "embedded-callable-read-failed", context: { route: "getActivityDiscovery", phase: "http", status: 403 } },
 ])("sends a fixed $source diagnostic without borrowing an unapproved viewer's credentials", async ({ source, message, context }) => {
   __resetClientErrorDedupeForTests();
   const lateViewer = { uid: "unapproved", getIdToken: vi.fn() };
