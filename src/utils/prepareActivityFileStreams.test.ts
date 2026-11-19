@@ -17,7 +17,7 @@ it("writes each GPS observation at its own time and offsets sensor samples from 
     },
   } as unknown as ActivityStreams, revision, origin), revision, "spm");
 
-  const fileStreams = prepareActivityFileStreams(activity, streams);
+  const fileStreams = prepareActivityFileStreams(activity, streams, "tcx");
   expect(fileStreams.time).toEqual([30, 30.25, 30.75, 31, 32, 32.25]);
   expect(fileStreams.latlng?.[1]).toEqual([37, 127]);
   expect(fileStreams.latlng?.[2]).toEqual([38, 128]);
@@ -29,4 +29,12 @@ it("writes each GPS observation at its own time and offsets sensor samples from 
   expect(xml).toContain("2026-11-19T07:00:30.750Z");
   expect(xml).toContain("<ext:RunCadence>85</ext:RunCadence>");
   expect(xml).toContain("<ext:RunCadence>86</ext:RunCadence>");
+
+  const fit = prepareActivityFileStreams(activity, streams, "fit");
+  expect(fit.time).toEqual([30, 31, 32]);
+  expect(fit.cadence?.[0]).toBe(170);
+  expect(fit.latlng?.[0]).toEqual([37, 127]);
+  expect(fit.latlng?.[1]).toEqual([38, 128]);
+  expect(fit.cadence?.[2]).toBe(172);
+  expect(fit.latlng?.[2]).toEqual([39, 129]);
 });

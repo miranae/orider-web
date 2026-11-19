@@ -97,3 +97,18 @@ export function debugLog(scope: string, payload: Record<string, unknown>): void 
   if (typeof console === "undefined") return;
   console.debug(`[${scope}]`, payload);
 }
+
+/** Error details safe to record when the requesting account is no longer active. */
+export function describeDiagnosticFailure(error: unknown): { code: string } {
+  const rawCode = error && typeof error === "object" && "code" in error ? error.code : null;
+  if (typeof rawCode === "string" && /^(functions|firestore)\/(aborted|cancelled|deadline-exceeded|failed-precondition|internal|invalid-argument|not-found|permission-denied|resource-exhausted|unauthenticated|unavailable|unknown|unimplemented)$/u.test(rawCode)) {
+    return { code: rawCode };
+  }
+  if (error instanceof Error) {
+    if (error.message === "account_changed") return { code: "account_changed" };
+    if (error.message === "activity_request_timeout") return { code: "timeout" };
+    if (error.message === "invalid_activity_streams") return { code: "invalid_activity_streams" };
+    if (/network|failed to fetch|load failed/iu.test(error.message)) return { code: "network_error" };
+  }
+  return { code: "unknown" };
+}

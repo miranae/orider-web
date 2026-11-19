@@ -13,7 +13,7 @@ import type { Activity, ActivityStreams } from "@shared/types";
 import { auth as defaultAuth, firestore as defaultFirestore, functions as defaultFunctions, ensureAppCheckReady as defaultEnsureAppCheckReady } from "../../../services/firebase";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
 import type { Functions } from "firebase/functions";
-import { debugLog, logClientError } from "../../../services/errorLogger";
+import { debugLog, describeDiagnosticFailure, logClientError } from "../../../services/errorLogger";
 import {
   getActivityStreams,
   getActivityStreamsWithAuth,
@@ -175,7 +175,7 @@ export function useActivityStreamsLoader({
         if (isCurrent()) setStreams(parsed);
       }).catch(err => {
         if (auth.currentUser !== sdkUser) {
-          debugLog("streams.previous_account_failure", { source: source ?? "unknown" });
+          debugLog("streams.previous_account_failure", { source: source ?? "unknown", ...describeDiagnosticFailure(err) });
           return;
         }
         logClientError("ActivityPage.streams", err, {
@@ -208,7 +208,7 @@ export function useActivityStreamsLoader({
       if (isCurrent()) setStreams(data as unknown as ActivityStreams);
     }).catch((err) => {
       if (auth.currentUser !== sdkUser) {
-        debugLog("streams.previous_account_failure", { source: "strava" });
+        debugLog("streams.previous_account_failure", { source: "strava", ...describeDiagnosticFailure(err) });
         return;
       }
       if (isStreamNotCachedError(err)) {

@@ -1,9 +1,10 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import type { FirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { readStreamCadenceUnit } from "../../../services/activityStreamSource";
-import { logClientError, debugLog } from "../../../services/errorLogger";
+import { logClientError, debugLog, describeDiagnosticFailure } from "../../../services/errorLogger";
 import { createPublicActivityClient, isPublicActivityAccessError } from "../../../services/publicActivityDetail";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
+import { addVerifiedCadenceToExport } from "../../../utils/prepareActivityFileStreams";
 import { exportSportOf } from "../../../utils/exportSport";
 import { activitySensorOrigin } from "./activitySensorOrigin";
 import { usesCanonicalActivityStreams } from "./useActivityStreamsLoader";
@@ -29,7 +30,7 @@ export async function loadOwnerExportStreams(
   const context = { activityId: activity.id, source: activity.source ?? "unknown", format };
   const result = await createPublicActivityClient(services).streams(activity.id).catch(error => {
     if (services.auth.currentUser !== account) {
-      debugLog("streams.owner_export_stale_failure", { format, source: context.source });
+      debugLog("streams.owner_export_stale_failure", { format, source: context.source, ...describeDiagnosticFailure(error) });
       throw new Error("account_changed");
     }
     logClientError("ActivityStreams.ownerExport", error, context, services);
@@ -52,5 +53,5 @@ export async function loadOwnerExportStreams(
     || !result.streams.cadence.some(value => Number.isFinite(value) && value >= 0)) {
     return displayed;
   }
-  return result.streams;
+  return addVerifiedCadenceToExport(activity, displayed, result.streams);
 }
