@@ -47,7 +47,7 @@ const DISCIPLINE_META: Record<string, { labelKey: string; color: string; icon: R
 };
 
 function badgeText(name: string): string {
-  // 한글이면 첫 글자, 영문이면 단어 첫 글자 3개
+  // 영문 이름은 단어 머리글자를, 그 외 이름은 처음 두 글자를 사용한다.
   const trimmed = name.trim();
   if (!trimmed) return "??";
   const ascii = /^[A-Za-z\s]+$/.test(trimmed);
@@ -55,7 +55,7 @@ function badgeText(name: string): string {
     const words = trimmed.split(/\s+/).filter(Boolean);
     return words.slice(0, 3).map((w) => w[0]?.toUpperCase() ?? "").join("") || trimmed.slice(0, 3).toUpperCase();
   }
-  return trimmed.slice(0, 2);
+  return Array.from(trimmed).slice(0, 2).join("");
 }
 
 export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, joining, joinPending, joinChecking, joinUnconfirmed, onShowPendingRequest, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
@@ -65,6 +65,8 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
   const primarySport = (group.sports && group.sports[0]) ?? group.discipline ?? "bike";
   const meta = DISCIPLINE_META[primarySport] ?? DISCIPLINE_META.bike!;
   const kindLabel = group.kind ? t(KIND_LABEL_KEYS[group.kind]) : null;
+  const badge = typeof group.badge === "string" ? group.badge.trim() : "";
+  const badgeLabel = Array.from(badge || badgeText(group.name)).slice(0, 3).join("").toUpperCase();
 
   const content = (
     <Card padding="none"
@@ -78,6 +80,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
     >
       {/* 클럽 아이콘 56, 모서리 12 (K5) */}
       <div
+        aria-hidden="true"
         style={{
           width: "calc(var(--space-8) + var(--space-2))", height: "calc(var(--space-8) + var(--space-2))", borderRadius: "var(--r-lg)",
           background: "var(--bg-2)",
@@ -86,8 +89,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
           flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", lineHeight: 1,
         }}
       >
-        {/* 빈 문자열 badge 는 ?? 로 넘어가지 않아 빈 아이콘이 됐다 — 비었으면 이름 글자로 대체 */}
-        {(group.badge?.trim() || badgeText(group.name)).slice(0, 3).toUpperCase()}
+        {badgeLabel}
       </div>
 
       {/* Body */}

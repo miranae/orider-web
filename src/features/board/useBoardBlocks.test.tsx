@@ -4,15 +4,38 @@ import { onSnapshot } from 'firebase/firestore';
 import { setCollectionDocs } from '../../__tests__/mocks/firebase';
 import { setBoardAuthorBlocked, useBoardBlocks } from './useBoardBlocks';
 import { functions } from '../../services/firebase';
-const mocks = vi.hoisted(() => ({ uid: 'owner', call: vi.fn(), getFunctions: vi.fn(() => ({})), connect: vi.fn(), emulator: false }));
+import { resetRuntimeConfigForTests, STAGE_PARITY_GATEWAY } from '../../services/runtimeConfig';
+const services = {auth:{currentUser:{uid:'owner'}},functions,ensureAppCheckReady:vi.fn(async()=>{})} as unknown as Pick<import('../../contexts/FirebaseServicesContext').FirebaseServices,'auth'|'functions'|'ensureAppCheckReady'>;
+const mocks = vi.hoisted(() => ({ uid: 'owner', call: vi.fn(), getFunctions: vi.fn(() => ({})), connect: vi.fn(), log: vi.fn(), emulator: false }));
+vi.mock('../../services/errorLogger', () => ({logClientError:mocks.log}));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.uid ? { uid: mocks.uid } : null }) }));
 vi.mock('../../services/firebase', () => ({ ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn(), auth: {}, storage: {}, firestore: {}, functions: { app: { name: 'test' } } }));
 vi.mock('firebase/functions', () => ({ getFunctions: mocks.getFunctions, httpsCallable: vi.fn(() => mocks.call), connectFunctionsEmulator: mocks.connect }));
 vi.mock('../../services/runtimeConfig', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../services/runtimeConfig')>()), isEmulatorRuntime: () => mocks.emulator }));
-beforeEach(() => { mocks.uid = 'owner'; mocks.emulator = false; mocks.connect.mockReset(); mocks.call.mockReset().mockResolvedValue({ data: {} }); });
+beforeEach(() => { mocks.uid = 'owner'; mocks.emulator = false; mocks.log.mockReset(); mocks.getFunctions.mockClear(); mocks.connect.mockReset(); mocks.call.mockReset().mockResolvedValue({ data: {} }); resetRuntimeConfigForTests({}); });
+it('logs redacted block failures without replacing the original request error', async () => {
+  const failure=Object.assign(new Error('private target and request token'),{code:'functions/unavailable'});
+  mocks.call.mockRejectedValueOnce(failure);
+  await expect(setBoardAuthorBlocked('private-target',true,services)).rejects.toBe(failure);
+  expect(mocks.log).toHaveBeenCalledWith('Board.authorBlock',expect.any(Error),{operation:'setActivitySocialBlock',blocked:true,errorCode:'functions/unavailable'},expect.objectContaining({auth:services.auth,ensureAppCheckReady:services.ensureAppCheckReady}));
+  expect(mocks.log.mock.calls[0][1].message).not.toContain('private');
+  expect(JSON.stringify(mocks.log.mock.calls)).not.toContain('private-target');
+  const fallback=vi.spyOn(console,'error').mockImplementation(()=>{});
+  mocks.log.mockImplementationOnce(()=>{throw Error('logger unavailable');});mocks.call.mockRejectedValueOnce(failure);
+  await expect(setBoardAuthorBlocked('private-target',false,services)).rejects.toBe(failure);
+  expect(fallback).toHaveBeenCalledWith('[Board.authorBlock] 오류 진단 전송 실패',{operation:'setActivitySocialBlock',blocked:false,errorCode:'functions/unavailable'});fallback.mockRestore();
+});
+it('retains the supplied parity compute client instead of rebuilding a production regional client', async () => {
+  resetRuntimeConfigForTests({appEnvironment:'production',deploymentProfile:'production-parity-stage',firebaseFunctionsBase:STAGE_PARITY_GATEWAY});
+  try {
+    await setBoardAuthorBlocked('target', true, services);
+    expect(mocks.getFunctions).not.toHaveBeenCalled();
+    expect(mocks.call).toHaveBeenCalledWith({targetUid:'target',blocked:true});
+  } finally {resetRuntimeConfigForTests({});}
+});
 it('uses canonical regional server block mutation for both block and undo', async () => {
-  await setBoardAuthorBlocked('target', true, functions);
-  await setBoardAuthorBlocked('target', false, functions);
+  await setBoardAuthorBlocked('target', true, services);
+  await setBoardAuthorBlocked('target', false, services);
   expect(mocks.getFunctions).toHaveBeenCalledWith(expect.anything(), 'asia-northeast3');
   expect(mocks.call.mock.calls).toEqual([[{ targetUid: 'target', blocked: true }], [{ targetUid: 'target', blocked: false }]]);
 });
@@ -20,17 +43,17 @@ it('connects the regional block callable to the configured Functions emulator po
   mocks.emulator = true;
   vi.stubEnv('VITE_FUNCTIONS_EMULATOR_PORT', '5599');
   try {
-    await setBoardAuthorBlocked('target', true, functions);
+    await setBoardAuthorBlocked('target', true, services);
     expect(mocks.connect).toHaveBeenCalledWith(expect.anything(), 'localhost', 5599);
     vi.stubEnv('VITE_FUNCTIONS_EMULATOR_PORT', '');
-    await setBoardAuthorBlocked('target', false, functions);
+    await setBoardAuthorBlocked('target', false, services);
     expect(mocks.connect).toHaveBeenLastCalledWith(expect.anything(), 'localhost', 5001);
   } finally {
     vi.unstubAllEnvs();
   }
 });
 it('does not connect to an emulator outside the emulator runtime', async () => {
-  await setBoardAuthorBlocked('target', true, functions);
+  await setBoardAuthorBlocked('target', true, services);
   expect(mocks.connect).not.toHaveBeenCalled();
 });
 it('subscribes to canonical blocks and discards previous account state immediately', async () => {

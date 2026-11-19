@@ -80,7 +80,7 @@ describe("group post editing", () => {
     expect(useGroupMemberRole).toHaveBeenLastCalledWith("group-1", undefined);
     expect(screen.queryByTestId("C1-0-3")).not.toBeInTheDocument();
     expect(screen.queryByTestId("C1-3-1")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    fireEvent.click(screen.getByRole("button", { name: "로그인하고 클럽 참여하기" }));
     await waitFor(() => expect(state.signIn).toHaveBeenCalledTimes(1));
     expect(mockCallableInvocations.some(call => call.name === "joinGroupPublic")).toBe(false);
     state.isAnonymous = false; state.roleError = null;

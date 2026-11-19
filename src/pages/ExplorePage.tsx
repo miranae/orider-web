@@ -16,6 +16,7 @@ import ExplorationGridLayer from "../components/explore/ExplorationGridLayer";
 import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
+import { isEnterSubmit } from "../utils/isEnterSubmit";
 import { decodePolyline } from "../utils/polyline";
 import { isImplausibleSegmentElevation } from "../utils/activitySanity";
 import { fetchStaticJson } from "../utils/staticJson";
@@ -561,7 +562,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
 
   const handleSearch = () => setSearchQuery(inputValue.trim());
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (isEnterSubmit(e.nativeEvent)) handleSearch();
   };
   // 실시간 검색(#488) — 입력 디바운스 250ms 로 검색어 반영(Enter/버튼은 즉시).
   useEffect(() => {
@@ -725,9 +726,9 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
       <div className="flex-shrink-0 pb-4 space-y-4 border-b border-[var(--line-soft)]">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <Text as="h1" variant="pageTitle" className="explore-page-title"><GlossaryText>{t("title")}</GlossaryText></Text>
+            <Text as="h1" variant="pageTitle" className="explore-page-title">{t("title")}</Text>
             <p className="text-[var(--ink-2)] text-[length:var(--ft-body-size)] mt-1">
-              {t("subtitle")}
+              <GlossaryText>{t("subtitle")}</GlossaryText>
             </p>
           </div>
           {user && <LocalizedLink data-testid="E2-0-1" className={buttonClass({ variant: "primary", size: "sm" })} to="/segment/create">{t("leaderboardPage.create")}</LocalizedLink>}
@@ -746,7 +747,8 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
               </svg>
             </button>
             <Input data-testid="E2-2-1"
-              type="text"
+              type="search"
+              enterKeyHint="search"
               aria-label={t("search.label")}
               placeholder={t("search.placeholder")}
               value={inputValue}

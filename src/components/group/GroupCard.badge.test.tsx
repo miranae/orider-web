@@ -24,6 +24,14 @@ describe("GroupCard club icon", () => {
     expect(badgeOf(undefined)).toBe("오스");
   });
 
+  it("keeps complete characters when the explicit badge contains emoji", () => {
+    expect(badgeOf("🚲🏃🏊")).toBe("🚲🏃🏊");
+  });
+
+  it("falls back to the name when an older badge is not a string", () => {
+    expect(badgeOf(0)).toBe("오스");
+  });
+
   it("keeps an explicit badge", () => {
     expect(badgeOf("ost")).toBe("OST");
   });

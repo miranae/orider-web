@@ -126,7 +126,7 @@ describe("menu IA v2", () => {
     expect(screen.getByRole("radio", { name: "한국어" })).toBeInTheDocument();
     const terms = screen.getByRole("link", { name: "이용약관" });
     const panel = terms.closest('[data-testid="X1-5"]') as HTMLElement;
-    expect(within(panel).getByRole("button", { name: "기록을 저장하려면 로그인" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "로그인" })).toBeInTheDocument();
     await userEvent.click(terms);
     expect(screen.queryByRole("radio", { name: "한국어" })).not.toBeInTheDocument();
   });
