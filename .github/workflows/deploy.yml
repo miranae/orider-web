@@ -12,7 +12,8 @@ permissions:
   id-token: write # Workload Identity Federation OIDC 토큰 발급용(키리스 인증)
 
 concurrency:
-  group: deploy-hosting-production-${{ github.ref_name }}
+  group: deploy-hosting-production
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -22,6 +23,10 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, web-hosting]
     environment: production # GitHub Environment 보호(필수 리뷰어)로 게이트
     env:
+      # 검증한 서비스 전환 뒤 명시적으로 선택한다. 기본값은 기존 경로다.
+      ORIDER_FUNCTIONS_TRANSPORT: ${{ vars.ORIDER_FUNCTIONS_TRANSPORT || 'legacy' }}
+      BUNDLED_BACKEND_SOURCE_SHA: ${{ vars.ORIDER_BUNDLED_BACKEND_SOURCE_SHA }}
+      BUNDLED_BACKEND_TOPOLOGY_HASH: ${{ vars.ORIDER_BUNDLED_TOPOLOGY_HASH }}
       # 빌드·predeploy(check-env) 공통 env.
       VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
       VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -91,12 +96,32 @@ jobs:
           fi
           echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
           echo "Verified release commit on origin/main: $release_sha"
+      - name: Prepare selected production transport
+        run: |
+          set -euo pipefail
+          case "$ORIDER_FUNCTIONS_TRANSPORT" in legacy|production) ;; *) echo "Invalid production transport profile"; exit 1 ;; esac
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = production ]; then
+            # 릴리스 변수의 정상 플래그를 새로 쓴다. 개발 snapshot과 이전 프로필은 상속하지 않는다.
+            unset BUNDLED_RUNTIME_CONFIG_PATH BUNDLED_FUNCTIONS_ENVIRONMENT PRODUCTION_RUNTIME_CONFIG_PATH STAGE_PARITY_PRODUCTION_RUNTIME_PATH
+            printf '%s\n' 'PRODUCTION_RUNTIME_CONFIG_PATH=' 'STAGE_PARITY_PRODUCTION_RUNTIME_PATH=' 'BUNDLED_RUNTIME_CONFIG_PATH=' 'BUNDLED_FUNCTIONS_ENVIRONMENT=' >> "$GITHUB_ENV"
+            node scripts/write-runtime-config.mjs --out "$RUNNER_TEMP/normal-production-runtime.json"
+            node scripts/prepare-bundled-production.mjs --phase prepare --source "$RUNNER_TEMP/normal-production-runtime.json" --directory "$RUNNER_TEMP/bundled-production"
+          elif [ -n "${BUNDLED_RUNTIME_CONFIG_PATH:-}${BUNDLED_FUNCTIONS_ENVIRONMENT:-}" ]; then
+            echo "Legacy release cannot inherit a bundled runtime source"; exit 1
+          fi
       - name: Install dependencies
         run: npm ci
       - name: Build production artifact
+        env:
+          VITE_REQUIRE_BUNDLED_RUNTIME: ${{ env.ORIDER_FUNCTIONS_TRANSPORT == 'production' && 'true' || '' }}
         run: npm run build
       - name: Write production runtime config
-        run: node scripts/write-runtime-config.mjs
+        run: |
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = legacy ]; then
+            env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT node scripts/write-runtime-config.mjs
+          else
+            node scripts/write-runtime-config.mjs
+          fi
       - name: Verify public club API before Hosting deployment
         run: node scripts/verify-public-club-api.mjs --runtime dist/runtime-config.json --origin https://orider.co.kr
       - name: Auth (Workload Identity Federation — 키리스)
@@ -107,18 +132,44 @@ jobs:
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
           token_format: access_token
       - name: Verify production backend social callable contract
+        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'
         env:
           SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: >-
           node scripts/verify-social-callables.mjs
           --project "${{ vars.VITE_FIREBASE_PROJECT_ID }}"
           --region "${{ vars.VITE_FIREBASE_FUNCTIONS_REGION }}"
+      - name: Record previous production Hosting release for bundled transport
+        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
+        id: hosting_snapshot
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
+          ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
+        run: |
+          export HOSTING_DEPLOYMENT_MARKER="bundled-production:$RELEASE_SHA:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
+          node scripts/bundled-stage-hosting-release.mjs --phase snapshot --file "$RUNNER_TEMP/production-hosting-before.json"
       - name: Deploy Hosting only
+        id: publish
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
+          ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
         run: |
           set -euo pipefail
           npm install -g firebase-tools
+          config=firebase.json
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = production ]; then config=firebase.bundled-production.json; fi
+          deploy_env=(env)
+          release_message=()
+          if [ "$ORIDER_FUNCTIONS_TRANSPORT" = legacy ]; then
+            deploy_env=(env -u BUNDLED_RUNTIME_CONFIG_PATH -u BUNDLED_FUNCTIONS_ENVIRONMENT)
+          else
+            node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/production-hosting-before.json"
+            release_message=(--message "bundled-production:$RELEASE_SHA:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT")
+          fi
           set +e
-          firebase deploy --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-deploy.log
+          "${deploy_env[@]}" firebase deploy --config "$config" --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "$HOSTING_ACCESS_TOKEN" ${release_message[@]+"${release_message[@]}"} 2>&1 | tee firebase-deploy.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-deploy.log; then
@@ -152,9 +203,9 @@ jobs:
             echo "::error::해시 자산이 immutable 캐시가 아님 — 헤더 규칙 회귀 의심: $CC"
             exit 1
           fi
-          curl -fsSL -H 'Cache-Control: no-cache' "https://orider.co.kr/$LIVE" -o live-entry.js
+          curl -fsSL -H 'Cache-Control: no-cache' "https://orider.co.kr/$LIVE" -o "$RUNNER_TEMP/live-entry.js"
           BUILT_ENTRY_SHA256=$(shasum -a 256 "dist/$BUILT" | awk '{print $1}')
-          LIVE_ENTRY_SHA256=$(shasum -a 256 live-entry.js | awk '{print $1}')
+          LIVE_ENTRY_SHA256=$(shasum -a 256 "$RUNNER_TEMP/live-entry.js" | awk '{print $1}')
           if [ "$BUILT_ENTRY_SHA256" != "$LIVE_ENTRY_SHA256" ]; then
             echo "::error::라이브 entry bundle 내용이 빌드 산출물과 다름"
             exit 1
@@ -171,6 +222,28 @@ jobs:
           echo "live_entry_sha256=$LIVE_ENTRY_SHA256" >> "$GITHUB_OUTPUT"
           echo "live_cache_control=${CC#*: }" >> "$GITHUB_OUTPUT"
           echo "✓ 라이브가 최신 번들 + 자산 immutable 확인"
+
+      - name: Verify bundled production Hosting entry bytes and HTTP aliases
+        id: bundle_verify
+        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
+        run: |
+          node scripts/verify-bundled-hosting.mjs --environment production
+          node scripts/prepare-bundled-production.mjs --phase verify-identity
+      - name: Restore previous production Hosting release after bundled publication failure
+        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.publish.outcome != 'skipped' && steps.publish.outcome != '' && steps.bundle_verify.outcome != 'success'
+        timeout-minutes: 3
+        env:
+          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          ORIDER_HOSTING_RELEASE_ENVIRONMENT: production
+          ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
+        run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/production-hosting-before.json"
+      - name: Retain production Hosting recovery receipt on failure
+        if: always() && (failure() || cancelled()) && steps.hosting_snapshot.outcome == 'success' && steps.bundle_verify.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosting-tag-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 1
+          path: ${{ runner.temp }}/production-hosting-before.json
 
       - name: Create GitHub Release notes
         env:

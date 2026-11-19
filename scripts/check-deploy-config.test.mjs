@@ -104,11 +104,11 @@ test("manual-only development intentionally freezes publication for missing/fals
   assert.deepEqual(events, ["workflow_dispatch:"]);
   assert.match(workflow, /group: deploy-hosting-stage/); assert.match(workflow, /cancel-in-progress: false/);
   const start = workflow.indexOf('          if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then');
-  const end = workflow.indexOf("      - name: Set production runtime snapshot path", start);
+  const end = workflow.indexOf("\n          fi\n", start);
   assert.ok(start > 0 && end > start);
   assert.ok(start < workflow.indexOf("google-github-actions/auth")); assert.ok(start < workflow.indexOf("firebase deploy"));
   for (const value of ["", "false", "true"]) {
-    const actual = spawnSync("bash", ["-euc", `${workflow.slice(start, end)}\nprintf 'writer-authorized'`], { encoding: "utf8", env: { ...process.env, ORIDER_STAGE_HOSTING_SERIALIZED_WRITES: value } });
+    const actual = spawnSync("bash", ["-euc", `${workflow.slice(start, end)}\nfi\nprintf 'writer-authorized'`], { encoding: "utf8", env: { ...process.env, ORIDER_STAGE_HOSTING_SERIALIZED_WRITES: value } });
     assert.equal(actual.status, value === "true" ? 0 : 1);
     assert.equal(actual.stdout.includes("writer-authorized"), value === "true");
   }

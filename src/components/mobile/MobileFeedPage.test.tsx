@@ -126,8 +126,9 @@ describe("MobileFeedPage", () => {
       const view = renderWithProviders(<CompactActivityCard activity={createMockActivity({ startTime, sourceMeta: { deviceModel: "iGPSPORT iGS630S" } })} />);
       const time = view.container.querySelector("time");
       expect(time).toHaveAttribute("datetime", new Date(startTime).toISOString());
-      expect(time).toHaveTextContent("오늘 오후 7:16");
-      expect(time?.parentElement).toHaveTextContent(/오늘 오후 7:16·\s+iGPSPORT iGS630S/);
+      // ICU/CLDR 버전에 따라 한국어 dayPeriod는 오후 또는 PM이다. 발생 시각은 동일해야 한다.
+      expect(time).toHaveTextContent(/^오늘 (오후|PM) 7:16$/);
+      expect(time?.parentElement).toHaveTextContent(/오늘 (오후|PM) 7:16·\s+iGPSPORT iGS630S/);
       expect(time?.parentElement).not.toHaveTextContent(/시간 전|분 전/);
     } finally { clock.mockRestore(); }
   });

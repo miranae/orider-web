@@ -1,6 +1,6 @@
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { isStageComputeRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 import { announceActivityContentChange } from "./activityContentChanged";
 
 export interface NativePhotoReference { activityId: string; photoId: string }
@@ -20,7 +20,7 @@ async function call<T>(services: FirebaseServices, name: string, payload: object
   const isCurrent = () => services.auth.currentUser === viewer && viewer?.metadata?.lastSignInTime === signedInAt;
   await services.ensureAppCheckReady();
   if (!isCurrent()) throw new Error("account_changed");
-  const functions = isStageComputeRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
+  const functions = isFunctionsGatewayRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
   if (isEmulatorRuntime() && !connected.has(functions)) {
     connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
     connected.add(functions);
