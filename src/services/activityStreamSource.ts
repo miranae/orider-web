@@ -13,3 +13,19 @@ export function markRawPartStreams(streams: ActivityStreams, revision: string): 
 export function isRawPartStreams(streams: ActivityStreams | null | undefined): boolean {
   return streams != null && typeof (streams as Partial<RawPartStreams>)[rawPartRevision] === "string";
 }
+
+const cadenceUnit = Symbol("streamCadenceUnit");
+type FootCadenceUnit = "spm" | "strides_per_minute";
+type StreamsWithCadenceUnit = ActivityStreams & { [cadenceUnit]: FootCadenceUnit | null };
+
+export function markStreamCadenceUnit(streams: ActivityStreams, unit: unknown): ActivityStreams {
+  if (unit === undefined) return streams;
+  const marked: StreamsWithCadenceUnit = {
+    ...streams, [cadenceUnit]: unit === "spm" || unit === "strides_per_minute" ? unit : null,
+  };
+  return marked;
+}
+
+export function readStreamCadenceUnit(streams: ActivityStreams): FootCadenceUnit | null | undefined {
+  return (streams as Partial<StreamsWithCadenceUnit>)[cadenceUnit];
+}
