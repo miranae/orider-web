@@ -80,6 +80,13 @@ test("production preparation rejects absent or mismatched approved backend pins"
     try { await assert.rejects(f.prepare(pins), /pins required|backend changed/); } finally { f.cleanup(); }
   }
 });
+test("readiness errors preserve the gateway and HTTP status when the response stream fails", async () => {
+  const f = fixture();
+  try {
+    const interrupted = new ReadableStream({ start(controller) { controller.error(new Error("stream interrupted")); } });
+    await assert.rejects(f.prepare({ fetcher: async () => new Response(interrupted, { status: 503 }) }), /gateway is unavailable at https:\/\/[^ ]+\/readyz HTTP 503/u);
+  } finally { f.cleanup(); }
+});
 test("bundled production rejects a missing social callable before Hosting", async () => {
   const f = fixture();
   try {

@@ -76,8 +76,8 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
   try {
     await f.prepare(); f.build();
     const beforeSeal = f.calls.length;
-    const receipt = await sealBundledStage(f.directory, f.fetcher);
-    assert.deepEqual(f.calls.slice(beforeSeal).map(url => new URL(url).pathname), ["/readyz"]);
+    const receipt = await sealBundledStage(f.directory);
+    assert.equal(f.calls.length, beforeSeal);
     assert.equal(receipt.complete, true); assert.equal(receipt.backendTopologyHash, topology);
     writeFileSync(resolve(f.workspace, "firebase-stage-deploy.log"), "development deploy output");
     writeFileSync(resolve(f.workspace, "gha-creds-fixture.json"), "{}");
@@ -95,10 +95,11 @@ test("backend source/topology changes and malformed client output block developm
   try {
     await f.prepare(); f.build();
     writeFileSync(resolve(f.workspace, "dist/runtime-config.json"), JSON.stringify({ deploymentProfile: "legacy" }));
-    await assert.rejects(sealBundledStage(f.directory, f.fetcher), /built runtime differs/);
+    await assert.rejects(sealBundledStage(f.directory), /built runtime differs/);
     copyFileSync(resolve(f.directory, "runtime-config.json"), resolve(f.workspace, "dist/runtime-config.json"));
+    await sealBundledStage(f.directory);
     f.setHealth({ status: "ok", exposure: "public", sourceSha: backend, topologyHash: "d".repeat(64) });
-    await assert.rejects(sealBundledStage(f.directory, f.fetcher), /source\/topology mismatch/);
+    await assert.rejects(verifyBundledStage(f.directory, f.fetcher), /source\/topology mismatch/);
   } finally { f.cleanup(); }
 });
 test("unknown or dirty frontend and missing validated backend SHA cannot be prepared", async () => {
@@ -152,7 +153,8 @@ test("development workflow is manual-only and seals the selected artifact before
 
 test("development metadata failures identify the failing endpoint", async () => {
   const f = fixture();
-  try { await assert.rejects(f.prepare({ fetcher: async () => new Response(null, { status: 503 }) }), /https:\/\/orider.co.kr\/runtime-config.json HTTP 503/); }
+  const interrupted = new ReadableStream({ start(controller) { controller.error(new Error("stream interrupted")); } });
+  try { await assert.rejects(f.prepare({ fetcher: async () => new Response(interrupted, { status: 503 }) }), /https:\/\/orider.co.kr\/runtime-config.json HTTP 503/); }
   finally { f.cleanup(); }
 });
 
@@ -180,13 +182,13 @@ test("missing HTML or entry chunks fail before seal or any remote verification",
     try {
       await f.prepare(); f.build();
       rmSync(resolve(f.workspace, "dist", missing)); const calls = f.calls.length;
-      await assert.rejects(sealBundledStage(f.directory, f.fetcher), /stage entry (HTML|asset) missing/);
+      await assert.rejects(sealBundledStage(f.directory), /stage entry (HTML|asset) missing/);
       assert.equal(f.calls.length, calls);
     } finally { f.cleanup(); }
   }
   const f = fixture();
   try {
-    await f.prepare(); f.build(); await sealBundledStage(f.directory, f.fetcher);
+    await f.prepare(); f.build(); await sealBundledStage(f.directory);
     rmSync(resolve(f.workspace, "dist/assets/index-fixture.js")); const calls = f.calls.length;
     await assert.rejects(verifyBundledStage(f.directory, f.fetcher), /stage entry asset missing/); assert.equal(f.calls.length, calls);
   } finally { f.cleanup(); }
@@ -249,7 +251,7 @@ test("missing handoff or AI browser routes block development before publication 
   for (const path of ["/webHandoffRedeem", "/v1/activity-narrative"]) {
     const f = fixture();
     try {
-      await f.prepare(); f.build(); await sealBundledStage(f.directory, f.fetcher);
+      await f.prepare(); f.build(); await sealBundledStage(f.directory);
       await assert.rejects(verifyBundledStage(f.directory, (url, options) => url.endsWith(path)
         ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options)), new RegExp(path));
     } finally { f.cleanup(); }
@@ -309,7 +311,7 @@ test("development backend identity is re-read after callable probes and after th
       return response;
     };
     try {
-      await f.prepare(); f.build(); await sealBundledStage(f.directory, f.fetcher);
+      await f.prepare(); f.build(); await sealBundledStage(f.directory);
       await assert.rejects(verifyBundledStage(f.directory, drift), /source\/topology mismatch/);
     } finally { f.cleanup(); }
   }

@@ -28,7 +28,11 @@ async function request(fetcher, token, method, url, body) {
   try { response = await fetcher(url, { method, redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000),
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
   catch { throw new Error(`development Hosting ${method} transport failed at ${url}`); }
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`development Hosting ${method} failed at ${url}: HTTP${response.status}`); }
+  if (!response.ok) {
+    const error = new Error(`development Hosting ${method} failed at ${url}: HTTP${response.status}`);
+    try { await response.body?.cancel(); } catch (cause) { error.cause = cause; }
+    throw error;
+  }
   try { return await response.json(); } catch { throw new Error(`development Hosting ${method} invalid JSON at ${url}`); }
 }
 function currentVersion(channel) {

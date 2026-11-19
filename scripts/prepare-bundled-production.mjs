@@ -22,7 +22,11 @@ async function health(runtime, fetcher, expected) {
   let response;
   try { response = await fetcher(url, { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled production health transport failed at ${url}`); }
-  if (!response.ok) { await response.body?.cancel(); throw new Error(`bundled production gateway is unavailable at ${url} HTTP ${response.status}`); }
+  if (!response.ok) {
+    const error = new Error(`bundled production gateway is unavailable at ${url} HTTP ${response.status}`);
+    try { await response.body?.cancel(); } catch (cause) { error.cause = cause; }
+    throw error;
+  }
   let value;
   try { value = await response.json(); } catch { throw new Error(`bundled production health invalid JSON at ${url}`); }
   if (!value || typeof value !== "object" || Array.isArray(value) || value.status !== "ok" || value.exposure !== "public" || typeof value.sourceSha !== "string" || !/^[a-f0-9]{40}$/u.test(value.sourceSha)
