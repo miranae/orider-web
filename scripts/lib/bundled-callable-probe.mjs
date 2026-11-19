@@ -12,12 +12,16 @@ export async function verifyBundledCallable({ base, origin, name, fetcher, reque
     "Access-Control-Request-Headers": requestHeaders.join(",") } });
   const allowed = key => (preflight.headers.get(key) || "").toLowerCase().split(",").map(value => value.trim());
   const allowedOrigin = preflight.headers.get("access-control-allow-origin");
-  if (!preflight.ok || ![origin, "*"].includes(allowedOrigin) || !allowed("access-control-allow-methods").includes("post") ||
-    !requestHeaders.every(value => allowed("access-control-allow-headers").includes(value))) {
+  const rejected = !preflight.ok || ![origin, "*"].includes(allowedOrigin) || !allowed("access-control-allow-methods").includes("post") ||
+    !requestHeaders.every(value => allowed("access-control-allow-headers").includes(value));
+  const context = `origin ${origin} at ${url} HTTP ${preflight.status}`;
+  try {
     await preflight.body?.cancel();
-    throw new Error(`bundled callable ${name} browser preflight rejected origin ${origin} at ${url} HTTP ${preflight.status}`);
+  } catch (cause) {
+    const failure = rejected ? "rejected" : "response cleanup failed for";
+    throw new Error(`bundled callable ${name} browser preflight ${failure} ${context}`, { cause });
   }
-  await preflight.body?.cancel();
+  if (rejected) throw new Error(`bundled callable ${name} browser preflight rejected ${context}`);
   const response = await request("POST", { headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(requestBody) });
   let payload;
   try { payload = await response.json(); } catch { throw new Error(`bundled callable ${name} returned invalid JSON at ${url}`); }
