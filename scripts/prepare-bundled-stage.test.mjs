@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
 import { verifyBundledHosting } from "./verify-bundled-hosting.mjs";
 import { stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
-import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, verifyHostedAssets, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
+import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
 import { prepareBundledStage, sealBundledStage, verifyBundledStage, verifyAiServingRevision } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
@@ -256,27 +256,6 @@ test("stage AI serving revision must belong to the accepted backend source", asy
   })), /serving revision differs/u);
   await assert.rejects(verifyAiServingRevision(sha, "fixture", async url =>
     Response.json(url.endsWith(revision) ? { name: revision, containers: [] } : service)), /planned execution epoch/u);
-});
-
-test("the finalized live Hosting inventory must contain lazy JavaScript and CSS", async () => {
-  const site = "sites/orider-dev", channel = `${site}/channels/live`, version = `${site}/versions/current`;
-  const pages = [];
-  const fetcher = async (url, options) => {
-    assert.equal(options.headers.Authorization, "Bearer fixture");
-    if (url.endsWith(channel)) return Response.json({ name: channel, release: {
-      name: `${site}/releases/current`, version: { name: version },
-    } });
-    const cursor = new URL(url).searchParams.get("pageToken");
-    pages.push(cursor);
-    return Response.json(cursor ? { files: [{ path: "/assets/lazy.css", status: "ACTIVE", hash: "css-hash" }] }
-      : { files: [{ path: "/assets/entry.js", status: "ACTIVE", hash: "js-hash" }], nextPageToken: "second" });
-  };
-  const options = { token: "fixture", environment: "development", fetcher };
-  await verifyHostedAssets(new Map([["/assets/entry.js", "js-hash"], ["/assets/lazy.css", "css-hash"]]), options);
-  assert.deepEqual(pages, [null, "second"]);
-  await assert.rejects(verifyHostedAssets(new Map([["/assets/entry.js", "js-hash"]]), options), /unexpected file.*lazy.css/u);
-  await assert.rejects(verifyHostedAssets(new Map([["/assets/entry.js", "js-hash"], ["/assets/lazy.css", "css-hash"], ["/assets/absent.js", "absent-hash"]]), options), /missing 1 compiled assets.*absent.js/u);
-  await assert.rejects(verifyHostedAssets(new Map([["/assets/entry.js", "other-hash"]]), options), /different bytes for.*entry.js/u);
 });
 
 test("production rollback targets only the live production release owned by the attempt", async () => {

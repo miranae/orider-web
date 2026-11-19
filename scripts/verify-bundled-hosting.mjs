@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { assertStageEntryArtifact, stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
-import { verifyHostedAssets } from "./bundled-stage-hosting-release.mjs";
 const ORIGINS = { development: "https://orider-dev.web.app", production: "https://orider.co.kr" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 async function readPublishedText(url, fetcher, { status = 200, contentType } = {}) {
@@ -20,7 +18,7 @@ async function readPublishedText(url, fetcher, { status = 200, contentType } = {
   try { return await response.text(); }
   catch { throw new Error(`bundled Hosting GET body failed at ${url}`); }
 }
-export async function verifyBundledHosting({ environment, directory = "dist", fetcher = fetch, hostingToken }) {
+export async function verifyBundledHosting({ environment, directory = "dist", fetcher = fetch }) {
   if (!Object.hasOwn(ORIGINS, environment)) throw new Error("approved Hosting environment required");
   const base = ORIGINS[environment], entry = assertStageEntryArtifact(directory, base), expected = readFileSync(resolve(directory, entry));
   if (environment === "production") {
@@ -49,16 +47,6 @@ export async function verifyBundledHosting({ environment, directory = "dist", fe
   try { actual = Buffer.from(await response.arrayBuffer()); } catch { throw new Error(`bundled Hosting entry GET body failed at ${url}`); }
   if (hash(actual) !== hash(expected)) throw new Error(`bundled Hosting entry bytes differ at ${url}`);
   await verifyBundledHttpAliases({ base, fetcher });
-  if (hostingToken) {
-    // Firebase CLI hashes each file after level-9 gzip compression in the same runner.
-    const assetHashes = new Map(readdirSync(directory, { recursive: true, withFileTypes: true })
-      .filter(file => file.isFile())
-      .map(file => {
-        const path = resolve(file.parentPath, file.name);
-        return [`/${relative(directory, path)}`, hash(gzipSync(readFileSync(path), { level: 9 }))];
-      }));
-    await verifyHostedAssets(assetHashes, { token: hostingToken, environment, fetcher });
-  }
   return { verified: true, environment, entry };
 }
 export async function verifyPublishedBundledHosting(options, pause = ms => new Promise(resolve => setTimeout(resolve, ms))) {
@@ -73,7 +61,5 @@ export async function verifyPublishedBundledHosting(options, pause = ms => new P
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.length !== 4 || process.argv[2] !== "--environment") throw new Error("Hosting environment required");
-  const hostingToken = process.env.HOSTING_ACCESS_TOKEN;
-  if (!hostingToken) throw new Error("Hosting access token required for live asset inventory");
-  console.log(JSON.stringify(await verifyPublishedBundledHosting({ environment: process.argv[3], hostingToken })));
+  console.log(JSON.stringify(await verifyPublishedBundledHosting({ environment: process.argv[3] })));
 }

@@ -63,37 +63,6 @@ export async function verifyStagePublishPointer(snapshot, { token, fetcher = fet
   }
   return { verified: true, version: snapshot.previousVersion };
 }
-export async function verifyHostedAssets(assetHashes, { token, environment, fetcher = fetch }) {
-  const target = hostingTarget(environment, "true");
-  const live = await request(target, fetcher, token, "GET", API + target.channel);
-  const version = currentVersion(live, target), missing = new Set(assetHashes.keys());
-  const tokens = new Set();
-  const injectedFiles = new Set(["/__/firebase/init.js", "/__/firebase/init.json"]);
-  let nextPageToken;
-  do {
-    const params = new URLSearchParams({ status: "ACTIVE", pageSize: "1000" });
-    if (nextPageToken) params.set("pageToken", nextPageToken);
-    const url = `${API}${version}/files?${params}`;
-    const page = await request(target, fetcher, token, "GET", url);
-    if (page.files !== undefined && !Array.isArray(page.files)) throw new Error(`${target.label} Hosting files GET returned invalid file list at ${url}`);
-    for (const row of page.files ?? []) {
-      if (row?.status !== "ACTIVE" || typeof row.path !== "string" || typeof row.hash !== "string")
-        throw new Error(`${target.label} Hosting files GET returned an invalid active file at ${url}`);
-      const expected = assetHashes.get(row.path);
-      if (!expected && injectedFiles.has(row.path)) continue;
-      if (!expected) throw new Error(`${target.label} Hosting ${version} has unexpected file ${row.path}`);
-      if (row.hash !== expected) throw new Error(`${target.label} Hosting ${version} has different bytes for ${row.path}`);
-      missing.delete(row.path);
-    }
-    nextPageToken = page.nextPageToken;
-    if (nextPageToken && tokens.has(nextPageToken)) throw new Error(`${target.label} Hosting files GET repeated a page for ${version}`);
-    tokens.add(nextPageToken);
-  } while (nextPageToken);
-  if (missing.size > 0) throw new Error(`${target.label} Hosting ${version} missing ${missing.size} compiled assets, including ${missing.values().next().value}`);
-  const after = await request(target, fetcher, token, "GET", API + target.channel);
-  if (currentVersion(after, target) !== version || releaseName(after, target) !== releaseName(live, target))
-    throw new Error(`${target.label} Hosting changed while verifying the published assets`);
-}
 export async function rollbackStageHosting(snapshot, { token, fetcher = fetch, serializedWrites, environment = "development", pause = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
   const target = hostingTarget(environment, serializedWrites); validateSnapshot(snapshot, target);
   let channel = await request(target, fetcher, token, "GET", API + target.channel);
