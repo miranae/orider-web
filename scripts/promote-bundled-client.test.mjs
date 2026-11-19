@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { prepareClientPromotion, verifyPromotionFiles, validateCandidateRun, assertReviewedSource } from "./promote-bundled-client.mjs";
+import { prepareClientPromotion, verifyClientPromotion, verifyPublishedPromotion, validateCandidateRun, assertReviewedSource } from "./promote-bundled-client.mjs";
 import { archiveHostingCandidate, restoreHostingCandidate, HOSTING_CANDIDATE_BUCKET } from "./hosting-candidate-archive.mjs";
 import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
@@ -36,9 +36,7 @@ test("promotion preserves all compiled/static bytes, hidden files and flags whil
     assert.equal(r.runtime.deploymentProfile,"bundled-production");assert.ok(!JSON.stringify(r.runtime).includes("dev-bundle"));
     const before=f.receipt.artifactManifest.filter(([path])=>path!=="runtime-config.json"),after=stageArtifactManifest(join(f.workspace,"dist")).filter(([path])=>path!=="runtime-config.json");assert.deepEqual(after,before);
     const hosting=JSON.parse(readFileSync(join(f.workspace,"firebase.bundled-production.json"))).hosting;
-    assert.equal(hosting.site,"miranae-orider-g1");assert.ok(!hosting.predeploy.includes("build"));assert.ok(hosting.rewrites.filter(r=>r.run).every(r=>r.run.serviceId==="orider-bundle-default-api"));
-    verifyPromotionFiles(f);
-    writeFileSync(join(f.workspace,"dist/assets/index-abc.js"),"changed");assert.throws(()=>verifyPromotionFiles(f),/changed/);
+    assert.equal(hosting.site,"miranae-orider-g1");assert.equal(hosting.predeploy,undefined);assert.ok(hosting.rewrites.filter(r=>r.run).every(r=>r.run.serviceId==="orider-bundle-default-api"));
   }finally{f.cleanup();}
 });
 test("missing hidden files, changed payload, added stale files, wrong source/runtime all reject before preparation",()=>{
@@ -52,10 +50,30 @@ test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot p
     assert.throws(()=>validateCandidateRun(f.run,{...f.artifact,generation:""},1),/pinned/);
   }finally{f.cleanup();}
 });
-test("workflow rehearsal has no production environment and promotion has no build",()=>{
+test("promotion is one production job without application install, rebuild, rehearsal or artifact transfer",()=>{
   const workflow=readFileSync(new URL("../.github/workflows/promote-hosting.yml",import.meta.url),"utf8");
-  assert.ok(!workflow.includes("npm run build"));assert.ok(!workflow.split("  promote:")[0].includes("environment: production"));assert.match(workflow,/if: inputs.phase == 'promote'/);assert.match(workflow,/environment: production/);
+  for(const removed of ["npm ci","npm run build","actions/download-artifact","actions/upload-artifact","verify-bundled-hosting","inputs.phase","environment: stage"])assert.ok(!workflow.includes(removed),removed);
+  assert.deepEqual([...workflow.matchAll(/^  ([A-Za-z_-]+):$/gm)].map(match=>match[1]).filter(name=>["prepare","promote"].includes(name)),["promote"]);
+  assert.match(workflow,/environment: production/);assert.match(workflow,/GCP_WORKLOAD_IDENTITY_PROVIDER/);assert.match(workflow,/if: always\(\)/);assert.match(workflow,/--jq \.created_at/);
   const stage=readFileSync(new URL("../.github/workflows/deploy-stage.yml",import.meta.url),"utf8");assert.match(stage,/name: stage-client-[\s\S]*?include-hidden-files: true/);
+});
+
+test("basic gateway readiness accepts a different backend commit without broad contract probes",async()=>{
+  const f=fixture();try{
+    prepareClientPromotion(f);const urls=[];
+    await verifyClientPromotion(f,async url=>{urls.push(String(url));return Response.json({status:"ok",sourceSha:"e".repeat(40),topologyHash:"f".repeat(64)});});
+    assert.deepEqual(urls,["https://orider-bundle-default-api-289663940841.asia-northeast3.run.app/readyz"]);
+    await assert.rejects(verifyClientPromotion(f,async()=>new Response("not ready",{status:503})),/unavailable/);
+  }finally{f.cleanup();}
+});
+
+test("one public release check verifies only HTML and runtime bytes",async()=>{
+  const f=fixture();try{
+    prepareClientPromotion(f);const urls=[];
+    const fetcher=async url=>{urls.push(url.pathname);return new Response(readFileSync(join(f.workspace,"dist",url.pathname==="/"?"index.html":url.pathname.slice(1))));};
+    await verifyPublishedPromotion(f,fetcher);assert.deepEqual(urls.sort(),["/","/runtime-config.json"]);
+    await assert.rejects(verifyPublishedPromotion(f,async()=>new Response("stale")),/differs/);
+  }finally{f.cleanup();}
 });
 
 function fakeStorage({ loseCreateResponse = false, corruptDownload = false } = {}) {
