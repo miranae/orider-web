@@ -41,6 +41,20 @@ it('never dispatches after readiness resolves for an aborted request',async()=>{
  const controller=new AbortController(),pending=loadActivityDiscovery(services,{scope:'all'},controller.signal);
  const rejected=expect(pending).rejects.toThrow('request_aborted');controller.abort();await rejected;ready();await Promise.resolve();expect(mocks.call).not.toHaveBeenCalled();
 });
+it('reports an actual late web callable failure after returning cancellation to the caller', async () => {
+ let rejectCall!: (error: Error) => void;
+ mocks.call.mockImplementationOnce(() => new Promise<never>((_, reject) => { rejectCall = reject; }));
+ const controller = new AbortController();
+ const report = vi.fn();
+ const rejected = expect(loadActivityDiscovery(services, { scope: 'athlete', targetUid: 'owner' }, controller.signal, report))
+  .rejects.toThrow('request_aborted');
+ await vi.waitFor(() => expect(rejectCall).toBeTypeOf('function'));
+ controller.abort();
+ await rejected;
+ const failure = Object.assign(new Error('service unavailable'), { code: 'functions/unavailable' });
+ rejectCall(failure);
+ await vi.waitFor(() => expect(report).toHaveBeenCalledExactlyOnceWith(failure));
+});
 it('bounds readiness and rejects late dispatch at the total deadline',async()=>{
  vi.useFakeTimers();try{let ready!:()=>void;mocks.ready.mockImplementation(()=>new Promise<void>(done=>{ready=done;}));
  const pending=loadActivityDiscovery(services,{scope:'all'}),rejected=expect(pending).rejects.toThrow('request_timeout');

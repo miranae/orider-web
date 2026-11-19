@@ -991,6 +991,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     const request = { scope: photoRevealScope, controller };
     pendingPhotoReveal.current = request;
     setPhotoRevealStatus({ scope: photoRevealScope, status: "loading" });
+    const logPageFailure = (error: unknown, pageIndex?: number) =>
+      logClientError("AthletePage.publicPhotos", error, { pageIndex }, services, readIdentity.viewer, String(pageIndex ?? ""), current);
     const handleFailures = async (failures: Array<{ error: unknown; pageIndex?: number }>) => {
       let denied = false;
       let failed = false;
@@ -999,7 +1001,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         const message = error instanceof Error ? error.message : "";
         if (message === "request_aborted" || message === "account_changed"
           || (controller.signal.aborted && (error === controller.signal.reason || (error instanceof Error && error.name === "AbortError")))) continue;
-        logClientError("AthletePage.publicPhotos", error, { pageIndex }, services, readIdentity.viewer, String(pageIndex ?? ""), current);
+        logPageFailure(error, pageIndex);
         failed = true;
         denied ||= code === "functions/permission-denied" || code === "functions/not-found" || code === "functions/unauthenticated";
       }
@@ -1011,9 +1013,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       const buffered = profilePhotos.slice(revealFrom, revealFrom + 6);
       const cursors = new Set(buffered.map(photo => publicGlobal.pageStartById.get(photo.activityId)));
       if (cursors.has(undefined)) throw new Error("public-photo-source-missing");
-      const results = await Promise.allSettled([...cursors].map(cursor => loadActivityDiscovery(services, {
+      const results = await Promise.allSettled([...cursors].map((cursor, pageIndex) => loadActivityDiscovery(services, {
         scope: "athlete", targetUid: userId, order: "id_asc", limit: 20, ...(cursor ? { cursor } : {}),
-      }, controller.signal)));
+      }, controller.signal, error => logPageFailure(error, pageIndex))));
       const failures = results.flatMap((result, pageIndex) => result.status === "rejected" ? [{ error: result.reason, pageIndex }] : []);
       if (failures.length > 0) { await handleFailures(failures); return; }
       if (!current() || controller.signal.aborted) return;

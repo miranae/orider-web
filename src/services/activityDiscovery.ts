@@ -27,7 +27,9 @@ export function mapDiscoveryActivity(item: ActivityDiscoveryItem): DiscoveryActi
 }
 const connected=new WeakSet<object>();
 type DiscoveryPage = Omit<ActivityDiscoveryResponse,'items'>&{items:DiscoveryActivity[]};
-export async function loadActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,signal?:AbortSignal):Promise<DiscoveryPage>{
+export async function loadActivityDiscovery(
+ services: FirebaseServices, request: ActivityDiscoveryRequest, signal?: AbortSignal, onLateFailure?: (error: unknown) => void,
+): Promise<DiscoveryPage> {
  const controller = new AbortController();
  let active=true, rejectAbort: (error: Error)=>void = () => {};
  const stop = (message: string, reason?: DOMException) => { active=false; rejectAbort(Error(message)); controller.abort(reason); };
@@ -36,7 +38,14 @@ export async function loadActivityDiscovery(services:FirebaseServices,request:Ac
  const timer=setTimeout(()=>stop('request_timeout',new DOMException('request_timeout','TimeoutError')),15000);
  signal?.addEventListener('abort',abort,{once:true});
  if(signal?.aborted)abort();
- try { return await Promise.race([readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');},controller.signal),aborted]); }
+ const read = readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');},controller.signal)
+  .catch(error => {
+   const cancelled = error === controller.signal.reason || error?.name === 'AbortError'
+    || error?.message === 'request_aborted' || error?.message === 'account_changed';
+   if (onLateFailure && services.scope !== 'embedded' && controller.signal.aborted && !cancelled) onLateFailure(error);
+   throw error;
+  });
+ try { return await Promise.race([read,aborted]); }
  finally {active=false;clearTimeout(timer);signal?.removeEventListener('abort',abort);}
 }
 async function readActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,assertActive:()=>void,signal:AbortSignal):Promise<DiscoveryPage>{
