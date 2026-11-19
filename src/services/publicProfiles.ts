@@ -12,6 +12,7 @@ export interface PublicUserProfile {
   photoURL: string | null;
   bio?: string;
   profilePublic?: boolean;
+  athleteTotalsSignal?: string;
   friendRequestsAllowed?: boolean;
   primaryDiscipline?: "tri" | "bike" | "run" | "swim";
   stats?: UserStats;

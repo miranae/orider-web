@@ -14,17 +14,21 @@ export function isLegacyActivityPhotoUrl(url: string): boolean {
   try { return decodeURIComponent(url).includes("activity_photos/"); } catch { return true; }
 }
 const connected = new WeakSet<object>();
+function assertPhotoViewer(services: FirebaseServices, viewer: FirebaseServices["auth"]["currentUser"]): void {
+  if (services.auth.currentUser !== viewer || services.isSessionApproved?.(viewer) === false) throw new Error("account_changed");
+}
 async function call<T>(services: FirebaseServices, name: string, payload: object): Promise<T> {
   const viewer = services.auth.currentUser;
+  assertPhotoViewer(services, viewer);
   await services.ensureAppCheckReady();
-  if (services.auth.currentUser !== viewer) throw new Error("account_changed");
+  assertPhotoViewer(services, viewer);
   const functions = isFunctionsGatewayRuntime() ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
   if (isEmulatorRuntime() && !connected.has(functions)) {
     connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
     connected.add(functions);
   }
   const result = await httpsCallable<object, T>(functions, name, { timeout: 30000 })(payload);
-  if (services.auth.currentUser !== viewer) throw new Error("account_changed");
+  assertPhotoViewer(services, viewer);
   return result.data;
 }
 // Coalesce only overlapping reads. Settled bytes/permissions are never cached.
@@ -34,6 +38,7 @@ const pendingReads = new WeakMap<FirebaseServices, {
 }>();
 function sharePhotoRead<T>(services: FirebaseServices, photo: NativePhotoReference, kind: "bytes" | "access", read: () => Promise<T>): Promise<T> {
   const viewer = services.auth.currentUser;
+  assertPhotoViewer(services, viewer);
   let scope = pendingReads.get(services);
   if (!scope || scope.viewer !== viewer) {
     scope = { viewer, requests: new Map() };

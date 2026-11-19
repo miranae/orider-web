@@ -17,6 +17,8 @@ import {
 export interface FirebaseServices {
   /** Isolated app session: HTTP/callable clients must use these credentials too. */
   scope?: "embedded";
+  /** The host can revoke a surface before React finishes unmounting it. */
+  isSessionApproved?: (viewer: Auth["currentUser"]) => boolean;
   auth: Auth;
   firestore: Firestore;
   functions: Functions;

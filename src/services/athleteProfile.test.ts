@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { callAthleteProfile, loadAthleteProfilePreview, parseAthleteProfile, type AthletePreviewCursor } from "./athleteProfile";
+import { loadPublicAthleteTotals, parsePublicAthleteTotals, callAthleteProfile, loadAthleteProfilePreview, parseAthleteProfile, type AthletePreviewCursor } from "./athleteProfile";
 import { mockCallableInvocations, setCallableResult as setResult, setCallableImplementation } from "../__tests__/mocks/firebase";
 const setCallableResult = (name: string, data: unknown) => setResult(name, { data: name === "getAthleteProfilePreview" ? { pendingCount: 0, coverageComplete: true, retryCursor: null, ...(data as object) } : data });
 let services: FirebaseServices;
@@ -62,4 +62,17 @@ it("never sends a callable after abandoned/timed-out AppCheck and fences same-UI
     setCallableImplementation("ensureAthleteProfile", () => { services.auth.currentUser = { uid: "owner" } as never; return root(); });
     await expect(callAthleteProfile(services, "owner", "ensureAthleteProfile", {}, () => true)).rejects.toThrow("session-changed");
   } finally { vi.useRealTimers(); }
+});
+
+it("loads public totals without owner authentication and fences guest-to-login transitions", async () => {
+  services.auth.currentUser = null;
+  setCallableResult("getPublicAthleteTotals", root());
+  await expect(loadPublicAthleteTotals(services, "target", () => true)).resolves.toMatchObject({ count: 4 });
+  setCallableImplementation("getPublicAthleteTotals", () => { services.auth.currentUser = { uid: "viewer" } as never; return root(); });
+  await expect(loadPublicAthleteTotals(services, "target", () => true)).rejects.toThrow("session-changed");
+});
+it("validates public pending/failed without inventing zero and rejects malformed ready values", () => {
+  for (const state of ["pending", "failed"]) expect(parsePublicAthleteTotals({ schemaVersion: 1, state, revision: 0 })).toEqual({ schemaVersion: 1, state, revision: 0 });
+  expect(parsePublicAthleteTotals({ schemaVersion: 1, state: "ready", revision: 0 })).toBeNull();
+  expect(parsePublicAthleteTotals({ ...root(), unknownTimeCount: 10 })).toBeNull();
 });

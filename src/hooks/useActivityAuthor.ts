@@ -28,15 +28,15 @@ function readString(value: string | null | undefined): string | null {
  * 프로필 조회는 [loadPublicUserProfile] 캐시가 userId 당 1회로 접으므로, 같은 작성자의 카드가
  * 여러 장이어도 읽기는 한 번이다.
  */
-export function useActivityAuthor(source: ActivityAuthorSource): ActivityAuthor {
+export function useActivityAuthor(source: ActivityAuthorSource, enabled = true): ActivityAuthor {
   const { userId } = source;
   const documentNickname = readString(source.nickname);
   const documentProfileImage = readString(source.profileImage);
 
-  const [profile, setProfile] = useState(() => (userId ? peekPublicUserProfile(userId) : null));
+  const [profile, setProfile] = useState(() => (enabled && userId ? peekPublicUserProfile(userId) : null));
 
   useEffect(() => {
-    if (!userId) return;
+    if (!enabled || !userId) return;
     const cached = peekPublicUserProfile(userId);
     if (cached !== undefined) {
       setProfile(cached);
@@ -59,10 +59,10 @@ export function useActivityAuthor(source: ActivityAuthorSource): ActivityAuthor 
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [enabled, userId]);
 
   return {
-    nickname: readString(profile?.nickname) ?? documentNickname,
-    profileImage: readString(profile?.photoURL) ?? documentProfileImage,
+    nickname: readString(enabled ? profile?.nickname : null) ?? documentNickname,
+    profileImage: readString(enabled ? profile?.photoURL : null) ?? documentProfileImage,
   };
 }

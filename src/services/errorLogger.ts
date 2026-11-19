@@ -55,7 +55,9 @@ export function logClientError(
   source: string,
   error: unknown,
   context?: Record<string, unknown>,
-  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">,
+  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady" | "isSessionApproved">,
+  requestViewer?: FirebaseServices["auth"]["currentUser"],
+  isRequestCurrent?: () => boolean,
 ) {
   const message = error instanceof Error ? error.message : String(error);
   if (shouldSuppressClientError(source, message)) return;
@@ -72,11 +74,15 @@ export function logClientError(
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
   const stack = error instanceof Error ? error.stack : undefined;
 
-  const user = services?.auth.currentUser;
+  const user = requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
+  const canSend = () => isRequestCurrent?.() !== false && (!services
+    || Boolean(services.auth && services.functions && services.auth.currentUser === user && services.isSessionApproved?.(user ?? null) !== false));
+  // Keep Sentry diagnostics when the host or Firebase session has closed.
   void (async () => {
     try {
+      if (!canSend()) return;
       await (services?.ensureAppCheckReady ?? ensureAppCheckReady)();
-      if (services && services.auth.currentUser !== user) return;
+      if (!canSend()) return;
       const fn = services ? httpsCallable(services.functions, "logClientError") : getLogClientErrorFn();
       if (!fn) return; // initFirebase 전 — 서버 로깅 skip (Sentry 큐로 충분)
       await fn({ source, message, stack, context });
