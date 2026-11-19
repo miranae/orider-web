@@ -165,7 +165,12 @@ jobs:
           set -euo pipefail
           npm install -g firebase-tools
           node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/production-hosting-before.json"
-          firebase deploy --config firebase.bundled-production.json --only hosting --project miranae-orider-g1 --non-interactive --token "$HOSTING_ACCESS_TOKEN" --message "client-promotion:$FRONTEND_SOURCE:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT"
+          log="$RUNNER_TEMP/hosting-publish.log"
+          set +e
+          firebase deploy --config firebase.bundled-production.json --only hosting --project miranae-orider-g1 --non-interactive --token "$HOSTING_ACCESS_TOKEN" --message "client-promotion:$FRONTEND_SOURCE:$GITHUB_RUN_ID:$GITHUB_RUN_ATTEMPT" 2>&1 | tee "$log"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ] && ! grep -q "is the current active version" "$log"; then exit "$status"; fi
       - name: Verify production entry, runtime and aliases
         run: |
           node scripts/verify-bundled-hosting.mjs --environment production

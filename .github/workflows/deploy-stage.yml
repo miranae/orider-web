@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.source_ref }}
+          ref: ${{ github.ref == 'refs/heads/main' && github.sha || inputs.source_ref }}
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
@@ -63,6 +63,9 @@ jobs:
           selected_sha=$(git rev-parse HEAD)
           if [ "$GITHUB_REF" = refs/heads/main ] && [ "$selected_sha" != "$GITHUB_SHA" ]; then
             echo "::error::The signing workflow on main only runs its own reviewed source. Use the dev workflow for other development sources."; exit 1
+          fi
+          if [ "$GITHUB_REF" = refs/heads/main ] && [ "$REQUESTED_SOURCE" != main ] && [ "$REQUESTED_SOURCE" != refs/heads/main ] && [ "$REQUESTED_SOURCE" != "$GITHUB_SHA" ]; then
+            echo "::error::The signing workflow on main requires source_ref=main or the dispatch SHA."; exit 1
           fi
           if ! git merge-base --is-ancestor "$selected_sha" origin/main && ! git merge-base --is-ancestor "$selected_sha" origin/dev; then
             echo "::error::Selected frontend source $selected_sha must be an ancestor of reviewed origin/main or origin/dev"; exit 1
