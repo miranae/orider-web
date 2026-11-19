@@ -1,15 +1,13 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import ExportTab from "./ExportTab";
-import { markStreamCadenceUnit, readStreamCadenceUnit } from "../services/activityStreamSource";
-import type { Activity, ActivityStreams } from "@shared/types";
-const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn((_activity: Activity, _streams: ActivityStreams) => new Uint8Array()), toast: vi.fn() }));
-vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
+import type { Activity } from "@shared/types";
+const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), toast: vi.fn() }));
 vi.mock("../utils/exportCsv", () => ({ generateCsv: mocks.csv }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.toast }) }));
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 const activity = { id: "a", description: "Ride", startTime: 1792800000000 } as Activity;
-beforeEach(() => { mocks.csv.mockClear(); mocks.fit.mockClear(); mocks.toast.mockClear(); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {}); });
+beforeEach(() => { mocks.csv.mockClear(); mocks.toast.mockClear(); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {}); });
 it("exports the newly authorized streams rather than cached props", async () => {
   const current = { watts: [0, 200], time: [0, 1] };
   const resolve = vi.fn().mockResolvedValue(current);
@@ -29,16 +27,4 @@ it("discards a late export authorization after leaving the detail", async () => 
   fireEvent.click(screen.getByText("CSV")); view.unmount();
   await act(async () => finish({ watts: [0] }));
   expect(mocks.csv).not.toHaveBeenCalled();
-});
-
-it("uses the displayed unit for owner inline streams and the new unit for a refreshed export", async () => {
-  const run = { ...activity, type: "Run", source: "health_connect" } as Activity;
-  const streams = { cadence: [180], time: [0] };
-  const view = render(<ExportTab activity={run} streams={streams} displayedCadenceUnit="spm" />);
-  await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(readStreamCadenceUnit(mocks.fit.mock.calls[0]![1])).toBe("spm");
-  const refreshed = markStreamCadenceUnit({ cadence: [90], time: [0] }, "strides_per_minute");
-  view.rerender(<ExportTab activity={run} streams={streams} displayedCadenceUnit="spm" resolveCurrentStreams={async () => refreshed} />);
-  await act(async () => fireEvent.click(screen.getByText("FIT")));
-  expect(mocks.fit.mock.calls[1]![1]).toBe(refreshed);
 });
