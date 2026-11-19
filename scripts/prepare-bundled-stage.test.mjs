@@ -82,10 +82,12 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
     writeFileSync(resolve(f.workspace, "firebase-stage-deploy.log"), "development deploy output");
     writeFileSync(resolve(f.workspace, "gha-creds-fixture.json"), "{}");
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).artifactHash, receipt.artifactHash);
-    const count = f.calls.length;
-    writeFileSync(resolve(f.workspace, "dist/assets/index-fixture.js"), "replaced");
-    await assert.rejects(verifyBundledStage(f.directory, f.fetcher), /artifact differs/);
-    assert.equal(f.calls.length, count, "tampered local build must fail before any remote probe");
+    const checkThenReplaceChunk = async (url, options) => {
+      const response = await f.fetcher(url, options);
+      if (url.endsWith("/publicClubs?size=1")) writeFileSync(resolve(f.workspace, "dist/assets/index-fixture.js"), "replaced");
+      return response;
+    };
+    await assert.rejects(verifyBundledStage(f.directory, checkThenReplaceChunk), /artifact differs/);
   } finally { f.cleanup(); }
 });
 test("backend source/topology changes and malformed client output block development deployment", async () => {

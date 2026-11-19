@@ -56,6 +56,7 @@ export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash
     await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
   }
   await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
+  await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
   return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
@@ -122,11 +123,11 @@ export async function verifyBundledStage(directory, fetcher = fetch, { identityO
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
   if (!identityOnly) {
     assertStageEntryArtifact(prepared.artifactDirectory);
-    assertStageArtifactManifest(prepared.artifactDirectory, receipt.artifactManifest);
     await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
-    await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+    assertStageArtifactManifest(prepared.artifactDirectory, receipt.artifactManifest);
+  } else {
+    await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   }
-  await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   readPrepared(directory);
   return receipt;
 }
