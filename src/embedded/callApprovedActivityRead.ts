@@ -90,9 +90,11 @@ export async function callApprovedActivityRead<T>(
     }
 
     let payload: { result?: T; data?: T; error?: { status?: string } } | null;
+    let bodyFailed = false;
     try {
       payload = await response.json();
     } catch (error) {
+      bodyFailed = true;
       if (!cancelled(error)) report("body", response.status);
       if (response.ok) throw error;
       payload = null;
@@ -101,8 +103,12 @@ export async function callApprovedActivityRead<T>(
       const status = payload?.error?.status;
       const code = status && /^[A-Z_]+$/.test(status) ? status.toLowerCase().replace(/_/g, "-")
         : httpErrorCodes[response.status] ?? "unavailable";
-      if (code === "unavailable" || response.status >= 500) report("http", response.status);
+      if (!bodyFailed) report("http", response.status);
       throw Object.assign(new Error("embedded-callable-failed"), { code: `functions/${code}` });
+    }
+    if (!payload || typeof payload !== "object" || !("result" in payload || "data" in payload)) {
+      report("body", response.status);
+      throw Object.assign(new Error("embedded-callable-missing-data"), { code: "functions/internal" });
     }
     return (payload?.result ?? payload?.data) as T;
   } finally {

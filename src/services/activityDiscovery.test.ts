@@ -79,14 +79,17 @@ it('records transport failures and preserves permission errors from non-JSON gat
   auth: { ...services.auth, currentUser: null }, isSessionApproved: () => true,
   getAppCheckToken: vi.fn().mockResolvedValue('embedded-check') };
  const request = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('network failed'))
-  .mockResolvedValueOnce(new Response('forbidden', { status: 403 }));
+  .mockResolvedValueOnce(new Response('forbidden', { status: 403 }))
+  .mockResolvedValueOnce(Response.json({ error: { status: 'UNAUTHENTICATED' } }, { status: 401 }));
  const report = vi.spyOn(errorLogger, 'logClientError').mockImplementation(() => undefined);
  try {
   await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toThrow('network failed');
   await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toMatchObject({ code: 'functions/permission-denied' });
+  await expect(loadActivityDiscovery(embedded, { scope: 'athlete', targetUid: 'owner' })).rejects.toMatchObject({ code: 'functions/unauthenticated' });
   expect(report.mock.calls.map(([, , context]) => context)).toEqual([
    { route: 'getActivityDiscovery', phase: 'transport', status: undefined },
    { route: 'getActivityDiscovery', phase: 'body', status: 403 },
+   { route: 'getActivityDiscovery', phase: 'http', status: 401 },
   ]);
  } finally { request.mockRestore(); report.mockRestore(); }
 });
