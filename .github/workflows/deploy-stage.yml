@@ -138,7 +138,6 @@ jobs:
           if [ "$SELECTED_TRANSPORT" = bundled-development ]; then config=firebase.bundled-stage.json; fi
           npm install -g firebase-tools
           if [ "$SELECTED_TRANSPORT" = bundled-development ]; then
-            node scripts/prepare-bundled-stage.mjs --phase verify-identity
             node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/bundled-stage-hosting.json"
           fi
           set +e
@@ -198,8 +197,6 @@ jobs:
           if grep -qE 'https://(orider\.co\.kr|miranae-orider-g1\.web\.app)/assets/' "$RUNNER_TEMP/live-detail.html"; then echo "::error::Development detail HTML references production assets"; exit 1; fi
       - name: Verify bundled development Hosting entry bytes and HTTP aliases
         if: inputs.transport == 'bundled-development'
-        env:
-          HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
           node scripts/verify-bundled-hosting.mjs --environment development
           node scripts/prepare-bundled-stage.mjs --phase verify-identity

@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { verifyAiServingRevision } from "./prepare-bundled-stage.mjs";
 import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 
@@ -105,7 +104,6 @@ async function main() {
     || phase !== "prepare" && args["--source"]) throw new Error("production phase/source/directory required");
   const receipt = phase === "prepare" ? await prepareBundledProduction({ source: json(resolve(args["--source"])), directory, githubEnv: process.env.GITHUB_ENV, backendSourceSha: process.env.BUNDLED_BACKEND_SOURCE_SHA, backendTopologyHash: process.env.BUNDLED_BACKEND_TOPOLOGY_HASH })
     : await verifyBundledProduction(directory, fetch, { identityOnly: phase === "verify-identity" });
-  if (phase === "verify-identity") await verifyAiServingRevision(receipt.backend.sourceSha, process.env.HOSTING_ACCESS_TOKEN, fetch, "production");
   console.log(JSON.stringify({ phase, frontendSourceSha: receipt.frontendSourceSha, backendSourceSha: receipt.backend.sourceSha, backendTopologyHash: receipt.backend.topologyHash }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

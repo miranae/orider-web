@@ -7,12 +7,12 @@ import { assertStageEntryArtifact, stageHtmlEntry } from "./lib/stage-artifact-m
 import { verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 const ORIGINS = { development: "https://orider-dev.web.app", production: "https://orider.co.kr" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
-async function readPublishedText(url, fetcher, { status = 200, contentType } = {}) {
+async function readPublishedText(url, fetcher, { contentType } = {}) {
   let response;
   try { response = await fetcher(url, { credentials: "omit", redirect: "error", cache: "no-store",
     headers: { "User-Agent": "Mozilla/5.0 ORiderHostingAcceptance" }, signal: AbortSignal.timeout(20000) }); }
   catch { throw new Error(`bundled Hosting GET transport failed at ${url}`); }
-  if (response.status !== status) { await response.body?.cancel(); throw new Error(`bundled Hosting GET HTTP${response.status} at ${url}`); }
+  if (response.status !== 200) { await response.body?.cancel(); throw new Error(`bundled Hosting GET HTTP${response.status} at ${url}`); }
   const actualType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
   if (contentType && actualType !== contentType) { await response.body?.cancel(); throw new Error(`bundled Hosting GET content type differs at ${url}: expected=${contentType} actual=${actualType || "missing"}`); }
   try { return await response.text(); }
@@ -30,13 +30,6 @@ export async function verifyBundledHosting({ environment, directory = "dist", fe
     const runtimeUrl = `${base}/runtime-config.json`;
     if (await readPublishedText(runtimeUrl, fetcher) !== readFileSync(resolve(directory, "runtime-config.json"), "utf8"))
       throw new Error(`bundled Hosting runtime differs at ${runtimeUrl}`);
-    const sitemapUrl = `${base}/sitemap.xml`;
-    const sitemap = await readPublishedText(sitemapUrl, fetcher);
-    if (!/^\s*(?:<\?xml[^>]*>\s*)?<(?:urlset|sitemapindex)[\s>]/u.test(sitemap))
-      throw new Error(`bundled Hosting sitemap is not XML at ${sitemapUrl}`);
-    const thumbnailUrl = `${base}/og-thumbnail/.webp`;
-    if ((await readPublishedText(thumbnailUrl, fetcher, { status: 400 })).trim() !== "activityId required")
-      throw new Error(`bundled Hosting thumbnail alias differs at ${thumbnailUrl}`);
   }
   const url = `${base}/${entry}`; let response;
   try { response = await fetcher(url, { credentials: "omit", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) }); }

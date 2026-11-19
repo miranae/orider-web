@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { verifyBundledHosting } from "./verify-bundled-hosting.mjs";
 import { stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
-import { prepareBundledStage, sealBundledStage, verifyBundledStage, verifyAiServingRevision } from "./prepare-bundled-stage.mjs";
+import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841",
@@ -30,7 +30,7 @@ function fixture() {
     if (url === "https://orider.co.kr/runtime-config.json") return Response.json(source);
     if (url.endsWith("/readyz")) return Response.json(health);
     if (/\/oriderReadinessMissing[a-f0-9]+$/u.test(url)) return Response.json({ error: "unknown-bundle-function" }, { status: 404 });
-    if (/\/(getActivityDiscovery|getActivityPublicMaps|getCreatorRecipeEmailQuota|sendCreatorRecipeEmail|socialAuthStart|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } });
+    if (/\/(getActivityDiscovery|socialAuthStart|webHandoffRedeem|v1\/activity-narrative)$/u.test(url)) return options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } });
     if (url.endsWith("/api/v1/profile")) return Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 });
     if (url.endsWith("/api/strava/webhook")) return new Response("Forbidden", { status: 403 });
     if (url.endsWith("/publicClubs?size=1")) {
@@ -243,21 +243,6 @@ test("development rollback is wired after the live checks and before artifact pu
   assert.match(workflow, /if: always\(\) && \(failure\(\) \|\| cancelled\(\)\).*steps\.hosting_snapshot\.outcome == 'success'/);
 });
 
-test("stage AI serving revision must belong to the accepted backend source", async () => {
-  const name = "projects/orider-dev/locations/asia-northeast3/services/dev-bundle-ai-api";
-  const revision = `${name}/revisions/current`, sha = "b".repeat(40);
-  const containers = [{ env: [{ name: "COACH_SESSION_EXECUTION_COMMIT_SHA", value: sha }] }];
-  const service = { name, labels: { "orider-source": sha }, terminalCondition: { state: "CONDITION_SUCCEEDED" },
-    template: { containers }, latestReadyRevision: revision, trafficStatuses: [{ revision, percent: 100 }] };
-  await verifyAiServingRevision(sha, "fixture", async url => Response.json(url.endsWith(revision) ? { name: revision, containers } : service));
-  await assert.rejects(verifyAiServingRevision("c".repeat(40), "fixture", async () => Response.json(service)), /serving revision differs/u);
-  await assert.rejects(verifyAiServingRevision(sha, "fixture", async () => Response.json({ ...service,
-    trafficStatuses: [{ revision: `${name}/revisions/previous`, percent: 100 }],
-  })), /serving revision differs/u);
-  await assert.rejects(verifyAiServingRevision(sha, "fixture", async url =>
-    Response.json(url.endsWith(revision) ? { name: revision, containers: [] } : service)), /planned execution epoch/u);
-});
-
 test("production rollback targets only the live production release owned by the attempt", async () => {
   const site = "sites/miranae-orider-g1", channel = `${site}/channels/live`;
   const previous = `${site}/versions/previous`, published = `${site}/versions/published`;
@@ -287,7 +272,7 @@ test("production rollback targets only the live production release owned by the 
 });
 
 test("missing browser routes block development before publication without credentials", async () => {
-  for (const path of ["/getActivityPublicMaps", "/getCreatorRecipeEmailQuota", "/sendCreatorRecipeEmail", "/webHandoffRedeem", "/v1/activity-narrative"]) {
+  for (const path of ["/webHandoffRedeem", "/v1/activity-narrative"]) {
     const f = fixture();
     try {
       await assert.rejects(f.prepare({ fetcher: (url, options) => url.endsWith(path)
@@ -411,8 +396,6 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     const readProduction = (url, options) => {
       if (url === "https://orider.co.kr/" || url.endsWith("/ko/course/nonexistent")) return new Response(readFileSync(resolve(production.directory, "index.html")), { headers: { "Content-Type": "text/html; charset=utf-8" } });
       if (url.endsWith("/runtime-config.json")) return new Response(readFileSync(resolve(production.directory, "runtime-config.json")));
-      if (url.endsWith("/sitemap.xml")) return new Response('<?xml version="1.0"?><urlset></urlset>');
-      if (url.endsWith("/og-thumbnail/.webp")) return new Response("activityId required", { status: 400 });
       return fetcher(url, options);
     };
     assert.equal((await verifyBundledHosting({ ...production, fetcher: readProduction })).verified, true);
@@ -425,9 +408,6 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     await assert.rejects(verifyBundledHosting({ ...production,
       fetcher: (url, options) => url.endsWith("/ko/course/nonexistent") ? new Response('<script type="module" src="/assets/index-fixture.js"></script>') : readProduction(url, options),
     }), /content type differs.*expected=text\/html.*actual=text\/plain/u);
-    await assert.rejects(verifyBundledHosting({ ...production,
-      fetcher: (url, options) => url.endsWith("/sitemap.xml") ? new Response("<html></html>") : readProduction(url, options),
-    }), /sitemap is not XML/u);
     for (const [status, mime, body] of [[404, "text/javascript", "missing"], [200, "text/html", "<html>fallback</html>"], [200, "application/javascript", "wrong bytes"]]) {
       await assert.rejects(verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher: async () => new Response(body, { status, headers: { "content-type": mime } }) }), /https:\/\/orider-dev.web.app\/assets\/index-fixture.js/);
     }

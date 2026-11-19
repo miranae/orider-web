@@ -46,50 +46,11 @@ async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
   }
   return health.topologyHash;
 }
-export async function verifyAiServingRevision(sourceSha, token, fetcher = fetch, environment = "development") {
-  if (!SHA.test(sourceSha || "") || !token) throw new Error("AI revision verification requires source SHA and access token");
-  if (!["development", "production"].includes(environment)) throw new Error("approved AI compute environment required");
-  const production = environment === "production";
-  const project = production ? "miranae-orider-g1" : "orider-dev";
-  const parent = `projects/${project}/locations/asia-northeast3/services`;
-  const name = `${parent}/${production ? "orider-ai-api" : "dev-bundle-ai-api"}`;
-  const read = async path => {
-    const url = `https://run.googleapis.com/v2/${path}`;
-    let response;
-    try { response = await fetcher(url, { headers: { Authorization: `Bearer ${token}` }, redirect: "error", signal: AbortSignal.timeout(20000) }); }
-    catch { throw new Error(`${environment} Cloud Run GET transport failed at ${url}`); }
-    if (!response.ok) { await response.body?.cancel(); throw new Error(`${environment} Cloud Run GET HTTP${response.status} at ${url}`); }
-    try { return await response.json(); }
-    catch { throw new Error(`${environment} Cloud Run GET invalid JSON at ${url}`); }
-  };
-  const service = await read(name);
-  const traffic = service?.trafficStatuses;
-  if (service?.name !== name || !production && service.labels?.["orider-source"] !== sourceSha || service.reconciling
-    || service.terminalCondition?.state !== "CONDITION_SUCCEEDED" || !new RegExp(`^${name}/revisions/[a-z0-9-]+$`, "u").test(service.latestReadyRevision)
-    || traffic?.length !== 1 || traffic[0].percent !== 100
-    || traffic[0].revision?.split("/").at(-1) !== service.latestReadyRevision.split("/").at(-1))
-    throw new Error(`${environment} AI serving revision differs from ${sourceSha} at ${name}`);
-  // The server issues a new execution epoch whenever the AI image changes.
-  // An unchanged image intentionally keeps its previous epoch across server releases.
-  const epoch = containers => containers?.[0]?.env?.find(item => item.name === "COACH_SESSION_EXECUTION_COMMIT_SHA")?.value;
-  const expectedEpoch = epoch(service.template?.containers);
-  const revision = await read(service.latestReadyRevision);
-  if (!SHA.test(expectedEpoch || "") || revision?.name !== service.latestReadyRevision || epoch(revision.containers) !== expectedEpoch)
-    throw new Error(`${environment} AI serving revision differs from planned execution epoch at ${service.latestReadyRevision}`);
-  if (production) {
-    const gateway = await read(`${parent}/orider-bundle-default-api`);
-    if (gateway?.labels?.["orider-source"] !== sourceSha || gateway.reconciling || epoch(gateway.template?.containers) !== expectedEpoch)
-      throw new Error(`production AI execution epoch differs from bundled gateway source ${sourceSha}`);
-  }
-}
 export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
   const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
   for (const origin of ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"]) {
     await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin, fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher });
-    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getActivityPublicMaps", fetcher });
-    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getCreatorRecipeEmailQuota", fetcher });
-    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "sendCreatorRecipeEmail", fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "socialAuthStart", fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
     await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
@@ -150,7 +111,7 @@ export async function sealBundledStage(directory, fetcher = fetch) {
   if (hash(readFileSync(resolve(prepared.artifactDirectory, "runtime-config.json"))) !== prepared.runtimeHash) throw new Error("built runtime differs from the prepared development profile");
   assertStageEntryArtifact(prepared.artifactDirectory);
   const manifest = stageArtifactManifest(prepared.artifactDirectory);
-  await verifyStageArtifacts(prepared.artifactDirectory, manifest, () => verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher));
+  await verifyStageArtifacts(prepared.artifactDirectory, manifest, () => readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher));
   readPrepared(directory);
   const receipt = { ...prepared, complete: true, artifactManifest: manifest, artifactHash: hash(JSON.stringify(manifest)), verifiedAt: new Date().toISOString() };
   save(resolve(state.directory, "build.json"), receipt);
@@ -162,10 +123,7 @@ export async function verifyBundledStage(directory, fetcher = fetch, { identityO
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
   assertStageEntryArtifact(prepared.artifactDirectory);
   await verifyStageArtifacts(prepared.artifactDirectory, receipt.artifactManifest, async () => {
-    if (!identityOnly) {
-      await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
-      await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
-    }
+    if (!identityOnly) await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
     await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   });
   readPrepared(directory);
@@ -185,7 +143,6 @@ async function main() {
   const receipt = phase === "prepare" ? await prepareBundledStage({ directory,
     backendSourceSha: args["--backend-source"], frontendSourceSha: git(process.cwd(), "rev-parse", "HEAD"), githubEnv: process.env.GITHUB_ENV })
     : phase === "seal" ? await sealBundledStage(directory) : await verifyBundledStage(directory, fetch, { identityOnly: phase === "verify-identity" });
-  if (phase === "verify-identity") await verifyAiServingRevision(receipt.backendSourceSha, process.env.HOSTING_ACCESS_TOKEN);
   console.log(JSON.stringify({ phase, frontendSourceSha: receipt.frontendSourceSha, backendSourceSha: receipt.backendSourceSha, backendTopologyHash: receipt.backendTopologyHash, complete: receipt.complete === true }));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

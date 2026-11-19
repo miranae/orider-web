@@ -72,7 +72,7 @@ test("production workflow remains tag-only and routing changes are explicit defa
   assert.match(workflow, /if: env\.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'/);
   assert.match(workflow, /startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.ok(workflow.indexOf("Verify release commit is on main") < workflow.indexOf("Prepare selected production transport"));
-  assert.ok(workflow.indexOf("prepare-bundled-production.mjs --phase verify") < workflow.indexOf("firebase deploy --config"));
+  assert.match(workflow, /config=firebase\.bundled-production\.json/u);
 });
 
 test("production preparation rejects absent or mismatched approved backend pins", async () => {

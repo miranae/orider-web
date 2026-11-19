@@ -274,7 +274,8 @@ if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh r
 requireIncludes(deployWorkflow, "vars.ORIDER_FUNCTIONS_TRANSPORT || 'legacy'", "deploy.yml explicit transport default");
 requireIncludes(deployWorkflow, "node scripts/prepare-bundled-production.mjs --phase prepare", "deploy.yml normal production flags");
 requireIncludes(deployWorkflow, "if: env.ORIDER_FUNCTIONS_TRANSPORT == 'legacy'", "deploy.yml legacy Functions contract scope");
-requireBefore(deployWorkflow, "node scripts/prepare-bundled-production.mjs --phase verify", "firebase deploy --config", "deploy.yml bundled backend identity gate");
+requireIncludes(readFileSync("scripts/prepare-bundled-production.mjs", "utf8"),
+  'hosting.hosting.predeploy += " && node scripts/prepare-bundled-production.mjs --phase verify"', "bundled backend deploy-time verification");
 requireIncludes(deployWorkflow, "config=firebase.bundled-production.json", "deploy.yml bundled Hosting config");
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
