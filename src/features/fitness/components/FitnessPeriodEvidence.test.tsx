@@ -82,6 +82,14 @@ describe("period evidence capability boundary", () => {
     if (truncated) expect(screen.getByTestId("K5-5-2")).toHaveTextContent("—");
     expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", null, true);
   });
+  it("does not send the Stage-only run overlay in production so the automatic load is accepted", () => {
+    mocks.environment = "production";
+    renderWithProviders(<FitnessPeriodEvidence discipline="run" />, { authenticated: true });
+    fireEvent.click(screen.getByRole("button", { name: "기간 분석 불러오기" }));
+    const request = (mocks.hook.mock.lastCall?.[1] as { request: Record<string, unknown> }).request;
+    expect(request).toMatchObject({ discipline: "run", includeExpandedRunDistances: true, includeRunningPaceZones: true });
+    expect(Object.keys(request).some(key => /stage/iu.test(key))).toBe(false);
+  });
   it("does not submit before explicit selection and keeps run period extensions", () => {
     mocks.environment = "stage";
     renderWithProviders(<FitnessPeriodEvidence discipline="run" />, { authenticated: true });

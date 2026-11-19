@@ -34,6 +34,11 @@ export function fitnessPeriodEvidenceVisible(discipline: string, user: { isAnony
  * [loadSignal] 을 주면 자체 불러오기 버튼을 숨기고, 값이 바뀔 때마다 지금 고른 기간으로 불러온다(페이지 공용 버튼).
  * [periods] 를 주면(코치 분석 사이클) 자체 기간 선택을 숨기고, 위 파워 비교가 불러온 기간과 똑같이 불러온다.
  */
+/** Stage 전용 러닝 노력 선호 오버레이 — 운영에서는 `stage` 가 든 요청을 거부하므로 Stage 에서만 붙인다. */
+function stageRunOverlay(): { includeStageRunEffortPreferences?: true } {
+  return getRuntimeConfig().appEnvironment === "stage" ? { includeStageRunEffortPreferences: true } : {};
+}
+
 export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null, windowDays, loadSignal, periods }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null; windowDays?: number; loadSignal?: number; periods?: readonly PowerCurvePeriod[] | null }) {
   const { user } = useAuth();
   if (!fitnessPeriodEvidenceVisible(discipline, user)) return null;
@@ -68,7 +73,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
     setSelection(current => ({ requestId: (current?.requestId ?? 0) + 1, request: {
       discipline, periods: [...syncedPeriods],
       ...(discipline === "bike" ? { includeCyclingClimbObservations: true } : {}),
-      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, includeStageRunEffortPreferences: true } : {}),
+      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, ...stageRunOverlay() } : {}),
     } }));
   }, [syncedPeriods, syncMode, available, discipline]);
   const submit = () => {
@@ -79,7 +84,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
     setSelection(current => ({ requestId: (current?.requestId ?? 0) + 1, request: {
       discipline, periods: periods.filter(period => period !== null),
       ...(discipline === "bike" ? { includeCyclingClimbObservations: true } : {}),
-      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, includeStageRunEffortPreferences: true } : {}),
+      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, ...stageRunOverlay() } : {}),
     } }));
   };
   // 한 번 불러온 뒤 위 기간이 바뀌면 새 기간으로 다시 불러온다(기간을 바꿔도 그대로이던 문제).
