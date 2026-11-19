@@ -17,6 +17,7 @@ interface ExportTabProps {
   streams: ActivityStreams;
   resolveCurrentStreams?: (format: string) => Promise<ActivityStreams>;
   getExportAccount?: () => object | null;
+  authorizationScope?: object;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -39,26 +40,29 @@ const FORMATS = [
 
 type CadenceChoice = "spm" | "strides_per_minute" | "omit";
 
-export default function ExportTab({ activity, streams, resolveCurrentStreams, getExportAccount }: ExportTabProps) {
+export default function ExportTab({ activity, streams, resolveCurrentStreams, getExportAccount, authorizationScope }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const firebaseServices = useFirebaseServices();
   const renderedAccount = getExportAccount?.();
+  const activityScope = JSON.stringify([activity.id, activity.userId, activity.startTime, activity.type, activity.source, activity.visibility,
+    (activity as Activity & { activityRevision?: unknown }).activityRevision, activity.contentSelectedRevision, activity.activityPresentationV1?.sensorOriginActivityId]);
+  const resolverScope = authorizationScope ?? resolveCurrentStreams;
   const [cadencePrompts, setCadencePrompts] = useState<Partial<Record<"fit" | "tcx", {
-    activity: Activity;
+    activityScope: string;
     streams: ActivityStreams;
     account: typeof renderedAccount;
-    resolver: ExportTabProps["resolveCurrentStreams"];
+    resolverScope: object | undefined;
     format: "fit" | "tcx";
     samples: NonNullable<ActivityStreams["cadence"]>;
     time: ActivityStreams["time"];
     revision: string | undefined;
   }>>>({});
-  const visibleCadencePrompts = Object.values(cadencePrompts).filter(prompt => prompt?.activity === activity
-    && prompt.streams === streams && prompt.account === renderedAccount && prompt.resolver === resolveCurrentStreams);
+  const visibleCadencePrompts = Object.values(cadencePrompts).filter(prompt => prompt?.activityScope === activityScope
+    && prompt.streams === streams && prompt.account === renderedAccount && prompt.resolverScope === resolverScope);
   const generation = useRef(0);
   const formatRequests = useRef(new Map<string, number>());
-  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity, streams, resolveCurrentStreams, getExportAccount]);
+  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activityScope, streams, resolverScope, getExportAccount]);
 
   const handleExport = useCallback(async (format: string, choice?: CadenceChoice) => {
     const account = getExportAccount?.();
@@ -89,7 +93,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         && cadence?.length === pendingCadence.samples.length && cadence?.every((value, index) => Object.is(value, pendingCadence.samples[index])));
       if (missingFootCadenceUnit && !chosenUnitApplies) {
         setCadencePrompts(current => ({ ...current, [format]: {
-          activity, streams, account, resolver: resolveCurrentStreams, format, samples: [...cadence], time: time?.slice(), revision,
+          activityScope, streams, account, resolverScope, format, samples: [...cadence], time: time?.slice(), revision,
         } }));
         return;
       }
@@ -133,7 +137,8 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         showToast(t("export.errorAlert"), "error");
       }
     }
-  }, [activity, streams, resolveCurrentStreams, getExportAccount, renderedAccount, cadencePrompts, firebaseServices, t, showToast]);
+  }, [activity, activityScope, streams, resolveCurrentStreams, resolverScope, getExportAccount, renderedAccount,
+    cadencePrompts, firebaseServices, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

@@ -157,3 +157,17 @@ it("closes the cadence options after a confirmed export denial", async () => {
   expect(screen.queryByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })).toBeNull();
   expect(mocks.fit).not.toHaveBeenCalled();
 });
+
+
+it("finishes a download when unrelated activity metadata changes during verification", async () => {
+  const samples = { userId: "owner", time: [0], watts: [200] };
+  const authorizationScope = {};
+  let finish!: (value: typeof samples) => void;
+  const resolve = () => new Promise<typeof samples>(done => { finish = done; });
+  const view = render(<ExportTab activity={activity} streams={samples} resolveCurrentStreams={resolve} authorizationScope={authorizationScope} />);
+  fireEvent.click(screen.getByText("FIT"));
+  view.rerender(<ExportTab activity={{ ...activity, kudosCount: 3 }} streams={samples}
+    resolveCurrentStreams={async () => samples} authorizationScope={authorizationScope} />);
+  await act(async () => finish(samples));
+  expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(activity, samples, undefined);
+});

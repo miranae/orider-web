@@ -1540,6 +1540,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <div>
         {streams ? <ExportTab activity={activity} streams={streams}
           getExportAccount={getExportAccount}
+          authorizationScope={publicAccess?.session.client ?? photoServices}
           resolveCurrentStreams={resolveCurrentExportStreams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
         </div>
       </Modal>

@@ -36,48 +36,50 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
     `<Id>${startDate.toISOString()}</Id>`,
   ];
 
-  const closeLapWithTrack = (first: number, end: number) => {
+  const indices = Array.from({ length: len }, (_, index) => index).filter(index =>
+    !activityTime || streams.latlng?.[index] != null || Number.isFinite(streams.distance?.[index])
+    || Number.isFinite(streams.altitude?.[index]) || Number.isFinite(streams.heartrate?.[index])
+    || Number.isFinite(streams.watts?.[index]) || cadence.whole(streams.cadence?.[index]) != null);
+  const writeLap = (when: number, duration: number, distance: number, calories: number, first: number, end: number) => {
+    openLap(lines, when, duration, distance, calories);
     if (first < end) {
       lines.push('<Track>');
-      for (let index = first; index < end; index++) writeTrackpoint(lines, streams, index, startMs, relSecAt(index), cadence);
+      for (const index of indices.slice(first, end)) writeTrackpoint(lines, streams, index, startMs, relSecAt(index), cadence);
       lines.push('</Track>');
     }
     lines.push('</Lap>');
   };
 
-  // Preserve recorded lap boundaries and retain observations between distinct laps.
-  if (streams.laps?.length) {
-    let trackIdx = 0;
-    let previousLapEnd = 0;
-    const timeAt = (index: number) => relSecAt(index) ?? index;
-    const writeUnassigned = (before: number) => {
-      const first = trackIdx;
-      while (trackIdx < len && timeAt(trackIdx) < before) trackIdx++;
-      if (trackIdx === first) return;
-      const firstTime = timeAt(first);
-      // An unassigned interval has no authoritative lap distance. TCX requires an XML double.
-      openLap(lines, startMs + firstTime * 1000, timeAt(trackIdx - 1) - firstTime, NaN, 0);
-      closeLapWithTrack(first, trackIdx);
-    };
+  let next = 0;
+  let previousEnd = 0;
+  let unassigned = false;
+  const timedAt = (cursor: number) => {
+    const index = indices[cursor];
+    return index == null ? null : relSecAt(index) ?? index;
+  };
+  const laps = streams.laps?.map(lap => {
+    const duration = (lap.durationMs || 0) / 1000;
+    const recordedEnd = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
+      ? (lap.endTimeMs - startMs) / 1000 : undefined;
+    const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
+      ? (lap.startTimeMs - startMs) / 1000 : recordedEnd == null ? undefined : recordedEnd - duration;
+    const start = recordedStart ?? (activityTime ? previousEnd : Math.max(timedAt(next) ?? previousEnd, previousEnd));
+    const end = recordedEnd ?? start + duration;
+    previousEnd = end;
+    const first = next;
+    const nextTime = timedAt(next);
+    if (recordedStart != null && nextTime != null && nextTime < recordedStart) unassigned = true;
+    while (next < indices.length && (timedAt(next) ?? Infinity) <= end) next++;
+    return { start, duration, distance: (lap.distanceKm || 0) * 1000, first, end: next };
+  });
 
-    for (const lap of streams.laps) {
-      const lapSeconds = (lap.durationMs || 0) / 1000;
-      const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
-        ? (lap.startTimeMs - startMs) / 1000 : undefined;
-      const lapStart = recordedStart ?? (activityTime ? previousLapEnd : (relSecAt(trackIdx) ?? 0));
-      const lapEnd = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
-        ? (lap.endTimeMs - startMs) / 1000 : lapStart + lapSeconds;
-      if (recordedStart !== undefined) writeUnassigned(lapStart);
-      openLap(lines, startMs + lapStart * 1000, lapSeconds, (lap.distanceKm || 0) * 1000, 0);
-      const first = trackIdx;
-      while (trackIdx < len && timeAt(trackIdx) <= lapEnd) trackIdx++;
-      closeLapWithTrack(first, trackIdx);
-      previousLapEnd = lapEnd;
-    }
-    writeUnassigned(Infinity);
+  if (laps?.length && !unassigned && next === indices.length) {
+    for (const lap of laps) writeLap(startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
   } else {
-    openLap(lines, startMs, (activity.summary.ridingTimeMillis || 0) / 1000, activity.summary.distance || 0, streams.calories || 0);
-    closeLapWithTrack(0, len);
+    // A TCX track requires a lap with a distance. Use the recorded activity total when points
+    // fall outside the recorded laps, rather than inventing distances for extra laps.
+    writeLap(startMs, (activity.summary.ridingTimeMillis || 0) / 1000, activity.summary.distance || 0,
+      streams.calories || 0, 0, indices.length);
   }
 
   lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
