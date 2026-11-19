@@ -69,6 +69,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     cadenceChoice: CadenceChoice | undefined;
     binding: string;
     canExportAllAsTcx: boolean;
+    requiresCsv: boolean;
   } | null>(null);
   const pendingTcx = tcxPrompt?.activityScope === activityScope && tcxPrompt.streams === streams
     && tcxPrompt.account === renderedAccount && tcxPrompt.resolverScope === resolverScope ? tcxPrompt : null;
@@ -95,6 +96,13 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(format) : streams;
       if (!stillCurrent()) return;
       const fileActivity = latestActivity.current;
+      if (tcxMode === "csv") {
+        const originalSamples = prepareActivityFileStreams(fileActivity, currentStreams, "tcx");
+        clearCadencePrompt();
+        setTcxPrompt(null);
+        downloadBlob(new Blob([generateCsv(originalSamples)], { type: "text/csv" }), exportFilename(fileActivity, "csv"));
+        return;
+      }
       const verifiedUnit = readStreamCadenceUnit(currentStreams);
       const cadence = currentStreams.cadence;
       const time = currentStreams.time;
@@ -127,28 +135,23 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         case "tcx": {
           const preparedStreams = prepareActivityFileStreams(fileActivity, fileStreams, format);
           const prepared = prepareTcxExport(fileActivity, preparedStreams, fileCadenceUnit);
-          if (prepared.hasUnassigned) {
+          if (prepared.hasUnassigned || prepared.requiresCsv) {
             const binding = JSON.stringify([revision, preparedStreams.laps, preparedStreams.time, preparedStreams.latlng,
               preparedStreams.distance, preparedStreams.altitude, preparedStreams.velocity_smooth, preparedStreams.heartrate,
               preparedStreams.cadence, preparedStreams.watts, fileCadenceUnit, fileActivity.summary.distance,
               fileActivity.summary.ridingTimeMillis, fileActivity.summary.elapsedTimeMillis, fileActivity.endTime]);
-            if (!tcxMode || pendingTcx?.binding !== binding) {
+            if (!tcxMode || pendingTcx?.binding !== binding || prepared.requiresCsv) {
               setTcxPrompt({ activityScope, streams, account, resolverScope, cadenceChoice: choice, binding,
-                canExportAllAsTcx: prepared.canExportAllAsTcx });
+                canExportAllAsTcx: prepared.canExportAllAsTcx, requiresCsv: prepared.requiresCsv });
               return;
             }
           }
           clearCadencePrompt();
           setTcxPrompt(null);
-          if (tcxMode === "csv") {
-            const originalSamples = prepareActivityFileStreams(fileActivity, currentStreams, "tcx");
-            downloadBlob(new Blob([generateCsv(originalSamples)], { type: "text/csv" }), exportFilename(fileActivity, "csv"));
-          } else {
-            const mode = prepared.hasUnassigned && tcxMode === "activity" ? "activity" : "recorded";
-            const xml = prepared.render(mode);
-            downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(fileActivity, "tcx"));
-            if (!prepared.hasUnassigned && tcxMode) showToast(t("export.tcxLapsUpdated"), "info");
-          }
+          const mode = prepared.hasUnassigned && tcxMode === "activity" ? "activity" : "recorded";
+          const xml = prepared.render(mode);
+          downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(fileActivity, "tcx"));
+          if (!prepared.hasUnassigned && tcxMode) showToast(t("export.tcxLapsUpdated"), "info");
           break;
         }
         case "csv": {
@@ -199,9 +202,10 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       {pendingTcx && (
         <fieldset className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
           <legend className="font-semibold">{t("export.tcxLapsTitle")}</legend>
-          <p className="text-[length:var(--fs-sm)]">{t(pendingTcx.canExportAllAsTcx ? "export.tcxLapsHelp" : "export.tcxLapsMissingTotals")}</p>
+          <p className="text-[length:var(--fs-sm)]">{t(pendingTcx.requiresCsv ? "export.tcxElapsedMissing"
+            : pendingTcx.canExportAllAsTcx ? "export.tcxLapsHelp" : "export.tcxLapsMissingTotals")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {(["recorded", pendingTcx.canExportAllAsTcx ? "activity" : "csv"] as const).map(mode => (
+            {(pendingTcx.requiresCsv ? ["csv"] as const : ["recorded", pendingTcx.canExportAllAsTcx ? "activity" : "csv"] as const).map(mode => (
               <button key={mode} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
                 onClick={() => { void handleExport("tcx", pendingTcx.cadenceChoice, mode); }}>
                 {t(`export.tcxLapsChoice.${mode}`)}

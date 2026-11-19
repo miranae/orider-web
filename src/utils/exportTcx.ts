@@ -67,7 +67,7 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   };
   const laps: Array<{ start: number; duration: number; distance: number; first: number; end: number }> = [];
   let hasUnassigned = false;
-  for (const lap of streams.laps ?? []) {
+  for (const [lapIndex, lap] of (streams.laps ?? []).entries()) {
     const duration = (lap.durationMs || 0) / 1000;
     const recordedEnd = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
       ? (lap.endTimeMs - startMs) / 1000 : undefined;
@@ -75,14 +75,21 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
       ? (lap.startTimeMs - startMs) / 1000 : undefined;
     const nextObservedStart = Math.max(timedAt(next) ?? previousEnd, previousEnd);
     const start = recordedStart ?? (recordedEnd != null || verifiedRelativeClock ? previousEnd : nextObservedStart);
-    const end = recordedEnd ?? start + duration;
+    const nextStartMs = streams.laps?.[lapIndex + 1]?.startTimeMs;
+    const boundedByNextLap = recordedEnd == null && recordedStart != null && typeof nextStartMs === "number"
+      && Number.isFinite(nextStartMs) && nextStartMs > startMs + start * 1000;
+    const end = recordedEnd ?? (boundedByNextLap ? (nextStartMs - startMs) / 1000 : start + duration);
     if (recordedStart != null) {
       const first = next;
       while (next < indices.length && (timedAt(next) ?? Infinity) < recordedStart) next++;
       hasUnassigned ||= next > first;
     }
     const first = next;
-    while (next < indices.length && (timedAt(next) ?? Infinity) <= end) next++;
+    while (next < indices.length) {
+      const time = timedAt(next) ?? Infinity;
+      if (time > end || (boundedByNextLap && time === end)) break;
+      next++;
+    }
     const validDistance = typeof lap.distanceKm === "number" && Number.isFinite(lap.distanceKm) && lap.distanceKm >= 0;
     laps.push({ start, duration, distance: validDistance ? lap.distanceKm * 1000 : 0, first, end: next });
     previousEnd = end;
@@ -92,28 +99,25 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const elapsed = summary.elapsedTimeMillis;
   const recordedDuration = typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed
     : Number.isFinite(activity.endTime) && activity.endTime >= startMs ? activity.endTime - startMs : undefined;
+  const lastObservation = timedAt(indices.length - 1);
+  const validRecordedDuration = recordedDuration != null && Number.isFinite(recordedDuration)
+    && recordedDuration >= 0 && (lastObservation == null || recordedDuration / 1000 >= lastObservation);
+  const requiresCsv = !laps.length && verifiedRelativeClock && !validRecordedDuration
+    && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
   const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
-    && typeof recordedDuration === "number" && Number.isFinite(recordedDuration)
-    && recordedDuration / 1000 >= (timedAt(indices.length - 1) ?? 0);
+    && validRecordedDuration;
   return {
     hasUnassigned,
     canExportAllAsTcx,
+    requiresCsv,
     render(mode: TcxLapMode): string {
+      if (requiresCsv) throw new Error("TCX_ELAPSED_UNAVAILABLE");
       const lines = [...header];
       if (laps.length && (mode === "recorded" || !canExportAllAsTcx)) {
         for (const lap of laps) writeLap(lines, startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
       } else {
-        const lastObservation = timedAt(indices.length - 1);
-        const firstObservation = timedAt(0);
-        const usesRecordedDuration = recordedDuration != null && Number.isFinite(recordedDuration)
-          && recordedDuration >= 0 && (lastObservation == null || recordedDuration / 1000 >= lastObservation);
-        const useObservationWindow = !laps.length && verifiedRelativeClock && !usesRecordedDuration
-          && firstObservation != null && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
-        const lapStart = useObservationWindow ? startMs + firstObservation * 1000 : startMs;
-        const duration = useObservationWindow ? lastObservation - firstObservation
-          : ((usesRecordedDuration ? recordedDuration : summary.ridingTimeMillis) || 0) / 1000;
-        writeLap(lines, lapStart, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
-        if (useObservationWindow) lines.push("<Notes>Lap time covers the exported observations. Activity elapsed time is unavailable.</Notes>");
+        const duration = ((validRecordedDuration ? recordedDuration : summary.ridingTimeMillis) || 0) / 1000;
+        writeLap(lines, startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);
       }
       lines.push('</Activity>', '</Activities>', '</TrainingCenterDatabase>');
       return lines.join('\n');

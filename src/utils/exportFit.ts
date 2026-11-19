@@ -1,5 +1,6 @@
 import type { Activity, ActivityStreams } from "@shared/types";
 import { cadenceWriter, type ExportCadenceUnit } from "./exportCadence";
+import { usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
@@ -19,7 +20,14 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   // 넘겨 FIT 타임스탬프가 손상되던 버그 방지(TCX/GPX 와 동일 수정).
   const relSecAt = makeRelSecAt(streams.time);
   const endRel = relSecAt(len - 1);
-  const endTimestamp = startTimestamp + Math.round(endRel ?? Math.floor(durationMs / 1000));
+  const recordedElapsed = activity.summary.elapsedTimeMillis ?? (Number.isFinite(activity.endTime)
+    && activity.endTime >= activity.startTime ? activity.endTime - activity.startTime : undefined);
+  const confirmedElapsed = typeof recordedElapsed === "number" && Number.isFinite(recordedElapsed)
+    && recordedElapsed >= Math.max(durationMs, (endRel ?? 0) * 1000);
+  const timed = usesVerifiedActivityTime(streams);
+  const elapsedMs = timed ? confirmedElapsed ? recordedElapsed : 0xFFFFFFFF : durationMs;
+  const endTimestamp = startTimestamp + Math.round(timed && confirmedElapsed
+    ? recordedElapsed / 1000 : endRel ?? Math.floor(durationMs / 1000));
 
   // File ID 메시지 (mesg 0)
   buf.writeDefinition(0, 0, [
@@ -107,7 +115,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   buf.writeData(0, [
     ...uint32LE(endTimestamp),
     ...uint32LE(startTimestamp),
-    ...uint32LE(Math.round(durationMs)),   // total_elapsed_time
+    ...uint32LE(Math.round(elapsedMs)),     // total_elapsed_time
     ...uint32LE(Math.round(durationMs)),   // total_timer_time
     ...uint32LE(Math.round(distanceM * 100)), // total_distance (cm)
     sport.fitSport,
@@ -128,7 +136,7 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
   buf.writeData(0, [
     ...uint32LE(endTimestamp),
     ...uint32LE(startTimestamp),
-    ...uint32LE(Math.round(durationMs)),
+    ...uint32LE(Math.round(elapsedMs)),
     ...uint32LE(Math.round(durationMs)),
     ...uint32LE(Math.round(distanceM * 100)),
     9,  // event: lap

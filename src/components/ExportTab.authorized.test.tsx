@@ -266,3 +266,18 @@ it("honors a CSV choice even when the updated activity now fits its laps", async
   await act(async () => fireEvent.click(screen.getByRole("button", { name: option })));
   expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(latest);
 });
+
+
+it("exports raw CSV after elapsed time and cadence metadata change during confirmation", async () => {
+  const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
+  const samples = { userId: "owner", time: [0, 120, 125], cadence: [80, 81, 82],
+    laps: [{ durationMs: 120_000, distanceKm: 1 }] } as ActivityStreams;
+  const current = markVerifiedStreamCadence(samples, "a".repeat(64), "spm");
+  const next = markVerifiedStreamCadence(samples, "b".repeat(64), null);
+  const resolve = vi.fn().mockResolvedValueOnce(current).mockResolvedValue(next);
+  const view = render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  view.rerender(<ExportTab activity={{ ...run, summary: { ...run.summary, elapsedTimeMillis: 130_000 } }} streams={samples} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
+  expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(next);
+});

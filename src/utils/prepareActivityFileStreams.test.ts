@@ -241,14 +241,32 @@ it("keeps sparse observation gaps from moving verified duration-only lap boundar
 });
 
 
-it("anchors a no-lap raw TCX file to its actual observation window when elapsed time is absent", () => {
+it("requires recorded elapsed time for a no-lap TCX when the observation window exceeds the timer", () => {
   const startTime = 1_790_000_000_000;
   const activity = { startTime, type: "Run", summary: { distance: 500, ridingTimeMillis: 60_000 } } as Activity;
   const time = Array.from({ length: 61 }, (_, index) => index);
   const streams = markRawPartStreams({ time, heartrate: time.map(() => 150) } as ActivityStreams, "f".repeat(64), startTime + 30_000);
-  const tcx = generateTcx(activity, prepareActivityFileStreams(activity, streams, "tcx"));
-  expect(tcx).toContain(`<Lap StartTime="${new Date(startTime + 30_000).toISOString()}">`);
-  expect(tcx).toContain("<TotalTimeSeconds>60</TotalTimeSeconds>");
+  const raw = prepareActivityFileStreams(activity, streams, "tcx");
+  expect(prepareTcxExport(activity, raw).requiresCsv).toBe(true);
+  const tcx = generateTcx({ ...activity, endTime: startTime + 100_000 }, raw);
+  expect(tcx).toContain("<TotalTimeSeconds>100</TotalTimeSeconds>");
   expect(tcx).toContain(new Date(startTime + 90_000).toISOString());
-  expect(tcx).toContain("Activity elapsed time is unavailable.");
+});
+
+it("does not cut an open recorded lap off before the next recorded start", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const streams = {
+    userId: "owner", time: [0, 60, 75, 90, 120].map(time => startTime + time * 1000), heartrate: [145, 146, 147, 148, 149],
+    laps: [
+      { startTimeMs: startTime, durationMs: 60_000, distanceKm: 1 },
+      { startTimeMs: startTime + 90_000, endTimeMs: startTime + 120_000, durationMs: 30_000, distanceKm: 0.5 },
+    ],
+  } as ActivityStreams;
+  const prepared = prepareTcxExport(activity, streams);
+  expect(prepared.hasUnassigned).toBe(false);
+  const [, first, second] = prepared.render("recorded").split(/<Lap StartTime="/u);
+  expect(first).toContain(new Date(startTime + 75_000).toISOString());
+  expect(first).not.toContain(new Date(startTime + 90_000).toISOString());
+  expect(second).toContain(new Date(startTime + 90_000).toISOString());
 });

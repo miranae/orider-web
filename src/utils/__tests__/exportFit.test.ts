@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateFit, crc16, degreesToSemicircles } from '../exportFit';
+import { markRawPartStreams } from '../../services/activityStreamSource';
+import { prepareActivityFileStreams } from '../prepareActivityFileStreams';
 
 const makeActivity = (overrides = {}) => ({
   id: 'test',
@@ -25,7 +27,7 @@ const makeActivity = (overrides = {}) => ({
 });
 
 /** Reads sport/sub_sport from the session message (global 18). The writer uses no compressed headers or developer fields. */
-function readSessionSport(data: Uint8Array): { sport: number; subSport: number } {
+function readSession(data: Uint8Array): Map<number, number> {
   const end = data[0]! + (data[4]! | (data[5]! << 8) | (data[6]! << 16) | (data[7]! << 24));
   const definitions = new Map<number, { global: number; fields: [number, number][] }>();
   let i = data[0]!;
@@ -44,12 +46,32 @@ function readSessionSport(data: Uint8Array): { sport: number; subSport: number }
     const values = new Map<number, number>();
     for (const [num, size] of definition.fields) {
       if (size === 1) values.set(num, data[i]!);
+      if (size === 4) values.set(num, new DataView(data.buffer, data.byteOffset + i, 4).getUint32(0, true));
       i += size;
     }
-    if (definition.global === 18) return { sport: values.get(5)!, subSport: values.get(6)! };
+    if (definition.global === 18) return values;
   }
   throw new Error('session message not found');
 }
+
+function readSessionSport(data: Uint8Array): { sport: number; subSport: number } {
+  const values = readSession(data);
+  return { sport: values.get(5)!, subSport: values.get(6)! };
+}
+
+it("uses actual elapsed time on a verified grid and keeps the FIT timer time independent", () => {
+  const startTime = 1700000000000;
+  const base = makeActivity({ type: "Run", startTime, endTime: 0 });
+  const time = Array.from({ length: 61 }, (_, index) => index);
+  const raw = markRawPartStreams({ userId: "owner", time, cadence: time.map(() => 170) }, "a".repeat(64), startTime + 30_000);
+  const prepared = prepareActivityFileStreams(base, raw, "fit");
+  const unknown = readSession(generateFit(base, prepared, "spm"));
+  expect(unknown.get(7)).toBe(0xFFFFFFFF);
+  expect(unknown.get(8)).toBe(60_000);
+  const known = readSession(generateFit({ ...base, endTime: startTime + 100_000 }, prepared, "spm"));
+  expect(known.get(7)).toBe(100_000);
+  expect(known.get(8)).toBe(60_000);
+});
 
 /** Reads cadence (field 4) and fractional_cadence (field 53) from every record message (global 20). */
 function readRecordCadence(data: Uint8Array): { fields: number[]; cadence: number[]; fractional: number[] } {
