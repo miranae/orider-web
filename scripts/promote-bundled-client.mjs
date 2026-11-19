@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
+import { assertStageEntryArtifact, stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { verifyBundledCallable, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 
@@ -57,19 +57,12 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
   if (candidateRuntime.deploymentProfile !== "bundled-development"
     || hash(readFileSync(join(sourceDist, "runtime-config.json"))) !== candidate.runtimeHash
     || !candidate.artifactManifest.some(([path]) => path === "index.html")) throw new Error("sealed development runtime/entry mismatch");
-  // The Vite shell uses root-relative assets. A base element can redirect them
-  // to the development origin when the same HTML is published to production.
-  const html = readFileSync(join(sourceDist, "index.html"), "utf8");
-  const baseTags = html.replace(/<!--[\s\S]*?--!?>/gu, "").match(/<base(?=[\t\n\f\r />])[^>]*>/giu) ?? [];
-  if (baseTags.some(tag => !/^<base\s+href\s*=\s*(?:"\/"|'\/'|\/)\s*\/?>$/iu.test(tag))) {
-    throw new Error("development entry HTML must not set a non-root base URL");
-  }
+  // The signed development receipt proves how browsers resolve the entry at
+  // the production origin. Older receipts use the same HTML parser on demand.
+  const entry = candidate.productionEntry ?? assertStageEntryArtifact(sourceDist, "https://orider.co.kr");
   const entryPattern = /^assets\/index-[A-Za-z0-9_-]+\.js$/u;
-  const files = new Map(candidate.artifactManifest);
-  // Older stage receipts validated the Vite entry but did not record its path.
-  // Verify every plausible Vite entry already in those signed manifests.
-  const entries = candidate.entry === undefined ? [...files.keys()].filter(path => entryPattern.test(path)) : [candidate.entry];
-  if (!entries.length || !entries.every(path => entryPattern.test(path) && files.has(path))) {
+  if (!entryPattern.test(entry) || (candidate.entry !== undefined && candidate.entry !== entry)
+    || !candidate.artifactManifest.some(([file]) => file === entry)) {
     throw new Error("verified Vite entry is missing from the development artifact");
   }
   const runtime = bundledFunctionsConfig(candidateRuntime, "production");
@@ -89,7 +82,7 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     candidateArchive: { bucket: artifact.bucket, object: artifact.object, generation: artifact.generation, sha256: artifact.sha256 },
     backend: { sourceSha: candidate.backendSourceSha, topologyHash: candidate.backendTopologyHash },
     originalArtifactHash: candidate.artifactHash, artifactManifest: expected, runtime,
-    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), entries, rebuilt: false };
+    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), entry, rebuilt: false };
   save(join(directory, "promotion.json"), receipt);
   return receipt;
 }
@@ -164,7 +157,7 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
     if ((path === "index.html" || path === deepLink) && mime !== "text/html") {
       return rejectPromotionResponse(response, `published page did not return HTML at ${url}`);
     }
-    if (receipt.entries.includes(path) && !["application/javascript", "text/javascript"].includes(mime)) {
+    if (path === receipt.entry && !["application/javascript", "text/javascript"].includes(mime)) {
       return rejectPromotionResponse(response, `published entry did not return JavaScript at ${url}`);
     }
     let bytes;
@@ -174,7 +167,7 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
     if (hash(bytes) !== expected.get(artifactPath)) throw new Error(`published ${path} differs from prepared artifact at ${url}`);
   };
   await Promise.all([
-    ...["index.html", deepLink, "runtime-config.json", ...receipt.entries, "sitemap.xml"].map(verifyPublishedResource),
+    ...["index.html", deepLink, "runtime-config.json", receipt.entry, "sitemap.xml"].map(verifyPublishedResource),
     verifyBundledHttpAliases({ base: origin, fetcher }),
   ]);
   return receipt;

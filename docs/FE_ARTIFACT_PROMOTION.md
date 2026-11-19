@@ -9,7 +9,7 @@
 3. 운영 gateway의 `/readyz`와 운영 브라우저의 소셜 로그인 호출 경로를 병렬로 한 번 확인한 뒤 Hosting에 게시합니다.
 4. 공개 HTML, 진입 JS, runtime이 준비한 바이트와 같은지, 사이트맵과 기존 HTTP 경로가 올바르게 응답하는지 함께 확인합니다. 게시·검증 실패 시 이 작업이 게시한 릴리스만 직전 버전으로 되돌리고, 복구 영수증은 실패한 실행에서만 보관합니다.
 
-앱 의존성 설치·재빌드·중간 Actions artifact 전달·별도 필수 rehearsal·predeploy 재검증은 없습니다. Firebase CLI는 runner에 있으면 재사용하고 없을 때만 설치합니다. BE commit/topology 값은 검증본의 출처 기록으로 남기며 FE 게시 조건으로 사용하지 않습니다. 추가·변경·삭제는 완성된 dist 전체로 반영합니다. 후보의 source·archive 무결성 및 검토된 main 이력/동일 Git tree 확인은 유지합니다.
+정상 경로는 서명된 개발 영수증의 진입 파일을 사용하므로 앱 의존성을 설치하거나 재빌드하지 않습니다. 운영 진입 정보가 없는 구버전 영수증만 잠긴 HTML 파서 패키지를 별도 임시 경로에 설치합니다. 중간 Actions artifact 전달, 필수 rehearsal 및 predeploy 재검증은 없습니다. Firebase CLI는 runner에 있으면 재사용하고 없을 때만 설치합니다. BE commit/topology 값은 검증본의 출처 기록으로 남기며 FE 게시 조건으로 사용하지 않습니다. 추가·변경·삭제는 완성된 dist 전체로 반영합니다. 후보의 source·archive 무결성 및 검토된 main 이력/동일 Git tree 확인은 유지합니다.
 
 실행에는 기존 production Environment의 `GCP_WORKLOAD_IDENTITY_PROVIDER`와 `GCP_SERVICE_ACCOUNT`를 사용합니다. 운영 배포 계정의 Hosting 권한과 기존 릴리스 버킷 `deploy-candidates/hosting/` 경로의 읽기 권한은 준비되어 있습니다. production Environment의 별도 수동 승인 단계 없이 같은 운영 자격 증명을 사용합니다. 개발 배포와 개발 계정 설정은 변경하지 않습니다.
 

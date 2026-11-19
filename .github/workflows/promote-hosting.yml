@@ -67,6 +67,24 @@ jobs:
           set -euo pipefail
           candidate_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-candidate/archive.json")).frontendSourceSha')
           if ! git cat-file -e "$candidate_sha^{commit}"; then git fetch --no-tags origin "$candidate_sha"; fi
+          # New signed receipts carry the parser's result for the production origin.
+          # Restore only the locked parser when promoting a receipt from an older release.
+          if ! jq -e '.productionEntry | type == "string"' "$RUNNER_TEMP/client-candidate/payload/build.json" >/dev/null; then
+            parser_workspace="$RUNNER_TEMP/client-promotion-html-parser"
+            mkdir "$parser_workspace"
+            node - "$parser_workspace" <<'JS'
+          const {readFileSync,writeFileSync}=require("node:fs");
+          const {join}=require("node:path");
+          const workspace=process.argv[2];
+          const locked=JSON.parse(readFileSync("package-lock.json","utf8")).packages;
+          const resolved=Object.fromEntries(["parse5","entities"].map(name=>[`node_modules/${name}`,locked[`node_modules/${name}`]]));
+          const root={name:"client-promotion-html-parser",version:"1.0.0",dependencies:{parse5:resolved["node_modules/parse5"].version}};
+          writeFileSync(join(workspace,"package.json"),JSON.stringify(root));
+          writeFileSync(join(workspace,"package-lock.json"),JSON.stringify({...root,lockfileVersion:3,packages:{"":root,...resolved}}));
+          JS
+            npm ci --prefix "$parser_workspace" --ignore-scripts --no-fund --no-audit
+            export NODE_PATH="$parser_workspace/node_modules"
+          fi
           node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate/payload" --run "$RUNNER_TEMP/client-candidate/run.json" --artifact "$RUNNER_TEMP/client-candidate/archive.json" --attempt "$CANDIDATE_ATTEMPT"
           node scripts/promote-bundled-client.mjs --phase verify
           echo "PREPARED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"

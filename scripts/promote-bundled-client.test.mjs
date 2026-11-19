@@ -44,7 +44,7 @@ test("missing hidden files, changed payload, added stale files, wrong source/run
     const f=fixture();try{change(f);assert.throws(()=>prepareClientPromotion(f));}finally{f.cleanup();}
   }
 });
-test("an older receipt verifies every possible entry instead of trusting an HTML comment",()=>{
+test("an older receipt uses the browser-visible module rather than a comment",()=>{
   const f=fixture();try{
     const index=join(f.dist,"index.html");
     writeFileSync(index,'<!-- src="/assets/index-unused.js" -->' + readFileSync(index,"utf8"));
@@ -52,17 +52,17 @@ test("an older receipt verifies every possible entry instead of trusting an HTML
     f.receipt.artifactManifest=stageArtifactManifest(f.dist);
     f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
     f.write(join(f.archive,"build.json"),f.receipt);
-    assert.deepEqual(prepareClientPromotion(f).entries,["assets/index-abc.js","assets/index-unused.js"]);
+    assert.equal(prepareClientPromotion(f).entry,"assets/index-abc.js");
   }finally{f.cleanup();}
 });
 test("a valid development artifact cannot change the origin of production assets",()=>{
   const f=fixture();try{
     const index=join(f.dist,"index.html");
-    writeFileSync(index,'<base href="https://orider-dev.web.app/">' + readFileSync(index,"utf8"));
+    writeFileSync(index,'<!--><base href="https://orider-dev.web.app/"><!-- -->' + readFileSync(index,"utf8"));
     f.receipt.artifactManifest=stageArtifactManifest(f.dist);
     f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
     f.write(join(f.archive,"build.json"),f.receipt);
-    assert.throws(()=>prepareClientPromotion(f),/must not set a non-root base URL/);
+    assert.throws(()=>prepareClientPromotion(f),/stage entry script missing/);
   }finally{f.cleanup();}
 });
 test("keeps a same-origin root base URL and ignores base tags in HTML comments",()=>{
@@ -72,7 +72,7 @@ test("keeps a same-origin root base URL and ignores base tags in HTML comments",
     f.receipt.artifactManifest=stageArtifactManifest(f.dist);
     f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
     f.write(join(f.archive,"build.json"),f.receipt);
-    assert.deepEqual(prepareClientPromotion(f).entries,["assets/index-abc.js"]);
+    assert.equal(prepareClientPromotion(f).entry,"assets/index-abc.js");
   }finally{f.cleanup();}
 });
 test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot promote",()=>{
@@ -83,7 +83,9 @@ test("failed runs, wrong attempts/workflows/repos and unpinned archives cannot p
 });
 test("promotion is one production job without application install, rebuild, rehearsal or artifact transfer",()=>{
   const workflow=readFileSync(new URL("../.github/workflows/promote-hosting.yml",import.meta.url),"utf8");
-  for(const removed of ["npm ci","npm run build","actions/download-artifact","verify-bundled-hosting","inputs.phase","environment: stage"])assert.ok(!workflow.includes(removed),removed);
+  for(const removed of ["npm run build","actions/download-artifact","verify-bundled-hosting","inputs.phase","environment: stage"])assert.ok(!workflow.includes(removed),removed);
+  assert.doesNotMatch(workflow,/npm ci(?! --prefix "\$parser_workspace")/);
+  assert.match(workflow,/if ! jq -e '\.productionEntry[\s\S]*?npm ci --prefix "\$parser_workspace"/);
   assert.deepEqual([...workflow.matchAll(/^  ([A-Za-z_-]+):$/gm)].map(match=>match[1]).filter(name=>["prepare","promote"].includes(name)),["promote"]);
   assert.match(workflow,/--phase snapshot[\s\S]*?--phase rollback/);
   assert.match(workflow,/Retain recovery receipt[^\n]+\n[^\n]+failure\(\)[^\n]+\n\s+continue-on-error: true\n\s+uses: actions\/upload-artifact@v4/);
