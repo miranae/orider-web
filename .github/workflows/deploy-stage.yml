@@ -200,17 +200,18 @@ jobs:
         run: |
           node scripts/verify-bundled-hosting.mjs --environment development
           node scripts/prepare-bundled-stage.mjs --phase verify-identity
-      - name: Archive verified client in durable private release storage
-        if: inputs.transport == 'bundled-development'
-        env:
-          HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: node scripts/hosting-candidate-archive.mjs --phase archive --build "$BUNDLED_STAGE_DIRECTORY/build.json" --directory "$RUNNER_TEMP/durable-client"
       - name: Restore previous development release after failed publication verification
         timeout-minutes: 3
         if: always() && (failure() || cancelled()) && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success' && steps.deploy.outcome != 'skipped'
         env:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: node scripts/bundled-stage-hosting-release.mjs --phase rollback --file "$RUNNER_TEMP/bundled-stage-hosting.json"
+      # Candidate storage failures must not roll back an already verified live release.
+      - name: Archive verified client in durable private release storage
+        if: inputs.transport == 'bundled-development'
+        env:
+          HOSTING_CANDIDATE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: node scripts/hosting-candidate-archive.mjs --phase archive --build "$BUNDLED_STAGE_DIRECTORY/build.json" --directory "$RUNNER_TEMP/durable-client"
       - name: Retain development release recovery receipt
         if: always() && inputs.transport == 'bundled-development' && steps.hosting_snapshot.outcome == 'success'
         timeout-minutes: 2
