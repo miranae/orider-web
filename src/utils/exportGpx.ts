@@ -1,4 +1,5 @@
 import type { Activity, ActivityStreams } from "@shared/types";
+import { exportSportOf } from "./exportSport";
 import { makeRelSecAt } from "./streamTime";
 
 function escapeXml(s: string): string {
@@ -33,8 +34,11 @@ export function generateGpx(activity: Activity, streams: ActivityStreams): strin
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
     'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">'
   );
+  const sport = exportSportOf(activity);
   lines.push("  <trk>");
-  lines.push(`    <name>${escapeXml(activity.description || "Ride")}</name>`);
+  lines.push(`    <name>${escapeXml(activity.description || sport.label)}</name>`);
+  // GPX 1.1 trkType 순서상 <type> 은 <name> 뒤, <trkseg> 앞이다.
+  if (sport.gpxType) lines.push(`    <type>${sport.gpxType}</type>`);
   lines.push("    <trkseg>");
 
   for (let i = 0; i < latlng.length; i++) {

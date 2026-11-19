@@ -31,4 +31,13 @@ describe('generateGpx', () => {
     const abs = generateGpx(makeActivity(), { userId: 'u1', time: [1700000000000, 1700000030000, 1700000060000], latlng: ll });
     expect(abs).toBe(rel);
   });
+
+  it('writes the track type between name and trkseg, naming an undescribed track after its sport', () => {
+    const gpx = generateGpx(makeActivity({ type: 'Run', description: '' }), { userId: 'u1', time: [0, 30, 60], latlng: ll });
+    expect(gpx).toMatch(/<name>Run<\/name>\s*<type>running<\/type>\s*<trkseg>/);
+  });
+
+  it('omits the track type for untracked sports', () => {
+    expect(generateGpx(makeActivity({ type: 'Workout' }), { userId: 'u1', time: [0, 30, 60], latlng: ll })).not.toContain('<type>');
+  });
 });

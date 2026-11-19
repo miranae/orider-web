@@ -24,6 +24,33 @@ const makeActivity = (overrides = {}) => ({
   ...overrides,
 });
 
+/** Reads sport/sub_sport from the session message (global 18). The writer uses no compressed headers or developer fields. */
+function readSessionSport(data: Uint8Array): { sport: number; subSport: number } {
+  const end = data[0]! + (data[4]! | (data[5]! << 8) | (data[6]! << 16) | (data[7]! << 24));
+  const definitions = new Map<number, { global: number; fields: [number, number][] }>();
+  let i = data[0]!;
+  while (i < end) {
+    const header = data[i++]!;
+    const local = header & 0x0f;
+    if (header & 0x40) {
+      const count = data[i + 4]!;
+      const fields: [number, number][] = [];
+      for (let f = 0; f < count; f++) fields.push([data[i + 5 + f * 3]!, data[i + 6 + f * 3]!]);
+      definitions.set(local, { global: data[i + 2]! | (data[i + 3]! << 8), fields });
+      i += 5 + count * 3;
+      continue;
+    }
+    const definition = definitions.get(local)!;
+    const values = new Map<number, number>();
+    for (const [num, size] of definition.fields) {
+      if (size === 1) values.set(num, data[i]!);
+      i += size;
+    }
+    if (definition.global === 18) return { sport: values.get(5)!, subSport: values.get(6)! };
+  }
+  throw new Error('session message not found');
+}
+
 describe('exportFit', () => {
   describe('crc16', () => {
     it('returns 0 for empty data', () => {
@@ -138,6 +165,28 @@ describe('exportFit', () => {
       const encodedAltitude = data[altitudeOffset]! | (data[altitudeOffset + 1]! << 8);
 
       expect(encodedAltitude).toBe(0xFFFF);
+    });
+
+    it('writes the activity sport to the session instead of always cycling', () => {
+      const streams = { userId: 'u1', time: [0, 1], latlng: [[37.5, 127.0], [37.501, 127.001]] as [number, number][] };
+      expect(readSessionSport(generateFit(makeActivity({ type: 'Run' }), streams))).toEqual({ sport: 1, subSport: 0 });
+      expect(readSessionSport(generateFit(makeActivity({ type: 'ride' }), streams))).toEqual({ sport: 2, subSport: 0 });
+      expect(readSessionSport(generateFit(makeActivity({ type: 'VirtualRun' }), streams))).toEqual({ sport: 1, subSport: 58 });
+      expect(readSessionSport(generateFit(makeActivity({ type: 'VirtualRide' }), streams))).toEqual({ sport: 2, subSport: 58 });
+      expect(readSessionSport(generateFit(makeActivity({ type: 'Workout' }), streams))).toEqual({ sport: 0, subSport: 0 });
+    });
+
+    it('does not interpret unlabelled foot cadence as FIT cycles per minute', () => {
+      const streams = { userId: 'u1', time: [0], heartrate: [150] };
+      const run = makeActivity({ type: 'Run' });
+      expect(generateFit(run, { ...streams, cadence: [180] })).toEqual(generateFit(run, streams));
+      const nativeRun = makeActivity({ type: 'Run', source: 'orider' });
+      const stravaRun = makeActivity({ type: 'Run', source: 'strava' });
+      const nativeFile = generateFit(nativeRun, { ...streams, cadence: [181] });
+      expect(nativeFile).not.toEqual(generateFit(nativeRun, streams));
+      expect(nativeFile).toEqual(generateFit(stravaRun, { ...streams, cadence: [90.5] }));
+      const ride = makeActivity({ type: 'Ride' });
+      expect(generateFit(ride, { ...streams, cadence: [90] })).not.toEqual(generateFit(ride, streams));
     });
 
     it('absolute epoch-ms time normalizes — byte-identical to relative-second (regression)', () => {
