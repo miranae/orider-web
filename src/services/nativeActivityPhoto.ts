@@ -1,5 +1,6 @@
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+import { callApprovedActivityRead, reportApprovedActivityReadFailure } from "../embedded/callApprovedActivityRead";
 import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 import { announceActivityContentChange } from "./activityContentChanged";
 
@@ -14,19 +15,37 @@ export function isLegacyActivityPhotoUrl(url: string): boolean {
   try { return decodeURIComponent(url).includes("activity_photos/"); } catch { return true; }
 }
 const connected = new WeakSet<object>();
+function assertPhotoViewer(services: FirebaseServices, viewer: FirebaseServices["auth"]["currentUser"]): void {
+  if (services.auth.currentUser !== viewer || services.isSessionApproved?.(viewer) === false) throw new Error("account_changed");
+}
 async function call<T>(services: FirebaseServices, name: string, payload: object): Promise<T> {
   const viewer = services.auth.currentUser;
   const signedInAt = viewer?.metadata?.lastSignInTime;
-  const isCurrent = () => services.auth.currentUser === viewer && viewer?.metadata?.lastSignInTime === signedInAt;
+  const assertCurrent = () => {
+    assertPhotoViewer(services, viewer);
+    if (viewer?.metadata?.lastSignInTime !== signedInAt) throw new Error("account_changed");
+  };
+  assertCurrent();
+  if (services.scope === "embedded" && name === "getActivityPhotoData") {
+    const signal = AbortSignal.timeout(30000);
+    const assertRequestCurrent = () => {
+      assertCurrent();
+      if (services.isSessionApproved?.(viewer) !== true) throw new Error("account_changed");
+      signal.throwIfAborted();
+    };
+    const data = await callApprovedActivityRead<T>(services, viewer, name, "asia-northeast3", payload, assertRequestCurrent, signal);
+    assertRequestCurrent();
+    return data;
+  }
   await services.ensureAppCheckReady();
-  if (!isCurrent()) throw new Error("account_changed");
+  assertCurrent();
   const functions = isFunctionsGatewayRuntime(getRuntimeConfig()) ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
   if (isEmulatorRuntime() && !connected.has(functions)) {
     connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
     connected.add(functions);
   }
   const result = await httpsCallable<object, T>(functions, name, { timeout: 30000 })(payload);
-  if (!isCurrent()) throw new Error("account_changed");
+  assertCurrent();
   return result.data;
 }
 // Coalesce only overlapping reads. Settled bytes/permissions are never cached.
@@ -38,6 +57,7 @@ const pendingReads = new WeakMap<FirebaseServices, {
 }>();
 function sharePhotoRead<T>(services: FirebaseServices, photo: NativePhotoReference, kind: "bytes" | "access", read: () => Promise<T>): Promise<T> {
   const viewer = services.auth.currentUser;
+  assertPhotoViewer(services, viewer);
   const signedInAt = viewer?.metadata?.lastSignInTime;
   let scope = pendingReads.get(services);
   if (!scope || scope.viewer !== viewer || scope.signedInAt !== signedInAt) {
@@ -55,12 +75,18 @@ function sharePhotoRead<T>(services: FirebaseServices, photo: NativePhotoReferen
 export async function loadNativeActivityPhoto(services: FirebaseServices, photo: NativePhotoReference): Promise<Blob> {
   if (!isNativePhotoReference(photo)) throw new Error("invalid_photo");
   return sharePhotoRead(services, photo, "bytes", async () => {
+    const viewer = services.auth.currentUser;
     const data = await call<{ base64: string; contentType: string }>(services, "getActivityPhotoData", photo);
-    if (!["image/webp", "image/jpeg", "image/png"].includes(data.contentType) || typeof data.base64 !== "string"
-      || !data.base64.length || data.base64.length > 6990508 || !/^[A-Za-z0-9+/]*={0,2}$/.test(data.base64)) throw new Error("invalid_photo");
-    const bytes = Uint8Array.from(atob(data.base64), char => char.charCodeAt(0));
-    if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error("invalid_photo");
-    return new Blob([bytes], { type: data.contentType });
+    try {
+      if (!data || !["image/webp", "image/jpeg", "image/png"].includes(data.contentType) || typeof data.base64 !== "string"
+        || !data.base64.length || data.base64.length > 6990508 || !/^[A-Za-z0-9+/]*={0,2}$/.test(data.base64)) throw new Error("invalid_photo");
+      const bytes = Uint8Array.from(atob(data.base64), char => char.charCodeAt(0));
+      if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error("invalid_photo");
+      return new Blob([bytes], { type: data.contentType });
+    } catch (error) {
+      if (services.scope === "embedded") reportApprovedActivityReadFailure(services, viewer, "getActivityPhotoData", "contract");
+      throw error;
+    }
   });
 }
 export async function uploadNativeActivityPhoto(services: FirebaseServices, photo: NativePhotoReference, blob: Blob, location?: [number, number] | null) {
@@ -83,8 +109,12 @@ export async function uploadNativeActivityPhoto(services: FirebaseServices, phot
 export async function authorizeNativeActivityPhoto(services: FirebaseServices, photo: NativePhotoReference): Promise<void> {
   if (!isNativePhotoReference(photo)) throw new Error("invalid_photo");
   return sharePhotoRead(services, photo, "access", async () => {
+    const viewer = services.auth.currentUser;
     const result = await call<{ authorized: boolean }>(services, "getActivityPhotoData", { ...photo, accessOnly: true });
-    if (result.authorized !== true) throw new Error("photo_access_unconfirmed");
+    if (result?.authorized !== true) {
+      if (services.scope === "embedded") reportApprovedActivityReadFailure(services, viewer, "getActivityPhotoData", "contract");
+      throw new Error("photo_access_unconfirmed");
+    }
   });
 }
 

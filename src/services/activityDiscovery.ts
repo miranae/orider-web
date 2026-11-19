@@ -5,6 +5,7 @@ import type { FirebaseServices } from '../contexts/FirebaseServicesContext';
 import { callApprovedActivityRead, reportApprovedActivityReadFailure } from '../embedded/callApprovedActivityRead';
 import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from './runtimeConfig';
 import { activityFeedSourceRevision } from './activityFeedContent';
+import { logClientError } from './errorLogger';
 export type { ActivityDiscoveryRequest } from '@shared/activity-discovery';
 export type DiscoveryActivity = Activity & { discoveryFacts: ActivityDiscoveryItem['activity']['effectiveFacts']; activityRevision: string };
 const finite = (value: unknown): number | null => typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;
@@ -27,8 +28,12 @@ export function mapDiscoveryActivity(item: ActivityDiscoveryItem): DiscoveryActi
 }
 const connected=new WeakSet<object>();
 type DiscoveryPage = Omit<ActivityDiscoveryResponse,'items'>&{items:DiscoveryActivity[]};
-export async function loadActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,signal?:AbortSignal):Promise<DiscoveryPage>{
+export async function loadActivityDiscovery(
+ services: FirebaseServices, request: ActivityDiscoveryRequest, signal?: AbortSignal, onLateFailure?: (error: unknown) => void,
+): Promise<DiscoveryPage> {
  const controller = new AbortController();
+ const viewer = services.auth.currentUser;
+ const signedInAt = viewer?.metadata?.lastSignInTime;
  let active=true, rejectAbort: (error: Error)=>void = () => {};
  const stop = (message: string, reason?: DOMException) => { active=false; rejectAbort(Error(message)); controller.abort(reason); };
  const abort = () => stop('request_aborted');
@@ -36,7 +41,18 @@ export async function loadActivityDiscovery(services:FirebaseServices,request:Ac
  const timer=setTimeout(()=>stop('request_timeout',new DOMException('request_timeout','TimeoutError')),15000);
  signal?.addEventListener('abort',abort,{once:true});
  if(signal?.aborted)abort();
- try { return await Promise.race([readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');},controller.signal),aborted]); }
+ const read = readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');},controller.signal)
+  .catch(error => {
+   const cancelled = error === controller.signal.reason || error?.name === 'AbortError'
+    || error?.message === 'request_aborted' || error?.message === 'account_changed';
+   if (services.scope !== 'embedded' && controller.signal.aborted && !cancelled) {
+    if (onLateFailure) onLateFailure(error);
+    else logClientError('activityDiscovery.lateFailure', error, { scope: request.scope, continuation: Boolean(request.cursor) },
+     services, viewer, '', () => services.auth.currentUser === viewer && viewer?.metadata?.lastSignInTime === signedInAt);
+   }
+   throw error;
+  });
+ try { return await Promise.race([read,aborted]); }
  finally {active=false;clearTimeout(timer);signal?.removeEventListener('abort',abort);}
 }
 async function readActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,assertActive:()=>void,signal:AbortSignal):Promise<DiscoveryPage>{

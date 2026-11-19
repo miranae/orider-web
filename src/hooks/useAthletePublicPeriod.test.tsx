@@ -1,11 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useAthletePublicPeriod, publicPeriodBounds } from "./useAthletePublicPeriod";
-const mocks = vi.hoisted(() => ({ load: vi.fn(), listener: null as null | ((user: unknown) => void), services: { auth: { currentUser: {uid:"viewer"}, app: {} } } }));
+const mocks = vi.hoisted(() => ({ load: vi.fn(), listener: null as null | ((user: unknown) => void), hostUser: null as { uid: string } | null, log: vi.fn(), services: { scope: undefined as "embedded" | undefined, auth: { currentUser: {uid:"viewer"} as { uid: string } | null, app: {} } } }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.hostUser }) }));
+vi.mock("../services/errorLogger", () => ({ logClientError: mocks.log }));
 vi.mock("../services/activityDiscovery", () => ({ loadActivityDiscovery: mocks.load }));
 vi.mock("firebase/auth", () => ({ onAuthStateChanged: (_: unknown, listener: (user: unknown) => void) => { mocks.listener = listener; return vi.fn(); } }));
 const page = (ids: string[], cursor: string | null = null) => ({items:ids.map(id=>({id})),nextCursor:cursor,exhausted:cursor===null,expiresAt:Date.now()+600000});
-beforeEach(() => { mocks.load.mockReset(); Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"}); });
+beforeEach(() => { mocks.load.mockReset(); mocks.log.mockClear(); mocks.hostUser = null; mocks.services.scope = undefined; mocks.services.auth.currentUser = { uid: "viewer" }; Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"}); });
 it("validates KST dates and a bounded one-year selection", () => {
  expect(publicPeriodBounds("2026-01-01","2026-01-01")).toEqual({start:Date.parse("2025-12-31T15:00Z"),end:Date.parse("2026-01-01T15:00Z")});
  expect(publicPeriodBounds("2026-02-30","2026-03-01")).toBeNull();
@@ -26,6 +28,40 @@ it("retains rows on 429 retry, but discards expired or denied continuation", asy
  await act(()=>result.current.more()); expect(result.current.status).toBe("error"); expect(result.current.items).toHaveLength(1);
  await act(()=>result.current.more()); expect(result.current.status).toBe("restart"); expect(result.current.items).toHaveLength(0);
 });
+it("an explicit refresh aborts a pending continuation and prevents it from restoring old results", async () => {
+  let finishOld!: (value: ReturnType<typeof page>) => void;
+  let signal!: AbortSignal;
+  mocks.load.mockResolvedValueOnce(page(["previous"], "ad1.next"))
+    .mockImplementationOnce((_services, _request, currentSignal: AbortSignal) => {
+      signal = currentSignal;
+      return new Promise(resolve => { finishOld = resolve; });
+    }).mockResolvedValueOnce(page([]));
+  const { result } = renderHook(() => useAthletePublicPeriod("target", "", "", true, true));
+  await waitFor(() => expect(result.current.status).toBe("partial"));
+  let oldRequest!: Promise<void>;
+  act(() => { oldRequest = result.current.more(); });
+  await act(() => result.current.refresh());
+  expect(signal.aborted).toBe(true);
+  expect(result.current.items).toEqual([]);
+  await act(async () => { finishOld(page(["late"])); await oldRequest; });
+  expect(result.current.items).toEqual([]);
+  expect(mocks.load.mock.calls[2][1]).not.toHaveProperty("cursor");
+});
+it("logs its own deadline as a timeout even if abort immediately rejects the transport", async () => {
+  vi.useFakeTimers();
+  try {
+    mocks.load.mockImplementationOnce((_services, _request, signal: AbortSignal) => new Promise((_, reject) => {
+      signal.addEventListener("abort", () => reject(new Error("request_aborted")), { once: true });
+    }));
+    const { result } = renderHook(() => useAthletePublicPeriod("target", "2026-01-01", "2026-01-31"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(result.current.status).toBe("error");
+    expect(mocks.log).toHaveBeenCalledWith(
+      "useAthletePublicPeriod.read", new Error("request_timeout"), expect.objectContaining({ targetUid: "target" }),
+      mocks.services, mocks.services.auth.currentUser, "", expect.any(Function),
+    );
+  } finally { vi.useRealTimers(); }
+});
 it("rejects an elapsed cursor before dispatch", async () => {
  mocks.load.mockResolvedValueOnce({...page(["a"],"ad1.next"),expiresAt:Date.now()-1});
  const {result}=renderHook(()=>useAthletePublicPeriod("target","2026-01-01","2026-01-31"));
@@ -40,6 +76,51 @@ it("discards late old-scope and same-UID SDK-session responses", async () => {
  await waitFor(()=>expect(result.current.status).toBe("complete"));
  await act(async()=>resolve(page(["old"]))); expect(result.current.items.map(x=>x.id)).toEqual(["new"]);
 });
+it("does not dispatch discovery with an SDK user the host has not approved", async () => {
+  mocks.services.scope = "embedded";
+  mocks.services.auth.currentUser = null;
+  mocks.load.mockResolvedValueOnce(page(["guest"])).mockResolvedValueOnce(page(["approved"]));
+  const { result, rerender } = renderHook(() => useAthletePublicPeriod("target", "", "", true, true));
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["guest"]));
+  const sdkUser = { uid: "handoff-pending" };
+  act(() => { mocks.services.auth.currentUser = sdkUser; mocks.listener?.(sdkUser); });
+  await act(() => result.current.refresh());
+  expect(mocks.load).toHaveBeenCalledTimes(1);
+  expect(result.current.items).toEqual([]);
+  mocks.hostUser = sdkUser;
+  rerender();
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["approved"]));
+  expect(mocks.load).toHaveBeenCalledTimes(2);
+});
+
+it("discards buffered rows when a live access signal changes", async () => {
+  mocks.load.mockResolvedValueOnce(page(["buffered"], "ad1.next")).mockResolvedValueOnce(page([]));
+  const { result, rerender } = renderHook(({ revision }) => useAthletePublicPeriod("target", "", "", true, true, revision),
+    { initialProps: { revision: { viewer: "before" } } });
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["buffered"]));
+  rerender({ revision: { viewer: "after" } });
+  expect(result.current.items).toEqual([]);
+  await waitFor(() => expect(result.current.status).toBe("complete"));
+  expect(mocks.load.mock.calls[1][1]).not.toHaveProperty("cursor");
+});
+
+it("records late callable failures after an access signal cancels a pending page", async () => {
+  let reportLate!: (error: unknown) => void;
+  mocks.load.mockImplementationOnce((_services, _request, signal: AbortSignal, report: typeof reportLate) => {
+    reportLate = report;
+    return new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("request_aborted")), { once: true }));
+  }).mockResolvedValueOnce(page(["current"]));
+  const { result, rerender } = renderHook(({ revision }) => useAthletePublicPeriod("target", "", "", true, true, revision),
+    { initialProps: { revision: { viewer: "old" } } });
+  rerender({ revision: { viewer: "new" } });
+  await waitFor(() => expect(result.current.items.map(item => item.id)).toEqual(["current"]));
+  const failure = Object.assign(new Error("old response failed"), { code: "functions/unavailable" });
+  reportLate(failure);
+  expect(mocks.log).toHaveBeenCalledWith("useAthletePublicPeriod.read", failure,
+    { targetUid: "target", global: true, continuation: false }, mocks.services, mocks.services.auth.currentUser, "", expect.any(Function));
+  expect(result.current.items.map(item => item.id)).toEqual(["current"]);
+});
+
 it("hides old rows while backgrounded and refreshes on return", async () => {
  mocks.load.mockResolvedValueOnce(page(["a"])).mockResolvedValueOnce(page([]));
  const {result}=renderHook(()=>useAthletePublicPeriod("target","2026-01-01","2026-01-31"));

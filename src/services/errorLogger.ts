@@ -31,7 +31,7 @@ function anonymousEmbeddedContext(source: string, context?: Record<string, unkno
     return { type: WEB_MESSAGE_TYPES.find(type => type === context?.type) };
   }
   if (source === "embedded.activityRead") {
-    const route = ["getActivityDiscovery", "getPublicAthleteTotals"].find(route => route === context?.route);
+    const route = ["getActivityDiscovery", "getPublicAthleteTotals", "getActivityPhotoData"].find(route => route === context?.route);
     const phase = ["app-check", "id-token", "endpoint", "transport", "body", "http", "timeout", "contract"]
       .find(phase => phase === context?.phase);
     const rawStatus = context?.status;
