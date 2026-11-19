@@ -1,3 +1,4 @@
+import { captureError } from "../services/sentry";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -70,6 +71,8 @@ describe("trainingSurfaceCache", () => {
   });
 });
 
+vi.mock("../services/sentry", () => ({ captureError: vi.fn() }));
+
 const scope = "12345678-1234-1234-1234-123456789abc";
 const diskKey = `orider.trainingSurfaceCache.v2:${key.uid}:${scope}`;
 const snapshot = { goal: null, weeks: [] };
@@ -119,6 +122,28 @@ describe("훈련 스냅샷 영속 캐시", () => {
     expect(localStorage.getItem(otherDiskKey)).toBe(otherSnapshot);
     expect(JSON.parse(localStorage.getItem(diskKey)!).entries).toEqual([]);
     expect(other.getTrainingSurfaceCache(otherKey)).toEqual(snapshot);
+  });
+
+  it("reports a failed disk write while retaining the restored in-memory snapshot", async () => {
+    const first = await freshCache();
+    first.prepareTrainingSurfaceCacheOwner(key.uid);
+    first.setTrainingSurfaceCache(key, snapshot);
+    vi.mocked(captureError).mockClear();
+
+    const restarted = await freshCache();
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+      throw new DOMException("storage quota", "QuotaExceededError");
+    });
+    try {
+      restarted.prepareTrainingSurfaceCacheOwner(key.uid);
+      expect(restarted.getTrainingSurfaceCache(key)).toEqual(snapshot);
+      expect(captureError).toHaveBeenCalledWith(
+        new Error("Training snapshot restore failed (QuotaExceededError)"),
+        { tags: { source: "trainingSurfaceCache.restore" } },
+      );
+    } finally {
+      write.mockRestore();
+    }
   });
 
   it("네이티브 scope가 없는 기존 앱은 메모리만 사용한다", async () => {

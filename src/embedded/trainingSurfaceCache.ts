@@ -165,7 +165,7 @@ function restore(uid: string): void {
   if (!scope) return;
   const reportRestoreFailure = (error: unknown) => {
     // JSON 파싱 오류가 캐시 내용의 일부를 메시지에 포함할 수 있다.
-    const errorName = error instanceof Error ? error.name : typeof error;
+    const errorName = error instanceof Error || error instanceof DOMException ? error.name : typeof error;
     captureError(new Error(`Training snapshot restore failed (${errorName})`), { tags: { source: "trainingSurfaceCache.restore" } });
   };
   try {
@@ -186,7 +186,7 @@ function restore(uid: string): void {
       entries.set(serializeKey(entry.key), entry as unknown as CacheEntry);
     }
     if (scoped !== null) {
-      persist();
+      persist(reportRestoreFailure);
     } else {
       const reportMigrationFailure = (error: unknown) => captureError(error, { tags: { source: "trainingSurfaceCache.migrate" } });
       if (persist(reportMigrationFailure)) {
