@@ -79,6 +79,8 @@ export function PlanView({ model, startMode = WEB_START_MODE }: {
   const serverManagedPlan = goal?.runProgram != null;
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
   const [openRunPlanOwner, setOpenRunPlanOwner] = useState<string | null>(null);
+  const runPlanOpen = discipline === "run" && openRunPlanOwner === user?.uid;
+  const run30 = useRun30Program(runPlanOpen && user != null && !user.isAnonymous);
   const runTarget = useRunPlanTarget(searchParams, user?.uid, user?.isAnonymous === true, goal, weeks, loading || (!model.freshLoaded && !loadError), loadError, model.isTodayCell, setMobileWeekOffset);
   const targetDate = searchParams.get("date");
   useEffect(() => {
@@ -94,8 +96,9 @@ export function PlanView({ model, startMode = WEB_START_MODE }: {
   // 종목 전환은 같은 날짜로 다시 그릴 뿐이라 스크롤하지 않는다 — 탭·종목을 바꿀 때마다 화면이 아래로 내려갔다.
   const scrolledPlanDate = useRef<string | null>(null);
   const arrivedByPlanRecordTab = isPlanRecordTabState(location.state);
+  const planCalendarVisible = discipline !== "run" || runPlanOpen && run30.status !== "loading" && run30.status !== "idle";
   useEffect(() => {
-    if (!targetDate || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || loading || scrolledPlanDate.current === targetDate) return;
+    if (!planCalendarVisible || !targetDate || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || loading || scrolledPlanDate.current === targetDate) return;
     if (arrivedByPlanRecordTab) { scrolledPlanDate.current = targetDate; return; }
     const frame = requestAnimationFrame(() => {
       const day = document.querySelector(`[data-plan-date="${targetDate}"]`);
@@ -104,7 +107,7 @@ export function PlanView({ model, startMode = WEB_START_MODE }: {
       scrolledPlanDate.current = targetDate;
     });
     return () => cancelAnimationFrame(frame);
-  }, [targetDate, loading, mobileWeekOffset, weeks, arrivedByPlanRecordTab]);
+  }, [targetDate, loading, mobileWeekOffset, weeks, arrivedByPlanRecordTab, planCalendarVisible]);
   const [selectedDay, setSelectedDay] = useState<{
     owner: string;
     goalId: string;
@@ -115,8 +118,6 @@ export function PlanView({ model, startMode = WEB_START_MODE }: {
 
   const selectionOwner = `${user?.uid ?? ""}:${discipline}:${goal?.id ?? ""}`;
   useEffect(() => { setSelectedDay(null); }, [selectionOwner]);
-  const runPlanOpen = discipline === "run" && openRunPlanOwner === user?.uid;
-  const run30 = useRun30Program(runPlanOpen && user != null && !user.isAnonymous);
   useEffect(() => { if (!location.state?.coachWorkout) setSelectedDay(null); }, [location.key, location.state]);
 
   const exportPlanIcs = () => {
@@ -286,7 +287,7 @@ export function PlanView({ model, startMode = WEB_START_MODE }: {
       planDetails = <Run30ProgramView api={run30.api} program={run30Program} onRefresh={refreshAfterProgramChange} startMode={startMode} />;
     } else if ((run30.status === "loading" || run30.status === "idle" && !user.isAnonymous) && !(model.cacheHit && goal)) {
       planDetails = <p role="status" style={{ color: "var(--ink-3)" }}>{tCommon("button.loading")}</p>;
-    } else if (run30.status === "error" && !goal && !loading) {
+    } else if (run30.status === "error" && (serverManagedPlan || startMode.kind !== "web" || !goal && !loading)) {
       planDetails = <ErrorState title={t("run30.errors.load")} onRetry={run30.retry} />;
     } else if (!loading && !loadError && (!goal || goal.discipline !== "run") && !user.isAnonymous) {
       planDetails = <Run30EnrollCard api={run30.api} variant="intro" onEnrolled={refreshAfterProgramChange} showCustomGoalLink />;

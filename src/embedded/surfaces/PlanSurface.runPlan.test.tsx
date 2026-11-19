@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   planModel: {} as Record<string, unknown>,
   run30Lookups: 0,
   run30Program: null as { goalId: string } | null,
+  run30Status: "ready",
+  retryRun30: vi.fn(),
   startMode: null as unknown,
 }));
 
@@ -16,7 +18,7 @@ vi.mock("../../hooks/usePlanModel", () => ({ usePlanModel: () => mocks.planModel
 vi.mock("../../features/training/run30/useRun30Program", () => ({
   useRun30Program: (enabled: boolean) => {
     if (enabled) mocks.run30Lookups += 1;
-    return { status: "ready", program: mocks.run30Program };
+    return { status: mocks.run30Status, program: mocks.run30Program, retry: mocks.retryRun30 };
   },
 }));
 vi.mock("../../features/training/run30/Run30ProgramView", () => ({
@@ -61,6 +63,8 @@ describe("PlanSurface running plan", () => {
     mocks.planModel = { ...loadedPlan, retryLoad: vi.fn(), refreshPlanWeeks: vi.fn().mockResolvedValue(undefined) };
     mocks.run30Lookups = 0;
     mocks.run30Program = null;
+    mocks.run30Status = "ready";
+    mocks.retryRun30.mockClear();
     mocks.startMode = null;
   });
 
@@ -93,6 +97,18 @@ describe("PlanSurface running plan", () => {
     fireEvent(details, new Event("toggle"));
     expect(screen.getByTestId("run30-program-view")).toBeVisible();
     expect(mocks.startMode).toEqual({ kind: "host", starter });
+  });
+
+  it("offers a Run30 retry even when the running goal is already loaded", () => {
+    mocks.planModel = { ...mocks.planModel, goal: { id: "half", discipline: "run", runProgram: {} } };
+    mocks.run30Status = "error";
+    render(wrapper(<PlanSurface onReady={vi.fn()} retryKey={0} />));
+
+    const details = screen.getByText("운동 계획").closest("details")!;
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(mocks.retryRun30).toHaveBeenCalledOnce();
   });
 
   it("does not wait for a running goal before showing the screen", async () => {
