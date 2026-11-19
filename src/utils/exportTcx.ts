@@ -48,10 +48,10 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const corroboratedElapsed = !recordedClock && !verifiedRelativeClock && boundedLaps && lastRelative > lapTimer
     && resolveRecordedElapsedMs(activity, Math.round(lastRelative * 1000)) != null
     && nativeLapClock.every(lap => relativePoints.has(lap.start) && relativePoints.has(lap.end));
-  const onlyNativeLap = nativeLapClock.length === 1 ? nativeLapClock[0] : undefined;
-  const matchingSingleLap = boundedLaps && onlyNativeLap?.start === 0 && onlyNativeLap.end === lapTimer
-    && lastRelative === onlyNativeLap.end && relativePoints.has(0);
-  const activityTime = verifiedRelativeClock || recordedClock || corroboratedElapsed || matchingSingleLap;
+  // When every lap's timer and elapsed bounds have the same origin and offsets,
+  // interpreting legacy offsets does not depend on which of those clocks stored them.
+  const coincidentClocks = boundedLaps && nativeLapClock.every(lap => lap.start === lap.timerStart && lap.end === lap.timerEnd);
+  const activityTime = verifiedRelativeClock || recordedClock || corroboratedElapsed || coincidentClocks;
   const ambiguousNativeClock = !activityTime && boundedLaps;
   const relSecAt = (index: number) => {
     const value = streams.time?.[index];

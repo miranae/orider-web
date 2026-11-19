@@ -227,7 +227,7 @@ it("refreshes the TCX choice before using it on changed lap inputs", async () =>
 
 it("keeps raw cadence in CSV when an all-sample TCX lacks an elapsed-time total", async () => {
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000 } } as Activity;
-  const samples = { userId: "owner", time: [0, 120, 125], cadence: [80, 81, 82],
+  const samples = { userId: "owner", time: [0, 120, 125], cadence: [80, 81, 82], heartrate: [150, 151, 152],
     laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
   } as unknown as ActivityStreams;
   render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={async () => samples} />);

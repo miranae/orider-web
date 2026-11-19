@@ -407,3 +407,18 @@ it("accepts a recorded Strava elapsed total without treating inferred provider e
   const provided = { ...activity, stravaSummaryV1: { version: 1 as const, elapsed_time: 180 } };
   expect(generateTcx(provided, streams)).toContain("<TotalTimeSeconds>180</TotalTimeSeconds>");
 });
+
+it("keeps trackpoints when a continuous native lap schedule makes both legacy clocks coincide", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 120_000 } } as Activity;
+  const streams = { userId: "owner", time: [0, 60, 61, 120], heartrate: [150, 151, 152, 153], laps: [
+    { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
+    { startTimeMs: startTime + 60_000, endTimeMs: startTime + 120_000, durationMs: 60_000 },
+  ] } as ActivityStreams;
+  const file = prepareTcxExport(activity, streams);
+  expect(file.hasUnassigned).toBe(false);
+  const [, first, second] = file.render("recorded").split(/<Lap StartTime="/u);
+  expect(first).toContain("<Value>151</Value>");
+  expect(second).toContain("<Value>152</Value>");
+  expect(second).toContain("<Value>153</Value>");
+});
