@@ -101,16 +101,21 @@ test("checks gateway readiness and the login route without binding the backend c
 test("one public release check validates the HTML, entry, runtime and sitemap rewrite",async()=>{
   const f=fixture();try{
     prepareClientPromotion(f);const urls=[];
-    const fetcher=async url=>{
+    const fetcher=async input=>{
+      const url = new URL(input);
       urls.push(url.pathname);
+      if (url.pathname === "/api/v1/profile") return Response.json({error:{code:"UNAUTHENTICATED"}}, {status:401});
+      if (url.pathname === "/api/strava/webhook") return new Response("Forbidden", {status:403});
       if (url.pathname === "/sitemap.xml") return new Response("<urlset/>", {headers:{"content-type":"application/xml"}});
       const file = join(f.workspace, "dist", url.pathname === "/" ? "index.html" : url.pathname.slice(1));
-      return new Response(readFileSync(file), {headers:{"content-type":url.pathname.endsWith(".js") ? "application/javascript" : "text/plain"}});
+      return new Response(readFileSync(file), {headers:{"content-type":url.pathname.endsWith(".js") ? "application/javascript" : url.pathname === "/" ? "text/html" : "application/json"}});
     };
-    await verifyPublishedPromotion(f,fetcher);assert.deepEqual(urls.sort(),["/","/assets/index-abc.js","/runtime-config.json","/sitemap.xml"]);
-    await assert.rejects(verifyPublishedPromotion(f,async url=>url.pathname.endsWith(".js") ? new Response("<html>fallback</html>", {headers:{"content-type":"text/html"}}) : fetcher(url)),/did not return JavaScript/);
-    await assert.rejects(verifyPublishedPromotion(f,async url=>url.pathname === "/sitemap.xml" ? new Response("not found", {status:404}) : fetcher(url)),/sitemap.xml.*HTTP404/);
-    await assert.rejects(verifyPublishedPromotion(f,async url=>url.pathname === "/runtime-config.json" ? new Response("stale") : fetcher(url)),/differs/);
+    await verifyPublishedPromotion(f,fetcher);assert.deepEqual(urls.sort(),["/","/api/strava/webhook","/api/v1/profile","/assets/index-abc.js","/runtime-config.json","/sitemap.xml"]);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname.endsWith(".js") ? new Response("<html>fallback</html>", {headers:{"content-type":"text/html"}}) : fetcher(url)),/did not return JavaScript/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/sitemap.xml" ? new Response("not found", {status:404}) : fetcher(url)),/sitemap.xml.*HTTP404/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/runtime-config.json" ? new Response("stale") : fetcher(url)),/differs/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/" ? new Response(readFileSync(join(f.workspace,"dist","index.html")), {headers:{"content-type":"text/plain"}}) : fetcher(url)),/did not return HTML/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/api/strava/webhook" ? new Response("not found", {status:404}) : fetcher(url)),/strava\/webhook/);
   }finally{f.cleanup();}
 });
 
