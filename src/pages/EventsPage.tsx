@@ -402,9 +402,8 @@ export default function EventsPage() {
 
 
       } catch (err) {
-        if (!current()) return;
-        logClientError("EventsPage.loadEvents", err);
-        setPageError(true);
+        logClientError("EventsPage.loadEvents", err, {}, services, viewer, "", current);
+        if (current()) setPageError(true);
       } finally {
         if (current()) setResolvedPageScope(pageScope);
       }

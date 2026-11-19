@@ -1,3 +1,4 @@
+import * as errorLogger from "../services/errorLogger";
 import { getDoc } from "firebase/firestore";
 import { installEventDiscoveryFixture } from "../__tests__/fixtures/eventDiscovery";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -51,6 +52,22 @@ describe("event map camera intent", () => {
     await act(async()=>finish({data:{rows:[{id:"late",data:{info:{status:"OPEN",visibility:"PUBLIC",courseIds:["no-read-after-navigation"]}}}],nextCursor:"~ed1_"+"d".repeat(48)}}));
     expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1);
     expect(getDoc).not.toHaveBeenCalled();
+  });
+
+  it("keeps diagnostics for discovery failures after the page is gone", async () => {
+    let reject!: (error: Error) => void;
+    setCallableImplementation("listVisibleEventEnvelopes", () => new Promise((_, fail) => { reject = fail; }));
+    const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+    try {
+      const view = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+      await waitFor(() => expect(reject).toBeDefined());
+      view.unmount();
+      await act(async () => reject(new Error("discovery offline")));
+
+      const call = log.mock.calls.find(([source]) => source === "EventsPage.loadEvents");
+      expect(call?.[1]).toMatchObject({ message: "discovery offline" });
+      expect(call?.[6]?.()).toBe(false);
+    } finally { log.mockRestore(); }
   });
 
   it("keeps an incomplete private window bounded until Next and then shows public, legacy and GROUP rows", async () => {
