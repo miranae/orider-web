@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,8 +59,7 @@ describe("PlanPage with server-managed Run30 goals", () => {
     mocks.mobileProps = null;
   });
 
-  it("shows only the header, date navigation and plan-vs-record comparison for sport=run", () => {
-    // 러닝 훈련 계획은 계획 대비 기록만 남긴다(2026-11-19) — Run30 프로그램·주간 계획·오늘 결정 카드는 두지 않는다.
+  it("shows the comparison by default and opens the enrolled Run30 program on request", () => {
     mocks.model = planModel({ id: "run30_goal", userId: "test-uid", discipline: "run", runProgram: { template: "run-30-intro-v1" } });
     mocks.run30 = { ...mocks.run30, program: { goalId: "run30_goal" } };
     renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/plan?sport=run" });
@@ -68,6 +67,11 @@ describe("PlanPage with server-managed Run30 goals", () => {
     expect(screen.queryByTestId("run30-program-view")).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-presentation")).not.toBeInTheDocument();
     expect(screen.queryByTestId("run30-enroll-intro")).not.toBeInTheDocument();
+
+    const details = screen.getByText("운동 계획").closest("details")!;
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    expect(screen.getByTestId("run30-program-view")).toBeVisible();
   });
 
   it("keeps edit affordances for ordinary goals", () => {

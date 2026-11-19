@@ -23,7 +23,10 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useToast } from "../contexts/ToastContext";
 import PlanPresentation from "../features/training/plan/PlanPresentation";
 import type { Run30StartMode } from "../features/training/run30/run30Start";
-import type { Run30ProgramState } from "../features/training/run30/useRun30Program";
+import Run30EnrollCard from "../features/training/run30/Run30EnrollCard";
+import Run30ProgramView from "../features/training/run30/Run30ProgramView";
+import { useRun30Program } from "../features/training/run30/useRun30Program";
+import { ErrorState } from "../components/redesign";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -46,16 +49,14 @@ export default function PlanPage() {
   return <PlanView model={model} />;
 }
 
-/**
- * 계획 화면. 러닝은 제목·종목 탭·날짜 이동·계획 대비 기록만 보여 주므로(2026-11-19) Run30 프로그램 상태는 쓰지 않는다.
- * 앱 임베드(PlanSurface)는 화면 준비 판정에 Run30 조회를 계속 쓰므로 prop 자리는 남긴다.
- */
-export function PlanView({ model }: {
+const WEB_START_MODE: Run30StartMode = { kind: "web" };
+
+export function PlanView({ model, startMode = WEB_START_MODE }: {
   model: ReturnType<typeof usePlanModel>;
-  run30?: Run30ProgramState;
   startMode?: Run30StartMode;
 }) {
   const { t, i18n } = useTranslation("training");
+  const { t: tCommon } = useTranslation("common");
   const { t: tActivity } = useTranslation("activity");
   const { user, profile } = useAuth();
   const { auth, firestore, functions } = useFirebaseServices();
@@ -77,6 +78,7 @@ export function PlanView({ model }: {
   // 서버 관리 프로그램 목표는 계획 직접 쓰기(편집·추가·재생성·재설정·적응 적용)를 규칙이 거부한다.
   const serverManagedPlan = goal?.runProgram != null;
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
+  const [openRunPlanOwner, setOpenRunPlanOwner] = useState<string | null>(null);
   const runTarget = useRunPlanTarget(searchParams, user?.uid, user?.isAnonymous === true, goal, weeks, loading || (!model.freshLoaded && !loadError), loadError, model.isTodayCell, setMobileWeekOffset);
   const targetDate = searchParams.get("date");
   useEffect(() => {
@@ -113,6 +115,8 @@ export function PlanView({ model }: {
 
   const selectionOwner = `${user?.uid ?? ""}:${discipline}:${goal?.id ?? ""}`;
   useEffect(() => { setSelectedDay(null); }, [selectionOwner]);
+  const runPlanOpen = discipline === "run" && openRunPlanOwner === user?.uid;
+  const run30 = useRun30Program(runPlanOpen && user != null && !user.isAnonymous);
   useEffect(() => { if (!location.state?.coachWorkout) setSelectedDay(null); }, [location.key, location.state]);
 
   const exportPlanIcs = () => {
@@ -243,9 +247,66 @@ export function PlanView({ model }: {
   }}>{t("planRecords.currentPlan")} →</Button>}</>;
   const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
 
-  // 러닝 훈련 계획은 제목·종목 탭·날짜 이동·계획 대비 기록만 보여 준다(2026-11-19 요청).
-  // 러닝 30일 프로그램·오늘의 훈련 결정·주간 계획 목록·계획 조정 안내는 이 화면에서 두지 않는다.
-  if (discipline === "run") return goalLink;
+  const workoutEditor = selectedDay?.owner === selectionOwner && goal && !serverManagedPlan && (
+    <WorkoutEditModal
+      day={selectedDay.day}
+      weekId={selectedDay.weekId}
+      weekAdjustmentReason={weeks.find((week) => week.id === selectedDay.weekId)?.adjustmentReason}
+      dayIndex={selectedDay.dayIndex}
+      goalId={selectedDay.goalId}
+      goalDiscipline={goal.discipline as "bike" | "run" | "swim" | undefined}
+      onClose={() => { setSelectedDay(null); if (location.state?.coachWorkout) navigate(-1); }}
+      onUpdate={() => {
+        setSelectedDay(null);
+        if (isMobile) {
+          model.retryLoad();
+        } else {
+          void model.refreshPlanWeeks().catch((error: unknown) => {
+            logClientError("PlanPage.refreshAfterEdit", error, { goalId: selectedDay.goalId });
+            // 알림 문구를 누르면 계획을 다시 불러온다 — 그사이 계정이 바뀌었으면 아무것도 하지 않는다.
+            const requestUid = user?.uid;
+            showToast(t("errors.planRefreshAfterSave"), "error", { resolve: { onClick: () => {
+              if (requestUid && auth.currentUser?.uid === requestUid) model.retryLoad();
+            } } });
+            model.retryLoad();
+          });
+        }
+      }}
+    />
+  );
+
+  if (discipline === "run") {
+    const refreshAfterProgramChange = async () => {
+      await run30.refresh();
+      model.retryLoad();
+    };
+    const run30Program = run30.status === "ready" ? run30.program : null;
+    let planDetails: ReactNode;
+    if (run30Program) {
+      planDetails = <Run30ProgramView api={run30.api} program={run30Program} onRefresh={refreshAfterProgramChange} startMode={startMode} />;
+    } else if ((run30.status === "loading" || run30.status === "idle" && !user.isAnonymous) && !(model.cacheHit && goal)) {
+      planDetails = <p role="status" style={{ color: "var(--ink-3)" }}>{tCommon("button.loading")}</p>;
+    } else if (run30.status === "error" && !goal && !loading) {
+      planDetails = <ErrorState title={t("run30.errors.load")} onRetry={run30.retry} />;
+    } else if (!loading && !loadError && (!goal || goal.discipline !== "run") && !user.isAnonymous) {
+      planDetails = <Run30EnrollCard api={run30.api} variant="intro" onEnrolled={refreshAfterProgramChange} showCustomGoalLink />;
+    } else {
+      const run30Offer = run30.status === "ready" && goal?.discipline === "run" && !serverManagedPlan
+        ? <Run30EnrollCard api={run30.api} variant="offer" onEnrolled={refreshAfterProgramChange} />
+        : null;
+      planDetails = renderPresentation(run30Offer);
+    }
+    return <>
+      {goalLink}
+      <details key={user.uid} className="site-shell" open={runPlanOpen} onToggle={event => {
+        setOpenRunPlanOwner(event.currentTarget.open ? user.uid : null);
+      }}>
+        <summary>{t("mobile.headerTitle")}</summary>
+        {runPlanOpen && planDetails}
+      </details>
+      {runPlanOpen && workoutEditor}
+    </>;
+  }
 
   if (!loading && loadError) {
     return <>{goalLink}{targetNotice}{renderPresentation(
@@ -262,33 +323,7 @@ export function PlanView({ model }: {
       {goalLink}{targetNotice}
       {runTarget.session && <RunPlanPreview session={runTarget.session} onClose={runTarget.close} />}
       {renderPresentation(<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />)}
-      {selectedDay?.owner === selectionOwner && goal && !serverManagedPlan && (
-        <WorkoutEditModal
-          day={selectedDay.day}
-          weekId={selectedDay.weekId}
-          weekAdjustmentReason={weeks.find((week) => week.id === selectedDay.weekId)?.adjustmentReason}
-          dayIndex={selectedDay.dayIndex}
-          goalId={selectedDay.goalId}
-          goalDiscipline={goal.discipline as "bike" | "run" | "swim" | undefined}
-          onClose={() => { setSelectedDay(null); if (location.state?.coachWorkout) navigate(-1); }}
-          onUpdate={() => {
-            setSelectedDay(null);
-            if (isMobile) {
-              model.retryLoad();
-            } else {
-              void model.refreshPlanWeeks().catch((error: unknown) => {
-                logClientError("PlanPage.refreshAfterEdit", error, { goalId: selectedDay.goalId });
-                // 알림 문구를 누르면 계획을 다시 불러온다 — 그사이 계정이 바뀌었으면 아무것도 하지 않는다.
-                const requestUid = user?.uid;
-                showToast(t("errors.planRefreshAfterSave"), "error", { resolve: { onClick: () => {
-                  if (requestUid && auth.currentUser?.uid === requestUid) model.retryLoad();
-                } } });
-                model.retryLoad();
-              });
-            }
-          }}
-        />
-      )}
+      {workoutEditor}
     </>
   );
 }

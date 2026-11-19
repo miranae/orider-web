@@ -13,10 +13,7 @@ export interface PlanSurfaceProps {
   onReady: (status?: "cached" | "fresh" | "error") => void;
   retryKey: number;
   active?: boolean;
-  /**
-   * 호스트가 run-start-scheduled-v1 을 알렸을 때만 주어진다. 러닝 계획에서 Run30 프로그램을 빼(2026-11-19)
-   * 지금은 쓰지 않지만 호스트 계약이라 받는 자리는 남긴다.
-   */
+  /** 호스트가 run-start-scheduled-v1 을 알렸을 때만 주어진다. null 이면 구버전 앱. */
   scheduledRunStarter?: ScheduledRunStarter | null;
   /**
    * 숨겼다가 다시 보여 준(재마운트 없이 재사용한) 표면을 조용히 갱신하라는 요청. 값이 바뀔 때만
@@ -29,6 +26,7 @@ export default function PlanSurface({
   onReady,
   retryKey,
   active = true,
+  scheduledRunStarter = null,
   backgroundRefreshKey = 0,
 }: PlanSurfaceProps) {
   const [searchParams] = useSearchParams();
@@ -73,7 +71,7 @@ export default function PlanSurface({
 
   const sharedContent = <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
     {/* 캐시로 먼저 그린 뒤 최신 값으로 조용히 바꾼다 — "저장된 이전 정보" 안내는 앱 계획 탭에서 띄우지 않는다(2026-11-03). */}
-    {active && <PlanView model={model} />}
+    {active && <PlanView model={model} startMode={scheduledRunStarter ? { kind: "host", starter: scheduledRunStarter } : { kind: "host-unsupported" }} />}
   </main>;
   // 러닝 계획은 제목·종목 탭·날짜 이동·계획 대비 기록만 보여 준다 — 목표·주간 계획 로딩 화면을 거치지 않는다(2026-11-19).
   if (model.discipline === "run") return sharedContent;
