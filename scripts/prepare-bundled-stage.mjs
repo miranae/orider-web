@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/stage-production-parity.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
-import { assertStageEntryArtifact, stageArtifactManifest, verifyStageArtifacts } from "./lib/stage-artifact-manifest.mjs";
+import { assertStageArtifactManifest, assertStageEntryArtifact, stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
@@ -121,11 +121,10 @@ export async function verifyBundledStage(directory, fetcher = fetch) {
   if (receipt.complete !== true || Object.entries(prepared).some(([key, value]) => !isDeepStrictEqual(receipt[key], value))
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
   assertStageEntryArtifact(prepared.artifactDirectory);
-  await verifyStageArtifacts(prepared.artifactDirectory, receipt.artifactManifest, async () => {
-    await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
-    await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
-    await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
-  });
+  assertStageArtifactManifest(prepared.artifactDirectory, receipt.artifactManifest);
+  await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
+  await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+  await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   readPrepared(directory);
   return receipt;
 }

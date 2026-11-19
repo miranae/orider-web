@@ -47,10 +47,8 @@ export async function snapshotStageHosting({ token, marker, fetcher = fetch, ser
 }
 export async function verifyStagePublishPointer(snapshot, { token, fetcher = fetch, serializedWrites }) {
   assertSerializedStageHostingWrites(serializedWrites); validateSnapshot(snapshot);
-  for (let read = 0; read < 2; read++) {
-    const channel = await request(fetcher, token, "GET", API + CHANNEL);
-    if (currentVersion(channel) !== snapshot.previousVersion || releaseName(channel) !== snapshot.previousRelease) throw new Error(`development Hosting publish refused: live release changed at ${API}${CHANNEL}`);
-  }
+  const channel = await request(fetcher, token, "GET", API + CHANNEL);
+  if (currentVersion(channel) !== snapshot.previousVersion || releaseName(channel) !== snapshot.previousRelease) throw new Error(`development Hosting publish refused: live release changed at ${API}${CHANNEL}`);
   return { verified: true, version: snapshot.previousVersion };
 }
 export async function rollbackStageHosting(snapshot, { token, fetcher = fetch, serializedWrites, pause = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {

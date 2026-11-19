@@ -20,16 +20,17 @@ export function stageArtifactManifest(directory) {
   return files.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
 }
 
+export function assertStageArtifactManifest(directory, expected) {
+  if (!Array.isArray(expected) || !isDeepStrictEqual(stageArtifactManifest(directory), expected)) {
+    throw new Error("stage parity prepared artifact differs from the build receipt");
+  }
+}
+
 // 원격 확인을 기다리는 동안 산출물이 바뀌어도 배포를 중단한다.
 export async function verifyStageArtifacts(directory, expected, verifyRemote) {
-  const verify = () => {
-    if (!Array.isArray(expected) || !isDeepStrictEqual(stageArtifactManifest(directory), expected)) {
-      throw new Error("stage parity prepared artifact differs from the build receipt");
-    }
-  };
-  verify();
+  assertStageArtifactManifest(directory, expected);
   const result = await verifyRemote();
-  verify();
+  assertStageArtifactManifest(directory, expected);
   return result;
 }
 

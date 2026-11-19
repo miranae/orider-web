@@ -287,12 +287,12 @@ test("observed intervening release changes abort publication and compensating ro
       if (options.method === "POST") writes++;
       if (url.endsWith("/channels/live")) {
         reads++;
-        return Response.json({ name: "sites/orider-dev/channels/live", release: { name: `sites/orider-dev/releases/${reads === 1 ? operation === verifyStagePublishPointer ? "previous" : "ours" : "other"}`, version: { name: operation === verifyStagePublishPointer ? previous : active }, message: snapshot.marker } });
+        return Response.json({ name: "sites/orider-dev/channels/live", release: { name: `sites/orider-dev/releases/${operation === verifyStagePublishPointer || reads > 1 ? "other" : "ours"}`, version: { name: operation === verifyStagePublishPointer ? previous : active }, message: snapshot.marker } });
       }
       return Response.json({ name: previous, status: "FINALIZED" });
     };
     await assert.rejects(operation(snapshot, { serializedWrites: "true", token: "fixture", fetcher }), /live release changed/);
-    assert.equal(writes, 0); assert.equal(reads, 2);
+    assert.equal(writes, 0); assert.equal(reads, operation === verifyStagePublishPointer ? 1 : 2);
   }
   const workflow = readFileSync(new URL("../.github/workflows/deploy-stage.yml", import.meta.url), "utf8");
   assert.ok(workflow.indexOf("--phase check-publish") < workflow.indexOf("firebase deploy --config"));
@@ -362,6 +362,17 @@ test("published entry requires matching JavaScript bytes and live REST/webhook a
     assert.ok(calls.some(({ url }) => url === "https://orider-dev.web.app/api/v1/profile"));
     assert.ok(calls.some(({ url }) => url === "https://orider-dev.web.app/api/strava/webhook"));
     assert.ok(calls.every(({ options }) => options.method !== "POST"));
+    const production = { environment: "production", directory: resolve(f.workspace, "dist") };
+    const runtime = readFileSync(resolve(production.directory, "runtime-config.json"), "utf8");
+    const readProduction = (url, options) => url.endsWith("/runtime-config.json")
+      ? Promise.resolve(new Response(runtime, { headers: { "content-type": "application/json" } }))
+      : fetcher(url, options);
+    assert.equal((await verifyBundledHosting({ ...production, fetcher: readProduction })).verified, true);
+    for (const status of [200, 404]) {
+      await assert.rejects(verifyBundledHosting({ ...production, fetcher: (url, options) => url.endsWith("/runtime-config.json")
+        ? Promise.resolve(Response.json({ deploymentProfile: "legacy" }, { status }))
+        : readProduction(url, options) }), /runtime-config\.json/u);
+    }
     for (const [status, mime, body] of [[404, "text/javascript", "missing"], [200, "text/html", "<html>fallback</html>"], [200, "application/javascript", "wrong bytes"]]) {
       await assert.rejects(verifyBundledHosting({ environment: "development", directory: resolve(f.workspace, "dist"), fetcher: async () => new Response(body, { status, headers: { "content-type": mime } }) }), /https:\/\/orider-dev.web.app\/assets\/index-fixture.js/);
     }
