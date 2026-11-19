@@ -54,8 +54,7 @@ export function useNativeActivityPhoto(photo: NativePhotoReference | undefined, 
       verifiedAt = Date.now();
       setResult({ key, services, url, error: null });
     }).catch(error => {
-      const code = (error as { code?: string } | null)?.code;
-      if (code !== "not-found" && code !== "functions/not-found" && !(error instanceof Error && error.message === "account_changed")) {
+      if (!(error instanceof Error && error.message === "account_changed")) {
         logClientError("useNativeActivityPhoto.load", error, { activityId, photoId }, services, viewer, isCurrent() ? "" : "superseded", isCurrent);
       }
       if (active) setResult({ key, services, url: null, error });

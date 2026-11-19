@@ -50,16 +50,17 @@ it("clears bytes when backgrounded and rechecks authorization on return, preserv
 });
 
 it("reports a native photo retry that fails before the image is available", async () => {
-  mocks.load.mockRejectedValueOnce(Object.assign(new Error("not found"), { code: "functions/not-found" }));
+  const initialError = Object.assign(new Error("App Check unavailable"), { code: "functions/unavailable" });
+  mocks.load.mockRejectedValueOnce(initialError);
   const r = renderHook(() => useNativeActivityPhoto(photo));
-  await waitFor(() => expect(r.result.current.error).toBeTruthy());
-  expect(logClientError).not.toHaveBeenCalled();
+  await waitFor(() => expect(r.result.current.error).toBe(initialError));
 
-  const error = Object.assign(new Error("App Check unavailable"), { code: "functions/unavailable" });
+  const error = Object.assign(new Error("native photo not found"), { code: "functions/not-found" });
   mocks.load.mockRejectedValueOnce(error);
   act(() => r.result.current.retry());
   await waitFor(() => expect(r.result.current.error).toBe(error));
-  expect(logClientError).toHaveBeenCalledExactlyOnceWith("useNativeActivityPhoto.load", error, photo, mocks.services, undefined, "", expect.any(Function));
+  expect(logClientError).toHaveBeenCalledTimes(2);
+  expect(logClientError).toHaveBeenLastCalledWith("useNativeActivityPhoto.load", error, photo, mocks.services, undefined, "", expect.any(Function));
 });
 
 it("does not poll authorization while the photo stays on screen", async () => {
