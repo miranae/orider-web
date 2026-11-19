@@ -83,20 +83,23 @@ test("checks gateway readiness and the login route without binding the backend c
     const fetcher = async (url, init = {}) => {
       const path = new URL(url).pathname;
       calls.push([path, init.method ?? "GET"]);
+      const responseHeaders = {...headers,"access-control-allow-origin":init.headers?.Origin ?? headers["access-control-allow-origin"]};
       if (path === "/readyz") return Response.json({status:"ok",sourceSha:"e".repeat(40),topologyHash:"f".repeat(64)});
-      if (init.method === "OPTIONS") return new Response(null, {status:204,headers});
+      if (init.method === "OPTIONS") return new Response(null, {status:204,headers:responseHeaders});
       return path === "/getActivityDiscovery"
-        ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers})
-        : Response.json({error:{status:"INVALID_ARGUMENT"}}, {status:400,headers});
+        ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers:responseHeaders})
+        : Response.json({error:{status:"INVALID_ARGUMENT"}}, {status:400,headers:responseHeaders});
     };
     await verifyClientPromotion(f,fetcher);
-    assert.deepEqual(calls.sort(),[["/getActivityDiscovery","OPTIONS"],["/getActivityDiscovery","POST"],["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"],["/webHandoffRedeem","OPTIONS"],["/webHandoffRedeem","POST"]]);
+    assert.deepEqual(calls.sort(),[["/getActivityDiscovery","OPTIONS"],["/getActivityDiscovery","POST"],["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"],...Array.from({length:4},()=>["/webHandoffRedeem","OPTIONS"]),...Array.from({length:4},()=>["/webHandoffRedeem","POST"])]);
     await verifyClientPromotion(f,async(url,init)=>init.method === "POST" && url.endsWith("/socialAuthStart")
       ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers})
       : fetcher(url,init));
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("not ready",{status:503}) : fetcher(url,init)),/unavailable/);
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("<html>error</html>") : fetcher(url,init)),/response body is invalid.*\/readyz/);
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && url.endsWith("/socialAuthStart") ? new Response(null,{status:404}) : fetcher(url,init)),/socialAuthStart browser preflight rejected/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && init.headers?.Origin === "https://miranae-orider-g1.web.app"
+      ? new Response(null,{status:403}) : fetcher(url,init)),/webHandoffRedeem browser preflight rejected.*web.app/);
   }finally{f.cleanup();}
 });
 

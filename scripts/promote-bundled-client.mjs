@@ -14,6 +14,7 @@ const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
 const save = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + "\n", { flag: "wx" });
 const sha = /^[a-f0-9]{40}$/u, digest = /^[a-f0-9]{64}$/u;
+const productionOrigins = ["https://orider.co.kr", "https://www.orider.co.kr", "https://miranae-orider-g1.web.app", "https://miranae-orider-g1.firebaseapp.com"];
 
 export { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
 import { validateArchivedCandidate as validateCandidateRun } from "./hosting-candidate-archive.mjs";
@@ -117,10 +118,10 @@ export async function verifyClientPromotion(options, fetcher = fetch) {
   await Promise.all([
     verifyGatewayReadiness(`${receipt.runtime.firebaseFunctionsBase}/readyz`, fetcher),
     verifyBundledCallable({ base: receipt.runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "getActivityDiscovery", fetcher }),
-    verifyBundledCallable({
-      base: receipt.runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "webHandoffRedeem", fetcher,
+    ...productionOrigins.map(origin => verifyBundledCallable({
+      base: receipt.runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher,
       requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
-    }),
+    })),
     verifyBundledCallable({
       base: receipt.runtime.socialAuthFunctionsBase, origin: "https://orider.co.kr", name: "socialAuthStart", fetcher,
       responseContract: [
