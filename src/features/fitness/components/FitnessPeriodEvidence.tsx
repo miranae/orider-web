@@ -57,7 +57,9 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
   const result = useTrainingAnalysisPeriods(ownerUid, selection, available);
   // 위 기간 선택을 따르는 비교(기본). 직접 지정을 고르면 끈다.
   const [followWindow, setFollowWindow] = useState(windowDays != null);
-  const windowMode = windowDays != null && followWindow;
+  // 코치 분석(공용 신호)은 기간 선택 없이 늘 위 기간(최근 N일 ↔ 이전 N일)을 쓴다 — 불러오기 버튼이 없어 직접 고른 기간을 다시 부를 수 없다.
+  const fixedWindow = loadSignal !== undefined && windowDays != null;
+  const windowMode = windowDays != null && (fixedWindow || followWindow);
   const syncMode = syncedPeriods !== undefined;
   // 위 파워 비교가 기간을 불러올 때마다 같은 기간으로 불러온다.
   useEffect(() => {
@@ -101,7 +103,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
     {inline ? <Text as="h3" variant="title">{activityT("trainingPeriods.title")}</Text> : <summary className="cursor-pointer py-3">{activityT("trainingPeriods.title")}</summary>}
     <Stack gap="var(--space-4)">
     {loadSignal === undefined && <Text as="p" variant="caption" tone="secondary">{t("comparison.timezone")}</Text>}
-    {!syncMode && <>
+    {!syncMode && !fixedWindow && <>
     <ToggleControls variant="metric" aria-label={t("comparison.title")}>
       {windowDays != null ? <ToggleButton selected={windowMode} onClick={() => { setFollowWindow(true); setSelection(null); setInvalid(false); }}>{t("comparison.window", { days: windowDays })}</ToggleButton>
         : (["fourWeeks", "yearToDate"] as const).map(value => <ToggleButton key={value} selected={preset === value} onClick={() => { setPreset(value); setSelection(null); setInvalid(false); }}>{t(`comparison.${value}`)}</ToggleButton>)}

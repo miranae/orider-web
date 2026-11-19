@@ -5,6 +5,7 @@ import { LocalizedLink } from "../../../components/LocalizedLink";
 import { buttonClass, Card, Text } from "../../../theme/components";
 import { Resolvable } from "../../../components/redesign/states/Resolvable";
 import { canOpenOriderApp, openOriderApp } from "../../../utils/openOriderApp";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 
 function duration(seconds: number) {
   const value = Math.round(seconds);
@@ -23,11 +24,13 @@ export default function RunRecordsSummary({ evidence, readiness = false, sourceB
   if (sourceBoard && !readiness && qualified.length === 0) return <div data-testid="K5-4" className="run-records-board__all-link"><LocalizedLink data-testid="K5-4-2" to="/athlete/me/records?sport=run">{t("runRecords.viewAll")}</LocalizedLink></div>;
   // 웹 코치 분석: 준비 상태면 제목·설명 없이 버튼만 남긴다. 버튼은 웹 페이지 대신 앱을 연다.
   const bare = openInApp && readiness;
-  // 휴대폰에서는 웹 페이지 대신 앱을 연다. 데스크톱은 앱을 열 수 없으니 원래 웹 페이지로 간다.
-  const openInAppClick = openInApp ? (event: { preventDefault: () => void }) => {
+  // 휴대폰 웹에서는 각 목적지에 맞는 앱 화면을 연다. 앱이 열리지 않으면 원래 웹 페이지로 간다.
+  // 데스크톱과 앱 안(임베드)에서는 원래 웹 페이지로 그대로 간다.
+  const inApp = useFirebaseServices().scope === "embedded";
+  const openInAppClick = (appPath: string) => openInApp && !inApp ? (event: { preventDefault: () => void; currentTarget: { href: string } }) => {
     if (!canOpenOriderApp()) return;
     event.preventDefault();
-    openOriderApp("coach");
+    openOriderApp(appPath, event.currentTarget.href);
   } : undefined;
   const Shell = bare ? "div" : Card;
   return <Shell data-testid="K5-4">
@@ -42,8 +45,8 @@ export default function RunRecordsSummary({ evidence, readiness = false, sourceB
     })}
     {readiness && !sourceBoard && evidence.unverifiedRecords?.length ? <Text as="p" variant="bodySmall" tone="secondary">{t("runRecords.unverified")}</Text> : null}
     <div className="flex flex-wrap items-center gap-2">
-    {readiness && <LocalizedLink className={buttonClass({ variant: "primary" })} to="/coach/condition?sport=run#thresholds" onClick={openInAppClick}>{t("runReadiness.setThresholds")}</LocalizedLink>}
-    <LocalizedLink className={readiness ? buttonClass({ variant: "outline" }) : undefined} data-testid="K5-4-2" to="/athlete/me/records?sport=run" onClick={openInAppClick}>{t("runRecords.viewAll")}</LocalizedLink>
+    {readiness && <LocalizedLink className={buttonClass({ variant: "primary" })} to="/coach/condition?sport=run#thresholds" onClick={openInAppClick("coach/run-thresholds")}>{t("runReadiness.setThresholds")}</LocalizedLink>}
+    <LocalizedLink className={readiness ? buttonClass({ variant: "outline" }) : undefined} data-testid="K5-4-2" to="/athlete/me/records?sport=run" onClick={openInAppClick("records/run")}>{t("runRecords.viewAll")}</LocalizedLink>
     </div>
   </Shell>;
 }

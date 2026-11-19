@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { canOpenOriderApp, openOriderApp } from "./openOriderApp";
-import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 
 function fakeWindow(userAgent: string) {
   const listeners: Array<() => void> = [];
@@ -15,27 +14,21 @@ function fakeWindow(userAgent: string) {
 }
 
 describe("openOriderApp", () => {
-  it("앱 링크를 먼저 열고 앱이 열리지 않으면 기기에 맞는 스토어로 보낸다", () => {
-    const ios = fakeWindow("iPhone");
-    openOriderApp("coach", ios.win);
-    expect(ios.state.location.href).toBe("orider://coach");
-    ios.timers.forEach(fn => fn());
-    expect(ios.state.location.href).toBe(ORIDER_APP_STORE_URL);
-
-    const android = fakeWindow("Linux; Android 14");
-    openOriderApp("/coach", android.win);
-    expect(android.state.location.href).toBe("orider://coach");
-    android.timers.forEach(fn => fn());
-    expect(android.state.location.href).toBe(ORIDER_PLAY_STORE_URL);
+  it("앱 링크를 먼저 열고 앱이 열리지 않으면 원래 웹 목적지로 간다", () => {
+    const phone = fakeWindow("iPhone");
+    openOriderApp("/records/run", "https://orider.co.kr/ko/athlete/me/records?sport=run", phone.win);
+    expect(phone.state.location.href).toBe("orider://records/run");
+    phone.timers.forEach(fn => fn());
+    expect(phone.state.location.href).toBe("https://orider.co.kr/ko/athlete/me/records?sport=run");
   });
 
-  it("앱이 열려 화면이 가려지면 스토어로 보내지 않는다", () => {
-    const ios = fakeWindow("iPhone");
-    openOriderApp("coach", ios.win);
-    ios.state.document.visibilityState = "hidden";
-    ios.listeners.forEach(fn => fn());
-    ios.timers.forEach(fn => fn());
-    expect(ios.state.location.href).toBe("orider://coach");
+  it("앱이 열려 화면이 가려지면 웹으로 넘어가지 않는다", () => {
+    const phone = fakeWindow("Android");
+    openOriderApp("coach/run-thresholds", "https://orider.co.kr/ko/coach/condition", phone.win);
+    phone.state.document.visibilityState = "hidden";
+    phone.listeners.forEach(fn => fn());
+    phone.timers.forEach(fn => fn());
+    expect(phone.state.location.href).toBe("orider://coach/run-thresholds");
   });
 });
 
