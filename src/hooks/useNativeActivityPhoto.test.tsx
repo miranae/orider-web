@@ -2,7 +2,7 @@ import { logClientError } from "../services/errorLogger";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PHOTO_REVALIDATE_AFTER_MS, useNativeActivityPhoto } from "./useNativeActivityPhoto";
-const mocks = vi.hoisted(() => ({ uid: "owner", services: {}, load: vi.fn(), authorize: vi.fn(), create: vi.fn(), revoke: vi.fn() }));
+const mocks = vi.hoisted(() => ({ uid: "owner", services: { auth: { currentUser: { uid: "owner" } } }, load: vi.fn(), authorize: vi.fn(), create: vi.fn(), revoke: vi.fn() }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.uid } }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
 vi.mock("../services/nativeActivityPhoto", () => ({ loadNativeActivityPhoto: mocks.load, authorizeNativeActivityPhoto: mocks.authorize }));
@@ -10,7 +10,7 @@ vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 const photo = { activityId: "ride", photoId: "photo" };
 beforeEach(() => {
   vi.mocked(logClientError).mockClear();
-  mocks.uid = "owner"; mocks.services = {}; mocks.authorize.mockReset().mockResolvedValue(undefined); mocks.load.mockReset().mockResolvedValue(new Blob(["image"]));
+  mocks.uid = "owner"; mocks.services = { auth: { currentUser: { uid: mocks.uid } } }; mocks.authorize.mockReset().mockResolvedValue(undefined); mocks.load.mockReset().mockResolvedValue(new Blob(["image"]));
   mocks.create.mockReset().mockImplementation(() => `blob:local-${mocks.create.mock.calls.length}`); mocks.revoke.mockReset();
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: mocks.create, revokeObjectURL: mocks.revoke }));
   vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
@@ -28,7 +28,7 @@ it.each(["account", "services", "photo"])("ignores stale bytes through %s A-B-A 
   const initialServices = mocks.services;
   const r = renderHook(value => useNativeActivityPhoto(value), { initialProps: photo });
   if (field === "account") mocks.uid = "other";
-  if (field === "services") mocks.services = {};
+  if (field === "services") mocks.services = { auth: { currentUser: { uid: mocks.uid } } };
   r.rerender(field === "photo" ? { ...photo, photoId: "other" } : photo);
   mocks.uid = "owner"; mocks.services = initialServices; r.rerender(photo);
   await waitFor(() => expect(r.result.current.url).not.toBeNull());
@@ -60,7 +60,16 @@ it("reports a native photo retry that fails before the image is available", asyn
   act(() => r.result.current.retry());
   await waitFor(() => expect(r.result.current.error).toBe(error));
   expect(logClientError).toHaveBeenCalledTimes(2);
-  expect(logClientError).toHaveBeenLastCalledWith("useNativeActivityPhoto.load", error, photo, mocks.services, undefined, "", expect.any(Function));
+  expect(logClientError).toHaveBeenLastCalledWith("useNativeActivityPhoto.load", error, photo, mocks.services, mocks.services.auth.currentUser, "", expect.any(Function));
+});
+
+it("reports a failed first photo request without exposing stale bytes", async () => {
+  const error = new Error("App Check unavailable");
+  mocks.load.mockRejectedValueOnce(error);
+  const { result } = renderHook(() => useNativeActivityPhoto(photo));
+  await waitFor(() => expect(result.current.error).toBe(error));
+  expect(result.current.url).toBeNull();
+  expect(logClientError).toHaveBeenCalledWith("useNativeActivityPhoto.load", error, photo, mocks.services, mocks.services.auth.currentUser, "", expect.any(Function));
 });
 
 it("does not poll authorization while the photo stays on screen", async () => {

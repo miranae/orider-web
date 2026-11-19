@@ -679,9 +679,13 @@ export default function EmbeddedBootstrapRoot({
   const isSessionApproved = useCallback((viewer: FirebaseServices["auth"]["currentUser"]) =>
     sessionAccepted.current && viewer === controlServices.auth.currentUser
     && viewer?.isAnonymous !== true && (viewer?.uid ?? null) === acceptedUid.current, [controlServices.auth]);
+  const approvalAttempt = authorizationAttempt.current;
   const services = useMemo<FirebaseServices>(
-    () => ({ ...controlServices, firestore, scope: "embedded", isSessionApproved }),
-    [controlServices, firestore, isSessionApproved],
+    () => ({
+      ...controlServices, firestore, scope: "embedded",
+      isSessionApproved: viewer => authorizationAttempt.current === approvalAttempt && isSessionApproved(viewer),
+    }),
+    [controlServices, firestore, isSessionApproved, approvalAttempt],
   );
   // 로그아웃·계정 변경 뒤 이전 계정 데이터를 버리는 요청. 표면이 언마운트된(리스너가 닫힌)
   // 다음 커밋의 effect 에서 처리한다.
@@ -1065,7 +1069,9 @@ export default function EmbeddedBootstrapRoot({
         }
         setSession(null);
         setAccountReleaseRequest((request) => request + 1);
+        authorizationAttempt.current += 1;
         authorizedUid.current = null;
+        guestAuthorized.current = false;
         acceptedUid.current = null;
         sessionAccepted.current = false;
         selectionGeneration.current += 1;

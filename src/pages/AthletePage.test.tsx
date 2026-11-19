@@ -1050,6 +1050,22 @@ it("rejects malformed target paths before registering Firestore reads", async ()
   expect(mockCallableInvocations.filter(call => call.name === "getPublicAthleteTotals")).toHaveLength(0);
 });
 
+it("records a synchronous signal listener failure while the independent totals read still works", async () => {
+  setDocData("users_public/athlete-1", { nickname: "Public rider", profilePublic: true });
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  const failure = new Error("Firestore was terminated");
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (ref.path === "users_public/athlete-1" && options && typeof options === "object" && "includeMetadataChanges" in options) throw failure;
+    return Reflect.apply(original, undefined, [ref, options, next, error]);
+  }) as typeof onSnapshot);
+  const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+  try {
+    renderWithProviders(<AthletePage />);
+    await screen.findByText("5회");
+    expect(log).toHaveBeenCalledWith("AthletePage.totalsSignal", failure, { kind: "public" }, expect.anything(), null, "", expect.any(Function));
+  } finally { log.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
 it("retries the callable immediately when a terminated signal subscription has not delivered a new callback", async () => {
   setDocData("users_public/athlete-1", { nickname: "Retry rider", athleteTotalsSignal: "one" });
   const original = vi.mocked(onSnapshot).getMockImplementation()!;
@@ -1161,6 +1177,37 @@ it("releases an old continuation's busy state when the injected app changes", as
     await screen.findByText("Current app continuation");
     await act(async () => release({ expiresAt: Date.now() + 600000, items: [createMockActivity({ id: "late", userId: "athlete-1", description: "Rejected old app result" })] as never, nextCursor: null, exhausted: true }));
     expect(screen.queryByText("Rejected old app result")).not.toBeInTheDocument();
+  } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
+});
+
+it("removes existing public cards and ignores an older continuation after a block revision", async () => {
+  const profile = { nickname: "Public rider", profilePublic: true };
+  setDocData("users_public/athlete-1", profile);
+  const original = vi.mocked(loadActivityDiscovery).getMockImplementation()!;
+  let blocked = false;
+  let resolveOld!: (value: Awaited<ReturnType<typeof loadActivityDiscovery>>) => void;
+  const page = (description: string, cursor: string | null) => ({
+    expiresAt: Date.now() + 600000,
+    items: [createMockActivity({ id: description, userId: "athlete-1", description })] as never,
+    nextCursor: cursor,
+    exhausted: cursor === null,
+  });
+  vi.mocked(loadActivityDiscovery).mockImplementation(async (services, request) => {
+    if (request.order === "id_asc" || request.fromInclusive !== undefined) return original(services, request);
+    if (blocked) return { ...page("", null), items: [] };
+    if (request.cursor) return new Promise(resolve => { resolveOld = resolve; });
+    return page("Visible before block", "next");
+  });
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("Visible before block");
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+    await waitFor(() => expect(resolveOld).toBeDefined());
+    blocked = true;
+    act(() => setDocData("users/viewer", { ...createMockProfile(), activitySocialAccessRevision: "blocked" }));
+    await waitFor(() => expect(screen.queryByText("Visible before block")).not.toBeInTheDocument());
+    await act(async () => resolveOld(page("Late private activity", null)));
+    expect(screen.queryByText("Late private activity")).not.toBeInTheDocument();
   } finally { vi.mocked(loadActivityDiscovery).mockImplementation(original); }
 });
 

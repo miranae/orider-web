@@ -9,7 +9,7 @@ import { loadActivityDiscovery } from "../services/activityDiscovery";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadSegmentMetadataPage } from "../services/segmentMetadata";
 import { acceptedStatsActivities, acceptedTrainingActivities } from "../utils/estimateTSS";
-import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -184,6 +184,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const ACTIVITIES_PAGE_SIZE = 20;
   const [displayActivities, setDisplayActivities] = useState<Activity[]>([]);
+  const [activityResultRevision, setActivityResultRevision] = useState("0");
   const [activityAttempt, setActivityAttempt] = useState(0);
   const activityGeneration = useRef(0);
   const [activityReadError, setActivityReadError] = useState(false);
@@ -196,6 +197,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const profileReadIdentity = useRef({ userId, viewer: services.auth.currentUser, acceptedViewerUid: currentUser?.uid ?? null, auth: services.auth, database: services.firestore, functions: services.functions });
   if (profileReadIdentity.current.userId !== userId || profileReadIdentity.current.acceptedViewerUid !== (currentUser?.uid ?? null) || profileReadIdentity.current.viewer !== services.auth.currentUser || profileReadIdentity.current.auth !== services.auth || profileReadIdentity.current.database !== services.firestore || profileReadIdentity.current.functions !== services.functions) profileReadIdentity.current = { userId, viewer: services.auth.currentUser, acceptedViewerUid: currentUser?.uid ?? null, auth: services.auth, database: services.firestore, functions: services.functions };
   const readIdentity = profileReadIdentity.current;
+  const viewerRevisionRef = useRef({ identity: readIdentity, revision: "0" });
+  if (viewerRevisionRef.current.identity !== readIdentity) viewerRevisionRef.current = { identity: readIdentity, revision: "0" };
   const [viewIdentity, setViewIdentity] = useState(readIdentity);
   useEffect(() => { setViewIdentity(readIdentity); }, [readIdentity]);
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -252,32 +255,47 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!current()) return;
     const generation = ++signalGeneration.current;
     setTotalsSignals(null);
-    const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => onSnapshot(
-      doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
-        if (!current()) return;
-        // An absent counter is version zero: the live document listener observes its first insertion too.
-        const revision: unknown = snapshot.data()?.[field];
-        const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
-        setTotalsSignals(previous => {
-          const current = previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation };
-          const prior = current[kind];
-          if (prior && prior.present === signal.present && prior.fromCache === signal.fromCache && prior.error === signal.error && prior.revision === signal.revision) return previous;
-          return { ...current, [kind]: signal };
-        });
-      }, error => {
-        logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer);
-        if (current()) {
-          setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
-        }
-      });
+    const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => {
+      const failed = (error: unknown) => {
+          logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer, "", current);
+          if (current()) {
+            setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
+          }
+      };
+      try {
+        return onSnapshot(
+          doc(services.firestore, path, id), { includeMetadataChanges: true }, snapshot => {
+            if (!current()) return;
+            // An absent counter is version zero: the live document listener observes its first insertion too.
+            const revision: unknown = snapshot.data()?.[field];
+            const signal = { present: snapshot.exists(), fromCache: snapshot.metadata.fromCache, error: false, revision: typeof revision === "string" ? revision : "0" };
+            if (kind === "viewer") viewerRevisionRef.current.revision = signal.revision;
+            setTotalsSignals(previous => {
+              const current = previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation };
+              const prior = current[kind];
+              if (prior && prior.present === signal.present && prior.fromCache === signal.fromCache && prior.error === signal.error && prior.revision === signal.revision) return previous;
+              return { ...current, [kind]: signal };
+            });
+          }, failed,
+        );
+      } catch (error) {
+        failed(error);
+        return undefined;
+      }
+    };
     const stopPublic = watch("public", "users_public", userId, "athleteTotalsSignal");
     const viewer = readIdentity.viewer?.uid;
     const stopViewer = viewer && current() ? watch("viewer", "users", viewer, "activitySocialAccessRevision") : undefined;
-    return () => { active = false; if (signalGeneration.current === generation) signalGeneration.current++; stopPublic(); stopViewer?.(); };
+    return () => { active = false; if (signalGeneration.current === generation) signalGeneration.current++; stopPublic?.(); stopViewer?.(); };
   }, [isOwnProfile, userId, readIdentity, services, signalAttempt, publicTotalsAuthorized, currentUser?.uid]);
   const currentSignals = totalsSignals?.identity === readIdentity && totalsSignals.generation === signalGeneration.current ? totalsSignals : null;
   const publicAccessRevision = currentSignals?.public?.revision ?? "0";
-  const viewerAccessRevision = currentSignals?.viewer?.revision ?? "0";
+  const viewerAccessRevision = currentSignals?.viewer && !currentSignals.viewer.error
+    ? currentSignals.viewer.revision : viewerRevisionRef.current.revision;
+  const activityAccessCurrent = useCallback(() => profileReadIdentity.current === readIdentity
+    && services.auth.currentUser === readIdentity.viewer
+    && services.isSessionApproved?.(readIdentity.viewer) !== false
+    && viewerRevisionRef.current.revision === viewerAccessRevision, [readIdentity, services, viewerAccessRevision]);
   const accessRevision = useMemo(() => ({ publicAccessRevision, viewerAccessRevision }), [publicAccessRevision, viewerAccessRevision]);
   const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized });
   if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline || publicTotalsScopeRef.current.publicTotalsAuthorized !== publicTotalsAuthorized)
@@ -456,6 +474,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Activity[]>([]);
+  const [searchResultRevision, setSearchResultRevision] = useState("0");
   const [searchLoading, setSearchLoading] = useState(false);
   const isSearchActive = searchQuery.length > 0;
   const [profileTab, setProfileTab] = useState<"overview" | "activities" | "photos" | "achievements" | "segments">("overview");
@@ -488,13 +507,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }
     let cancelled = false;
 
-    const current = () => !cancelled && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer;
+    const current = () => !cancelled && activityAccessCurrent();
     const load = async () => {
       if (!current()) return;
       setActivitiesLoading(true);
       setLoadingMore(false);
       setActivityReadError(false);
       setDisplayActivities([]);
+      setActivityResultRevision(viewerAccessRevision);
       setLastActivityDoc(null);
       setPublicActivityCursor(null);
       setHasMoreActivities(true);
@@ -537,7 +557,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     load();
     return () => { cancelled = true; if (activityGeneration.current === generation) activityGeneration.current++; };
-  }, [userId, isOwnProfile, profileReadReady, activityAccessAllowed, readIdentity, activityAttempt]);
+  }, [userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, viewerAccessRevision, activityAttempt]);
 
   // 본인 차트는 선택한 연도와 최근 28일의 검증된 범위만 읽는다.
   useEffect(() => {
@@ -586,6 +606,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     let cancelled = false;
     setSearchLoading(true);
+    setSearchResults([]);
+    setSearchResultRevision(viewerAccessRevision);
     setPublicSearchCursor(null); setPublicSearchError(false);
 
     const token = searchQuery
@@ -608,7 +630,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       limit(50),
     ];
 
-    const current = () => !cancelled && profileReadIdentity.current === readIdentity && services.auth.currentUser === readIdentity.viewer;
+    const current = () => !cancelled && activityAccessCurrent();
     if (!current()) return;
     const read = isOwnProfile
       ? getDocs(query(collection(services.firestore, "activities"), ...constraints)).then(snap => docsToActivities(snap.docs))
@@ -618,12 +640,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }).finally(() => { if (current()) setSearchLoading(false); });
 
     return () => { cancelled = true; };
-  }, [searchQuery, userId, isOwnProfile, profileReadReady, activityAccessAllowed, readIdentity]);
+  }, [searchQuery, userId, isOwnProfile, profileReadReady, activityAccessAllowed, activityAccessCurrent, viewerAccessRevision]);
 
   const loadMorePublicSearch = async () => {
-    if (!userId || !publicSearchCursor || searchLoading || isOwnProfile) return;
+    if (!userId || !publicSearchCursor || searchLoading || isOwnProfile || searchResultRevision !== viewerAccessRevision) return;
     const identity = readIdentity;
-    const current = () => profileReadIdentity.current === identity && services.auth.currentUser === identity.viewer;
+    const current = activityAccessCurrent;
     if (!profileReadReady || !current()) return;
     setSearchLoading(true); setPublicSearchError(false);
     try {
@@ -644,12 +666,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   };
 
   const handleLoadMoreActivities = async () => {
-    if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore) return;
+    if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore || activityResultRevision !== viewerAccessRevision) return;
     if (!profileReadReady) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
     const identity = readIdentity;
     const generation = activityGeneration.current;
-    const current = () => profileReadIdentity.current === identity && activityGeneration.current === generation && services.auth.currentUser === identity.viewer;
+    const current = () => activityAccessCurrent() && activityGeneration.current === generation;
     if (!current()) return;
     setLoadingMore(true);
     setActivityReadError(false);
@@ -897,7 +919,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const canViewProfile = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
   const canViewFriends = isOwnProfile;
   const canSendFriendRequest = profileForPage?.friendRequestsAllowed !== false;
-  const activities = displayActivities.map((a) =>
+  const activities = (activityResultRevision === viewerAccessRevision ? displayActivities : []).map((a) =>
     !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
   );
   const isMe = isOwnProfile;
@@ -934,10 +956,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   // 비활성 시: 페이지네이션된 displayActivities 사용
   const baseActivities = useMemo(() => {
     if (!isSearchActive) return selectedPeriod || !isOwnProfile && (sport !== "all" || filterType !== "all") ? [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime) : activities;
-    return searchResults.map((a) =>
+    return (searchResultRevision === viewerAccessRevision ? searchResults : []).map((a) =>
       !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
     );
-  }, [isSearchActive, activities, searchResults, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
+  }, [isSearchActive, activities, searchResults, searchResultRevision, viewerAccessRevision, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
 
   const hasLocalFilter = !!selectedPeriod || sport !== "all" || filterType !== "all";
   const publicFiltersApplied = !isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all");

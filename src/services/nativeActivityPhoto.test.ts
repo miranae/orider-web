@@ -28,6 +28,18 @@ it("drops a response after account replacement and rejects path traversal before
   await expect(loadNativeActivityPhoto(source, { ...photo, photoId: "../photo" })).rejects.toThrow("invalid_photo");
   expect(mocks.call).not.toHaveBeenCalled();
 });
+it("does not send a photo read if the host revokes approval while App Check is pending", async () => {
+  let approved = true;
+  let ready!: () => void;
+  const source = { ...services(), isSessionApproved: () => approved,
+    ensureAppCheckReady: () => new Promise<void>(resolve => { ready = resolve; }) };
+  const pending = loadNativeActivityPhoto(source, photo);
+  approved = false;
+  await expect(loadNativeActivityPhoto(source, photo)).rejects.toThrow("account_changed");
+  ready();
+  await expect(pending).rejects.toThrow("account_changed");
+  expect(mocks.call).not.toHaveBeenCalled();
+});
 it("uploads bounded bytes and owner-only location through the server without Storage URL writes", async () => {
   await uploadNativeActivityPhoto(services(), photo, new Blob(["image"], { type: "image/webp" }), [37, 127]);
   expect(mocks.call).toHaveBeenCalledWith({ ...photo, base64: "aW1hZ2U=", contentType: "image/webp", location: { lat: 37, lon: 127 } });
