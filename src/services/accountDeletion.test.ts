@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   appCheck: vi.fn(), ready: vi.fn(), call: vi.fn(), getFunctions: vi.fn(() => ({ region: "asia-northeast3" })), reauth: vi.fn(),
 }));
 vi.mock("./firebase", () => ({ auth: mocks.auth, ensureAppCheckReady: mocks.ready, functions: { app: { options: { projectId: "test-project" } } }, getAppCheckToken: mocks.appCheck, googleProvider: {} }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
 vi.mock("firebase/functions", () => ({ getFunctions: mocks.getFunctions, connectFunctionsEmulator: vi.fn(), httpsCallable: (_service: unknown, name: string) => (payload: unknown) => mocks.call(name, payload) }));
 vi.mock("firebase/auth", () => ({ reauthenticateWithPopup: mocks.reauth }));
 vi.mock("./socialAuth", () => ({ startSocialAuth: mocks.startSocial, listSocialLinks: mocks.listSocial }));

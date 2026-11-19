@@ -21,6 +21,15 @@ This file lists product decisions that a single PR can silently break. The merge
 
 *Visibility selects the audience. Account public-data settings select which fields authorized non-owners receive. Thresholds require explicit opt-in; owner responses and saved originals remain intact.*
 
+전체 누적 요약은 별도 공개 계약입니다(2026-11-18 사용자 확정, miranae/orider-web#1725). 비로그인·타인·친구·본인에게 비공개 활동까지 포함한 전체 활동 수·누적 거리·누적 운동시간·누적 상승고도를 동일하게 제공합니다. 이 네 항목과 준비 상태·버전·항목별 결측 정보만 공개하며, 활동이 한 건뿐인 경우에도 같은 정책을 적용합니다. 활동 목록·개별 상세·시간·위치·경로·사진·메모·민감 지표의 기존 권한은 유지합니다. 계정 삭제·차단 제한을 우회하지 않습니다. 상세 공개 범위를 누적 요약의 집계 조건으로 사용하거나 활동 공개 설정을 바꾸도록 요구하지 않습니다.
+
+*Whole-history cumulative count, distance, exercise duration and elevation are public for every viewer, including private activities and single-activity accounts. Only these totals and readiness/version/completeness metadata are public; individual activity access and account/block restrictions still apply.*
+
+
+이슈 #1725의 기존 계정 일괄 백필·초기화·통계 원장 보정은 2026-11-18 사용자의 명시적 지시에 따라 제외합니다. 정본 집계가 아직 없거나 준비/복구 중이면 수치를0으로 만들지 않고 pending/failed 상태를 제공합니다. 이는 공개 범위에 따른 집계 차등이 아니며, 기존 계정의 미준비 상태 자체를 공개 정책 위반으로 간주해 백필을 요구하지 않습니다. 공개 조회에서 초기화를 시작하지 않습니다.
+
+*For #1725, existing-account bulk backfill, initialization and ledger repair are explicitly excluded by the user. Missing/unready canonical aggregates may return pending/failed without numbers; this readiness state is not an audience-based privacy restriction. Public reads must not start initialization.*
+
 ### P2. 기본값: 프로필 공개, 활동 나만 보기
 프로필은 설정하지 않았으면 공개입니다. 활동은 기본 「나만 보기」입니다. 기본값을 바꾸는 변경(초기값, 미설정 해석, 폴백)은 원칙 변경입니다.
 *Profiles default to public; activities default to private ("only me").*

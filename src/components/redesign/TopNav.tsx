@@ -536,7 +536,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                   disabled={signInPending}
                   style={{ gap: "var(--space-1-5)" }}
                 >
-                  <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
+                  <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('button.login')}
                 </Button>
               </div>
 
@@ -574,7 +574,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             </details>}
           </div>
           {!user && <div className="mobile-navigation-section"><Button onClick={() => { void handleSignInWithGoogle(); closeMobileMenuForNavigation(); }} disabled={signInPending}>
-            <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
+            <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('button.login')}
           </Button></div>}
             {/* 언어 선택 */}
             <div className="mobile-navigation-language">

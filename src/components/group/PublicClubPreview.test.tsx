@@ -20,7 +20,7 @@ describe("anonymous public club introduction", () => {
   it("shows the approved introduction and login action without member-only navigation", async () => {
     page(); expect(await screen.findByRole("heading", { name: club.name })).toBeInTheDocument();
     expect(screen.getByText("소개 문구")).toBeInTheDocument(); expect(screen.getByText("로그인 후 가입을 신청하면 운영진이 승인합니다.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "로그인", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "로그인하고 클럽 참여하기", exact: true })).toBeInTheDocument();
     for (const name of ["멤버", "공동 기록", "운영"]) expect(screen.queryByRole("link", { name, exact: true })).not.toBeInTheDocument();
   });
   it("removes a formerly public introduction when a focus refresh confirms withdrawal", async () => {

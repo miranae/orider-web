@@ -19,6 +19,7 @@ import { BoardImage } from "../features/board/BoardImage";
 import { LocalizedLink } from "../components/LocalizedLink";
 import "./BoardList.css";
 import { ICON_SIZE } from "../theme/tokens/icon";
+import { isEnterSubmit } from "../utils/isEnterSubmit";
 
 /** 글 종류 태그 색 — 작업일지는 초록(G16), 문의는 청록, 자료실은 주황, 인기는 빨강. */
 const BOARD_TYPE_CHIP: Partial<Record<BoardType, ChipVariant>> = {
@@ -234,27 +235,30 @@ const BoardPage: React.FC = () => {
         <div className="board-list-controls">
           <div className="board-list-search">
             <div data-testid="M2-1" className="relative flex-1">
-              <span className="board-search-icon" aria-hidden="true"><Search size={ICON_SIZE.md} /></span>
+              <Button
+                type="button"
+                className="board-search-icon"
+                variant="ghost"
+                iconOnly
+                aria-label={t("button.search")}
+                onClick={handleSearch}
+                disabled={isMyPosts || isMyInquiryView}
+              >
+                <Search size={ICON_SIZE.md} aria-hidden="true" />
+              </Button>
               <Input data-testid="M2-1-1"
                 type="search"
+                enterKeyHint="search"
                 aria-label={t("placeholder.search")}
                 disabled={isMyPosts || isMyInquiryView}
                 placeholder={t("placeholder.search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSearch(); }}
+                onKeyDown={(e) => { if (isEnterSubmit(e.nativeEvent)) handleSearch(); }}
                 className="board-search-input w-full"
               />
             </div>
 
-            <div className="flex">
-              <Button
-                onClick={handleSearch}
-                disabled={isMyPosts || isMyInquiryView} variant="secondary"
-              >
-                {t("button.search")}
-              </Button>
-            </div>
             {submittedQuery && (
               <button
                 onClick={() => { setSearchQuery(''); updateFilters({ q: undefined }); }}
