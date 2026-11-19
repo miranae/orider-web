@@ -2,9 +2,6 @@ name: Deploy (Hosting → stage)
 
 # 개발 코드는 orider-dev Hosting에 배포하며 데이터·기능 기본값은 현재 운영 snapshot을 사용한다.
 on:
-  push:
-    branches:
-      - dev
   workflow_dispatch:
 
 permissions:
@@ -13,7 +10,7 @@ permissions:
 
 concurrency:
   group: deploy-hosting-stage
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy-stage:
@@ -24,6 +21,7 @@ jobs:
     environment: stage
     env:
       VITE_MODE: production
+      ORIDER_STAGE_HOSTING_SERIALIZED_WRITES: ${{ vars.ORIDER_STAGE_HOSTING_SERIALIZED_WRITES }}
       # 개발 Hosting도 운영 데이터다. 공개 GET endpoint만 명시적으로 준비한다.
       VITE_PUBLIC_CLUB_API_URL: ${{ vars.VITE_PUBLIC_CLUB_API_URL }}
     steps:
@@ -32,6 +30,14 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+      # missing/false는 의도적인 게시 동결이다. 머지 자체는 활성화가 필요하지 않다.
+      # 운영자가 remote dev의 수동 트리거·취소 없는 lock을 확인한 뒤 별도 단계로 true를 설정한다.
+      - name: Require serialized CI development Hosting writes
+        run: |
+          set -euo pipefail
+          if [ "$ORIDER_STAGE_HOSTING_SERIALIZED_WRITES" != true ]; then
+            echo "::error::Development Hosting requires ORIDER_STAGE_HOSTING_SERIALIZED_WRITES=true and serialized CI as the only supported live writer"; exit 1
+          fi
       - name: Set production runtime snapshot path
         env:
           PRODUCTION_RUNTIME_CONFIG_PATH: ${{ runner.temp }}/orider-production-runtime-config.json

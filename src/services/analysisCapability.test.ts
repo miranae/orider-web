@@ -1,6 +1,6 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { analysisCapabilityAvailable, matchesAnalysisCapability } from "./analysisCapability";
-import { resetRuntimeConfigForTests } from "./runtimeConfig";
+import { resetRuntimeConfigForTests, STAGE_PARITY_GATEWAY } from "./runtimeConfig";
 const production = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", activityAnalysisExpansionEnabled: true, trainingAnalysisPeriodsEnabled: true };
 const endpoint = "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net";
 function sdk() {
@@ -19,6 +19,15 @@ it("uses existing flags and the standard authenticated Firebase endpoint in a pr
  expect(analysisCapabilityAvailable("routes")).toBe(false); expect(analysisCapabilityAvailable("bikePeriods")).toBe(true);
  resetRuntimeConfigForTests({...production, trainingAnalysisPeriodsEnabled:false});
  expect(analysisCapabilityAvailable("bikePeriods")).toBe(false); expect(analysisCapabilityAvailable("routes")).toBe(true);
+});
+it("matches the real SDK custom-domain region while retaining production capability flags", () => {
+ const config = {...production, deploymentProfile:"production-parity-stage" as const, firebaseFunctionsBase:STAGE_PARITY_GATEWAY};
+ resetRuntimeConfigForTests(config);
+ const s=sdk();s.functions.customDomain=STAGE_PARITY_GATEWAY;s.functions.region="us-central1";
+ expect(matchesAnalysisCapability(s,"routes")).toBe(true);
+ expect(matchesAnalysisCapability({...s,functions:{...s.functions,emulatorOrigin:"http://localhost:5001"}} as FirebaseServices,"routes")).toBe(false);
+ resetRuntimeConfigForTests({...config,activityAnalysisExpansionEnabled:false});expect(analysisCapabilityAvailable("routes")).toBe(false);
+ resetRuntimeConfigForTests({...config,trainingAnalysisPeriodsEnabled:false});expect(analysisCapabilityAvailable("bikePeriods")).toBe(false);
 });
 it("rejects arbitrary runtime identities, endpoint overrides, emulator precedence and foreign SDK apps", () => {
  for (const patch of [{firebaseProjectId:"other"},{firebaseFunctionsRegion:"us-central1"},{useEmulators:true},{firebaseFunctionsBase:"https://untrusted.example"},{firebaseFunctionsBase:endpoint+"/"},{firebaseFunctionsBase:endpoint+"?x=1"},{appEnvironment:"unknown"}]) {

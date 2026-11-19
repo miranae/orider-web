@@ -114,7 +114,7 @@
   "button.detailView": "Details",
   "button.loadMore": "Load more",
   "button.loadingMore": "Loading...",
-  "search.placeholder": "Search courses... (Enter)",
+  "search.placeholder": "Search courses...",
   "sort.latest": "Latest",
   "sort.popular": "Popular",
   "stats.resultCount": "Search results: {{count}}",

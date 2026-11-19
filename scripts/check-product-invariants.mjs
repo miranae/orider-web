@@ -13,7 +13,7 @@ import { resolve } from "node:path";
 export const RULES = [
   {
     id: "P1",
-    title: "폐지한 hideHr·hidePower 대신 계정 공개 데이터 계약을 사용한다",
+    title: "폐지한 hideHr·hidePower 대신 계정 공개 데이터 계약을 사용한다 (전체 누적 네 항목은 별도 공개)",
     pattern: /\bhide(?:Hr|Power)\b/u,
     // 2026-10-31 남은 사용처(Strava 기록 가리기·캐시 키)를 정리했다 — 허용 없음.
     allow: {},

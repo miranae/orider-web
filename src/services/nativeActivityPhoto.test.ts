@@ -3,7 +3,7 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadNativeActivityCover, setNativeActivityCover, authorizeNativeActivityPhoto, isLegacyActivityPhotoUrl, loadNativeActivityPhoto, setProviderPhotosHidden, uploadNativeActivityPhoto } from "./nativeActivityPhoto";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), getFunctions: vi.fn(() => ({})), callable: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ getFunctions: mocks.getFunctions, httpsCallable: (...args: unknown[]) => { mocks.callable(...args); return mocks.call; }, connectFunctionsEmulator: vi.fn() }));
-vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
+vi.mock("./runtimeConfig", async (importOriginal) => ({ ...await importOriginal<typeof import("./runtimeConfig")>(), getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
 const services = (uid: string | null = "owner") => ({ auth: { currentUser: uid ? { uid, isAnonymous: false } : null }, functions: { app: { name: "test" } }, ensureAppCheckReady: mocks.ready } as unknown as FirebaseServices);
 const photo = { activityId: "ride", photoId: "photo" };
 beforeEach(() => { vi.clearAllMocks(); mocks.ready.mockResolvedValue(undefined); mocks.call.mockResolvedValue({ data: { base64: "aW1hZ2U=", contentType: "image/webp" } }); });

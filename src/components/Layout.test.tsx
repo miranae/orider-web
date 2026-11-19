@@ -136,10 +136,10 @@ describe("Layout", () => {
     renderWithProviders(<Layout />, { authenticated: false });
 
     await waitFor(() => {
-      expect(screen.getByText("기록을 저장하려면 로그인")).toBeInTheDocument();
+      expect(screen.getByText("로그인")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText("기록을 저장하려면 로그인"));
+    await user.click(screen.getByText("로그인"));
     // 로그인 방식 선택 창 → Google
     await user.click(await screen.findByTestId("A1-1-1"));
     expect(mockSignInWithPopup).toHaveBeenCalled();
