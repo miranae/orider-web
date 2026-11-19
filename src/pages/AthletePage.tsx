@@ -204,8 +204,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const readIdentity = profileReadIdentity.current;
   const viewerRevisionRef = useRef({ identity: readIdentity, revision: "0" });
   if (viewerRevisionRef.current.identity !== readIdentity) viewerRevisionRef.current = { identity: readIdentity, revision: "0" };
-  const publicPresenceRef = useRef<{ identity: typeof readIdentity; state: "unknown" | "present" | "deleted" }>({ identity: readIdentity, state: "unknown" });
-  if (publicPresenceRef.current.identity !== readIdentity) publicPresenceRef.current = { identity: readIdentity, state: "unknown" };
+  const publicPresenceRef = useRef<{ identity: typeof readIdentity; state: "unknown" | "present" | "deleted"; deletions: number }>({
+    identity: readIdentity, state: "unknown", deletions: 0,
+  });
+  if (publicPresenceRef.current.identity !== readIdentity) publicPresenceRef.current = { identity: readIdentity, state: "unknown", deletions: 0 };
   const [viewIdentity, setViewIdentity] = useState(readIdentity);
   useEffect(() => { setViewIdentity(readIdentity); }, [readIdentity]);
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -280,7 +282,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             if (kind === "public") {
               const presence = publicPresenceRef.current;
               if (signal.present && (!signal.fromCache || presence.state === "unknown")) presence.state = "present";
-              if (!signal.present && !signal.fromCache && presence.state === "present") presence.state = "deleted";
+              if (!signal.present && !signal.fromCache && presence.state === "present") {
+                presence.state = "deleted";
+                presence.deletions += 1;
+              }
             }
             setTotalsSignals(previous => {
               const current = previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation };
@@ -303,14 +308,17 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const currentSignals = totalsSignals?.identity === readIdentity && totalsSignals.generation === signalGeneration.current ? totalsSignals : null;
   const publicAccessRevision = currentSignals?.public?.revision ?? "0";
   const publicProfileDeleted = publicPresenceRef.current.state === "deleted";
+  const publicProfileDeletions = publicPresenceRef.current.deletions;
   const viewerAccessRevision = currentSignals?.viewer && !currentSignals.viewer.error
     ? currentSignals.viewer.revision : viewerRevisionRef.current.revision;
   const activityAccessCurrent = useCallback(() => profileReadIdentity.current === readIdentity
     && services.auth.currentUser === readIdentity.viewer
     && services.isSessionApproved?.(readIdentity.viewer) !== false
-    && viewerRevisionRef.current.revision === viewerAccessRevision, [readIdentity, services, viewerAccessRevision]);
-  const accessRevision = useMemo(() => ({ publicAccessRevision, publicProfileDeleted, viewerAccessRevision }),
-    [publicAccessRevision, publicProfileDeleted, viewerAccessRevision]);
+    && publicPresenceRef.current.state !== "deleted"
+    && publicPresenceRef.current.deletions === publicProfileDeletions
+    && viewerRevisionRef.current.revision === viewerAccessRevision, [publicProfileDeletions, readIdentity, services, viewerAccessRevision]);
+  const accessRevision = useMemo(() => ({ publicAccessRevision, publicProfileDeleted, publicProfileDeletions, viewerAccessRevision }),
+    [publicAccessRevision, publicProfileDeleted, publicProfileDeletions, viewerAccessRevision]);
   const publicTotalsScopeRef = useRef({ identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized });
   if (publicTotalsScopeRef.current.identity !== readIdentity || publicTotalsScopeRef.current.signals !== currentSignals || publicTotalsScopeRef.current.networkOnline !== networkOnline || publicTotalsScopeRef.current.publicTotalsAuthorized !== publicTotalsAuthorized)
     publicTotalsScopeRef.current = { identity: readIdentity, signals: currentSignals, networkOnline, publicTotalsAuthorized };
@@ -625,6 +633,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!profileReadReady) return;
     if (!activityAccessAllowed) {
       setSearchResults([]);
+      setPublicSearchCursor(null);
+      setPublicSearchError(false);
       setSearchLoading(false);
       return;
     }
@@ -1051,11 +1061,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용
   const baseActivities = useMemo(() => {
+    if (publicProfileDeleted) return [];
     if (!isSearchActive) return selectedPeriod || !isOwnProfile && (sport !== "all" || filterType !== "all") ? [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime) : activities;
     return (searchResultRevision === viewerAccessRevision ? searchResults : []).map((a) =>
       !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
     );
-  }, [isSearchActive, activities, searchResults, searchResultRevision, viewerAccessRevision, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
+  }, [publicProfileDeleted, isSearchActive, activities, searchResults, searchResultRevision, viewerAccessRevision, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
 
   const hasLocalFilter = !!selectedPeriod || sport !== "all" || filterType !== "all";
   const publicFiltersApplied = !isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all");
