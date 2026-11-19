@@ -85,7 +85,7 @@ test("promotion is one production job without application install, rebuild, rehe
   const workflow=readFileSync(new URL("../.github/workflows/promote-hosting.yml",import.meta.url),"utf8");
   for(const removed of ["npm run build","actions/download-artifact","verify-bundled-hosting","inputs.phase","environment: stage"])assert.ok(!workflow.includes(removed),removed);
   assert.equal(workflow.match(/npm ci/g)?.length,1);
-  assert.match(workflow,/if ! jq -e '\.productionEntry[\s\S]*?cd "\$parser_workspace" && npm ci --include=dev/);
+  assert.match(workflow,/parser_workspace="\$RUNNER_TEMP\/client-promotion-html-parser"[\s\S]*?cd "\$parser_workspace" && npm ci --include=dev --ignore-scripts/);
   assert.deepEqual([...workflow.matchAll(/^  ([A-Za-z_-]+):$/gm)].map(match=>match[1]).filter(name=>["prepare","promote"].includes(name)),["promote"]);
   assert.match(workflow,/--phase snapshot[\s\S]*?--phase rollback/);
   assert.match(workflow,/Retain recovery receipt[^\n]+\n[^\n]+failure\(\)[^\n]+\n\s+continue-on-error: true\n\s+uses: actions\/upload-artifact@v4/);
@@ -107,6 +107,7 @@ test("checks gateway readiness and the login route without binding the backend c
       const path = new URL(url).pathname;
       calls.push([path, init.method ?? "GET"]);
       const responseHeaders = {...headers,"access-control-allow-origin":init.headers?.Origin ?? headers["access-control-allow-origin"]};
+      if (path.startsWith("/oriderReadinessMissing")) return Response.json({error:"unknown-bundle-function"}, {status:404,headers:responseHeaders});
       if (path === "/readyz") return Response.json({status:"ok",sourceSha:"e".repeat(40),topologyHash:"f".repeat(64)});
       if (init.method === "OPTIONS") return new Response(null, {status:204,headers:responseHeaders});
       if (path === "/v1/activity-narrative") return Response.json({error:{code:"unauthenticated"}}, {status:401,headers:responseHeaders});
@@ -116,9 +117,12 @@ test("checks gateway readiness and the login route without binding the backend c
     };
     await verifyClientPromotion(f,fetcher);
     assert.deepEqual(calls.filter(([path])=>path==="/readyz"),[["/readyz","GET"]]);
+    assert.equal(calls.filter(([path,method])=>path.startsWith("/oriderReadinessMissing")&&method==="POST").length,1);
     for (const path of ["/getActivityDiscovery","/socialAuthStart","/webHandoffRedeem","/v1/activity-narrative"]) {
       assert.deepEqual(calls.filter(([seen])=>seen===path).map(([,method])=>method).sort(),["OPTIONS","OPTIONS","OPTIONS","OPTIONS","POST","POST","POST","POST"]);
     }
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.includes("/oriderReadinessMissing")
+      ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers}) : fetcher(url,init)),/missing-route control/);
     await verifyClientPromotion(f,async(url,init)=>init.method === "POST" && url.endsWith("/socialAuthStart")
       ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers:{...headers,"access-control-allow-origin":init.headers.Origin}})
       : fetcher(url,init));
@@ -153,7 +157,10 @@ test("one public release check validates the HTML, entry, runtime and sitemap re
     await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/runtime-config.json" ? new Response("stale") : fetcher(url)),/differs/);
     await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/" ? new Response(readFileSync(join(f.workspace,"dist","index.html")), {headers:{"content-type":"text/plain"}}) : fetcher(url)),/did not return HTML/);
     await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent" ? new Response("not found", {status:404}) : fetcher(url)),/course\/nonexistent.*HTTP404/);
-    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent" ? new Response("<!-- /assets/index-abc.js -->", {headers:{"content-type":"text/html"}}) : fetcher(url)),/course\/nonexistent differs/);
+    await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent" ? new Response("<!-- /assets/index-abc.js -->", {headers:{"content-type":"text/html"}}) : fetcher(url)),/stage entry script missing.*course\/nonexistent/);
+    await verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/ko/course/nonexistent"
+      ? new Response('<title>Course details</title><script type="module" src="/assets/index-abc.js"></script>', {headers:{"content-type":"text/html"}})
+      : fetcher(url));
     await assert.rejects(verifyPublishedPromotion(f,async url=>new URL(url).pathname === "/api/strava/webhook" ? new Response("not found", {status:404}) : fetcher(url)),/strava\/webhook/);
   }finally{f.cleanup();}
 });

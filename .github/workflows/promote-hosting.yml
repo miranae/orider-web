@@ -67,12 +67,10 @@ jobs:
           set -euo pipefail
           candidate_sha=$(node -p 'JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP+"/client-candidate/archive.json")).frontendSourceSha')
           if ! git cat-file -e "$candidate_sha^{commit}"; then git fetch --no-tags origin "$candidate_sha"; fi
-          # New signed receipts carry the parser's result for the production origin.
-          # Restore only the locked parser when promoting a receipt from an older release.
-          if ! jq -e '.productionEntry | type == "string"' "$RUNNER_TEMP/client-candidate/payload/build.json" >/dev/null; then
-            parser_workspace="$RUNNER_TEMP/client-promotion-html-parser"
-            mkdir "$parser_workspace"
-            node - "$parser_workspace" <<'JS'
+          # Install only the two locked HTML parser packages in an isolated workspace.
+          parser_workspace="$RUNNER_TEMP/client-promotion-html-parser"
+          mkdir "$parser_workspace"
+          node - "$parser_workspace" <<'JS'
           const {readFileSync,writeFileSync}=require("node:fs");
           const {join}=require("node:path");
           const workspace=process.argv[2];
@@ -82,9 +80,9 @@ jobs:
           writeFileSync(join(workspace,"package.json"),JSON.stringify(root));
           writeFileSync(join(workspace,"package-lock.json"),JSON.stringify({...root,lockfileVersion:3,packages:{"":root,...resolved}}));
           JS
-            (cd "$parser_workspace" && npm ci --include=dev --ignore-scripts --no-fund --no-audit)
-            export NODE_PATH="$parser_workspace/node_modules"
-          fi
+          (cd "$parser_workspace" && npm ci --include=dev --ignore-scripts --no-fund --no-audit)
+          export NODE_PATH="$parser_workspace/node_modules"
+          echo "NODE_PATH=$NODE_PATH" >> "$GITHUB_ENV"
           node scripts/promote-bundled-client.mjs --phase prepare --archive "$RUNNER_TEMP/client-candidate/payload" --run "$RUNNER_TEMP/client-candidate/run.json" --artifact "$RUNNER_TEMP/client-candidate/archive.json" --attempt "$CANDIDATE_ATTEMPT"
           node scripts/promote-bundled-client.mjs --phase verify
           echo "PREPARED_AT_MS=$(node -p 'Date.now()')" >> "$GITHUB_ENV"

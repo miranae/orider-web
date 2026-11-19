@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { assertStageEntryArtifact, stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
+import { assertStageEntryArtifact, stageArtifactManifest, stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
-import { verifyBundledCallable, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
+import { verifyBundledCallable, verifyBundledHttpAliases, verifyBundledRouteControl } from "./lib/bundled-callable-probe.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
@@ -116,6 +116,7 @@ export async function verifyClientPromotion(options, fetcher = fetch) {
   const { aiApiBase, firebaseFunctionsBase, socialAuthFunctionsBase } = receipt.runtime;
   await Promise.all([
     verifyGatewayReadiness(`${firebaseFunctionsBase}/readyz`, fetcher),
+    verifyBundledRouteControl({ base: firebaseFunctionsBase, origin: productionOrigins[0], fetcher }),
     ...productionOrigins.flatMap(origin => [
       verifyBundledCallable({ base: firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher }),
       verifyBundledCallable({
@@ -163,8 +164,12 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
     let bytes;
     try { bytes = Buffer.from(await response.arrayBuffer()); }
     catch (cause) { throw new Error(`published GET response body could not be read at ${url}`, { cause }); }
-    const artifactPath = path === deepLink ? "index.html" : path;
-    if (hash(bytes) !== expected.get(artifactPath)) throw new Error(`published ${path} differs from prepared artifact at ${url}`);
+    if (path === deepLink) {
+      const liveEntry = stageHtmlEntry(bytes.toString("utf8"), String(url), origin);
+      if (liveEntry !== receipt.entry) throw new Error(`published deep link entry differs at ${url}`);
+      return;
+    }
+    if (hash(bytes) !== expected.get(path)) throw new Error(`published ${path} differs from prepared artifact at ${url}`);
   };
   await Promise.all([
     ...["index.html", deepLink, "runtime-config.json", receipt.entry, "sitemap.xml"].map(verifyPublishedResource),
