@@ -24,11 +24,10 @@ function withObservedCoordinates(streams: ActivityStreams, gridOrigin: number | 
     || !time.every((sample, index) => sample === index)) return streams;
 
   const aligned = new Array<[number, number]>(time.length);
-  coordinates.forEach((point, index) => {
-    const observedSeconds = geometry.time[index];
-    if (observedSeconds === undefined) return;
-    const slot = Math.floor((routeOrigin + observedSeconds * 1000 - gridOrigin) / 1000);
-    if (slot >= 0 && slot < time.length) aligned[slot] = point;
+  geometry.time.forEach((elapsed, index) => {
+    const point = coordinates[index];
+    const slot = Math.floor((routeOrigin + elapsed * 1000 - gridOrigin) / 1000);
+    if (point && slot >= 0 && slot < time.length) aligned[slot] = point;
   });
   return aligned.some(Boolean) ? { ...streams, latlng: aligned } : streams;
 }
