@@ -33,6 +33,8 @@ const contracts = [
   'scripts/production-monitor.test.mjs',
   'scripts/review-context.test.mjs',
   'scripts/eslint-embedded-firebase.test.mjs',
+  'scripts/prepare-bundled-stage.test.mjs',
+  'scripts/prepare-bundled-production.test.mjs',
 ];
 
 function runGate({ feature = false, fail = '' } = {}) {

@@ -79,10 +79,12 @@ it("removes the preserved layout when current access is denied", async () => {
   expect(document.querySelector('[style*="2400px"]')).toBeNull();
 });
 it("removes map geometry from the model while preserving only layout during revalidation", async () => {
+  const visibilityRegistration = vi.spyOn(document, "addEventListener");
   const mapped = { ...detail, mapPreview: { encodedPolyline: "authorized-track", imageUrl: "https://example.test/map" } } as PublicActivityDetail;
   state.load.mockResolvedValue(mapped);
   render(<MemoryRouter><ActivityPublicAccess {...options}>{({ model }) => <output data-testid="map-model">{JSON.stringify({ track: model.activity?.thumbnailTrack, image: model.activity?.mapImageUrl })}</output>}</ActivityPublicAccess></MemoryRouter>);
   await waitFor(() => expect(screen.getByTestId("map-model")).toHaveTextContent("authorized-track"));
+  await waitFor(() => expect(visibilityRegistration).toHaveBeenCalledWith("visibilitychange", expect.any(Function)));
   state.load.mockReturnValue(new Promise(() => {}));
   act(() => document.dispatchEvent(new Event("visibilitychange")));
   expect(screen.getByTestId("map-model")).toHaveTextContent('{"track":"","image":null}');

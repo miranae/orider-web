@@ -4,7 +4,13 @@ export const STAGE_PUBLIC_CLUB_ENDPOINT = "https://stage-parity-default-81836400
 /** 공개 경로 설정만 허용한다. 인증·비밀·회원 데이터 경계를 바꾸지 않는다. */
 export function publicClubEndpoint(value, stage = false) {
   if (value === undefined || value === "") return undefined;
-  if (value !== (stage ? STAGE_PUBLIC_CLUB_ENDPOINT : PUBLIC_CLUB_ENDPOINT)) throw new Error("public club endpoint must match the approved environment function");
+  const bundled = {
+    "bundled-development": "https://dev-bundle-default-api-818364001341.asia-northeast3.run.app/publicClubs",
+    "bundled-production": "https://orider-bundle-default-api-289663940841.asia-northeast3.run.app/publicClubs",
+  };
+  if (typeof stage !== "boolean" && !Object.hasOwn(bundled, stage)) throw new Error("unapproved public club environment");
+  const expected = Object.hasOwn(bundled, stage) ? bundled[stage] : stage === true ? STAGE_PUBLIC_CLUB_ENDPOINT : PUBLIC_CLUB_ENDPOINT;
+  if (value !== expected) throw new Error("public club endpoint must match the approved environment function");
   return value;
 }
 
@@ -15,8 +21,9 @@ export function withPublicClubEndpoint(source, override) {
 
 /** GET으로 제한한 배포 전 점검. 응답 원문·소개 문자열·식별자는 로그하지 않는다. */
 export async function verifyPublicClubApi(config, origin, fetcher = fetch) {
-  const stage = config.appEnvironment === "stage" || config.deploymentProfile === "production-parity-stage";
-  const endpoint = publicClubEndpoint(config.publicClubApiUrl, stage);
+  const bundled = ["bundled-development", "bundled-production"].includes(config.deploymentProfile);
+  const stage = config.appEnvironment === "stage" || config.deploymentProfile === "production-parity-stage" || config.deploymentProfile === "bundled-development";
+  const endpoint = publicClubEndpoint(config.publicClubApiUrl, bundled ? config.deploymentProfile : stage);
   if (!endpoint) throw new Error("public club endpoint is not configured");
   if (!["https://orider.co.kr", "https://orider-dev.web.app"].includes(origin)) throw new Error("unapproved public club origin");
   if (stage && origin !== "https://orider-dev.web.app") throw new Error("stage public club API requires the development origin");
