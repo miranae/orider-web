@@ -58,19 +58,19 @@ export interface RuntimeConfig {
   sentryDsn?: string;
   appEnvironment?: string;
   /** 운영 UI/계산 경로를 유지하면서 개발 실행 주소만 선택하는 배포 프로필. */
-  deploymentProfile?: "production-parity-stage";
+  deploymentProfile?: "production-parity-stage" | "bundled-development" | "bundled-production";
   useEmulators?: boolean;
 }
 
 let runtimeConfig: RuntimeConfig = readBuildFallbackConfig();
-let loaded = false;
+let runtimeLoad: Promise<RuntimeConfig> | undefined;
 
 function readBuildFallbackConfig(): RuntimeConfig {
-  const allowBuildFallback =
+  const allowBuildFallback = import.meta.env.VITE_REQUIRE_BUNDLED_RUNTIME !== "true" && (
     import.meta.env.DEV ||
     import.meta.env.MODE === "test" ||
     import.meta.env.VITE_USE_EMULATORS === "true" ||
-    import.meta.env.VITE_USE_BUILD_ENV_FALLBACK === "true";
+    import.meta.env.VITE_USE_BUILD_ENV_FALLBACK === "true");
 
   if (!allowBuildFallback) {
     return {
@@ -144,26 +144,46 @@ function withoutEmptyValues(config: RuntimeConfig): RuntimeConfig {
   ) as RuntimeConfig;
 }
 
-export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
-  if (loaded) return runtimeConfig;
-  loaded = true;
-
-  if (typeof window === "undefined") return runtimeConfig;
-
-  try {
-    const response = await fetch(`/runtime-config.json?v=${Date.now()}`, {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-    if (!response.ok) return runtimeConfig;
-
-    const remote = withoutEmptyValues((await response.json()) as RuntimeConfig);
-    runtimeConfig = { ...runtimeConfig, ...remote };
-  } catch {
-    // Local dev and tests may not provide runtime-config.json; Vite env fallback remains.
+async function fetchRuntimeConfig(): Promise<RuntimeConfig> {
+  const requireBundled = import.meta.env.VITE_REQUIRE_BUNDLED_RUNTIME === "true";
+  if (typeof window === "undefined") {
+    if (requireBundled) throw new Error("bundled/runtime-config-browser-required");
+    return runtimeConfig;
   }
 
+  let response: Response;
+  try {
+    response = await fetch(`/runtime-config.json?v=${Date.now()}`, {
+      cache: "no-store", credentials: "same-origin",
+    });
+  } catch (error) {
+    if (requireBundled) throw Object.assign(new Error("bundled/runtime-config-network"), { cause: error });
+    return runtimeConfig;
+  }
+  if (!response.ok) {
+    if (requireBundled) throw new Error(`bundled/runtime-config-http-${response.status}`);
+    return runtimeConfig;
+  }
+
+  let remote: RuntimeConfig;
+  try {
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new TypeError("Expected a runtime config object");
+    remote = withoutEmptyValues(payload as RuntimeConfig);
+  } catch (error) {
+    if (requireBundled) throw Object.assign(new Error("bundled/runtime-config-json"), { cause: error instanceof Error ? error.name : undefined });
+    void import("./sentry").then(({ captureError }) => {
+      captureError(new Error("legacy/runtime-config-json"), { tags: { source: "runtime-config" } });
+    }).catch(() => {});
+    return runtimeConfig;
+  }
+  if (requireBundled && !bundledFunctionsBase(remote)) throw new Error("bundled/runtime-config-profile");
+  runtimeConfig = { ...runtimeConfig, ...remote };
   return runtimeConfig;
+}
+
+export function loadRuntimeConfig(): Promise<RuntimeConfig> {
+  return runtimeLoad ??= fetchRuntimeConfig();
 }
 
 export function getRuntimeConfig(): RuntimeConfig {
@@ -176,7 +196,7 @@ export function isEmulatorRuntime(): boolean {
 
 export function resetRuntimeConfigForTests(config: RuntimeConfig = {}): void {
   runtimeConfig = { ...readBuildFallbackConfig(), ...withoutEmptyValues(config) };
-  loaded = false;
+  runtimeLoad = undefined;
 }
 
 export const STAGE_PARITY_GATEWAY = "https://stage-parity-default-818364001341.asia-northeast3.run.app";
@@ -190,8 +210,48 @@ export function isStageComputeRuntime(config: RuntimeConfig = getRuntimeConfig()
   return config.appEnvironment === "stage" || isStageParityRuntime(config);
 }
 
+export const BUNDLED_AI_BASES = {
+  development: "https://dev-bundle-ai-api-818364001341.asia-northeast3.run.app",
+  production: "https://orider-ai-api-h5zqzw3n4a-du.a.run.app",
+} as const;
+export const BUNDLED_FUNCTIONS_BASES = {
+  development: "https://dev-bundle-default-api-818364001341.asia-northeast3.run.app",
+  production: "https://orider-bundle-default-api-289663940841.asia-northeast3.run.app",
+} as const;
+
+/** 검증한 공통 라우팅을 환경 주소만 바꿔 사용한다. 잘못된 설정은 리전 함수로 폴백하지 않는다. */
+export function bundledFunctionsBase(config: RuntimeConfig = getRuntimeConfig()): string | undefined {
+  if (config.deploymentProfile !== "bundled-development" && config.deploymentProfile !== "bundled-production") return undefined;
+  const environment = config.deploymentProfile === "bundled-development" ? "development" : "production";
+  const base = BUNDLED_FUNCTIONS_BASES[environment];
+  if (config.appEnvironment !== "production" || config.firebaseFunctionsBase !== base
+    || config.socialAuthFunctionsBase !== base || config.personalApiBase !== base || config.aiApiBase !== BUNDLED_AI_BASES[environment]
+    || config.publicClubApiUrl !== `${base}/publicClubs` || config.firebaseProjectId !== "miranae-orider-g1"
+    || config.firebaseFunctionsRegion !== "asia-northeast3" || config.useEmulators === true) {
+    throw new Error("bundled/transport-profile-mismatch");
+  }
+  return base;
+}
+
+/** SDK 실행 주소 선택에만 사용한다. 분석 전용 QA 허용 범위를 넓히지 않는다. */
+export function isFunctionsGatewayRuntime(config: RuntimeConfig = getRuntimeConfig()): boolean {
+  return bundledFunctionsBase(config) !== undefined || isStageComputeRuntime(config);
+}
+
 /** Shared data is intentional; analysis stays isolated and Auth needs an explicit reviewed exception. */
 export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = globalThis.location?.hostname, origin = globalThis.location?.origin): void {
+  const bundled = bundledFunctionsBase(config);
+  if (bundled) {
+    const development = config.deploymentProfile === "bundled-development";
+    const allowed = development ? ["orider-dev.web.app", "orider-dev.firebaseapp.com"]
+      : ["orider.co.kr", "www.orider.co.kr", "miranae-orider-g1.web.app", "miranae-orider-g1.firebaseapp.com"];
+    if (!hostname || !allowed.includes(hostname) || origin !== `https://${hostname}`
+      || config.firebaseAuthDomain !== "miranae-orider-g1.firebaseapp.com"
+      || !/^miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)$/.test(config.firebaseStorageBucket ?? "")
+      || config.firebaseAppId !== "1:289663940841:web:ba08cdae154286e6499878"
+      || config.firebaseMessagingSenderId !== "289663940841") throw new Error("bundled/execution-identity-mismatch");
+    return;
+  }
   const developmentHost = hostname === "orider-dev.web.app" || hostname === "orider-dev.firebaseapp.com";
   const parity = isStageParityRuntime(config);
   if (config.deploymentProfile !== undefined && (!parity || !developmentHost || origin !== `https://${hostname}`)) {

@@ -1,10 +1,13 @@
 import { Activity } from "react";
 import { embeddedCommentId } from "../commentTarget";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PublicActivityBrowser from "./PublicActivityBrowser";
+import { FirebaseServicesProvider } from "../../contexts/FirebaseServicesContext";
+import { BUNDLED_FUNCTIONS_BASES } from "../../services/runtimeConfig";
 const mocks = vi.hoisted(() => ({ services: { auth: { currentUser: { uid: "viewer" } } }, listeners: [] as (() => void)[], detailProps: vi.fn(), load: vi.fn() }));
-vi.mock("../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
+vi.mock("../../services/firebase", () => ({ auth: undefined, firestore: undefined, functions: undefined, ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn() }));
+const render = (ui: React.ReactNode) => rtlRender(ui, { wrapper: ({ children }) => <FirebaseServicesProvider services={mocks.services as never}>{children}</FirebaseServicesProvider> });
 vi.mock("firebase/auth", () => ({ onAuthStateChanged: (_auth: unknown, callback: () => void) => { mocks.listeners.push(callback); return () => { mocks.listeners = mocks.listeners.filter(fn => fn !== callback); }; } }));
 vi.mock("../../services/activityDiscovery", () => ({ loadActivityDiscovery: mocks.load }));
 vi.mock("./PublicActivitySurface", () => ({ default: (props: { activityId: string; initialDetail?: unknown }) => { mocks.detailProps(props); const { activityId } = props; return <div><span>detail:{activityId}</span><a href="/ko/athlete/author">author</a><a href="/ko/athlete/commenter">comment author</a><a href="/ko/settings">settings</a></div>; } }));
@@ -143,4 +146,28 @@ it("re-reads the embedded profile when its failure text is pressed and logs the 
   expect(mocks.load).toHaveBeenCalledTimes(2);
   expect(screen.queryByText("현재 프로필 활동을 확인할 수 없습니다.")).toBeNull();
   logged.mockRestore();
+});
+
+it.each(["development", "production"] as const)("keeps the %s bundled provider for initial and continuation requests and discards replaced-provider pages", async environment => {
+  const previous = { auth: { currentUser: { uid: "viewer" } }, functions: { customDomain: BUNDLED_FUNCTIONS_BASES[environment], app: { name: `embedded-${environment}` } } };
+  mocks.services = previous;
+  let finish!: (value: unknown) => void;
+  mocks.load.mockResolvedValueOnce({ items: [row], nextCursor: "ad1.next" })
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+    .mockResolvedValue({ items: [{ ...row, nickname: "Replacement Rider" }], nextCursor: null });
+  const view = render(<PublicActivityBrowser {...props} />);
+  fireEvent.click(screen.getByRole("link", { name: "author" }));
+  await screen.findByText("Public Rider");
+  expect(mocks.load).toHaveBeenNthCalledWith(1, previous, { scope: "athlete", targetUid: "author", limit: 20 });
+  fireEvent.click(screen.getByRole("button", { name: "더 보기" }));
+  await waitFor(() => expect(mocks.load).toHaveBeenNthCalledWith(2, previous, { scope: "athlete", targetUid: "author", limit: 20, cursor: "ad1.next" }));
+  const replacement = { ...previous, auth: { currentUser: { uid: "viewer" } }, functions: { ...previous.functions, app: { name: "replacement-embedded" } } };
+  mocks.services = replacement;
+  view.rerender(<PublicActivityBrowser {...props} />);
+  expect(screen.getByText("detail:original")).toBeInTheDocument();
+  await act(async () => finish({ items: [{ ...row, nickname: "Stale Rider" }], nextCursor: null }));
+  expect(screen.queryByText("Stale Rider")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("link", { name: "author" }));
+  await screen.findByText("Replacement Rider");
+  expect(mocks.load).toHaveBeenLastCalledWith(replacement, { scope: "athlete", targetUid: "author", limit: 20 });
 });
