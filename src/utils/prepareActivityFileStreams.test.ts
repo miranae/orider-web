@@ -86,7 +86,7 @@ it("keeps trailing TCX observations outside a lap with a recorded end", () => {
 });
 
 
-it("puts points between explicit laps in their own TCX track and ignores sparse gaps when measuring distance", () => {
+it("keeps gap observations separate without fabricating a lap distance", () => {
   const startTime = Date.parse("2026-11-19T07:00:00Z");
   const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 120_000 } } as Activity;
   const time = Array.from({ length: 121 }, (_, index) => index);
@@ -102,7 +102,25 @@ it("puts points between explicit laps in their own TCX track and ignores sparse 
   const [, first, gap, second] = xml.split(/<Lap StartTime="/u);
   expect(first).toContain("2026-11-19T07:01:00.000Z");
   expect(gap).toContain("2026-11-19T07:01:15.000Z");
-  expect(gap).toContain("<DistanceMeters>100</DistanceMeters>");
+  expect(gap).toContain("<DistanceMeters>NaN</DistanceMeters>");
   expect(second).not.toContain("2026-11-19T07:01:15.000Z");
   expect(second).toContain("2026-11-19T07:01:30.000Z");
+});
+
+
+it("uses stored native lap boundaries with an ordinary unmarked relative stream", () => {
+  const startTime = Date.parse("2026-11-19T07:00:00Z");
+  const activity = { startTime, type: "Run", summary: {} } as Activity;
+  const streams = {
+    userId: "owner", time: [0, 60, 75, 90, 120],
+    laps: [
+      { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
+      { startTimeMs: startTime + 90_000, endTimeMs: startTime + 120_000, durationMs: 30_000 },
+    ],
+  } as ActivityStreams;
+  const xml = generateTcx(activity, streams, "spm");
+  const [, first, gap, last] = xml.split(/<Lap StartTime="/u);
+  expect(first).toMatch(/^2026-11-19T07:00:00.000Z/u);
+  expect(gap).toMatch(/^2026-11-19T07:01:15.000Z/u);
+  expect(last).toMatch(/^2026-11-19T07:01:30.000Z/u);
 });

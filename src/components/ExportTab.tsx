@@ -15,7 +15,7 @@ import { reportPreviousAccountFailure, logClientError } from "../services/errorL
 interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
-  resolveCurrentStreams?: (format: string, options?: { omitCadence: true }) => Promise<ActivityStreams>;
+  resolveCurrentStreams?: (format: string) => Promise<ActivityStreams>;
   getExportAccount?: () => object | null;
 }
 
@@ -44,7 +44,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
   const { showToast } = useToast();
   const firebaseServices = useFirebaseServices();
   const renderedAccount = getExportAccount?.();
-  const [cadencePrompt, setCadencePrompt] = useState<{
+  const [cadencePrompts, setCadencePrompts] = useState<Partial<Record<"fit" | "tcx", {
     activity: Activity;
     streams: ActivityStreams;
     account: typeof renderedAccount;
@@ -53,21 +53,28 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     samples: NonNullable<ActivityStreams["cadence"]>;
     time: ActivityStreams["time"];
     revision: string | undefined;
-  } | null>(null);
-  const pendingCadence = cadencePrompt?.activity === activity && cadencePrompt.streams === streams
-    && cadencePrompt.account === renderedAccount && cadencePrompt.resolver === resolveCurrentStreams ? cadencePrompt : null;
+  }>>>({});
+  const visibleCadencePrompts = Object.values(cadencePrompts).filter(prompt => prompt?.activity === activity
+    && prompt.streams === streams && prompt.account === renderedAccount && prompt.resolver === resolveCurrentStreams);
   const generation = useRef(0);
+  const formatRequests = useRef(new Map<string, number>());
   useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity, streams, resolveCurrentStreams, getExportAccount]);
 
   const handleExport = useCallback(async (format: string, choice?: CadenceChoice) => {
     const account = getExportAccount?.();
     if (account !== renderedAccount) return;
-    const request = ++generation.current;
-    const stillCurrent = () => request === generation.current && getExportAccount?.() === account;
+    const scope = generation.current;
+    const request = (formatRequests.current.get(format) ?? 0) + 1;
+    formatRequests.current.set(format, request);
+    const stillCurrent = () => scope === generation.current && formatRequests.current.get(format) === request
+      && getExportAccount?.() === account;
+    const sensorFormat = format === "fit" || format === "tcx" ? format : null;
+    const pendingCadence = sensorFormat ? cadencePrompts[sensorFormat] : undefined;
+    const clearCadencePrompt = () => {
+      if (sensorFormat && pendingCadence) setCadencePrompts(current => ({ ...current, [sensorFormat]: undefined }));
+    };
     try {
-      const currentStreams = resolveCurrentStreams
-        ? await (choice === "omit" ? resolveCurrentStreams(format, { omitCadence: true }) : resolveCurrentStreams(format))
-        : streams;
+      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(format) : streams;
       if (!stillCurrent()) return;
       const verifiedUnit = readStreamCadenceUnit(currentStreams);
       const cadence = currentStreams.cadence;
@@ -81,10 +88,12 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         && (!time || time.every((value, index) => Object.is(value, pendingCadence.time?.[index])))
         && cadence?.length === pendingCadence.samples.length && cadence?.every((value, index) => Object.is(value, pendingCadence.samples[index])));
       if (missingFootCadenceUnit && !chosenUnitApplies) {
-        setCadencePrompt({ activity, streams, account, resolver: resolveCurrentStreams, format, samples: [...cadence], time: time?.slice(), revision });
+        setCadencePrompts(current => ({ ...current, [format]: {
+          activity, streams, account, resolver: resolveCurrentStreams, format, samples: [...cadence], time: time?.slice(), revision,
+        } }));
         return;
       }
-      setCadencePrompt(null);
+      clearCadencePrompt();
       const fileCadenceUnit = choice === "omit" ? undefined : missingFootCadenceUnit ? choice : verifiedUnit;
       const fileStreams = choice === "omit" ? { ...currentStreams, cadence: undefined } : currentStreams;
       switch (format) {
@@ -119,9 +128,12 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         return;
       }
       logClientError("ExportTab.export", err, { activityId: activity.id, format }, firebaseServices);
-      if (stillCurrent()) showToast(t("export.errorAlert"), "error");
+      if (stillCurrent()) {
+        clearCadencePrompt();
+        showToast(t("export.errorAlert"), "error");
+      }
     }
-  }, [activity, streams, resolveCurrentStreams, getExportAccount, renderedAccount, pendingCadence, firebaseServices, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, getExportAccount, renderedAccount, cadencePrompts, firebaseServices, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;
@@ -140,20 +152,20 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         </p>
       </div>
 
-      {pendingCadence && (
-        <fieldset className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
-          <legend className="font-semibold">{t("export.cadenceUnitTitle")}</legend>
+      {visibleCadencePrompts.map(prompt => prompt && (
+        <fieldset key={prompt.format} className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-4">
+          <legend className="font-semibold">{t("export.cadenceUnitTitle")} · {prompt.format.toUpperCase()}</legend>
           <p className="text-[length:var(--fs-sm)]">{t("export.cadenceUnitHelp")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {(["spm", "strides_per_minute", "omit"] as const).map(choice => (
               <button key={choice} type="button" className="rounded-[var(--r-md)] border border-[var(--line-soft)] px-3 py-2"
-                onClick={() => { void handleExport(pendingCadence.format, choice); }}>
+                onClick={() => { void handleExport(prompt.format, choice); }}>
                 {t(`export.cadenceChoice.${choice}`)}
               </button>
             ))}
           </div>
         </fieldset>
-      )}
+      ))}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {FORMATS.map((fmt) => {

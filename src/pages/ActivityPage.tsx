@@ -212,9 +212,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // Photo upload/delete
   const photoServices = useFirebaseServices();
   const getExportAccount = useCallback(() => photoServices.auth.currentUser, [photoServices.auth]);
-  const resolveCurrentExportStreams = useCallback(async (format: string, options?: { omitCadence: true }) => {
+  const resolveCurrentExportStreams = useCallback(async (format: string) => {
     if (!activity || !streams) throw new Error("STREAMS_MISSING");
-    if (!publicAccess) return options?.omitCadence ? streams : loadOwnerExportStreams(activity, streams, format, photoServices);
+    if (!publicAccess) return loadOwnerExportStreams(activity, streams, format, photoServices);
     const result = await publicAccess.session.client.streams(activity.id);
     if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");
     return result.streams;

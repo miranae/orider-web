@@ -3,6 +3,7 @@ import { cadenceWriter, type CadenceWriter, type ExportCadenceUnit } from "./exp
 import { exportSportOf } from "./exportSport";
 import { usesVerifiedActivityTime } from "./prepareActivityFileStreams";
 import { makeRelSecAt } from "./streamTime";
+import { detectTimestampUnit } from "./timestampUnit";
 
 /** @param cadenceUnit 활동 지표의 저장 케이던스 단위 — 러닝 케이던스를 한 발 기준으로 바꾸는 데 쓴다. */
 export function generateTcx(activity: Activity, streams: ActivityStreams, cadenceUnit?: ExportCadenceUnit): string {
@@ -14,7 +15,18 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
 
   // streams.time 단위 정규화(상대 초) — 공용 헬퍼. 절대 epoch 입력 시 트랙포인트 시간이
   // 서기 5만년대로 오버플로우하던 버그 방지. 랩 분할/트랙포인트 시간이 동일 기준으로 계산된다.
-  const relSecAt = makeRelSecAt(streams.time);
+  const relativeAt = makeRelSecAt(streams.time);
+  const firstTime = streams.time?.find(value => Number.isFinite(value));
+  const unit = firstTime == null ? "relative_sec" : detectTimestampUnit(firstTime);
+  const recordedClock = streams.laps?.some(lap => Number.isFinite(lap.startTimeMs) || Number.isFinite(lap.endTimeMs)) && firstTime != null;
+  const activityTime = usesVerifiedActivityTime(streams) || recordedClock;
+  const relSecAt = (index: number) => {
+    const value = streams.time?.[index];
+    if (!recordedClock || value == null || !Number.isFinite(value)) return relativeAt(index);
+    if (unit === "epoch_ms") return (value - startMs) / 1000;
+    if (unit === "epoch_sec") return value - startMs / 1000;
+    return value;
+  };
 
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -37,24 +49,14 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
   if (streams.laps?.length) {
     let trackIdx = 0;
     let previousLapEnd = 0;
-    const activityTime = usesVerifiedActivityTime(streams);
     const timeAt = (index: number) => relSecAt(index) ?? index;
-    const distanceBefore = (end: number) => {
-      for (let index = Math.min(end, streams.distance?.length ?? 0) - 1; index >= 0; index--) {
-        const value = streams.distance?.[index];
-        if (typeof value === "number" && Number.isFinite(value)) return value;
-      }
-      return undefined;
-    };
     const writeUnassigned = (before: number) => {
       const first = trackIdx;
       while (trackIdx < len && timeAt(trackIdx) < before) trackIdx++;
       if (trackIdx === first) return;
       const firstTime = timeAt(first);
-      const initialDistance = distanceBefore(first) ?? streams.distance?.slice(first, trackIdx).find(value => Number.isFinite(value));
-      const finalDistance = distanceBefore(trackIdx);
-      const distance = initialDistance != null && finalDistance != null ? Math.max(0, finalDistance - initialDistance) : 0;
-      openLap(lines, startMs + firstTime * 1000, timeAt(trackIdx - 1) - firstTime, distance, 0);
+      // An unassigned interval has no authoritative lap distance. TCX requires an XML double.
+      openLap(lines, startMs + firstTime * 1000, timeAt(trackIdx - 1) - firstTime, NaN, 0);
       closeLapWithTrack(first, trackIdx);
     };
 

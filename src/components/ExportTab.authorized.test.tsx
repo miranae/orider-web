@@ -93,7 +93,7 @@ it("honors the explicit omission choice when a refreshed response now knows the 
   await act(async () => fireEvent.click(screen.getByText("FIT")));
   await act(async () => fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })));
   expect(mocks.fit).toHaveBeenCalledWith(run, { ...second, cadence: undefined }, undefined);
-  expect(resolve).toHaveBeenLastCalledWith("fit", { omitCadence: true });
+  expect(resolve).toHaveBeenLastCalledWith("fit");
 });
 
 
@@ -128,4 +128,32 @@ it("generates only the file chosen most recently when two confirmations overlap"
   await act(async () => last(samples));
   await act(async () => first(samples));
   expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(run, { ...samples, cadence: undefined }, undefined);
+});
+
+
+it("allows simultaneous exports of different formats", async () => {
+  const samples = { userId: "owner", time: [0], watts: [200] };
+  let fit!: (value: typeof samples) => void;
+  let csv!: (value: typeof samples) => void;
+  const resolve = vi.fn()
+    .mockReturnValueOnce(new Promise<typeof samples>(done => { fit = done; }))
+    .mockReturnValueOnce(new Promise<typeof samples>(done => { csv = done; }));
+  render(<ExportTab activity={activity} streams={samples} resolveCurrentStreams={resolve} />);
+  fireEvent.click(screen.getByText("FIT"));
+  fireEvent.click(screen.getByText("CSV"));
+  await act(async () => csv(samples));
+  await act(async () => fit(samples));
+  expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(samples);
+  expect(mocks.fit).toHaveBeenCalledExactlyOnceWith(activity, samples, undefined);
+});
+
+it("closes the cadence options after a confirmed export denial", async () => {
+  const run = { ...activity, type: "Run" } as Activity;
+  const samples = { userId: "owner", time: [0], cadence: [85] };
+  const resolve = vi.fn().mockResolvedValueOnce(samples).mockRejectedValue(new Error("permission-denied"));
+  render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={resolve} />);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /strides per minute|분당 스트라이드|cadenceChoice.strides_per_minute/iu })));
+  expect(screen.queryByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })).toBeNull();
+  expect(mocks.fit).not.toHaveBeenCalled();
 });
