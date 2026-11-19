@@ -52,36 +52,54 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
 
   let next = 0;
   let previousEnd = 0;
-  let unassigned = false;
   const timedAt = (cursor: number) => {
     const index = indices[cursor];
     return index == null ? null : relSecAt(index) ?? index;
   };
-  const laps = streams.laps?.map(lap => {
+  const laps: Array<{ start: number; duration: number; distance: number | null; first: number; end: number }> = [];
+  const recordUnassigned = (before: number) => {
+    const first = next;
+    while (next < indices.length && (timedAt(next) ?? Infinity) < before) next++;
+    if (first === next) return;
+    const start = timedAt(first) ?? previousEnd;
+    laps.push({ start, duration: (timedAt(next - 1) ?? start) - start, distance: null, first, end: next });
+  };
+  let allLapDistancesKnown = true;
+  for (const lap of streams.laps ?? []) {
     const duration = (lap.durationMs || 0) / 1000;
     const recordedEnd = activityTime && typeof lap.endTimeMs === "number" && Number.isFinite(lap.endTimeMs)
       ? (lap.endTimeMs - startMs) / 1000 : undefined;
     const recordedStart = activityTime && typeof lap.startTimeMs === "number" && Number.isFinite(lap.startTimeMs)
-      ? (lap.startTimeMs - startMs) / 1000 : recordedEnd == null ? undefined : recordedEnd - duration;
+      ? (lap.startTimeMs - startMs) / 1000 : undefined;
     const start = recordedStart ?? (activityTime ? previousEnd : Math.max(timedAt(next) ?? previousEnd, previousEnd));
     const end = recordedEnd ?? start + duration;
-    previousEnd = end;
+    if (recordedStart != null) recordUnassigned(recordedStart);
     const first = next;
-    const nextTime = timedAt(next);
-    if (recordedStart != null && nextTime != null && nextTime < recordedStart) unassigned = true;
     while (next < indices.length && (timedAt(next) ?? Infinity) <= end) next++;
-    return { start, duration, distance: (lap.distanceKm || 0) * 1000, first, end: next };
-  });
+    const validDistance = typeof lap.distanceKm === "number" && Number.isFinite(lap.distanceKm) && lap.distanceKm >= 0;
+    allLapDistancesKnown &&= validDistance;
+    laps.push({ start, duration, distance: validDistance ? lap.distanceKm * 1000 : 0, first, end: next });
+    previousEnd = end;
+  }
+  if (laps.length) recordUnassigned(Infinity);
 
-  if (laps?.length && !unassigned && next === indices.length) {
-    for (const lap of laps) writeLap(startMs + lap.start * 1000, lap.duration, lap.distance, 0, lap.first, lap.end);
+  const summary = activity.summary;
+  const unassigned = laps.filter(lap => lap.distance === null);
+  const recordedTotal = laps.reduce((total, lap) => total + (lap.distance ?? 0), 0);
+  // A single unassigned interval can use the difference between two recorded totals.
+  // Multiple intervals can only use that difference when it is exactly zero.
+  const totalDistance = summary.distance;
+  const remainder = allLapDistancesKnown && typeof totalDistance === "number" && Number.isFinite(totalDistance)
+    && totalDistance >= recordedTotal ? totalDistance - recordedTotal : null;
+  const unassignedDistance = remainder === 0 || unassigned.length === 1 ? remainder : null;
+  if (laps.length && (!unassigned.length || unassignedDistance !== null)) {
+    for (const lap of laps) writeLap(startMs + lap.start * 1000, lap.duration,
+      lap.distance ?? unassignedDistance ?? 0, 0, lap.first, lap.end);
   } else {
-    // A TCX track requires a lap with a distance. Use the recorded activity total when points
-    // fall outside the recorded laps, rather than inventing distances for extra laps.
-    const summary = activity.summary;
+    // TCX requires a distance for every lap. Preserve the activity total when the individual distance is unknown.
     const recordedElapsed = typeof summary.elapsedTimeMillis === "number" && Number.isFinite(summary.elapsedTimeMillis)
       ? summary.elapsedTimeMillis / 1000 : null;
-    const duration = laps?.length
+    const duration = laps.length
       ? recordedElapsed ?? Math.max((summary.ridingTimeMillis || 0) / 1000, timedAt(indices.length - 1) ?? 0)
       : (summary.ridingTimeMillis || 0) / 1000;
     writeLap(startMs, duration, summary.distance || 0, streams.calories || 0, 0, indices.length);

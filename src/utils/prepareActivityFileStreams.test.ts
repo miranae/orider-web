@@ -70,7 +70,7 @@ it("uses the activity start for timed TCX lap boundaries even when the first sam
   expect(secondLap).toContain("2026-11-19T07:01:01.000Z");
 });
 
-it("uses the recorded total when TCX has observations outside recorded laps", () => {
+it("preserves recorded intervals when the activity total accounts for a cooldown segment", () => {
   const startTime = Date.parse("2026-11-19T07:00:00Z");
   const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 90_000, elapsedTimeMillis: 125_000, distance: 1100 } } as Activity;
   const time = Array.from({ length: 126 }, (_, index) => index);
@@ -82,18 +82,19 @@ it("uses the recorded total when TCX has observations outside recorded laps", ()
     ],
   } as ActivityStreams, "d".repeat(64), startTime);
   const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
-  expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(1);
-  expect(xml).toContain("<DistanceMeters>1100</DistanceMeters>");
-  expect(xml).toContain("<TotalTimeSeconds>125</TotalTimeSeconds>");
-  expect(xml).toContain("2026-11-19T07:01:15.000Z");
-  expect(xml).toContain("2026-11-19T07:02:05.000Z");
+  const [, first, second, cooldown] = xml.split(/<Lap StartTime="/u);
+  expect(first).toContain("<DistanceMeters>500</DistanceMeters>");
+  expect(second).toContain("<DistanceMeters>500</DistanceMeters>");
+  expect(second).toContain("2026-11-19T07:01:15.000Z");
+  expect(cooldown).toContain("<DistanceMeters>100</DistanceMeters>");
+  expect(cooldown).toContain("2026-11-19T07:02:05.000Z");
 });
 
-it("keeps native lap boundaries with an ordinary unmarked relative stream", () => {
+it("does not infer paused time from an end-only lap", () => {
   const startTime = Date.parse("2026-11-19T07:00:00Z");
   const activity = { startTime, type: "Run", summary: {} } as Activity;
   const streams = {
-    userId: "owner", time: [0, 60, 90, 120], heartrate: [150, 150, 150, 150],
+    userId: "owner", time: [0, 60, 75, 90, 120], heartrate: [150, 150, 150, 150, 150],
     laps: [
       { startTimeMs: startTime, endTimeMs: startTime + 60_000, durationMs: 60_000 },
       { endTimeMs: startTime + 120_000, durationMs: 30_000 },
@@ -102,7 +103,8 @@ it("keeps native lap boundaries with an ordinary unmarked relative stream", () =
   const xml = generateTcx(activity, streams, "spm");
   const [, first, last] = xml.split(/<Lap StartTime="/u);
   expect(first).toMatch(/^2026-11-19T07:00:00.000Z/u);
-  expect(last).toMatch(/^2026-11-19T07:01:30.000Z/u);
+  expect(last).toMatch(/^2026-11-19T07:01:00.000Z/u);
+  expect(last).toContain("2026-11-19T07:01:15.000Z");
 });
 
 it("keeps recorded laps when only blank grid slots follow the last observation", () => {
@@ -127,4 +129,23 @@ it("exports a speed-only observation in a recorded indoor lap", () => {
   } as ActivityStreams);
   expect(xml).toContain("<ext:Speed>2.7</ext:Speed>");
   expect(xml).toContain("<ext:Speed>3.1</ext:Speed>");
+});
+
+
+it("keeps the recorded elapsed time and distance if multiple unassigned laps cannot be measured", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {
+    ridingTimeMillis: 9000, elapsedTimeMillis: 15_000, distance: 120,
+  } } as Activity;
+  const streams = {
+    userId: "owner", time: [0, 5, 7, 10, 12, 15], heartrate: [150, 150, 150, 150, 150, 150],
+    laps: [
+      { startTimeMs: startTime, endTimeMs: startTime + 5000, durationMs: 5000, distanceKm: 0.05 },
+      { startTimeMs: startTime + 10_000, endTimeMs: startTime + 12_000, durationMs: 2000, distanceKm: 0.05 },
+    ],
+  } as ActivityStreams;
+  const xml = generateTcx(activity, streams, "spm");
+  expect(xml.match(/<Lap StartTime="/gu)).toHaveLength(1);
+  expect(xml).toContain("<DistanceMeters>120</DistanceMeters>");
+  expect(xml).toContain("<TotalTimeSeconds>15</TotalTimeSeconds>");
 });
