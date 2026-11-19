@@ -159,7 +159,27 @@ export const RUNNING_P0_CASES = {
   },
 } as const;
 
-export type RunningP0Case = (typeof RUNNING_P0_CASES)[keyof typeof RUNNING_P0_CASES];
+// 이미 지표가 저장된 문서에도 보류 상태가 우선하는지, 같은 값의 표시 가능한 기록과 비교한다.
+function timerGuardCase(status: "available" | "native_timer_mismatch") {
+  const original = RUNNING_P0_CASES.timerHold;
+  return {
+    ...original,
+    id: `running-p0-timer-guard-${status}`,
+    title: `러닝 타이머 표시 비교 ${status}`,
+    metrics: {
+      ...original.metrics,
+      runMetrics: { ...original.metrics.runMetrics, splitTimeStatus: status, gapAvgSec: 320, minPaceSecPerKm: 340 },
+      splits: [{ km: 1, paceSec: 340, gapSec: 320, avgHr: 148, avgCadence: 176, elevGain: 0, elevLoss: 0 }],
+    },
+  };
+}
+
+export const RUNNING_TIMER_GUARD_CASES = {
+  held: timerGuardCase("native_timer_mismatch"),
+  available: timerGuardCase("available"),
+};
+
+export type RunningP0Case = (typeof RUNNING_P0_CASES)[keyof typeof RUNNING_P0_CASES] | ReturnType<typeof timerGuardCase>;
 
 export async function seedRunningP0(): Promise<void> {
   const now = Date.now();
@@ -170,7 +190,7 @@ export async function seedRunningP0(): Promise<void> {
   const docs: Record<string, Record<string, unknown>> = {
     [`users/${owner.localId}`]: { nickname: "러닝 P0 테스트", email: RUNNING_P0_EMAIL, units: "metric", createdAt: now },
   };
-  Object.values(RUNNING_P0_CASES).forEach((item, index) => {
+  Object.values({ ...RUNNING_P0_CASES, ...RUNNING_TIMER_GUARD_CASES }).forEach((item, index) => {
     const startTime = now - (index + 1) * 86_400_000;
     const endTime = startTime + item.metrics.durationSec * 1000;
     docs[`activities/${item.id}`] = {

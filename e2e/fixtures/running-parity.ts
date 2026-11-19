@@ -66,11 +66,13 @@ export async function writeRunningFixtureDocuments(docs: Record<string, Record<s
   // 고정 localhost 에뮬레이터에서만 합성 문서를 쓴다.
   const root = `http://127.0.0.1:8080/v1/projects/${RUNNING_PARITY_PROJECT}/databases/(default)/documents`;
   for (const [path, data] of Object.entries(docs)) {
+    const body = JSON.stringify({ fields: firestoreFields(data) });
     const response = await fetch(`${root}/${path}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer owner" },
-      body: JSON.stringify({ fields: firestoreFields(data) }),
+      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer owner" }, body,
+    }).catch((error: unknown) => {
+      throw new Error(`fixture_seed_failed:PATCH:${path}:transport`, { cause: error });
     });
-    if (!response.ok) throw new Error(`fixture_seed_failed:${path}:${response.status}`);
+    if (!response.ok) throw new Error(`fixture_seed_failed:PATCH:${path}:${response.status}`);
   }
 }
 

@@ -3,7 +3,7 @@ import {
   RUNNING_PARITY_ID, RUNNING_PARITY_PROJECT, RUNNING_PARITY_TITLE, seedRunningParity,
   RUNNING_OWNER_ID, RUNNING_OWNER_TITLE, RUNNING_OWNER_EMAIL, RUNNING_OWNER_PASSWORD, RUNNING_PLAN_GOAL, RUNNING_PLAN_WEEK, RUNNING_PLAN_TITLE,
 } from "../fixtures/running-parity";
-import { RUNNING_P0_CASES, RUNNING_P0_EMAIL, RUNNING_P0_PASSWORD, seedRunningP0, type RunningP0Case } from "../fixtures/running-p0";
+import { RUNNING_P0_CASES, RUNNING_TIMER_GUARD_CASES, RUNNING_P0_EMAIL, RUNNING_P0_PASSWORD, seedRunningP0, type RunningP0Case } from "../fixtures/running-p0";
 
 const browserErrors = new WeakMap<Page, string[]>();
 
@@ -215,6 +215,22 @@ test.describe("running P0 record shapes (owner view)", () => {
     await expect(recap).not.toContainText("경사를 보정한 평균 페이스");
     await expect(recap).not.toContainText("가장 빠른 1km 페이스");
     await page.screenshot({ path: info.outputPath("running-p0-timer-hold.png"), fullPage: true });
+  });
+
+  test("timer hold hides populated pace metrics that the available status displays", async ({ page }) => {
+    const available = await openOwnerRunAnalysis(page, RUNNING_TIMER_GUARD_CASES.available);
+    await expect(available.analysis.getByRole("button", { name: SPLIT_BUTTON })).toHaveCount(1);
+    await available.openRecapDetails();
+    await expect(available.recap).toContainText(recapGap("5:20"));
+    await expect(available.recap).toContainText(recapFastestKm("5:40"));
+
+    const held = await openOwnerRunAnalysis(page, RUNNING_TIMER_GUARD_CASES.held);
+    await expect(held.analysis.getByText(SPLIT_HELD, { exact: true })).toBeVisible();
+    await expect(held.analysis.getByRole("button", { name: SPLIT_BUTTON })).toHaveCount(0);
+    await held.openRecapDetails();
+    await expect(held.recap).toContainText(recapHr(148));
+    await expect(held.recap).not.toContainText(recapGap("5:20"));
+    await expect(held.recap).not.toContainText(recapFastestKm("5:40"));
   });
 
   test("run shorter than 1 km keeps pace and heart rate without km splits", async ({ page }, info) => {
