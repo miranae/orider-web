@@ -172,6 +172,9 @@ describe("훈련 스냅샷 영속 캐시", () => {
       const restarted = await freshCache();
       restarted.prepareTrainingSurfaceCacheOwner(key.uid);
       expect(restarted.getTrainingSurfaceCache(key)).toBeNull();
+      if (["uid", "scope", "schema", "oversize", "broken"].includes(kind)) {
+        expect(localStorage.getItem(diskKey)).toBeNull();
+      }
     },
   );
 
