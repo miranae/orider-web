@@ -93,7 +93,8 @@ export async function archiveHostingCandidate({ workspace = process.cwd(), build
     catch { throw new Error(`${context}: response body could not be read`); }
   }
   if (stored.name !== object || stored.bucket !== HOSTING_CANDIDATE_BUCKET || !positive.test(stored.generation || "")
-    || Number(stored.size) !== bytes.length || Object.entries(metadata.metadata).some(([key, value]) => stored.metadata?.[key] !== value)) throw new Error("immutable private client archive differs");
+    || Number(stored.size) !== bytes.length || Object.entries(metadata.metadata).some(([key, value]) => stored.metadata?.[key] !== value))
+    throw new Error(`${context}: immutable private client archive differs (create ${response ? `HTTP${response.status}` : "transport failed"})`);
   const receipt = { kind: "gcs", bucket: HOSTING_CANDIDATE_BUCKET, object, generation: stored.generation, sha256: checksum,
     frontendSourceSha: candidate.frontendSourceSha, workflowSourceSha, artifactHash: candidate.artifactHash };
   save(join(directory, "archive.json"), receipt);

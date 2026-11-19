@@ -2,6 +2,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { assertStageEntryArtifact, stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
@@ -49,10 +50,14 @@ export async function verifyBundledHosting({ environment, directory = "dist", fe
   if (hash(actual) !== hash(expected)) throw new Error(`bundled Hosting entry bytes differ at ${url}`);
   await verifyBundledHttpAliases({ base, fetcher });
   if (hostingToken) {
-    const assetPaths = readdirSync(resolve(directory, "assets"), { recursive: true, withFileTypes: true })
-      .filter(file => file.isFile() && /\.(?:js|css)$/u.test(file.name))
-      .map(file => `/${relative(directory, resolve(file.parentPath, file.name))}`);
-    await verifyHostedAssets(assetPaths, { token: hostingToken, environment, fetcher });
+    // Firebase CLI hashes each file after level-9 gzip compression in the same runner.
+    const assetHashes = readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter(file => file.isFile() && /\.(?:js|css|json|wasm)$/u.test(file.name))
+      .map(file => {
+        const path = resolve(file.parentPath, file.name);
+        return [`/${relative(directory, path)}`, hash(gzipSync(readFileSync(path), { level: 9 }))];
+      });
+    await verifyHostedAssets(assetHashes, { token: hostingToken, environment, fetcher });
   }
   return { verified: true, environment, entry };
 }

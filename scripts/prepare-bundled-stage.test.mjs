@@ -246,13 +246,16 @@ test("development rollback is wired after the live checks and before artifact pu
 test("stage AI serving revision must belong to the accepted backend source", async () => {
   const name = "projects/orider-dev/locations/asia-northeast3/services/dev-bundle-ai-api";
   const revision = `${name}/revisions/current`, sha = "b".repeat(40);
+  const containers = [{ env: [{ name: "COACH_SESSION_EXECUTION_COMMIT_SHA", value: sha }] }];
   const service = { name, labels: { "orider-source": sha }, terminalCondition: { state: "CONDITION_SUCCEEDED" },
-    latestReadyRevision: revision, trafficStatuses: [{ revision, percent: 100 }] };
-  await verifyStageAiRevision(sha, "fixture", async () => Response.json(service));
+    template: { containers }, latestReadyRevision: revision, trafficStatuses: [{ revision, percent: 100 }] };
+  await verifyStageAiRevision(sha, "fixture", async url => Response.json(url.endsWith(revision) ? { name: revision, containers } : service));
   await assert.rejects(verifyStageAiRevision("c".repeat(40), "fixture", async () => Response.json(service)), /serving revision differs/u);
   await assert.rejects(verifyStageAiRevision(sha, "fixture", async () => Response.json({ ...service,
     trafficStatuses: [{ revision: `${name}/revisions/previous`, percent: 100 }],
   })), /serving revision differs/u);
+  await assert.rejects(verifyStageAiRevision(sha, "fixture", async url =>
+    Response.json(url.endsWith(revision) ? { name: revision, containers: [] } : service)), /planned execution epoch/u);
 });
 
 test("the finalized live Hosting inventory must contain lazy JavaScript and CSS", async () => {
@@ -265,13 +268,14 @@ test("the finalized live Hosting inventory must contain lazy JavaScript and CSS"
     } });
     const cursor = new URL(url).searchParams.get("pageToken");
     pages.push(cursor);
-    return Response.json(cursor ? { files: [{ path: "/assets/lazy.css", status: "ACTIVE" }] }
-      : { files: [{ path: "/assets/entry.js", status: "ACTIVE" }], nextPageToken: "second" });
+    return Response.json(cursor ? { files: [{ path: "/assets/lazy.css", status: "ACTIVE", hash: "css-hash" }] }
+      : { files: [{ path: "/assets/entry.js", status: "ACTIVE", hash: "js-hash" }], nextPageToken: "second" });
   };
   const options = { token: "fixture", environment: "development", fetcher };
-  await verifyHostedAssets(["/assets/entry.js", "/assets/lazy.css"], options);
+  await verifyHostedAssets([["/assets/entry.js", "js-hash"], ["/assets/lazy.css", "css-hash"]], options);
   assert.deepEqual(pages, [null, "second"]);
-  await assert.rejects(verifyHostedAssets(["/assets/absent.js"], options), /missing 1 compiled assets.*absent.js/u);
+  await assert.rejects(verifyHostedAssets([["/assets/absent.js", "absent-hash"]], options), /missing 1 compiled assets.*absent.js/u);
+  await assert.rejects(verifyHostedAssets([["/assets/entry.js", "other-hash"]], options), /different bytes for.*entry.js/u);
 });
 
 test("production rollback targets only the live production release owned by the attempt", async () => {

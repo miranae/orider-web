@@ -59,10 +59,10 @@ export async function verifyStagePublishPointer(snapshot, { token, fetcher = fet
   }
   return { verified: true, version: snapshot.previousVersion };
 }
-export async function verifyHostedAssets(assetPaths, { token, environment, fetcher = fetch }) {
+export async function verifyHostedAssets(assetHashes, { token, environment, fetcher = fetch }) {
   const target = hostingTarget(environment, "true");
   const live = await request(target, fetcher, token, "GET", API + target.channel);
-  const version = currentVersion(live, target), missing = new Set(assetPaths);
+  const version = currentVersion(live, target), missing = new Map(assetHashes);
   const tokens = new Set();
   let nextPageToken;
   do {
@@ -70,13 +70,17 @@ export async function verifyHostedAssets(assetPaths, { token, environment, fetch
     if (nextPageToken) params.set("pageToken", nextPageToken);
     const page = await request(target, fetcher, token, "GET", `${API}${version}/files?${params}`);
     for (const row of page.files ?? []) {
-      if (row.status === "ACTIVE") missing.delete(row.path);
+      const expected = missing.get(row.path);
+      if (row.status === "ACTIVE" && expected) {
+        if (row.hash !== expected) throw new Error(`${target.label} Hosting ${version} has different bytes for ${row.path}`);
+        missing.delete(row.path);
+      }
     }
     nextPageToken = page.nextPageToken;
     if (nextPageToken && tokens.has(nextPageToken)) throw new Error(`${target.label} Hosting files GET repeated a page for ${version}`);
     tokens.add(nextPageToken);
   } while (nextPageToken && missing.size > 0);
-  if (missing.size > 0) throw new Error(`${target.label} Hosting ${version} missing ${missing.size} compiled assets, including ${[...missing][0]}`);
+  if (missing.size > 0) throw new Error(`${target.label} Hosting ${version} missing ${missing.size} compiled assets, including ${missing.keys().next().value}`);
   const after = await request(target, fetcher, token, "GET", API + target.channel);
   if (currentVersion(after, target) !== version || releaseName(after, target) !== releaseName(live, target))
     throw new Error(`${target.label} Hosting changed while verifying the published assets`);

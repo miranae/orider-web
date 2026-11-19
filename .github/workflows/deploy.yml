@@ -160,7 +160,7 @@ jobs:
           ORIDER_HOSTING_SERIALIZED_WRITES: 'true'
         run: |
           set -euo pipefail
-          npm install -g firebase-tools
+          npm install -g firebase-tools@15.16.0
           config=firebase.json
           if [ "$ORIDER_FUNCTIONS_TRANSPORT" = production ]; then config=firebase.bundled-production.json; fi
           deploy_env=(env)

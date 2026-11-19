@@ -163,7 +163,7 @@ jobs:
           HOSTING_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
           set -euo pipefail
-          npm install -g firebase-tools
+          npm install -g firebase-tools@15.16.0
           node scripts/bundled-stage-hosting-release.mjs --phase check-publish --file "$RUNNER_TEMP/production-hosting-before.json"
           log="$RUNNER_TEMP/hosting-publish.log"
           set +e
