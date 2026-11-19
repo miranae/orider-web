@@ -8,13 +8,14 @@ import { generateGpx } from "../utils/exportGpx";
 import { prepareActivityFileStreams } from "../utils/prepareActivityFileStreams";
 import { exportFilename, exportSportOf } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { readStreamCadenceUnit, readVerifiedStreamRevision } from "../services/activityStreamSource";
 import { reportPreviousAccountFailure, logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
-  resolveCurrentStreams?: (format: string) => Promise<ActivityStreams>;
+  resolveCurrentStreams?: (format: string, options?: { omitCadence: true }) => Promise<ActivityStreams>;
   getExportAccount?: () => object | null;
 }
 
@@ -41,6 +42,7 @@ type CadenceChoice = "spm" | "strides_per_minute" | "omit";
 export default function ExportTab({ activity, streams, resolveCurrentStreams, getExportAccount }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
+  const firebaseServices = useFirebaseServices();
   const renderedAccount = getExportAccount?.();
   const [cadencePrompt, setCadencePrompt] = useState<{
     activity: Activity;
@@ -63,7 +65,9 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
     const request = ++generation.current;
     const stillCurrent = () => request === generation.current && getExportAccount?.() === account;
     try {
-      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams(format) : streams;
+      const currentStreams = resolveCurrentStreams
+        ? await (choice === "omit" ? resolveCurrentStreams(format, { omitCadence: true }) : resolveCurrentStreams(format))
+        : streams;
       if (!stillCurrent()) return;
       const verifiedUnit = readStreamCadenceUnit(currentStreams);
       const cadence = currentStreams.cadence;
@@ -114,10 +118,10 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         reportPreviousAccountFailure("ExportTab.previousAccount", err, { format });
         return;
       }
-      logClientError("ExportTab.export", err, { activityId: activity.id, format });
+      logClientError("ExportTab.export", err, { activityId: activity.id, format }, firebaseServices);
       if (stillCurrent()) showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, resolveCurrentStreams, getExportAccount, renderedAccount, pendingCadence, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, getExportAccount, renderedAccount, pendingCadence, firebaseServices, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

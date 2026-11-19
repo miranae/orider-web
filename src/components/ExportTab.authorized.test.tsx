@@ -93,6 +93,7 @@ it("honors the explicit omission choice when a refreshed response now knows the 
   await act(async () => fireEvent.click(screen.getByText("FIT")));
   await act(async () => fireEvent.click(screen.getByRole("button", { name: /export without cadence|케이던스 없이|cadenceChoice.omit/iu })));
   expect(mocks.fit).toHaveBeenCalledWith(run, { ...second, cadence: undefined }, undefined);
+  expect(resolve).toHaveBeenLastCalledWith("fit", { omitCadence: true });
 });
 
 

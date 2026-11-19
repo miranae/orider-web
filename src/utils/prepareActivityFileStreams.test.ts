@@ -68,3 +68,18 @@ it("uses the activity start for timed TCX lap boundaries even when the first sam
   expect(firstLap).not.toContain("2026-11-19T07:01:01.000Z");
   expect(secondLap).toContain("2026-11-19T07:01:01.000Z");
 });
+
+it("keeps trailing TCX observations outside a lap with a recorded end", () => {
+  const startTime = Date.parse("2026-11-19T07:00:00Z");
+  const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 125_000 } } as Activity;
+  const source = markRawPartStreams({
+    time: Array.from({ length: 126 }, (_, index) => index),
+    laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: startTime, endTimeMs: startTime + 120_000 }],
+  } as ActivityStreams, "d".repeat(64), startTime);
+  const xml = generateTcx(activity, prepareActivityFileStreams(activity, source, "tcx"), "spm");
+  const [, recorded, tail] = xml.split("<Lap>");
+  expect(recorded).toContain("2026-11-19T07:02:00.000Z");
+  expect(recorded).not.toContain("2026-11-19T07:02:01.000Z");
+  expect(tail).toContain("<TotalTimeSeconds>5</TotalTimeSeconds>");
+  expect(tail).toContain("2026-11-19T07:02:05.000Z");
+});

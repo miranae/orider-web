@@ -29,7 +29,7 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
     let trackIdx = 0;
     let previousLapEnd = 0;
     const activityTime = usesVerifiedActivityTime(streams);
-    for (const [lapIndex, lap] of streams.laps.entries()) {
+    for (const lap of streams.laps) {
       const lapSeconds = (lap.durationMs || 0) / 1000;
       const lapDistanceM = (lap.distanceKm || 0) * 1000;
       lines.push('<Lap>');
@@ -45,14 +45,24 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
         ? (lap.endTimeMs - startMs) / 1000
         : lapStart + lapSeconds;
       previousLapEnd = lapEndTime;
-      const isLastLap = lapIndex === streams.laps.length - 1;
       while (trackIdx < len) {
         const tSec = relSecAt(trackIdx) ?? trackIdx;
-        if (!isLastLap && tSec > lapEndTime) break;
+        if (tSec > lapEndTime) break;
         writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx), cadence);
         trackIdx++;
       }
 
+      lines.push('</Track>', '</Lap>');
+    }
+    if (trackIdx < len) {
+      // TCX stores every track inside a lap. Keep trailing observations in a separate lap.
+      const previousDistance = streams.distance?.[trackIdx - 1] ?? 0;
+      const endDistance = streams.distance?.[len - 1] ?? previousDistance;
+      const tailDuration = Math.max(0, (relSecAt(len - 1) ?? len - 1) - previousLapEnd);
+      lines.push('<Lap>', `<TotalTimeSeconds>${tailDuration}</TotalTimeSeconds>`,
+        `<DistanceMeters>${Math.max(0, endDistance - previousDistance)}</DistanceMeters>`, '<Calories>0</Calories>',
+        '<Intensity>Active</Intensity>', '<TriggerMethod>Manual</TriggerMethod>', '<Track>');
+      for (; trackIdx < len; trackIdx++) writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx), cadence);
       lines.push('</Track>', '</Lap>');
     }
   } else {

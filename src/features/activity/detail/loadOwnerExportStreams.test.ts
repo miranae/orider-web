@@ -141,3 +141,9 @@ it("does not infer identical timing for legacy cadence without a time axis", asy
   const existing = { ...displayed, time: undefined, latlng: [[37, 127], [38, 128]] } as ActivityStreams;
   expect(await loadOwnerExportStreams(run, existing, "tcx", ownerServices())).toBe(existing);
 });
+
+it("keeps the owner’s displayed export available when only cadence verification must be retried", async () => {
+  mocks.streams.mockResolvedValue({ activityId: run.id, state: "changed_input", streams: null, reason: "input_revision_changed" });
+  expect(await loadOwnerExportStreams(run, displayed, "fit", ownerServices())).toBe(displayed);
+  expect(mocks.streams).toHaveBeenCalledOnce();
+});

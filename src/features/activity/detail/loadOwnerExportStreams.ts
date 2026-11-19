@@ -44,8 +44,8 @@ export async function loadOwnerExportStreams(
   });
   if (services.auth.currentUser !== account) throw new Error("account_changed");
   if (!result) return displayed;
-  if (result.activityId !== activity.id || result.state === "changed_input") throw new Error("STREAMS_MISSING");
-  if (result.state === "pending" || result.state === "unavailable") {
+  if (result.activityId !== activity.id) throw new Error("STREAMS_MISSING");
+  if (result.state === "pending" || result.state === "unavailable" || result.state === "changed_input") {
     debugLog("streams.owner_export_fallback", { ...context, state: result.state, reason: result.reason });
     return displayed;
   }
