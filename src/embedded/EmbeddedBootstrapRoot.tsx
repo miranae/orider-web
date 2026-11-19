@@ -684,6 +684,7 @@ export default function EmbeddedBootstrapRoot({
   const isSessionApproved = useCallback((viewer: FirebaseServices["auth"]["currentUser"]) =>
     sessionAccepted.current && viewer === controlServices.auth.currentUser
     && viewer?.isAnonymous !== true && (viewer?.uid ?? null) === acceptedUid.current, [controlServices.auth]);
+  const hostDiagnosticServices = useMemo(() => ({ ...controlServices, isSessionApproved }), [controlServices, isSessionApproved]);
   const approvalAttempt = authorizationAttempt.current;
   const services = useMemo<FirebaseServices>(
     () => ({
@@ -712,13 +713,10 @@ export default function EmbeddedBootstrapRoot({
     try {
       bridge.send(type, payload, requestId);
     } catch {
-      const viewer = controlServices.auth.currentUser;
-      const approvedViewer = viewer?.isAnonymous !== true && (viewer?.uid === acceptedUid.current || viewer?.uid === authorizedUid.current) ? viewer : null;
-      const attempt = authorizationAttempt.current;
       logClientError("embedded.bridgeSend", new Error("embedded-bridge/send-failed"), { type },
-        { ...controlServices, isSessionApproved }, approvedViewer, "", () => authorizationAttempt.current === attempt);
+        hostDiagnosticServices, null, type);
     }
-  }, [bridge, controlServices, isSessionApproved]);
+  }, [bridge, hostDiagnosticServices]);
 
   const handleTrainingShellReady = useCallback((
     surface: TrainingSurfaceKind,
@@ -1141,7 +1139,7 @@ export default function EmbeddedBootstrapRoot({
     const unsubscribeAuth = onIdTokenChanged(controlServices.auth, (user) => {
       observeSdkViewer(user);
       const onCacheError = (error: unknown) =>
-        logClientError("embedded.authChangeCacheReset", error, {}, { ...controlServices, isSessionApproved }, user);
+        logClientError("embedded.authChangeCacheReset", error, {}, hostDiagnosticServices);
       const lockedUid = acceptedUid.current;
       if (user?.isAnonymous === true) {
         const requestId = activeSelectionRequestId.current;
@@ -1207,7 +1205,7 @@ export default function EmbeddedBootstrapRoot({
       runStartChannel.dispose();
       bridge.dispose();
     };
-  }, [bridge, commitSurfaceSelection, controlServices, initialTrainingSurface, isSessionApproved, runStartChannel, safeSend, surfaceKind]);
+  }, [bridge, commitSurfaceSelection, controlServices, hostDiagnosticServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
 
   const selectedTrainingSurface = isStandaloneSurfaceKind(surfaceKind)
     ? null

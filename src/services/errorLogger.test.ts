@@ -251,18 +251,21 @@ it("bounds a stalled embedded backup and records its timeout", async () => {
   } finally { vi.useRealTimers(); post.mockRestore(); warn.mockRestore(); }
 });
 
-it("sends a fixed cache reset diagnostic without borrowing credentials after revocation", async () => {
+it.each([
+  { source: "embedded.authChangeCacheReset", message: "embedded-cache-reset-failed", context: undefined },
+  { source: "embedded.bridgeSend", message: "embedded-bridge/send-failed", context: { type: "bootstrap.ready" } },
+])("sends a fixed $source diagnostic without borrowing an unapproved viewer's credentials", async ({ source, message, context }) => {
   __resetClientErrorDedupeForTests();
   const lateViewer = { uid: "unapproved", getIdToken: vi.fn() };
   const services = { auth: { currentUser: lateViewer }, functions: { app: { options: { projectId: "test-project" } } },
     getAppCheckToken: vi.fn().mockResolvedValue("app-check"), isSessionApproved: () => false } as unknown as FirebaseServices;
   const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ result: { success: true } }));
   try {
-    logClientError("embedded.authChangeCacheReset", new Error("private cache path"), { viewer: "unapproved" }, services);
+    logClientError(source, new Error("private application data"), { ...context, viewer: "unapproved" }, services);
     await vi.waitFor(() => expect(post).toHaveBeenCalledOnce());
     expect(post.mock.calls[0]?.[1]).toMatchObject({
       headers: { "Content-Type": "application/json", "X-Firebase-AppCheck": "app-check" },
-      body: JSON.stringify({ data: { source: "embedded.authChangeCacheReset", message: "embedded-cache-reset-failed" } }),
+      body: JSON.stringify({ data: { source, message, context } }),
     });
     expect(post.mock.calls[0]?.[1]?.headers).not.toHaveProperty("Authorization");
     expect(lateViewer.getIdToken).not.toHaveBeenCalled();

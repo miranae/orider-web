@@ -2,6 +2,7 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { captureError } from "./sentry";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { approvedCallableEndpoint, postApprovedCallable } from "../embedded/approvedCallableGateway";
+import { WEB_MESSAGE_TYPES } from "../embedded/bridge";
 import { httpsCallable, type HttpsCallable } from "firebase/functions";
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 오류 로깅 기본값. 임베드 데이터 요청 오류는 services를 주입할 수 있다.
 import { ensureAppCheckReady, functions } from "./firebase";
@@ -82,15 +83,20 @@ export function logClientError(
   dedupeScope = "",
   isRequestCurrent?: () => boolean,
 ) {
-  // A cache reset can fail during revocation itself. Its fixed diagnostic has no account data
-  // and can be recorded as an App Check-only request even after the old session ends.
+  // These lifecycle diagnostics contain no account data. App Check allows recording
+  // failures before host approval or during revocation without borrowing a user's token.
   const anonymousCacheReset = source === "embedded.authChangeCacheReset" && Boolean(services?.isSessionApproved);
-  const diagnosticError = anonymousCacheReset ? new Error("embedded-cache-reset-failed") : error;
-  const diagnosticContext = anonymousCacheReset ? undefined : context;
+  const anonymousBridgeSend = source === "embedded.bridgeSend" && Boolean(services?.isSessionApproved);
+  const anonymousDiagnostic = anonymousCacheReset || anonymousBridgeSend;
+  const diagnosticError = anonymousCacheReset ? new Error("embedded-cache-reset-failed")
+    : anonymousBridgeSend ? new Error("embedded-bridge/send-failed") : error;
+  const diagnosticContext = anonymousBridgeSend
+    ? { type: WEB_MESSAGE_TYPES.find(type => type === context?.type) }
+    : anonymousCacheReset ? undefined : context;
   const message = diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError);
-  const user = anonymousCacheReset ? null : requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
+  const user = anonymousDiagnostic ? null : requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
   const signedInAt = user?.metadata?.lastSignInTime ?? "";
-  const requestIsCurrent = () => anonymousCacheReset || ((!services || (
+  const requestIsCurrent = () => anonymousDiagnostic || ((!services || (
     services.auth?.currentUser === user && (user?.metadata?.lastSignInTime ?? "") === signedInAt
     && services.isSessionApproved?.(user ?? null) !== false
   )) && isRequestCurrent?.() !== false);
@@ -107,7 +113,7 @@ export function logClientError(
   if (config.appEnvironment === "stage") return;
 
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
-  const stack = !anonymousCacheReset && diagnosticError instanceof Error ? diagnosticError.stack : undefined;
+  const stack = !anonymousDiagnostic && diagnosticError instanceof Error ? diagnosticError.stack : undefined;
 
   if (services ? !services.auth || !services.functions : !functions) return;
   // Report late failures to Sentry, but never send them through a different account's callable.
