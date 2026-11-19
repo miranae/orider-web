@@ -147,7 +147,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
               || (tcxMode === "recorded" && !prepared.canKeepRecordedLaps)) {
               setTcxPrompt({ activityScope, streams, account, resolverScope, cadenceChoice: choice, binding,
                 canExportAllAsTcx: prepared.canExportAllAsTcx, canKeepRecordedLaps: prepared.canKeepRecordedLaps,
-                requiresCsv: prepared.requiresCsv, hasUnallocatedCalories: prepared.hasUnallocatedCalories && !prepared.hasUnassigned });
+                requiresCsv: prepared.requiresCsv, hasUnallocatedCalories: prepared.hasUnallocatedCalories });
               return;
             }
           }

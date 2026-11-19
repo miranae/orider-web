@@ -371,3 +371,20 @@ it("retains the selected single-lap layout while an updated stream asks for its 
     url.mockRestore();
   }
 });
+
+it("offers CSV when the TCX totals cannot represent the recorded activity calories", async () => {
+  const run = { ...activity, type: "Run", source: "strava", summary: {} } as Activity;
+  const samples = {
+    userId: "owner", time: [0, 59, 115], heartrate: [140, 150, 145], calories: 270,
+    laps: [
+      { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime, endTimeMs: run.startTime + 60_000 },
+      { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime + 60_000, endTimeMs: run.startTime + 120_000 },
+    ],
+  } as ActivityStreams;
+  render(<ExportTab activity={run} streams={samples} resolveCurrentStreams={async () => samples} />);
+  await act(async () => fireEvent.click(screen.getByText("TCX")));
+  expect(screen.getByText(/calories are available for the whole activity|칼로리는 활동 전체 수치|tcxCaloriesHelp/iu)).toBeVisible();
+  expect(screen.queryByRole("button", { name: /keep recorded laps|기록된 랩 유지|tcxLapsChoice.recorded/iu })).toBeNull();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: /save all samples as csv|모든 표본을 CSV|tcxLapsChoice.csv/iu })));
+  expect(mocks.csv).toHaveBeenCalledExactlyOnceWith(samples);
+});

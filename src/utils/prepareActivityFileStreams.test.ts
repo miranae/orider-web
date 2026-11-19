@@ -439,7 +439,15 @@ it("offers a summary lap to preserve unallocated recorded activity calories", ()
   const file = prepareTcxExport(activity, streams);
   expect(file.hasUnassigned).toBe(false);
   expect(file.hasUnallocatedCalories).toBe(true);
+  expect(file.canKeepRecordedLaps).toBe(false);
+  expect(() => file.render("recorded")).toThrow("TCX_LAP_CALORIES_UNAVAILABLE");
   expect(file.render("activity")).toContain("<Calories>270</Calories>");
+
+  const missingTotals = prepareTcxExport({ ...activity, summary: {} } as Activity, streams);
+  expect(missingTotals.hasUnallocatedCalories).toBe(true);
+  expect(missingTotals.canKeepRecordedLaps).toBe(false);
+  expect(missingTotals.canExportAllAsTcx).toBe(false);
+  expect(() => missingTotals.render("recorded")).toThrow("TCX_LAP_CALORIES_UNAVAILABLE");
 });
 
 it("keeps native Strava time and does not assign full activity calories to a partial lap", () => {
@@ -451,7 +459,8 @@ it("keeps native Strava time and does not assign full activity calories to a par
     { startTimeMs: startTime + 30_000, endTimeMs: startTime + 90_000, durationMs: 60_000, distanceKm: 0.6 },
   ] } as ActivityStreams;
   const result = prepareTcxExport(activity, streams);
-  const xml = result.render("recorded");
+  expect(() => result.render("recorded")).toThrow("TCX_LAP_CALORIES_UNAVAILABLE");
+  const xml = prepareTcxExport(activity, { ...streams, calories: 0 }).render("recorded");
   expect(xml).toContain(`<Lap StartTime="${new Date(startTime + 30_000).toISOString()}">`);
   expect(xml).toContain("<Value>152</Value>");
   expect(xml).not.toContain("<Calories>380</Calories>");

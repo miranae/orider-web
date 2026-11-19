@@ -143,15 +143,17 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const lapCoversActivity = laps.length === 1 && (fullActivityLap
     || (recordedDuration != null && laps[0]?.start === 0 && laps[0].endTime === recordedDuration / 1000
       && onlyLap?.startTimeMs === startMs && onlyLap.endTimeMs === startMs + recordedDuration));
+  const hasUnallocatedCalories = laps.length > 0 && !lapCoversActivity
+    && Number.isFinite(streams.calories) && (streams.calories ?? 0) > 0;
   return {
     hasUnassigned,
     canExportAllAsTcx,
-    canKeepRecordedLaps: laps.length > 0 && canKeepRecordedLaps,
-    hasUnallocatedCalories: laps.length > 0 && !lapCoversActivity && Number.isFinite(streams.calories) && (streams.calories ?? 0) > 0
-      && canExportAllAsTcx,
+    canKeepRecordedLaps: laps.length > 0 && canKeepRecordedLaps && !hasUnallocatedCalories,
+    hasUnallocatedCalories,
     requiresCsv,
     render(mode: TcxLapMode): string {
       if (requiresCsv) throw new Error("TCX_ELAPSED_UNAVAILABLE");
+      if (mode === "recorded" && hasUnallocatedCalories) throw new Error("TCX_LAP_CALORIES_UNAVAILABLE");
       if (laps.length && !canKeepRecordedLaps && (mode === "recorded" || !canExportAllAsTcx)) throw new Error("TCX_LAP_CLOCK_UNAVAILABLE");
       if (mode === "activity" && !canExportAllAsTcx) throw new Error("TCX_ACTIVITY_CLOCK_UNAVAILABLE");
       const lines = [...header];
