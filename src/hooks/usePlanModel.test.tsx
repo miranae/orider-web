@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { FirebaseServicesProvider } from "../contexts/FirebaseServicesContext";
 import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import * as sentry from "../services/sentry";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { normalizePlanSport, usePlanModel } from "./usePlanModel";
 import { planSnapshotKey, readPlanSnapshot } from "../embedded/planSnapshotCache";
@@ -41,11 +42,13 @@ vi.mock("./useFitnessTimeseries", () => ({
 }));
 
 const firestore = { name: "embedded-firestore" };
+const auth = { currentUser: { uid: "owner" } };
+const ensureAppCheckReady = vi.fn();
 const services = {
   firestore,
-  auth: {},
+  auth,
   functions: {},
-  ensureAppCheckReady: vi.fn(),
+  ensureAppCheckReady,
 } as never;
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -75,6 +78,8 @@ describe("usePlanModel", () => {
     clearTrainingSurfaceCache();
     mocks.locale = "ko";
     mocks.user = { uid: "owner" };
+    auth.currentUser = { uid: "owner" };
+    ensureAppCheckReady.mockClear();
     mocks.freshTraining.mockReset().mockReturnValue({revalidating: false, justRecomputed: false, currentTsb: null});
     mocks.fitnessTimeseries.mockReset().mockReturnValue({timeseries: null, loaded: true});
     resetRuntimeConfigForTests({trainingDecisionEnabled: false});
@@ -237,6 +242,30 @@ describe("usePlanModel", () => {
     expect(hook.result.current.loading).toBe(false);
     expect(hook.result.current.freshLoaded).toBe(false);
     hook.unmount();
+  });
+
+  it.each([
+    ["goals", "PlanPage.goalLoad"],
+    ["goals/goal-late-error/plan", "PlanPage.planLoad"],
+  ])("keeps diagnostics for a failed %s query after the SDK account changes", async (path, source) => {
+    setCollectionDocs("goals", [{
+      id: "goal-late-error", userId: "owner", discipline: "bike", status: "active", eventDate: Date.now(),
+    }]);
+    const getDocsMock = vi.mocked(getDocs);
+    let rejectRead: ((error: Error) => void) | undefined;
+    if (source === "PlanPage.planLoad") getDocsMock.mockImplementationOnce(getDocsMock.getMockImplementation()!);
+    getDocsMock.mockImplementationOnce(() => new Promise((_, reject) => { rejectRead = reject; }) as never);
+    const captureError = vi.spyOn(sentry, "captureError");
+    const { result } = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(rejectRead).toBeDefined());
+
+    auth.currentUser = { uid: "different-owner" };
+    const error = new Error(`read failed: ${path}`);
+    await act(async () => { rejectRead?.(error); });
+
+    expect(captureError).toHaveBeenCalledWith(error, expect.objectContaining({ tags: { source } }));
+    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+    expect(result.current.loadError).toBeNull();
   });
 
   it("renders a remounted Plan from memory while refreshing and preserves it on refresh failure", async () => {

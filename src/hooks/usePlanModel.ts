@@ -230,16 +230,17 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
             writePlanSnapshot(snapshotKey, { goal: nextGoal, weeks: nextWeeks });
           }
         } catch (error) {
+          logClientError("PlanPage.planLoad", error, { discipline, goalId: nextGoal.id }, services, requestViewer, "", current);
           if (!current()) return;
           if (cached === null) setWeeks([]);
           setPlanError(error);
           setGoalLoading(false);
           setFreshLoaded(false);
-          logClientError("PlanPage.planLoad", error, { discipline, goalId: nextGoal.id });
         } finally {
           if (current()) setPlanLoading(false);
         }
       } catch (error) {
+        logClientError("PlanPage.goalLoad", error, { discipline }, services, requestViewer, "", current);
         if (!current()) return;
         if (cached === null) {
           setGoal(null);
@@ -249,7 +250,6 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
         setGoalLoading(false);
         setPlanLoading(false);
         setFreshLoaded(false);
-        logClientError("PlanPage.goalLoad", error, { discipline });
       } finally {
         clearTimeout(loadTimeout);
       }
