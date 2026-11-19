@@ -134,12 +134,8 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   }
   hasUnassigned ||= laps.length > 0 && (next < indices.length || !canKeepRecordedLaps);
   const validRecordedDuration = recordedDuration != null;
-  const canUseCompleteStravaTimer = stravaElapsedClock && !recordedClock && !verifiedRelativeClock
-    && !hasNativeLapTimes && laps.length > 0 && summary.elapsedTimeMillis == null
-    && summary.ridingTimeMillis > 0 && summary.ridingTimeMillis === lapTimer * 1000
-    && timedAt(0) === 0 && lastObservation === lapTimer;
-  const summaryLapDuration = (activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
-    ? recordedDuration : undefined) ?? (canUseCompleteStravaTimer ? summary.ridingTimeMillis : undefined);
+  const summaryLapDuration = activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
+    ? recordedDuration : undefined;
   const requiresCsv = !laps.length && activityTime && !validRecordedDuration
     && lastObservation != null && lastObservation > (summary.ridingTimeMillis || 0) / 1000;
   const canExportAllAsTcx = typeof summary.distance === "number" && Number.isFinite(summary.distance) && summary.distance >= 0
