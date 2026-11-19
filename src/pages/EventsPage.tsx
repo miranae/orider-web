@@ -465,17 +465,17 @@ export default function EventsPage() {
       <div data-testid="E3-1" className="event-type-filters" role="group" aria-label={t("filter.typeLabel")}>
         {TYPE_FILTERS.map((item) => {
           const active = typeFilter === item.k;
-          return <Button key={item.k} size="sm" variant={active ? "outline" : "secondary"} dense onClick={() => setTypeFilter(item.k)} aria-pressed={active}>
+          return <Chip key={item.k} selectable selected={active} onClick={() => setTypeFilter(item.k)}>
             {item.icon && <span aria-hidden="true">{item.icon}</span>} {item.label}
-          </Button>;
+          </Chip>;
         })}
       </div>
       {regions.length > 0 && <div data-testid="E3-1-1"><DropdownSelect label={t("filter.region")} value={regionFilter} onChange={setRegionFilter}
         options={[{ value: "ALL", label: t("filter.allRegions") }, ...regions.map(region => ({ value: region, label: region }))]} /></div>}
       <div className="event-date-filters" role="group" aria-label={t("filter.dateLabel")}>
-        {(["ALL", "WEEKEND", "MONTH"] as const).map((preset) => <Button key={preset} size="sm" dense variant={datePreset === preset ? "outline" : "secondary"} aria-pressed={datePreset === preset} onClick={() => setDatePreset(preset)}>
+        {(["ALL", "WEEKEND", "MONTH"] as const).map((preset) => <Chip key={preset} selectable selected={datePreset === preset} onClick={() => setDatePreset(preset)}>
           {t(`filter.date.${preset.toLowerCase()}`)}
-        </Button>)}
+        </Chip>)}
       </div>
       <DropdownSelect label={t("filter.difficulty")} value={difficultyFilter} onChange={value => setDifficultyFilter(value as "ALL" | EventDifficulty)}
         options={[{ value: "ALL", label: t("filter.allDifficulties") }, ...(["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).map(difficulty => ({ value: difficulty, label: t(`difficulty.${difficulty.toLowerCase()}`) }))]} />
@@ -596,9 +596,9 @@ export default function EventsPage() {
       <div className="flex items-center justify-between flex-wrap" style={{ gap: "var(--space-2)" }}>
         <div className="flex" role="group" aria-label={t("view.label")} style={{ gap: "var(--space-1)" }}>
           {(["LIST", "CALENDAR", "MAP"] as const).map((item) => (
-            <Button data-testid="E3-0-2" key={item} size="sm" dense variant={view === item ? "outline" : "secondary"} aria-pressed={view === item} onClick={() => setView(item)}>
+            <Chip data-testid="E3-0-2" key={item} selectable selected={view === item} onClick={() => setView(item)}>
               {t(`view.${item.toLowerCase()}`)}
-            </Button>
+            </Chip>
           ))}
         </div>
         <span data-testid="E3-1-2" className="event-view-count">{filtered.length} / {events.length}</span>
