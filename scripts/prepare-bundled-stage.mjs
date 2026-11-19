@@ -64,8 +64,7 @@ export async function prepareBundledStage({ workspace = process.cwd(), directory
   if (directory === workspace || directory.startsWith(`${workspace}/`)) throw new Error("private preparation directory must be outside source");
   const source = await resolveProductionBuildFlags(await requestJson(`${PRODUCTION_ORIGIN}/runtime-config.json`, fetcher), fetcher);
   const runtime = bundledFunctionsConfig(source, "development");
-  const topologyHash = await verifyBundledStageBackend(runtime, backendSourceSha, undefined, fetcher);
-  await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+  const topologyHash = await readBackendIdentity(runtime, backendSourceSha, undefined, fetcher);
   const hosting = bundledHostingConfig(json(resolve(workspace, "firebase.json")), "development");
   delete hosting.hosting.target;
   hosting.hosting.site = "orider-dev";
@@ -111,7 +110,7 @@ export async function sealBundledStage(directory, fetcher = fetch) {
   if (hash(readFileSync(resolve(prepared.artifactDirectory, "runtime-config.json"))) !== prepared.runtimeHash) throw new Error("built runtime differs from the prepared development profile");
   assertStageEntryArtifact(prepared.artifactDirectory);
   const manifest = stageArtifactManifest(prepared.artifactDirectory);
-  await verifyStageArtifacts(prepared.artifactDirectory, manifest, () => readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher));
+  await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   readPrepared(directory);
   const receipt = { ...prepared, complete: true, artifactManifest: manifest, artifactHash: hash(JSON.stringify(manifest)), verifiedAt: new Date().toISOString() };
   save(resolve(state.directory, "build.json"), receipt);
@@ -123,7 +122,10 @@ export async function verifyBundledStage(directory, fetcher = fetch, { identityO
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
   assertStageEntryArtifact(prepared.artifactDirectory);
   await verifyStageArtifacts(prepared.artifactDirectory, receipt.artifactManifest, async () => {
-    if (!identityOnly) await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+    if (!identityOnly) {
+      await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
+      await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+    }
     await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   });
   readPrepared(directory);
