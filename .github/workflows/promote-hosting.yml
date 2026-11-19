@@ -93,8 +93,6 @@ jobs:
       contents: read
       actions: read
       id-token: write
-    env:
-      CLIENT_PROMOTION_DIRECTORY: ${{ runner.temp }}/client-production
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
@@ -102,6 +100,8 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm ci
+      - name: Select promotion receipt directory
+        run: echo "CLIENT_PROMOTION_DIRECTORY=$RUNNER_TEMP/client-production" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           name: client-promotion-${{ github.run_id }}-${{ github.run_attempt }}
