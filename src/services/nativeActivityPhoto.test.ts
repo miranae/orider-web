@@ -40,6 +40,28 @@ it("does not send a photo read if the host revokes approval while App Check is p
   await expect(pending).rejects.toThrow("account_changed");
   expect(mocks.call).not.toHaveBeenCalled();
 });
+it("binds an embedded photo read to the approved guest before a late sign-in can change SDK credentials", async () => {
+  const source = services(null);
+  source.scope = "embedded";
+  source.functions = { app: { options: { projectId: "test-project" } } } as FirebaseServices["functions"];
+  source.getAppCheckToken = vi.fn().mockResolvedValue("embed-check");
+  source.isSessionApproved = user => user === null && source.auth.currentUser === null;
+  const late = { uid: "late", getIdToken: vi.fn().mockResolvedValue("unapproved-token") };
+  const request = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    source.auth.currentUser = late as never;
+    return Response.json({ result: { base64: "aW1hZ2U=", contentType: "image/webp" } });
+  });
+  try {
+    await expect(loadNativeActivityPhoto(source, photo)).rejects.toThrow("account_changed");
+    expect(request).toHaveBeenCalledWith("https://asia-northeast3-test-project.cloudfunctions.net/getActivityPhotoData",
+      expect.objectContaining({
+        headers: { "Content-Type": "application/json", "X-Firebase-AppCheck": "embed-check" },
+        credentials: "omit", body: JSON.stringify({ data: photo }),
+      }));
+    expect(late.getIdToken).not.toHaveBeenCalled();
+    expect(mocks.call).not.toHaveBeenCalled();
+  } finally { request.mockRestore(); }
+});
 it("uploads bounded bytes and owner-only location through the server without Storage URL writes", async () => {
   await uploadNativeActivityPhoto(services(), photo, new Blob(["image"], { type: "image/webp" }), [37, 127]);
   expect(mocks.call).toHaveBeenCalledWith({ ...photo, base64: "aW1hZ2U=", contentType: "image/webp", location: { lat: 37, lon: 127 } });

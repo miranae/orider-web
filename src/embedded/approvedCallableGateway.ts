@@ -1,7 +1,7 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { isFunctionsGatewayRuntime, type RuntimeConfig } from "../services/runtimeConfig";
 
-type ApprovedRoute = "getActivityDiscovery" | "getPublicAthleteTotals" | "logClientError";
+type ApprovedRoute = "getActivityDiscovery" | "getPublicAthleteTotals" | "getActivityPhotoData" | "logClientError";
 
 export function approvedCallableEndpoint(
   config: RuntimeConfig, functions: FirebaseServices["functions"], region: string, route: ApprovedRoute,

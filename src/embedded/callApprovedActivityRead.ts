@@ -10,7 +10,7 @@ const httpErrorCodes: Partial<Record<number, string>> = {
 };
 
 type ReadPhase = "app-check" | "id-token" | "endpoint" | "transport" | "body" | "http" | "timeout" | "contract";
-type ReadRoute = "getActivityDiscovery" | "getPublicAthleteTotals";
+type ReadRoute = "getActivityDiscovery" | "getPublicAthleteTotals" | "getActivityPhotoData";
 
 export function reportApprovedActivityReadFailure(
   services: FirebaseServices,
