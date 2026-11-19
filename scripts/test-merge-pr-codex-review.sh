@@ -229,7 +229,7 @@ grep -q 'CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256 필요' <<<"$missing_bootstrap_ou
 
 pass_output="$(MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$pass_output"
-grep -q "review_scope=major-and-blocker" <<<"$pass_output"
+grep -q "review_scope=blockers-only" <<<"$pass_output"
 expected_head="$($REAL_GIT rev-parse HEAD)"
 grep -qx "archive" "$MOCK_ARCHIVE_ARGS_FILE"
 grep -qx "$expected_head" "$MOCK_ARCHIVE_ARGS_FILE"

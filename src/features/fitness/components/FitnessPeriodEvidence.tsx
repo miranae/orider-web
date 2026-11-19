@@ -34,6 +34,11 @@ export function fitnessPeriodEvidenceVisible(discipline: string, user: { isAnony
  * [loadSignal] 을 주면 자체 불러오기 버튼을 숨기고, 값이 바뀔 때마다 지금 고른 기간으로 불러온다(페이지 공용 버튼).
  * [periods] 를 주면(코치 분석 사이클) 자체 기간 선택을 숨기고, 위 파워 비교가 불러온 기간과 똑같이 불러온다.
  */
+/** Stage 전용 러닝 노력 선호 오버레이 — 운영에서는 `stage` 가 든 요청을 거부하므로 Stage 에서만 붙인다. */
+function stageRunOverlay(): { includeStageRunEffortPreferences?: true } {
+  return getRuntimeConfig().appEnvironment === "stage" ? { includeStageRunEffortPreferences: true } : {};
+}
+
 export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null, windowDays, loadSignal, periods }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null; windowDays?: number; loadSignal?: number; periods?: readonly PowerCurvePeriod[] | null }) {
   const { user } = useAuth();
   if (!fitnessPeriodEvidenceVisible(discipline, user)) return null;
@@ -57,7 +62,9 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
   const result = useTrainingAnalysisPeriods(ownerUid, selection, available);
   // 위 기간 선택을 따르는 비교(기본). 직접 지정을 고르면 끈다.
   const [followWindow, setFollowWindow] = useState(windowDays != null);
-  const windowMode = windowDays != null && followWindow;
+  // 코치 분석(공용 신호)은 기간 선택 없이 늘 위 기간(최근 N일 ↔ 이전 N일)을 쓴다 — 불러오기 버튼이 없어 직접 고른 기간을 다시 부를 수 없다.
+  const fixedWindow = loadSignal !== undefined && windowDays != null;
+  const windowMode = windowDays != null && (fixedWindow || followWindow);
   const syncMode = syncedPeriods !== undefined;
   // 위 파워 비교가 기간을 불러올 때마다 같은 기간으로 불러온다.
   useEffect(() => {
@@ -66,18 +73,18 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
     setSelection(current => ({ requestId: (current?.requestId ?? 0) + 1, request: {
       discipline, periods: [...syncedPeriods],
       ...(discipline === "bike" ? { includeCyclingClimbObservations: true } : {}),
-      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, includeStageRunEffortPreferences: true } : {}),
+      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, ...stageRunOverlay() } : {}),
     } }));
   }, [syncedPeriods, syncMode, available, discipline]);
-  const submit = () => {
-    setControls(value => value); // An explicit load wins over late session restoration.
+  const submit = (explicit = false) => {
+    if (explicit) setControls(value => value); // An explicit load wins over late session restoration.
     const periods = windowMode ? trainingWindowPeriods(windowDays!, Date.now()) : preset ? trainingComparisonPeriods(preset, Date.now()) : ranges.map(range => trainingCalendarPeriod(range.from, range.through, Date.now()));
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); return; }
     setInvalid(false);
     setSelection(current => ({ requestId: (current?.requestId ?? 0) + 1, request: {
       discipline, periods: periods.filter(period => period !== null),
       ...(discipline === "bike" ? { includeCyclingClimbObservations: true } : {}),
-      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, includeStageRunEffortPreferences: true } : {}),
+      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, ...stageRunOverlay() } : {}),
     } }));
   };
   // 한 번 불러온 뒤 위 기간이 바뀌면 새 기간으로 다시 불러온다(기간을 바꿔도 그대로이던 문제).
@@ -91,17 +98,20 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
     const timer = setTimeout(() => { loadedWindow.current = windowDays!; submitRef.current(); }, WINDOW_RELOAD_DELAY_MS);
     return () => clearTimeout(timer);
   }, [windowDays, windowMode, selection, syncMode]);
-  const lastSignal = useRef(loadSignal);
+  // 0 에서 시작한다 — 데이터가 늦게 와서 이미 올라간 신호를 들고 나중에 마운트돼도 한 번 불러온다(자동 조회, 2026-11-19).
+  const lastSignal = useRef<number | undefined>(0);
   useEffect(() => {
     if (syncMode || loadSignal === undefined || loadSignal === lastSignal.current) return;
-    lastSignal.current = loadSignal; if (available) submitRef.current();
+    // 아직 조회할 수 없으면 신호를 소비하지 않고, 준비되면 다시 판정한다.
+    if (!available) return;
+    lastSignal.current = loadSignal; submitRef.current();
   }, [loadSignal, available, syncMode]);
   const Container = inline ? "section" : "details";
   return <Container data-testid="K5-5-2" className="fitness-period-evidence">
     {inline ? <Text as="h3" variant="title">{activityT("trainingPeriods.title")}</Text> : <summary className="cursor-pointer py-3">{activityT("trainingPeriods.title")}</summary>}
     <Stack gap="var(--space-4)">
     {loadSignal === undefined && <Text as="p" variant="caption" tone="secondary">{t("comparison.timezone")}</Text>}
-    {!syncMode && <>
+    {!syncMode && !fixedWindow && <>
     <ToggleControls variant="metric" aria-label={t("comparison.title")}>
       {windowDays != null ? <ToggleButton selected={windowMode} onClick={() => { setFollowWindow(true); setSelection(null); setInvalid(false); }}>{t("comparison.window", { days: windowDays })}</ToggleButton>
         : (["fourWeeks", "yearToDate"] as const).map(value => <ToggleButton key={value} selected={preset === value} onClick={() => { setPreset(value); setSelection(null); setInvalid(false); }}>{t(`comparison.${value}`)}</ToggleButton>)}
@@ -113,7 +123,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
       {(["from", "through"] as const).map(field => <label className="block" key={field}>{t(`periodCurve.${field}`)}<Input type="date" value={range[field]} max={today} onChange={event => { setRanges(values => values.map((value, position) => position === index ? { ...value, [field]: event.target.value } : value)); setSelection(null); setInvalid(false); }} /></label>)}
     </fieldset>)}</div>}
     </>}
-    {loadSignal === undefined && !syncMode && <div><Button disabled={!available || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>}
+    {loadSignal === undefined && !syncMode && <div><Button disabled={!available || result.state === "loading"} onClick={() => submit(true)}>{t("periodCurve.load")}</Button></div>}
     {!available && <Text role="status">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text role="status">{t("periodEvidence.loading")}</Text>}
@@ -130,7 +140,8 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
       <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />
       <RunPeriodComparisonPanel response={result.response} />
       <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} zonesOpen={loadSignal !== undefined || syncMode} />
-      {discipline === "run" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}
+      {/* Stage 전용 — 운영 조회는 stage 요청을 거부하므로 운영에서는 두지 않는다. */}
+      {discipline === "run" && getRuntimeConfig().appEnvironment === "stage" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}
     </Stack>}
     </Stack>
   </Container>;
