@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({ csv: vi.fn(() => "csv"), fit: vi.fn(() => new 
 vi.mock("../utils/exportFit", () => ({ generateFit: mocks.fit }));
 vi.mock("../utils/exportCsv", () => ({ generateCsv: mocks.csv }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.toast }) }));
-vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
+vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn(), debugLog: vi.fn() }));
 const activity = { id: "a", description: "Ride", startTime: 1792800000000 } as Activity;
 beforeEach(() => { mocks.csv.mockClear(); mocks.fit.mockClear(); mocks.toast.mockClear(); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {}); });
 it("exports the newly authorized streams rather than cached props", async () => {

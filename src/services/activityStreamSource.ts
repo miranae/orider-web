@@ -3,16 +3,22 @@ import type { ActivityStreams } from "@shared/types";
 
 // JSON 필드로 흉내 낼 수 없고, 파워 미리보기 등의 객체 spread에도 유지되는 출처다.
 const rawPartRevision = Symbol("rawPartStreamInputRevision");
-type RawPartStreams = ActivityStreams & { [rawPartRevision]: string };
+const rawPartGridOrigin = Symbol("rawPartGridOrigin");
+type RawPartStreams = ActivityStreams & { [rawPartRevision]: string; [rawPartGridOrigin]?: number };
 
-export function markRawPartStreams(streams: ActivityStreams, revision: string): ActivityStreams {
+export function markRawPartStreams(streams: ActivityStreams, revision: string, gridOrigin?: unknown): ActivityStreams {
   if (!/^[a-f0-9]{64}$/.test(revision)) throw new Error("INVALID_PERSONAL_API_RESPONSE");
   const marked: RawPartStreams = { ...streams, [rawPartRevision]: revision };
+  if (typeof gridOrigin === "number" && Number.isFinite(gridOrigin) && gridOrigin > 0) marked[rawPartGridOrigin] = gridOrigin;
   return marked;
 }
 
 export function isRawPartStreams(streams: ActivityStreams | null | undefined): boolean {
   return streams != null && typeof (streams as Partial<RawPartStreams>)[rawPartRevision] === "string";
+}
+
+export function readRawPartGridOrigin(streams: ActivityStreams): number | undefined {
+  return (streams as Partial<RawPartStreams>)[rawPartGridOrigin];
 }
 
 const streamCadenceUnit = Symbol("verifiedStreamCadenceUnit");

@@ -26,7 +26,8 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
   // 랩 정보가 있으면 랩별 Lap 생성, 없으면 전체를 단일 Lap으로
   if (streams.laps && streams.laps.length > 0) {
     let trackIdx = 0;
-    for (const lap of streams.laps) {
+    let lapEndTime = 0;
+    for (const [lapIndex, lap] of streams.laps.entries()) {
       const lapSeconds = (lap.durationMs || 0) / 1000;
       const lapDistanceM = (lap.distanceKm || 0) * 1000;
       lines.push('<Lap>');
@@ -35,19 +36,16 @@ export function generateTcx(activity: Activity, streams: ActivityStreams, cadenc
       lines.push('<Track>');
 
       // 현재 랩에 해당하는 트랙포인트 수 추정 (상대 초 기반)
-      const lapEndTime = (relSecAt(trackIdx) ?? 0) + lapSeconds;
+      lapEndTime += lapSeconds;
+      const isLastLap = lapIndex === streams.laps.length - 1;
       while (trackIdx < len) {
         const tSec = relSecAt(trackIdx) ?? trackIdx;
-        if (tSec > lapEndTime && trackIdx > 0) break;
+        if (!isLastLap && tSec > lapEndTime) break;
         writeTrackpoint(lines, streams, trackIdx, startMs, relSecAt(trackIdx), cadence);
         trackIdx++;
       }
 
       lines.push('</Track>', '</Lap>');
-    }
-    // 남은 트랙포인트가 있으면 마지막 랩에 포함
-    if (trackIdx < len) {
-      // 이미 닫힌 마지막 Lap 뒤에 추가 포인트 — 무시 (사소한 오차)
     }
   } else {
     lines.push('<Lap>');

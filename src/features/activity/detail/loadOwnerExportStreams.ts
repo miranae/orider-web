@@ -5,31 +5,12 @@ import { logClientError, debugLog } from "../../../services/errorLogger";
 import { createPublicActivityClient, isPublicActivityAccessError } from "../../../services/publicActivityDetail";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
 import { exportSportOf } from "../../../utils/exportSport";
-import { activityIndependentRoute } from "./activityIndependentRoute";
 import { activitySensorOrigin } from "./activitySensorOrigin";
 import { usesCanonicalActivityStreams } from "./useActivityStreamsLoader";
 
 function hasFootCadenceUnit(streams: ActivityStreams): boolean {
   const unit = readStreamCadenceUnit(streams);
   return unit === "spm" || unit === "strides_per_minute";
-}
-
-function withObservedCoordinates(streams: ActivityStreams, gridOrigin: number | undefined): ActivityStreams {
-  if (streams.latlng?.length || typeof gridOrigin !== "number" || !Number.isFinite(gridOrigin)) return streams;
-  const geometry = streams.activityRouteGeometryV1;
-  const coordinates = activityIndependentRoute(streams);
-  const time = streams.time;
-  const routeOrigin = geometry?.originEpochMs;
-  if (!coordinates || !geometry || routeOrigin == null || !time?.length
-    || !time.every((sample, index) => sample === index)) return streams;
-
-  const aligned = new Array<[number, number]>(time.length);
-  geometry.time.forEach((elapsed, index) => {
-    const point = coordinates[index];
-    const slot = Math.floor((routeOrigin + elapsed * 1000 - gridOrigin) / 1000);
-    if (point && slot >= 0 && slot < time.length) aligned[slot] = point;
-  });
-  return aligned.some(Boolean) ? { ...streams, latlng: aligned } : streams;
 }
 
 export async function loadOwnerExportStreams(
@@ -47,6 +28,10 @@ export async function loadOwnerExportStreams(
 
   const context = { activityId: activity.id, source: activity.source ?? "unknown", format };
   const result = await createPublicActivityClient(services).streams(activity.id).catch(error => {
+    if (services.auth.currentUser !== account) {
+      debugLog("streams.owner_export_stale_failure", { format, source: context.source });
+      throw new Error("account_changed");
+    }
     logClientError("ActivityStreams.ownerExport", error, context, services);
     const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
     // Firebase assigns this default message to a bare HTTP 404.
@@ -63,6 +48,9 @@ export async function loadOwnerExportStreams(
     return displayed;
   }
   if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");
-  if (!hasFootCadenceUnit(result.streams)) return displayed;
-  return result.sourceLayer === "raw_parts" ? withObservedCoordinates(result.streams, result.routeTimeOriginEpochMs) : result.streams;
+  if (!hasFootCadenceUnit(result.streams) || !Array.isArray(result.streams.cadence)
+    || !result.streams.cadence.some(value => Number.isFinite(value) && value >= 0)) {
+    return displayed;
+  }
+  return result.streams;
 }

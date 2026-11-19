@@ -86,8 +86,8 @@ export function generateFit(activity: Activity, streams: ActivityStreams, cadenc
     if (hasCad) recBytes.push(cadence.whole(streams.cadence![i]) ?? 0xFF);
     if (hasPower) recBytes.push(...uint16LE(streams.watts![i] ?? 0xFFFF));
     if (hasSpeed) {
-      const speedMs = streams.velocity_smooth![i] ?? 0;
-      recBytes.push(...uint16LE(Math.round(speedMs * 1000)));
+      const speedMs = streams.velocity_smooth![i];
+      recBytes.push(...uint16LE(speedMs == null ? 0xFFFF : Math.round(speedMs * 1000)));
     }
     if (hasCad && cadence.footCadence) recBytes.push(cadence.fraction(streams.cadence![i]) ?? 0xFF);
 

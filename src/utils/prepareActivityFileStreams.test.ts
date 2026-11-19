@@ -1,0 +1,32 @@
+import { expect, it } from "vitest";
+import type { Activity, ActivityStreams } from "@shared/types";
+import { markRawPartStreams, markVerifiedStreamCadence, readStreamCadenceUnit } from "../services/activityStreamSource";
+import { prepareActivityFileStreams } from "./prepareActivityFileStreams";
+import { generateTcx } from "./exportTcx";
+
+it("writes each GPS observation at its own time and offsets sensor samples from the actual activity start", () => {
+  const startTime = Date.parse("2026-11-19T07:00:00Z");
+  const origin = startTime + 30_000;
+  const revision = "a".repeat(64);
+  const activity = { startTime, type: "Run", summary: { ridingTimeMillis: 60_000 } } as Activity;
+  const streams = markVerifiedStreamCadence(markRawPartStreams({
+    time: [0, 1, 2], cadence: [170, null, 172],
+    activityRouteGeometryV1: {
+      version: 1, timingBasis: "elapsed", originEpochMs: origin + 250, timeOrigin: "relative_to_first_gps_observation",
+      routeInputRevision: revision, time: [0, 0.5, 2], latlng: [[37, 127], [38, 128], [39, 129]],
+    },
+  } as unknown as ActivityStreams, revision, origin), revision, "spm");
+
+  const fileStreams = prepareActivityFileStreams(activity, streams);
+  expect(fileStreams.time).toEqual([30, 30.25, 30.75, 31, 32, 32.25]);
+  expect(fileStreams.latlng?.[1]).toEqual([37, 127]);
+  expect(fileStreams.latlng?.[2]).toEqual([38, 128]);
+  expect(fileStreams.cadence?.[0]).toBe(170);
+  expect(fileStreams.cadence?.[2]).toBeUndefined();
+  expect(fileStreams.cadence?.[4]).toBe(172);
+  const xml = generateTcx(activity, fileStreams, readStreamCadenceUnit(fileStreams));
+  expect(xml).toContain("2026-11-19T07:00:30.250Z");
+  expect(xml).toContain("2026-11-19T07:00:30.750Z");
+  expect(xml).toContain("<ext:RunCadence>85</ext:RunCadence>");
+  expect(xml).toContain("<ext:RunCadence>86</ext:RunCadence>");
+});

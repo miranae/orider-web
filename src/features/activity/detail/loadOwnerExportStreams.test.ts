@@ -35,25 +35,15 @@ it.each(["orider", "apple_health", "health_connect"] as const)("exports the cade
   expect(mocks.streams).toHaveBeenCalledExactlyOnceWith(run.id);
 });
 
-it("exports sparse raw-parts cadence with coordinates aligned by observed timestamps", async () => {
-  const origin = 1700000000000;
-  const streams = markVerifiedStreamCadence({
-    time: [0, 1, 2], cadence: [170, null, 172],
-    activityRouteGeometryV1: {
-      version: 1, timingBasis: "elapsed", originEpochMs: origin + 250, timeOrigin: "relative_to_first_gps_observation",
-      routeInputRevision: revision, time: [0, 2], latlng: [[37, 127], [38, 128]],
-    },
-  } as unknown as ActivityStreams, revision, "spm");
-  mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "raw_parts", routeTimeOriginEpochMs: origin, streams });
-  const services = ownerServices();
-  const result = await loadOwnerExportStreams(run, displayed, "tcx", services);
-  expect(result.cadence).toEqual([170, null, 172]);
-  expect(readStreamCadenceUnit(result)).toBe("spm");
-  expect(result.latlng?.[0]).toEqual([37, 127]);
-  expect(result.latlng?.[1]).toBeUndefined();
-  expect(result.latlng?.[2]).toEqual([38, 128]);
-  expect(await loadOwnerExportStreams(run, displayed, "csv", services)).toBe(displayed);
-  expect(mocks.streams).toHaveBeenCalledOnce();
+it("keeps the existing file signals when the candidate contains no usable cadence samples", async () => {
+  const streams = markVerifiedStreamCadence({ time: [0], cadence: [] }, revision, "spm");
+  mocks.streams.mockResolvedValue({ activityId: run.id, state: "available", sourceLayer: "raw_parts", streams });
+  expect(await loadOwnerExportStreams(run, displayed, "tcx", ownerServices())).toBe(displayed);
+});
+
+it("uses displayed streams for CSV without querying the cadence source", async () => {
+  expect(await loadOwnerExportStreams(run, displayed, "csv", ownerServices())).toBe(displayed);
+  expect(mocks.streams).not.toHaveBeenCalled();
 });
 
 it("keeps the legacy file source while the rollout flag is disabled", async () => {
@@ -85,4 +75,15 @@ it("refuses files after the account changes during a lookup", async () => {
     return Promise.resolve({ activityId: run.id, state: "available", streams: displayed });
   });
   await expect(loadOwnerExportStreams(run, displayed, "fit", services)).rejects.toThrow("account_changed");
+});
+
+
+it("does not submit previous account diagnostics under the replacement account", async () => {
+  const services = ownerServices();
+  mocks.streams.mockImplementation(() => {
+    Object.assign(services.auth, { currentUser: { uid: "different" } });
+    return Promise.reject(new Error("network error"));
+  });
+  await expect(loadOwnerExportStreams(run, displayed, "fit", services)).rejects.toThrow("account_changed");
+  expect(logClientError).not.toHaveBeenCalled();
 });

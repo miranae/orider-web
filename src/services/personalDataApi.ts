@@ -108,7 +108,7 @@ export async function getActivityStreamsWithAuth(
     const response = await httpsCallable<{ activityId: string; includeRunEffortFacts?: boolean }, {
       activityId: string; state: "available" | "pending" | "changed_input" | "unavailable";
       runningBestEffortsFacts?: RunningBestEffortsFacts;
-      streamInputRevision: string | null; sourceLayer: "raw_parts" | "api_streams" | null; cadenceUnit?: unknown; streams: ActivityStreams | null;
+      streamInputRevision: string | null; sourceLayer: "raw_parts" | "api_streams" | null; routeTimeOriginEpochMs?: number; cadenceUnit?: unknown; streams: ActivityStreams | null;
     }>(provider.functions, "getActivityStreams")({ activityId, ...(options?.includeRunEffortFacts === true ? { includeRunEffortFacts: true } : {}) });
     if (authInstance.currentUser?.uid !== uid) throw new Error("account_changed");
     const data = response.data;
@@ -120,7 +120,7 @@ export async function getActivityStreamsWithAuth(
       || !["raw_parts", "api_streams"].includes(data.sourceLayer ?? "") || !data.streams
       || typeof data.streams !== "object" || Array.isArray(data.streams)) throw new Error("INVALID_PERSONAL_API_RESPONSE");
     const streams = markVerifiedStreamCadence(
-      data.sourceLayer === "raw_parts" ? markRawPartStreams(data.streams, data.streamInputRevision) : data.streams,
+      data.sourceLayer === "raw_parts" ? markRawPartStreams(data.streams, data.streamInputRevision, data.routeTimeOriginEpochMs) : data.streams,
       data.streamInputRevision, data.cadenceUnit,
     );
     if (options?.includeRunEffortFacts === true) {
@@ -137,7 +137,7 @@ export async function getActivityStreamsWithAuth(
     throw new Error("INVALID_PERSONAL_API_RESPONSE");
   }
   const streams = payload.sourceLayer === "raw_parts" && payload.streamInputRevision
-    ? markRawPartStreams(payload.data, payload.streamInputRevision) : payload.data;
+    ? markRawPartStreams(payload.data, payload.streamInputRevision, (payload.data as ActivityStreams & { timeOriginEpochMs?: unknown }).timeOriginEpochMs) : payload.data;
   return markVerifiedStreamCadence(streams, payload.streamInputRevision, payload.cadenceUnit);
 }
 

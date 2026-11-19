@@ -174,6 +174,10 @@ export function useActivityStreamsLoader({
       }).then(parsed => {
         if (isCurrent()) setStreams(parsed);
       }).catch(err => {
+        if (auth.currentUser !== sdkUser) {
+          debugLog("streams.previous_account_failure", { source: source ?? "unknown" });
+          return;
+        }
         logClientError("ActivityPage.streams", err, {
           activityId,
           source: source ?? "unknown",
@@ -203,6 +207,10 @@ export function useActivityStreamsLoader({
     providerStreams.then((data) => {
       if (isCurrent()) setStreams(data as unknown as ActivityStreams);
     }).catch((err) => {
+      if (auth.currentUser !== sdkUser) {
+        debugLog("streams.previous_account_failure", { source: "strava" });
+        return;
+      }
       if (isStreamNotCachedError(err)) {
         if (isCurrent()) setStreamsError(t("page.streamsNotCached"));
       } else {

@@ -5,10 +5,11 @@ import { generateTcx } from "../utils/exportTcx";
 import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
+import { prepareActivityFileStreams } from "../utils/prepareActivityFileStreams";
 import { exportFilename, exportSportOf } from "../utils/exportSport";
 import { useToast } from "../contexts/ToastContext";
 import { readStreamCadenceUnit } from "../services/activityStreamSource";
-import { logClientError } from "../services/errorLogger";
+import { debugLog, logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
   activity: Activity;
@@ -56,14 +57,14 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         && Array.isArray(currentStreams.cadence) && currentStreams.cadence.some(value => Number.isFinite(value) && value >= 0);
       switch (format) {
         case "fit": {
-          const data = generateFit(activity, currentStreams, fileCadenceUnit);
+          const data = generateFit(activity, prepareActivityFileStreams(activity, currentStreams), fileCadenceUnit);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
           downloadBlob(new Blob([ab], { type: "application/octet-stream" }), exportFilename(activity, "fit"));
           break;
         }
         case "tcx": {
-          const xml = generateTcx(activity, currentStreams, fileCadenceUnit);
+          const xml = generateTcx(activity, prepareActivityFileStreams(activity, currentStreams), fileCadenceUnit);
           downloadBlob(new Blob([xml], { type: "application/xml" }), exportFilename(activity, "tcx"));
           break;
         }
@@ -82,6 +83,10 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
       }
       if (missingFootCadenceUnit) showToast(t("export.cadenceUnavailable"), "info");
     } catch (err) {
+      if (getExportAccount?.() !== account) {
+        debugLog("export.previous_account_failure", { format });
+        return;
+      }
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       if (stillCurrent()) showToast(t("export.errorAlert"), "error");
     }
