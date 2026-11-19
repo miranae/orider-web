@@ -22,7 +22,7 @@ export async function callApprovedActivityRead<T>(
 ): Promise<T> {
   const report = (phase: ReadPhase, status?: number) => {
     logClientError("embedded.activityRead", new Error(`embedded-callable-${phase}-failed`),
-      { route, phase, status }, services, viewer, route);
+      { route, phase, status }, services, viewer, `${route}:${status ?? ""}`);
   };
   const reportTimeout = () => {
     if (signal.reason instanceof DOMException && signal.reason.name === "TimeoutError") report("timeout");

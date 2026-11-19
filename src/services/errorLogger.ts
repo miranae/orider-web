@@ -82,32 +82,37 @@ export function logClientError(
   dedupeScope = "",
   isRequestCurrent?: () => boolean,
 ) {
-  const message = error instanceof Error ? error.message : String(error);
-  const user = requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
+  // A cache reset can fail during revocation itself. Its fixed diagnostic has no account data
+  // and can be recorded as an App Check-only request even after the old session ends.
+  const anonymousCacheReset = source === "embedded.authChangeCacheReset" && Boolean(services?.isSessionApproved);
+  const diagnosticError = anonymousCacheReset ? new Error("embedded-cache-reset-failed") : error;
+  const diagnosticContext = anonymousCacheReset ? undefined : context;
+  const message = diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError);
+  const user = anonymousCacheReset ? null : requestViewer === undefined ? services?.auth?.currentUser : requestViewer;
   const signedInAt = user?.metadata?.lastSignInTime ?? "";
-  const requestIsCurrent = () => (!services || (
+  const requestIsCurrent = () => anonymousCacheReset || ((!services || (
     services.auth?.currentUser === user && (user?.metadata?.lastSignInTime ?? "") === signedInAt
     && services.isSessionApproved?.(user ?? null) !== false
-  )) && isRequestCurrent?.() !== false;
+  )) && isRequestCurrent?.() !== false);
   const requestState = requestIsCurrent() ? "current" : "expired";
   if (shouldSuppressClientError(recentErrorsFor(services, user), source, message, `${signedInAt}:${requestState}:${dedupeScope}`)) return;
 
   // Sentry 에 전송 (lazy-loaded, init 전이면 큐에 저장 → load 시 flush)
   captureError(
-    error instanceof Error ? error : new Error(String(error)),
-    { tags: { source }, extra: context }
+    diagnosticError instanceof Error ? diagnosticError : new Error(message),
+    { tags: { source }, extra: diagnosticContext }
   );
 
   const config = getRuntimeConfig();
   if (config.appEnvironment === "stage") return;
 
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
-  const stack = error instanceof Error ? error.stack : undefined;
+  const stack = !anonymousCacheReset && diagnosticError instanceof Error ? diagnosticError.stack : undefined;
 
   if (services ? !services.auth || !services.functions : !functions) return;
   // Report late failures to Sentry, but never send them through a different account's callable.
   if (!requestIsCurrent()) return;
-  const payload = { source, message, stack, context };
+  const payload = { source, message, stack, context: diagnosticContext };
   void (async () => {
     let backupPhase: "endpoint" | "app-check" | "id-token" | "transport" | "http" | "body" | "timeout" = "endpoint";
     let backupStatus: number | undefined;

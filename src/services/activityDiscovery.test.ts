@@ -94,6 +94,9 @@ it('records transport failures and preserves permission errors from non-JSON gat
    { route: 'getActivityDiscovery', phase: 'http', status: 401 },
    { route: 'getActivityDiscovery', phase: 'http', status: 403 },
   ]);
+  expect(report.mock.calls.map(call => call[5])).toEqual([
+   'getActivityDiscovery:', 'getActivityDiscovery:403', 'getActivityDiscovery:401', 'getActivityDiscovery:403',
+  ]);
  } finally { request.mockRestore(); report.mockRestore(); }
 });
 

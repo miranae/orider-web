@@ -250,3 +250,21 @@ it("bounds a stalled embedded backup and records its timeout", async () => {
     });
   } finally { vi.useRealTimers(); post.mockRestore(); warn.mockRestore(); }
 });
+
+it("sends a fixed cache reset diagnostic without borrowing credentials after revocation", async () => {
+  __resetClientErrorDedupeForTests();
+  const lateViewer = { uid: "unapproved", getIdToken: vi.fn() };
+  const services = { auth: { currentUser: lateViewer }, functions: { app: { options: { projectId: "test-project" } } },
+    getAppCheckToken: vi.fn().mockResolvedValue("app-check"), isSessionApproved: () => false } as unknown as FirebaseServices;
+  const post = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ result: { success: true } }));
+  try {
+    logClientError("embedded.authChangeCacheReset", new Error("private cache path"), { viewer: "unapproved" }, services);
+    await vi.waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(post.mock.calls[0]?.[1]).toMatchObject({
+      headers: { "Content-Type": "application/json", "X-Firebase-AppCheck": "app-check" },
+      body: JSON.stringify({ data: { source: "embedded.authChangeCacheReset", message: "embedded-cache-reset-failed" } }),
+    });
+    expect(post.mock.calls[0]?.[1]?.headers).not.toHaveProperty("Authorization");
+    expect(lateViewer.getIdToken).not.toHaveBeenCalled();
+  } finally { post.mockRestore(); }
+});
