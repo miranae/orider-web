@@ -3,10 +3,16 @@ import { resolve } from "node:path";
 
 /** Derive the code review verdict from reported severity across all providers. */
 export function enforceReviewFloor(review) {
-  const findingPrefix = /^(?:[^\p{L}\p{N}\r\n]|\d+[.)]|\[[xX]\])*(BLOCKER|MAJOR|MINOR)\b/iu;
+  const markup = /\[[xX]\]|\d+[.)]|[^\p{L}\p{N}]/uy;
+  const findingPrefix = /^(BLOCKER|MAJOR|MINOR)(?:__)?(?![\p{L}\p{N}_])/iu;
   const severities = review.findings.split(/\r\n|[\r\n\u2028\u2029]/)
     .filter(line => line.trim())
-    .map(line => findingPrefix.exec(line)?.[1].toUpperCase());
+    .map(line => {
+      // Consume each list marker or formatting character once.
+      let offset = 0;
+      while (markup.test(line)) offset = markup.lastIndex;
+      return findingPrefix.exec(line.slice(offset))?.[1].toUpperCase();
+    });
   if (severities.includes("BLOCKER")) return { ...review, verdict: "BLOCK" };
   // Override a BLOCK only if every reported line is explicitly advisory.
   if (severities.length && severities.every(value => value === "MAJOR" || value === "MINOR")) {
