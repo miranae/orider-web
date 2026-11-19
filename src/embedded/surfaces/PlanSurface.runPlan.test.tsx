@@ -26,7 +26,7 @@ vi.mock("../../features/training/run30/Run30ProgramView", () => ({
   },
 }));
 vi.mock("../../features/training/plan/PlanPresentation", () => ({
-  default: () => <div data-testid="plan-presentation" />,
+  default: ({ decisionSlot }: { decisionSlot: ReactNode }) => <div data-testid="plan-presentation">{decisionSlot}</div>,
 }));
 vi.mock("../../features/training/plan/PlanLoadComparisonPanel", () => ({
   default: () => <div data-testid="plan-load-comparison" />,
@@ -78,11 +78,12 @@ describe("PlanSurface running plan", () => {
     details.open = true;
     fireEvent(details, new Event("toggle"));
     expect(screen.getByTestId("plan-presentation")).toBeVisible();
+    expect(screen.getByTestId("today-decision")).toBeVisible();
     expect(mocks.run30Lookups).toBeGreaterThan(0);
   });
 
   it("passes the scheduled-run bridge to an enrolled runner", () => {
-    const starter = vi.fn();
+    const starter = { start: vi.fn().mockResolvedValue({ accepted: true }) };
     mocks.run30Program = { goalId: "half" };
     render(wrapper(<PlanSurface onReady={vi.fn()} retryKey={0} scheduledRunStarter={starter} />));
     expect(screen.queryByTestId("run30-program-view")).not.toBeInTheDocument();

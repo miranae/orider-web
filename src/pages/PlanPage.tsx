@@ -294,7 +294,10 @@ export function PlanView({ model, startMode = WEB_START_MODE }: {
       const run30Offer = run30.status === "ready" && goal?.discipline === "run" && !serverManagedPlan
         ? <Run30EnrollCard api={run30.api} variant="offer" onEnrolled={refreshAfterProgramChange} />
         : null;
-      planDetails = renderPresentation(run30Offer);
+      planDetails = renderPresentation(<>
+        {run30Offer}
+        {goal && <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />}
+      </>);
     }
     return <>
       {goalLink}
