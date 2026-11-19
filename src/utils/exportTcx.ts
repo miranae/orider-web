@@ -136,8 +136,9 @@ export function prepareTcxExport(activity: Activity, streams: ActivityStreams, c
   const validRecordedDuration = recordedDuration != null;
   const summaryLapDuration = activityTime || (!ambiguousNativeClock && summary.ridingTimeMillis === recordedDuration)
     ? recordedDuration : undefined;
-  const activityCalories = [streams.calories, summary.calories].find((value): value is number =>
-    typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 65535);
+  // Export only calories delivered with the currently authorized streams.
+  const activityCalories = typeof streams.calories === "number" && Number.isFinite(streams.calories)
+    && streams.calories >= 0 && streams.calories <= 65535 ? streams.calories : undefined;
   // Garmin's TCX schema requires an unsigned calorie value on every lap.
   const hasMissingLapCalories = laps.length > 0 && activityCalories == null;
   const requiresCsv = hasMissingLapCalories || (!laps.length && activityTime && !validRecordedDuration

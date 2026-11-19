@@ -524,5 +524,6 @@ it("requires a recorded calorie value for TCX with laps", () => {
   expect(() => missing.render("activity")).toThrow("TCX_LAP_CALORIES_UNAVAILABLE");
 
   const withSummary = { ...activity, summary: { ...activity.summary, calories: 210 } };
-  expect(prepareTcxExport(withSummary, streams).render("recorded")).toContain("<Calories>210</Calories>");
+  expect(prepareTcxExport(withSummary, streams).requiresCsv).toBe(true);
+  expect(prepareTcxExport(withSummary, { ...streams, calories: 210 }).render("recorded")).toContain("<Calories>210</Calories>");
 });

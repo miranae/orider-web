@@ -142,7 +142,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
             const binding = JSON.stringify([revision, preparedStreams.laps, preparedStreams.time, preparedStreams.latlng,
               preparedStreams.distance, preparedStreams.altitude, preparedStreams.velocity_smooth, preparedStreams.heartrate,
               preparedStreams.cadence, preparedStreams.watts, preparedStreams.calories, fileCadenceUnit, fileActivity.summary.distance,
-              fileActivity.summary.ridingTimeMillis, fileActivity.summary.elapsedTimeMillis, fileActivity.summary.calories, fileActivity.endTime]);
+              fileActivity.summary.ridingTimeMillis, fileActivity.summary.elapsedTimeMillis, fileActivity.endTime]);
             if (!tcxMode || pendingTcx?.binding !== binding || prepared.requiresCsv
               || (tcxMode === "activity" && !prepared.canExportAllAsTcx)
               || (tcxMode === "recorded" && !prepared.canKeepRecordedLaps)) {
