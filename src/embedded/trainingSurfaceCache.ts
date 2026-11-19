@@ -5,7 +5,11 @@ const SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 12;
 const CACHE_MAX_BYTES = 512 * 1024;
 const STORAGE_PREFIX = "orider.trainingSurfaceCache.";
-const STORAGE_KEY = `${STORAGE_PREFIX}v2`;
+const LEGACY_STORAGE_KEY = `${STORAGE_PREFIX}v2`;
+
+function storageKey(uid: string, scope: string): string {
+  return `${LEGACY_STORAGE_KEY}:${encodeURIComponent(uid)}:${scope}`;
+}
 
 export type TrainingCacheSurface = "fitness" | "fitness-timeseries" | "fitness-summary" | "plan" | "plan-snapshot" | "run30";
 
@@ -130,9 +134,9 @@ function purgeDisk(): void {
   }
 }
 
-function persist(onError?: (error: unknown) => void): void {
+function persist(onError?: (error: unknown) => void): boolean {
   const scope = trainingSurfaceCacheScope();
-  if (!ownerUid || !scope) return;
+  if (!ownerUid || !scope || ownerScope !== scope) return false;
   try {
     const snapshots = [...entries.values()].filter((entry) =>
       entry.expiresAt > Date.now() && validKey(entry.key, ownerUid!)
@@ -143,10 +147,14 @@ function persist(onError?: (error: unknown) => void): void {
       if (new TextEncoder().encode(encoded).byteLength <= CACHE_MAX_BYTES) break;
       snapshots.shift();
     }
-    storage(onError)?.setItem(STORAGE_KEY, encoded);
+    const disk = storage(onError);
+    if (!disk) return false;
+    disk.setItem(storageKey(ownerUid, scope), encoded);
+    return true;
   } catch (error) {
     // 디스크 저장 실패 시에도 이미 검증된 메모리 값은 유지한다.
     onError?.(error);
+    return false;
   }
 }
 
@@ -154,18 +162,15 @@ function restore(uid: string): void {
   const scope = trainingSurfaceCacheScope();
   if (!scope) return;
   try {
-    const encoded = storage()?.getItem(STORAGE_KEY);
-    if (!encoded) return;
-    if (encoded.length > CACHE_MAX_BYTES || new TextEncoder().encode(encoded).byteLength > CACHE_MAX_BYTES) {
-      purgeDisk();
-      return;
-    }
+    const disk = storage();
+    if (!disk) return;
+    const scopedKey = storageKey(uid, scope);
+    const scoped = disk.getItem(scopedKey);
+    const encoded = scoped ?? disk.getItem(LEGACY_STORAGE_KEY);
+    if (!encoded || encoded.length > CACHE_MAX_BYTES || new TextEncoder().encode(encoded).byteLength > CACHE_MAX_BYTES) return;
     const envelope: unknown = JSON.parse(encoded);
     if (!isRecord(envelope) || envelope.schema !== TRAINING_SURFACE_CACHE_SCHEMA_VERSION
-      || envelope.uid !== uid || envelope.scope !== scope || !Array.isArray(envelope.entries) || envelope.entries.length > CACHE_MAX_ENTRIES) {
-      purgeDisk();
-      return;
-    }
+      || envelope.uid !== uid || envelope.scope !== scope || !Array.isArray(envelope.entries) || envelope.entries.length > CACHE_MAX_ENTRIES) return;
     const now = Date.now();
     for (const entry of envelope.entries) {
       if (!isRecord(entry) || !validKey(entry.key, uid) || typeof entry.expiresAt !== "number"
@@ -173,9 +178,9 @@ function restore(uid: string): void {
         || !validSnapshot(entry.key.surface, entry.value, uid)) continue;
       entries.set(serializeKey(entry.key), entry as unknown as CacheEntry);
     }
-    persist();
+    if (persist() && scoped === null) disk.removeItem(LEGACY_STORAGE_KEY);
   } catch {
-    purgeDisk();
+    // 저장소 오류나 손상된 스냅샷은 원본 조회로 복구한다.
   }
 }
 

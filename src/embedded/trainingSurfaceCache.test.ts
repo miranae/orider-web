@@ -71,7 +71,7 @@ describe("trainingSurfaceCache", () => {
 });
 
 const scope = "12345678-1234-1234-1234-123456789abc";
-const diskKey = "orider.trainingSurfaceCache.v2";
+const diskKey = `orider.trainingSurfaceCache.v2:${key.uid}:${scope}`;
 const snapshot = { goal: null, weeks: [] };
 
 async function freshCache() {
@@ -100,6 +100,25 @@ describe("훈련 스냅샷 영속 캐시", () => {
     expect(restarted.getTrainingSurfaceCache(key)).toEqual(snapshot);
     localStorage.setItem(diskKey, "깨진 JSON");
     expect(restarted.getTrainingSurfaceCache(key)).toEqual(snapshot);
+  });
+
+  it("invalidates the active owner's plan without overwriting another account snapshot", async () => {
+    const first = await freshCache();
+    first.prepareTrainingSurfaceCacheOwner(key.uid);
+    first.setTrainingSurfaceCache(key, snapshot);
+    const other = await freshCache();
+    const otherKey = { ...key, uid: "other" };
+    other.prepareTrainingSurfaceCacheOwner(otherKey.uid);
+    other.setTrainingSurfaceCache(otherKey, snapshot);
+    const otherDiskKey = `orider.trainingSurfaceCache.v2:${otherKey.uid}:${scope}`;
+    const otherSnapshot = localStorage.getItem(otherDiskKey);
+
+    first.removeTrainingPlanCacheForSport(key.uid, key.sport, vi.fn());
+
+    expect(otherSnapshot).not.toBeNull();
+    expect(localStorage.getItem(otherDiskKey)).toBe(otherSnapshot);
+    expect(JSON.parse(localStorage.getItem(diskKey)!).entries).toEqual([]);
+    expect(other.getTrainingSurfaceCache(otherKey)).toEqual(snapshot);
   });
 
   it("네이티브 scope가 없는 기존 앱은 메모리만 사용한다", async () => {
@@ -169,19 +188,21 @@ describe("훈련 스냅샷 영속 캐시", () => {
   });
 
   it("SHA256 scope도 허용하고 디스크 항목 수와 총 바이트를 제한한다", async () => {
-    window.__ORIDER_TRAINING_CACHE_SCOPE__ = "a".repeat(64);
+    const hashScope = "a".repeat(64);
+    window.__ORIDER_TRAINING_CACHE_SCOPE__ = hashScope;
+    const hashDiskKey = `orider.trainingSurfaceCache.v2:${key.uid}:${hashScope}`;
     const cache = await freshCache();
     cache.prepareTrainingSurfaceCacheOwner(key.uid);
     for (let index = 0; index < 13; index += 1) {
       cache.setTrainingSurfaceCache({ ...key, sport: `sport-${index}` }, snapshot);
     }
-    expect(JSON.parse(localStorage.getItem(diskKey)!).entries).toHaveLength(12);
+    expect(JSON.parse(localStorage.getItem(hashDiskKey)!).entries).toHaveLength(12);
     for (let index = 0; index < 3; index += 1) {
       cache.setTrainingSurfaceCache({ ...key, sport: `large-${index}` }, {
         goal: { userId: key.uid, id: "goal", title: "큰".repeat(80_000) }, weeks: [],
       });
     }
-    const encoded = localStorage.getItem(diskKey)!;
+    const encoded = localStorage.getItem(hashDiskKey)!;
     expect(new TextEncoder().encode(encoded).byteLength).toBeLessThanOrEqual(524288);
     expect(JSON.parse(encoded).entries.length).toBeLessThan(12);
     expect(cache.getTrainingSurfaceCache({ ...key, sport: "large-2" })).not.toBeNull();
