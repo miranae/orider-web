@@ -62,7 +62,7 @@ test("manual development preparation binds paired runtime/Hosting, source and ac
     assert.match(environment, /BUNDLED_RUNTIME_CONFIG_PATH=/); assert.match(environment, /BUNDLED_FUNCTIONS_ENVIRONMENT=development/);
     const gatewayOrigin = "https://dev-bundle-default-api-818364001341.asia-northeast3.run.app";
     assert.equal(runtime.firebaseFunctionsBase, gatewayOrigin);
-    assert.deepEqual([...new Set(f.calls.map(url => new URL(url).origin))].sort(), ["https://orider.co.kr", gatewayOrigin, "https://dev-bundle-ai-api-818364001341.asia-northeast3.run.app"].sort());
+    assert.deepEqual([...new Set(f.calls.map(url => new URL(url).origin))].sort(), ["https://orider.co.kr", gatewayOrigin].sort());
     const connectSources = hosting.headers.flatMap(row => row.headers).filter(header => header.key === "Content-Security-Policy")
       .flatMap(header => header.value.split(";").flatMap(directive => {
         const [name, ...sources] = directive.trim().split(/\s+/u);
@@ -75,7 +75,9 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
   const f = fixture();
   try {
     await f.prepare(); f.build();
+    const beforeSeal = f.calls.length;
     const receipt = await sealBundledStage(f.directory, f.fetcher);
+    assert.deepEqual(f.calls.slice(beforeSeal).map(url => new URL(url).pathname), ["/readyz"]);
     assert.equal(receipt.complete, true); assert.equal(receipt.backendTopologyHash, topology);
     writeFileSync(resolve(f.workspace, "firebase-stage-deploy.log"), "development deploy output");
     writeFileSync(resolve(f.workspace, "gha-creds-fixture.json"), "{}");
@@ -245,8 +247,9 @@ test("missing handoff or AI browser routes block development before publication 
   for (const path of ["/webHandoffRedeem", "/v1/activity-narrative"]) {
     const f = fixture();
     try {
-      await assert.rejects(f.prepare({ fetcher: (url, options) => url.endsWith(path)
-        ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options) }), new RegExp(path));
+      await f.prepare(); f.build(); await sealBundledStage(f.directory, f.fetcher);
+      await assert.rejects(verifyBundledStage(f.directory, (url, options) => url.endsWith(path)
+        ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options)), new RegExp(path));
     } finally { f.cleanup(); }
   }
 });
@@ -304,10 +307,8 @@ test("development backend identity is re-read after callable probes and after th
       return response;
     };
     try {
-      if (finalPath.includes("publicClubs")) {
-        await f.prepare(); f.build(); await sealBundledStage(f.directory, f.fetcher);
-        await assert.rejects(verifyBundledStage(f.directory, drift), /source\/topology mismatch/);
-      } else await assert.rejects(f.prepare({ fetcher: drift }), /source\/topology mismatch/);
+      await f.prepare(); f.build(); await sealBundledStage(f.directory, f.fetcher);
+      await assert.rejects(verifyBundledStage(f.directory, drift), /source\/topology mismatch/);
     } finally { f.cleanup(); }
   }
 });

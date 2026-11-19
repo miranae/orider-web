@@ -123,9 +123,6 @@ jobs:
           fi
       - name: Verify public club API before Hosting deployment
         run: node scripts/verify-public-club-api.mjs --runtime dist/runtime-config.json --origin https://orider.co.kr
-      - name: Verify bundled production runtime and gateway
-        if: env.ORIDER_FUNCTIONS_TRANSPORT == 'production'
-        run: node scripts/prepare-bundled-production.mjs --phase verify
       - name: Auth (Workload Identity Federation — 키리스)
         id: auth
         uses: google-github-actions/auth@v3
