@@ -57,3 +57,30 @@ it("reloads verified samples and cadence for a legacy owner Strava FIT export", 
   expect(resolveOwnerCadenceStreams).toHaveBeenCalledOnce();
   expect(mocks.fit).toHaveBeenCalledWith(run, current, "strides_per_minute");
 });
+
+it.each([null, new Error("activity_request_timeout")])("exports an owner run when the cadence lookup cannot return a unit (%s)", async (failure) => {
+  const run = { ...activity, type: "Run", source: "strava" } as Activity;
+  const cached = { userId: "owner", time: [0], cadence: [84] };
+  const lookup = failure ? vi.fn().mockRejectedValue(failure) : vi.fn().mockResolvedValue(null);
+  const view = render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} />);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  expect(lookup).toHaveBeenCalledOnce();
+  expect(mocks.fit).toHaveBeenCalledWith(run, cached, undefined);
+  lookup.mockClear();
+  view.rerender(<ExportTab activity={run} streams={{ ...cached, cadence: [] }} resolveOwnerCadenceStreams={lookup} />);
+  await act(async () => fireEvent.click(screen.getByText("FIT")));
+  expect(lookup).not.toHaveBeenCalled();
+  expect(mocks.fit).toHaveBeenCalledTimes(2);
+});
+
+it("drops an owner export from a replaced resolver scope", async () => {
+  const run = { ...activity, type: "Run", source: "strava" } as Activity;
+  const cached = { userId: "owner", time: [0], cadence: [84] };
+  let finish!: (value: typeof cached) => void;
+  const lookup = () => new Promise<typeof cached>(resolve => { finish = resolve; });
+  const view = render(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={lookup} />);
+  fireEvent.click(screen.getByText("FIT"));
+  view.rerender(<ExportTab activity={run} streams={cached} resolveOwnerCadenceStreams={async () => null} />);
+  await act(async () => finish(cached));
+  expect(mocks.fit).not.toHaveBeenCalled();
+});

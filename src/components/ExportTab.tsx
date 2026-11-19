@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { generateTcx } from "../utils/exportTcx";
@@ -14,7 +14,7 @@ interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
   resolveCurrentStreams?: () => Promise<ActivityStreams>;
-  resolveOwnerCadenceStreams?: () => Promise<ActivityStreams>;
+  resolveOwnerCadenceStreams?: () => Promise<ActivityStreams | null>;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -39,19 +39,32 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, re
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const generation = useRef(0);
-  useEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams, resolveOwnerCadenceStreams]);
+  useLayoutEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams, resolveOwnerCadenceStreams]);
 
   const handleExport = useCallback(async (format: string) => {
     const request = generation.current;
     try {
       const cadenceFormat = format === "fit" || format === "tcx";
-      const resolver = resolveCurrentStreams ?? (cadenceFormat && readStreamCadenceUnit(streams) === undefined
-        ? resolveOwnerCadenceStreams : undefined);
-      const currentStreams = resolver ? await resolver() : streams;
+      const needsOwnerCadence = cadenceFormat && readStreamCadenceUnit(streams) === undefined
+        && streams.cadence?.some(value => Number.isFinite(value) && value >= 0);
+      let currentStreams = streams;
+      if (resolveCurrentStreams) {
+        currentStreams = await resolveCurrentStreams();
+      } else if (needsOwnerCadence && resolveOwnerCadenceStreams) {
+        try {
+          currentStreams = await resolveOwnerCadenceStreams() ?? streams;
+        } catch (error) {
+          const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+          const retryable = code === "functions/unavailable" || code === "functions/deadline-exceeded"
+            || (error instanceof Error && error.message === "activity_request_timeout");
+          if (!retryable) throw error;
+          logClientError("ExportTab.ownerCadenceLookup", error, { activityId: activity.id });
+        }
+      }
       if (request !== generation.current) return;
       const verifiedUnit = readStreamCadenceUnit(currentStreams);
       // Legacy owner-only native data predates the server field. Do not infer units for a newly authorized public stream.
-      const fileCadenceUnit = verifiedUnit === undefined && !resolver && activity.source === "orider"
+      const fileCadenceUnit = verifiedUnit === undefined && !resolveCurrentStreams && activity.source === "orider"
         ? "spm" : verifiedUnit;
       switch (format) {
         case "fit": {

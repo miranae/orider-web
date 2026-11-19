@@ -6,7 +6,7 @@ import { ActivityReanalysisControl } from "../features/activity/detail/ActivityR
 import type { JourneyOutcome } from "../services/journeyMeasurement";
 import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
 import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
-import { isPublicActivityAccessError } from "../services/publicActivityDetail";
+import { createPublicActivityClient, isPublicActivityAccessError } from "../services/publicActivityDetail";
 import { useAuthorizedActivityComments } from "../features/activity/detail/useAuthorizedActivityComments";
 import { ActivityPublicAccess, type ActivityPublicAccessState } from "../features/activity/detail/ActivityPublicAccess";
 import type { PublicActivitySessionOptions } from "../hooks/usePublicActivitySession";
@@ -69,7 +69,6 @@ import {
   collection, query, where, orderBy, onSnapshot,
 } from "firebase/firestore";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
-import { createPublicActivityClient } from "../services/publicActivityDetail";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
@@ -212,11 +211,17 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // Photo upload/delete
   const photoServices = useFirebaseServices();
   const getOwnerExportStreams = useCallback(async () => {
-    if (!activityId || !isActivityOwner) throw new Error("STREAMS_MISSING");
-    const response = await createPublicActivityClient(photoServices).streams(activityId);
-    if (response.state !== "available" || !response.streams) throw new Error("STREAMS_MISSING");
-    return response.streams;
-  }, [activityId, isActivityOwner, photoServices]);
+    const viewer = photoServices.auth.currentUser;
+    if (!activityId || !isActivityOwner || !viewer || viewer.uid !== activity?.userId) throw new Error("account_changed");
+    try {
+      const response = await createPublicActivityClient(photoServices).streams(activityId);
+      if (response.state === "changed_input") throw new Error("activity_stream_changed");
+      return response.streams;
+    } catch (error) {
+      if (photoServices.auth.currentUser !== viewer) throw new Error("account_changed");
+      throw error;
+    }
+  }, [activityId, activity?.userId, isActivityOwner, photoServices]);
   const uploadedPhotoIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}`;
   const [publicPhotosBusy, setPublicPhotosBusy] = useState(false);
   const [publicPhotosError, setPublicPhotosError] = useState<string | null>(null);
