@@ -55,6 +55,23 @@ it('reports an actual late web callable failure after returning cancellation to 
  rejectCall(failure);
  await vi.waitFor(() => expect(report).toHaveBeenCalledExactlyOnceWith(failure));
 });
+it('records a late web search failure after deadline even without a reporting callback', async () => {
+ vi.useFakeTimers();
+ const report = vi.spyOn(errorLogger, 'logClientError').mockImplementation(() => undefined);
+ let rejectCall!: (error: Error) => void;
+ mocks.call.mockImplementationOnce(() => new Promise<never>((_, reject) => { rejectCall = reject; }));
+ try {
+  const rejected = expect(loadActivityDiscovery(services, { scope: 'athlete', targetUid: 'owner', keyword: 'ride' }))
+   .rejects.toThrow('request_timeout');
+  await vi.advanceTimersByTimeAsync(15000);
+  await rejected;
+  const failure = Object.assign(new Error('late search error'), { code: 'functions/permission-denied' });
+  rejectCall(failure);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(report).toHaveBeenCalledWith('activityDiscovery.lateFailure', failure,
+   { scope: 'athlete', continuation: false }, services, services.auth.currentUser, '', expect.any(Function));
+ } finally { vi.useRealTimers(); report.mockRestore(); }
+});
 it('bounds readiness and rejects late dispatch at the total deadline',async()=>{
  vi.useFakeTimers();try{let ready!:()=>void;mocks.ready.mockImplementation(()=>new Promise<void>(done=>{ready=done;}));
  const pending=loadActivityDiscovery(services,{scope:'all'}),rejected=expect(pending).rejects.toThrow('request_timeout');
