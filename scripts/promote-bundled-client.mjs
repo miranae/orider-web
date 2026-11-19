@@ -63,8 +63,12 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
   if (/<base(?:[\t\n\f\r />]|$)/iu.test(html)) {
     throw new Error("development entry HTML must not set a base URL");
   }
-  const entry = candidate.entry ?? html.match(/\bsrc\s*=\s*(["'])\/(assets\/index-[A-Za-z0-9_-]+\.js)\1/u)?.[2];
-  if (!/^assets\/index-[A-Za-z0-9_-]+\.js$/u.test(entry ?? "") || !candidate.artifactManifest.some(([path]) => path === entry)) {
+  const entryPattern = /^assets\/index-[A-Za-z0-9_-]+\.js$/u;
+  const files = new Map(candidate.artifactManifest);
+  // Older stage receipts validated the Vite entry but did not record its path.
+  // Verify every plausible Vite entry already in those signed manifests.
+  const entries = candidate.entry === undefined ? [...files.keys()].filter(path => entryPattern.test(path)) : [candidate.entry];
+  if (!entries.length || !entries.every(path => entryPattern.test(path) && files.has(path))) {
     throw new Error("verified Vite entry is missing from the development artifact");
   }
   const runtime = bundledFunctionsConfig(candidateRuntime, "production");
@@ -84,7 +88,7 @@ export function prepareClientPromotion({ archive, workspace = process.cwd(), dir
     candidateArchive: { bucket: artifact.bucket, object: artifact.object, generation: artifact.generation, sha256: artifact.sha256 },
     backend: { sourceSha: candidate.backendSourceSha, topologyHash: candidate.backendTopologyHash },
     originalArtifactHash: candidate.artifactHash, artifactManifest: expected, runtime,
-    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), entry, rebuilt: false };
+    hostingHash: hash(readFileSync(join(workspace, "firebase.bundled-production.json"))), entries, rebuilt: false };
   save(join(directory, "promotion.json"), receipt);
   return receipt;
 }
@@ -115,20 +119,23 @@ async function verifyGatewayReadiness(url, fetcher) {
 export async function verifyClientPromotion(options, fetcher = fetch) {
   const receipt = json(join(options.directory, "promotion.json"));
   // Check reachability and the login callable for the production browser origin.
+  const { firebaseFunctionsBase, socialAuthFunctionsBase } = receipt.runtime;
   await Promise.all([
-    verifyGatewayReadiness(`${receipt.runtime.firebaseFunctionsBase}/readyz`, fetcher),
-    verifyBundledCallable({ base: receipt.runtime.firebaseFunctionsBase, origin: "https://orider.co.kr", name: "getActivityDiscovery", fetcher }),
-    ...productionOrigins.map(origin => verifyBundledCallable({
-      base: receipt.runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher,
-      requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
-    })),
-    verifyBundledCallable({
-      base: receipt.runtime.socialAuthFunctionsBase, origin: "https://orider.co.kr", name: "socialAuthStart", fetcher,
-      responseContract: [
-        { status: 400, field: "status", value: "INVALID_ARGUMENT" },
-        { status: 401, field: "status", value: "UNAUTHENTICATED" },
-      ],
-    }),
+    verifyGatewayReadiness(`${firebaseFunctionsBase}/readyz`, fetcher),
+    ...productionOrigins.flatMap(origin => [
+      verifyBundledCallable({ base: firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher }),
+      verifyBundledCallable({
+        base: firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher,
+        requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+      }),
+      verifyBundledCallable({
+        base: socialAuthFunctionsBase, origin, name: "socialAuthStart", fetcher,
+        responseContract: [
+          { status: 400, field: "status", value: "INVALID_ARGUMENT" },
+          { status: 401, field: "status", value: "UNAUTHENTICATED" },
+        ],
+      }),
+    ]),
   ]);
   return receipt;
 }
@@ -152,7 +159,7 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
     if ((path === "index.html" || path === deepLink) && mime !== "text/html") {
       return rejectPromotionResponse(response, `published page did not return HTML at ${url}`);
     }
-    if (path === receipt.entry && !["application/javascript", "text/javascript"].includes(mime)) {
+    if (receipt.entries.includes(path) && !["application/javascript", "text/javascript"].includes(mime)) {
       return rejectPromotionResponse(response, `published entry did not return JavaScript at ${url}`);
     }
     let bytes;
@@ -162,7 +169,7 @@ export async function verifyPublishedPromotion({ directory, origin = "https://or
     if (hash(bytes) !== expected.get(artifactPath)) throw new Error(`published ${path} differs from prepared artifact at ${url}`);
   };
   await Promise.all([
-    ...["index.html", deepLink, "runtime-config.json", receipt.entry, "sitemap.xml"].map(verifyPublishedResource),
+    ...["index.html", deepLink, "runtime-config.json", ...receipt.entries, "sitemap.xml"].map(verifyPublishedResource),
     verifyBundledHttpAliases({ base: origin, fetcher }),
   ]);
   return receipt;

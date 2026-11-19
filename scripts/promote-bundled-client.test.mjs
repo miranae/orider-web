@@ -44,6 +44,17 @@ test("missing hidden files, changed payload, added stale files, wrong source/run
     const f=fixture();try{change(f);assert.throws(()=>prepareClientPromotion(f));}finally{f.cleanup();}
   }
 });
+test("an older receipt verifies every possible entry instead of trusting an HTML comment",()=>{
+  const f=fixture();try{
+    const index=join(f.dist,"index.html");
+    writeFileSync(index,'<!-- src="/assets/index-unused.js" -->' + readFileSync(index,"utf8"));
+    writeFileSync(join(f.dist,"assets/index-unused.js"),"export {};");
+    f.receipt.artifactManifest=stageArtifactManifest(f.dist);
+    f.receipt.artifactHash=f.artifact.artifactHash=hash(JSON.stringify(f.receipt.artifactManifest));
+    f.write(join(f.archive,"build.json"),f.receipt);
+    assert.deepEqual(prepareClientPromotion(f).entries,["assets/index-abc.js","assets/index-unused.js"]);
+  }finally{f.cleanup();}
+});
 test("a valid development artifact cannot change the origin of production assets",()=>{
   const f=fixture();try{
     const index=join(f.dist,"index.html");
@@ -91,15 +102,20 @@ test("checks gateway readiness and the login route without binding the backend c
         : Response.json({error:{status:"INVALID_ARGUMENT"}}, {status:400,headers:responseHeaders});
     };
     await verifyClientPromotion(f,fetcher);
-    assert.deepEqual(calls.sort(),[["/getActivityDiscovery","OPTIONS"],["/getActivityDiscovery","POST"],["/readyz","GET"],["/socialAuthStart","OPTIONS"],["/socialAuthStart","POST"],...Array.from({length:4},()=>["/webHandoffRedeem","OPTIONS"]),...Array.from({length:4},()=>["/webHandoffRedeem","POST"])]);
+    assert.deepEqual(calls.filter(([path])=>path==="/readyz"),[["/readyz","GET"]]);
+    for (const path of ["/getActivityDiscovery","/socialAuthStart","/webHandoffRedeem"]) {
+      assert.deepEqual(calls.filter(([seen])=>seen===path).map(([,method])=>method).sort(),["OPTIONS","OPTIONS","OPTIONS","OPTIONS","POST","POST","POST","POST"]);
+    }
     await verifyClientPromotion(f,async(url,init)=>init.method === "POST" && url.endsWith("/socialAuthStart")
-      ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers})
+      ? Response.json({error:{status:"UNAUTHENTICATED"}}, {status:401,headers:{...headers,"access-control-allow-origin":init.headers.Origin}})
       : fetcher(url,init));
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("not ready",{status:503}) : fetcher(url,init)),/unavailable/);
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>url.endsWith("/readyz") ? new Response("<html>error</html>") : fetcher(url,init)),/response body is invalid.*\/readyz/);
     await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && url.endsWith("/socialAuthStart") ? new Response(null,{status:404}) : fetcher(url,init)),/socialAuthStart browser preflight rejected/);
-    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && init.headers?.Origin === "https://miranae-orider-g1.web.app"
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && url.endsWith("/webHandoffRedeem") && init.headers?.Origin === "https://miranae-orider-g1.web.app"
       ? new Response(null,{status:403}) : fetcher(url,init)),/webHandoffRedeem browser preflight rejected.*web.app/);
+    await assert.rejects(verifyClientPromotion(f,async(url,init)=>init.method === "OPTIONS" && url.endsWith("/socialAuthStart") && init.headers?.Origin === "https://www.orider.co.kr"
+      ? new Response(null,{status:403}) : fetcher(url,init)),/socialAuthStart browser preflight rejected.*www.orider/);
   }finally{f.cleanup();}
 });
 
