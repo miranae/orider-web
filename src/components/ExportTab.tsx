@@ -135,7 +135,7 @@ export default function ExportTab({ activity, streams, resolveCurrentStreams, ge
         case "tcx": {
           const preparedStreams = prepareActivityFileStreams(fileActivity, fileStreams, format);
           const prepared = prepareTcxExport(fileActivity, preparedStreams, fileCadenceUnit);
-          if (prepared.hasUnassigned || prepared.requiresCsv || (tcxMode === "activity" && !prepared.canExportAllAsTcx)) {
+          if (prepared.hasUnassigned || prepared.requiresCsv || tcxMode === "recorded" || (tcxMode === "activity" && !prepared.canExportAllAsTcx)) {
             const binding = JSON.stringify([revision, preparedStreams.laps, preparedStreams.time, preparedStreams.latlng,
               preparedStreams.distance, preparedStreams.altitude, preparedStreams.velocity_smooth, preparedStreams.heartrate,
               preparedStreams.cadence, preparedStreams.watts, fileCadenceUnit, fileActivity.summary.distance,

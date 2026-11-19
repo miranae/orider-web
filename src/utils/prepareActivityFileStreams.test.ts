@@ -107,11 +107,10 @@ it("does not infer paused time from an end-only lap", () => {
       { endTimeMs: startTime + 120_000, durationMs: 30_000 },
     ],
   } as ActivityStreams;
-  const xml = generateTcx(activity, streams, "spm");
-  const [, first, last] = xml.split(/<Lap StartTime="/u);
-  expect(first).toMatch(/^2026-11-19T07:00:00.000Z/u);
-  expect(last).toMatch(/^2026-11-19T07:01:00.000Z/u);
-  expect(last).toContain("2026-11-19T07:01:15.000Z");
+  const prepared = prepareTcxExport(activity, streams, "spm");
+  expect(prepared.canKeepRecordedLaps).toBe(false);
+  expect(prepared.hasUnassigned).toBe(true);
+  expect(() => prepared.render("recorded")).toThrow("TCX_LAP_CLOCK_UNAVAILABLE");
 });
 
 it("keeps recorded laps when only blank grid slots follow the last observation", () => {
@@ -205,7 +204,7 @@ it("uses recorded activity endpoints when the elapsed summary is absent", () => 
   const activity = { startTime, endTime: startTime + 600_000, type: "Run", summary: {
     distance: 1000, ridingTimeMillis: 300_000,
   } } as Activity;
-  const streams = { userId: "owner", time: [0, 300], laps: [{ durationMs: 1000 }] } as ActivityStreams;
+  const streams = { userId: "owner", time: [0, 300].map(second => startTime + second * 1000), laps: [{ durationMs: 1000 }] } as ActivityStreams;
   const xml = prepareTcxExport(activity, streams, "spm").render("activity");
   expect(xml).toContain("<TotalTimeSeconds>600</TotalTimeSeconds>");
 });
@@ -345,7 +344,7 @@ it("keeps an explicit activity-summary export on the recorded elapsed clock afte
   const activity = { startTime, type: "Run", summary: {
     distance: 1000, elapsedTimeMillis: 130_000, ridingTimeMillis: 120_000,
   } } as Activity;
-  const streams = { userId: "owner", time: [0, 120, 125], heartrate: [150, 150, 150] };
+  const streams = { userId: "owner", time: [0, 120, 125].map(second => startTime + second * 1000), heartrate: [150, 150, 150] };
   expect(prepareTcxExport(activity, streams).render("activity")).toContain("<TotalTimeSeconds>130</TotalTimeSeconds>");
 });
 
@@ -362,4 +361,14 @@ it("keeps the track for a single lap proven to span the complete activity even w
   expect(file.hasUnassigned).toBe(false);
   expect(file.render("recorded")).toContain("<DistanceMeters>1000</DistanceMeters>");
   expect(file.render("recorded")).toContain("<HeartRateBpm>");
+});
+
+
+it("does not offer full-activity TCX for a relative moving axis with known pauses", () => {
+  const startTime = 1_790_000_000_000;
+  const activity = { startTime, type: "Run", summary: {
+    distance: 1000, elapsedTimeMillis: 180_000, ridingTimeMillis: 120_000,
+  } } as Activity;
+  const streams = { userId: "owner", time: [0, 60, 120], heartrate: [150, 150, 150] };
+  expect(prepareTcxExport(activity, streams).canExportAllAsTcx).toBe(false);
 });

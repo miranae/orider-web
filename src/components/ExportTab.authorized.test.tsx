@@ -175,7 +175,7 @@ it("finishes a download when unrelated activity metadata changes during verifica
 
 it("asks how to handle unassigned TCX observations and downloads the chosen edition", async () => {
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
-  const samples = { userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145],
+  const samples = { userId: "owner", time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145],
     laps: [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }],
   } as unknown as ActivityStreams;
   const resolve = vi.fn().mockResolvedValue(samples);
@@ -239,9 +239,9 @@ it("keeps raw cadence in CSV when an all-sample TCX lacks an elapsed-time total"
 
 it("drops obsolete lap options if the new activity fits its recorded laps", async () => {
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
-  const laps = [{ durationMs: 120_000, distanceKm: 1 }];
-  const initial = { userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145], laps } as ActivityStreams;
-  const latest = { ...initial, time: [0, 120], heartrate: [140, 150] };
+  const laps = [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }];
+  const initial = { userId: "owner", time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145], laps } as ActivityStreams;
+  const latest = { ...initial, time: [0, 120].map(second => run.startTime + second * 1000), heartrate: [140, 150] };
   const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
   const click = vi.mocked(HTMLAnchorElement.prototype.click);
   click.mockClear();
@@ -297,9 +297,12 @@ it("uses the exact raw response and time axis for both CSV routes", async () => 
 
 it("keeps the requested single-lap TCX when refreshed samples now fit the recorded laps", async () => {
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
-  const laps = [{ durationMs: 60_000, distanceKm: 0.5 }, { durationMs: 60_000, distanceKm: 0.5 }];
-  const initial = { userId: "owner", time: [0, 60, 61, 120, 125], heartrate: [140, 150, 145, 146, 147], laps } as ActivityStreams;
-  const latest = { ...initial, time: [0, 60, 61, 120], heartrate: [140, 150, 145, 146] };
+  const laps = [
+    { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime, endTimeMs: run.startTime + 60_000 },
+    { durationMs: 60_000, distanceKm: 0.5, startTimeMs: run.startTime + 60_000, endTimeMs: run.startTime + 120_000 },
+  ];
+  const initial = { userId: "owner", time: [0, 60, 61, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145, 146, 147], laps } as ActivityStreams;
+  const latest = { ...initial, time: [0, 60, 61, 120].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145, 146] };
   const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
   const url = vi.spyOn(URL, "createObjectURL");
   try {
@@ -325,9 +328,9 @@ it("keeps the requested single-lap TCX when refreshed samples now fit the record
 it("asks again instead of substituting another format if the selected TCX totals disappear", async () => {
   const run = { ...activity, type: "Run", summary: { distance: 1100, ridingTimeMillis: 120_000, elapsedTimeMillis: 130_000 } } as Activity;
   const latestRun = { ...run, summary: { ...run.summary, elapsedTimeMillis: undefined } };
-  const laps = [{ durationMs: 120_000, distanceKm: 1 }];
-  const initial = { userId: "owner", time: [0, 120, 125], heartrate: [140, 150, 145], laps } as ActivityStreams;
-  const latest = { ...initial, time: [0, 120], heartrate: [140, 150] };
+  const laps = [{ durationMs: 120_000, distanceKm: 1, startTimeMs: run.startTime, endTimeMs: run.startTime + 120_000 }];
+  const initial = { userId: "owner", time: [0, 120, 125].map(second => run.startTime + second * 1000), heartrate: [140, 150, 145], laps } as ActivityStreams;
+  const latest = { ...initial, time: [0, 120].map(second => run.startTime + second * 1000), heartrate: [140, 150] };
   const resolve = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(latest);
   const click = vi.mocked(HTMLAnchorElement.prototype.click);
   click.mockClear();
