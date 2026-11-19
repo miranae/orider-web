@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
+import { encodePolyline } from "../utils/polyline";
 vi.mock("firebase/auth", () => ({
   getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }),
   onAuthStateChanged: (_auth: unknown, callback: () => void) => { callback(); return () => {}; },
@@ -30,6 +31,14 @@ vi.mock("../hooks/useCourseAnalysis", () => ({ useCourseAnalysis: () => ({ envel
 vi.mock("./LabPage", () => ({ default: () => <div>Preparation calculator</div> }));
 vi.mock("../features/courses/CourseRidePlanSection", () => ({ CourseRidePlanSection: () => null }));
 vi.mock("@shared/sim/climbPrediction", () => ({ predictClimb: () => ({ totalSec: 744, sustainablePowerW: 280, wattsPerKg: 4.12, source: "pdc" }), formatClimbDuration: () => "12:24" }));
+vi.mock("../components/RouteMap", () => ({
+  default: ({ markerPosition }: { markerPosition?: [number, number] | null }) =>
+    markerPosition ? <output data-testid="course-map-marker">{JSON.stringify(markerPosition)}</output> : null,
+}));
+vi.mock("../features/courses/CourseStageProfile", () => ({
+  CourseStageProfile: ({ onHoverIndex }: { onHoverIndex: (index: number) => void }) =>
+    <button onMouseEnter={() => onHoverIndex(1)}>Hover midpoint</button>,
+}));
 import CoursePage from "./CoursePage";
 import { ToastProvider } from "../contexts/ToastContext";
 import { DialogProvider } from "../contexts/DialogContext";
@@ -61,6 +70,18 @@ describe("course preparation climb predictions", () => {
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(await screen.findByText("Climbing course")).toBeInTheDocument();
   });
+  it("keeps an elevation hover over the dateline aligned with the mapped course", async () => {
+    const coursePath = "courses/course-climb";
+    setDocData(coursePath, {
+      ...mockDocData.get(coursePath),
+      polyline: encodePolyline([[0, 179], [0, -179]]),
+      elevationProfile: [{ d: 0, e: 0 }, { d: 5000, e: 30 }, { d: 10000, e: 40 }],
+    });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    fireEvent.mouseEnter(await screen.findByRole("button", { name: "Hover midpoint" }));
+    expect(screen.getByTestId("course-map-marker")).toHaveTextContent("[0,180]");
+  });
+
   it("keeps likes distinct from the actual share action even when the count is zero", async () => {
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
     await screen.findByText("Climbing course");

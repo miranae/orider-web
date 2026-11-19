@@ -49,6 +49,20 @@ it("clears bytes when backgrounded and rechecks authorization on return, preserv
   act(() => r.result.current.retry()); await waitFor(() => expect(r.result.current.url).toBe("blob:local-2"));
 });
 
+it("reports a native photo retry that fails before the image is available", async () => {
+  const initialError = Object.assign(new Error("App Check unavailable"), { code: "functions/unavailable" });
+  mocks.load.mockRejectedValueOnce(initialError);
+  const r = renderHook(() => useNativeActivityPhoto(photo));
+  await waitFor(() => expect(r.result.current.error).toBe(initialError));
+
+  const error = Object.assign(new Error("native photo not found"), { code: "functions/not-found" });
+  mocks.load.mockRejectedValueOnce(error);
+  act(() => r.result.current.retry());
+  await waitFor(() => expect(r.result.current.error).toBe(error));
+  expect(logClientError).toHaveBeenCalledTimes(2);
+  expect(logClientError).toHaveBeenLastCalledWith("useNativeActivityPhoto.load", error, photo, mocks.services, undefined, "", expect.any(Function));
+});
+
 it("does not poll authorization while the photo stays on screen", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "setInterval"] });
   try {

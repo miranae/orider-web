@@ -28,8 +28,8 @@ describe('모임 코스 지도와 고도표',()=>{
     const fit=screen.getByRole('button',{name:'전체 경로 보기'});
     // 전체 경로 보기는 코스맵 제목 옆 아이콘 버튼이다.
     expect(fit.className).toContain('ds-btn--icon-only');expect(fit.title).toBe('전체 경로 보기');expect(fit.textContent).toBe('');expect(fit.closest('.cp-section-heading')?.querySelector('h3')?.textContent).toBe('코스맵');
-    fireEvent.click(fit);expect(captured.map.flyToPosition).toBeNull();expect(captured.map.markerPosition).toBeNull();expect(captured.map.flyToRange).toEqual({startIndex:0,endIndex:1});expect(captured.map.fitPadding).toBe(40);
-    const firstRequest=captured.map.flyToRange;fireEvent.click(screen.getByRole('button',{name:'전체 경로 보기'}));expect(captured.map.flyToRange).toEqual(firstRequest);expect(captured.map.flyToRange).not.toBe(firstRequest);
+    fireEvent.click(fit);expect(captured.map.flyToPosition).toBeNull();expect(captured.map.markerPosition).toBeNull();expect(captured.map.flyToRange).toEqual({startIndex:0,endIndex:1,requestId:1});expect(captured.map.fitPadding).toBe(40);
+    const firstRequest=captured.map.flyToRange;fireEvent.click(screen.getByRole('button',{name:'전체 경로 보기'}));expect(captured.map.flyToRange).toEqual({startIndex:0,endIndex:1,requestId:2});expect(captured.map.flyToRange).not.toBe(firstRequest);
     fireEvent.click(screen.getByRole('button',{name:/정상.*거리 미정/}));expect(captured.map.flyToRange).toBeNull();expect(captured.map.flyToPosition).toEqual([37.01,127]);
   });
   it('좌표·실제 고도 정보가 없으면 개요도나 고도표를 꾸미지 않는다',()=>{

@@ -283,6 +283,9 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("지도에서 보는 구간: 합성 언덕")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("region", { name: "활동 경로 지도" })).toHaveFocus());
     expect(screen.getByRole("region", { name: "활동 경로 지도" }).style.getPropertyValue("--activity-sticky-clearance")).toBe("140px");
+    expect(routeMapProps.mock.lastCall?.[0].flyToRange).toMatchObject({startIndex:1,endIndex:3,requestId:1});
+    fireEvent.click(action);
+    expect(routeMapProps.mock.lastCall?.[0].flyToRange).toMatchObject({startIndex:1,endIndex:3,requestId:2});
     fireEvent.mouseLeave(action.closest("tr") ?? action.parentElement!);
     expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 1, endIndex: 3 });
     expect(action).toHaveAttribute("aria-pressed", "true");
@@ -370,12 +373,12 @@ describe("ActivityPage", () => {
       else expect(sourceCalls()).toBe(1);
     } finally { vi.mocked(getDoc).mockImplementation(original); }
   });
-  it("keeps public visual zoom independent from owner analysis, maps source indices, preserves selection across axes, and resets on account changes", async () => {
+  it.each([false, true])("keeps actual analysis-page visual selection and map source indices aligned (GPS gap=%s)", async gap => {
     const epoch = 1791375809874;
     const activity = createMockActivity({ id: "test-activity", userId: "other-owner", source: "orider", startTime: epoch,
       summary: createMockSummary({ ridingTimeMillis: 600000, elapsedTimeMillis: 600000 }) });
     const count = 601;
-    const latlng = Array.from({ length: count }, (_, index) => [37 + index / 100000, 127]);
+    const latlng = Array.from({ length: count }, (_, index) => gap && index === 60 ? null : [37 + index / 100000, 127]);
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_streams/test-activity", { userId: activity.userId, json: JSON.stringify({
       time: Array.from({ length: count }, (_, index) => epoch + index * 1000),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildStaticRoutePath } from "./staticRoutePath";
+import { buildStaticRoutePath, buildStaticRouteGeometry } from "./staticRoutePath";
 
 function pixels(positions: [number, number][]) {
   return [...(buildStaticRoutePath(positions) ?? "").matchAll(/[ML] ([\d.-]+) ([\d.-]+)/g)]
@@ -7,6 +7,43 @@ function pixels(positions: [number, number][]) {
 }
 
 describe("buildStaticRoutePath", () => {
+  it("renders recorded singleton locations as points without inventing line segments", () => {
+    expect(buildStaticRouteGeometry([[37,127]])).toEqual({path:null,points:[[160,80]]});
+    const geometry = buildStaticRouteGeometry([[37,127],null,[38,127]]);
+    expect(geometry.path).toBeNull();
+    expect(geometry.points).toEqual([[160,144],[160,16]]);
+  });
+
+  it("projects selected sparse samples using the complete route frame and original indices", () => {
+    const geometry = buildStaticRouteGeometry([[37,127],[37.01,127],null,[38,128],[38.01,128]], [], {range:{startIndex:3,endIndex:4}});
+    expect(geometry.path?.match(/M/g)).toHaveLength(2);
+    expect(geometry.selectionPath).toBe(geometry.path?.slice(geometry.path.lastIndexOf("M")));
+    expect(geometry.selectionPath?.match(/L/g)).toHaveLength(1);
+  });
+
+  it("keeps an isolated selected GPS fix visible without adding a false line segment", () => {
+    const geometry = buildStaticRouteGeometry([[37,127],[37.01,127],null,[60,150]], [], {range:{startIndex:3,endIndex:3}});
+    expect(geometry.path?.match(/M/g)).toHaveLength(1);
+    expect(geometry.path?.match(/L/g)).toHaveLength(1);
+    expect(geometry.selectionPath).toBeNull();
+    expect(geometry.selectionPoints).toHaveLength(1);
+    expect(geometry.selectionPoints?.flat().every(Number.isFinite)).toBe(true);
+  });
+
+  it("places a selected photo on the same world copy as the matching end of a wide route", () => {
+    const positions: [number, number][] = [[0, 0], [0, -179], [0, 179], [0, 178]];
+    const selected = buildStaticRouteGeometry(positions, [], { selectedPosition: [0, 178] });
+    expect(selected.path).toBe(buildStaticRoutePath(positions));
+    const last = [...selected.path!.matchAll(/[ML] ([\d.-]+) ([\d.-]+)/g)].at(-1)!;
+    expect(selected.selectionPoints).toEqual([[Number(last[1]), Number(last[2])]]);
+  });
+
+  it("keeps finite visible geometry for selected coordinates above the Mercator view limit", () => {
+    const geometry = buildStaticRouteGeometry([[85,127],[86,127]], [], {range:{startIndex:0,endIndex:1}});
+    expect(geometry.selectionPath?.match(/L/g)).toHaveLength(1);
+    expect(geometry.path).not.toMatch(/NaN|Infinity/);
+  });
+
   it("실제 정사각형 경로를 가로 카드에서도 정사각형으로 유지한다", () => {
     const longitudeSpan = 0.003 / Math.cos(37.0015 * Math.PI / 180);
     const points = pixels([[37, 127], [37, 127 + longitudeSpan], [37.003, 127 + longitudeSpan], [37.003, 127]]);
@@ -31,10 +68,26 @@ describe("buildStaticRoutePath", () => {
     expect(points[1]![0]! - points[0]![0]!).toBeCloseTo(points[0]![1]! - points[1]![1]!, 1);
   });
 
+  it("keeps adjacent date-line fragments together when selecting an isolated point", () => {
+    const geometry = buildStaticRouteGeometry([[0, 178], [0, 179], [0, 0], [0, -179], [0, -178]], [2, 3],
+      { range: { startIndex: 2, endIndex: 2 } });
+    const xs = [...(geometry.path ?? "").matchAll(/[ML] ([\d.]+)/g)].map(match => Number(match[1]));
+    expect(xs).toHaveLength(4);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(10);
+    expect(geometry.selectionPoints).toHaveLength(1);
+  });
+
+  it("renders long sparse routes without exceeding the browser argument limit", () => {
+    const points = Array.from({ length: 150000 }, (_, index) => index === 70000 ? null : [37 + index / 1000000, 127] as [number,number]);
+    const path = buildStaticRoutePath(points);
+    expect(path).not.toMatch(/NaN|Infinity/);
+    expect(path?.match(/M/g)).toHaveLength(2);
+  });
+
   it("독립 구간과 잘못된 좌표 양옆을 연결하지 않는다", () => {
     expect(buildStaticRoutePath([[37, 127], [37.001, 127], [37.002, 127], [37.003, 127]], [2])?.match(/M/g)).toHaveLength(2);
     const path = buildStaticRoutePath([[37, 127], [37.001, 127], [NaN, 127], [37.003, 127]]);
-    expect(path?.match(/M/g)).toHaveLength(2);
+    expect(path?.match(/M/g)).toHaveLength(1);
     expect(path).not.toMatch(/NaN|Infinity/);
     expect(buildStaticRoutePath([])).toBeNull();
     expect(buildStaticRoutePath([[NaN, 127], [91, 127]])).toBeNull();

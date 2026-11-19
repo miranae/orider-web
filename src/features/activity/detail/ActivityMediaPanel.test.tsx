@@ -36,6 +36,20 @@ describe("ActivityMediaPanel no-map state", () => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
   });
 
+  it("keeps run/peak range highlights distinct from explicit segment camera commands", () => {
+    const activity = createMockActivity();
+    const photoPosition: [number,number] = [38,128];
+    const props = { activity, streams:null, sport:"ride" as const, hasTrack:true, summary:activity.summary,
+      markerPosition:null, hoveredSegment:null, selectedSegmentRange:null, photos:[], uploadedPhotos:[],
+      flyToPosition:photoPosition, t:i18n.getFixedT("en","activity") as TFunction<"activity"> };
+    const view = render(<ActivityMediaPanel {...props} selectedRunRange={{startIndex:1,endIndex:3}} />);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({highlightRange:{startIndex:1,endIndex:3},flyToRange:null,flyToPosition:photoPosition});
+    view.rerender(<ActivityMediaPanel {...props} selectedRunRange={{startIndex:1,endIndex:3}} />);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({highlightRange:{startIndex:1,endIndex:3},flyToRange:null,flyToPosition:photoPosition});
+    view.rerender(<ActivityMediaPanel {...props} selectedSegmentRange={{startIndex:1,endIndex:3,requestId:2}} />);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({flyToRange:{startIndex:1,endIndex:3,requestId:2},flyToPosition:undefined});
+  });
+
   it("keeps an unrequested route distinct from missing GPS, retries explicitly, and displays independent geometry", async () => {
     const user = userEvent.setup(), onLoad = vi.fn();
     const activity = createMockActivity({ source: "orider", thumbnailTrack: "" });
