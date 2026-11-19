@@ -1062,7 +1062,26 @@ it("records a synchronous signal listener failure while the independent totals r
   try {
     renderWithProviders(<AthletePage />);
     await screen.findByText("5회");
-    expect(log).toHaveBeenCalledWith("AthletePage.totalsSignal", failure, { kind: "public" }, expect.anything(), null, "", expect.any(Function));
+    expect(log).toHaveBeenCalledWith("AthletePage.totalsSignal", failure, { kind: "public" }, expect.anything(), null, "public", expect.any(Function));
+  } finally { log.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
+});
+
+it("keeps separate diagnostics for identical public and viewer listener failures", async () => {
+  const original = vi.mocked(onSnapshot).getMockImplementation()!;
+  const failure = new Error("Firestore instance terminated");
+  vi.mocked(onSnapshot).mockImplementation(((ref: { path: string }, options: unknown, next: unknown, error: unknown) => {
+    if (["users_public/athlete-1", "users/viewer"].includes(ref.path)
+      && options && typeof options === "object" && "includeMetadataChanges" in options) throw failure;
+    return Reflect.apply(original, undefined, [ref, options, next, error]);
+  }) as typeof onSnapshot);
+  const log = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => {});
+  try {
+    renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "viewer" } });
+    await screen.findByText("5회");
+    for (const kind of ["public", "viewer"]) {
+      expect(log).toHaveBeenCalledWith("AthletePage.totalsSignal", failure, { kind }, expect.anything(),
+        expect.objectContaining({ uid: "viewer" }), kind, expect.any(Function));
+    }
   } finally { log.mockRestore(); vi.mocked(onSnapshot).mockImplementation(original); }
 });
 

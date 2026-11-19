@@ -266,7 +266,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     setTotalsSignals(null);
     const watch = (kind: "public" | "viewer", path: string, id: string, field: string) => {
       const failed = (error: unknown) => {
-          logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer, "", current);
+          logClientError("AthletePage.totalsSignal", error, { kind }, services, readIdentity.viewer, kind, current);
           if (current()) {
             setTotalsSignals(previous => ({ ...(previous?.identity === readIdentity && previous.generation === generation ? previous : { identity: readIdentity, generation }), [kind]: { present: false, fromCache: false, error: true, revision: "" } }));
           }
