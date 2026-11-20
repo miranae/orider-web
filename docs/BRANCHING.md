@@ -67,11 +67,10 @@ maintainer는 직접 `gh pr merge`를 호출하지 않고 로컬 머지 게이�
 scripts/merge-pr.sh <PR번호>
 ```
 
-이 스크립트는 로컬 lint/quality/test/build, 로컬 AI 코드리뷰, GitHub checks, GitHub reviewDecision을 확인한 뒤 squash merge를 수행합니다. 리뷰 생략이나 dry-run이 필요한 경우 명시적으로 옵션을 사용합니다.
+이 스크립트는 로컬 lint/quality/test/build, 로컬 AI 코드리뷰, GitHub checks, GitHub reviewDecision을 확인한 뒤 squash merge를 수행합니다. `--no-review`로 중복 리뷰를 생략할 때는 아래 승격 시간 정책의 근거 기록과 재사용 조건을 따릅니다.
 
 ```bash
 scripts/merge-pr.sh <PR번호> --no-merge
-scripts/merge-pr.sh <PR번호> --no-review
 scripts/merge-pr.sh <PR번호> --require-github-review
 ```
 
@@ -80,6 +79,14 @@ scripts/merge-pr.sh <PR번호> --require-github-review
 - `fix: show saved ai summary on cache miss`
 - `docs: restore korean default docs`
 - `ci: deploy production from release tags`
+
+## main 승격 시간 정책
+
+1. PR을 열기 전에 최신 `main`과 후보를 비교해 포함할 변경, 실제 실패 영향, 확인할 항목을 정합니다. 정기 승격은 저장소의 고정 스냅샷 경로를 사용합니다. 승인 범위 밖의 변경이 섞여 있으면 기존 분리 승격 경로를 사용합니다. 사전 점검이 필요하면 바뀐 계약만 읽기 전용으로 확인하고, 같은 검사를 기본 배포 경로에 추가하기 전에 기존 검사와 중복되는지 확인합니다.
+2. 변경 범위에 맞는 로컬 확인을 마치면 승격 PR을 열어 필수 CI를 시작합니다. 독립적으로 수행할 수 있는 리뷰와 검증은 CI와 병행합니다. 리뷰에서 머지를 막는 블로커만 수정하고 나머지 의견은 기록합니다. 웹 머지 게이트가 동일 head의 GitHub `check` 성공을 확인하면 해당 CI가 수행한 lint·테스트·빌드를 로컬에서 반복하지 않습니다.
+3. 필수 CI가 일시 장애나 기존 간헐 테스트 때문에 실패한 정황이 있으면 로그와 변경 범위를 확인한 뒤 같은 커밋의 실패 작업만 한 번 재실행합니다. 재실행도 실패하거나 변경으로 인한 실패가 확인되면 원인을 확인해 블로커만 수정합니다. 머지에는 필수 검사 성공이 필요합니다.
+4. 재실행 뒤에는 PR의 전체 base·head SHA와 검사 입력이 동일한 경우에만 이미 완료한 리뷰와 검증 결과를 재사용합니다. 검토 범위와 PASS 근거, 성공한 CI 실행 링크를 PR에 남기고 표준 머지 게이트로 마무리합니다. base·head 또는 검사 입력이 바뀌면 영향을 받는 검사와 리뷰를 새 후보 기준으로 다시 확인합니다.
+5. 요청 시각부터 최종 확인까지의 총시간과 범위 확인·준비, 리뷰, CI(대기·재시도 포함), 머지·`dev` 동기화 시간을 기록합니다. 병행 구간은 총시간에 겹쳐 더하지 않습니다. 배포 요청이 포함되면 배포 준비부터 실제 환경 확인까지 별도로 기록합니다.
 
 ## 릴리스
 

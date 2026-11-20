@@ -68,11 +68,10 @@ Maintainers should use the local merge gate instead of calling `gh pr merge` dir
 scripts/merge-pr.sh <PR_NUMBER>
 ```
 
-The script runs local lint/quality/test/build checks, local AI code review, GitHub checks, and GitHub `reviewDecision` inspection before squash merging. Use explicit options for dry runs or exceptional bypasses:
+The script runs local lint/quality/test/build checks, local AI code review, GitHub checks, and GitHub `reviewDecision` inspection before squash merging. When using `--no-review` to avoid duplicate review, follow the evidence and reuse requirements in the promotion timing policy below.
 
 ```bash
 scripts/merge-pr.sh <PR_NUMBER> --no-merge
-scripts/merge-pr.sh <PR_NUMBER> --no-review
 scripts/merge-pr.sh <PR_NUMBER> --require-github-review
 ```
 
@@ -102,6 +101,14 @@ git rebase upstream/main
 ```
 
 Use a merge commit only when the branch is large enough that preserving an integration point is clearer than rewriting local commits. Never force-push another contributor's branch without agreement.
+
+## Main Promotion Timing Policy
+
+1. Compare the candidate with current `main` before opening the PR. Record the changes in scope, what a failure would affect, and which checks are needed. Use the fixed snapshot flow for routine promotions and the existing isolated flow when other changes are outside the approved scope. If a preflight is needed, use a read-only check for the affected contract and check for duplication before adding it to the default deployment path.
+2. Run focused local checks, then open the promotion PR to start required CI. Run independent review and validation concurrently with CI. Fix only merge-blocking review findings and record the rest. When the web merge gate confirms a successful GitHub `check` for the same head, reuse its lint, test, and build results.
+3. If logs and change scope indicate a transient failure or an existing flaky test, rerun only the failed CI jobs once for the same commit. If the retry fails or the change caused the failure, diagnose it and fix the blocker. Required checks must pass before merging.
+4. After the retry, reuse completed review and validation only if the full PR base and head SHAs and check inputs are unchanged. Record review scope, PASS evidence, and the successful CI run in the PR, then finish through the standard merge gate. A change to the base, head, or check inputs requires fresh evidence for the affected review and checks.
+5. Record elapsed time from request to final verification and the durations of scope and preparation, review, CI including queues and retries, merge, and `dev` synchronization. Count overlapping time once in the total. When deployment is requested, record deployment preparation through live verification separately.
 
 ## Releases and Hotfixes
 
