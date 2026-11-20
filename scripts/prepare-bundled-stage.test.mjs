@@ -315,12 +315,14 @@ test("social login contract fails before dependencies or build output are prepar
   } finally { f.cleanup(); }
 });
 
-test("temporary early social login failure defers to the full predeploy check", async () => {
+test("temporary early social login failure is logged and defers to the full predeploy check", async t => {
   const f = fixture();
   try {
+    const warn = t.mock.method(console, "warn", () => {});
     const unavailable = async (url, options) => url.endsWith("/socialAuthStart") && options.method === "POST"
       ? new Response(null, { status: 503 }) : f.fetcher(url, options);
     await f.prepare({ fetcher: unavailable }); f.build(); await sealBundledStage(f.directory);
+    assert.match(warn.mock.calls[0].arguments[0], /socialAuthStart.*HTTP 503/u);
     await assert.rejects(verifyBundledStage(f.directory, unavailable), /socialAuthStart/u);
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).complete, true);
   } finally { f.cleanup(); }

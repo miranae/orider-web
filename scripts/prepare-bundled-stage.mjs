@@ -81,10 +81,14 @@ async function checkSocialAuthResponseBeforeBuild(runtime, fetcher) {
       await response.body?.cancel();
     }
   } catch (error) {
-    console.warn(`Early socialAuthStart response unavailable at ${url} (${error?.name || "Error"}). The predeploy check will verify it.`);
+    const failure = response ? `HTTP ${response.status}, ${error?.name || "Error"}` : error?.name || "Error";
+    console.warn(`Early socialAuthStart response unavailable at ${url} (${failure}). The predeploy check will verify it.`);
     return;
   }
-  if (status !== "INVALID_ARGUMENT" && status !== "UNAUTHENTICATED") return;
+  if (status !== "INVALID_ARGUMENT" && status !== "UNAUTHENTICATED") {
+    console.warn(`Early socialAuthStart response inconclusive at ${url} (HTTP ${response.status}). The predeploy check will verify it.`);
+    return;
+  }
   if (response.status !== SOCIAL_AUTH_CONTRACT.status || status !== SOCIAL_AUTH_CONTRACT.value) {
     throw new Error(`socialAuthStart response contract mismatch before build at ${url}: HTTP ${response.status}/${status}`);
   }
