@@ -301,9 +301,10 @@ test("production rollback targets only the live production release owned by the 
   assert.equal(writes, 1);
 });
 
-test("social login contract fails before build output is prepared", async () => {
+test("social login contract mismatch is reported early and still blocks publication", async t => {
   const f = fixture();
   try {
+    const warn = t.mock.method(console, "warn", () => {});
     const fetcher = async (url, options) => {
       if (url.endsWith("/socialAuthStart") && options.method === "POST") {
         return Response.json({ error: { status: "UNAUTHENTICATED" } }, {
@@ -313,26 +314,11 @@ test("social login contract fails before build output is prepared", async () => 
       return f.fetcher(url, options);
     };
     await f.prepare();
-    await assert.rejects(checkSocialAuthResponseBeforeBuild(f.directory, fetcher), /socialAuthStart.*HTTP 401/u);
-    assert.equal(existsSync(resolve(f.workspace, "dist")), false);
-  } finally { f.cleanup(); }
-});
-
-test("one unexpected Firebase response does not stop the build if the next probe passes", async t => {
-  const f = fixture();
-  try {
-    const warn = t.mock.method(console, "warn", () => {});
-    let socialCalls = 0;
-    const fetcher = async (url, options) => {
-      if (url.endsWith("/socialAuthStart") && options.method === "POST" && ++socialCalls === 1) {
-        return Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401 });
-      }
-      return f.fetcher(url, options);
-    };
-    await f.prepare();
     await checkSocialAuthResponseBeforeBuild(f.directory, fetcher);
-    assert.equal(socialCalls, 2);
-    assert.match(warn.mock.calls[0].arguments[0], /mismatch did not repeat.*HTTP 401/u);
+    assert.match(warn.mock.calls[0].arguments[0], /socialAuthStart.*HTTP 401/u);
+    assert.equal(existsSync(resolve(f.workspace, "dist")), false);
+    f.build(); await sealBundledStage(f.directory);
+    await assert.rejects(verifyBundledStage(f.directory, fetcher), /socialAuthStart.*HTTP 401/u);
   } finally { f.cleanup(); }
 });
 

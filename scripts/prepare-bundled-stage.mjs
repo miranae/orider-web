@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { setTimeout as delay } from "node:timers/promises";
 import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
 import { assertStageArtifactManifest, assertStageEntryArtifact, stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
@@ -70,18 +69,6 @@ export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash
 export async function checkSocialAuthResponseBeforeBuild(directory, fetcher = fetch) {
   const { prepared, runtime } = readPrepared(directory);
   const url = `${runtime.firebaseFunctionsBase}/socialAuthStart`;
-  const firstMismatch = await readEarlySocialAuthMismatch(url, fetcher);
-  if (!firstMismatch) return prepared;
-  await delay(250);
-  const confirmedMismatch = await readEarlySocialAuthMismatch(url, fetcher);
-  if (confirmedMismatch === firstMismatch) {
-    throw new Error(`socialAuthStart response contract mismatch before build at ${url}: ${confirmedMismatch}`);
-  }
-  console.warn(`Early socialAuthStart response mismatch did not repeat at ${url} (${firstMismatch}). The predeploy check will verify it.`);
-  return prepared;
-}
-
-async function readEarlySocialAuthMismatch(url, fetcher) {
   let response;
   let status;
   try {
@@ -97,15 +84,14 @@ async function readEarlySocialAuthMismatch(url, fetcher) {
   } catch (error) {
     const failure = response ? `HTTP ${response.status}, ${error?.name || "Error"}` : error?.name || "Error";
     console.warn(`Early socialAuthStart response unavailable at ${url} (${failure}). The predeploy check will verify it.`);
-    return;
+    return prepared;
   }
   if (status !== "INVALID_ARGUMENT" && status !== "UNAUTHENTICATED") {
     console.warn(`Early socialAuthStart response inconclusive at ${url} (HTTP ${response.status}). The predeploy check will verify it.`);
-    return;
+  } else if (response.status !== SOCIAL_AUTH_CONTRACT.status || status !== SOCIAL_AUTH_CONTRACT.value) {
+    console.warn(`Early socialAuthStart response contract mismatch at ${url} (HTTP ${response.status}/${status}). The predeploy check will verify it.`);
   }
-  if (response.status !== SOCIAL_AUTH_CONTRACT.status || status !== SOCIAL_AUTH_CONTRACT.value) {
-    return `HTTP ${response.status}/${status}`;
-  }
+  return prepared;
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
   workspace = resolve(workspace); directory = resolve(directory);
