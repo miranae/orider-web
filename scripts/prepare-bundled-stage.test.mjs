@@ -91,7 +91,10 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
     assert.equal(receipt.productionEntry, "assets/index-fixture.js");
     writeFileSync(resolve(f.workspace, "firebase-stage-deploy.log"), "development deploy output");
     writeFileSync(resolve(f.workspace, "gha-creds-fixture.json"), "{}");
+    const beforeVerify = f.calls.length;
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).artifactHash, receipt.artifactHash);
+    assert.ok(f.calls.slice(0, beforeVerify).some(url => url.endsWith("/socialAuthStart")));
+    assert.ok(f.calls.slice(beforeVerify).some(url => url.endsWith("/socialAuthStart")));
     const checkThenReplaceChunk = async (url, options) => {
       const response = await f.fetcher(url, options);
       if (url.endsWith("/publicClubs?size=1")) writeFileSync(resolve(f.workspace, "dist/assets/index-fixture.js"), "replaced");
@@ -294,6 +297,35 @@ test("production rollback targets only the live production release owned by the 
   message = marker;
   assert.equal((await rollbackStageHosting(snapshot, options)).version, previous);
   assert.equal(writes, 1);
+});
+
+test("social login contract fails before dependencies or build output are prepared", async () => {
+  const f = fixture();
+  try {
+    const fetcher = async (url, options) => {
+      if (url.endsWith("/socialAuthStart") && options.method === "POST") {
+        return Response.json({ error: { status: "UNAUTHENTICATED" } }, {
+          status: 401, headers: { "access-control-allow-origin": options.headers.Origin },
+        });
+      }
+      return f.fetcher(url, options);
+    };
+    await assert.rejects(f.prepare({ fetcher }), /socialAuthStart.*HTTP 401/u);
+    assert.equal(existsSync(f.directory), false);
+  } finally { f.cleanup(); }
+});
+
+test("temporary early social login failure is logged and defers to the full predeploy check", async t => {
+  const f = fixture();
+  try {
+    const warn = t.mock.method(console, "warn", () => {});
+    const unavailable = async (url, options) => url.endsWith("/socialAuthStart") && options.method === "POST"
+      ? new Response(null, { status: 503 }) : f.fetcher(url, options);
+    await f.prepare({ fetcher: unavailable }); f.build(); await sealBundledStage(f.directory);
+    assert.match(warn.mock.calls[0].arguments[0], /socialAuthStart.*HTTP 503/u);
+    await assert.rejects(verifyBundledStage(f.directory, unavailable), /socialAuthStart/u);
+    assert.equal((await verifyBundledStage(f.directory, f.fetcher)).complete, true);
+  } finally { f.cleanup(); }
 });
 
 test("missing browser routes block development before publication without credentials", async () => {
