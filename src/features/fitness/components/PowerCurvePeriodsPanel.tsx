@@ -142,7 +142,7 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
     lastSignal.current = loadSignal; submitRef.current();
   }, [loadSignal]);
   // 코치 분석은 체중 기준 값까지 한 번에 받아 두므로 단위는 다시 부르지 않고 표시만 바꾼다.
-  const unitToggle = <ToggleControls variant="axis" aria-label={t("periodCurve.unit")}>
+  const unitToggle = <ToggleControls variant="axis" density="compact" aria-label={t("periodCurve.unit")}>
     {(["W", "W/kg"] as const).map(value => <ToggleButton key={value} selected={unit === value} onClick={() => setUnit(value)}>{value}</ToggleButton>)}
   </ToggleControls>;
   return <section className="fitness-analysis-controls period-curve-tool space-y-4" aria-label={t("periodCurve.title")}>

@@ -28,10 +28,7 @@
   .period-curve-controls { grid-template-columns: minmax(0, 1fr); }
   .period-curve-actions { justify-content: flex-start; }
 }
-/* 코치 분석: W · W/kg 토글을 제목과 같은 줄 오른쪽 끝에 작게 둔다(2026-11-20).
-   공통 터치 높이 규칙(.ds-toggle-controls--axis, 모바일 44)보다 구체적으로 써서 작게 유지한다. */
+/* 코치 분석의 단위 토글을 제목과 같은 줄 오른쪽에 둔다. */
 .period-curve-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .period-curve-header > h3 { min-width: 0; }
 .period-curve-header .period-curve-unit-toggle { flex: none; margin-inline-start: auto; }
-.period-curve-header .period-curve-unit-toggle .ds-toggle-controls--axis { margin: 0; min-height: 0; padding: 2px; border-radius: 7px; }
-.period-curve-header .period-curve-unit-toggle .ds-toggle-controls--axis .ds-btn.ds-toggle-button { height: 22px; min-height: 22px; padding: 0 var(--space-2); border-radius: 5px; font-size: 11px; }
