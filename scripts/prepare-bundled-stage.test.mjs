@@ -94,7 +94,7 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
     const beforeVerify = f.calls.length;
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).artifactHash, receipt.artifactHash);
     assert.ok(f.calls.slice(0, beforeVerify).some(url => url.endsWith("/socialAuthStart")));
-    assert.ok(!f.calls.slice(beforeVerify).some(url => url.endsWith("/socialAuthStart")));
+    assert.ok(f.calls.slice(beforeVerify).some(url => url.endsWith("/socialAuthStart")));
     const checkThenReplaceChunk = async (url, options) => {
       const response = await f.fetcher(url, options);
       if (url.endsWith("/publicClubs?size=1")) writeFileSync(resolve(f.workspace, "dist/assets/index-fixture.js"), "replaced");
@@ -312,6 +312,17 @@ test("social login contract fails before dependencies or build output are prepar
     };
     await assert.rejects(f.prepare({ fetcher }), /socialAuthStart.*HTTP 401/u);
     assert.equal(existsSync(f.directory), false);
+  } finally { f.cleanup(); }
+});
+
+test("temporary early social login failure defers to the full predeploy check", async () => {
+  const f = fixture();
+  try {
+    const unavailable = async (url, options) => url.endsWith("/socialAuthStart") && options.method === "POST"
+      ? new Response(null, { status: 503 }) : f.fetcher(url, options);
+    await f.prepare({ fetcher: unavailable }); f.build(); await sealBundledStage(f.directory);
+    await assert.rejects(verifyBundledStage(f.directory, unavailable), /socialAuthStart/u);
+    assert.equal((await verifyBundledStage(f.directory, f.fetcher)).complete, true);
   } finally { f.cleanup(); }
 });
 
