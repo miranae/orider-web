@@ -103,7 +103,10 @@ describe("mobile web analysis evidence", () => {
     expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "날짜 직접 선택" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /최근 90일 ↔ 이전 90일/ })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("단위")).not.toBeInTheDocument();
+    // 단위는 드롭다운이 아니라 제목 줄 오른쪽의 작은 W · W/kg 토글이다(2026-11-20).
+    expect(screen.queryByRole("combobox", { name: "단위" })).not.toBeInTheDocument();
+    const unitToggle = screen.getByRole("group", { name: "단위" });
+    expect(unitToggle.closest(".period-curve-header")).toHaveTextContent("기간별 실측 파워 비교");
     expect(screen.getByTestId("K5-5-1")).toBeVisible();
     expect(screen.queryByText("28-day curve")).not.toBeInTheDocument();
     view.rerender(<MobileFitnessPage {...props} periodLoadSignal={1} />);

@@ -7,7 +7,7 @@ import "./fitness-analysis-controls.css";
 import { CalendarDays } from "lucide-react";
 import DateField from "../../../components/redesign/DateField";
 import { PowerEffortPreferencePanel } from "./PowerEffortPreferencePanel";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriod, PowerCurvePeriodsResponse, PeriodPowerPoint, WeightNormalizedPowerPoint } from "@shared/types/power-curve-periods";
 import { Button, ToggleControls, ToggleButton, ChartFrame, DropdownSelect, Stat, Text } from "../../../theme";
@@ -27,7 +27,7 @@ import type { NativePowerLoadedActivity } from "./NativePowerTwelvePersonalView"
 import { PowerSkillsObservedView } from "./PowerSkillsObservedView";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
 /** [concise] 는 코치 분석용 — 곡선과 지속시간별 값, 지속시간별 관측 파워 차트만 두고 기간별 포함 기록·조회 기준과 설명 문구는 뺀다. */
-export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange, concise: conciseProp = false, unitToggle }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void; concise?: boolean; unitToggle?: ReactNode }) {
+export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange, concise: conciseProp = false }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void; concise?: boolean }) {
   const { t } = useTranslation("fitness");
   const concise = useConciseExplanations() || conciseProp;
   const webResolve = useFirebaseServices().scope !== "embedded";
@@ -54,7 +54,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
     {normalized && response.periods.some(period => !period.weightNormalized) && <Text as="p" variant="bodyMedium" role="status">{t("periodCurve.weightUnsupported")}</Text>}
     <ChartFrame variant="embedded">
       {/* 단위 토글은 그래프 범례 줄 오른쪽에 작게 둔다(코치 분석). */}
-      <div className="period-curve-legend">{unitToggle && <div className="period-curve-unit-toggle">{unitToggle}</div>}{periods.map((period, index) => <Text key={index} variant="bodyMedium" tone={index ? "secondary" : "primary"}><span className={index ? "period-curve-line period-curve-line--second" : "period-curve-line"} />{rangeLabels[index]}{!concise && <> · {t(normalized && !period.weightNormalized ? "periodCurve.weightUnsupported" : period.status === "complete" ? "periodCurve.complete" : "periodCurve.partial")}</>}</Text>)}</div>
+      <div className="period-curve-legend">{periods.map((period, index) => <Text key={index} variant="bodyMedium" tone={index ? "secondary" : "primary"}><span className={index ? "period-curve-line period-curve-line--second" : "period-curve-line"} />{rangeLabels[index]}{!concise && <> · {t(normalized && !period.weightNormalized ? "periodCurve.weightUnsupported" : period.status === "complete" ? "periodCurve.complete" : "periodCurve.partial")}</>}</Text>)}</div>
       {allPoints.length ? <>
         <svg viewBox="0 0 360 180" className="period-curve-chart" role="img" aria-label={normalized ? `${t("periodCurve.chart")} · W/kg` : t("periodCurve.chart")}>
           {[0, 0.5, 1].map(fraction => <g key={fraction}><line x1={56} x2={336} y1={28 + fraction * 118} y2={28 + fraction * 118} stroke="var(--grid-soft)" /><text x={48} y={33 + fraction * 118} textAnchor="end" fill="var(--chart-grid-label)">{normalized ? (high * (1 - fraction)).toFixed(high >= 1 ? 1 : 3) : Math.round(high * (1 - fraction))}</text></g>)}
@@ -146,7 +146,10 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
     {(["W", "W/kg"] as const).map(value => <ToggleButton key={value} selected={unit === value} onClick={() => setUnit(value)}>{value}</ToggleButton>)}
   </ToggleControls>;
   return <section className="fitness-analysis-controls period-curve-tool space-y-4" aria-label={t("periodCurve.title")}>
-    {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
+    {/* 코치 분석: W · W/kg 토글은 제목과 같은 줄 오른쪽 끝에 작게 둔다(2026-11-20). */}
+    {!embedded && (concise
+      ? <div className="period-curve-header"><Text as="h3" variant="title">{t("periodCurve.title")}</Text><div className="period-curve-unit-toggle">{unitToggle}</div></div>
+      : <Text as="h3" variant="title">{t("periodCurve.title")}</Text>)}
     {!concise && <Text as="p" variant="bodyMedium" tone="secondary">{t(skillsMode ? "comparison.rollingNote" : "comparison.timezone")}</Text>}
 
     {!concise && unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
@@ -169,7 +172,7 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
     {result.state === "error" && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.error")}</Text>}
     {/* 코치 분석은 불러오기 버튼이 없으니 실패하면 여기서 다시 부른다. */}
     {result.state === "error" && concise && <Button size="sm" onClick={() => submit(true)}>{t("canonical.retry")}</Button>}
-    {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView concise={concise} selectedDuration={controls.duration} onDurationChange={duration => setControls(v => ({ ...v, duration }))} key={JSON.stringify(selection)} response={result.response} unit={concise ? unit : selection?.request.includeWeightNormalized ? "W/kg" : "W"} unitToggle={concise ? unitToggle : undefined} />)}
+    {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView concise={concise} selectedDuration={controls.duration} onDurationChange={duration => setControls(v => ({ ...v, duration }))} key={JSON.stringify(selection)} response={result.response} unit={concise ? unit : selection?.request.includeWeightNormalized ? "W/kg" : "W"} />)}
     {result.response?.periods.map(p => <BikePeriodSnapshotPanel historyOnly={!p.coverage.truncated} key={`${p.fromInclusive}:${p.toExclusive}`} ownerUid={ownerUid} period={p} />)}
     {result.response && stageActivityPowerAvailable() && <PowerEffortPreferencePanel ownerUid={ownerUid} mode="stage_power_effort_adjusted_canonical" activityIds={[...new Set(result.response.periods.flatMap(p=>[...p.points.map(v=>v.sourceActivityId),...(p.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[])]))].slice(0,20)} periods={result.response.periods.map((p,i)=>({id:`period_${i}`,fromInclusiveMs:p.fromInclusive,toExclusiveMs:p.toExclusive}))} scopeKey={JSON.stringify([selection,result.response.inputDigest])}/>}
   </section>;
