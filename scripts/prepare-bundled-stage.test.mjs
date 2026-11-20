@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { verifyBundledHosting } from "./verify-bundled-hosting.mjs";
 import { stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
-import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
+import { checkBundledStageBackend, prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841",
@@ -294,6 +294,20 @@ test("production rollback targets only the live production release owned by the 
   message = marker;
   assert.equal((await rollbackStageHosting(snapshot, options)).version, previous);
   assert.equal(writes, 1);
+});
+
+test("standalone backend check detects a bad login response before building or preparing Hosting", async () => {
+  const f = fixture();
+  try {
+    assert.equal(await checkBundledStageBackend(backend, f.fetcher), topology);
+    assert.ok(f.calls.every(url => !url.startsWith("https://orider.co.kr/")));
+    const fetcher = async (url, options) => url.endsWith("/socialAuthStart") && options.method === "POST"
+      ? Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401, headers: { "access-control-allow-origin": options.headers.Origin } })
+      : f.fetcher(url, options);
+    await assert.rejects(checkBundledStageBackend(backend, fetcher), /socialAuthStart.*HTTP 401/u);
+    assert.equal(existsSync(f.directory), false);
+    assert.equal(existsSync(resolve(f.workspace, "dist")), false);
+  } finally { f.cleanup(); }
 });
 
 test("missing browser routes block development before publication without credentials", async () => {

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
+import { BUNDLED_AI, BUNDLED_FUNCTIONS, bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
 import { assertStageArtifactManifest, assertStageEntryArtifact, stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
@@ -63,6 +63,12 @@ export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash
   await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
   await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
   return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
+}
+export async function checkBundledStageBackend(sourceSha, fetcher = fetch) {
+  const base = BUNDLED_FUNCTIONS.development;
+  const runtime = { deploymentProfile: "bundled-development", firebaseFunctionsBase: base,
+    publicClubApiUrl: `${base}/publicClubs`, aiApiBase: BUNDLED_AI.development };
+  return verifyBundledStageBackend(runtime, sourceSha, undefined, fetcher);
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
   workspace = resolve(workspace); directory = resolve(directory);
@@ -144,6 +150,13 @@ async function main() {
     args[key] = process.argv[index + 1];
   }
   const phase = args["--phase"], directory = args["--directory"] || process.env.BUNDLED_STAGE_DIRECTORY;
+  if (phase === "check-backend") {
+    if (args["--directory"]) throw new Error("check-backend does not accept an output directory");
+    const backendSourceSha = args["--backend-source"];
+    const backendTopologyHash = await checkBundledStageBackend(backendSourceSha);
+    console.log(JSON.stringify({ phase, backendSourceSha, backendTopologyHash, complete: true }));
+    return;
+  }
   if (!["prepare", "seal", "verify", "verify-identity"].includes(phase) || !directory) throw new Error("bundled stage phase/directory required");
   if (phase !== "prepare" && args["--backend-source"]) throw new Error("backend source is fixed by the preparation receipt");
   if (process.env.STAGE_FIREBASE_PROJECT_ID !== "orider-dev") throw new Error("bundled stage project must be orider-dev");
