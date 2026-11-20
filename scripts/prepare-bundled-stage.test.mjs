@@ -93,7 +93,11 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
     writeFileSync(resolve(f.workspace, "gha-creds-fixture.json"), "{}");
     const beforeVerify = f.calls.length;
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).artifactHash, receipt.artifactHash);
-    assert.deepEqual(f.calls.slice(beforeVerify).map(url => new URL(url).pathname), ["/readyz"]);
+    const publishChecks = f.calls.slice(beforeVerify).map(url => new URL(url).pathname);
+    assert.ok(publishChecks.includes("/v1/activity-narrative"));
+    assert.ok(publishChecks.some(path => path.endsWith("/publicClubs")));
+    assert.equal(publishChecks.at(-1), "/readyz");
+    assert.ok(!publishChecks.includes("/socialAuthStart"));
     const checkThenReplaceChunk = async (url, options) => {
       const response = await f.fetcher(url, options);
       if (url.endsWith("/readyz")) writeFileSync(resolve(f.workspace, "dist/assets/index-fixture.js"), "replaced");
@@ -307,6 +311,17 @@ test("invalid browser routes block development preparation before producing a bu
       assert.equal(existsSync(f.directory), false);
     } finally { f.cleanup(); }
   }
+});
+
+test("predeploy rejects independent API drift while the gateway identity stays the same", async () => {
+  const f = fixture();
+  try {
+    await f.prepare(); f.build(); await sealBundledStage(f.directory);
+    for (const path of ["/v1/activity-narrative", "/publicClubs?size=1"]) {
+      await assert.rejects(verifyBundledStage(f.directory, (url, options) => url.endsWith(path)
+        ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options)), new RegExp(path.split("?")[0], "u"));
+    }
+  } finally { f.cleanup(); }
 });
 
 test("serialized CI assertion fails before authentication or any Hosting request", async () => {

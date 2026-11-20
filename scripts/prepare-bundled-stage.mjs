@@ -13,6 +13,7 @@ import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAlia
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const SHA = /^[a-f0-9]{40}$/u;
+const STAGE_ORIGINS = ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"];
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
 const git = (workspace, ...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8" }).trim();
@@ -52,17 +53,22 @@ async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
 }
 export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
   const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
-  for (const origin of ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"]) {
+  for (const origin of STAGE_ORIGINS) {
     await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin, fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "socialAuthStart", fetcher,
       responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
-    await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
   }
   await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
-  await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
+  await verifyStageIndependentApis(runtime, fetcher);
   return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
+}
+async function verifyStageIndependentApis(runtime, fetcher) {
+  for (const origin of STAGE_ORIGINS) {
+    await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
+  }
+  await verifyPublicClubApi(runtime, STAGE_ORIGINS[0], fetcher);
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
   workspace = resolve(workspace); directory = resolve(directory);
@@ -126,7 +132,11 @@ export async function verifyBundledStage(directory, fetcher = fetch, { identityO
   const { prepared, runtime } = readPrepared(directory), receipt = json(resolve(directory, "build.json"));
   if (receipt.complete !== true || Object.entries(prepared).some(([key, value]) => !isDeepStrictEqual(receipt[key], value))
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
-  if (!identityOnly) assertStageEntryArtifact(prepared.artifactDirectory);
+  if (!identityOnly) {
+    assertStageEntryArtifact(prepared.artifactDirectory);
+    // These endpoints can change independently of the bundled gateway identity.
+    await verifyStageIndependentApis(runtime, fetcher);
+  }
   await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
   if (!identityOnly) assertStageArtifactManifest(prepared.artifactDirectory, receipt.artifactManifest);
   readPrepared(directory);
