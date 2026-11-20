@@ -13,7 +13,7 @@ import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAlia
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const SHA = /^[a-f0-9]{40}$/u;
-const STAGE_ORIGIN = "https://orider-dev.web.app";
+const STAGE_ORIGINS = ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"];
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
 const git = (workspace, ...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8" }).trim();
@@ -53,20 +53,15 @@ async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
 }
 export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
   const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
-  for (const origin of [STAGE_ORIGIN, "https://orider-dev.firebaseapp.com"]) {
+  for (const origin of STAGE_ORIGINS) {
     await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin, fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher });
-    await verifyStageSocialAuth(runtime, origin, fetcher);
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
     await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
   }
   await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
-  await verifyPublicClubApi(runtime, STAGE_ORIGIN, fetcher);
+  await verifyPublicClubApi(runtime, STAGE_ORIGINS[0], fetcher);
   return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
-}
-function verifyStageSocialAuth(runtime, origin, fetcher) {
-  return verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "socialAuthStart", fetcher,
-    responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
   workspace = resolve(workspace); directory = resolve(directory);
@@ -75,7 +70,10 @@ export async function prepareBundledStage({ workspace = process.cwd(), directory
   const source = await resolveProductionBuildFlags(await requestJson(`${PRODUCTION_ORIGIN}/runtime-config.json`, fetcher), fetcher);
   const runtime = bundledFunctionsConfig(source, "development");
   const topologyHash = await readBackendIdentity(runtime, backendSourceSha, undefined, fetcher);
-  await verifyStageSocialAuth(runtime, STAGE_ORIGIN, fetcher);
+  for (const origin of STAGE_ORIGINS) {
+    await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "socialAuthStart", fetcher,
+      responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
+  }
   const hosting = bundledHostingConfig(json(resolve(workspace, "firebase.json")), "development");
   delete hosting.hosting.target;
   hosting.hosting.site = "orider-dev";

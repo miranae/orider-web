@@ -94,7 +94,7 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
     const beforeVerify = f.calls.length;
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).artifactHash, receipt.artifactHash);
     assert.ok(f.calls.slice(0, beforeVerify).some(url => url.endsWith("/socialAuthStart")));
-    assert.ok(f.calls.slice(beforeVerify).some(url => url.endsWith("/socialAuthStart")));
+    assert.ok(!f.calls.slice(beforeVerify).some(url => url.endsWith("/socialAuthStart")));
     const checkThenReplaceChunk = async (url, options) => {
       const response = await f.fetcher(url, options);
       if (url.endsWith("/publicClubs?size=1")) writeFileSync(resolve(f.workspace, "dist/assets/index-fixture.js"), "replaced");
