@@ -71,7 +71,7 @@ test("manual development preparation binds paired runtime/Hosting, source and ac
     assert.match(environment, /BUNDLED_RUNTIME_CONFIG_PATH=/); assert.match(environment, /BUNDLED_FUNCTIONS_ENVIRONMENT=development/);
     const gatewayOrigin = "https://dev-bundle-default-api-818364001341.asia-northeast3.run.app";
     assert.equal(runtime.firebaseFunctionsBase, gatewayOrigin);
-    assert.deepEqual([...new Set(f.calls.map(url => new URL(url).origin))].sort(), ["https://orider.co.kr", gatewayOrigin].sort());
+    assert.deepEqual([...new Set(f.calls.map(url => new URL(url).origin))].sort(), ["https://orider.co.kr", gatewayOrigin, runtime.aiApiBase].sort());
     const connectSources = hosting.headers.flatMap(row => row.headers).filter(header => header.key === "Content-Security-Policy")
       .flatMap(header => header.value.split(";").flatMap(directive => {
         const [name, ...sources] = directive.trim().split(/\s+/u);
@@ -91,10 +91,12 @@ test("seal and predeploy verify the actual dist runtime and every artifact file"
     assert.equal(receipt.productionEntry, "assets/index-fixture.js");
     writeFileSync(resolve(f.workspace, "firebase-stage-deploy.log"), "development deploy output");
     writeFileSync(resolve(f.workspace, "gha-creds-fixture.json"), "{}");
+    const beforeVerify = f.calls.length;
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).artifactHash, receipt.artifactHash);
+    assert.deepEqual(f.calls.slice(beforeVerify).map(url => new URL(url).pathname), ["/readyz"]);
     const checkThenReplaceChunk = async (url, options) => {
       const response = await f.fetcher(url, options);
-      if (url.endsWith("/publicClubs?size=1")) writeFileSync(resolve(f.workspace, "dist/assets/index-fixture.js"), "replaced");
+      if (url.endsWith("/readyz")) writeFileSync(resolve(f.workspace, "dist/assets/index-fixture.js"), "replaced");
       return response;
     };
     await assert.rejects(verifyBundledStage(f.directory, checkThenReplaceChunk), /artifact differs/);
@@ -296,13 +298,13 @@ test("production rollback targets only the live production release owned by the 
   assert.equal(writes, 1);
 });
 
-test("missing browser routes block development before publication without credentials", async () => {
-  for (const path of ["/webHandoffRedeem", "/v1/activity-narrative"]) {
+test("invalid browser routes block development preparation before producing a build receipt", async () => {
+  for (const path of ["/socialAuthStart", "/webHandoffRedeem", "/v1/activity-narrative"]) {
     const f = fixture();
     try {
-      await f.prepare(); f.build(); await sealBundledStage(f.directory);
-      await assert.rejects(verifyBundledStage(f.directory, (url, options) => url.endsWith(path)
-        ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options)), new RegExp(path));
+      await assert.rejects(f.prepare({ fetcher: (url, options) => url.endsWith(path)
+        ? Promise.resolve(Response.json({ error: "missing" }, { status: 404 })) : f.fetcher(url, options) }), new RegExp(path));
+      assert.equal(existsSync(f.directory), false);
     } finally { f.cleanup(); }
   }
 });
@@ -360,8 +362,7 @@ test("development backend identity is re-read after callable probes and after th
       return response;
     };
     try {
-      await f.prepare(); f.build(); await sealBundledStage(f.directory);
-      await assert.rejects(verifyBundledStage(f.directory, drift), /source\/topology mismatch/);
+      await assert.rejects(f.prepare({ fetcher: drift }), /source\/topology mismatch/);
     } finally { f.cleanup(); }
   }
 });

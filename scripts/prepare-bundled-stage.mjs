@@ -70,7 +70,7 @@ export async function prepareBundledStage({ workspace = process.cwd(), directory
   if (directory === workspace || directory.startsWith(`${workspace}/`)) throw new Error("private preparation directory must be outside source");
   const source = await resolveProductionBuildFlags(await requestJson(`${PRODUCTION_ORIGIN}/runtime-config.json`, fetcher), fetcher);
   const runtime = bundledFunctionsConfig(source, "development");
-  const topologyHash = await readBackendIdentity(runtime, backendSourceSha, undefined, fetcher);
+  const topologyHash = await verifyBundledStageBackend(runtime, backendSourceSha, undefined, fetcher);
   const hosting = bundledHostingConfig(json(resolve(workspace, "firebase.json")), "development");
   delete hosting.hosting.target;
   hosting.hosting.site = "orider-dev";
@@ -126,13 +126,9 @@ export async function verifyBundledStage(directory, fetcher = fetch, { identityO
   const { prepared, runtime } = readPrepared(directory), receipt = json(resolve(directory, "build.json"));
   if (receipt.complete !== true || Object.entries(prepared).some(([key, value]) => !isDeepStrictEqual(receipt[key], value))
     || receipt.artifactHash !== hash(JSON.stringify(receipt.artifactManifest))) throw new Error("bundled stage build receipt mismatch");
-  if (!identityOnly) {
-    assertStageEntryArtifact(prepared.artifactDirectory);
-    await verifyBundledStageBackend(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
-    assertStageArtifactManifest(prepared.artifactDirectory, receipt.artifactManifest);
-  } else {
-    await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
-  }
+  if (!identityOnly) assertStageEntryArtifact(prepared.artifactDirectory);
+  await readBackendIdentity(runtime, prepared.backendSourceSha, prepared.backendTopologyHash, fetcher);
+  if (!identityOnly) assertStageArtifactManifest(prepared.artifactDirectory, receipt.artifactManifest);
   readPrepared(directory);
   return receipt;
 }
