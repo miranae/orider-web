@@ -18,6 +18,7 @@ import WorkoutEditModal from "../components/training/WorkoutEditModal";
 import AdaptationBanner from "../components/training/AdaptationBanner";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { useAuth } from "../contexts/AuthContext";
+import { usePlanGoalChangeNotifier } from "../hooks/usePlanGoalChangeNotifier";
 import { useDialog } from "../contexts/DialogContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useToast } from "../contexts/ToastContext";
@@ -62,6 +63,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
   const { t: tActivity } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const { user, profile } = useAuth();
+  const notifyGoalChanged = usePlanGoalChangeNotifier();
   const { auth, firestore, functions } = useFirebaseServices();
   const { showToast } = useToast();
   const dialog = useDialog();
@@ -131,6 +133,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
     try {
       const reroll = httpsCallable(functions, "rerollPlan");
       await reroll({ goalId: goal.id });
+      notifyGoalChanged(discipline);
       model.retryLoad();
       setMobileWeekOffset(0);
       showToast(t("plan.rerollSuccess"));
@@ -148,6 +151,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
         status: "abandoned",
         updatedAt: Date.now(),
       });
+      notifyGoalChanged(discipline);
       navigate("/");
     } catch (error) {
       logClientError("PlanPage.abandonGoal", error, { goalId: goal.id });

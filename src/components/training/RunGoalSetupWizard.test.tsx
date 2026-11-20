@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18n from "i18next";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +6,7 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { mockCallableInvocations, setCallableResult } from "../../__tests__/mocks/firebase";
 import enTraining from "../../i18n/resources/en/training.json";
 import RunGoalSetupWizard from "./RunGoalSetupWizard";
+import { PLAN_GOAL_CHANGED } from "../../embedded/planGoalChanges";
 import PlanPreviewStep from "./PlanPreviewStep";
 
 vi.mock("../../hooks/useGoalFitnessInputs", () => ({ useGoalFitnessInputs: () => ({ thresholdPace: 300, thresholdPaceSource: "user" }) }));
@@ -65,15 +66,23 @@ describe("goal setup input review", () => {
     mockCallableInvocations.length = 0;
     setCallableResult("createGoal", { goalId: "new-run-goal" });
     const user = userEvent.setup();
-    showRun();
+    renderWithProviders(<RunGoalSetupWizard Stepper={() => null} />, { route: "/ko/goal-setup?sport=run", authenticated: true, user: { uid: "runner", isAnonymous: false } });
     next();
     fireEvent.change(screen.getByLabelText("목표 날짜"), { target: { value: targetDate() } });
     for (const field of screen.getAllByRole("spinbutton")) fireEvent.change(field, { target: { value: "0" } });
     expect(screen.getByRole("button", { name: "다음 →" })).toBeDisabled();
     fireEvent.change(screen.getByRole("spinbutton", { name: "목표 시간 (분)" }), { target: { value: "30" } });
     next();
-    await user.click(screen.getByTestId("K3-3-7"));
+    const changed: unknown[] = [];
+    const listener = (event: Event) => changed.push((event as CustomEvent).detail);
+    window.addEventListener(PLAN_GOAL_CHANGED, listener);
+    try {
+      await user.click(screen.getByTestId("K3-3-7"));
+      await waitFor(() => expect(changed).toHaveLength(1));
+    } finally { window.removeEventListener(PLAN_GOAL_CHANGED, listener); }
     expect(mockCallableInvocations.find(call => call.name === "createGoal")?.data).toEqual({ eventId: "half", eventType: "time", eventDate: targetDate(), targetDurationMin: 30, weeklySessions: 4, discipline: "run" });
+    // 생성 직후 계획 화면이 이전 캐시를 쓰지 않도록 목표 변경을 알린다.
+    expect(changed).toEqual([{ uid: "runner", sport: "run" }]);
   });
 
   it("renders English input names and an unsaved review with explicit units", async () => {
