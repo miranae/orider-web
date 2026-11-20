@@ -300,6 +300,7 @@ test("standalone backend check detects a bad login response before building or p
   const f = fixture();
   try {
     assert.equal(await checkBundledStageBackend(backend, f.fetcher), topology);
+    assert.ok(f.calls.every(url => !url.startsWith("https://orider.co.kr/")));
     const fetcher = async (url, options) => url.endsWith("/socialAuthStart") && options.method === "POST"
       ? Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401, headers: { "access-control-allow-origin": options.headers.Origin } })
       : f.fetcher(url, options);

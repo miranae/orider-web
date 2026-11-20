@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
+import { BUNDLED_AI, BUNDLED_FUNCTIONS, bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
 import { assertStageArtifactManifest, assertStageEntryArtifact, stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
@@ -64,19 +64,17 @@ export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash
   await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
   return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
 }
-async function readProductionStageSource(fetcher) {
-  return resolveProductionBuildFlags(await requestJson(`${PRODUCTION_ORIGIN}/runtime-config.json`, fetcher), fetcher);
-}
 export async function checkBundledStageBackend(sourceSha, fetcher = fetch) {
-  if (!SHA.test(sourceSha || "")) throw new Error("bundled development backend source SHA required");
-  const runtime = bundledFunctionsConfig(await readProductionStageSource(fetcher), "development");
+  const base = BUNDLED_FUNCTIONS.development;
+  const runtime = { deploymentProfile: "bundled-development", firebaseFunctionsBase: base,
+    publicClubApiUrl: `${base}/publicClubs`, aiApiBase: BUNDLED_AI.development };
   return verifyBundledStageBackend(runtime, sourceSha, undefined, fetcher);
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
   workspace = resolve(workspace); directory = resolve(directory);
   assertSource(workspace, frontendSourceSha);
   if (directory === workspace || directory.startsWith(`${workspace}/`)) throw new Error("private preparation directory must be outside source");
-  const source = await readProductionStageSource(fetcher);
+  const source = await resolveProductionBuildFlags(await requestJson(`${PRODUCTION_ORIGIN}/runtime-config.json`, fetcher), fetcher);
   const runtime = bundledFunctionsConfig(source, "development");
   const topologyHash = await readBackendIdentity(runtime, backendSourceSha, undefined, fetcher);
   const hosting = bundledHostingConfig(json(resolve(workspace, "firebase.json")), "development");
