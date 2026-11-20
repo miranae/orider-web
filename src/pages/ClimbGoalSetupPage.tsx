@@ -8,6 +8,7 @@ import { useId, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import { usePlanGoalChangeNotifier } from '../hooks/usePlanGoalChangeNotifier';
 import { useLocalizedNavigate as useNavigate } from '../hooks/useLocalizedNavigate';
 import PermissionGate from '../components/redesign/states/PermissionGate';
 import { Button, Card, Field, Input, Text } from '../theme/components';
@@ -19,6 +20,7 @@ export default function ClimbGoalSetupPage({ embedded = false }: { embedded?: bo
   const { functions } = useFirebaseServices();
   const { t } = useTranslation('training');
   const { user, loading: authLoading, signIn } = useAuth();
+  const notifyGoalChanged = usePlanGoalChangeNotifier();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [name, setName] = useState('');
@@ -42,6 +44,7 @@ export default function ClimbGoalSetupPage({ embedded = false }: { embedded?: bo
         targetDate: date, weeklySessions: Number(sessions) as 1 | 2 | 3 | 4 | 5 | 6,
       });
       const result = await httpsCallable(functions, 'createGoal')(payload);
+      notifyGoalChanged('bike');
       navigate(goalCreatedPath(searchParams, "bike", (result.data as { goalId: string }).goalId));
     } catch { setError(true); setSubmitting(false); }
   };

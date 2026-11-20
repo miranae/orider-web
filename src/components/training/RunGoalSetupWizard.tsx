@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { httpsCallable } from 'firebase/functions';
+import { usePlanGoalChangeNotifier } from '../../hooks/usePlanGoalChangeNotifier';
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from '../../services/errorLogger';
 import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
@@ -72,6 +73,7 @@ interface RunGoalSetupWizardProps {
 export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps) {
   const { functions } = useFirebaseServices();
   const { t } = useTranslation('training');
+  const notifyGoalChanged = usePlanGoalChangeNotifier();
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -125,6 +127,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
         discipline: 'run',
       });
       const data = result.data as { goalId: string };
+      notifyGoalChanged('run');
       navigate(goalCreatedPath(searchParams, "run", data.goalId));
     } catch (err) {
       logClientError('RunGoalSetupWizard.handleStart', err, { eventId, goalType, eventDate, weeklySessions });
