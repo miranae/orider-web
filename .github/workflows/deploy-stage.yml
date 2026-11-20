@@ -99,7 +99,20 @@ jobs:
         run: node scripts/check-isolated-stage.mjs
       - name: Check canonical deploy flags
         run: node scripts/check-canonical-deploy-env.mjs
-      - run: npm ci
+      - name: Install dependencies and check the social login response
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${BUNDLED_STAGE_PREBUILD_SOCIAL_CHECK:-}" != true ]]; then
+            npm ci
+            exit
+          fi
+          npm ci &
+          install_pid=$!
+          trap 'kill "$install_pid" 2>/dev/null || true' EXIT
+          node scripts/prepare-bundled-stage.mjs --phase prebuild
+          wait "$install_pid"
+          trap - EXIT
       - name: Check deploy config
         run: npm run check:deploy-config
       - name: Build selected source

@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { verifyBundledHosting } from "./verify-bundled-hosting.mjs";
 import { stageHtmlEntry } from "./lib/stage-artifact-manifest.mjs";
 import { snapshotStageHosting, rollbackStageHosting, verifyStagePublishPointer, assertSerializedStageHostingWrites } from "./bundled-stage-hosting-release.mjs";
-import { prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
+import { checkSocialAuthResponseBeforeBuild, prepareBundledStage, sealBundledStage, verifyBundledStage } from "./prepare-bundled-stage.mjs";
 const backend = "b".repeat(40), topology = "c".repeat(64);
 const source = { appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseAuthDomain: "miranae-orider-g1.firebaseapp.com",
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878", firebaseMessagingSenderId: "289663940841",
@@ -83,7 +83,9 @@ test("manual development preparation binds paired runtime/Hosting, source and ac
 test("seal and predeploy verify the actual dist runtime and every artifact file", async () => {
   const f = fixture();
   try {
-    await f.prepare(); f.build();
+    await f.prepare();
+    await checkSocialAuthResponseBeforeBuild(f.directory, f.fetcher);
+    f.build();
     const beforeSeal = f.calls.length;
     const receipt = await sealBundledStage(f.directory);
     assert.equal(f.calls.length, beforeSeal);
@@ -299,7 +301,7 @@ test("production rollback targets only the live production release owned by the 
   assert.equal(writes, 1);
 });
 
-test("social login contract fails before dependencies or build output are prepared", async () => {
+test("social login contract fails before build output is prepared", async () => {
   const f = fixture();
   try {
     const fetcher = async (url, options) => {
@@ -310,8 +312,9 @@ test("social login contract fails before dependencies or build output are prepar
       }
       return f.fetcher(url, options);
     };
-    await assert.rejects(f.prepare({ fetcher }), /socialAuthStart.*HTTP 401/u);
-    assert.equal(existsSync(f.directory), false);
+    await f.prepare();
+    await assert.rejects(checkSocialAuthResponseBeforeBuild(f.directory, fetcher), /socialAuthStart.*HTTP 401/u);
+    assert.equal(existsSync(resolve(f.workspace, "dist")), false);
   } finally { f.cleanup(); }
 });
 
@@ -321,7 +324,9 @@ test("temporary early social login failure is logged and defers to the full pred
     const warn = t.mock.method(console, "warn", () => {});
     const unavailable = async (url, options) => url.endsWith("/socialAuthStart") && options.method === "POST"
       ? new Response(null, { status: 503 }) : f.fetcher(url, options);
-    await f.prepare({ fetcher: unavailable }); f.build(); await sealBundledStage(f.directory);
+    await f.prepare();
+    await checkSocialAuthResponseBeforeBuild(f.directory, unavailable);
+    f.build(); await sealBundledStage(f.directory);
     assert.match(warn.mock.calls[0].arguments[0], /socialAuthStart.*HTTP 503/u);
     await assert.rejects(verifyBundledStage(f.directory, unavailable), /socialAuthStart/u);
     assert.equal((await verifyBundledStage(f.directory, f.fetcher)).complete, true);
