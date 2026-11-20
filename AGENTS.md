@@ -41,6 +41,8 @@ Use focused branches and Conventional Commit-style subjects where possible, such
 
 **PR base**: feature PRs target `dev`, never `main` (`gh pr create --base dev`). `main-promote-guard.yml` and `scripts/merge-pr.sh` reject any PR to `main` whose head is not `dev` (batch promotion), `promote/snapshot-*` (batch promotion of one fixed dev commit, created by `scripts/start-promotion-snapshot.sh` so later dev merges do not restart the gate) or `hotfix/*` (single urgent fix). After a snapshot promotion merges, `merge-pr.sh` opens a tree-identical `sync/promotion-*` PR into `dev`; merge it with `merge-pr.sh` before the next promotion. Merge through `scripts/merge-pr.sh` from the PR worktree — do not call `gh pr merge` directly. Note that merging to `dev` enrolls the change in the next `dev`→`main` promotion, so work that must control its own release timing belongs on a separate long-lived branch instead. Before opening a PR, run relevant checks, usually `npm run lint:budget`, `npm run quality:budget`, `npm test`, and `npm run build`. PRs should describe scope, link issues, include UI screenshots, and note routes, locale, viewport, or data state needed for review.
 
+For `main` promotions, follow the [promotion timing policy](docs/BRANCHING.md#main-승격-시간-정책) for scope, parallel checks, and reuse of recorded results.
+
 ## Security & Configuration Tips
 
 Do not commit `.env`, tokens, production exports, service accounts, private user data, or screenshots with sensitive ride details. Browser-exposed `VITE_*` Firebase, Mapbox, Strava, and App Check values are public config, but authorization belongs in backend services and Firebase rules.
