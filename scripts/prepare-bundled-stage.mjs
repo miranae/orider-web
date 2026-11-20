@@ -6,15 +6,13 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
+import { BUNDLED_AI, BUNDLED_FUNCTIONS, bundledFunctionsConfig, bundledHostingConfig } from "./lib/bundled-functions-config.mjs";
 import { productionBuildEnv, resolveProductionBuildFlags, PRODUCTION_ORIGIN } from "./lib/production-data-config.mjs";
 import { assertStageArtifactManifest, assertStageEntryArtifact, stageArtifactManifest } from "./lib/stage-artifact-manifest.mjs";
 import { verifyBundledCallable, verifyBundledRouteControl, verifyBundledHttpAliases } from "./lib/bundled-callable-probe.mjs";
 import { verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 
 const SHA = /^[a-f0-9]{40}$/u;
-const STAGE_ORIGINS = ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"];
-const SOCIAL_AUTH_CONTRACT = { status: 400, field: "status", value: "INVALID_ARGUMENT" };
 const hash = value => createHash("sha256").update(value).digest("hex");
 const json = path => JSON.parse(readFileSync(path, "utf8"));
 const git = (workspace, ...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8" }).trim();
@@ -54,44 +52,23 @@ async function readBackendIdentity(runtime, sourceSha, topologyHash, fetcher) {
 }
 export async function verifyBundledStageBackend(runtime, sourceSha, topologyHash, fetcher = fetch) {
   const pinnedTopology = await readBackendIdentity(runtime, sourceSha, topologyHash, fetcher);
-  for (const origin of STAGE_ORIGINS) {
+  for (const origin of ["https://orider-dev.web.app", "https://orider-dev.firebaseapp.com"]) {
     await verifyBundledRouteControl({ base: runtime.firebaseFunctionsBase, origin, fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "socialAuthStart", fetcher,
-      responseContract: SOCIAL_AUTH_CONTRACT });
+      responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
     await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
   }
   await verifyBundledHttpAliases({ base: runtime.firebaseFunctionsBase, fetcher });
-  await verifyPublicClubApi(runtime, STAGE_ORIGINS[0], fetcher);
+  await verifyPublicClubApi(runtime, "https://orider-dev.web.app", fetcher);
   return readBackendIdentity(runtime, sourceSha, pinnedTopology, fetcher);
 }
-export async function checkSocialAuthResponseBeforeBuild(directory, fetcher = fetch) {
-  const { prepared, runtime } = readPrepared(directory);
-  const url = `${runtime.firebaseFunctionsBase}/socialAuthStart`;
-  let response;
-  let status;
-  try {
-    response = await fetcher(url, {
-      method: "POST", headers: { Origin: STAGE_ORIGINS[0], "Content-Type": "application/json" },
-      body: JSON.stringify({ data: {} }), redirect: "error", cache: "no-store", signal: AbortSignal.timeout(3000),
-    });
-    if (response.status === 400 || response.status === 401) {
-      status = (await response.json())?.error?.[SOCIAL_AUTH_CONTRACT.field];
-    } else {
-      await response.body?.cancel();
-    }
-  } catch (error) {
-    const failure = response ? `HTTP ${response.status}, ${error?.name || "Error"}` : error?.name || "Error";
-    console.warn(`Early socialAuthStart response unavailable at ${url} (${failure}). The predeploy check will verify it.`);
-    return prepared;
-  }
-  if (status !== "INVALID_ARGUMENT" && status !== "UNAUTHENTICATED") {
-    console.warn(`Early socialAuthStart response inconclusive at ${url} (HTTP ${response.status}). The predeploy check will verify it.`);
-  } else if (response.status !== SOCIAL_AUTH_CONTRACT.status || status !== SOCIAL_AUTH_CONTRACT.value) {
-    console.warn(`Early socialAuthStart response contract mismatch at ${url} (HTTP ${response.status}/${status}). The predeploy check will verify it.`);
-  }
-  return prepared;
+export async function checkBundledStageBackend(sourceSha, fetcher = fetch) {
+  const base = BUNDLED_FUNCTIONS.development;
+  const runtime = { deploymentProfile: "bundled-development", firebaseFunctionsBase: base,
+    publicClubApiUrl: `${base}/publicClubs`, aiApiBase: BUNDLED_AI.development };
+  return verifyBundledStageBackend(runtime, sourceSha, undefined, fetcher);
 }
 export async function prepareBundledStage({ workspace = process.cwd(), directory, backendSourceSha, frontendSourceSha, githubEnv, fetcher = fetch }) {
   workspace = resolve(workspace); directory = resolve(directory);
@@ -119,8 +96,7 @@ export async function prepareBundledStage({ workspace = process.cwd(), directory
     ...Object.fromEntries(Object.entries(runtime).filter(([key, value]) => (key.endsWith("Enabled") || key === "activitySubscriptionsBackendReady") && typeof value === "boolean")
       .map(([key, value]) => [`VITE_${key.replace(/([a-z0-9])([A-Z])/gu, "$1_$2").toUpperCase()}`, String(value)])),
     BUNDLED_RUNTIME_CONFIG_PATH: resolve(directory, "source-runtime.json"), BUNDLED_FUNCTIONS_ENVIRONMENT: "development",
-    BUNDLED_STAGE_DIRECTORY: directory, BUNDLED_STAGE_BACKEND_SOURCE_SHA: backendSourceSha,
-    BUNDLED_STAGE_PREBUILD_SOCIAL_CHECK: "true" };
+    BUNDLED_STAGE_DIRECTORY: directory, BUNDLED_STAGE_BACKEND_SOURCE_SHA: backendSourceSha };
   if (Object.values(buildEnv).some(value => /[\r\n]/u.test(value))) throw new Error("invalid bundled stage environment value");
   if (githubEnv) appendFileSync(githubEnv, Object.entries(buildEnv).map(([key, value]) => `${key}=${value}`).join("\n") + "\n");
   assertSource(workspace, frontendSourceSha);
@@ -174,12 +150,18 @@ async function main() {
     args[key] = process.argv[index + 1];
   }
   const phase = args["--phase"], directory = args["--directory"] || process.env.BUNDLED_STAGE_DIRECTORY;
-  if (!["prepare", "prebuild", "seal", "verify", "verify-identity"].includes(phase) || !directory) throw new Error("bundled stage phase/directory required");
+  if (phase === "check-backend") {
+    if (args["--directory"]) throw new Error("check-backend does not accept an output directory");
+    const backendSourceSha = args["--backend-source"];
+    const backendTopologyHash = await checkBundledStageBackend(backendSourceSha);
+    console.log(JSON.stringify({ phase, backendSourceSha, backendTopologyHash, complete: true }));
+    return;
+  }
+  if (!["prepare", "seal", "verify", "verify-identity"].includes(phase) || !directory) throw new Error("bundled stage phase/directory required");
   if (phase !== "prepare" && args["--backend-source"]) throw new Error("backend source is fixed by the preparation receipt");
   if (process.env.STAGE_FIREBASE_PROJECT_ID !== "orider-dev") throw new Error("bundled stage project must be orider-dev");
   const receipt = phase === "prepare" ? await prepareBundledStage({ directory,
     backendSourceSha: args["--backend-source"], frontendSourceSha: git(process.cwd(), "rev-parse", "HEAD"), githubEnv: process.env.GITHUB_ENV })
-    : phase === "prebuild" ? await checkSocialAuthResponseBeforeBuild(directory)
     : phase === "seal" ? await sealBundledStage(directory) : await verifyBundledStage(directory, fetch, { identityOnly: phase === "verify-identity" });
   console.log(JSON.stringify({ phase, frontendSourceSha: receipt.frontendSourceSha, backendSourceSha: receipt.backendSourceSha, backendTopologyHash: receipt.backendTopologyHash, complete: receipt.complete === true }));
 }
