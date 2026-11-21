@@ -195,6 +195,7 @@ it("uses an owned Redis signal and refreshes after reconnect with the same revis
   }
   vi.useFakeTimers();
   vi.stubGlobal("WebSocket", FakeSocket);
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
   vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
   vi.stubEnv("VITE_ORIDER_LOCAL_NOTIFICATION_REDIS", "1");
   resetRuntimeConfigForTests({ useEmulators: true, firebaseProjectId: "demo-orider-lab" });
@@ -205,17 +206,19 @@ it("uses an owned Redis signal and refreshes after reconnect with the same revis
     expect(sockets[0]?.url).toBe("ws://127.0.0.1:19487/notification-signals");
     sockets[0]?.dispatchEvent(new Event("open"));
     expect(sockets[0]?.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "notification_subscribe", token: "local-test-token" }));
-    expect(onSnapshot).not.toHaveBeenCalled();
-    expect(state.list).not.toHaveBeenCalled();
+    expect(onSnapshot).toHaveBeenCalledOnce();
+    const initialReads = state.list.mock.calls.length;
     const revision = "1790000000:012345678";
     await act(async () => sockets[0]?.deliver(revision));
     await act(async () => sockets[0]?.deliver(revision));
-    expect(state.list).toHaveBeenCalledTimes(1);
+    expect(state.list).toHaveBeenCalledTimes(initialReads + 1);
     act(() => { sockets[0]?.dispatchEvent(new CloseEvent("close", { code: 1013 })); });
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(sockets).toHaveLength(2);
+    expect(onSnapshot).toHaveBeenCalledTimes(2);
+    const fallbackReads = state.list.mock.calls.length;
     await act(async () => sockets[1]?.deliver(revision));
-    expect(state.list).toHaveBeenCalledTimes(2);
+    expect(state.list).toHaveBeenCalledTimes(fallbackReads + 1);
     act(() => { sockets[1]?.dispatchEvent(new CloseEvent("close", { code: 4003 })); });
     expect(result.current.items).toEqual([]);
     expect(result.current.failed).toBe(true);

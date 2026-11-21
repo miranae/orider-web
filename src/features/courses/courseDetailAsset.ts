@@ -1,5 +1,6 @@
 import { getDoc, doc, onSnapshot, type Firestore, type DocumentData, type DocumentSnapshot } from "firebase/firestore";
 import { logClientError } from "../../services/errorLogger";
+import { followWorldSignal } from "../ride-world/followWorldSignal";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 // 목록과 상세는 별도 계약이다. 상세 표시 필드는 유지하고 무거운 원본만 정적 파일에서 받는다.
@@ -231,49 +232,29 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
     logClientError("CourseDetail.signalFallback", error, { courseId: id });
     onData(null); ++generation; request?.abort(); legacy();
   });
-  let signalStop: (() => void) | undefined;
-  let socket: WebSocket | undefined;
-  let firstFrameTimer: ReturnType<typeof setTimeout> | undefined;
-  let switchedToSource = false;
-  const fallBack = () => {
-    if (!current() || switchedToSource) return;
-    switchedToSource = true;
-    clearTimeout(firstFrameTimer);
-    ++generation; request?.abort();
-    lastVersion = undefined; lastTrack = undefined;
-    onData(null);
-    const previous = socket;
-    socket = undefined;
-    previous?.close();
-    legacyStop?.(); legacyStop = undefined;
-    legacy(true);
-  };
-  if (worldEnabled) {
-    try {
-      const live = new WebSocket("ws://127.0.0.1:19487/course-signals");
-      socket = live;
-      firstFrameTimer = setTimeout(fallBack, 6000);
-      live.onopen = () => live.send(JSON.stringify({ v: 1, type: "course_subscribe", courseId: id }));
-      live.onmessage = ({ data }) => {
-        if (!current() || socket !== live) return;
-        try {
-          const frame = JSON.parse(String(data)) as { v?: number; type?: string; revision?: string | null } | null;
+  if (worldEnabled) legacy(true);
+  const signalStop = worldEnabled
+    ? followWorldSignal("ws://127.0.0.1:19487/course-signals",
+        async () => ({ v: 1, type: "course_subscribe", courseId: id }),
+        (data) => {
+          if (!current()) return false;
+          const frame = data as { v?: number; type?: string; revision?: string | null } | null;
           if (frame?.v !== 1 || frame.type !== "course_signal" ||
-              (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return;
-          clearTimeout(firstFrameTimer);
+              (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
           legacyStop?.(); legacyStop = undefined;
           void refresh();
-        } catch (error) {
-          logClientError("CourseDetail.worldFrame", error, { courseId: id });
-          fallBack();
-        }
-      };
-      live.onerror = fallBack;
-      live.onclose = fallBack;
-    } catch { fallBack(); }
-  } else signalStop = startFirestore();
+          return true;
+        },
+        () => {
+          if (!current() || legacyStop) return;
+          ++generation; request?.abort();
+          lastVersion = undefined; lastTrack = undefined;
+          onData(null);
+          legacy(true);
+        })
+    : startFirestore();
   return () => {
-    disposed = true; ++generation; request?.abort(); clearTimeout(firstFrameTimer);
-    legacyStop?.(); signalStop?.(); socket?.close();
+    disposed = true; ++generation; request?.abort();
+    legacyStop?.(); signalStop();
   };
 }

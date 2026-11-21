@@ -6,6 +6,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { createWebNotificationClient } from "../services/webNotifications";
 import { getRuntimeConfig, isEmulatorRuntime } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
+import { followWorldSignal } from "../features/ride-world/followWorldSignal";
 /**
  * 알림함은 주기 조회 없이 `notification_signals/{uid}`(내용 없는 revision 문서, 본인만 get) 를
  * 구독하고, revision 이 바뀔 때만 getWebNotifications 로 ACL 적용된 목록을 다시 받는다.
@@ -76,63 +77,38 @@ export function useNotificationInbox() {
         pull();
       };
       const fallback = (error: unknown) => { logClientError("useNotificationInbox.signal", error, { uid }); if (first) changed(null); };
-      if (redisSignal && user) {
-        let socket: WebSocket | undefined;
-        let retry: ReturnType<typeof setTimeout> | undefined;
-        let backoff = 1000;
-        const open = async () => {
-          try {
-            const token = await user.getIdToken();
-            if (disposed) return;
-            socket = new WebSocket("ws://127.0.0.1:19487/notification-signals");
-            const connection = socket;
-            let received = false;
-            connection.addEventListener("open", () => {
-              if (!disposed) connection.send(JSON.stringify({ v: 1, type: "notification_subscribe", token }));
-            });
-            connection.addEventListener("message", ({ data }) => {
-              if (disposed) return;
-              try {
-                const frame = JSON.parse(String(data));
-                if (frame.v !== 1 || frame.type !== "notification_signal" ||
-                    (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return;
-                if (!received) { first = true; received = true; }
-                backoff = 1000;
-                changed(frame.revision);
-              } catch (error) { fallback(error); }
-            });
-            connection.addEventListener("close", ({ code }) => {
-              if (disposed) return;
-              if (code === 4003) {
-                generation.current += 1; again = false;
-                setState(null); setLoading(false); setFailed(true);
-                return;
-              }
-              if (first) changed(null);
-              reconnect();
-            });
-          } catch (error) {
-            if (disposed) return;
-            fallback(error);
-            reconnect();
-          }
-        };
-        const reconnect = () => {
-          retry = setTimeout(() => void open(), backoff);
-          backoff = Math.min(backoff * 2, 10_000);
-        };
-        void open();
-        unsubscribe = () => {
-          clearTimeout(retry);
-          if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
-        };
-      } else {
+      let stopSource: (() => void) | undefined;
+      const startSource = () => {
+        if (disposed || stopSource) return;
+        first = true;
         try {
-          unsubscribe = onSnapshot(doc(services.firestore, "notification_signals", uid), snap => {
+          stopSource = onSnapshot(doc(services.firestore, "notification_signals", uid), snap => {
             changed(snap.exists() ? snap.data()?.revision ?? null : null);
           }, fallback);
         } catch (error) { fallback(error); }
-      }
+      };
+      const stopCanonical = () => { stopSource?.(); stopSource = undefined; };
+      startSource();
+      const stopWorld = redisSignal && user ? followWorldSignal(
+        "ws://127.0.0.1:19487/notification-signals",
+        async () => ({ v: 1, type: "notification_subscribe", token: await user.getIdToken() }),
+        data => {
+          const frame = data as { v?: number; type?: string; revision?: string | null } | null;
+          if (frame?.v !== 1 || frame.type !== "notification_signal" ||
+              (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
+          if (stopSource) { stopCanonical(); first = true; }
+          changed(frame.revision);
+          return true;
+        },
+        code => {
+          if (code === 4003) {
+            stopCanonical();
+            generation.current += 1; again = false;
+            setState(null); setLoading(false); setFailed(true);
+          } else startSource();
+        },
+      ) : undefined;
+      unsubscribe = () => { stopWorld?.(); stopCanonical(); };
     }
     return () => { disposed = true; generation.current += 1; unsubscribe(); document.removeEventListener("visibilitychange", visibility); };
   }, [refresh, services, uid, client, redisSignal, user]);

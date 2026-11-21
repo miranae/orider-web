@@ -27,11 +27,12 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const syncLocationSignal = useRef<() => void>(() => {});
   const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
+  const spectatorActiveScope = useRef<string | null>(null);
   const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
   useWorldEvent(spectatorRedis ? eventId : undefined, viewer, undefined, undefined, {
     topic: "spectator",
-    changed: () => spectatorSignal.current(),
-    disconnected: code => spectatorSignal.current(code),
+    changed: () => { spectatorActiveScope.current = scope; syncLocationSignal.current(); spectatorSignal.current(); },
+    disconnected: code => { spectatorActiveScope.current = null; syncLocationSignal.current(); spectatorSignal.current(code); },
   });
   useEffect(() => {
     let disposed = false, inFlight = false, queued = false, blocked = false, generation = 0;
@@ -76,7 +77,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         if (selectedRef.current !== requestedUid) { queued = true; return; }
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
-        if (readySubscriptions.size === (worldActiveRef.current || spectatorRedis ? 3 : 4)) recoveryAttempts = 0;
+        if (readySubscriptions.size === (worldActiveRef.current || spectatorActiveScope.current === scope ? 3 : 4)) recoveryAttempts = 0;
         setState(old => ({scope, data: retainNewerSamples(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
       } catch (error) {
         if (current() && ticket === generation) fail(error);
@@ -97,7 +98,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     spectatorSignal.current = code => signal(code !== undefined);
     const syncSignal = () => {
       const path = `events/${eventId}/spectator_signals/latest`;
-      if (worldActiveRef.current || spectatorRedis) {
+      if (worldActiveRef.current || spectatorActiveScope.current === scope) {
         stopLocationSignal?.();
         stopLocationSignal = undefined;
         readySubscriptions.delete(path);

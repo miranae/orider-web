@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
+import { watchWorldReadiness } from "./worldReadiness";
 
 export interface WorldEventMarker {
   id: string;
@@ -96,12 +97,19 @@ export function useWorldEvent(
     let socket: WebSocket | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let delayMs = 1000;
+    let ready = false;
+    let denied = false;
+    let generation = 0;
+    let initial: ReturnType<typeof setTimeout> | undefined;
     const open = async () => {
+      if (!ready || denied || disposed) return;
+      const attempt = ++generation;
       try {
         const token = await identity?.getIdToken();
-        if (disposed) return;
+        if (disposed || !ready || attempt !== generation) return;
         const connection = new WebSocket(url);
         socket = connection;
+        initial = setTimeout(() => { if (socket === connection) connection.close(); }, 3000);
         let latest: WorldEventFrame | null = null;
         const subscribe = () => {
           if (!disposed && connection.readyState === WebSocket.OPEN) {
@@ -113,11 +121,12 @@ export function useWorldEvent(
         connection.addEventListener("message", ({ data }) => {
           try {
             const frame = JSON.parse(String(data)) as WorldEventFrame | WorldEventDelta | MeetingSignal;
-            if (disposed || frame.v !== 1 || frame.eventId !== event) return;
+            if (disposed || socket !== connection || frame.v !== 1 || frame.eventId !== event) return;
             if (frame.type === "event_signal") {
               const version = signalTopic === "spectator" ? frame.spectatorVersion
                 : signalTopic === "discord" ? frame.discordVersion : frame.meetingVersion;
               if (version === null || typeof version === "string" && /^\d+:\d{1,9}$/.test(version)) {
+                clearTimeout(initial);
                 signalCurrent.current?.changed(version);
                 delayMs = 1000;
               }
@@ -126,6 +135,7 @@ export function useWorldEvent(
             }
             if (!Number.isSafeInteger(frame.revision) || frame.revision <= (latest?.revision ?? 0)) return;
             if (frame.type === "event_snapshot" && Array.isArray(frame.markers) && Array.isArray(frame.roster)) {
+              clearTimeout(initial);
               latest = frame;
             } else if (frame.type === "event_delta") {
               if (!latest || frame.revision !== latest.revision + 1) {
@@ -154,24 +164,45 @@ export function useWorldEvent(
           }
         });
         connection.addEventListener("close", ({ code }) => {
-          if (disposed) return;
+          if (disposed || socket !== connection) return;
+          socket = undefined;
+          clearTimeout(initial);
           if (subscribeCurrent.current === subscribe) subscribeCurrent.current = null;
           setState(null);
           signalCurrent.current?.disconnected(code);
-          if (code !== 4003 && code !== 4004) {
+          denied = code === 4003 || code === 4004;
+          if (!denied && ready) {
             retry = setTimeout(() => void open(), delayMs);
             delayMs = Math.min(10000, delayMs * 2);
           }
         });
       } catch (error) {
-        if (!disposed) logClientError("RideWorld.connectEvent", error, { eventId: event });
+        if (!disposed && attempt === generation) {
+          signalCurrent.current?.disconnected(1013);
+          logClientError("RideWorld.connectEvent", error, { eventId: event });
+          if (ready) retry = setTimeout(() => void open(), delayMs);
+        }
       }
     };
-    void open();
+    const stopWatching = watchWorldReadiness(url, available => {
+      ready = available;
+      if (available) { void open(); return; }
+      generation++;
+      clearTimeout(retry);
+      clearTimeout(initial);
+      const connection = socket;
+      socket = undefined;
+      subscribeCurrent.current = null;
+      connection?.close();
+      setState(null);
+      if (!denied) signalCurrent.current?.disconnected(1013);
+    });
     return () => {
       disposed = true;
       subscribeCurrent.current = null;
+      stopWatching();
       clearTimeout(retry);
+      clearTimeout(initial);
       if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
     };
   }, [eventId, scope, signalOnly, signalTopic, user, allowGuest]);

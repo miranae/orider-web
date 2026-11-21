@@ -77,7 +77,7 @@ describe("meeting public Discord voice",()=>{
   await screen.findByRole("button",{name:"음성 채널 열기"});
   expect(transport.subscribe.mock.lastCall?.[0]).toBe("meeting");
   expect(signal()?.topic).toBe("discord");
-  expect(transport.paths).toEqual(["events/meeting","groups/club","groups/club/members/host"]);
+  expect(transport.paths).toEqual(["events/meeting/discord_signals/latest","events/meeting","groups/club","groups/club/members/host"]);
   api.getClubMeetingDiscord.mockResolvedValue(ready);
   await act(async()=>signal()?.changed("1"));
   await screen.findByRole("link",{name:"디스코드에서 함께하기"});
