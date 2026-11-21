@@ -267,4 +267,14 @@ describe('동호회 모임 준비', () => {
     expect(body(31.264, 45.871)).toContain('거리: 31.3km → 45.9km.');
     expect(body(31.21, 31.24)).toContain('거리: 31.21km → 31.24km.');
   });
+
+  it('한 자리 표기가 같은 체크포인트 거리 변경도 공지에서 구분한다', () => {
+    const base = createSeed();
+    const draft = base.meetings[0]!;
+    const withDistance = (distanceKm: number) => ({
+      ...draft, courseCheckpoints: [{name: '강변', source: 'manual' as const, distanceKm}],
+    });
+    const saved = saveMeeting(saveMeeting(base, 'host', withDistance(31.21)), 'host', withDistance(31.24));
+    expect(saved.meetings[0]!.notices[0]!.body).toContain('체크포인트: 강변 (31.21km) → 강변 (31.24km).');
+  });
 });
