@@ -27,9 +27,10 @@ export function courseStartPlace(meeting: Meeting): string {
   // 출발로 명시된 지점에는 트랙과의 작은 오차를 허용한다. 일반 경유지는 좌표가 일치해야 한다.
   const candidates = checkpoints.flatMap(point => {
     const name = point.name.trim();
-    const explicitStart = point.type?.trim().toLowerCase() === 'start';
+    const type = point.type?.trim().toLowerCase();
+    const explicitStart = type === 'start';
     const tolerance = explicitStart ? 25 : 1;
-    if (point.source === 'manual' || point.source === 'segments' || !hasCoordinates(point)
+    if (type === 'finish' || type === 'end' || point.source === 'manual' || point.source === 'segments' || !hasCoordinates(point)
       || (!explicitStart && point.distanceKm !== undefined && point.distanceKm > 0.001)
       || /^(?:출발|출발점|도착|start|finish|end|체크포인트\s*\d+)?$/i.test(name)) return [];
     const offset = haversineMeters(start.lat, start.lon, point.lat, point.lon);

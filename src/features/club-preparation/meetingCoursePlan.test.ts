@@ -42,6 +42,14 @@ describe('모임 코스 가져오기', () => {
     expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
   });
 
+  it('순환 GPX의 명시된 도착 표식을 집결 장소로 쓰지 않는다', () => {
+    const route = '<trkseg><trkpt lat="37" lon="127"/><trkpt lat="37.002" lon="127"/><trkpt lat="37" lon="127"/></trkseg>';
+    const plan = readGpxCoursePlan(gpx(route, '<wpt lat="37" lon="127"><name>완주 행사장</name><type>FINISH</type></wpt>'), 'finish.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(plan.checkpoints.find(point => point.name === '완주 행사장')?.distanceKm).toBe(0);
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
+  });
+
   it('고도 있는 GPX는 원본 수치·전체 주행 구간·오르막 경로를 자동 생성한다', () => {
     const xml = gpx(segment([50, 100, 170, 120]));
     const plan = readGpxCoursePlan(xml, 'ride.gpx');

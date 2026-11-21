@@ -9,6 +9,7 @@ export function readDraft(scope: string): {
   baseRevision?: number;
   autoPlace?: string;
   error?: string;
+  errorName?: string;
 } {
   try {
     const raw = localStorage.getItem(PREFIX + scope);
@@ -28,10 +29,11 @@ export function readDraft(scope: string): {
           ? data.draftBaseRevision
           : undefined,
     };
-  } catch {
+  } catch (failure) {
     return {
       error:
         "저장된 초안을 복구하지 못했어요. 현재 내용으로 다시 작성하거나 초안을 지워주세요.",
+      errorName: failure instanceof Error || failure instanceof DOMException ? failure.name : undefined,
     };
   }
 }
