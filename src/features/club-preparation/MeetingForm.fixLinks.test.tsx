@@ -54,7 +54,7 @@ describe("모임 저장 검증 오류 문구를 누르면 고칠 칸으로 간�
     expect(document.activeElement).toBe(document.getElementById("meeting-date"));
   });
 
-  it("실내 모임에 코스 경로가 없으면 검토 단계에서 코스 준비 방식으로 데려간다", () => {
+  it("실내 모임에 코스 경로가 없으면 미리보기 전에 코스 준비 방식으로 데려간다", () => {
     const indoor = { ...base, venue: "indoor" as const };
     const onSave = vi.fn();
     render(
@@ -62,13 +62,15 @@ describe("모임 저장 검증 오류 문구를 누르면 고칠 칸으로 간�
         onSave={onSave} onClose={vi.fn()} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "모집글 미리보기" }));
-    fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
+    // 「모집 시작」까지 가서야 알리지 않는다 — 미리보기로 넘어가지 않고 코스 준비 방식 탭에 초점을 둔다(#1779).
+    expect(screen.queryByRole("button", { name: "변경 내용 저장" })).toBeNull();
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByRole("alert").textContent).toContain("실내 모임은 코스 경로가 필요해요");
     expect(screen.queryByRole("button", { name: /하러 가기/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /실내 모임은 코스 경로가 필요해요/ }));
-    // 검토 단계를 벗어나 작성 단계의 선택된 코스 준비 방식 탭에 초점이 간다.
-    expect(screen.queryByRole("button", { name: "변경 내용 저장" })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "GPX로 준비하기" }));
+    // 문구를 누르면 다시 그 탭으로 간다.
+    document.getElementById("meeting-title")!.focus();
+    fireEvent.click(screen.getAllByRole("button", { name: /실내 모임은 코스 경로가 필요해요/ })[0]!);
     expect(document.activeElement).toBe(screen.getByRole("tab", { name: "GPX로 준비하기" }));
   });
 

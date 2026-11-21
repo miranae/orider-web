@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { BASE_TIME, STORAGE_KEY, createSeed, duplicateMeeting, expireOffers, loadLocal, occupied, saveMeeting, meetingHostId, isMeetingHost, isClubManager, parseMeetingDraft, transition, updateKind } from './domain';
+import { BASE_TIME, STORAGE_KEY, createSeed, courseFitsVenue, duplicateMeeting, expireOffers, loadLocal, occupied, saveMeeting, meetingHostId, isMeetingHost, isClubManager, parseMeetingDraft, transition, updateKind } from './domain';
 describe('동호회 모임 준비', () => {
   it('모임 종류를 추가·수정·비활성화해도 기존 참조를 유지한다', () => {
     let s = createSeed(); s = updateKind(s, 'host', { id: 'lesson', name: '교육', active: true });
@@ -62,31 +62,35 @@ describe('동호회 모임 준비', () => {
   it('실내 모임은 하나로 이어진 코스 경로가 있어야 저장된다', () => {
     // 경로가 없거나 끊어진 실내 모임은 출발 시각에 서버가 코스를 거부해 시작하지 못했다(2026-11-14).
     const s = createSeed(); const m = s.meetings[2];
-    // 도로를 따라 만든 GPX 처럼 약 20m 간격.
+    const builtin = { kind: 'builtin' as const, id: 'builtin_hangang', name: '한강 자전거길' };
     const track = { fileName: '코스', points: Array.from({ length: 60 }, (_, i) => ({ lat: 37.5 + i * 0.00018, lon: 127 })), distanceKm: 1.2, elevationGainM: 0 };
     expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: undefined })).toThrow('실내 모임은 코스 경로가 필요해요');
-    expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: { ...track, segmentStarts: [0, 2] } })).toThrow('하나로 이어진 코스');
-    expect(saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: { ...track, segmentStarts: [0] } }).meetings[2].venue).toBe('indoor');
+    expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseSource: builtin, courseTrack: { ...track, segmentStarts: [0, 2] } })).toThrow('하나로 이어진 코스');
+    expect(saveMeeting(s, 'host', { ...m, venue: 'indoor', courseSource: builtin, courseTrack: { ...track, segmentStarts: [0] } }).meetings[2].venue).toBe('indoor');
     // 야외 모임은 지금처럼 경로 없이도 저장된다.
     expect(saveMeeting(s, 'host', { ...m, venue: 'outdoor', courseTrack: undefined }).meetings[2].venue).toBe('outdoor');
   });
-  it('예전 방식으로 200점만 저장된 기존 코스는 실내 모임 경로로 새로 고르지 못한다', () => {
-    // 2026-06 이전 기존 코스는 200점(멧돼지 73.6km 에 약 370m 간격)이라 실내 주행이 도로를 벗어난 직선이 됐다(2026-11-15).
+  it('새로 고르는 실내 코스는 앱 실내 코스만 받고 이미 저장된 실내 모임은 그대로 둔다', () => {
+    // 기존 코스·GPX 는 경로가 성기거나 끊어져 출발이 막히는 일이 있어, 실내는 내장 코스로만 새로 고른다(#1779).
     const s = createSeed(); const m = s.meetings[2];
-    const sparse = { fileName: '멧돼지', segmentStarts: [0], distanceKm: 73.6, elevationGainM: 0, points: Array.from({ length: 200 }, (_, i) => ({ lat: 37.5 + i * 0.0033, lon: 127 })) };
+    const track = { fileName: '코스', segmentStarts: [0], points: Array.from({ length: 60 }, (_, i) => ({ lat: 37.5 + i * 0.00018, lon: 127 })), distanceKm: 1.2, elevationGainM: 0 };
     const saved = { kind: 'saved-course' as const, id: 'c1', name: '멧돼지' };
-    expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseSource: saved, courseTrack: sparse })).toThrow('예전 방식으로 저장돼');
-    // 사용자가 올린 GPX 는 원본이라 성겨도 막지 않는다.
-    expect(saveMeeting(s, 'host', { ...m, venue: 'indoor', courseSource: { kind: 'gpx', name: 'a.gpx' }, courseTrack: sparse }).meetings[2].venue).toBe('indoor');
-    // 이미 그 경로로 저장된 모임은 제목만 고쳐도 저장된다.
-    const kept = { ...s, meetings: s.meetings.map((x, i) => i === 2 ? { ...x, venue: 'indoor' as const, courseSource: saved, courseTrack: sparse } : x) };
+    const gpx = { kind: 'gpx' as const, name: 'a.gpx' };
+    expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseSource: saved, courseTrack: track })).toThrow('앱 실내 코스만 쓸 수 있어요');
+    expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseSource: gpx, courseTrack: track })).toThrow('앱 실내 코스만 쓸 수 있어요');
+    // 이미 GPX 로 저장된 실내 모임은 제목만 고쳐도 저장된다.
+    const kept = { ...s, meetings: s.meetings.map((x, i) => i === 2 ? { ...x, venue: 'indoor' as const, courseSource: gpx, courseTrack: track } : x) };
     expect(saveMeeting(kept, 'host', { ...kept.meetings[2], title: '제목만 수정' }).meetings[2].title).toBe('제목만 수정');
     // 같은 경로를 둔 야외 모임을 실내로 바꾸면 새로 쓰는 것이므로 막는다.
-    const outdoor = { ...s, meetings: s.meetings.map((x, i) => i === 2 ? { ...x, venue: 'outdoor' as const, courseSource: saved, courseTrack: sparse } : x) };
-    expect(() => saveMeeting(outdoor, 'host', { ...outdoor.meetings[2], venue: 'indoor' })).toThrow('예전 방식으로 저장돼');
-    // 촘촘한 기존 코스는 고를 수 있다.
-    const dense = { ...sparse, points: Array.from({ length: 200 }, (_, i) => ({ lat: 37.5 + i * 0.00018, lon: 127 })) };
-    expect(saveMeeting(s, 'host', { ...m, venue: 'indoor', courseSource: saved, courseTrack: dense }).meetings[2].venue).toBe('indoor');
+    const outdoor = { ...s, meetings: s.meetings.map((x, i) => i === 2 ? { ...x, venue: 'outdoor' as const, courseSource: saved, courseTrack: track } : x) };
+    expect(() => saveMeeting(outdoor, 'host', { ...outdoor.meetings[2], venue: 'indoor' })).toThrow('앱 실내 코스만 쓸 수 있어요');
+  });
+  it('고른 코스가 실내·실외 선택에 맞는지 가린다', () => {
+    expect(courseFitsVenue({}, 'indoor')).toBe(true);
+    expect(courseFitsVenue({ courseSource: { kind: 'builtin', id: 'builtin_hangang', name: '한강' } }, 'indoor')).toBe(true);
+    expect(courseFitsVenue({ courseSource: { kind: 'builtin', id: 'builtin_hangang', name: '한강' } }, 'outdoor')).toBe(false);
+    expect(courseFitsVenue({ courseSource: { kind: 'gpx', name: 'a.gpx' } }, 'indoor')).toBe(false);
+    expect(courseFitsVenue({ courseSource: { kind: 'segments', name: '구간' } }, 'outdoor')).toBe(true);
   });
   it('설정 변경은 현재 대상자에게 변경 공지를 남기고 합류·권한을 검증한다', () => {
     let s = createSeed(); const m = s.meetings[2];
