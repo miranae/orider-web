@@ -146,7 +146,11 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     fireEvent.click(screen.getByRole("button", { name: "모집글 미리보기" }));
     fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
     await vi.waitFor(() => expect(onSave).toHaveBeenCalled());
-    expect((onSave.mock.calls[0]![0] as Meeting).joins.map((join) => join.id)).toEqual(["main", "j2"]);
+    // 남긴 지점의 장소도 실내 문구로 바꾼다 — 예전 야외 장소 이름이 실내 모임 안내에 남지 않는다(#1782 리뷰).
+    expect((onSave.mock.calls[0]![0] as Meeting).joins).toEqual([
+      { id: "main", place: "앱 실내 라이딩", time: "08:00" },
+      { id: "j2", place: "앱 실내 라이딩", time: "08:20" },
+    ]);
   });
 
   it("코스를 고르면 빈 모임 이름만 코스 이름으로 채운다", () => {

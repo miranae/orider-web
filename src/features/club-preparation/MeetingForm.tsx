@@ -163,13 +163,14 @@ export default function MeetingForm({
       return { ...meeting, place, joins: meeting.joins.map((join, index) => (index ? join : { ...join, place })) };
     }
     // 참석자가 이미 고른 합류 지점은 남긴다 — 지우면 서버가 저장을 거부한다.
+    // 남긴 지점도 장소는 실내 문구로 바꾼다 — 예전 야외 장소 이름이 실내 모임 안내에 남지 않게.
     const chosen = new Set(meeting.registrations.map((person) => person.joinId).filter(Boolean));
     return {
       ...meeting,
       place,
       joins: meeting.joins
         .filter((join, index) => index === 0 || chosen.has(join.id))
-        .map((join, index) => (index ? join : { ...join, place })),
+        .map((join) => ({ ...join, place })),
       weather: "",
       parking: "",
     };
