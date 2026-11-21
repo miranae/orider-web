@@ -110,3 +110,20 @@ test("ko: 실내·실외를 먼저 고르고 그에 맞는 코스만 고른다 (
   await shot("05-preview");
   expect(pageErrors).toEqual([]);
 });
+
+test("ko: 실외 GPX의 실제 출발 장소를 집결 장소와 미리보기에 반영한다 (#1779)", async ({ page }) => {
+  await page.goto("/e2e/fixtures/club-meeting-entry.html?lang=ko&role=leader");
+  await page.getByRole("link", { name: /주말 라이더/ }).click();
+  await page.getByRole("link", { name: "모임 만들기", exact: true }).click();
+  await page.getByRole("radio", { name: /실외/ }).check();
+  await page.getByRole("tab", {name: "GPX로 준비하기"}).click();
+  const track = Array.from({ length: 60 }, (_, i) => `<trkpt lat="${37.5 + i * .00018}" lon="127"/>`).join("");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "start-point.gpx", mimeType: "application/gpx+xml",
+    buffer: Buffer.from(`<gpx><wpt lat="37.5" lon="127"><name>강변공원 북문</name></wpt><trk><name>강변 코스</name><trkseg>${track}</trkseg></trk></gpx>`),
+  });
+  await expect(page.getByRole("textbox", { name: "기본 집결 장소" })).toHaveValue("강변공원 북문");
+  await page.getByLabel("날짜", { exact: true }).fill("2030-10-25");
+  await page.getByRole("button", { name: "모집글 미리보기", exact: true }).click();
+  await expect(page.locator(".cp-review-summary")).toContainText("강변공원 북문");
+});

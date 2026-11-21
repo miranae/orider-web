@@ -1,4 +1,4 @@
-import { cumulativeDistances } from '../courseEngine/geo';
+import { cumulativeDistances, haversineMeters } from '../courseEngine/geo';
 import { resolveWaypointsOnTrack } from '../courseEngine/waypoints';
 import type { TrackPoint } from '../courseEngine/stats';
 import type { CourseCheckpoint, CoursePoint, CourseSource, CourseTrack, Meeting } from './domain';
@@ -13,6 +13,22 @@ export interface CoursePlan {
   track?: CourseTrack;
   segments: MeetingSegment[];
   warnings?: string[];
+}
+
+export function courseStartPlace(meeting: Meeting): string {
+  if (meeting.venue !== 'outdoor' || !meeting.courseSource || meeting.courseSource.kind === 'builtin') return '';
+  const checkpoints = meeting.courseCheckpoints ?? [];
+  const hasCoordinates = (point: { lat?: number; lon?: number } | undefined): point is CoursePoint =>
+    point?.lat !== undefined && point.lon !== undefined && Math.abs(point.lat) <= 90 && Math.abs(point.lon) <= 180;
+  const start = meeting.courseSource.kind === 'segments'
+    ? meeting.segments?.[0]?.geometry?.[0]
+    : meeting.courseTrack?.points[0] ?? checkpoints.find(point => point.distanceKm === 0 && point.source !== 'manual' && hasCoordinates(point));
+  if (!hasCoordinates(start)) return '';
+  const named = checkpoints.find(point => point.source !== 'manual' && point.source !== 'segments'
+    && hasCoordinates(point) && (point.distanceKm === undefined || point.distanceKm <= 0.025)
+    && haversineMeters(start.lat, start.lon, point.lat, point.lon) <= 25
+    && !/^(?:출발|도착|start|finish|end|체크포인트\s*\d+)?$/i.test(point.name.trim()));
+  return named?.name.trim().slice(0, 300) ?? `${start.lat.toFixed(5)}, ${start.lon.toFixed(5)}`;
 }
 
 /** 경로가 있는 코스를 가져오면 코스를 확정으로 둔다 — 확정 칸이 접힌 곳에 있어 「준비 중」으로 게시되던 것을 막는다(#1779). 경로 없는 구간 소개는 주최자가 확정한다. */
