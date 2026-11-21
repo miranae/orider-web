@@ -1,3 +1,4 @@
+import { isLocalWorldEventEnabled, useWorldEvent, worldLocation, type WorldViewport } from "../../features/ride-world/useWorldEvent";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -17,7 +18,7 @@ import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
 import { Button, Card, IconButton, Switch, Text, Input } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
-import { activeViewerCountFromSummary, createViewerSessionId } from "../../features/event/viewerPresence";
+import { activeViewerCountFromSummary, viewerSessionIdForEvent } from "../../features/event/viewerPresence";
 import { createViewerHeartbeatRunner } from "../../features/event/liveViewerRecovery";
 import { useAuth } from "../../contexts/AuthContext";
 import AppInstallLinks from "../../components/AppInstallLinks";
@@ -30,7 +31,10 @@ import {
 } from "../../utils/firestoreSessionRecovery";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
+const WORLD_PRESENCE_GRACE_MS = 3_000;
+
 export interface SnapshotLocation {
+  rideKind?: "outdoor" | "virtual";
   uid: string;
   lat: number;
   lng: number;
@@ -318,7 +322,7 @@ export default function EventLivePage() {
   const [eventStartTime, setEventStartTime] = useState<number | null>(null);
   const [totalDistanceKm, setTotalDistanceKm] = useState<number>(0);
   const [now, setNow] = useState(() => Date.now());
-  const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
+  const [savedSnapshot, setSnapshot] = useState<SnapshotData | null>(null);
   const snapshotRef = useRef<SnapshotData | null>(null);
   // 「갱신 지연」 문구를 눌러 다시 읽는 중이면 거듭 누름은 무시한다.
   const staleRefreshRef = useRef(false);
@@ -335,6 +339,29 @@ export default function EventLivePage() {
 
   const eventStatus = eventContext?.eventId === eventId ? eventContext?.status : null;
   const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
+  const [viewport, setViewport] = useState<WorldViewport>();
+  const trackingBib = /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : undefined;
+  const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport, undefined, trackingBib, !authLoading);
+  const guestWorldActive = !user && worldFrame !== null;
+  const snapshot = useMemo<SnapshotData | null>(() => {
+    if (!worldFrame) return savedSnapshot;
+    const metadata = new Map(savedSnapshot?.locations.map((item) => [item.uid, item]));
+    return {
+      timestamp: worldFrame.updatedAt,
+      counts: { ...(savedSnapshot?.counts ?? { ...worldFrame.counts, finished: 0, dnf: 0, sos: 0, offCourse: 0 }),
+        riding: worldFrame.counts.riding },
+      checkpoints: savedSnapshot?.checkpoints ?? [],
+      locations: worldFrame.markers.map((marker) => {
+        const location = worldLocation(marker);
+        const previous = metadata.get(location.uid);
+        return previous ? { ...previous, lat: location.lat, lng: location.lng, speed: location.speed,
+          status: location.status, rideKind: location.rideKind } : location;
+      }),
+    };
+  }, [savedSnapshot, worldFrame]);
+  const hasWorldPresence = worldFrame !== null;
+  const worldPresenceEnabled = isLocalWorldEventEnabled();
+  const [presenceFallbackEvent, setPresenceFallbackEvent] = useState<string | null>(null);
   const liveReadsEnabled = !!eventStatus && !trackingEnded;
   const liveEventRef = useRef<string | null>(null);
   liveEventRef.current = liveReadsEnabled ? eventId ?? null : null;
@@ -344,16 +371,20 @@ export default function EventLivePage() {
   const sosMutedRef = useRef(sosMuted);
 
   useEffect(() => {
-    if (!eventId || !liveReadsEnabled) return;
+    if (!worldPresenceEnabled || !eventId || !liveReadsEnabled || hasWorldPresence) {
+      setPresenceFallbackEvent(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setPresenceFallbackEvent(eventId), WORLD_PRESENCE_GRACE_MS);
+    return () => window.clearTimeout(timer);
+  }, [worldPresenceEnabled, eventId, liveReadsEnabled, hasWorldPresence]);
+
+  useEffect(() => {
+    if (!eventId || !liveReadsEnabled || hasWorldPresence ||
+        worldPresenceEnabled && presenceFallbackEvent !== eventId) return;
     let active = true;
     const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
-    const storageKey = `event-viewer-session:${eventId}`;
-    let viewerSessionId = sessionStorage.getItem(storageKey);
-    if (!viewerSessionId || !/^[A-Za-z0-9_-]{16,100}$/.test(viewerSessionId)) {
-      viewerSessionId = createViewerSessionId();
-      sessionStorage.setItem(storageKey, viewerSessionId);
-    }
-    const sessionId = viewerSessionId;
+    const sessionId = viewerSessionIdForEvent(eventId);
     const handleViewerError = (source: string, error: unknown, context?: Record<string, unknown>) => {
       if (!active) return prepareFirestoreSessionRecovery(error);
       const recovery = prepareFirestoreSessionRecovery(error);
@@ -422,7 +453,7 @@ export default function EventLivePage() {
         .then(() => heartbeat({ eventId, viewerSessionId: sessionId, active: false }))
         .catch(() => undefined);
     };
-  }, [eventId, liveReadsEnabled, t]);
+  }, [eventId, liveReadsEnabled, hasWorldPresence, worldPresenceEnabled, presenceFallbackEvent, t]);
 
   // URL bib 쿼리 → 팔로우 리스트에 자동 추가
   useEffect(() => {
@@ -503,7 +534,7 @@ export default function EventLivePage() {
   }, [snapshot]);
 
   const fetchSnapshot = useCallback(async () => {
-    if (!eventId || !liveReadsEnabled) return;
+    if (!eventId || !liveReadsEnabled || guestWorldActive) return;
     try {
       const latest = await getDoc(doc(firestore, "events", eventId, "snapshots", "public_latest"));
       if (liveEventRef.current !== eventId) return;
@@ -586,7 +617,7 @@ export default function EventLivePage() {
     } finally {
       if (liveEventRef.current === eventId) setLoading(false);
     }
-  }, [eventId, followBibs, liveReadsEnabled, t]);
+  }, [eventId, followBibs, liveReadsEnabled, guestWorldActive, t]);
 
   useEffect(() => {
     if (!liveReadsEnabled) return;
@@ -678,7 +709,7 @@ export default function EventLivePage() {
     );
   }
 
-  if (viewerRecoveryError || loadError) {
+  if (!guestWorldActive && (viewerRecoveryError || loadError)) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <ErrorState
@@ -791,7 +822,7 @@ export default function EventLivePage() {
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-3)', marginLeft: "auto" }}>
-          <div aria-live="polite" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</div>
+          <div aria-live="polite" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: worldFrame?.viewers ?? viewerCount })}</div>
           {elapsedLabel && (
             <div style={{ textAlign: "right", fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
               <div>{t("label.elapsed")}</div>
@@ -985,6 +1016,7 @@ export default function EventLivePage() {
               locations={followedParticipants.length > 0 ? followedParticipants : snapshot.locations}
               selectedUid={selectedUid}
               onSelectParticipant={setSelectedUid}
+              onWorldViewport={worldFrame ? setViewport : undefined}
             />
           </div>
         </Card>

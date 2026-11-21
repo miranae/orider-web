@@ -1,8 +1,9 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, getDocFromServer, onSnapshot, query, where, type DocumentSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 convenience exports 기본값. 임베드는 createRiderWorkoutDeliveryClient(services)를 사용한다.
 import { ensureAppCheckReady, firestore, functions } from "./firebase";
+import { subscribeDeviceDeliverySignal } from "./deviceDeliverySignal";
 import {
   createRiderWorkoutDeliveryResponseSchema,
   parseRiderWorkoutDelivery,
@@ -85,22 +86,21 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
     onChange: (delivery: RiderWorkoutDelivery | null) => void,
     onError: (error: Error) => void,
   ): () => void {
-    return onSnapshot(
-      doc(firestore, "users", uid, "riderWorkoutDeliveries", deliveryId),
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          onChange(null);
-          return;
-        }
-        const delivery = parseRiderWorkoutDelivery(snapshot.data());
-        if (!delivery) {
-          onError(new Error("Rider workout delivery contract mismatch"));
-          return;
-        }
-        onChange(delivery);
-      },
-      onError,
-    );
+    const ref = doc(firestore, "users", uid, "riderWorkoutDeliveries", deliveryId);
+    const receive = (snapshot: DocumentSnapshot) => {
+      if (!snapshot.exists()) {
+        onChange(null);
+        return;
+      }
+      const delivery = parseRiderWorkoutDelivery(snapshot.data());
+      if (!delivery) {
+        onError(new Error("Rider workout delivery contract mismatch"));
+        return;
+      }
+      onChange(delivery);
+    };
+    return subscribeDeviceDeliverySignal(firestore, uid, `workout-receipt:${deliveryId}`,
+      () => getDocFromServer(ref), receive, onError, () => onSnapshot(ref, receive, onError));
   }
 
   function subscribeRiderWorkoutDeviceState(
@@ -109,22 +109,21 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
     onChange: (state: RiderWorkoutDeviceState | null) => void,
     onError: (error: Error) => void,
   ): () => void {
-    return onSnapshot(
-      doc(firestore, "users", uid, "riderWorkoutDeviceState", deviceId),
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          onChange(null);
-          return;
-        }
-        const state = parseRiderWorkoutDeviceState(snapshot.data());
-        if (!state || state.deviceId !== deviceId) {
-          onError(new Error("Rider workout device state contract mismatch"));
-          return;
-        }
-        onChange(state);
-      },
-      onError,
-    );
+    const ref = doc(firestore, "users", uid, "riderWorkoutDeviceState", deviceId);
+    const receive = (snapshot: DocumentSnapshot) => {
+      if (!snapshot.exists()) {
+        onChange(null);
+        return;
+      }
+      const state = parseRiderWorkoutDeviceState(snapshot.data());
+      if (!state || state.deviceId !== deviceId) {
+        onError(new Error("Rider workout device state contract mismatch"));
+        return;
+      }
+      onChange(state);
+    };
+    return subscribeDeviceDeliverySignal(firestore, uid, `workout-device:${deviceId}`,
+      () => getDocFromServer(ref), receive, onError, () => onSnapshot(ref, receive, onError));
   }
 
   return { subscribeRiderWorkoutDevices, createRiderWorkoutDelivery, subscribeRiderWorkoutDelivery, subscribeRiderWorkoutDeviceState };

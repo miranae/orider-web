@@ -6,12 +6,18 @@ import { useSpectatorPreferences } from "./preferences";
 import { useMeetingSpectator } from "./useMeetingSpectator";
 import { spectatorFixture } from "./fixtures";
 const control = vi.hoisted(() => ({request: vi.fn(), signals: [] as {path: string; next: () => void; error: (error: unknown) => void; stop: ReturnType<typeof vi.fn>}[], services: {auth: {currentUser: {uid: "member"} as {uid: string} | null}, functions: {}, firestore: {}, ensureAppCheckReady: vi.fn(async () => {})}}));
+import type { useWorldEvent } from "../ride-world/useWorldEvent";
+const world = vi.hoisted(() => ({ subscribe: vi.fn<typeof useWorldEvent>() }));
+vi.mock("../ride-world/useWorldEvent", () => ({
+  isLocalWorldEventEnabled: () => true,
+  useWorldEvent: world.subscribe,
+}));
 vi.mock("firebase/firestore", () => ({doc: (_db: unknown, path: string) => path, onSnapshot: vi.fn((path: string, next: () => void, error: (error: unknown) => void) => {const stop = vi.fn(); control.signals.push({path, next, error, stop}); return stop;})}));
 vi.mock("firebase/functions", () => ({httpsCallable: vi.fn(() => control.request)}));
 vi.mock("../../contexts/FirebaseServicesContext", () => ({useFirebaseServices: () => control.services}));
 vi.mock("../../services/errorLogger", () => ({logClientError: vi.fn()}));
-beforeEach(() => { vi.clearAllMocks(); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
-afterEach(() => { vi.useRealTimers(); });
+beforeEach(() => { vi.clearAllMocks(); world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 const data = () => ({...spectatorFixture(Date.now()), groupId: "club", eventId: "meeting"});
 describe("회원 관전 조회 경계", () => {
   it("주입된 인증 API로 조회하고 권한 오류 발생 즉시 위치를 지운다", async () => {
@@ -148,4 +154,29 @@ it("API만 성공하고 변경 구독이 계속 실패해도 자동 복구가 �
   act(() => control.signals.at(-1)!.error({code: "unavailable"}));
   await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
   expect(control.request).toHaveBeenCalledTimes(4);
+});
+
+it("Redis 관전 모드에서 Firestore 위치 신호를 구독하지 않고 소켓 권한 철회에 화면을 비운다", async () => {
+  vi.stubEnv("VITE_ORIDER_LOCAL_SPECTATOR_REDIS", "1");
+  control.request.mockResolvedValue({data: data()});
+  const {result} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  expect(control.signals.map(signal => signal.path)).toEqual(["events/meeting", "groups/club", "groups/club/members/member"]);
+  const socket = world.subscribe.mock.calls.findLast(call => call[4]?.topic === "spectator");
+  expect(socket?.[0]).toBe("meeting");
+  vi.useFakeTimers();
+  control.request.mockResolvedValue({data: {...data(), title: "새 관전 상태"}});
+  act(() => socket?.[4]?.changed("1790000000:000000000"));
+  await act(async () => vi.advanceTimersByTimeAsync(5001));
+  expect(result.current.data?.title).toBe("새 관전 상태");
+  control.request.mockResolvedValue({data: {...data(), status: "FINISHED"}});
+  act(() => socket?.[4]?.disconnected(4003));
+  expect(result.current.data).toBeNull();
+  await act(async () => vi.advanceTimersByTimeAsync(5001));
+  expect(result.current.data?.status).toBe("FINISHED");
+  control.request.mockRejectedValue({code: "permission-denied"});
+  act(() => socket?.[4]?.disconnected(4003));
+  expect(result.current.data).toBeNull();
+  await act(async () => vi.advanceTimersByTimeAsync(5001));
+  expect(result.current.error).toEqual({code: "permission-denied"});
 });

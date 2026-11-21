@@ -22,8 +22,34 @@ beforeEach(() => {
     return vi.fn();
   });
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
 describe("코스 상세 정적 트랙", () => {
+  it("로컬 월드 변경 신호가 닫히면 표시를 비우고 Firestore에서 다시 확인한다", async () => {
+    vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
+    vi.stubEnv("VITE_ORIDER_LOCAL_COURSE_REDIS", "1");
+    const socket = { send: vi.fn(), close: vi.fn(), onopen: () => {}, onmessage: (_: { data: string }) => {}, onclose: () => {} };
+    vi.stubGlobal("WebSocket", class { constructor() { return socket; } });
+    const version = await hash(body);
+    const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(version))))
+      .mockResolvedValueOnce(new Response(body)).mockResolvedValue(new Response(null, { status: 404 }));
+    vi.stubGlobal("fetch", fetcher);
+    const service = services();
+    service.firestore.app.options.projectId = "demo-orider-lab";
+    const onData = vi.fn();
+    const stop = subscribeCourseDetail(service, "course", onData, vi.fn());
+    socket.onopen();
+    expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "course_subscribe", courseId: "course" }));
+    socket.onmessage({ data: JSON.stringify({ v: 1, type: "course_signal", revision: null }) });
+    await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
+    expect(sdk.onSnapshot).not.toHaveBeenCalled();
+    socket.onclose();
+    expect(onData).toHaveBeenLastCalledWith(null);
+    expect(sdk.onSnapshot).toHaveBeenCalledWith("courses/course", { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
+    const observeSource = sdk.onSnapshot.mock.calls[0]?.[2] as (snapshot: unknown) => void;
+    observeSource({ exists: () => true, data: () => ({ name: "Revoked", hidden: true }) });
+    expect(onData).toHaveBeenLastCalledWith(null);
+    stop();
+  });
   it("상세 메타데이터가 원본 트랙과 고도를 제외한다", () => {
     const url = courseMetadataUrl(services().firestore, "course");
     expect(url).toContain("mask.fieldPaths=trackAsset");

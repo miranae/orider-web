@@ -27,11 +27,20 @@ vi.mock("firebase/firestore", () => ({
 }));
 vi.mock("../../components/event/EventMap", () => ({ default: () => null }));
 
+import type { WorldEventFrame } from "../../features/ride-world/useWorldEvent";
+const presence = vi.hoisted(() => ({ enabled: false, frame: null as WorldEventFrame | null }));
+vi.mock("../../features/ride-world/useWorldEvent", async importActual => ({
+  ...await importActual<typeof import("../../features/ride-world/useWorldEvent")>(),
+  isLocalWorldEventEnabled: () => presence.enabled,
+  useWorldEvent: () => presence.frame,
+}));
+
 import EventLivePage from "./EventLivePage";
 
 describe("confirmed ended public live events", () => {
   beforeEach(() => {
     state.status = "FINISHED"; state.metadataError = false;
+    presence.enabled = false; presence.frame = null;
     heartbeat.mockClear(); ensureAppCheckReady.mockClear(); subscribe.mockReset(); read.mockReset();
     subscribe.mockImplementation(() => () => {});
     read.mockImplementation(async (path: string) => {
@@ -77,6 +86,43 @@ describe("confirmed ended public live events", () => {
     expect(subscribe).not.toHaveBeenCalledWith("events/event-1/viewers", expect.any(Function), expect.any(Function));
     expect(read).toHaveBeenCalledWith("events/event-1/snapshots/public_latest");
     expect(screen.queryByText("dashboard.trackingEnded")).toBeNull();
+  });
+
+  it("does not start Firestore presence when the local socket provides a snapshot within the grace window", async () => {
+    vi.useFakeTimers();
+    try {
+      state.status = "LIVE";
+      presence.enabled = true;
+      const view = render(<EventLivePage />);
+      await act(async () => {});
+      await act(async () => vi.advanceTimersByTimeAsync(2_000));
+      expect(heartbeat).not.toHaveBeenCalled();
+      presence.frame = { v: 1, type: "event_snapshot", eventId: "event-1", revision: 1, updatedAt: 1,
+        viewers: 1, counts: { riding: 0, total: 0 }, markers: [], roster: [] };
+      view.rerender(<EventLivePage />);
+      await act(async () => vi.advanceTimersByTimeAsync(3_001));
+      expect(heartbeat).not.toHaveBeenCalled();
+      expect(subscribe).not.toHaveBeenCalledWith("events/event-1/viewer_summary/current", expect.any(Function), expect.any(Function));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restores Firestore presence when the local socket still has no snapshot after the grace window", async () => {
+    vi.useFakeTimers();
+    try {
+      state.status = "LIVE";
+      presence.enabled = true;
+      render(<EventLivePage />);
+      await act(async () => {});
+      await act(async () => vi.advanceTimersByTimeAsync(2_999));
+      expect(heartbeat).not.toHaveBeenCalled();
+      await act(async () => vi.advanceTimersByTimeAsync(1));
+      expect(heartbeat).toHaveBeenCalledWith(expect.objectContaining({ active: true }));
+      expect(subscribe).toHaveBeenCalledWith("events/event-1/viewer_summary/current", expect.any(Function), expect.any(Function));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("renders share and host view as icon-only header actions with their labels", async () => {

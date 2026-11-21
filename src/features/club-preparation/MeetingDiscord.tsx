@@ -10,6 +10,8 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 import { DiscordLogo } from "../../components/auth/DiscordLogo";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import { logClientError } from "../../services/errorLogger";
+import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
+import { useWorldEvent } from "../ride-world/useWorldEvent";
 
 /** Independent from attendance: spectators can use/share the same public Discord invite. */
 export default function MeetingDiscord({ eventId, groupId, uid, ended = false, en }: {
@@ -40,6 +42,20 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       logClientError("MeetingDiscord.load", reason);
     }
   }, [eventId, scope, getClubMeetingDiscord]);
+  const viewer = services.auth?.currentUser;
+  const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+    import.meta.env.VITE_ORIDER_LOCAL_DISCORD_REDIS === "1" && isEmulatorRuntime() &&
+    getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true && viewer?.uid === uid;
+  useWorldEvent(redisSignals && !ended ? eventId : undefined, viewer, undefined, undefined, {
+    topic: "discord",
+    changed: () => { if (!document.hidden) void reload(); },
+    disconnected: code => {
+      if (!mounted.current || current.current !== scope) return;
+      generation.current++; busy.current = false; queued.current = false;
+      setPending(false); setResult(null); setConfirmClose(false);
+      if (code === 4003) setError(true);
+    },
+  });
   useEffect(() => {
     mounted.current = true; queued.current = false; busy.current = false; setPending(false); setResult(null); setError(false); setConfirmClose(false);
     void reload();
@@ -61,13 +77,15 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
     };
     void services.ensureAppCheckReady().then(() => {
       if (disposed) return;
-      for (const path of [`events/${eventId}/discord_signals/latest`, `events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`]) {
+      const paths = [`events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`];
+      if (!redisSignals) paths.unshift(`events/${eventId}/discord_signals/latest`);
+      for (const path of paths) {
         stops.push(onSnapshot(doc(services.firestore, path), changed, failed));
       }
     }).catch(failed);
     document.addEventListener("visibilitychange", changed);
     return () => { disposed = true; stops.forEach(stop => stop()); document.removeEventListener("visibilitychange", changed); };
-  }, [services, eventId, groupId, uid, reload, signalRetry]);
+  }, [services, eventId, groupId, uid, reload, signalRetry, redisSignals]);
   const mutate = async (close: boolean) => {
     if (busy.current) return;
     busy.current = true; setPending(true); setError(false); const operation = ++generation.current;

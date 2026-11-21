@@ -20,6 +20,19 @@ export function createViewerSessionId(): string {
   return crypto.randomUUID().replace(/-/g, "_");
 }
 
+export function viewerSessionIdForEvent(eventId: string): string {
+  const storageKey = `event-viewer-session:${eventId}`;
+  try {
+    const stored = sessionStorage.getItem(storageKey);
+    if (stored && /^[A-Za-z0-9_-]{16,100}$/.test(stored)) return stored;
+    const sessionId = createViewerSessionId();
+    sessionStorage.setItem(storageKey, sessionId);
+    return sessionId;
+  } catch {
+    return createViewerSessionId();
+  }
+}
+
 /**
  * 활성 시청자 수를 서버 count 집계로 센다. viewers 문서를 전부 읽거나 컬렉션을 구독하면
  * 시청자마다 다른 시청자의 heartbeat 를 매번 읽어 비용이 시청자 수의 제곱으로 늘었다.

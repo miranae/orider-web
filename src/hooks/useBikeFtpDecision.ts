@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import {
   collection,
   doc,
+  getDocFromServer,
+  getDocsFromServer,
   limit,
   onSnapshot,
   orderBy,
   query,
   where,
+  type DocumentSnapshot,
+  type QuerySnapshot,
 } from "firebase/firestore";
 
 import {
@@ -19,6 +23,7 @@ import {
 } from "@shared/types/threshold";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
+import { subscribeDeviceDeliverySignal } from "../services/deviceDeliverySignal";
 
 interface Options {
   uid?: string | null;
@@ -131,33 +136,43 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
         : current);
       return;
     }
-    const receiptRef = doc(firestore, "users", uid, "ftpMutationReceipts", encodeURIComponent(mutationId));
-    const unsubscribeReceipt = onSnapshot(receiptRef, (snapshot) => {
+    const receiptId = encodeURIComponent(mutationId);
+    const receiptRef = doc(firestore, "users", uid, "ftpMutationReceipts", receiptId);
+    const receiveReceipt = (snapshot: DocumentSnapshot) => {
       if (receiptGeneration.current !== generation) return;
       const parsed = snapshot.exists() ? parseFtpMutationReceipt(snapshot.data()) : null;
       setState((current) => current.scopeKey === scopeKey ? {
           ...current,
           receipt: parsed?.mutationId === mutationId ? parsed : null,
         } : current);
-    }, (error) => logClientError("useBikeFtpDecision.receipt", error, { mutationId }));
+    };
+    const receiptError = (error: Error) => logClientError("useBikeFtpDecision.receipt", error, { mutationId });
 
     const deviceQuery = query(
       collection(firestore, "users", uid, "deviceStateReceipts"),
       where("ftpRevision", "==", mutationId),
       limit(25),
     );
-    const unsubscribeDevices = onSnapshot(deviceQuery, (snapshot) => {
+    const receiveDevices = (snapshot: QuerySnapshot) => {
       if (receiptGeneration.current !== generation) return;
       const deviceReceipts = snapshot.docs
         .map((item) => parseFtpDeviceReceipt({ ...item.data(), deviceId: item.id }))
         .filter((item): item is FtpDeviceReceipt => item?.ftpRevision === mutationId);
       setState((current) => current.scopeKey === scopeKey ? { ...current, deviceReceipts } : current);
-    }, (error) => logClientError("useBikeFtpDecision.deviceReceipts", error, { mutationId }));
+    };
+    const unsubscribe = subscribeDeviceDeliverySignal(firestore, uid, `ftp-receipt:${receiptId}`,
+      () => Promise.all([getDocFromServer(receiptRef), getDocsFromServer(deviceQuery)] as const),
+      ([receipt, devices]) => { receiveReceipt(receipt); receiveDevices(devices); },
+      receiptError, () => {
+        const stopReceipt = onSnapshot(receiptRef, receiveReceipt, receiptError);
+        const stopDevices = onSnapshot(deviceQuery, receiveDevices,
+          error => logClientError("useBikeFtpDecision.deviceReceipts", error, { mutationId }));
+        return () => { stopReceipt(); stopDevices(); };
+      });
 
     return () => {
       if (receiptGeneration.current === generation) receiptGeneration.current += 1;
-      unsubscribeReceipt();
-      unsubscribeDevices();
+      unsubscribe();
     };
   }, [active, enabled, firestore, mutationId, scopeKey, uid]);
 

@@ -7,6 +7,7 @@ import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from 
 import { decodePolyline } from "../../utils/polyline";
 
 export interface LocationData {
+  rideKind?: "outdoor" | "virtual";
   speedAvailable?: boolean;
   distanceAvailable?: boolean;
   uid: string;
@@ -65,6 +66,7 @@ interface EventMapProps {
   waypoints?: CourseWaypoint[];
   /** 첫 로드시 코스에 맞춰 fitBounds */
   fitToCourse?: boolean;
+  onWorldViewport?: (view: { lat: number; lon: number }) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -235,6 +237,7 @@ export default function EventMap({
   fitToCourse = true,
   followSelected = false,
   preserveSelectionOnPopupClose = false,
+  onWorldViewport,
 }: EventMapProps) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
@@ -285,6 +288,10 @@ export default function EventMap({
       mapStyle={MAP_STYLE}
       initialViewState={DEFAULT_VIEW}
       onLoad={(e) => applyKoreaCyclingStyle(e.target)}
+      onMoveEnd={onWorldViewport ? ({ viewState }) => onWorldViewport({
+        lat: Math.round(viewState.latitude * 200) / 200,
+        lon: Math.round(viewState.longitude * 200) / 200,
+      }) : undefined}
       dragRotate={false}
       attributionControl={false}
       style={{ width: "100%", height: "100%" }}
@@ -421,7 +428,12 @@ export default function EventMap({
               cursor: "pointer",
               background: "transparent",
             }}
-          />
+          >
+            {loc.rideKind && <span
+              className="pointer-events-none absolute whitespace-nowrap rounded-full px-1.5 text-xs"
+              style={{ left: 18, top: 0, color: "var(--ink-0)", background: "var(--bg-0)" }}
+            >{loc.rideKind === "virtual" ? "가상" : "실외"}</span>}
+          </div>
         </Marker>
       ))}
 

@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadPublicActivityMap, type PublicActivityMap } from "../services/publicActivityMaps";
 import { logClientError } from "../services/errorLogger";
+import { subscribeLocalActivityMapSignals } from "../features/ride-world/activityMapSignalPool";
 const RETRY_DELAYS_MS = [5_000, 20_000, 60_000];
 const EMPTY = { maps: {} as Record<string, PublicActivityMap | null>, failed: false };
 /**
@@ -28,24 +29,42 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
     const ids = key.split("|");
     // 조회 중에 신호가 오면 서비스가 진행 중인 같은 요청을 돌려주므로, 끝난 뒤 한 번 더 조회한다.
     let loading = false, again = false, failures = 0, retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let signalEpoch = 0;
     const refresh = () => {
       if (loading) { again = true; return; }
       clearTimeout(retryTimer); loading = true; again = false;
       const request = ++generation.current;
+      const activeSignal = signalEpoch;
       void Promise.all(ids.map(async id => [id, await loadPublicActivityMap(services, id)] as const)).then(entries => {
-        if (stopped || request !== generation.current || services.auth.currentUser !== sdkUser) return;
+        if (stopped || request !== generation.current || signalEpoch !== activeSignal || services.auth.currentUser !== sdkUser) return;
         failures = 0;
         const maps = Object.fromEntries(entries);
         // revision 은 공개 범위·지도·콘텐츠 버전 해시라 같으면 표시할 내용도 같다. 같은 객체를 유지해 썸네일을 다시 그리지 않는다.
         setState(previous => previous?.context === context && !previous.failed && sameMapRevisions(previous.maps, maps) ? previous : { context, maps, failed: false });
       }).catch(error => {
-        if (stopped || request !== generation.current) return;
+        if (stopped || request !== generation.current || signalEpoch !== activeSignal) return;
         setState({ context, maps: {}, failed: true });
         // 일시 실패는 신호가 다시 오지 않으면 복구되지 않으므로 몇 번만 늦춰 다시 시도한다.
         if (failures < RETRY_DELAYS_MS.length) retryTimer = setTimeout(refresh, RETRY_DELAYS_MS[failures++]);
         else logClientError("usePublicActivityMaps.load", error, { activityIds: key });
       }).finally(() => { if (request !== generation.current) return; loading = false; if (again && !stopped) refresh(); });
     };
+    if (import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+        import.meta.env.VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS === "1" &&
+        services.firestore.app.options.projectId === "demo-orider-lab") {
+      const stop = subscribeLocalActivityMapSignals(services, sdkUser, ids, (ready, failed) => {
+        signalEpoch++;
+        clearTimeout(retryTimer);
+        again = false;
+        setState({ context, maps: {}, failed });
+        if (ready) refresh();
+      });
+      return () => {
+        stopped = true; generation.current++;
+        clearTimeout(retryTimer);
+        stop();
+      };
+    }
     const signals: { key: string; path: readonly [string, string]; activityId?: string }[] = ids.map(id => ({ key: `activity:${id}`, path: ["activity_map_signals", id], activityId: id }));
     const viewerUid = sdkUser && !sdkUser.isAnonymous ? sdkUser.uid : null;
     if (viewerUid) signals.push({ key: "viewer", path: ["activity_map_viewer_signals", viewerUid] });

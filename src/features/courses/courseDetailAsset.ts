@@ -1,4 +1,4 @@
-import { getDoc, doc, onSnapshot, type Firestore, type DocumentData } from "firebase/firestore";
+import { getDoc, doc, onSnapshot, type Firestore, type DocumentData, type DocumentSnapshot } from "firebase/firestore";
 import { logClientError } from "../../services/errorLogger";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 
@@ -139,14 +139,23 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   let lastVersion: string | undefined;
   let lastTrack: DocumentData | undefined;
   let legacyStop: (() => void) | undefined;
+  const worldEnabled = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+    import.meta.env.VITE_ORIDER_LOCAL_COURSE_REDIS === "1" && services.firestore.app.options.projectId === "demo-orider-lab";
   const current = () => !disposed && services.auth.currentUser === user;
-  const legacy = () => {
+  const legacy = (publicOnly = false) => {
     if (!current() || legacyStop) return;
-    legacyStop = onSnapshot(doc(services.firestore, "courses", id), (snapshot) => {
-      if (current()) onData(snapshot.exists() ? { ...snapshot.data(), id } : null);
-    }, (error) => {
+    const source = doc(services.firestore, "courses", id);
+    const next = (snapshot: DocumentSnapshot) => {
+      if (!current() || (publicOnly && snapshot.metadata?.fromCache)) return;
+      const data = snapshot.exists() ? snapshot.data() : undefined;
+      if (publicOnly && (!data || data.deletedAt != null || data.hidden === true || (data.visibility ?? "public") !== "public")) {
+        onData(null);
+      } else onData(data ? { ...data, id } : null);
+    };
+    const failed = (error: Error) => {
       if (current()) { logClientError("CourseDetail.legacyRead", error, { courseId: id }); onData(null); onError(error); }
-    });
+    };
+    legacyStop = publicOnly ? onSnapshot(source, { includeMetadataChanges: true }, next, failed) : onSnapshot(source, next, failed);
   };
   const refresh = async () => {
     if (!current()) return;
@@ -164,7 +173,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       if (!wire.fields) throw new Error("코스 메타데이터 없음");
       const metadata = Object.fromEntries(Object.entries(wire.fields).map(([key, value]) => [key, decode(value)]));
       const url = courseAssetUrl(services.firestore, id, metadata);
-      if (!url) { legacy(); return; }
+      if (!url) { legacy(worldEnabled); return; }
       const version = String(metadata.trackVersion);
       // 현재 접근이 확인된 메타데이터부터 표시한다. 새 revision에는 이전 고도를 섞지 않는다.
       if (lastVersion !== version || !lastTrack) onData({ ...metadata, elevationProfile: undefined, id, trackLoadState: "loading" });
@@ -210,7 +219,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       }
     }
   };
-  const signalStop = onSnapshot(doc(services.firestore, "courses", id, "cache_metadata", "current"), (snapshot) => {
+  const startFirestore = () => onSnapshot(doc(services.firestore, "courses", id, "cache_metadata", "current"), (snapshot) => {
     if (!current()) return;
     if (!snapshot.exists()) {
       ++generation; request?.abort(); legacy(); return;
@@ -222,5 +231,49 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
     logClientError("CourseDetail.signalFallback", error, { courseId: id });
     onData(null); ++generation; request?.abort(); legacy();
   });
-  return () => { disposed = true; ++generation; request?.abort(); legacyStop?.(); signalStop(); };
+  let signalStop: (() => void) | undefined;
+  let socket: WebSocket | undefined;
+  let firstFrameTimer: ReturnType<typeof setTimeout> | undefined;
+  let switchedToSource = false;
+  const fallBack = () => {
+    if (!current() || switchedToSource) return;
+    switchedToSource = true;
+    clearTimeout(firstFrameTimer);
+    ++generation; request?.abort();
+    lastVersion = undefined; lastTrack = undefined;
+    onData(null);
+    const previous = socket;
+    socket = undefined;
+    previous?.close();
+    legacyStop?.(); legacyStop = undefined;
+    legacy(true);
+  };
+  if (worldEnabled) {
+    try {
+      const live = new WebSocket("ws://127.0.0.1:19487/course-signals");
+      socket = live;
+      firstFrameTimer = setTimeout(fallBack, 6000);
+      live.onopen = () => live.send(JSON.stringify({ v: 1, type: "course_subscribe", courseId: id }));
+      live.onmessage = ({ data }) => {
+        if (!current() || socket !== live) return;
+        try {
+          const frame = JSON.parse(String(data)) as { v?: number; type?: string; revision?: string | null } | null;
+          if (frame?.v !== 1 || frame.type !== "course_signal" ||
+              (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return;
+          clearTimeout(firstFrameTimer);
+          legacyStop?.(); legacyStop = undefined;
+          void refresh();
+        } catch (error) {
+          logClientError("CourseDetail.worldFrame", error, { courseId: id });
+          fallBack();
+        }
+      };
+      live.onerror = fallBack;
+      live.onclose = fallBack;
+    } catch { fallBack(); }
+  } else signalStop = startFirestore();
+  return () => {
+    disposed = true; ++generation; request?.abort(); clearTimeout(firstFrameTimer);
+    legacyStop?.(); signalStop?.(); socket?.close();
+  };
 }

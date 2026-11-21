@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type ClubMeetingSnapshot } from "../../services/clubMeetings";
 import { logClientError } from "../../services/errorLogger";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
+import { useWorldEvent } from "../ride-world/useWorldEvent";
 import { useClubMeetingsApi } from "./useClubMeetingsApi";
 
 const RETRY_DELAYS = [1000, 5000, 15_000];
@@ -20,6 +22,18 @@ export function useClubMeeting(
   if (current.current.scope !== scope) {
     current.current = { scope, generation: current.current.generation + 1 };
   }
+  const worldChange = useRef<(version: string | null) => void>(() => {});
+  const worldDisconnect = useRef<(code: number) => void>(() => {});
+  const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+    import.meta.env.VITE_ORIDER_LOCAL_MEETING_REDIS === "1" && isEmulatorRuntime() &&
+    getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true;
+  const worldPhase = useRef<(phase: string) => void>(() => {});
+  const viewer = services.auth?.currentUser;
+  useWorldEvent(groupId && uid && uid === viewer?.uid ? eventId : undefined, viewer, undefined, undefined, {
+    changed: version => worldChange.current(version),
+    disconnected: code => worldDisconnect.current(code),
+    phaseChanged: phase => worldPhase.current(phase),
+  });
   const controller = useRef<((cursor?: string) => Promise<void>) | null>(null);
   const [state, setState] = useState<{
     scope: string;
@@ -52,6 +66,10 @@ export function useClubMeeting(
     let signalFailed = false;
     let retrySignalTimer: ReturnType<typeof setTimeout> | undefined;
     let stops: (() => void)[] = [];
+    let stopLocationSignal: (() => void) | undefined;
+    let attachFallback: (() => void) | undefined;
+    let worldActive = false;
+    const stopSignal = () => { stopLocationSignal?.(); stopLocationSignal = undefined; };
     const newerSignal = (candidate: string | null | undefined, previous: string | null | undefined) => {
       if (!candidate) return false;
       if (!previous) return true;
@@ -151,18 +169,48 @@ export function useClubMeeting(
       dirty = true;
       schedule();
     };
+    worldChange.current = version => {
+      if (!valid()) return;
+      const reconnected = redisSignals && !worldActive;
+      worldActive = true;
+      if (reconnected) consumedSignalVersion = undefined;
+      signalVersion = version;
+      stopSignal();
+      if (signalFailed) { signalFailed = false; changed(); }
+      else if (reconnected && (data || inFlight)) changed();
+      else if (data && hasNewerSignal()) changed();
+    };
+    worldPhase.current = phase => {
+      if (data && phase !== data.rideStatus) changed();
+    };
+    worldDisconnect.current = code => {
+      if (!valid()) return;
+      worldActive = false;
+      if (redisSignals && code === 4003 && !document.hidden && !denied) {
+        // The server has revoked the socket scope. Drop the old roster before the callable reauthorizes.
+        identity.generation++;
+        inFlight = false;
+        data = null;
+        setState({ scope, data: null, loading: true, error: null });
+        void request(false).catch(() => {});
+      }
+      attachFallback?.();
+    };
     const subscribe = () => {
       clearTimeout(retrySignalTimer);
       const attempt = ++subscription;
       const subscribed = () => valid() && attempt === subscription;
       stops.forEach(stop => stop());
       stops = [];
+      stopSignal();
+      attachFallback = undefined;
       if (!valid() || document.hidden || denied) return;
       const failed = (error: unknown) => {
         if (!subscribed()) return;
         subscription++;
         stops.forEach(stop => stop());
         stops = [];
+        stopSignal();
         const code = String((error as {code?: unknown})?.code ?? "");
         const terminal = /^(?:permission-denied|unauthenticated|not-found)$/.test(code);
         logClientError("ClubMeetingSnapshot.signal", new Error("모임 변경 신호 읽기 실패"),
@@ -183,14 +231,18 @@ export function useClubMeeting(
         if (delay !== undefined) retrySignalTimer = setTimeout(subscribe, delay);
       };
       try {
-        stops.push(onSnapshot(doc(services.firestore, `events/${eventId}/meeting_snapshot_signals/latest`), { includeMetadataChanges: true }, snapshot => {
-          if (!subscribed() || snapshot.metadata.fromCache) return;
+        attachFallback = () => {
+          if (redisSignals || worldActive || stopLocationSignal || !subscribed() || document.hidden || denied) return;
+          stopLocationSignal = onSnapshot(doc(services.firestore, `events/${eventId}/meeting_snapshot_signals/latest`), { includeMetadataChanges: true }, snapshot => {
+          if (!subscribed() || worldActive || snapshot.metadata.fromCache) return;
           signalFailures = 0;
           const stamp = snapshot.data()?.updatedAt;
           signalVersion = stamp ? `${stamp.seconds}:${stamp.nanoseconds}` : null;
           if (signalFailed) { signalFailed = false; changed(); }
           else if (data && !inFlight && hasNewerSignal()) changed();
-        }, failed));
+          }, failed);
+        };
+        attachFallback();
         for (const path of [`events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`]) {
           let previous: string | undefined;
           let previousContext: string | undefined;
@@ -244,6 +296,7 @@ export function useClubMeeting(
         subscription++;
         stops.forEach(stop => stop());
         stops = [];
+        stopSignal();
         clearTimeout(retrySignalTimer);
         return;
       }
@@ -260,6 +313,10 @@ export function useClubMeeting(
     window.addEventListener("focus", wake);
     return () => {
       disposed = true;
+      worldChange.current = () => {};
+      worldDisconnect.current = () => {};
+      worldPhase.current = () => {};
+      stopSignal();
       controller.current = null;
       clearTimer();
       clearTimeout(wakeTimer);
@@ -269,7 +326,7 @@ export function useClubMeeting(
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
     };
-  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot, services]);
+  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot, services, redisSignals]);
   return {
     data: state.scope === scope ? state.data : null,
     loading: state.scope !== scope || state.loading,

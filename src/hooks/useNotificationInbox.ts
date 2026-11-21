@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { doc, onSnapshot } from "firebase/firestore";
 import { createWebNotificationClient } from "../services/webNotifications";
+import { getRuntimeConfig, isEmulatorRuntime } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
 /**
  * 알림함은 주기 조회 없이 `notification_signals/{uid}`(내용 없는 revision 문서, 본인만 get) 를
@@ -13,6 +14,9 @@ import { logClientError } from "../services/errorLogger";
 export function useNotificationInbox() {
   const { user } = useAuth(); const services = useFirebaseServices();
   const uid = user && !user.isAnonymous ? user.uid : null;
+  const redisSignal = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+    import.meta.env.VITE_ORIDER_LOCAL_NOTIFICATION_REDIS === "1" && isEmulatorRuntime() &&
+    getRuntimeConfig().firebaseProjectId === "demo-orider-lab";
   const client = useMemo(() => createWebNotificationClient(services), [services, user]);
   const [state, setState] = useState<{ client: typeof client; uid: string; items: Notification[]; cursor: string | null } | null>(null);
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false);
@@ -66,18 +70,72 @@ export function useNotificationInbox() {
       // 첫 조회도 첫 신호 스냅샷에서 시작한다 — 먼저 읽고 나중에 기준 revision 을 잡으면
       // 그 사이에 생긴 알림을 놓친다. 구독이 실패하면 한 번 직접 읽는다.
       let seenRevision: unknown = undefined, first = true;
-      const fallback = (error: unknown) => { logClientError("useNotificationInbox.signal", error, { uid }); if (first) { first = false; pull(); } };
-      try {
-        unsubscribe = onSnapshot(doc(services.firestore, "notification_signals", uid), snap => {
-          const revision = snap.exists() ? snap.data()?.revision ?? null : null;
-          if (!first && revision === seenRevision) return;
-          first = false; seenRevision = revision;
-          pull();
-        }, fallback);
-      } catch (error) { fallback(error); }
+      const changed = (revision: unknown) => {
+        if (!first && revision === seenRevision) return;
+        first = false; seenRevision = revision;
+        pull();
+      };
+      const fallback = (error: unknown) => { logClientError("useNotificationInbox.signal", error, { uid }); if (first) changed(null); };
+      if (redisSignal && user) {
+        let socket: WebSocket | undefined;
+        let retry: ReturnType<typeof setTimeout> | undefined;
+        let backoff = 1000;
+        const open = async () => {
+          try {
+            const token = await user.getIdToken();
+            if (disposed) return;
+            socket = new WebSocket("ws://127.0.0.1:19487/notification-signals");
+            const connection = socket;
+            let received = false;
+            connection.addEventListener("open", () => {
+              if (!disposed) connection.send(JSON.stringify({ v: 1, type: "notification_subscribe", token }));
+            });
+            connection.addEventListener("message", ({ data }) => {
+              if (disposed) return;
+              try {
+                const frame = JSON.parse(String(data));
+                if (frame.v !== 1 || frame.type !== "notification_signal" ||
+                    (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return;
+                if (!received) { first = true; received = true; }
+                backoff = 1000;
+                changed(frame.revision);
+              } catch (error) { fallback(error); }
+            });
+            connection.addEventListener("close", ({ code }) => {
+              if (disposed) return;
+              if (code === 4003) {
+                generation.current += 1; again = false;
+                setState(null); setLoading(false); setFailed(true);
+                return;
+              }
+              if (first) changed(null);
+              reconnect();
+            });
+          } catch (error) {
+            if (disposed) return;
+            fallback(error);
+            reconnect();
+          }
+        };
+        const reconnect = () => {
+          retry = setTimeout(() => void open(), backoff);
+          backoff = Math.min(backoff * 2, 10_000);
+        };
+        void open();
+        unsubscribe = () => {
+          clearTimeout(retry);
+          if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
+        };
+      } else {
+        try {
+          unsubscribe = onSnapshot(doc(services.firestore, "notification_signals", uid), snap => {
+            changed(snap.exists() ? snap.data()?.revision ?? null : null);
+          }, fallback);
+        } catch (error) { fallback(error); }
+      }
     }
     return () => { disposed = true; generation.current += 1; unsubscribe(); document.removeEventListener("visibilitychange", visibility); };
-  }, [refresh, services, uid, client]);
+  }, [refresh, services, uid, client, redisSignal, user]);
   const current = state?.uid === uid && state.client === client ? state : null;
   const more = async () => {
     if (!current?.cursor || loading || !uid) return;

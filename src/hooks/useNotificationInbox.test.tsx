@@ -1,5 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { simulateLogin } from "../__tests__/mocks/firebase";
+import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { useNotificationInbox } from "./useNotificationInbox";
 const state = vi.hoisted(() => ({ user: { uid: "a", isAnonymous: false }, list: vi.fn(), markRead: vi.fn() }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user }) }));
@@ -177,4 +178,49 @@ describe("notification signal subscription", () => {
       await waitFor(() => expect(result.current.items[0]?.id).toBe("arrived-during-read"));
     } finally { vi.mocked(onSnapshot).mockImplementation(original!); }
   });
+});
+
+it("uses an owned Redis signal and refreshes after reconnect with the same revision", async () => {
+  const { onSnapshot } = await import("firebase/firestore");
+  const sockets: FakeSocket[] = [];
+  class FakeSocket extends EventTarget {
+    static CLOSING = 2;
+    readyState = 1;
+    send = vi.fn();
+    close = vi.fn();
+    constructor(public url: string) { super(); sockets.push(this); }
+    deliver(revision: string | null) {
+      this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "notification_signal", revision }) }));
+    }
+  }
+  vi.useFakeTimers();
+  vi.stubGlobal("WebSocket", FakeSocket);
+  vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
+  vi.stubEnv("VITE_ORIDER_LOCAL_NOTIFICATION_REDIS", "1");
+  resetRuntimeConfigForTests({ useEmulators: true, firebaseProjectId: "demo-orider-lab" });
+  Object.assign(state.user, { getIdToken: async () => "local-test-token" });
+  try {
+    const { result, unmount } = renderHook(() => useNotificationInbox());
+    await act(async () => {});
+    expect(sockets[0]?.url).toBe("ws://127.0.0.1:19487/notification-signals");
+    sockets[0]?.dispatchEvent(new Event("open"));
+    expect(sockets[0]?.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "notification_subscribe", token: "local-test-token" }));
+    expect(onSnapshot).not.toHaveBeenCalled();
+    expect(state.list).not.toHaveBeenCalled();
+    const revision = "1790000000:012345678";
+    await act(async () => sockets[0]?.deliver(revision));
+    await act(async () => sockets[0]?.deliver(revision));
+    expect(state.list).toHaveBeenCalledTimes(1);
+    act(() => { sockets[0]?.dispatchEvent(new CloseEvent("close", { code: 1013 })); });
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(sockets).toHaveLength(2);
+    await act(async () => sockets[1]?.deliver(revision));
+    expect(state.list).toHaveBeenCalledTimes(2);
+    act(() => { sockets[1]?.dispatchEvent(new CloseEvent("close", { code: 4003 })); });
+    expect(result.current.items).toEqual([]);
+    expect(result.current.failed).toBe(true);
+    unmount();
+  } finally {
+    vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); resetRuntimeConfigForTests();
+  }
 });
