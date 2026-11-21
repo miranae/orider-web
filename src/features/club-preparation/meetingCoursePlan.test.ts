@@ -27,6 +27,14 @@ describe('모임 코스 가져오기', () => {
     expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
   });
 
+  it('같은 이름의 출발 표식이 중복돼도 집결 장소 이름을 유지한다', () => {
+    const start = '<wpt lat="37.00002" lon="127"><name>강변공원 북문</name><type>START</type></wpt>';
+    const plan = readGpxCoursePlan(gpx(segment(), start.repeat(2)), 'duplicate-start.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(plan.checkpoints.filter(point => point.name === '강변공원 북문')).toHaveLength(2);
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('강변공원 북문');
+  });
+
   it('고도 있는 GPX는 원본 수치·전체 주행 구간·오르막 경로를 자동 생성한다', () => {
     const xml = gpx(segment([50, 100, 170, 120]));
     const plan = readGpxCoursePlan(xml, 'ride.gpx');
