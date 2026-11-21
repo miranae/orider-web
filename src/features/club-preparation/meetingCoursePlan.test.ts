@@ -35,6 +35,13 @@ describe('모임 코스 가져오기', () => {
     expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('강변공원 북문');
   });
 
+  it('좌표가 다른 동명 출발 표식은 하나의 장소로 합치지 않는다', () => {
+    const route = segment() + segment(undefined, 37.0001) + segment(undefined, 37.0002);
+    const plan = readGpxCoursePlan(gpx(route, '<wpt lat="37.0001" lon="127"><name>공원 입구</name><type>START</type></wpt><wpt lat="37.0002" lon="127"><name>공원 입구</name><type>START</type></wpt>'), 'same-name-starts.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
+  });
+
   it('고도 있는 GPX는 원본 수치·전체 주행 구간·오르막 경로를 자동 생성한다', () => {
     const xml = gpx(segment([50, 100, 170, 120]));
     const plan = readGpxCoursePlan(xml, 'ride.gpx');
