@@ -1,6 +1,6 @@
 import MeetingInviteShare from "../../features/club-preparation/MeetingInviteShare";
 import MeetingDiscord from "../../features/club-preparation/MeetingDiscord";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Pencil, RefreshCw, Users } from "lucide-react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -297,7 +297,8 @@ function ServerMeetingDetail({
   const [cancelling, setCancelling] = useState(false);
   const [confirmingFinish, setConfirmingFinish] = useState(false);
   const [introductionExpanded, setIntroductionExpanded] = useState(false);
-  useEffect(() => setConfirmingFinish(false), [uid, data.eventId]);
+  // Clear the old confirmation before the new meeting can receive a click.
+  useLayoutEffect(() => setConfirmingFinish(false), [uid, data.eventId]);
   const [travel, setTravel] = useState({
     joinId: current?.joinId ?? "",
     outbound: current?.outbound ?? "",
