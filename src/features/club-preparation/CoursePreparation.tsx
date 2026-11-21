@@ -659,7 +659,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
                                   distanceKm:
                                     event.target.value === ""
                                       ? undefined
-                                      : Number(event.target.value),
+                                      : oneDecimal(Number(event.target.value)),
                                 }
                               : item,
                           ),

@@ -149,8 +149,15 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
     change('상세 안내', current.description, m.description);
     change('코스 소개', current.courseHighlights, m.courseHighlights);
     change('코스 준비', current.courseReady ? '확정' : '준비 중', m.courseReady ? '확정' : '준비 중');
-    change('거리', current.distanceKm === undefined ? '미정' : `${shown(current.distanceKm)}km`, m.distanceKm === undefined ? '미정' : `${shown(m.distanceKm)}km`);
-    change('획득고도', current.elevationGainM === undefined ? '미정' : `${shown(current.elevationGainM)}m`, m.elevationGainM === undefined ? '미정' : `${shown(m.elevationGainM)}m`);
+    // 바뀌었는지는 저장 값으로 판단한다. 한 자리로 줄인 표시가 같아지는 작은 변경은 세 자리까지 적어 차이를 보인다.
+    const measure = (label: string, before: number | undefined, after: number | undefined, unit: string) => {
+      if (before === after) return;
+      const text = (digits: number) => [before, after].map(value => value === undefined ? '미정' : `${Number(value.toFixed(digits))}${unit}`);
+      const [from, to] = text(1)[0] === text(1)[1] ? text(3) : text(1);
+      changes.push(`${label}: ${from} → ${to}.`);
+    };
+    measure('거리', current.distanceKm, m.distanceKm, 'km');
+    measure('획득고도', current.elevationGainM, m.elevationGainM, 'm');
     if (JSON.stringify(current.courseTrack) !== JSON.stringify(m.courseTrack)) changes.push(`GPX: ${current.courseTrack?.fileName ?? '미첨부'} → ${m.courseTrack?.fileName ?? '미첨부'}.`);
     const segments = (meeting: Meeting) => meeting.segments?.map(segment => `${segment.name} (${segment.mode}${segment.instruction ? ` · ${segment.instruction}` : ''})`).join(' → ') || '없음';
     if (JSON.stringify(current.segments) !== JSON.stringify(m.segments)) changes.push(`주요 구간: ${segments(current)} → ${segments(m)}.`);
