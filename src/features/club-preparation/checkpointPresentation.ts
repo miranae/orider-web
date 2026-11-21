@@ -26,8 +26,9 @@ export function checkpointTypeLabel(type?: string): string {
   return type ? mt(TYPE_LABELS[type.trim().toUpperCase()] ?? type) : "";
 }
 // 화면에 보이는 숫자는 소수점 한 자리까지만 쓴다(끝자리 0 은 뺀다).
+const decimalFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1, useGrouping: false });
 export function oneDecimal(value: number): number {
-  return Number(value.toFixed(1));
+  return Number.isFinite(value) ? Number(decimalFormatter.format(value)) : value;
 }
 export function checkpointDistanceValue(distanceKm?: number): string {
   return distanceKm === undefined ? "" : String(oneDecimal(distanceKm));
