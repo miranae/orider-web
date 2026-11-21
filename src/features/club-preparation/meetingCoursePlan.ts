@@ -1,4 +1,4 @@
-import { cumulativeDistances, haversineMeters } from '../courseEngine/geo';
+import { cumulativeDistances, haversineMeters, nearestPointIndex } from '../courseEngine/geo';
 import { resolveWaypointsOnTrack } from '../courseEngine/waypoints';
 import type { TrackPoint } from '../courseEngine/stats';
 import type { CourseCheckpoint, CoursePoint, CourseSource, CourseTrack, Meeting } from './domain';
@@ -15,14 +15,22 @@ export interface CoursePlan {
   warnings?: string[];
 }
 
+function isFinishCheckpoint(point: CourseCheckpoint): boolean {
+  return /^(?:finish|end)$/i.test(point.type?.trim() ?? '')
+    || /^(?:도착|도착점|finish|end)$/i.test(point.name.trim());
+}
+
 export function courseStartPlace(meeting: Meeting): string {
   if (meeting.venue !== 'outdoor' || !meeting.courseSource || meeting.courseSource.kind === 'builtin') return '';
   const checkpoints = meeting.courseCheckpoints ?? [];
+  const track = meeting.courseTrack;
+  const secondPartIndex = track?.segmentStarts?.[1];
   const hasCoordinates = (point: { lat?: number; lon?: number } | undefined): point is CoursePoint =>
     point?.lat !== undefined && point.lon !== undefined && Math.abs(point.lat) <= 90 && Math.abs(point.lon) <= 180;
   const start = meeting.courseSource.kind === 'segments'
     ? meeting.segments?.[0]?.geometry?.[0]
-    : meeting.courseTrack?.points[0] ?? checkpoints.find(point => point.distanceKm === 0 && point.source !== 'manual' && hasCoordinates(point));
+    : track?.points[0] ?? checkpoints.find(point => point.distanceKm === 0 && point.source !== 'manual'
+      && !isFinishCheckpoint(point) && hasCoordinates(point));
   if (!hasCoordinates(start)) return '';
   // 출발로 명시된 지점에는 트랙과의 작은 오차를 허용한다. 일반 경유지는 좌표가 일치해야 한다.
   const candidates = checkpoints.flatMap(point => {
@@ -30,11 +38,13 @@ export function courseStartPlace(meeting: Meeting): string {
     const type = point.type?.trim().toLowerCase();
     const explicitStart = type === 'start';
     const tolerance = explicitStart ? 25 : 1;
-    if (type === 'finish' || type === 'end' || point.source === 'manual' || point.source === 'segments' || !hasCoordinates(point)
+    if (isFinishCheckpoint(point) || point.source === 'manual' || point.source === 'segments' || !hasCoordinates(point)
       || (!explicitStart && point.distanceKm !== undefined && point.distanceKm > 0.001)
       || /^(?:출발|출발점|도착|start|finish|end|체크포인트\s*\d+)?$/i.test(name)) return [];
     const offset = haversineMeters(start.lat, start.lon, point.lat, point.lon);
-    return offset <= tolerance ? [{name, offset, explicitStart, lat: point.lat, lon: point.lon}] : [];
+    if (offset > tolerance) return [];
+    if (explicitStart && track && secondPartIndex !== undefined && nearestPointIndex(track.points, point).index >= secondPartIndex) return [];
+    return [{name, offset, explicitStart, lat: point.lat, lon: point.lon}];
   });
   const explicit = new Map(candidates.filter(point => point.explicitStart)
     .map(point => [JSON.stringify([point.name, point.lat, point.lon]), point]));

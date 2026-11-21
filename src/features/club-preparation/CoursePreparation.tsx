@@ -742,7 +742,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
               : mt(
                   "가져온 코스의 경로·수치·체크포인트·주요 구간으로 기존 코스 안내를 교체합니다.",
                 )}
-            {mt("모임 이름·날짜·집결 정보는 유지됩니다.")}
+            {" "}{mt("직접 입력한 집결 장소는 유지됩니다. 코스에서 자동으로 채운 집결 장소는 바뀔 수 있습니다.")}
           </p>
           <dl className="cp-review-summary">
             <div>

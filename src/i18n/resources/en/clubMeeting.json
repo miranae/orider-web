@@ -291,5 +291,6 @@
   "출발 시각": "Start time",
   "예: 2.5–3.0W/kg · 그룹 유지": "e.g. 2.5–3.0 W/kg · stay together",
   "비용": "Cost",
+  "직접 입력한 집결 장소는 유지됩니다. 코스에서 자동으로 채운 집결 장소는 바뀔 수 있습니다.": "Your manually entered meeting place stays the same. A meeting place filled from the course may change.",
   "원": " KRW"
 }
