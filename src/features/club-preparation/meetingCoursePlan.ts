@@ -24,15 +24,17 @@ export function courseStartPlace(meeting: Meeting): string {
     ? meeting.segments?.[0]?.geometry?.[0]
     : meeting.courseTrack?.points[0] ?? checkpoints.find(point => point.distanceKm === 0 && point.source !== 'manual' && hasCoordinates(point));
   if (!hasCoordinates(start)) return '';
-  // 누적 거리 0으로 투영된 주변 지점 대신 출발 좌표와 일치하는 이름만 사용한다.
+  // 출발로 명시된 지점에는 트랙과의 작은 오차를 허용한다. 일반 경유지는 좌표가 일치해야 한다.
   const named = checkpoints.flatMap(point => {
     const name = point.name.trim();
+    const explicitStart = point.type?.trim().toLowerCase() === 'start';
+    const tolerance = explicitStart ? 25 : 1;
     if (point.source === 'manual' || point.source === 'segments' || !hasCoordinates(point)
-      || (point.distanceKm !== undefined && point.distanceKm > 0.001)
+      || (point.distanceKm !== undefined && point.distanceKm * 1000 > tolerance)
       || /^(?:출발|출발점|도착|start|finish|end|체크포인트\s*\d+)?$/i.test(name)) return [];
     const offset = haversineMeters(start.lat, start.lon, point.lat, point.lon);
-    return offset <= 1 ? [{name, offset}] : [];
-  }).sort((a, b) => a.offset - b.offset)[0];
+    return offset <= tolerance ? [{name, offset, explicitStart}] : [];
+  }).sort((a, b) => Number(b.explicitStart) - Number(a.explicitStart) || a.offset - b.offset)[0];
   return named?.name.slice(0, 300) ?? `${start.lat.toFixed(5)}, ${start.lon.toFixed(5)}`;
 }
 

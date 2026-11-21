@@ -1,12 +1,18 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { createSeed, loadLocal, saveMeeting, STORAGE_KEY } from './domain';
-import { applyCoursePlan, readGpxCoursePlan, readSegmentCoursePlan } from './meetingCoursePlan';
+import { applyCoursePlan, courseStartPlace, readGpxCoursePlan, readSegmentCoursePlan } from './meetingCoursePlan';
 import { meetingSegmentsSchema, selectSegment } from './segmentCatalog';
 const segment = (elevations?: number[], latitude = 37) => `<trkseg>${[0, 1, 2, 3].map((step) => `<trkpt lat="${latitude + step * .001}" lon="127">${elevations ? `<ele>${elevations[step]}</ele>` : ''}</trkpt>`).join('')}</trkseg>`;
 const gpx = (track: string, extra = '') => `<gpx>${extra}<trk><name>한 바퀴</name>${track}</trk></gpx>`;
 
 describe('모임 코스 가져오기', () => {
+  it('명시된 출발 지점이 트랙 시작과 조금 어긋나도 다른 경유지보다 우선한다', () => {
+    const plan = readGpxCoursePlan(gpx(segment(), '<wpt lat="37" lon="127"><name>근처 카페</name></wpt><wpt lat="37.00002" lon="127"><name>강변공원 북문</name><type>START</type></wpt>'), 'start.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('강변공원 북문');
+  });
+
   it('고도 있는 GPX는 원본 수치·전체 주행 구간·오르막 경로를 자동 생성한다', () => {
     const xml = gpx(segment([50, 100, 170, 120]));
     const plan = readGpxCoursePlan(xml, 'ride.gpx');
