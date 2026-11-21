@@ -25,7 +25,7 @@ export function courseStartPlace(meeting: Meeting): string {
     : meeting.courseTrack?.points[0] ?? checkpoints.find(point => point.distanceKm === 0 && point.source !== 'manual' && hasCoordinates(point));
   if (!hasCoordinates(start)) return '';
   // 출발로 명시된 지점에는 트랙과의 작은 오차를 허용한다. 일반 경유지는 좌표가 일치해야 한다.
-  const named = checkpoints.flatMap(point => {
+  const candidates = checkpoints.flatMap(point => {
     const name = point.name.trim();
     const explicitStart = point.type?.trim().toLowerCase() === 'start';
     const tolerance = explicitStart ? 25 : 1;
@@ -34,8 +34,12 @@ export function courseStartPlace(meeting: Meeting): string {
       || /^(?:출발|출발점|도착|start|finish|end|체크포인트\s*\d+)?$/i.test(name)) return [];
     const offset = haversineMeters(start.lat, start.lon, point.lat, point.lon);
     return offset <= tolerance ? [{name, offset, explicitStart}] : [];
-  }).sort((a, b) => Number(b.explicitStart) - Number(a.explicitStart) || a.offset - b.offset)[0];
-  return named?.name.slice(0, 300) ?? `${start.lat.toFixed(5)}, ${start.lon.toFixed(5)}`;
+  });
+  const explicit = candidates.filter(point => point.explicitStart);
+  const coordinates = `${start.lat.toFixed(5)}, ${start.lon.toFixed(5)}`;
+  if (explicit.length > 1) return coordinates;
+  const named = explicit.length === 0 ? candidates.sort((a, b) => a.offset - b.offset)[0] : explicit[0];
+  return named?.name.slice(0, 300) ?? coordinates;
 }
 
 /** 경로가 있는 코스를 가져오면 코스를 확정으로 둔다 — 확정 칸이 접힌 곳에 있어 「준비 중」으로 게시되던 것을 막는다(#1779). 경로 없는 구간 소개는 주최자가 확정한다. */
