@@ -1,5 +1,6 @@
 import { preserveActionPosition } from "../../utils/preserveActionPosition";
 import { mt } from "./meetingText";
+import { oneDecimal } from "./checkpointPresentation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
 import { Stack } from "../../theme/components/Stack";
@@ -733,7 +734,7 @@ export default function MeetingForm({
                   type="number"
                   min="0"
                   step="any"
-                  value={draft.distanceKm ?? ""}
+                  value={draft.distanceKm === undefined ? "" : oneDecimal(draft.distanceKm)}
                   placeholder={mt("미정이면 비워두세요")}
                   onChange={(e) =>
                     patch({
@@ -751,7 +752,7 @@ export default function MeetingForm({
                   type="number"
                   min="0"
                   step="any"
-                  value={draft.elevationGainM ?? ""}
+                  value={draft.elevationGainM === undefined ? "" : oneDecimal(draft.elevationGainM)}
                   placeholder={mt("미정이면 비워두세요")}
                   onChange={(e) =>
                     patch({

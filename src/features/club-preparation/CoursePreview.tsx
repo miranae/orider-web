@@ -6,7 +6,7 @@ import { Card, Chip, IconButton } from "../../theme/components";
 import type { Meeting } from "./domain";
 import ClubCourseMap from "./ClubCourseMap";
 import "./coursePreview.css";
-import { checkpointTypeLabel } from "./checkpointPresentation";
+import { checkpointTypeLabel, oneDecimal } from "./checkpointPresentation";
 import { MeetingSegmentCards } from "./MeetingSegments";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 import InfoTip from "../../components/InfoTip";
@@ -26,7 +26,7 @@ export function CourseSummary({ meeting }: { meeting: Meeting }) {
         <strong>
           {meeting.distanceKm === undefined
             ? mt("미정")
-            : meeting.distanceKm.toLocaleString("ko-KR")}
+            : oneDecimal(meeting.distanceKm).toLocaleString("ko-KR")}
           <small>{meeting.distanceKm === undefined ? "" : " km"}</small>
         </strong>
       </div>
@@ -38,7 +38,7 @@ export function CourseSummary({ meeting }: { meeting: Meeting }) {
         <strong>
           {meeting.elevationGainM === undefined
             ? mt("미정")
-            : meeting.elevationGainM.toLocaleString("ko-KR")}
+            : oneDecimal(meeting.elevationGainM).toLocaleString("ko-KR")}
           <small>{meeting.elevationGainM === undefined ? "" : " m"}</small>
         </strong>
       </div>
@@ -153,7 +153,7 @@ export default function CoursePreview({
                     {point.source === "segments" ? mt("선택 구간 누적 ") : ""}
                     {point.distanceKm === undefined
                       ? mt("거리 미정")
-                      : `${Number(point.distanceKm.toFixed(2))}km`}
+                      : `${oneDecimal(point.distanceKm)}km`}
                   </span>
                   {point.note && <p className="cp-muted">{point.note}</p>}
                   {point.offTrackM !== undefined && (
