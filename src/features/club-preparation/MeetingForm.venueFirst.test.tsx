@@ -16,6 +16,7 @@ const track = {
 };
 const builtin: CourseSource = { kind: "builtin", id: "builtin_hangang", name: "한강 자전거길" };
 const gpx: CourseSource = { kind: "gpx", name: "autumn-ride.GPX" };
+const namedCourse: CourseSource = { kind: "saved-course", id: "river-side", name: "강변 코스" };
 
 // 코스 준비 단계는 「코스를 골랐다」만 흉내 낸다 — 이 파일은 실내·실외 선택과 코스의 관계를 본다.
 vi.mock("./CoursePreparation", () => ({
@@ -27,6 +28,10 @@ vi.mock("./CoursePreparation", () => ({
       </button>
       <button type="button" onClick={() => onChange({ ...meeting, courseSource: gpx, courseTrack: track, distanceKm: 1.2, courseReady: true })}>
         GPX 고르기
+      </button>
+      <button type="button" onClick={() => onChange({ ...meeting, courseSource: namedCourse, courseTrack: track,
+        courseCheckpoints: [{ name: "강변공원 북문", source: "course", distanceKm: 0, ...track.points[0] }], courseReady: true })}>
+        기존 코스 고르기
       </button>
     </section>
   ),
@@ -183,6 +188,40 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     fireEvent.click(radio(/실외/));
     fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
     expect(title()).toBe("토요 정기 라이딩");
+  });
+
+  it("실외 집결 장소는 코스 출발 위치로 채우고 주최자가 수정한 값은 지킨다", () => {
+    render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.place" onSave={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(radio(/실외/));
+    const place = () => screen.getByLabelText("기본 집결 장소") as HTMLInputElement;
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    expect(place().value).toBe("37.50000, 127.00000");
+    fireEvent.click(screen.getByRole("button", { name: "기존 코스 고르기" }));
+    expect(place().value).toBe("강변공원 북문");
+    fireEvent.change(place(), { target: { value: "편의점 앞" } });
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    expect(place().value).toBe("편의점 앞");
+  });
+
+  it("실내로 바꿔 코스를 비우면 자동으로 채운 집결 장소도 비운다", () => {
+    render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.clearPlace" onSave={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(radio(/실외/));
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    fireEvent.click(radio(/실내/));
+    fireEvent.click(screen.getByRole("button", { name: "실내로 바꾸고 코스 비우기" }));
+    fireEvent.click(radio(/실외/));
+    expect((screen.getByLabelText("기본 집결 장소") as HTMLInputElement).value).toBe("");
+  });
+
+  it("복구한 초안의 자동 집결 장소도 코스 교체를 따라간다", () => {
+    const props = { state: state([]), initial: fresh, draftNamespace: "vf.restorePlace", onSave: vi.fn(), onClose: vi.fn() };
+    const { unmount } = render(<MeetingForm {...props} />);
+    fireEvent.click(radio(/실외/));
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    unmount();
+    render(<MeetingForm {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "기존 코스 고르기" }));
+    expect((screen.getByLabelText("기본 집결 장소") as HTMLInputElement).value).toBe("강변공원 북문");
   });
 
   it("새 모임 요약은 적은 항목만 싣고 모임 종류·비용을 보이며 날짜 확인은 버튼 바로 위에 둔다", () => {

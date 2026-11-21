@@ -1,5 +1,7 @@
 import { elevationProfileSchema, meetingSegmentsSchema, type MeetingSegment } from './segmentCatalog';
 import { z } from 'zod';
+// 안내 글에 적는 숫자는 소수점 한 자리까지만 쓴다.
+const shown = (value: number) => Number(value.toFixed(1));
 export const STORAGE_KEY = 'orider.club-preparation.v1';
 export const BASE_TIME = Date.parse('2026-10-18T09:00:00+09:00');
 export type Kind = { id: string; name: string; active: boolean };
@@ -147,8 +149,15 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
     change('상세 안내', current.description, m.description);
     change('코스 소개', current.courseHighlights, m.courseHighlights);
     change('코스 준비', current.courseReady ? '확정' : '준비 중', m.courseReady ? '확정' : '준비 중');
-    change('거리', current.distanceKm === undefined ? '미정' : `${current.distanceKm}km`, m.distanceKm === undefined ? '미정' : `${m.distanceKm}km`);
-    change('획득고도', current.elevationGainM === undefined ? '미정' : `${current.elevationGainM}m`, m.elevationGainM === undefined ? '미정' : `${m.elevationGainM}m`);
+    // 바뀌었는지는 저장 값으로 판단한다. 한 자리로 줄인 표시가 같아지는 작은 변경은 세 자리까지 적어 차이를 보인다.
+    const measure = (label: string, before: number | undefined, after: number | undefined, unit: string) => {
+      if (before === after) return;
+      const text = (digits: number) => [before, after].map(value => value === undefined ? '미정' : `${Number(value.toFixed(digits))}${unit}`);
+      const [from, to] = text(1)[0] === text(1)[1] ? text(3) : text(1);
+      changes.push(`${label}: ${from} → ${to}.`);
+    };
+    measure('거리', current.distanceKm, m.distanceKm, 'km');
+    measure('획득고도', current.elevationGainM, m.elevationGainM, 'm');
     if (JSON.stringify(current.courseTrack) !== JSON.stringify(m.courseTrack)) changes.push(`GPX: ${current.courseTrack?.fileName ?? '미첨부'} → ${m.courseTrack?.fileName ?? '미첨부'}.`);
     const segments = (meeting: Meeting) => meeting.segments?.map(segment => `${segment.name} (${segment.mode}${segment.instruction ? ` · ${segment.instruction}` : ''})`).join(' → ') || '없음';
     if (JSON.stringify(current.segments) !== JSON.stringify(m.segments)) changes.push(`주요 구간: ${segments(current)} → ${segments(m)}.`);
@@ -156,7 +165,7 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
     const sourceLabel = (source: CourseSource | undefined) => source ? `${({ 'saved-course': '기존 코스', gpx: 'GPX', segments: '세그먼트 조합', builtin: '앱 실내 코스' })[source.kind]} · ${source.name}` : '미정';
     change('코스 출처', sourceLabel(current.courseSource), sourceLabel(m.courseSource));
     if (sourceLabel(current.courseSource) === sourceLabel(m.courseSource) && current.courseSource?.id !== m.courseSource?.id) changes.push('코스 출처: 이름이 같은 다른 코스로 연결이 변경되었습니다.');
-    const checkpoints = (meeting: Meeting) => meeting.courseCheckpoints?.map(point => `${point.name}${point.distanceKm === undefined ? '' : ` (${point.distanceKm}km)`}${point.note ? ` · ${point.note}` : ''}`).join(' / ');
+    const checkpoints = (meeting: Meeting) => meeting.courseCheckpoints?.map(point => `${point.name}${point.distanceKm === undefined ? '' : ` (${shown(point.distanceKm)}km)`}${point.note ? ` · ${point.note}` : ''}`).join(' / ');
     if (JSON.stringify(current.courseCheckpoints) !== JSON.stringify(m.courseCheckpoints)) changes.push(`체크포인트: ${checkpoints(current) || '없음'} → ${checkpoints(m) || '없음'}.`);
     change('주차 안내', current.parking, m.parking);
     change('우천·진행 판단', current.weather, m.weather);

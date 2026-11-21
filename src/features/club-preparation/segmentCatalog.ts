@@ -249,4 +249,4 @@ export function selectSegment(
 export const segmentDistance = (s: SegmentChoice) =>
   s.distance === undefined
     ? "—"
-    : `${(s.distance / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 2 })} km`;
+    : `${(s.distance / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })} km`;

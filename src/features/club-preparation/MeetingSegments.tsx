@@ -3,6 +3,7 @@ import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useTranslation } from "react-i18next";
 import { mt } from "./meetingText";
+import { oneDecimal } from "./checkpointPresentation";
 import { useEffect, useRef, useState } from "react";
 import { Button, Chip, IconButton, Stack } from "../../theme/components";
 import { Pencil, RefreshCw } from "lucide-react";
@@ -31,7 +32,7 @@ function SegmentMetrics({ segment: s }: { segment: SegmentChoice }) {
         <dd>
           {s.elevationGain === undefined
             ? "—"
-            : `${s.elevationGain.toLocaleString()} m`}
+            : `${oneDecimal(s.elevationGain).toLocaleString()} m`}
         </dd>
       </div>
       <div>
@@ -39,7 +40,7 @@ function SegmentMetrics({ segment: s }: { segment: SegmentChoice }) {
         <dd>
           {s.averageGrade === undefined
             ? "—"
-            : `${Number(s.averageGrade.toFixed(1))}%`}
+            : `${oneDecimal(s.averageGrade)}%`}
         </dd>
       </div>
     </dl>

@@ -1,4 +1,4 @@
-import { cumulativeDistances } from '../courseEngine/geo';
+import { cumulativeDistances, haversineMeters } from '../courseEngine/geo';
 import { resolveWaypointsOnTrack } from '../courseEngine/waypoints';
 import type { TrackPoint } from '../courseEngine/stats';
 import type { CourseCheckpoint, CoursePoint, CourseSource, CourseTrack, Meeting } from './domain';
@@ -13,6 +13,34 @@ export interface CoursePlan {
   track?: CourseTrack;
   segments: MeetingSegment[];
   warnings?: string[];
+}
+
+export function courseStartPlace(meeting: Meeting): string {
+  if (meeting.venue !== 'outdoor' || !meeting.courseSource || meeting.courseSource.kind === 'builtin') return '';
+  const checkpoints = meeting.courseCheckpoints ?? [];
+  const hasCoordinates = (point: { lat?: number; lon?: number } | undefined): point is CoursePoint =>
+    point?.lat !== undefined && point.lon !== undefined && Math.abs(point.lat) <= 90 && Math.abs(point.lon) <= 180;
+  const start = meeting.courseSource.kind === 'segments'
+    ? meeting.segments?.[0]?.geometry?.[0]
+    : meeting.courseTrack?.points[0] ?? checkpoints.find(point => point.distanceKm === 0 && point.source !== 'manual' && hasCoordinates(point));
+  if (!hasCoordinates(start)) return '';
+  // 출발로 명시된 지점에는 트랙과의 작은 오차를 허용한다. 일반 경유지는 좌표가 일치해야 한다.
+  const candidates = checkpoints.flatMap(point => {
+    const name = point.name.trim();
+    const explicitStart = point.type?.trim().toLowerCase() === 'start';
+    const tolerance = explicitStart ? 25 : 1;
+    if (point.source === 'manual' || point.source === 'segments' || !hasCoordinates(point)
+      || (!explicitStart && point.distanceKm !== undefined && point.distanceKm > 0.001)
+      || /^(?:출발|출발점|도착|start|finish|end|체크포인트\s*\d+)?$/i.test(name)) return [];
+    const offset = haversineMeters(start.lat, start.lon, point.lat, point.lon);
+    return offset <= tolerance ? [{name, offset, explicitStart, lat: point.lat, lon: point.lon}] : [];
+  });
+  const explicit = new Map(candidates.filter(point => point.explicitStart)
+    .map(point => [JSON.stringify([point.name, point.lat, point.lon]), point]));
+  const coordinates = `${start.lat.toFixed(5)}, ${start.lon.toFixed(5)}`;
+  if (explicit.size > 1) return coordinates;
+  const name = explicit.values().next().value?.name ?? candidates.sort((a, b) => a.offset - b.offset)[0]?.name;
+  return name?.slice(0, 300) ?? coordinates;
 }
 
 /** 경로가 있는 코스를 가져오면 코스를 확정으로 둔다 — 확정 칸이 접힌 곳에 있어 「준비 중」으로 게시되던 것을 막는다(#1779). 경로 없는 구간 소개는 주최자가 확정한다. */

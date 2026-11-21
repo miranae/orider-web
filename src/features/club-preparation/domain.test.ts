@@ -257,4 +257,14 @@ describe('동호회 모임 준비', () => {
     localStorage.removeItem(STORAGE_KEY);
   });
 
+  it('거리는 한 자리로 안내하되 표시가 같아지는 작은 변경도 빠뜨리지 않는다', () => {
+    const base = createSeed();
+    const draft = base.meetings[0]!;
+    const body = (from: number, to: number) => {
+      const saved = saveMeeting(saveMeeting(base, 'host', { ...draft, distanceKm: from }), 'host', { ...draft, distanceKm: to });
+      return saved.meetings[0]!.notices[0]!.body;
+    };
+    expect(body(31.264, 45.871)).toContain('거리: 31.3km → 45.9km.');
+    expect(body(31.21, 31.24)).toContain('거리: 31.21km → 31.24km.');
+  });
 });
