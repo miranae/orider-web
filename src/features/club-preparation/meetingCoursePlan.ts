@@ -15,8 +15,18 @@ export interface CoursePlan {
   warnings?: string[];
 }
 
+/** 경로가 있는 코스를 가져오면 코스를 확정으로 둔다 — 확정 칸이 접힌 곳에 있어 「준비 중」으로 게시되던 것을 막는다(#1779). 경로 없는 구간 소개는 주최자가 확정한다. */
 export function applyCoursePlan(meeting: Meeting, plan: CoursePlan): Meeting {
-  return { ...meeting, courseSource: structuredClone(plan.source), distanceKm: plan.distanceKm, elevationGainM: plan.elevationGainM, courseCheckpoints: structuredClone(plan.checkpoints), courseTrack: plan.track ? structuredClone(plan.track) : undefined, segments: structuredClone(plan.segments), courseStops: plan.checkpoints.map(point => point.name), courseInfoVersion: 1, courseReady: false };
+  return { ...meeting, courseSource: structuredClone(plan.source), distanceKm: plan.distanceKm, elevationGainM: plan.elevationGainM, courseCheckpoints: structuredClone(plan.checkpoints), courseTrack: plan.track ? structuredClone(plan.track) : undefined, segments: structuredClone(plan.segments), courseStops: plan.checkpoints.map(point => point.name), courseInfoVersion: 1, courseReady: Boolean(plan.track) };
+}
+
+/**
+ * 고른 코스를 비운다 — 실내·실외를 바꿔 코스가 맞지 않게 됐을 때 쓴다(#1779).
+ * 코스에서 온 값(경로·수치·체크포인트·구간)만 지우고 모임 이름·일시·소개는 그대로 둔다.
+ */
+export function clearCourse(meeting: Meeting): Meeting {
+  const { courseSource: _source, courseTrack: _track, distanceKm: _distance, elevationGainM: _gain, ...rest } = meeting;
+  return { ...rest, courseCheckpoints: [], segments: [], courseStops: [], courseReady: false };
 }
 
 /** 선택 구간 합계이며, 겹치는 구간과 연결 이동을 보정한 전체 코스 수치가 아니다. */
