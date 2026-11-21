@@ -155,12 +155,21 @@ export default function MeetingForm({
    */
   const meetingToSave = (): Meeting => {
     const meeting = completeDraft();
-    if (!indoor || (existing && initial.venue !== "outdoor" && meeting.place.trim())) return meeting;
+    if (!indoor) return meeting;
     const place = mt(INDOOR_PLACE);
+    // 원래 실내였거나 구분 전에 만든 모임: 빈 집결 장소만 채우고 나머지 안내는 손대지 않는다.
+    if (existing && initial.venue !== "outdoor") {
+      if (meeting.place.trim()) return meeting;
+      return { ...meeting, place, joins: meeting.joins.map((join, index) => (index ? join : { ...join, place })) };
+    }
+    // 참석자가 이미 고른 합류 지점은 남긴다 — 지우면 서버가 저장을 거부한다.
+    const chosen = new Set(meeting.registrations.map((person) => person.joinId).filter(Boolean));
     return {
       ...meeting,
       place,
-      joins: meeting.joins.slice(0, 1).map((join) => ({ ...join, place })),
+      joins: meeting.joins
+        .filter((join, index) => index === 0 || chosen.has(join.id))
+        .map((join, index) => (index ? join : { ...join, place })),
       weather: "",
       parking: "",
     };
