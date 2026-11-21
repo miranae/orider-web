@@ -150,11 +150,12 @@ export default function MeetingForm({
   /**
    * 저장할 모임 — 실내는 숨긴 실외용 칸(집결 장소·합류 지점·우천·주차)을 싣지 않고 집결 장소를 고정 문구로 채운다.
    * 화면에서 숨긴 값이 그대로 저장되면 참석자가 실내 모임에서 이전 야외 집결지를 보게 된다.
-   * 원래 실내로 저장된 모임은 주최자가 예전에 적어 둔 값을 그대로 둔다.
+   * 실외에서 실내로 바꾼 모임과 새 모임만 그렇게 한다 — 원래 실내였거나 실내·실외 구분 전에 만든 모임은
+   * 주최자가 예전에 적어 둔 값을 그대로 둔다(제목만 고쳤는데 저장된 안내가 말없이 지워지지 않게).
    */
   const meetingToSave = (): Meeting => {
     const meeting = completeDraft();
-    if (!indoor || (existing && initial.venue === "indoor" && meeting.place.trim())) return meeting;
+    if (!indoor || (existing && initial.venue !== "outdoor" && meeting.place.trim())) return meeting;
     const place = mt(INDOOR_PLACE);
     return {
       ...meeting,

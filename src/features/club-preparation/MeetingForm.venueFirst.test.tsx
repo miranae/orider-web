@@ -103,7 +103,8 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
   });
 
   it("실내·실외 구분 전에 만든 모임은 실내를 골라도 저장된 코스를 지킨다", async () => {
-    const legacy: Meeting = { ...fresh, id: "m0", title: "예전 모임", venue: undefined, place: "우리 집", courseSource: gpx, courseTrack: track, courseReady: true };
+    const legacy: Meeting = { ...fresh, id: "m0", title: "예전 모임", venue: undefined, place: "우리 집", weather: "비 오면 실내로", parking: "지하 주차장",
+      joins: [{ id: "main", place: "우리 집", time: "08:00" }, { id: "j2", place: "카페", time: "08:20" }], courseSource: gpx, courseTrack: track, courseReady: true };
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(<MeetingForm state={state([legacy])} initial={legacy} initialRevision={2} draftNamespace="vf.legacy" onSave={onSave} onClose={vi.fn()} />);
     fireEvent.click(radio(/실내/));
@@ -112,7 +113,9 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     fireEvent.click(screen.getByRole("button", { name: "모집글 미리보기" }));
     fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
     await vi.waitFor(() => expect(onSave).toHaveBeenCalled());
-    expect(onSave.mock.calls[0]![0]).toMatchObject({ venue: "indoor", courseSource: gpx });
+    // 예전에 적어 둔 집결 장소·안내는 실내를 골라도 말없이 지우지 않는다.
+    expect(onSave.mock.calls[0]![0]).toMatchObject({ venue: "indoor", courseSource: gpx, place: "우리 집", weather: "비 오면 실내로", parking: "지하 주차장" });
+    expect((onSave.mock.calls[0]![0] as Meeting).joins).toHaveLength(2);
   });
 
   it("실외 모임을 실내로 바꾸면 숨긴 집결 장소·합류 지점·우천·주차 안내를 저장하지 않는다", async () => {
