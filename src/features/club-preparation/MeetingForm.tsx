@@ -1,12 +1,15 @@
 import { preserveActionPosition } from "../../utils/preserveActionPosition";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { logClientError } from "../../services/errorLogger";
 import { mt } from "./meetingText";
+import { oneDecimal } from "./checkpointPresentation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
 import { Stack } from "../../theme/components/Stack";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import type { CourseSource, Meeting, MeetingVenue, State } from "./domain";
 import { courseFitsVenue, indoorCourseIssue } from "./domain";
-import { clearCourse } from "./meetingCoursePlan";
+import { clearCourse, courseStartPlace } from "./meetingCoursePlan";
 import CoursePreparation from "./CoursePreparation";
 import CoursePreview, { CourseSummary } from "./CoursePreview";
 import { clearDraft, draftScope, readDraft, writeDraft } from "./meetingDrafts";
@@ -91,6 +94,7 @@ export default function MeetingForm({
   const [dateConfirmed, setDateConfirmed] = useState(false);
   const [outdoorChangesConfirmed, setOutdoorChangesConfirmed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const autoPlace = useRef<string | null>(recovery.autoPlace ?? null);
   const courseSectionRef = useRef<HTMLDetailsElement>(null);
   const courseReadyRef = useRef<HTMLSelectElement>(null);
   const [courseFocusRequest, setCourseFocusRequest] = useState(
@@ -187,11 +191,13 @@ export default function MeetingForm({
       : draft;
     const leftIndoorPlace =
       venue === "outdoor" && (base.place === INDOOR_PLACE || base.place === mt(INDOOR_PLACE));
+    const clearedCoursePlace = dropCourse && draft.place === autoPlace.current;
+    if (dropCourse) autoPlace.current = null;
     setDraft({
       ...base,
       venue,
-      ...(leftIndoorPlace
-        ? { place: "", joins: base.joins.map((join, index) => (index ? join : { ...join, place: "" })) }
+      ...(leftIndoorPlace || clearedCoursePlace
+        ? { place: "", joins: base.joins.map((join, index) => (index || (clearedCoursePlace && join.place !== draft.place) ? join : { ...join, place: "" })) }
         : {}),
     });
     if (dropCourse) setStopText("");
@@ -208,6 +214,14 @@ export default function MeetingForm({
     if (draft.courseSource && !keepsCourse) setPendingVenue(venue);
     else applyVenue(venue, false);
   };
+  const firebaseServices = useFirebaseServices();
+  useEffect(() => {
+    if (recovery.error) {
+      logClientError("MeetingForm.readDraft", new Error("Browser draft storage read failed"), {
+        errorName: recovery.errorName,
+      }, firebaseServices);
+    }
+  }, [recovery.error, recovery.errorName, firebaseServices]);
   useEffect(() => {
     if (recovery.error) return;
     try {
@@ -222,16 +236,20 @@ export default function MeetingForm({
             .filter(Boolean),
         },
         baseRevision,
+        autoPlace.current ?? undefined,
       );
       setSaveError("");
-    } catch {
+    } catch (failure) {
+      logClientError("MeetingForm.writeDraft", new Error("Browser draft storage write failed"), {
+        errorName: failure instanceof Error || failure instanceof DOMException ? failure.name : undefined,
+      }, firebaseServices);
       setSaveError(
         mt(
           "초안을 저장하지 못했어요. 입력값과 브라우저 저장 공간을 확인해주세요.",
         ),
       );
     }
-  }, [draft, stopText, scope, recovery.error, baseRevision]);
+  }, [draft, stopText, scope, recovery.error, baseRevision, firebaseServices]);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   /** 생성·일정 변경 모두 서버와 같은 경계(현재 시각 이하 거부)로 막는다. */
@@ -598,8 +616,17 @@ export default function MeetingForm({
             // 주최자가 적은 이름은 건드리지 않는다.
             const title = courseTitle(next.courseSource);
             const untouched = !next.title.trim() || next.title === courseTitle(draft.courseSource);
-            const renamed = title && untouched && !sameCourseSource(next.courseSource, draft.courseSource);
-            setDraft(renamed ? { ...next, title } : next);
+            const newCourse = !sameCourseSource(next.courseSource, draft.courseSource);
+            const updated = title && untouched && newCourse ? { ...next, title } : next;
+            const place = courseStartPlace(next);
+            if (next.venue === "outdoor" && (newCourse || place !== courseStartPlace(draft))
+              && (!next.place.trim() || next.place === autoPlace.current)) {
+              autoPlace.current = place || null;
+              setDraft({ ...updated, place, joins: updated.joins.map((join, index) =>
+                index || (join.place.trim() && join.place !== next.place) ? join : { ...join, place }) });
+            } else {
+              setDraft(updated);
+            }
             setStopText(next.courseStops?.join("\n") ?? "");
           }}
           onBusyChange={setReading}
@@ -692,14 +719,15 @@ export default function MeetingForm({
               maxLength={300}
               required
               value={draft.place}
-              onChange={(e) =>
+              onChange={(e) => {
+                autoPlace.current = null;
                 patch({
                   place: e.target.value,
                   joins: draft.joins.map((join, index) =>
                     index ? join : { ...join, place: e.target.value },
                   ),
-                })
-              }
+                });
+              }}
             />
           </Field>
         )}
@@ -733,14 +761,14 @@ export default function MeetingForm({
                   type="number"
                   min="0"
                   step="any"
-                  value={draft.distanceKm ?? ""}
+                  value={draft.distanceKm === undefined ? "" : oneDecimal(draft.distanceKm)}
                   placeholder={mt("미정이면 비워두세요")}
                   onChange={(e) =>
                     patch({
                       distanceKm:
                         e.target.value === ""
                           ? undefined
-                          : Number(e.target.value),
+                          : oneDecimal(Number(e.target.value)),
                     })
                   }
                 />
@@ -751,14 +779,14 @@ export default function MeetingForm({
                   type="number"
                   min="0"
                   step="any"
-                  value={draft.elevationGainM ?? ""}
+                  value={draft.elevationGainM === undefined ? "" : oneDecimal(draft.elevationGainM)}
                   placeholder={mt("미정이면 비워두세요")}
                   onChange={(e) =>
                     patch({
                       elevationGainM:
                         e.target.value === ""
                           ? undefined
-                          : Number(e.target.value),
+                          : oneDecimal(Number(e.target.value)),
                     })
                   }
                 />

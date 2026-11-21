@@ -6,6 +6,7 @@ import { newClubMeeting } from "./meetingCopy";
 import { clearCourse } from "./meetingCoursePlan";
 import { meetingDateTimeLabel } from "./meetingSchedule";
 import type { CourseSource, Meeting, State } from "./domain";
+import { logClientError } from "../../services/errorLogger";
 
 const track = {
   fileName: "코스",
@@ -16,6 +17,7 @@ const track = {
 };
 const builtin: CourseSource = { kind: "builtin", id: "builtin_hangang", name: "한강 자전거길" };
 const gpx: CourseSource = { kind: "gpx", name: "autumn-ride.GPX" };
+const namedCourse: CourseSource = { kind: "saved-course", id: "river-side", name: "강변 코스" };
 
 // 코스 준비 단계는 「코스를 골랐다」만 흉내 낸다 — 이 파일은 실내·실외 선택과 코스의 관계를 본다.
 vi.mock("./CoursePreparation", () => ({
@@ -28,10 +30,15 @@ vi.mock("./CoursePreparation", () => ({
       <button type="button" onClick={() => onChange({ ...meeting, courseSource: gpx, courseTrack: track, distanceKm: 1.2, courseReady: true })}>
         GPX 고르기
       </button>
+      <button type="button" onClick={() => onChange({ ...meeting, courseSource: namedCourse, courseTrack: track,
+        courseCheckpoints: [{ name: "강변공원 북문", source: "course", distanceKm: 0, ...track.points[0] }], courseReady: true })}>
+        기존 코스 고르기
+      </button>
     </section>
   ),
 }));
 vi.mock("./CoursePreview", () => ({ default: () => null, CourseSummary: () => null }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 const state = (meetings: Meeting[]): State => ({
   version: 1,
@@ -48,6 +55,39 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
+  it("브라우저가 초안 저장소 접근을 막으면 복구 오류를 기록한다", () => {
+    const read = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("storage blocked", "SecurityError");
+    });
+    try {
+      render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.blocked" onSave={vi.fn()} onClose={vi.fn()} />);
+      expect(screen.getByRole("alert")).toHaveTextContent("저장된 초안을 복구하지 못했어요");
+      expect(logClientError).toHaveBeenCalledWith("MeetingForm.readDraft", expect.any(Error), {
+        errorName: "SecurityError",
+      }, expect.any(Object));
+    } finally {
+      read.mockRestore();
+    }
+  });
+
+  it("자동 집결 장소가 든 초안 저장에 실패하면 입력값을 유지하고 오류를 기록한다", () => {
+    render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.quota" onSave={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(radio(/실외/));
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("storage unavailable", "QuotaExceededError");
+    });
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "기존 코스 고르기" }));
+      expect(screen.getByRole("textbox", { name: "기본 집결 장소" })).toHaveValue("강변공원 북문");
+      expect(screen.getAllByText(/초안을 저장하지 못했어요/).length).toBeGreaterThan(0);
+      expect(logClientError).toHaveBeenCalledWith("MeetingForm.writeDraft", expect.any(Error), {
+        errorName: "QuotaExceededError",
+      }, expect.any(Object));
+    } finally {
+      write.mockRestore();
+    }
+  });
+
   it("실내·실외 선택이 코스 준비보다 먼저 나온다", () => {
     render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.order" onSave={vi.fn()} onClose={vi.fn()} />);
     const headings = screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
@@ -183,6 +223,40 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     fireEvent.click(radio(/실외/));
     fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
     expect(title()).toBe("토요 정기 라이딩");
+  });
+
+  it("실외 집결 장소는 코스 출발 위치로 채우고 주최자가 수정한 값은 지킨다", () => {
+    render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.place" onSave={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(radio(/실외/));
+    const place = () => screen.getByLabelText("기본 집결 장소") as HTMLInputElement;
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    expect(place().value).toBe("37.50000, 127.00000");
+    fireEvent.click(screen.getByRole("button", { name: "기존 코스 고르기" }));
+    expect(place().value).toBe("강변공원 북문");
+    fireEvent.change(place(), { target: { value: "편의점 앞" } });
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    expect(place().value).toBe("편의점 앞");
+  });
+
+  it("실내로 바꿔 코스를 비우면 자동으로 채운 집결 장소도 비운다", () => {
+    render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.clearPlace" onSave={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(radio(/실외/));
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    fireEvent.click(radio(/실내/));
+    fireEvent.click(screen.getByRole("button", { name: "실내로 바꾸고 코스 비우기" }));
+    fireEvent.click(radio(/실외/));
+    expect((screen.getByLabelText("기본 집결 장소") as HTMLInputElement).value).toBe("");
+  });
+
+  it("복구한 초안의 자동 집결 장소도 코스 교체를 따라간다", () => {
+    const props = { state: state([]), initial: fresh, draftNamespace: "vf.restorePlace", onSave: vi.fn(), onClose: vi.fn() };
+    const { unmount } = render(<MeetingForm {...props} />);
+    fireEvent.click(radio(/실외/));
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    unmount();
+    render(<MeetingForm {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "기존 코스 고르기" }));
+    expect((screen.getByLabelText("기본 집결 장소") as HTMLInputElement).value).toBe("강변공원 북문");
   });
 
   it("새 모임 요약은 적은 항목만 싣고 모임 종류·비용을 보이며 날짜 확인은 버튼 바로 위에 둔다", () => {
