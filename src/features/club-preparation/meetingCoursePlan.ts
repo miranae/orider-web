@@ -33,12 +33,13 @@ export function courseStartPlace(meeting: Meeting): string {
       || (!explicitStart && point.distanceKm !== undefined && point.distanceKm > 0.001)
       || /^(?:출발|출발점|도착|start|finish|end|체크포인트\s*\d+)?$/i.test(name)) return [];
     const offset = haversineMeters(start.lat, start.lon, point.lat, point.lon);
-    return offset <= tolerance ? [{name, offset, explicitStart}] : [];
+    return offset <= tolerance ? [{name, offset, explicitStart, lat: point.lat, lon: point.lon}] : [];
   });
-  const explicitNames = [...new Set(candidates.filter(point => point.explicitStart).map(point => point.name))];
+  const explicit = new Map(candidates.filter(point => point.explicitStart)
+    .map(point => [JSON.stringify([point.name, point.lat, point.lon]), point]));
   const coordinates = `${start.lat.toFixed(5)}, ${start.lon.toFixed(5)}`;
-  if (explicitNames.length > 1) return coordinates;
-  const name = explicitNames[0] ?? candidates.sort((a, b) => a.offset - b.offset)[0]?.name;
+  if (explicit.size > 1) return coordinates;
+  const name = explicit.values().next().value?.name ?? candidates.sort((a, b) => a.offset - b.offset)[0]?.name;
   return name?.slice(0, 300) ?? coordinates;
 }
 
