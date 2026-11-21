@@ -88,3 +88,9 @@ AI 분석 등 저장된 분석 결과는 데이터나 분석기 판이 바뀌어
 - 운영자가 수용한 짧은 전환 순단이나, 현재 서비스를 계속 제공하면서 기존 후보로 다시 실행할 수 있는 실패는 그 자체로 머지를 차단하지 않습니다. 정상 개발·배포가 느려지는 변경은 기본 경로에 넣기 전에 효과와 비용을 따로 검토합니다.
 
 *Keep the normal release path short. Verify the target, reviewed artifact and critical live behavior, and retain the existing recovery path. Reuse build and test evidence. Require a reproducible failure and concrete impact before adding a blocking release control. Accepted brief transition interruptions and recoverable failures that preserve the live release do not block a merge on their own.*
+
+## 범위 (Scope)
+
+### P14. 접근성은 일반 사용자 1만 명 전까지 범위 밖이다
+스크린리더(VoiceOver·TalkBack) 레이블 같은 접근성 작업은 일반 사용자가 1만 명을 넘을 때까지 진행하지 않습니다(2026-11-22 결정). 접근성을 기능의 수용 조건·작업 범위·리뷰 BLOCKER 로 두지 않고, 발견한 갭은 보류 이슈(예: miranae/orider-g1-app#3824)에 모읍니다. 기준을 넘으면 앱·웹 전체 접근성 정비로 함께 다룹니다. 이미 있는 접근성 레이블은 지우지 않습니다.
+*Accessibility work is out of scope until 10,000 general users: not an acceptance criterion, work item or review blocker. Keep existing labels.*
