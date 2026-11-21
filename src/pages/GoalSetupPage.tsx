@@ -11,6 +11,7 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { httpsCallable } from "firebase/functions";
+import { usePlanGoalChangeNotifier } from "../hooks/usePlanGoalChangeNotifier";
 import { doc, getDoc } from "firebase/firestore";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
@@ -459,6 +460,7 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
   });
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const notifyGoalChanged = usePlanGoalChangeNotifier();
 
   const inputs = useGoalFitnessInputs();
   const userFtp = inputs.ftp;
@@ -549,6 +551,7 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
         discipline: discipline,
       });
       const data = result.data as { goalId: string };
+      notifyGoalChanged(discipline);
       navigate(goalCreatedPath(searchParams, "bike", data.goalId));
     } catch (err) {
       logClientError('GoalSetupPage.handleStart', err, {

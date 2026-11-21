@@ -5,6 +5,7 @@ import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../../services/errorLogger";
 import { clearTrainingSurfaceCache, prepareTrainingSurfaceCacheOwner, removeTrainingSurfaceCacheForSport, trainingSurfaceCacheScope } from "../../../embedded/trainingSurfaceCache";
 import { invalidatePlanSnapshot, readPlanSnapshot, run30SnapshotKey, writePlanSnapshot } from "../../../embedded/planSnapshotCache";
+import { PLAN_GOAL_CHANGED } from "../../../embedded/planGoalChanges";
 import { createRun30Api, type Run30Api, type Run30Program } from "./run30Api";
 
 export type Run30LoadStatus = "idle" | "loading" | "ready" | "error";
@@ -135,6 +136,18 @@ export function useRun30Program(enabled: boolean, visible = true): Run30ProgramS
   }, [active, cacheHit, key, program, reloadKey, snapshotRevision, status, user?.uid, visible]);
 
   const retry = useCallback(() => setReloadKey((value) => value + 1), []);
+  // 러닝 목표를 새로 만들면 서버가 기존 Run30 목표를 교체한다. 유지된 계획 화면이 이전 프로그램을
+  // 계속 보여주지 않도록 러닝 목표 변경 알림에 다시 읽는다(일반 계획 모델과 같은 신호).
+  const ownerUid = active ? user.uid : null;
+  useEffect(() => {
+    if (!ownerUid) return;
+    const changed = (event: Event) => {
+      const detail = (event as CustomEvent<{ uid?: string; sport?: string }>).detail;
+      if (detail?.uid === ownerUid && detail.sport === "run") setReloadKey(value => value + 1);
+    };
+    window.addEventListener(PLAN_GOAL_CHANGED, changed);
+    return () => window.removeEventListener(PLAN_GOAL_CHANGED, changed);
+  }, [ownerUid]);
   const matches = dataKey === key;
   return { api, status: matches ? status : active ? "loading" : "idle", program: matches ? program : null,
     error: matches ? error : null, refresh, retry, cacheHit: matches && cacheHit };

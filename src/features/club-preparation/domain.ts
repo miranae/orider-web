@@ -1,6 +1,5 @@
 import { elevationProfileSchema, meetingSegmentsSchema, type MeetingSegment } from './segmentCatalog';
 import { z } from 'zod';
-import { haversineMeters } from '../courseEngine/geo';
 export const STORAGE_KEY = 'orider.club-preparation.v1';
 export const BASE_TIME = Date.parse('2026-10-18T09:00:00+09:00');
 export type Kind = { id: string; name: string; active: boolean };
@@ -95,26 +94,19 @@ export function duplicateMeeting(m: Meeting, id: string): Meeting { return { ...
  */
 export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack' | 'courseSource'>, previous?: Pick<Meeting, 'venue' | 'courseTrack'>): string | null {
   if (m.venue !== 'indoor') return null;
-  if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.';
-  if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 끊어진 구간이 없는 코스나 GPX로 다시 준비해주세요.';
-  // 경로를 새로 고르거나 실내로 바꿀 때만 본다 — 이미 저장된 실내 모임의 제목·설명 수정은 막지 않는다.
-  const trackChanged = !previous || previous.venue !== 'indoor' || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
-  if (trackChanged && m.courseSource?.kind === 'saved-course' && isLegacySparseCourseTrack(m.courseTrack.points)) return '이 기존 코스는 예전 방식으로 저장돼 경로가 성겨, 실내 주행에서 도로를 벗어난 직선으로 보여요. GPX를 올리거나 앱 실내 코스를 골라주세요.';
+  if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 앱 실내 코스를 골라주세요.';
+  if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 앱 실내 코스를 골라주세요.';
+  // 경로를 새로 고르거나 실외에서 실내로 바꿀 때만 본다 — 이미 저장된 실내 모임(기존 코스·GPX)의 제목·설명 수정은 막지 않는다.
+  // 실내·실외 구분 전에 만든 모임(venue 없음)도 저장된 코스 그대로면 실내를 골라 저장할 수 있다 — 수정하려면 반드시 골라야 하기 때문이다.
+  const trackChanged = !previous || previous.venue === 'outdoor' || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
+  // 새로 고르는 실내 코스는 앱 내장 코스만 받는다 — 성긴 기존 코스·끊어진 GPX 로 출발이 막히던 경우를 선택 단계에서 없앤다(#1779).
+  if (trackChanged && m.courseSource?.kind !== 'builtin') return '실내 모임은 앱 실내 코스만 쓸 수 있어요. 앱 실내 코스를 골라주세요.';
   return null;
 }
-/** 2026-06 이전 서버가 기존 코스를 줄여 저장한 점 수(orider-g1-web #250 이전 상한). */
-export const LEGACY_COURSE_MAX_POINTS = 200;
-/** 성긴 경로로 보는 점 간격 중앙값(m). 도로를 따라 만든 경로는 20m 안팎이다. */
-export const SPARSE_COURSE_SPACING_M = 100;
-/**
- * 예전 방식으로 줄여 저장된 기존 코스인지 — 정상 데이터에서는 걸리지 않는 안전장치다. 2026-06 이전 기존 코스는 200점으로
- * 저장돼(멧돼지 73.6km 에 약 370m 간격) 실내 주행이 점 사이 직선으로 도로·건물을 가로질렀다(2026-11-15, orider-g1-web#3704).
- * 사용자가 올린 GPX·앱 실내 코스는 원본이라 더 나은 데이터가 없으므로 보지 않는다(호출부가 `saved-course` 만 넘긴다).
- */
-export function isLegacySparseCourseTrack(points: readonly CoursePoint[]): boolean {
-  if (points.length < 2 || points.length > LEGACY_COURSE_MAX_POINTS) return false;
-  const gaps = points.slice(1).map((point, index) => haversineMeters(points[index]!.lat, points[index]!.lon, point.lat, point.lon)).sort((x, y) => x - y);
-  return gaps[Math.floor(gaps.length / 2)]! > SPARSE_COURSE_SPACING_M;
+/** 고른 코스가 실내·실외 선택에 맞는지 — 실내는 앱 내장 코스만, 실외는 내장 코스를 쓰지 않는다. 코스가 없으면 맞는 것으로 본다. */
+export function courseFitsVenue(m: Pick<Meeting, 'courseSource'>, venue: MeetingVenue): boolean {
+  if (!m.courseSource) return true;
+  return venue === 'indoor' ? m.courseSource.kind === 'builtin' : m.courseSource.kind !== 'builtin';
 }
 export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (!s.members.some(member => member.id === actor)) throw new Error('등록된 회원만 모임을 만들 수 있습니다.');

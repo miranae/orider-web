@@ -5,7 +5,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useEffect, useRef, useState } from "react";
 import { Button, Chip, Stack } from "../../theme/components";
 import { Field, Input, Textarea } from "../../theme/components/Input";
-import type { CourseCheckpoint, Meeting } from "./domain";
+import type { CourseCheckpoint, Meeting, MeetingVenue } from "./domain";
 import {
   loadCourseCatalogPage,
   loadSavedCourse,
@@ -29,6 +29,21 @@ import {
 } from "./checkpointPresentation";
 type ImportPlan = CoursePlan & { courseHighlights?: string };
 type Mode = "saved-course" | "gpx" | "segments" | "builtin";
+/**
+ * 실내·실외에 따라 고를 수 있는 코스 준비 방법(#1779). 실내는 앱 내장 코스만 — 참석자 모두 같은 가상 코스를 달리고,
+ * 성긴 기존 코스·끊어진 GPX 로 출발이 막히는 일이 없다. 실외는 내장 실내 코스를 보이지 않는다.
+ * 구간 소개(세그먼트)는 이어진 전체 경로를 만들지 않으므로 맨 뒤에 둔다.
+ */
+const MODES_BY_VENUE: Record<MeetingVenue, readonly Mode[]> = {
+  indoor: ["builtin"],
+  outdoor: ["saved-course", "gpx", "segments"],
+};
+const MODE_LABELS: Record<Mode, string> = {
+  "saved-course": "기존 코스 가져오기",
+  gpx: "GPX로 준비하기",
+  segments: "세그먼트로 준비하기",
+  builtin: "앱 실내 코스",
+};
 const metric = (value: number | undefined, unit: string) =>
   value === undefined
     ? mt("미정")
@@ -47,6 +62,9 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
   const [mode, setMode] = useState<Mode>(
     meeting.courseSource?.kind ?? "saved-course",
   );
+  // 실내·실외를 고르기 전에는 코스 준비 방법을 열지 않는다. 고른 쪽에 없는 방법이 선택돼 있으면 첫 방법으로 본다.
+  const modes: readonly Mode[] = meeting.venue ? MODES_BY_VENUE[meeting.venue] : [];
+  const activeMode: Mode | undefined = modes.includes(mode) ? mode : modes[0];
   const [browsingCourses, setBrowsingCourses] = useState(
     meeting.courseSource?.kind !== "saved-course",
   );
@@ -71,6 +89,19 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
   const busyCallback = useRef(onBusyChange);
   busyCallback.current = onBusyChange;
   useEffect(() => () => { readVersion.current += 1; busyCallback.current(false); }, []);
+  // 실내·실외를 바꾸면 진행 중이던 가져오기와 교체 확인을 버린다 — 이전 선택의 코스가 뒤늦게 적용되지 않게.
+  const venue = meeting.venue;
+  const venueSeen = useRef(venue);
+  useEffect(() => {
+    if (venueSeen.current === venue) return;
+    venueSeen.current = venue;
+    readVersion.current += 1;
+    busyCallback.current(false);
+    setLoading(false);
+    setImportingCourse(null);
+    setPending(null);
+    setError("");
+  }, [venue]);
   const confirmation = useRef<HTMLElement>(null);
   useEffect(() => {
     if (pending) {
@@ -305,32 +336,27 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
       aria-label={mt("코스 먼저 준비")}
     >
       <div>
-        <span className="cp-eyebrow">{mt("1. 코스부터 준비해요")}</span>
+        <span className="cp-eyebrow">{mt("2. 코스를 준비해요")}</span>
         <h2>{mt("어떤 코스로 달릴까요?")}</h2>
         <p className="cp-muted">
-          {mt(
-            "기존 코스를 가져오거나 GPX·세그먼트로 함께 달릴 길을 준비하세요.",
-          )}
+          {venue === "indoor"
+            ? mt("실내 모임은 앱에 들어 있는 실내 코스에서 골라요.")
+            : venue === "outdoor"
+              ? mt("기존 코스를 가져오거나 GPX·세그먼트로 함께 달릴 길을 준비하세요.")
+              : mt("실내·실외를 먼저 골라주세요. 고른 쪽에 맞는 코스만 보여드려요.")}
         </p>
       </div>
-      <div
+      {modes.length > 0 && <div
         className="cp-course-modes"
         role="tablist"
         aria-label={mt("코스 준비 방법")}
       >
-        {(
-          [
-            ["saved-course", mt("기존 코스 가져오기")],
-            ["gpx", mt("GPX로 준비하기")],
-            ["segments", mt("세그먼트로 준비하기")],
-            ["builtin", mt("앱 실내 코스")],
-          ] as const
-        ).map(([value, label]) => (
+        {modes.map((value) => [value, mt(MODE_LABELS[value])] as const).map(([value, label]) => (
           <button
             key={value}
             type="button"
             role="tab"
-            aria-selected={mode === value}
+            aria-selected={activeMode === value}
             onClick={() => {
               readVersion.current++;
               onBusyChange(false);
@@ -353,8 +379,8 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
             {label}
           </button>
         ))}
-      </div>
-      {mode === "saved-course" && (
+      </div>}
+      {activeMode === "saved-course" && (
         <div className="cp-stack">
           <p className="cp-muted">
             {mt("공개 코스의 거리·획득고도·체크포인트를 함께 가져옵니다.")}
@@ -424,7 +450,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
           )}
         </div>
       )}
-      {mode === "gpx" && (
+      {activeMode === "gpx" && (
         <div className="cp-stack">
           <Field
             label={mt("코스 GPX 첨부")}
@@ -452,8 +478,11 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
           </p>
         </div>
       )}
-      {mode === "segments" && (
+      {activeMode === "segments" && (
         <>
+          <p className="cp-notice">
+            {mt("구간 소개용이에요. 구간 사이를 잇는 전체 경로는 만들지 않아, 참석자가 이어진 코스를 받지 못합니다.")}
+          </p>
           <p className="cp-muted">
             {mt(
               "선택하면 거리·획득고도 합계와 실제 출발·도착 지점을 자동으로 가져옵니다. 합계는 연결 이동을 제외하며 겹치는 구간도 각각 더합니다.",
@@ -468,7 +497,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
           />
         </>
       )}
-      {mode === "builtin" && (
+      {activeMode === "builtin" && (
         <div className="cp-stack">
           <p className="cp-muted">
             {mt("앱에 들어 있는 실내 코스예요. 실내 모임은 참석자 모두 이 코스 위를 함께 달립니다.")}
@@ -496,7 +525,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
       {error && !pending && (
         <div className="cp-error" role="alert">
           {error}
-          {mode === "saved-course" && (
+          {activeMode === "saved-course" && (
             <Button size="sm" onClick={() => void load()}>
               {mt("코스 다시 불러오기")}
             </Button>

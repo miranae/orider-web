@@ -33,7 +33,10 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const { t, i18n } = useTranslation("training");
   const [params] = useSearchParams();
   const model = usePlanModel(isSportUiEnabled(params.get("sport") ?? "bike") ? params.get("sport") : "bike");
-  const { user, goal, discipline } = model;
+  const { user, discipline } = model;
+  // 이 종목 목표가 없으면 다른 종목의 진행 중 목표를 호환용으로 받아 온다(readPreferredActiveGoal).
+  // 사이클 탭에 수영 목표가 뜨고 "수영 목표를 대체합니다"라고 안내하던 결함 — 종목이 맞는 목표만 이 탭의 목표로 쓴다.
+  const goal = model.goalMatchesDiscipline ? model.goal : null;
   const { profile } = useAuth();
   const goalReady = !model.loading && model.loadError == null && model.freshLoaded !== false;
   const scope = goalLoadScope(model.weeks, goal, Date.now());

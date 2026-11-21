@@ -92,7 +92,7 @@ describe('코스부터 준비하는 모집 작성',()=>{
   });
   it('앱 내장 실내 코스를 고르면 번들 GPX 경로와 내장 코스 출처를 적용한다',async()=>{
     // 실내 모임 코스로 앱 내장 코스(새만금 등)를 고를 수 없어 출발이 보류됐다(orider-g1-web#3677).
-    const initial={...createSeed().meetings[2]!,courseSource:undefined,distanceKm:undefined,elevationGainM:undefined,courseHighlights:'',courseStops:[],courseCheckpoints:[],segments:[],courseTrack:undefined};
+    const initial={...createSeed().meetings[2]!,venue:'indoor' as const,courseSource:undefined,distanceKm:undefined,elevationGainM:undefined,courseHighlights:'',courseStops:[],courseCheckpoints:[],segments:[],courseTrack:undefined};
     let applied:Meeting|undefined;
     function Capture(){const[meeting,setMeeting]=useState<Meeting>(initial);applied=meeting;return <CoursePreparation meeting={meeting} onChange={setMeeting} onBusyChange={vi.fn()}/>;}
     render(<Capture/>);
@@ -106,6 +106,25 @@ describe('코스부터 준비하는 모집 작성',()=>{
     expect(applied!.courseTrack!.segmentStarts?.length ?? 0).toBeLessThanOrEqual(1);
     expect(applied!.distanceKm).toBeGreaterThan(25);
     expect(screen.getByRole('status').textContent).toContain('앱 실내 코스');
+    // 경로가 있는 코스를 가져오면 접힌 칸에서 따로 확정하지 않아도 코스가 확정된다(#1779).
+    expect(applied!.courseReady).toBe(true);
+  });
+  it('실내·실외에 맞는 코스 준비 방법만 보이고 고르기 전에는 열지 않는다',()=>{
+    // 코스를 먼저 고르면 실내에 못 쓰는 코스를 고른 뒤 「모집 시작」에서야 오류가 났다(#1779).
+    const blank={...createSeed().meetings[2]!,courseSource:undefined,courseTrack:undefined};
+    const names=()=>screen.queryAllByRole('tab').map(tab=>tab.textContent);
+    const view=render(<Harness initial={{...blank,venue:undefined}}/>);
+    expect(names()).toEqual([]);
+    expect(screen.getByText(/실내·실외를 먼저 골라주세요/)).toBeTruthy();
+    view.unmount();
+    const indoor=render(<Harness initial={{...blank,venue:'indoor'}}/>);
+    expect(names()).toEqual(['앱 실내 코스']);
+    expect(screen.getAllByRole('button',{name:'이 코스 가져오기'})).toHaveLength(10);
+    indoor.unmount();
+    render(<Harness initial={{...blank,venue:'outdoor'}}/>);
+    expect(names()).toEqual(['기존 코스 가져오기','GPX로 준비하기','세그먼트로 준비하기']);
+    fireEvent.click(screen.getByRole('tab',{name:'세그먼트로 준비하기'}));
+    expect(screen.getByText(/구간 사이를 잇는 전체 경로는 만들지 않아/)).toBeTruthy();
   });
   it('GPX 출처·체크포인트·생성 구간을 미게시 초안과 미리보기에 보존한다',async()=>{
     const state=createSeed();const initial={...duplicateMeeting(state.meetings[2]!,'gpx-draft'),hostId:'me',date:'2099-10-25'};

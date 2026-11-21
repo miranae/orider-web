@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
 import { Stack } from "../../theme/components/Stack";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
-import type { Meeting, MeetingVenue, State } from "./domain";
-import { indoorCourseIssue } from "./domain";
+import type { CourseSource, Meeting, MeetingVenue, State } from "./domain";
+import { courseFitsVenue, indoorCourseIssue } from "./domain";
+import { clearCourse } from "./meetingCoursePlan";
 import CoursePreparation from "./CoursePreparation";
 import CoursePreview, { CourseSummary } from "./CoursePreview";
 import { clearDraft, draftScope, readDraft, writeDraft } from "./meetingDrafts";
-import { isMeetingStartNotFuture } from "./meetingSchedule";
+import { isMeetingStartNotFuture, meetingDateTimeLabel } from "./meetingSchedule";
 import { revealFocusTarget } from "../../services/focusTarget";
 import { Resolvable } from "../../components/redesign";
 
@@ -29,6 +30,15 @@ export const MEETING_VENUE_OPTIONS: { value: MeetingVenue; label: string; hint: 
     hint: "야외에서 모여 실외 라이딩으로 기록합니다",
   },
 ];
+/**
+ * 실내 모임의 집결 장소 — 실내는 모이는 곳이 없어 칸을 숨기고, 서버가 필수로 받는 `place` 는 이 문구로 채운다(#1779).
+ */
+const INDOOR_PLACE = "앱 실내 라이딩";
+const sameCourseSource = (a?: CourseSource, b?: CourseSource) =>
+  a?.kind === b?.kind && a?.id === b?.id && a?.name === b?.name;
+/** 코스 이름으로 채우는 모임 이름. 구간 소개는 코스 이름이 없어(「선택한 세그먼트로 준비」) 채우지 않는다. */
+const courseTitle = (source?: CourseSource) =>
+  source && source.kind !== "segments" ? source.name.replace(/\.gpx$/i, "").slice(0, 300) : "";
 /** 저장 검증 오류를 고칠 칸. 오류 문구를 누르면 작성 단계로 돌아가 이 칸에 초점을 둔다. */
 type FixTarget = "course" | "venue" | "date";
 
@@ -79,6 +89,7 @@ export default function MeetingForm({
   const [saveError, setSaveError] = useState(recovery.error ?? "");
   const [preview, setPreview] = useState(false);
   const [dateConfirmed, setDateConfirmed] = useState(false);
+  const [outdoorChangesConfirmed, setOutdoorChangesConfirmed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const courseSectionRef = useRef<HTMLDetailsElement>(null);
   const courseReadyRef = useRef<HTMLSelectElement>(null);
@@ -135,6 +146,68 @@ export default function MeetingForm({
       .map((value) => value.trim())
       .filter(Boolean),
   });
+  const indoor = draft.venue === "indoor";
+  const locale = english ? "en" : "ko";
+  const convertsOutdoor = existing && initial.venue === "outdoor" && indoor;
+  /**
+   * 저장할 모임 — 실내는 숨긴 실외용 칸(집결 장소·합류 지점·우천·주차)을 싣지 않고 집결 장소를 고정 문구로 채운다.
+   * 화면에서 숨긴 값이 그대로 저장되면 참석자가 실내 모임에서 이전 야외 집결지를 보게 된다.
+   * 실외에서 실내로 바꾼 모임과 새 모임만 그렇게 한다 — 원래 실내였거나 실내·실외 구분 전에 만든 모임은
+   * 주최자가 예전에 적어 둔 값을 그대로 둔다(제목만 고쳤는데 저장된 안내가 말없이 지워지지 않게).
+   */
+  const meetingToSave = (): Meeting => {
+    const meeting = completeDraft();
+    if (!indoor) return meeting;
+    const place = mt(INDOOR_PLACE);
+    // 원래 실내였거나 구분 전에 만든 모임: 빈 집결 장소만 채우고 나머지 안내는 손대지 않는다.
+    if (existing && initial.venue !== "outdoor") {
+      if (meeting.place.trim()) return meeting;
+      return { ...meeting, place, joins: meeting.joins.map((join, index) => (index ? join : { ...join, place })) };
+    }
+    // 참석자가 이미 고른 합류 지점은 남긴다 — 지우면 서버가 저장을 거부한다.
+    // 남긴 지점도 장소는 실내 문구로 바꾼다 — 예전 야외 장소 이름이 실내 모임 안내에 남지 않게.
+    const chosen = new Set(meeting.registrations.map((person) => person.joinId).filter(Boolean));
+    return {
+      ...meeting,
+      place,
+      joins: meeting.joins
+        .filter((join, index) => index === 0 || chosen.has(join.id))
+        .map((join) => ({ ...join, place })),
+      weather: "",
+      parking: "",
+    };
+  };
+  // 실내·실외를 바꿔 고른 코스가 맞지 않게 되면 확인을 받고 코스를 비운다. 저장된 모임을 원래 쪽으로 되돌리는 것은
+  // 저장된 코스 그대로라 묻지 않는다(예: GPX 로 만든 기존 실내 모임).
+  const [pendingVenue, setPendingVenue] = useState<MeetingVenue | null>(null);
+  const applyVenue = (venue: MeetingVenue, dropCourse: boolean) => {
+    // 코스를 비우면 그 코스 이름으로 채워 둔 모임 이름도 비운다 — 다음에 고른 코스 이름이 들어가게.
+    const base = dropCourse
+      ? { ...clearCourse(draft), title: draft.title === courseTitle(draft.courseSource) ? "" : draft.title }
+      : draft;
+    const leftIndoorPlace =
+      venue === "outdoor" && (base.place === INDOOR_PLACE || base.place === mt(INDOOR_PLACE));
+    setDraft({
+      ...base,
+      venue,
+      ...(leftIndoorPlace
+        ? { place: "", joins: base.joins.map((join, index) => (index ? join : { ...join, place: "" })) }
+        : {}),
+    });
+    if (dropCourse) setStopText("");
+    setPendingVenue(null);
+  };
+  const chooseVenue = (venue: MeetingVenue) => {
+    if (venue === draft.venue) return;
+    const keepsCourse =
+      courseFitsVenue(draft, venue) ||
+      // 실내·실외 구분 전에 만든 모임(venue 없음)은 어느 쪽을 골라도 저장된 코스를 지킨다.
+      (existing &&
+        (venue === initial.venue || initial.venue === undefined) &&
+        sameCourseSource(draft.courseSource, initial.courseSource));
+    if (draft.courseSource && !keepsCourse) setPendingVenue(venue);
+    else applyVenue(venue, false);
+  };
   useEffect(() => {
     if (recovery.error) return;
     try {
@@ -170,7 +243,7 @@ export default function MeetingForm({
     return true;
   };
   const submit = async () => {
-    if (savingRef.current) return;
+    if (savingRef.current || (requiresOutdoorConfirmation && !outdoorChangesConfirmed)) return;
     if (startNotFuture()) return;
     if (!draft.venue) {
       failWithFix(mt("실내 모임인지 실외 모임인지 선택해주세요."), "venue");
@@ -189,7 +262,7 @@ export default function MeetingForm({
     savingRef.current = true;
     setSaving(true);
     try {
-      await onSave(completeDraft(), baseRevision);
+      await onSave(meetingToSave(), baseRevision);
       clearDraft(scope);
     } catch (error) {
       setSaveError(
@@ -204,6 +277,12 @@ export default function MeetingForm({
       setSaving(false);
     }
   };
+  const kindLabel = (meeting: Meeting) =>
+    meeting.kindId === "custom"
+      ? (meeting.kindName ?? "")
+      : (state.kinds.find((kind) => kind.id === meeting.kindId)?.name ?? "");
+  const feeLabel = (fee: number) => (fee > 0 ? `${fee.toLocaleString()}${mt("원")}` : "");
+  const savedMeeting = convertsOutdoor ? meetingToSave() : draft;
   const reviewRows = [
     { label: mt("모임 이름"), before: initial.title, after: draft.title },
     {
@@ -211,32 +290,36 @@ export default function MeetingForm({
       before: meetingVenueLabel(initial.venue),
       after: meetingVenueLabel(draft.venue),
     },
+    { label: mt("모임 종류"), before: kindLabel(initial), after: kindLabel(draft) },
     {
       label: mt("일시"),
-      before: `${initial.date} ${initial.time}`,
-      after: `${draft.date} ${draft.time}`,
+      before: meetingDateTimeLabel(initial.date, initial.time, locale),
+      after: meetingDateTimeLabel(draft.date, draft.time, locale),
     },
-    { label: mt("집결 장소"), before: initial.place, after: draft.place },
+    { label: mt("집결 장소"), before: initial.place, after: savedMeeting.place, outdoorOnly: true },
     {
       label: mt("정원"),
       before: `${initial.capacity}${mt("명")}`,
       after: `${draft.capacity}${mt("명")}`,
     },
     { label: mt("속도·운영 강도"), before: initial.pace, after: draft.pace },
-    { label: mt("우천 안내"), before: initial.weather, after: draft.weather },
+    { label: mt("비용"), before: feeLabel(initial.fee), after: feeLabel(draft.fee) },
+    { label: mt("우천 안내"), before: initial.weather, after: savedMeeting.weather, outdoorOnly: true },
     {
       label: mt("주차·현장 안내"),
       before: initial.parking,
-      after: draft.parking,
+      after: savedMeeting.parking,
+      outdoorOnly: true,
     },
     {
       label: mt("합류 지점"),
       before: initial.joins
         .map((join) => `${join.time} ${join.place}`)
         .join(" / "),
-      after: draft.joins
+      after: savedMeeting.joins
         .map((join) => `${join.time} ${join.place}`)
         .join(" / "),
+      outdoorOnly: true,
     },
     {
       label: mt("코스의 매력·주의 구간"),
@@ -248,7 +331,26 @@ export default function MeetingForm({
       before: initial.description,
       after: draft.description,
     },
-  ].filter((row) => !existing || row.before !== row.after);
+  ]
+    // 실외에서 전환할 때에는 저장으로 바뀌거나 지워지는 필드도 확인한다.
+    .filter((row) => !(indoor && row.outdoorOnly && !convertsOutdoor))
+    // 수정은 바뀐 항목만, 새 모임은 적은 항목만 보인다 — 빈 항목마다 「안내 없음」을 찍지 않는다.
+    .filter((row) => (existing ? row.before !== row.after : row.after.trim() !== ""));
+  const requiresOutdoorConfirmation = convertsOutdoor && reviewRows.some((row) => row.outdoorOnly);
+  /** 미리보기로 넘어가기 전에 저장을 막을 조건을 모두 본다 — 「모집 시작」을 누른 뒤에야 코스 오류가 나오지 않게(#1779). */
+  const openPreview = () => {
+    if (reading || saving) return;
+    if (!formRef.current?.reportValidity() || startNotFuture()) return;
+    const indoorIssue = indoorCourseIssue(draft, state.meetings.find((meeting) => meeting.id === initial.id));
+    if (indoorIssue) {
+      failWithFix(mt(indoorIssue), "course");
+      goFix("course");
+      return;
+    }
+    setSaveError("");
+    setOutdoorChangesConfirmed(false);
+    setPreview(true);
+  };
   // 작성 단계 하단 막대: 버튼 두 개만 한 줄로 화면 맨 아래에 붙인다. 초안 자동 저장 상태 문구는
   // 막대를 두 줄로 키워 빼고, 저장 실패 같은 오류만 위쪽 경고(role=alert)와 같은 문장을 한 줄로
   // 줄여 막대 위에 보여준다 — 긴 양식 끝에서 버튼을 누르려는 사람이 위 경고를 놓치지 않게.
@@ -265,12 +367,7 @@ export default function MeetingForm({
       <Button
         variant="primary"
         disabled={reading || saving}
-        onClick={() => {
-          if (formRef.current?.reportValidity() && !startNotFuture()) {
-            setSaveError("");
-            setPreview(true);
-          }
-        }}
+        onClick={openPreview}
       >
         {mt("모집글 미리보기")}
       </Button>
@@ -296,8 +393,8 @@ export default function MeetingForm({
         <div className="cp-stack">
           <p>{draft.description}</p>
           <p>
-            {meetingVenueLabel(draft.venue)} · {draft.date} {draft.time} ·{" "}
-            {draft.place}
+            {meetingVenueLabel(draft.venue)} · {meetingDateTimeLabel(draft.date, draft.time, locale)}
+            {indoor ? "" : ` · ${draft.place}`}
           </p>
           <CourseSummary meeting={completeDraft()} />
           <CoursePreview
@@ -305,18 +402,6 @@ export default function MeetingForm({
             onConfirmCourse={saving ? undefined : requestCourseReadyFocus}
             onPrepareCourse={saving ? undefined : () => goFix("course")}
           />
-          {!existing && (
-            <label className="cp-date-check">
-              <input
-                type="checkbox"
-                disabled={saving}
-                checked={dateConfirmed}
-                onChange={(event) => setDateConfirmed(event.target.checked)}
-              />{" "}
-              {draft.date} {draft.time}
-              {mt("에 개최하는 모임이 맞습니다.")}
-            </label>
-          )}
           <section
             className="cp-stack"
             aria-label={existing ? mt("변경 내용 요약") : mt("모집 운영 안내")}
@@ -367,13 +452,37 @@ export default function MeetingForm({
               <Resolvable resolve={fixResolve()}>{saveError}</Resolvable>
             </div>
           )}
+          {/* 날짜 확인은 「모집 시작」 바로 위에 둔다 — 체크 전에는 버튼이 꺼져 있어, 떨어져 있으면 이유를 찾지 못한다. */}
+          {!existing && (
+            <label className="cp-date-check">
+              <input
+                type="checkbox"
+                disabled={saving}
+                checked={dateConfirmed}
+                onChange={(event) => setDateConfirmed(event.target.checked)}
+              />{" "}
+              {meetingDateTimeLabel(draft.date, draft.time, locale)}
+              {mt("에 개최하는 모임이 맞습니다.")}
+            </label>
+          )}
+          {requiresOutdoorConfirmation && (
+            <label className="cp-date-check">
+              <input
+                type="checkbox"
+                disabled={saving}
+                checked={outdoorChangesConfirmed}
+                onChange={(event) => setOutdoorChangesConfirmed(event.target.checked)}
+              />{" "}
+              {mt("위에 표시된 실외 집결·합류·안내 정보가 변경되거나 삭제되는 것을 확인했습니다.")}
+            </label>
+          )}
           <div onPointerDown={preserveActionPosition} className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar mobile-form-actions">
             <Button disabled={saving} onClick={() => setPreview(false)}>
               {mt("더 수정하기")}
             </Button>
             <Button
               variant="primary"
-              disabled={saving || (!existing && !dateConfirmed)}
+              disabled={saving || (!existing && !dateConfirmed) || (requiresOutdoorConfirmation && !outdoorChangesConfirmed)}
               loading={saving}
               onClick={() => void submit()}
             >
@@ -432,28 +541,11 @@ export default function MeetingForm({
         className="cp-stack"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!reading && !saving && !startNotFuture()) setPreview(true);
+          openPreview();
         }}
       >
-        <CoursePreparation
-          meeting={completeDraft()}
-          onChange={(next) => {
-            setDraft(next);
-            setStopText(next.courseStops?.join("\n") ?? "");
-          }}
-          onBusyChange={setReading}
-        />
         <section className="cp-form-step">
-        <h3>{mt("2. 모임을 알려주세요")}</h3>
-        <Field label={mt("모임 이름")} htmlFor="meeting-title">
-          <Input
-            id="meeting-title"
-            maxLength={300}
-            required
-            value={draft.title}
-            onChange={(e) => patch({ title: e.target.value })}
-          />
-        </Field>
+        <h3>{mt("1. 실내·실외를 골라주세요")}</h3>
         <fieldset className="cp-venue-choice" aria-describedby="meeting-venue-hint">
           <legend>{mt("실내 / 실외")}</legend>
           <p id="meeting-venue-hint" className="cp-muted">
@@ -469,7 +561,7 @@ export default function MeetingForm({
                 value={option.value}
                 required
                 checked={draft.venue === option.value}
-                onChange={() => patch({ venue: option.value })}
+                onChange={() => chooseVenue(option.value)}
               />
               <span>
                 <strong>{mt(option.label)}</strong>
@@ -478,6 +570,51 @@ export default function MeetingForm({
             </label>
           ))}
         </fieldset>
+        {pendingVenue && (
+          <section className="cp-import-confirm" role="region" aria-label={mt("실내·실외 변경 확인")}>
+            <h3>{mt("고른 코스를 비울까요?")}</h3>
+            <p className="cp-muted">
+              {pendingVenue === "indoor"
+                ? mt("실내 모임은 앱 실내 코스만 쓸 수 있어요. 실내로 바꾸면 고른 코스가 지워집니다.")
+                : mt("앱 실내 코스는 실내 모임에서만 쓸 수 있어요. 실외로 바꾸면 고른 코스가 지워집니다.")}{" "}
+              {mt("저장할 변경 내용은 미리보기에서 확인할 수 있어요.")}
+            </p>
+            <p>
+              <strong>{draft.courseSource?.name}</strong>
+            </p>
+            <div className="cp-actions">
+              <Button onClick={() => setPendingVenue(null)}>{mt("그대로 두기")}</Button>
+              <Button variant="primary" onClick={() => applyVenue(pendingVenue, true)}>
+                {pendingVenue === "indoor" ? mt("실내로 바꾸고 코스 비우기") : mt("실외로 바꾸고 코스 비우기")}
+              </Button>
+            </div>
+          </section>
+        )}
+        </section>
+        <CoursePreparation
+          meeting={completeDraft()}
+          onChange={(next) => {
+            // 코스를 새로 고르면 모임 이름을 코스 이름으로 채운다 — 비어 있거나 이전 코스 이름 그대로일 때만.
+            // 주최자가 적은 이름은 건드리지 않는다.
+            const title = courseTitle(next.courseSource);
+            const untouched = !next.title.trim() || next.title === courseTitle(draft.courseSource);
+            const renamed = title && untouched && !sameCourseSource(next.courseSource, draft.courseSource);
+            setDraft(renamed ? { ...next, title } : next);
+            setStopText(next.courseStops?.join("\n") ?? "");
+          }}
+          onBusyChange={setReading}
+        />
+        <section className="cp-form-step">
+        <h3>{mt("3. 모임을 알려주세요")}</h3>
+        <Field label={mt("모임 이름")} htmlFor="meeting-title">
+          <Input
+            id="meeting-title"
+            maxLength={300}
+            required
+            value={draft.title}
+            onChange={(e) => patch({ title: e.target.value })}
+          />
+        </Field>
         <div className="cp-form-grid">
           <Field label={mt("모임 종류")} htmlFor="meeting-kind">
             <Select
@@ -530,7 +667,7 @@ export default function MeetingForm({
               }}
             />
           </Field>
-          <Field label={mt("집결 시각")} htmlFor="meeting-time">
+          <Field label={indoor ? mt("출발 시각") : mt("집결 시각")} htmlFor="meeting-time">
             <Input
               id="meeting-time"
               type="time"
@@ -548,20 +685,31 @@ export default function MeetingForm({
             />
           </Field>
         </div>
-        <Field label={mt("기본 집결 장소")} htmlFor="meeting-place">
+        {!indoor && (
+          <Field label={mt("기본 집결 장소")} htmlFor="meeting-place">
+            <Input
+              id="meeting-place"
+              maxLength={300}
+              required
+              value={draft.place}
+              onChange={(e) =>
+                patch({
+                  place: e.target.value,
+                  joins: draft.joins.map((join, index) =>
+                    index ? join : { ...join, place: e.target.value },
+                  ),
+                })
+              }
+            />
+          </Field>
+        )}
+        <Field label={mt("속도·운영 강도")} htmlFor="meeting-pace">
           <Input
-            id="meeting-place"
-            maxLength={300}
-            required
-            value={draft.place}
-            onChange={(e) =>
-              patch({
-                place: e.target.value,
-                joins: draft.joins.map((join, index) =>
-                  index ? join : { ...join, place: e.target.value },
-                ),
-              })
-            }
+            id="meeting-pace"
+            maxLength={1000}
+            value={draft.pace}
+            onChange={(e) => patch({ pace: e.target.value })}
+            placeholder={indoor ? mt("예: 2.5–3.0W/kg · 그룹 유지") : mt("예: 28–33km/h · 로테 없음")}
           />
         </Field>
         <Field label={mt("모집 소개")} htmlFor="meeting-description">
@@ -616,15 +764,6 @@ export default function MeetingForm({
                 />
               </Field>
             </div>
-            <Field label={mt("속도·운영 강도")} htmlFor="meeting-pace">
-              <Input
-                id="meeting-pace"
-                maxLength={1000}
-                value={draft.pace}
-                onChange={(e) => patch({ pace: e.target.value })}
-                placeholder={mt("예: 28–33km/h · 로테 없음")}
-              />
-            </Field>
             <Field
               label={mt("코스의 매력·보급·주의 구간")}
               htmlFor="meeting-highlights"
@@ -666,7 +805,7 @@ export default function MeetingForm({
             </Field>
           </div>
         </details>
-        <details className="cp-divider">
+        {!indoor && <details className="cp-divider">
           <summary>{mt("합류·이동 안내")}</summary>
           <div className="cp-stack">
             <Field label={mt("우천 시 판단 안내")} htmlFor="meeting-weather">
@@ -748,7 +887,7 @@ export default function MeetingForm({
               {mt("＋ 합류 지점 추가")}
             </Button></Stack>
           </div>
-        </details>
+        </details>}
         <details className="cp-divider">
           <summary>{mt("비용 설정 · 필요한 모임만")}</summary>
           <Field

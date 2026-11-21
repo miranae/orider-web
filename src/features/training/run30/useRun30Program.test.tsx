@@ -5,6 +5,7 @@ import { planSnapshotKey, readPlanSnapshot, run30SnapshotKey, writePlanSnapshot 
 import type { Goal } from "@shared/types/goal";
 import type { Run30Program } from "./run30Api";
 import { useRun30Program } from "./useRun30Program";
+import { notifyPlanGoalChanged } from "../../../embedded/planGoalChanges";
 const mocks = vi.hoisted(() => ({
   user: { uid: "u1" } as { uid: string; isAnonymous?: boolean } | null,
   api: { getCurrentProgram: vi.fn(), enroll: vi.fn(), confirmChange: vi.fn(), previewEnrollment: vi.fn(), previewChange: vi.fn() },
@@ -123,6 +124,19 @@ describe("useRun30Program snapshot", () => {
     expect(hook.result.current.program).toBeNull();
     expect(hook.result.current.status).toBe("idle");
     expect(readPlanSnapshot(run30SnapshotKey("u1"))).toBeNull();
+  });
+  it("러닝 목표 변경 알림이 오면 유지된 프로그램을 다시 읽고 다른 사용자·종목 알림은 무시한다", async () => {
+    seed();
+    const hook = renderHook(() => useRun30Program(true));
+    expect(hook.result.current).toMatchObject({ status: "ready", program, cacheHit: true });
+    expect(mocks.api.getCurrentProgram).not.toHaveBeenCalled();
+    act(() => { notifyPlanGoalChanged("other", "run", "ko"); window.dispatchEvent(new CustomEvent("orider:plan-goal-changed", { detail: { uid: "u1", sport: "bike" } })); });
+    expect(mocks.api.getCurrentProgram).not.toHaveBeenCalled();
+    mocks.api.getCurrentProgram.mockResolvedValue(null);
+    act(() => notifyPlanGoalChanged("u1", "run", "ko"));
+    await waitFor(() => expect(hook.result.current.program).toBeNull());
+    expect(mocks.api.getCurrentProgram).toHaveBeenCalledTimes(1);
+    hook.unmount();
   });
   it("변경 성공 직후 Run30과 모든 언어의 러닝계획을 무효화한다", async () => {
     seed();
