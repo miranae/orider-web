@@ -21,6 +21,12 @@ describe('모임 코스 가져오기', () => {
     expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('공원 입구');
   });
 
+  it('서로 다른 구간의 출발 표식이 트랙 시작 근처에 있으면 실제 시작 좌표를 사용한다', () => {
+    const plan = readGpxCoursePlan(gpx(segment() + segment(undefined, 37.00003), '<wpt lat="37.0001" lon="127"><name>첫 구간 입구</name><type>START</type></wpt><wpt lat="37.00003" lon="127"><name>다음 구간 입구</name><type>START</type></wpt>'), 'multi-part.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
+  });
+
   it('고도 있는 GPX는 원본 수치·전체 주행 구간·오르막 경로를 자동 생성한다', () => {
     const xml = gpx(segment([50, 100, 170, 120]));
     const plan = readGpxCoursePlan(xml, 'ride.gpx');
