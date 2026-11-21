@@ -741,7 +741,7 @@ export default function MeetingForm({
                       distanceKm:
                         e.target.value === ""
                           ? undefined
-                          : Number(e.target.value),
+                          : oneDecimal(Number(e.target.value)),
                     })
                   }
                 />
@@ -759,7 +759,7 @@ export default function MeetingForm({
                       elevationGainM:
                         e.target.value === ""
                           ? undefined
-                          : Number(e.target.value),
+                          : oneDecimal(Number(e.target.value)),
                     })
                   }
                 />
