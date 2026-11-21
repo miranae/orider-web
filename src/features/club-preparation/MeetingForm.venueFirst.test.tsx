@@ -118,7 +118,7 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     expect((onSave.mock.calls[0]![0] as Meeting).joins).toHaveLength(2);
   });
 
-  it("실외 모임을 실내로 바꾸면 숨긴 집결 장소·합류 지점·우천·주차 안내를 저장하지 않는다", async () => {
+  it("실외 집결·합류 및 안내 변경을 보여주고 확인받은 후 실내로 저장한다", async () => {
     // 화면에서 숨긴 값이 그대로 저장되면 참석자가 실내 모임에서 이전 야외 집결지를 본다(#1780 리뷰).
     const outdoor: Meeting = { ...fresh, id: "m3", title: "남산 번개", venue: "outdoor", place: "반포 한강공원", weather: "비 오면 취소", parking: "공영주차장",
       joins: [{ id: "main", place: "반포 한강공원", time: "08:00" }, { id: "j2", place: "잠수교", time: "08:20" }] };
@@ -127,7 +127,18 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     fireEvent.click(radio(/실내/));
     fireEvent.click(screen.getByRole("button", { name: "내장 코스 고르기" }));
     fireEvent.click(screen.getByRole("button", { name: "모집글 미리보기" }));
-    fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
+    const summary = document.querySelector(".cp-review-summary")!;
+    expect(summary.textContent).toContain("반포 한강공원");
+    expect(summary.textContent).toContain("잠수교");
+    expect(summary.textContent).toContain("비 오면 취소");
+    expect(summary.textContent).toContain("공영주차장");
+    expect(summary.textContent).toContain("앱 실내 라이딩");
+    const saveButton = screen.getByRole("button", { name: "변경 내용 저장" }) as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(true);
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /정보가 변경되거나 삭제/ }));
+    expect(saveButton.disabled).toBe(false);
+    fireEvent.click(saveButton);
     await vi.waitFor(() => expect(onSave).toHaveBeenCalled());
     const saved = onSave.mock.calls[0]![0] as Meeting;
     expect(saved).toMatchObject({ venue: "indoor", place: "앱 실내 라이딩", weather: "", parking: "" });
@@ -144,6 +155,7 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     fireEvent.click(radio(/실내/));
     fireEvent.click(screen.getByRole("button", { name: "내장 코스 고르기" }));
     fireEvent.click(screen.getByRole("button", { name: "모집글 미리보기" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /정보가 변경되거나 삭제/ }));
     fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
     await vi.waitFor(() => expect(onSave).toHaveBeenCalled());
     // 남긴 지점의 장소도 실내 문구로 바꾼다 — 예전 야외 장소 이름이 실내 모임 안내에 남지 않는다(#1782 리뷰).

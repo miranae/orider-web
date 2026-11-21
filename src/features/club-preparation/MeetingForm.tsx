@@ -89,6 +89,7 @@ export default function MeetingForm({
   const [saveError, setSaveError] = useState(recovery.error ?? "");
   const [preview, setPreview] = useState(false);
   const [dateConfirmed, setDateConfirmed] = useState(false);
+  const [outdoorChangesConfirmed, setOutdoorChangesConfirmed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const courseSectionRef = useRef<HTMLDetailsElement>(null);
   const courseReadyRef = useRef<HTMLSelectElement>(null);
@@ -147,6 +148,7 @@ export default function MeetingForm({
   });
   const indoor = draft.venue === "indoor";
   const locale = english ? "en" : "ko";
+  const convertsOutdoor = existing && initial.venue === "outdoor" && indoor;
   /**
    * 저장할 모임 — 실내는 숨긴 실외용 칸(집결 장소·합류 지점·우천·주차)을 싣지 않고 집결 장소를 고정 문구로 채운다.
    * 화면에서 숨긴 값이 그대로 저장되면 참석자가 실내 모임에서 이전 야외 집결지를 보게 된다.
@@ -241,7 +243,7 @@ export default function MeetingForm({
     return true;
   };
   const submit = async () => {
-    if (savingRef.current) return;
+    if (savingRef.current || (requiresOutdoorConfirmation && !outdoorChangesConfirmed)) return;
     if (startNotFuture()) return;
     if (!draft.venue) {
       failWithFix(mt("실내 모임인지 실외 모임인지 선택해주세요."), "venue");
@@ -280,6 +282,7 @@ export default function MeetingForm({
       ? (meeting.kindName ?? "")
       : (state.kinds.find((kind) => kind.id === meeting.kindId)?.name ?? "");
   const feeLabel = (fee: number) => (fee > 0 ? `${fee.toLocaleString()}${mt("원")}` : "");
+  const savedMeeting = convertsOutdoor ? meetingToSave() : draft;
   const reviewRows = [
     { label: mt("모임 이름"), before: initial.title, after: draft.title },
     {
@@ -293,7 +296,7 @@ export default function MeetingForm({
       before: meetingDateTimeLabel(initial.date, initial.time, locale),
       after: meetingDateTimeLabel(draft.date, draft.time, locale),
     },
-    { label: mt("집결 장소"), before: initial.place, after: draft.place, outdoorOnly: true },
+    { label: mt("집결 장소"), before: initial.place, after: savedMeeting.place, outdoorOnly: true },
     {
       label: mt("정원"),
       before: `${initial.capacity}${mt("명")}`,
@@ -301,11 +304,11 @@ export default function MeetingForm({
     },
     { label: mt("속도·운영 강도"), before: initial.pace, after: draft.pace },
     { label: mt("비용"), before: feeLabel(initial.fee), after: feeLabel(draft.fee) },
-    { label: mt("우천 안내"), before: initial.weather, after: draft.weather, outdoorOnly: true },
+    { label: mt("우천 안내"), before: initial.weather, after: savedMeeting.weather, outdoorOnly: true },
     {
       label: mt("주차·현장 안내"),
       before: initial.parking,
-      after: draft.parking,
+      after: savedMeeting.parking,
       outdoorOnly: true,
     },
     {
@@ -313,7 +316,7 @@ export default function MeetingForm({
       before: initial.joins
         .map((join) => `${join.time} ${join.place}`)
         .join(" / "),
-      after: draft.joins
+      after: savedMeeting.joins
         .map((join) => `${join.time} ${join.place}`)
         .join(" / "),
       outdoorOnly: true,
@@ -329,10 +332,11 @@ export default function MeetingForm({
       after: draft.description,
     },
   ]
-    // 실내 모임은 숨긴 실외용 칸을 요약에도 싣지 않는다.
-    .filter((row) => !(indoor && row.outdoorOnly))
+    // 실외에서 전환할 때에는 저장으로 바뀌거나 지워지는 필드도 확인한다.
+    .filter((row) => !(indoor && row.outdoorOnly && !convertsOutdoor))
     // 수정은 바뀐 항목만, 새 모임은 적은 항목만 보인다 — 빈 항목마다 「안내 없음」을 찍지 않는다.
     .filter((row) => (existing ? row.before !== row.after : row.after.trim() !== ""));
+  const requiresOutdoorConfirmation = convertsOutdoor && reviewRows.some((row) => row.outdoorOnly);
   /** 미리보기로 넘어가기 전에 저장을 막을 조건을 모두 본다 — 「모집 시작」을 누른 뒤에야 코스 오류가 나오지 않게(#1779). */
   const openPreview = () => {
     if (reading || saving) return;
@@ -344,6 +348,7 @@ export default function MeetingForm({
       return;
     }
     setSaveError("");
+    setOutdoorChangesConfirmed(false);
     setPreview(true);
   };
   // 작성 단계 하단 막대: 버튼 두 개만 한 줄로 화면 맨 아래에 붙인다. 초안 자동 저장 상태 문구는
@@ -460,13 +465,24 @@ export default function MeetingForm({
               {mt("에 개최하는 모임이 맞습니다.")}
             </label>
           )}
+          {requiresOutdoorConfirmation && (
+            <label className="cp-date-check">
+              <input
+                type="checkbox"
+                disabled={saving}
+                checked={outdoorChangesConfirmed}
+                onChange={(event) => setOutdoorChangesConfirmed(event.target.checked)}
+              />{" "}
+              {mt("위에 표시된 실외 집결·합류·안내 정보가 변경되거나 삭제되는 것을 확인했습니다.")}
+            </label>
+          )}
           <div onPointerDown={preserveActionPosition} className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar mobile-form-actions">
             <Button disabled={saving} onClick={() => setPreview(false)}>
               {mt("더 수정하기")}
             </Button>
             <Button
               variant="primary"
-              disabled={saving || (!existing && !dateConfirmed)}
+              disabled={saving || (!existing && !dateConfirmed) || (requiresOutdoorConfirmation && !outdoorChangesConfirmed)}
               loading={saving}
               onClick={() => void submit()}
             >
@@ -561,7 +577,7 @@ export default function MeetingForm({
               {pendingVenue === "indoor"
                 ? mt("실내 모임은 앱 실내 코스만 쓸 수 있어요. 실내로 바꾸면 고른 코스가 지워집니다.")
                 : mt("앱 실내 코스는 실내 모임에서만 쓸 수 있어요. 실외로 바꾸면 고른 코스가 지워집니다.")}{" "}
-              {mt("모임 이름·날짜·집결 정보는 유지됩니다.")}
+              {mt("저장할 변경 내용은 미리보기에서 확인할 수 있어요.")}
             </p>
             <p>
               <strong>{draft.courseSource?.name}</strong>
