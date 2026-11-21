@@ -1,4 +1,6 @@
 import { preserveActionPosition } from "../../utils/preserveActionPosition";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { logClientError } from "../../services/errorLogger";
 import { mt } from "./meetingText";
 import { oneDecimal } from "./checkpointPresentation";
 import { useEffect, useRef, useState } from "react";
@@ -212,6 +214,14 @@ export default function MeetingForm({
     if (draft.courseSource && !keepsCourse) setPendingVenue(venue);
     else applyVenue(venue, false);
   };
+  const firebaseServices = useFirebaseServices();
+  useEffect(() => {
+    if (recovery.error) {
+      logClientError("MeetingForm.readDraft", new Error("Browser draft storage read failed"), {
+        errorName: recovery.errorName,
+      }, firebaseServices);
+    }
+  }, [recovery.error, recovery.errorName, firebaseServices]);
   useEffect(() => {
     if (recovery.error) return;
     try {
@@ -229,14 +239,17 @@ export default function MeetingForm({
         autoPlace.current ?? undefined,
       );
       setSaveError("");
-    } catch {
+    } catch (failure) {
+      logClientError("MeetingForm.writeDraft", new Error("Browser draft storage write failed"), {
+        errorName: failure instanceof Error || failure instanceof DOMException ? failure.name : undefined,
+      }, firebaseServices);
       setSaveError(
         mt(
           "초안을 저장하지 못했어요. 입력값과 브라우저 저장 공간을 확인해주세요.",
         ),
       );
     }
-  }, [draft, stopText, scope, recovery.error, baseRevision]);
+  }, [draft, stopText, scope, recovery.error, baseRevision, firebaseServices]);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   /** 생성·일정 변경 모두 서버와 같은 경계(현재 시각 이하 거부)로 막는다. */

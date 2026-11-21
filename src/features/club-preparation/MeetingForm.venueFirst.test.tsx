@@ -6,6 +6,7 @@ import { newClubMeeting } from "./meetingCopy";
 import { clearCourse } from "./meetingCoursePlan";
 import { meetingDateTimeLabel } from "./meetingSchedule";
 import type { CourseSource, Meeting, State } from "./domain";
+import { logClientError } from "../../services/errorLogger";
 
 const track = {
   fileName: "코스",
@@ -37,6 +38,7 @@ vi.mock("./CoursePreparation", () => ({
   ),
 }));
 vi.mock("./CoursePreview", () => ({ default: () => null, CourseSummary: () => null }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 const state = (meetings: Meeting[]): State => ({
   version: 1,
@@ -53,6 +55,39 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
+  it("브라우저가 초안 저장소 접근을 막으면 복구 오류를 기록한다", () => {
+    const read = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("storage blocked", "SecurityError");
+    });
+    try {
+      render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.blocked" onSave={vi.fn()} onClose={vi.fn()} />);
+      expect(screen.getByRole("alert")).toHaveTextContent("저장된 초안을 복구하지 못했어요");
+      expect(logClientError).toHaveBeenCalledWith("MeetingForm.readDraft", expect.any(Error), {
+        errorName: "SecurityError",
+      }, expect.any(Object));
+    } finally {
+      read.mockRestore();
+    }
+  });
+
+  it("자동 집결 장소가 든 초안 저장에 실패하면 입력값을 유지하고 오류를 기록한다", () => {
+    render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.quota" onSave={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(radio(/실외/));
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("storage unavailable", "QuotaExceededError");
+    });
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "기존 코스 고르기" }));
+      expect(screen.getByRole("textbox", { name: "기본 집결 장소" })).toHaveValue("강변공원 북문");
+      expect(screen.getAllByText(/초안을 저장하지 못했어요/).length).toBeGreaterThan(0);
+      expect(logClientError).toHaveBeenCalledWith("MeetingForm.writeDraft", expect.any(Error), {
+        errorName: "QuotaExceededError",
+      }, expect.any(Object));
+    } finally {
+      write.mockRestore();
+    }
+  });
+
   it("실내·실외 선택이 코스 준비보다 먼저 나온다", () => {
     render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.order" onSave={vi.fn()} onClose={vi.fn()} />);
     const headings = screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
