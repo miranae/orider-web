@@ -96,8 +96,9 @@ export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack' | 'co
   if (m.venue !== 'indoor') return null;
   if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 앱 실내 코스를 골라주세요.';
   if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 앱 실내 코스를 골라주세요.';
-  // 경로를 새로 고르거나 실내로 바꿀 때만 본다 — 이미 저장된 실내 모임(기존 코스·GPX)의 제목·설명 수정은 막지 않는다.
-  const trackChanged = !previous || previous.venue !== 'indoor' || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
+  // 경로를 새로 고르거나 실외에서 실내로 바꿀 때만 본다 — 이미 저장된 실내 모임(기존 코스·GPX)의 제목·설명 수정은 막지 않는다.
+  // 실내·실외 구분 전에 만든 모임(venue 없음)도 저장된 코스 그대로면 실내를 골라 저장할 수 있다 — 수정하려면 반드시 골라야 하기 때문이다.
+  const trackChanged = !previous || previous.venue === 'outdoor' || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
   // 새로 고르는 실내 코스는 앱 내장 코스만 받는다 — 성긴 기존 코스·끊어진 GPX 로 출발이 막히던 경우를 선택 단계에서 없앤다(#1779).
   if (trackChanged && m.courseSource?.kind !== 'builtin') return '실내 모임은 앱 실내 코스만 쓸 수 있어요. 앱 실내 코스를 골라주세요.';
   return null;

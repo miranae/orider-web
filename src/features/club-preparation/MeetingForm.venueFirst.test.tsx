@@ -102,6 +102,38 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     expect(onSave.mock.calls[0]![0]).toMatchObject({ title: "제목만 수정", venue: "indoor", place: "우리 집", courseSource: gpx });
   });
 
+  it("실내·실외 구분 전에 만든 모임은 실내를 골라도 저장된 코스를 지킨다", async () => {
+    const legacy: Meeting = { ...fresh, id: "m0", title: "예전 모임", venue: undefined, place: "우리 집", weather: "비 오면 실내로", parking: "지하 주차장",
+      joins: [{ id: "main", place: "우리 집", time: "08:00" }, { id: "j2", place: "카페", time: "08:20" }], courseSource: gpx, courseTrack: track, courseReady: true };
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<MeetingForm state={state([legacy])} initial={legacy} initialRevision={2} draftNamespace="vf.legacy" onSave={onSave} onClose={vi.fn()} />);
+    fireEvent.click(radio(/실내/));
+    expect(screen.queryByRole("region", { name: "실내·실외 변경 확인" })).toBeNull();
+    expect(chosen()).toBe("autumn-ride.GPX");
+    fireEvent.click(screen.getByRole("button", { name: "모집글 미리보기" }));
+    fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalled());
+    // 예전에 적어 둔 집결 장소·안내는 실내를 골라도 말없이 지우지 않는다.
+    expect(onSave.mock.calls[0]![0]).toMatchObject({ venue: "indoor", courseSource: gpx, place: "우리 집", weather: "비 오면 실내로", parking: "지하 주차장" });
+    expect((onSave.mock.calls[0]![0] as Meeting).joins).toHaveLength(2);
+  });
+
+  it("실외 모임을 실내로 바꾸면 숨긴 집결 장소·합류 지점·우천·주차 안내를 저장하지 않는다", async () => {
+    // 화면에서 숨긴 값이 그대로 저장되면 참석자가 실내 모임에서 이전 야외 집결지를 본다(#1780 리뷰).
+    const outdoor: Meeting = { ...fresh, id: "m3", title: "남산 번개", venue: "outdoor", place: "반포 한강공원", weather: "비 오면 취소", parking: "공영주차장",
+      joins: [{ id: "main", place: "반포 한강공원", time: "08:00" }, { id: "j2", place: "잠수교", time: "08:20" }] };
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<MeetingForm state={state([outdoor])} initial={outdoor} initialRevision={2} draftNamespace="vf.toIndoor" onSave={onSave} onClose={vi.fn()} />);
+    fireEvent.click(radio(/실내/));
+    fireEvent.click(screen.getByRole("button", { name: "내장 코스 고르기" }));
+    fireEvent.click(screen.getByRole("button", { name: "모집글 미리보기" }));
+    fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalled());
+    const saved = onSave.mock.calls[0]![0] as Meeting;
+    expect(saved).toMatchObject({ venue: "indoor", place: "앱 실내 라이딩", weather: "", parking: "" });
+    expect(saved.joins).toEqual([{ id: "main", place: "앱 실내 라이딩", time: "08:00" }]);
+  });
+
   it("코스를 고르면 빈 모임 이름만 코스 이름으로 채운다", () => {
     render(<MeetingForm state={state([])} initial={fresh} draftNamespace="vf.title" onSave={vi.fn()} onClose={vi.fn()} />);
     const title = () => (document.getElementById("meeting-title") as HTMLInputElement).value;
