@@ -120,7 +120,7 @@ test("ko: 실외 GPX의 실제 출발 장소를 집결 장소와 미리보기에
   const track = Array.from({ length: 60 }, (_, i) => `<trkpt lat="${37.5 + i * .00018}" lon="127"/>`).join("");
   await page.locator('input[type="file"]').setInputFiles({
     name: "start-point.gpx", mimeType: "application/gpx+xml",
-    buffer: Buffer.from(`<gpx><wpt lat="37.5" lon="127"><name>강변공원 북문</name></wpt><trk><name>강변 코스</name><trkseg>${track}</trkseg></trk></gpx>`),
+    buffer: Buffer.from(`<gpx><wpt lat="37.5" lon="127.0001"><name>근처 카페</name></wpt><wpt lat="37.5" lon="127"><name>강변공원 북문</name></wpt><trk><name>강변 코스</name><trkseg>${track}</trkseg></trk></gpx>`),
   });
   await expect(page.getByRole("textbox", { name: "기본 집결 장소" })).toHaveValue("강변공원 북문");
   await page.getByLabel("날짜", { exact: true }).fill("2030-10-25");

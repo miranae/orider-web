@@ -213,6 +213,17 @@ describe("실내·실외를 먼저 고르는 모임 작성 (#1779)", () => {
     expect((screen.getByLabelText("기본 집결 장소") as HTMLInputElement).value).toBe("");
   });
 
+  it("복구한 초안의 자동 집결 장소도 코스 교체를 따라간다", () => {
+    const props = { state: state([]), initial: fresh, draftNamespace: "vf.restorePlace", onSave: vi.fn(), onClose: vi.fn() };
+    const { unmount } = render(<MeetingForm {...props} />);
+    fireEvent.click(radio(/실외/));
+    fireEvent.click(screen.getByRole("button", { name: "GPX 고르기" }));
+    unmount();
+    render(<MeetingForm {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "기존 코스 고르기" }));
+    expect((screen.getByLabelText("기본 집결 장소") as HTMLInputElement).value).toBe("강변공원 북문");
+  });
+
   it("새 모임 요약은 적은 항목만 싣고 모임 종류·비용을 보이며 날짜 확인은 버튼 바로 위에 둔다", () => {
     const outdoor: Meeting = { ...fresh, title: "남산 번개", venue: "outdoor", place: "반포 한강공원", fee: 12000,
       joins: [{ id: "main", place: "반포 한강공원", time: "08:00" }] };

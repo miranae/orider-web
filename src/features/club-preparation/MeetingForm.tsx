@@ -92,7 +92,7 @@ export default function MeetingForm({
   const [dateConfirmed, setDateConfirmed] = useState(false);
   const [outdoorChangesConfirmed, setOutdoorChangesConfirmed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const autoPlace = useRef<string | null>(null);
+  const autoPlace = useRef<string | null>(recovery.autoPlace ?? null);
   const courseSectionRef = useRef<HTMLDetailsElement>(null);
   const courseReadyRef = useRef<HTMLSelectElement>(null);
   const [courseFocusRequest, setCourseFocusRequest] = useState(
@@ -226,6 +226,7 @@ export default function MeetingForm({
             .filter(Boolean),
         },
         baseRevision,
+        autoPlace.current ?? undefined,
       );
       setSaveError("");
     } catch {

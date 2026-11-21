@@ -7,14 +7,19 @@ export function draftScope(meeting: Meeting, existing: boolean): string {
 export function readDraft(scope: string): {
   meeting?: Meeting;
   baseRevision?: number;
+  autoPlace?: string;
   error?: string;
 } {
   try {
     const raw = localStorage.getItem(PREFIX + scope);
     if (!raw) return {};
     const data: unknown = JSON.parse(raw);
+    const meeting = parseDraft(data);
     return {
-      meeting: parseDraft(data),
+      meeting,
+      autoPlace: data && typeof data === "object" && "draftAutoPlace" in data
+        && typeof data.draftAutoPlace === "string" && data.draftAutoPlace === meeting.place
+        ? data.draftAutoPlace : undefined,
       baseRevision:
         typeof data === "object" &&
         data !== null &&
@@ -34,6 +39,7 @@ export function writeDraft(
   scope: string,
   meeting: Meeting,
   baseRevision?: number,
+  autoPlace?: string,
 ): void {
   const clean = parseDraft({ ...meeting, registrations: [], notices: [] });
   localStorage.setItem(
@@ -43,6 +49,7 @@ export function writeDraft(
       ...(baseRevision === undefined
         ? {}
         : { draftBaseRevision: baseRevision }),
+      ...(autoPlace && autoPlace === clean.place ? { draftAutoPlace: autoPlace } : {}),
     }),
   );
   localStorage.setItem(LATEST, scope);
