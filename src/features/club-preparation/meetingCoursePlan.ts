@@ -30,7 +30,7 @@ export function courseStartPlace(meeting: Meeting): string {
     const explicitStart = point.type?.trim().toLowerCase() === 'start';
     const tolerance = explicitStart ? 25 : 1;
     if (point.source === 'manual' || point.source === 'segments' || !hasCoordinates(point)
-      || (point.distanceKm !== undefined && point.distanceKm * 1000 > tolerance)
+      || (!explicitStart && point.distanceKm !== undefined && point.distanceKm > 0.001)
       || /^(?:출발|출발점|도착|start|finish|end|체크포인트\s*\d+)?$/i.test(name)) return [];
     const offset = haversineMeters(start.lat, start.lon, point.lat, point.lon);
     return offset <= tolerance ? [{name, offset, explicitStart}] : [];

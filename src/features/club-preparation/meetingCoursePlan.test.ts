@@ -12,6 +12,14 @@ describe('모임 코스 가져오기', () => {
     const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
     expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('강변공원 북문');
   });
+  it('순환 GPX에서 명시된 출발 지점은 복귀 구간에 투영돼도 출발 위치로 사용한다', () => {
+    const points = [[37, 127], [37.001, 127], [37.001, 127.001], [37.0001, 127], [37, 127]];
+    const route = `<trkseg>${points.map(([lat, lon]) => `<trkpt lat="${lat}" lon="${lon}"/>`).join('')}</trkseg>`;
+    const plan = readGpxCoursePlan(gpx(route, '<wpt lat="37" lon="127"><name>근처 카페</name></wpt><wpt lat="37.0001" lon="127"><name>공원 입구</name><type>START</type></wpt>'), 'loop.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(plan.checkpoints.find(point => point.name === '공원 입구')?.distanceKm).toBeGreaterThan(0.025);
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('공원 입구');
+  });
 
   it('고도 있는 GPX는 원본 수치·전체 주행 구간·오르막 경로를 자동 생성한다', () => {
     const xml = gpx(segment([50, 100, 170, 120]));
