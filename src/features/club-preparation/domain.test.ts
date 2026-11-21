@@ -84,6 +84,9 @@ describe('동호회 모임 준비', () => {
     // 같은 경로를 둔 야외 모임을 실내로 바꾸면 새로 쓰는 것이므로 막는다.
     const outdoor = { ...s, meetings: s.meetings.map((x, i) => i === 2 ? { ...x, venue: 'outdoor' as const, courseSource: saved, courseTrack: track } : x) };
     expect(() => saveMeeting(outdoor, 'host', { ...outdoor.meetings[2], venue: 'indoor' })).toThrow('앱 실내 코스만 쓸 수 있어요');
+    // 실내·실외 구분 전에 만든 모임은 저장된 코스 그대로 실내를 골라 저장할 수 있다 — 고르지 않으면 수정 자체가 안 된다.
+    const legacy = { ...s, meetings: s.meetings.map((x, i) => i === 2 ? { ...x, venue: undefined, courseSource: gpx, courseTrack: track } : x) };
+    expect(saveMeeting(legacy, 'host', { ...legacy.meetings[2], venue: 'indoor' }).meetings[2].venue).toBe('indoor');
   });
   it('고른 코스가 실내·실외 선택에 맞는지 가린다', () => {
     expect(courseFitsVenue({}, 'indoor')).toBe(true);

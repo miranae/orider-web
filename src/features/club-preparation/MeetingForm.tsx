@@ -147,15 +147,21 @@ export default function MeetingForm({
   });
   const indoor = draft.venue === "indoor";
   const locale = english ? "en" : "ko";
-  /** 저장할 모임 — 실내는 숨긴 집결 장소를 고정 문구로 채운다(주최자가 예전에 적어 둔 값은 그대로 둔다). */
+  /**
+   * 저장할 모임 — 실내는 숨긴 실외용 칸(집결 장소·합류 지점·우천·주차)을 싣지 않고 집결 장소를 고정 문구로 채운다.
+   * 화면에서 숨긴 값이 그대로 저장되면 참석자가 실내 모임에서 이전 야외 집결지를 보게 된다.
+   * 원래 실내로 저장된 모임은 주최자가 예전에 적어 둔 값을 그대로 둔다.
+   */
   const meetingToSave = (): Meeting => {
     const meeting = completeDraft();
-    if (!indoor || meeting.place.trim()) return meeting;
+    if (!indoor || (existing && initial.venue === "indoor" && meeting.place.trim())) return meeting;
     const place = mt(INDOOR_PLACE);
     return {
       ...meeting,
       place,
-      joins: meeting.joins.map((join, index) => (index ? join : { ...join, place })),
+      joins: meeting.joins.slice(0, 1).map((join) => ({ ...join, place })),
+      weather: "",
+      parking: "",
     };
   };
   // 실내·실외를 바꿔 고른 코스가 맞지 않게 되면 확인을 받고 코스를 비운다. 저장된 모임을 원래 쪽으로 되돌리는 것은
@@ -182,7 +188,10 @@ export default function MeetingForm({
     if (venue === draft.venue) return;
     const keepsCourse =
       courseFitsVenue(draft, venue) ||
-      (existing && venue === initial.venue && sameCourseSource(draft.courseSource, initial.courseSource));
+      // 실내·실외 구분 전에 만든 모임(venue 없음)은 어느 쪽을 골라도 저장된 코스를 지킨다.
+      (existing &&
+        (venue === initial.venue || initial.venue === undefined) &&
+        sameCourseSource(draft.courseSource, initial.courseSource));
     if (draft.courseSource && !keepsCourse) setPendingVenue(venue);
     else applyVenue(venue, false);
   };
