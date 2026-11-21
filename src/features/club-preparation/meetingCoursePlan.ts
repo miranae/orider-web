@@ -35,11 +35,11 @@ export function courseStartPlace(meeting: Meeting): string {
     const offset = haversineMeters(start.lat, start.lon, point.lat, point.lon);
     return offset <= tolerance ? [{name, offset, explicitStart}] : [];
   });
-  const explicit = candidates.filter(point => point.explicitStart);
+  const explicitNames = [...new Set(candidates.filter(point => point.explicitStart).map(point => point.name))];
   const coordinates = `${start.lat.toFixed(5)}, ${start.lon.toFixed(5)}`;
-  if (explicit.length > 1) return coordinates;
-  const named = explicit.length === 0 ? candidates.sort((a, b) => a.offset - b.offset)[0] : explicit[0];
-  return named?.name.slice(0, 300) ?? coordinates;
+  if (explicitNames.length > 1) return coordinates;
+  const name = explicitNames[0] ?? candidates.sort((a, b) => a.offset - b.offset)[0]?.name;
+  return name?.slice(0, 300) ?? coordinates;
 }
 
 /** 경로가 있는 코스를 가져오면 코스를 확정으로 둔다 — 확정 칸이 접힌 곳에 있어 「준비 중」으로 게시되던 것을 막는다(#1779). 경로 없는 구간 소개는 주최자가 확정한다. */
