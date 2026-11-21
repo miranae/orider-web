@@ -50,6 +50,20 @@ describe('모임 코스 가져오기', () => {
     expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
   });
 
+  it('첫 좌표에서 11m 떨어진 다음 GPX 구간의 출발 표식을 집결 장소로 쓰지 않는다', () => {
+    const plan = readGpxCoursePlan(gpx(segment() + segment(undefined, 36.9999), '<wpt lat="36.9999" lon="127"><name>다음 구간 입구</name><type>START</type></wpt>'), 'split-start.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(plan.track?.segmentStarts).toHaveLength(2);
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
+  });
+
+  it('경로 없는 저장 코스의 0km 도착 표식만으로 집결 장소를 설정하지 않는다', () => {
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const, courseTrack: undefined,
+      courseSource: {kind: 'saved-course' as const, name: '기존 코스'},
+      courseCheckpoints: [{name: '완주 행사장', type: 'FINISH', distanceKm: 0, lat: 37, lon: 127, source: 'course' as const}] };
+    expect(courseStartPlace(meeting)).toBe('');
+  });
+
   it('고도 있는 GPX는 원본 수치·전체 주행 구간·오르막 경로를 자동 생성한다', () => {
     const xml = gpx(segment([50, 100, 170, 120]));
     const plan = readGpxCoursePlan(xml, 'ride.gpx');
