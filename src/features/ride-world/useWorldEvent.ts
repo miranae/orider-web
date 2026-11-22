@@ -166,6 +166,9 @@ export function useWorldEvent(
               }
               return;
             }
+            if (frame.type === "event_snapshot" && (!Array.isArray(frame.markers) || !Array.isArray(frame.roster))) {
+              throw new Error("Invalid World event snapshot arrays");
+            }
             if (!Number.isSafeInteger(frame.revision) || frame.revision <= (latest?.revision ?? 0)) return;
             if (frame.type === "event_snapshot" && Array.isArray(frame.markers) && Array.isArray(frame.roster)) {
               clearTimeout(initial);
