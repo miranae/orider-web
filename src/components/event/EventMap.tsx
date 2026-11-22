@@ -430,7 +430,7 @@ export default function EventMap({
             }}
           >
             {loc.rideKind && <span
-              className="pointer-events-none absolute whitespace-nowrap rounded-full px-1.5 text-xs"
+              className="pointer-events-none absolute whitespace-nowrap rounded-full px-1.5 text-[length:var(--fs-xs)]"
               style={{ left: 18, top: 0, color: "var(--ink-0)", background: "var(--bg-0)" }}
             >{loc.rideKind === "virtual" ? "가상" : "실외"}</span>}
           </div>
