@@ -447,12 +447,9 @@ export default function GroupsPage() {
             <label htmlFor="club-invite-code" className="club-invite-label">{t("find.inviteLabel")}</label>
             {inviteForm}
           </div>}
-          {pendingCount > 0 && <button type="button" data-testid="C0-1-4" className="club-m-row club-m-row--button" aria-expanded={requestsOpen} aria-controls="club-requests-panel" onClick={() => setRequestsOpen((open) => !open)}>
-            <span>{t("list.requestsRow")}</span><span className="club-m-row__count">{t("list.requestsCount", { count: pendingCount })}</span>
-          </button>}
-          {requestsOpen && <div id="club-requests-panel" className="club-m-panel">
-            <GroupRequestHistory userId={user?.uid} focusRequest={pendingFocus} defaultOpen />
-          </div>}
+          {/* 가입 신청 기록이 있으면 대기 0건이어도 행을 둔다(승인·거절·취소 기록 확인). 건수는 대기 중일 때만. 기록이 없으면 행도 없다. */}
+          <GroupRequestHistory userId={user?.uid} focusRequest={pendingFocus} defaultOpen={requestsOpen}
+            row={{ label: t("list.requestsRow"), ...(pendingCount > 0 ? { count: t("list.requestsCount", { count: pendingCount }) } : {}) }} />
         </section>
         {errorLine}
         {pendingNoticeCard}
