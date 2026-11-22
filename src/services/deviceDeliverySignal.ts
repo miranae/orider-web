@@ -47,10 +47,11 @@ export function subscribeDeviceDeliverySignal<T>(
         stopCanonical();
         receive(snapshot);
       }).catch((error: Error & { code?: string }) => {
+        logClientError("RideWorld.deviceDeliveryRead", error, { resourceKind: resource.split(":")[0] });
         if (!active() || revision !== expected) return;
-        if (error.code === "permission-denied" || error.code === "unauthenticated") denied();
+        if (error.code === "permission-denied") denied();
         else {
-          logClientError("RideWorld.deviceDeliveryRead", error, { resourceKind: resource.split(":")[0] });
+          if (error.code === "unauthenticated") onError(error);
           restore();
         }
       });

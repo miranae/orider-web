@@ -28,12 +28,12 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
   const spectatorActiveScope = useRef<string | null>(null);
-  const previousScope = useRef(scope);
-  if (previousScope.current !== scope) {
-    previousScope.current = scope;
+  const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
+  const previousBinding = useRef({ scope, viewer });
+  if (previousBinding.current.scope !== scope || previousBinding.current.viewer !== viewer) {
+    previousBinding.current = { scope, viewer };
     spectatorActiveScope.current = null;
   }
-  const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
   useWorldEvent(spectatorRedis ? eventId : undefined, viewer, undefined, undefined, {
     topic: "spectator",
     changed: () => { spectatorActiveScope.current = scope; syncLocationSignal.current(); spectatorSignal.current(); },
@@ -149,7 +149,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     window.addEventListener("focus", focus);
     window.addEventListener("online", focus);
     return () => { disposed = true; spectatorSignal.current = () => {}; syncLocationSignal.current = () => {}; stop(); document.removeEventListener("visibilitychange", visible); window.removeEventListener("focus", focus); window.removeEventListener("online", focus); };
-  }, [services, scope, groupId, eventId, uid, retry, spectatorRedis]);
+  }, [services, scope, groupId, eventId, uid, retry, spectatorRedis, viewer]);
   useEffect(() => syncLocationSignal.current(), [worldActive]);
   useEffect(() => {
     if (previousSelection.current !== selectedUid) {

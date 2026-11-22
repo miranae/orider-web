@@ -43,22 +43,25 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
     }
   }, [eventId, scope, getClubMeetingDiscord]);
   const viewer = services.auth?.currentUser;
-  const [worldScope, setWorldScope] = useState<string | null>(null);
-  const activeWorldScope = useRef<string | null>(null);
+  const [worldScope, setWorldScope] = useState<{ scope: string; viewer: typeof viewer } | null>(null);
+  const activeWorldScope = useRef<typeof worldScope>(null);
+  const worldOwnsSignals = worldScope?.scope === scope && worldScope.viewer === viewer;
   const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
     import.meta.env.VITE_ORIDER_LOCAL_DISCORD_REDIS === "1" && isEmulatorRuntime() &&
     getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true && viewer?.uid === uid;
   useWorldEvent(redisSignals && !ended ? eventId : undefined, viewer, undefined, undefined, {
     topic: "discord",
     changed: () => {
-      activeWorldScope.current = scope;
-      setWorldScope(scope);
+      const binding = { scope, viewer };
+      activeWorldScope.current = binding;
+      setWorldScope(binding);
       if (!document.hidden) void reload();
     },
     disconnected: code => {
       if (!mounted.current || current.current !== scope) return;
       const denied = code === 4003 || code === 4004;
-      if (activeWorldScope.current !== scope && !denied) return;
+      const binding = activeWorldScope.current;
+      if ((binding?.scope !== scope || binding.viewer !== viewer) && !denied) return;
       activeWorldScope.current = null;
       setWorldScope(null);
       generation.current++; busy.current = false; queued.current = false;
@@ -88,14 +91,14 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
     void services.ensureAppCheckReady().then(() => {
       if (disposed) return;
       const paths = [`events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`];
-      if (worldScope !== scope) paths.unshift(`events/${eventId}/discord_signals/latest`);
+      if (!worldOwnsSignals) paths.unshift(`events/${eventId}/discord_signals/latest`);
       for (const path of paths) {
         stops.push(onSnapshot(doc(services.firestore, path), changed, failed));
       }
     }).catch(failed);
     document.addEventListener("visibilitychange", changed);
     return () => { disposed = true; stops.forEach(stop => stop()); document.removeEventListener("visibilitychange", changed); };
-  }, [services, eventId, groupId, uid, reload, signalRetry, worldScope, scope]);
+  }, [services, eventId, groupId, uid, reload, signalRetry, worldOwnsSignals, scope]);
   const mutate = async (close: boolean) => {
     if (busy.current) return;
     busy.current = true; setPending(true); setError(false); const operation = ++generation.current;

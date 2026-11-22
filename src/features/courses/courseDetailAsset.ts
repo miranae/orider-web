@@ -134,7 +134,7 @@ export async function loadCourseSource(services: Pick<FirebaseServices, "auth" |
 /** 작은 서버 변경 신호를 구독하고 메타데이터만 다시 읽는다. 기존 코스는 SDK 구독으로 호환한다. */
 export function subscribeCourseDetail(services: FirebaseServices, id: string,
   onData: (data: DocumentData | null) => void, onError: (error: Error) => void): () => void {
-  if (!COURSE_ID.test(id)) {
+  if (!id || id.includes("/") || id === "." || id === "..") {
     const error = new Error("잘못된 코스 식별자");
     logClientError("CourseDetail.invalidId", error);
     onData(null);
@@ -148,7 +148,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   let lastVersion: string | undefined;
   let lastTrack: DocumentData | undefined;
   let legacyStop: (() => void) | undefined;
-  const worldEnabled = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+  const worldEnabled = COURSE_ID.test(id) && import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
     import.meta.env.VITE_ORIDER_LOCAL_COURSE_REDIS === "1" && services.firestore.app.options.projectId === "demo-orider-lab";
   const current = () => !disposed && services.auth.currentUser === user;
   const legacy = (publicOnly = false) => {
@@ -224,7 +224,9 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
     } catch (error) {
       if (active()) {
         logClientError("CourseDetail.metadataRead", error, { courseId: id });
-        onData(null); onError(error instanceof Error ? error : new Error(String(error)));
+        onData(null);
+        if (worldEnabled) legacy(true);
+        else onError(error instanceof Error ? error : new Error(String(error)));
       }
     }
   };
@@ -240,7 +242,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
     logClientError("CourseDetail.signalFallback", error, { courseId: id });
     onData(null); ++generation; request?.abort(); legacy();
   });
-  if (worldEnabled) legacy(true);
+  if (worldEnabled || !COURSE_ID.test(id)) legacy(worldEnabled);
   const signalStop = worldEnabled
     ? followWorldSignal("ws://127.0.0.1:19487/course-signals",
         async () => ({ v: 1, type: "course_subscribe", courseId: id }),
@@ -260,9 +262,9 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
           onData(null);
           legacy(true);
         })
-    : startFirestore();
+    : COURSE_ID.test(id) ? startFirestore() : undefined;
   return () => {
     disposed = true; ++generation; request?.abort();
-    legacyStop?.(); signalStop();
+    legacyStop?.(); signalStop?.();
   };
 }

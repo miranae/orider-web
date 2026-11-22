@@ -31,7 +31,10 @@ export function useNotificationInbox() {
     setLoading(true); setFailed(false);
     const promise = (async () => {
     try { const page = await client.list(); if (request === generation.current && activeClient.current === client) setState({ client, uid, items: page.items, cursor: page.nextCursor }); }
-    catch { if (request === generation.current) { setState(null); setFailed(true); } }
+    catch (error) {
+      logClientError("useNotificationInbox.list", error, { uid });
+      if (request === generation.current) { setState(null); setFailed(true); }
+    }
     finally {
       if (request === generation.current) setLoading(false);
       if (pendingRefresh.current?.generation === request && pendingRefresh.current.client === client) pendingRefresh.current = null;
@@ -119,7 +122,10 @@ export function useNotificationInbox() {
     try {
       const page = await client.list(current.cursor);
       if (request === generation.current && activeClient.current === client) setState({ client, uid, items: [...current.items, ...page.items], cursor: page.nextCursor });
-    } catch { if (request === generation.current) { setState(null); setFailed(true); } }
+    } catch (error) {
+      logClientError("useNotificationInbox.more", error, { uid });
+      if (request === generation.current) { setState(null); setFailed(true); }
+    }
     finally { if (request === generation.current) setLoading(false); }
   };
   const markRead = async (ids: string[]) => {
@@ -132,6 +138,7 @@ export function useNotificationInbox() {
         setState(value => value?.uid === uid && value.client === client ? { ...value, items: value.items.map(item => result.ids.includes(item.id) ? { ...item, read: true } : item) } : value);
       }
     } catch (error) {
+      logClientError("useNotificationInbox.markRead", error, { uid });
       if (activeClient.current === client) {
         const code = (error as { code?: string })?.code;
         if (code === "functions/permission-denied" || code === "functions/unauthenticated") {
