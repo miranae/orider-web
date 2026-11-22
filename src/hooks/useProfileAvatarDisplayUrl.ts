@@ -1,12 +1,12 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, type Firestore } from "firebase/firestore";
 import { parseProfileAvatarUrl } from "@shared/profileAvatar";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { isEmulatorRuntime } from "../services/runtimeConfig";
 
 const listeners = new Set<() => void>();
-const generations = new Map<string, string>();
+const versions = new WeakMap<Firestore, Map<string, string | false>>();
 const serverVersion = () => undefined;
 
 function subscribe(listener: () => void) {
@@ -14,36 +14,46 @@ function subscribe(listener: () => void) {
   return () => { listeners.delete(listener); };
 }
 
-export function refreshProfileAvatar(url: string, generation: string) {
-  if (generations.get(url) === generation) return;
-  generations.set(url, generation);
+export function refreshProfileAvatar(firestore: Firestore, url: string, version: string | false | undefined) {
+  const current = versions.get(firestore) ?? new Map<string, string | false>();
+  if (current.get(url) === version) return;
+  if (version === undefined) current.delete(url);
+  else current.set(url, version);
+  versions.set(firestore, current);
   for (const listener of listeners) listener();
 }
 
 export function useProfileAvatarDisplayUrl(url?: string | null) {
   const services = useFirebaseServices();
   const { firestore } = services;
+  const viewer = services.auth?.currentUser;
   const match = parseProfileAvatarUrl(url);
   const uid = match?.bucket === firestore?.app?.options?.storageBucket ? match?.uid : undefined;
-  const generation = useSyncExternalStore(subscribe, () => url ? generations.get(url) : undefined, serverVersion);
+  const version = useSyncExternalStore(subscribe, () => url ? versions.get(firestore)?.get(url) : undefined, serverVersion);
 
   useEffect(() => {
     if (!uid || !url) return;
-    const viewer = services.auth?.currentUser;
     // Firestore shares subscriptions to the same document within the same app.
     return onSnapshot(doc(firestore, "users_public", uid), (snapshot) => {
-      if (snapshot.get("photoURL") !== url) return;
-      const revision: unknown = snapshot.get("profileAvatarGeneration");
-      if (typeof revision === "string" && /^[0-9]{1,21}$/.test(revision)) refreshProfileAvatar(url, revision);
+      if (services.auth?.currentUser !== viewer || services.isSessionApproved?.(viewer ?? null) === false) return;
+      const data = snapshot.data();
+      if (snapshot.metadata?.fromCache || !data) return;
+      if (data.photoURL !== url) {
+        refreshProfileAvatar(firestore, url, false);
+        return;
+      }
+      const revision: unknown = data.profileAvatarGeneration;
+      refreshProfileAvatar(firestore, url, typeof revision === "string" && /^[0-9]{1,21}$/.test(revision) ? revision : undefined);
     }, (error) => logClientError("ProfileAvatar.signal", error, { stage: "read_revision" }, services, viewer));
-  }, [firestore, services, uid, url]);
+  }, [firestore, services, uid, url, viewer]);
 
+  if (version === false) return null;
   if (!match || !url) return url;
   const publicEndpoint = "https://firebasestorage.googleapis.com";
   const displayUrl = isEmulatorRuntime()
     ? `http://localhost:${import.meta.env.VITE_STORAGE_EMULATOR_PORT || "9199"}${url.slice(publicEndpoint.length)}`
     : url;
-  return generation ? `${displayUrl}&v=${encodeURIComponent(generation)}` : displayUrl;
+  return version ? `${displayUrl}&v=${encodeURIComponent(version)}` : displayUrl;
 }
 
 export function useProfileAvatarLoadError() {

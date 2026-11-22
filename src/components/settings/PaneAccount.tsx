@@ -21,6 +21,7 @@ import type { Visibility } from "@shared/types";
 import { profileAvatarPath, profileAvatarUrl, resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -52,6 +53,7 @@ function withPhotoLock(uid: string, operation: () => Promise<void>) {
 export function PaneAccount() {
   const { t } = useTranslation("settings");
   const { user, profile, logout } = useAuth();
+  const firebaseServices = useFirebaseServices();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const dialog = useDialog();
@@ -167,6 +169,8 @@ export function PaneAccount() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    const viewer = auth.currentUser;
+    if (viewer?.uid !== user.uid) return;
     if (!file.type.startsWith("image/")) {
       showToast(t("profile.imageOnly"));
       return;
@@ -191,16 +195,20 @@ export function PaneAccount() {
       );
       if (!blob.type.startsWith("image/") || blob.size >= 2 * 1024 * 1024) throw new Error("Invalid avatar encoding");
       await withPhotoLock(user.uid, async () => {
-        if (auth.currentUser?.uid !== user.uid) return;
+        if (auth.currentUser !== viewer) return;
         const storageRef = ref(storage, profileAvatarPath(user.uid));
         const url = profileAvatarUrl(storageRef.bucket, user.uid);
         stage = "upload";
-        const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "public, max-age=300" });
-        if (auth.currentUser?.uid !== user.uid) return;
+        const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "private, max-age=300" });
         stage = "save_profile";
+        if (auth.currentUser !== viewer) {
+          logClientError("PaneAccount.changeAvatar", new Error("Avatar upload outlasted the editing session"),
+            { stage }, firebaseServices, viewer);
+          return;
+        }
         await updateDoc(doc(firestore, "users", user.uid), { photoURL: url, profileAvatarGeneration: result.metadata.generation });
         if (auth.currentUser?.uid !== user.uid) return;
-        refreshProfileAvatar(url, result.metadata.generation);
+        refreshProfileAvatar(firestore, url, result.metadata.generation);
         setPhotoOverride({ uid: user.uid, url });
         showToast(t("profile.photoUpdated"));
       });

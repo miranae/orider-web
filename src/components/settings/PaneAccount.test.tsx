@@ -141,7 +141,7 @@ describe("PaneAccount nickname save", () => {
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
     for (const [storageRef, , metadata] of mocks.uploadBytes.mock.calls) {
       expect(storageRef).toEqual({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" });
-      expect(metadata).toEqual({ cacheControl: "public, max-age=300", contentType: "image/webp" });
+      expect(metadata).toEqual({ cacheControl: "private, max-age=300", contentType: "image/webp" });
     }
     expect(mocks.updateDoc).toHaveBeenNthCalledWith(1, expect.anything(), { photoURL: url, profileAvatarGeneration: "1" });
     expect(mocks.updateDoc).toHaveBeenNthCalledWith(2, expect.anything(), { photoURL: url, profileAvatarGeneration: "2" });
@@ -156,13 +156,15 @@ describe("PaneAccount nickname save", () => {
     expect(view.result.current).toBe(url);
     const [reference, notify] = mocks.onSnapshot.mock.calls.at(-1) as unknown as [
       { args: unknown[] },
-      (snapshot: { get: (name: string) => string | undefined }) => void,
+      (snapshot: { data: () => { photoURL: string | null; profileAvatarGeneration?: string } }) => void,
     ];
     expect(reference.args.slice(1)).toEqual(["users_public", "other"]);
-    act(() => { notify({ get: name => name === "photoURL" ? url : "321" }); });
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "321" }) }); });
     expect(view.result.current).toBe(url + "&v=321");
-    act(() => { notify({ get: name => name === "photoURL" ? url : "654" }); });
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "654" }) }); });
     expect(view.result.current).toBe(url + "&v=654");
+    act(() => { notify({ data: () => ({ photoURL: null }) }); });
+    expect(view.result.current).toBeNull();
   });
 
   it.each([
@@ -175,6 +177,23 @@ describe("PaneAccount nickname save", () => {
     fireEvent.error(screen.getByRole("img", { name: "Old Name" }));
     expect(mocks.logClientError).toHaveBeenCalledWith("ProfileAvatar.image", expect.any(Error), { stage: "load_image" }, expect.anything(), mocks.currentUser);
     expect(screen.queryByRole("img", { name: "Old Name" })).toBeNull();
+  });
+
+  it("records an upload interrupted by an account change before writing the profile", async () => {
+    const viewer = mocks.currentUser;
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
+    mocks.uploadBytes.mockImplementationOnce(async () => {
+      mocks.currentUser = { uid: "new-viewer" };
+      return { metadata: { generation: "123" } };
+    });
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    fireEvent.change(container.querySelector("input[type=file]")!, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
+    await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith(
+      "PaneAccount.changeAvatar", expect.any(Error), { stage: "save_profile" }, expect.anything(), viewer,
+    ));
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
   });
 
   it("keeps the old photo and records the stage when the upload fails", async () => {
