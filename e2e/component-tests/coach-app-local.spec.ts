@@ -63,7 +63,8 @@ for(const width of [320,393,768,1440,1920]) {
       await expect(page.locator("h1").first()).toBeVisible();
       if(route==="goals") await expect(page.getByTestId("K3-1")).toBeVisible();
       if(route==="condition") await expect(page.getByTestId("K1-2")).toBeVisible();
-      if(route==="analysis") { await expect(page.locator("#ftp-decision")).toBeVisible(); await expect(page.getByRole("combobox",{ name: "분석할 라이딩" })).toHaveCount(0); }
+      // 분석은 웹·앱 공용 한 구조다. FTP 판단은 "FTP 재평가"로 요청했을 때만 연다.
+      if(route==="analysis") { await expect(page.getByTestId("coach-analysis")).toBeVisible(); await expect(page.locator("#ftp-decision")).toHaveCount(0); await expect(page.getByRole("combobox",{ name: "분석할 라이딩" })).toHaveCount(0); }
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       await page.screenshot({ animations: "disabled",path: info.outputPath(`${route}-start.png`) });
       await page.locator(".site-main").evaluate(node => { node.scrollTop=node.scrollHeight; });

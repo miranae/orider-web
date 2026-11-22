@@ -44,7 +44,8 @@ it("keeps FTP entry available in canonical empty analysis", async () => {
 
 it.each([{ embedded: true, part: "analysis" }, { embedded: false, part: "condition" }] as const)("does not add empty FTP detail to embedded=$embedded part=$part", async props => {
   renderWithProviders(<Fixture {...props} />, { authenticated: true, route: `/ko/coach/${props.part}?sport=bike#ftp-decision` });
-  expect(await screen.findByText("피트니스 차트를 만들 활동이 아직 없어요")).toBeInTheDocument();
+  // 분석은 기록이 없어도 빈 화면 대신 공용 분석을 연다(이전 기간 비교).
+  expect(await screen.findByText(props.part === "analysis" ? "다음에 할 일" : "피트니스 차트를 만들 활동이 아직 없어요")).toBeInTheDocument();
   expect(document.getElementById("ftp-decision")).toBeNull();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
