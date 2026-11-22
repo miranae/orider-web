@@ -41,6 +41,17 @@ describe("group next events", () => {
     expect(result.current.eventByGroup.has("g2")).toBe(false);
   });
 
+  it("carries the server participant count and meeting kind without counting on the client", async () => {
+    setCollectionDocs("events", [
+      { id: "meeting", info: { groupId: "g1", status: "OPEN", startTime: 100, name: "Meetup", kind: "CLUB_MEETING" }, counters: { totalRegistered: 14 } },
+      { id: "race", info: { groupId: "g2", status: "OPEN", startTime: 100, name: "Race" } },
+    ]);
+    const { result } = renderHook(() => useGroupNextEvents(["g1", "g2"]));
+    await waitFor(() => expect(result.current.eventByGroup.size).toBe(2));
+    expect(result.current.eventByGroup.get("g1")).toMatchObject({ meeting: true, registered: 14 });
+    expect(result.current.eventByGroup.get("g2")).toMatchObject({ meeting: false, registered: null });
+  });
+
   it("requests member-authorized discovery when public-only mode is off", async () => {
     setCollectionDocs("events", [
       { id: "group-event", info: { groupId: "g1", visibility: "GROUP", status: "OPEN", startTime: 100, name: "Members" } },

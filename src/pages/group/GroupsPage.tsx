@@ -14,7 +14,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useMyGroups, usePendingGroupRequestIds, usePublicGroups } from "../../hooks/useGroup";
 import { logClientError } from "../../services/errorLogger";
-import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
+import { FOCUS_PARAM, FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
+import { useMobile } from "../../hooks/useMobile";
+import { MyClubRows, UpcomingClubMeetings } from "../../components/group/ClubListMobile";
 import { usePublicClubDirectory } from "../../hooks/usePublicClubDirectory";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import ClubLoginGate from "../../components/group/ClubLoginGate";
@@ -109,6 +111,20 @@ export default function GroupsPage() {
   }, [sportParam]);
   useEffect(() => { setCityFilter(cityParam); }, [cityParam]);
   const findSearchRef = useRef<HTMLInputElement>(null);
+  const mobile = useMobile();
+  // 휴대폰에서 클럽이 있으면 클럽 찾기·초대 코드·가입 신청을 접어 둔다. 검색 주소(q·city·sport)나 초대 코드 초점으로 들어오면 펼친다.
+  const [findOpen, setFindOpen] = useState(() => Boolean(queryParam || cityParam || (sportParam && sportParam !== "ALL")));
+  const [findNonce, setFindNonce] = useState(0);
+  const [inviteOpen, setInviteOpen] = useState(() => searchParams.get(FOCUS_PARAM) === FOCUS_TARGETS.clubInviteCode);
+  const [requestsOpen, setRequestsOpen] = useState(false);
+  useEffect(() => { if (queryParam || cityParam || (sportParam && sportParam !== "ALL")) setFindOpen(true); }, [queryParam, cityParam, sportParam]);
+  useEffect(() => { if (searchParams.get(FOCUS_PARAM) === FOCUS_TARGETS.clubInviteCode) setInviteOpen(true); }, [searchParams]);
+  useEffect(() => {
+    if (!findNonce) return;
+    document.getElementById("club-find")?.scrollIntoView({ block: "start" });
+    findSearchRef.current?.focus({ preventScroll: true });
+  }, [findNonce]);
+  const openFind = () => { setFindOpen(true); setFindNonce((value) => value + 1); };
   const { groups: signedPublicGroups, loading: signedPublicLoading, error: signedPublicGroupsError, retry: signedRetryPublicGroups, hasMore: signedPublicHasMore, loadingMore: signedPublicLoadingMore, loadMore: signedLoadMorePublicGroups } = usePublicGroups({
     enabled: !!user,
     searchText: searchQuery,
@@ -134,12 +150,14 @@ export default function GroupsPage() {
   // 「승인 대기」 → 같은 화면 가입 신청 기록의 그 행(신청 취소 버튼)을 펼쳐 초점을 둔다. 최신 10개 밖의 신청이면
   // 기록이 그 한 건을 읽어 붙인 뒤 초점을 둔다. 임베드 화면에도 쓰이므로 주소(?focus=)를 바꾸지 않는다.
   const [pendingFocus, setPendingFocus] = useState<PendingRequestFocus | null>(null);
-  const showPendingRequest = (groupId: string) => setPendingFocus({ groupId, nonce: Date.now() });
+  const showPendingRequest = (groupId: string) => { setRequestsOpen(true); setPendingFocus({ groupId, nonce: Date.now() }); };
   const myGroupIdList = useMemo(() => uid ? myGroups.map((g) => g.id) : [], [myGroups, uid]);
-  const { byGroup: nextEventLabels, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList);
+  const { byGroup: nextEventLabels, eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList);
+  // 휴대폰에서 클럽이 있으면 모임 먼저: 다가오는 모임 → 내 클럽(행) → 초대 코드·가입 신청 행 → (찾기를 누르면) 클럽 찾기.
+  const compactList = mobile && Boolean(user) && myGroups.length > 0;
 
-  // 클럽이 1개 이하면 종목 선택·검색을 숨기므로 필터도 적용하지 않는다 (K4).
-  const showMyFilters = myGroups.length > 1;
+  // 클럽이 1개 이하면 종목 선택·검색을 숨기므로 필터도 적용하지 않는다 (K4). 휴대폰 목록은 5개부터 보인다.
+  const showMyFilters = compactList ? myGroups.length >= 5 : myGroups.length > 1;
   const filterGroups = <T extends { name: string; discipline?: string }>(list: T[]): T[] => {
     if (!showMyFilters) return list;
     const q = mySearch.trim().toLowerCase();
@@ -247,7 +265,7 @@ export default function GroupsPage() {
 
   const myClubSection = <section data-testid="C0-1" className="club-my-section">
       {myGroups.length > 0 && <>
-        <Text as="h2" variant="title">{t("myGroups")}</Text>
+        <Text as="h2" variant="title">{t(compactList ? "list.myClubs" : "myGroups")}</Text>
         {showMyFilters && <div data-testid="C0-1-1" className="club-my-filters">
           <label>{t("list.mySportLabel")}<DropdownSelect label={t("list.mySportLabel")} value={myDisciplineFilter} onChange={value => setMyDisciplineFilter(value as typeof myDisciplineFilter)} options={["ALL", "bike", "run", "swim", "tri"].filter(isSportUiEnabled).map(sport => ({ value: sport, label: t(sport === "ALL" ? "filter.all" : `filter.${sport}`) }))} /></label>
           <label>{t("list.mySearchLabel")}<Input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("list.mySearchLabel")} placeholder={t("search.groupName")} className="ds-input" /></label>
@@ -273,6 +291,8 @@ export default function GroupsPage() {
             compact
           />
         </div>
+      ) : compactList ? (
+        <MyClubRows groups={filteredMyGroups} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredMyGroups.map((g) => (
@@ -281,21 +301,38 @@ export default function GroupsPage() {
         </div>
       )}
 
-      <GroupRequestHistory userId={user?.uid} focusRequest={pendingFocus} />
+      {!compactList && <GroupRequestHistory userId={user?.uid} focusRequest={pendingFocus} />}
     </section>;
 
-  return (
-    <div className="club-surface">
-      <header data-testid="C0-0" className="club-page-header">
-        <div><Text as="h1" variant="pageTitle">{t("clubsTitle")}</Text>
-        {user && myGroups.length > 0 && <Text as="p" variant="bodySmall" tone="tertiary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
-        <div className="club-page-actions">
-          {user && myGroups.length > 0 && <Button size="sm" data-testid="C0-0-2" variant="secondary" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}
-          {user && <Button size="sm" data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t("button.create")}</Button>}
-        </div>
-      </header>
-      {user && (myGroups.length > 0 || myLoading || Boolean(myGroupsError)) && myClubSection}
+  const pendingNoticeCard = pendingNotice && (
+    <Card padding="compact" className="mb-4" role="status" style={{ borderColor: "color-mix(in oklch, var(--amber) 45%, var(--line-soft))" }}>
+      <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>
+        {t("join.pendingTitle")}
+      </div>
+      <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>
+        {pendingNotice}
+      </div>
+    </Card>
+  );
 
+  const inviteForm = <div className="club-invite-form">
+        <Input id="club-invite-code" data-testid="C0-3-1" {...focusTargetProps(FOCUS_TARGETS.clubInviteCode)}
+          type="text"
+          value={inviteCode}
+          onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+          placeholder={t("find.inviteCode")}
+          className="flex-1"
+          maxLength={9}
+        />
+        <Button
+          onClick={handleJoinByCode}
+          disabled={!inviteCode.trim() || joining || joinRetryAt > 0} variant="secondary" className="disabled:opacity-50"
+        >
+          {joining ? t("button.joining") : t("button.joinCode")}
+        </Button>
+        </div>;
+
+  const findSection = <>
       <Text as="h2" variant="title" data-testid="C0-2" id="club-find" className="mb-4">{t("find.section")}</Text>
       {user && !myLoading && !myGroupsError && myGroups.length === 0 && <Text as="p" variant="body" tone="secondary" data-testid="C0.noClub" className="mb-4">{t("list.noGroupsDesc")}</Text>}
       {!user && <Text as="p" tone="secondary" className="mb-4">{t("public.directoryHint")}</Text>}
@@ -338,16 +375,7 @@ export default function GroupsPage() {
 
 
 
-      {pendingNotice && (
-        <Card padding="compact" className="mb-4" role="status" style={{ borderColor: "color-mix(in oklch, var(--amber) 45%, var(--line-soft))" }}>
-          <div className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>
-            {t("join.pendingTitle")}
-          </div>
-          <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)" }}>
-            {pendingNotice}
-          </div>
-        </Card>
-      )}
+      {!compactList && pendingNoticeCard}
 
 
       {myClubsPartial && filteredPublicGroups.length > 0 && <Text as="p" variant="bodySmall" tone="secondary" role="status" data-testid="C0-2-5" className="mb-4">{t("list.membershipUnconfirmed")}</Text>}
@@ -386,40 +414,76 @@ export default function GroupsPage() {
       )}
 
       {publicHasMore && !publicLoading && <Button size="sm" variant="secondary" disabled={publicLoadingMore} onClick={loadMorePublicGroups}>{t("common:button.more")}</Button>}
+  </>;
+
+  const header = <header data-testid="C0-0" className="club-page-header">
+        <div><Text as="h1" variant="pageTitle">{t("clubsTitle")}</Text>
+        {!compactList && user && myGroups.length > 0 && <Text as="p" variant="bodySmall" tone="tertiary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
+        <div className={compactList ? "club-page-actions club-page-actions--compact" : "club-page-actions"}>
+          {user && myGroups.length > 0 && <Button size="sm" data-testid="C0-0-2" variant="secondary" aria-expanded={compactList ? findOpen : undefined} aria-controls={compactList && findOpen ? "club-find" : undefined} onClick={openFind}>{t(compactList ? "list.findShort" : "list.findClubs")}</Button>}
+          {user && <Button size="sm" data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t(compactList ? "list.createShort" : "button.create")}</Button>}
+        </div>
+      </header>;
+  const errorLine = error && <p role="alert" className="text-[length:var(--ft-body-size)] text-red-500 mb-4">{error}</p>;
+  const createModal = <CreateGroupModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={(groupId) => { setShowCreate(false); navigate(`/club/${groupId}`); }}
+      />;
+
+  if (compactList) {
+    const pendingCount = new Set([...pendingRequestIds, ...pendingHere]).size;
+    return (
+      <div className="club-surface club-list-compact">
+        {header}
+        <UpcomingClubMeetings events={[...nextEvents.values()]} groups={myGroups} />
+        {myClubSection}
+        {myGroups.filter((g) => incompleteGroups.has(g.id)).map((g) => <NextEventContinuation key={g.id} groupId={g.id} />)}
+        <section data-testid="C0-3" aria-label={t("find.inviteTitle")} className="club-m-section">
+          <button type="button" data-testid="C0-3-0" className="club-m-row club-m-row--button" aria-expanded={inviteOpen} aria-controls="club-invite-panel" onClick={() => setInviteOpen((open) => !open)}>
+            <span>{t("find.inviteCode")}</span><span aria-hidden="true" className="club-m-row__chevron">{inviteOpen ? "⌄" : "›"}</span>
+          </button>
+          {inviteOpen && <div id="club-invite-panel" className="club-m-panel">
+            <label htmlFor="club-invite-code" className="club-invite-label">{t("find.inviteLabel")}</label>
+            {inviteForm}
+          </div>}
+          {pendingCount > 0 && <button type="button" data-testid="C0-1-4" className="club-m-row club-m-row--button" aria-expanded={requestsOpen} aria-controls="club-requests-panel" onClick={() => setRequestsOpen((open) => !open)}>
+            <span>{t("list.requestsRow")}</span><span className="club-m-row__count">{t("list.requestsCount", { count: pendingCount })}</span>
+          </button>}
+          {requestsOpen && <div id="club-requests-panel" className="club-m-panel">
+            <GroupRequestHistory userId={user?.uid} focusRequest={pendingFocus} defaultOpen />
+          </div>}
+        </section>
+        {errorLine}
+        {pendingNoticeCard}
+        {findOpen && <section className="club-m-find">{findSection}</section>}
+        {createModal}
+      </div>
+    );
+  }
+
+  return (
+    <div className="club-surface">
+      {header}
+      {user && (myGroups.length > 0 || myLoading || Boolean(myGroupsError)) && myClubSection}
+
+      {findSection}
 
       {!user && <ClubLoginGate />}
       {user && <Card data-testid="C0-3" className="club-invite-card" padding="card">
         <Text as="h2" variant="title">{t("find.inviteTitle")}</Text>
         <Text as="p" variant="body" tone="secondary">{t("find.inviteHint")}</Text>
         <label htmlFor="club-invite-code" className="club-invite-label">{t("find.inviteLabel")}</label>
-        <div className="club-invite-form">
-        <Input id="club-invite-code" data-testid="C0-3-1" {...focusTargetProps(FOCUS_TARGETS.clubInviteCode)}
-          type="text"
-          value={inviteCode}
-          onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-          placeholder={t("find.inviteCode")}
-          className="flex-1"
-          maxLength={9}
-        />
-        <Button
-          onClick={handleJoinByCode}
-          disabled={!inviteCode.trim() || joining || joinRetryAt > 0} variant="secondary" className="disabled:opacity-50"
-        >
-          {joining ? t("button.joining") : t("button.joinCode")}
-        </Button>
-        </div>
+        {inviteForm}
       </Card>}
-      {error && <p role="alert" className="text-[length:var(--ft-body-size)] text-red-500 mb-4">{error}</p>}
+      {errorLine}
 
 
       {user && !myLoading && !myGroupsError && myGroups.length === 0 && <GroupRequestHistory userId={user?.uid} sectionId="C0-1" focusRequest={pendingFocus} />}
-      <Card padding="card" className="club-league-card"><Text as="h2" variant="subtitle">{t("challenges.title")}</Text><Text as="p" variant="body" tone="secondary">{t("challenges.desc")}</Text><Link data-testid="C0-4" to="/explore/challenges">{t("list.viewLeague")}</Link></Card>
+      {/* 클럽 거리 리그는 탐색(/explore/challenges)에 있다 — 휴대폰 클럽 목록에서는 두지 않는다. */}
+      {!mobile && <Card padding="card" className="club-league-card"><Text as="h2" variant="subtitle">{t("challenges.title")}</Text><Text as="p" variant="body" tone="secondary">{t("challenges.desc")}</Text><Link data-testid="C0-4" to="/explore/challenges">{t("list.viewLeague")}</Link></Card>}
 
-      <CreateGroupModal
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={(groupId) => { setShowCreate(false); navigate(`/club/${groupId}`); }}
-      />
+      {createModal}
     </div>
   );
 }
