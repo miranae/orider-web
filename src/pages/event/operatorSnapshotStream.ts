@@ -44,7 +44,10 @@ export function subscribeOperatorSnapshot<T>(
       if (!active || stopFallback) return;
       try {
         const frame = JSON.parse(String(data));
-        if (frame.v !== 1 || frame.eventId !== eventId || frame.type !== "operator_snapshot_signal") return;
+        if (frame.eventId !== eventId) return;
+        if (frame.v !== 1 || frame.type !== "operator_snapshot_signal") {
+          throw new Error("Unsupported operator snapshot signal protocol");
+        }
         if (typeof frame.revision !== "string" && frame.revision !== null) {
           throw new Error("Invalid operator snapshot revision");
         }

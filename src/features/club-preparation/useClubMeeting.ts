@@ -192,13 +192,13 @@ export function useClubMeeting(
     worldDisconnect.current = code => {
       if (!valid()) return;
       worldActive = false;
-      if (redisSignals && code === 4003 && !document.hidden && !denied) {
+      if (code === 4003) {
         // The server has revoked the socket scope. Drop the old roster before the callable reauthorizes.
         identity.generation++;
         inFlight = false;
         data = null;
         setState({ scope, data: null, loading: true, error: null });
-        void request(false).catch(error => {
+        if (!document.hidden && !denied) void request(false).catch(error => {
           // request() logs the sanitized failure before rejecting.
           if (valid()) setState({ scope, data, loading: false, error });
         });
