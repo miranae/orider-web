@@ -2,8 +2,9 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { getDoc } from "firebase/firestore";
+import type { User } from "firebase/auth";
 import { PaneAccount } from "./PaneAccount";
-import { useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
+import { refreshProfileAvatar, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 
 const mocks = vi.hoisted(() => ({
   user: { uid: "u1" } as { uid: string } | null,
@@ -169,6 +170,10 @@ describe("PaneAccount nickname save", () => {
     expect(view.result.current).toBe(url + "&v=321");
     act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "654" }) }); });
     expect(view.result.current).toBe(url + "&v=654");
+    act(() => { refreshProfileAvatar(mocks.currentUser as User, url, "999"); });
+    expect(view.result.current).toBe(url + "&v=999");
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "654" }) }); });
+    expect(view.result.current).toBe(url + "&v=999");
 
     const alternate = "https://example.test/new-profile.png";
     mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: alternate }) });

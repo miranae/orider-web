@@ -32,10 +32,11 @@ export function useProfileAvatarDisplayUrl(url?: string | null) {
   const uploadGeneration = useSyncExternalStore(subscribe,
     () => viewer && url ? uploadedGenerations.get(viewer)?.get(url) : undefined, serverVersion);
   const approved = services.isSessionApproved?.(viewer ?? null) !== false;
-  const scope = useMemo(() => ({ firestore, services, url, viewer, uploadGeneration, approved }),
-    [firestore, services, url, viewer, uploadGeneration, approved]);
-  const [observed, setObserved] = useState<{ scope: typeof scope; version: string | false | undefined }>();
-  const version = observed?.scope === scope ? observed.version ?? uploadGeneration : uploadGeneration;
+  const scope = useMemo(() => ({ firestore, services, url, viewer, approved }), [firestore, services, url, viewer, approved]);
+  const [observed, setObserved] = useState<{ scope: typeof scope; version: string | false | undefined; uploadGeneration?: string }>();
+  const version = observed?.scope === scope && observed.uploadGeneration === uploadGeneration
+    ? observed.version ?? uploadGeneration
+    : uploadGeneration;
 
   useEffect(() => {
     if (!uid || !url || !approved) return;
@@ -47,7 +48,9 @@ export function useProfileAvatarDisplayUrl(url?: string | null) {
     const isCurrent = () => active && services.auth?.currentUser === viewer
       && services.isSessionApproved?.(viewer ?? null) !== false;
     const showVersion = (version: string | false | undefined) => {
-      setObserved(prior => prior?.scope === scope && prior.version === version ? prior : { scope, version });
+      const uploadGeneration = viewer ? uploadedGenerations.get(viewer)?.get(url) : undefined;
+      // An unchanged projection cannot replace a photo uploaded here while it catches up.
+      setObserved(prior => prior?.scope === scope && prior.version === version ? prior : { scope, version, uploadGeneration });
     };
     const generation = (value: unknown) => typeof value === "string" && /^[0-9]{1,21}$/.test(value) ? value : undefined;
     // Firestore shares subscriptions to the same document within the same app.
