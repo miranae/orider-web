@@ -78,6 +78,10 @@ describe("phone goal tab", () => {
     expect(screen.getByRole("status")).toHaveTextContent("시작하면 'Winter course' 목표는 포기됩니다.");
     fireEvent.click(screen.getByTestId("K3-2-2"));
     expect(screen.getByText("climb form")).toBeInTheDocument();
+    fireEvent.click(change);
+    expect(change).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("climb form")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("abandons through the existing confirmation", async () => {

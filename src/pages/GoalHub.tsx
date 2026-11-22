@@ -100,7 +100,7 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
         dateLabel={displayDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language, { timeZone: "Asia/Seoul" }) ?? null}
         countdown={goalCountdown(targetMs)} cached={!!model.cacheHit && model.freshLoaded === false}
         weeks={model.weeks} discipline={discipline} goalReady={goalReady} error={error} />}
-      {goal && mobile && <MobileGoalActions goalReady={goalReady} changing={changing} onToggleChange={() => setChanging(open => !open)}
+      {goal && mobile && <MobileGoalActions goalReady={goalReady} changing={changing} onToggleChange={() => { if (changing) setChoice(null); setChanging(!changing); }}
         onAbandon={() => void abandon()} canAbandon={!goal.runProgram} />}
       {mobile && (!goal || changing) && <MobileGoalTypeRows listRef={types} discipline={discipline} goalReady={goalReady}
         hasRunProgram={!!goal?.runProgram} onChoose={choose} />}
