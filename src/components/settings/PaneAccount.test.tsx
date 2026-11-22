@@ -1,19 +1,24 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { getDoc } from "firebase/firestore";
+import type { User } from "firebase/auth";
 import { PaneAccount } from "./PaneAccount";
+import { refreshProfileAvatar, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 
 const mocks = vi.hoisted(() => ({
   user: { uid: "u1" } as { uid: string } | null,
   profile: { nickname: "Old Name" } as Record<string, unknown> | null,
   updateDoc: vi.fn(async () => undefined),
   updateProfile: vi.fn(async () => undefined),
+  uploadBytes: vi.fn(),
   promptValue: "New Name",
   logClientError: vi.fn(),
   showToast: vi.fn(),
   currentUser: { uid: "u1" } as { uid: string } | null,
   callable: vi.fn(),
+  avatarRead: vi.fn(async () => ({ data: () => ({}) })),
+  onSnapshot: vi.fn((..._args: unknown[]) => () => {}),
   navigate: vi.fn(),
   confirm: vi.fn(async () => true),
 }));
@@ -35,8 +40,9 @@ vi.mock("firebase/functions", () => ({
 
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn((...args: unknown[]) => ({ kind: "doc", args })),
-  getDocFromServer: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
+  getDocFromServer: mocks.avatarRead,
   getDoc: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
+  onSnapshot: (...args: unknown[]) => mocks.onSnapshot(...args),
   setDoc: vi.fn(async () => undefined),
   updateDoc: (...args: unknown[]) => mocks.updateDoc(...args),
   collection: vi.fn((...args: unknown[]) => ({ kind: "collection", args })),
@@ -47,9 +53,8 @@ vi.mock("firebase/firestore", () => ({
 }));
 
 vi.mock("firebase/storage", () => ({
-  ref: vi.fn(),
-  uploadBytes: vi.fn(async () => undefined),
-  getDownloadURL: vi.fn(async () => "https://example.test/photo.webp"),
+  ref: (_storage: unknown, fullPath: string) => ({ bucket: "test.firebasestorage.app", fullPath }),
+  uploadBytes: mocks.uploadBytes,
 }));
 
 vi.mock("firebase/auth", () => ({
@@ -57,11 +62,13 @@ vi.mock("firebase/auth", () => ({
 }));
 
 vi.mock("../../services/firebase", () => ({
-  firestore: {},
+  firestore: { app: { options: { storageBucket: "test.firebasestorage.app" } } },
   functions: {},
   storage: {},
-  get auth() {
-    return { currentUser: mocks.currentUser };
+  ensureAppCheckReady: vi.fn(),
+  getAppCheckToken: vi.fn(),
+  auth: {
+    get currentUser() { return mocks.currentUser; },
   },
 }));
 
@@ -106,7 +113,10 @@ describe("PaneAccount nickname save", () => {
     mocks.promptValue = "New Name";
     mocks.updateDoc.mockClear();
     mocks.updateProfile.mockClear().mockResolvedValue(undefined);
+    mocks.uploadBytes.mockReset();
     mocks.logClientError.mockClear();
+    mocks.onSnapshot.mockClear();
+    mocks.avatarRead.mockClear();
     mocks.showToast.mockClear();
     mocks.navigate.mockClear();
     mocks.confirm.mockClear().mockResolvedValue(true);
@@ -115,6 +125,153 @@ describe("PaneAccount nickname save", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("replaces the same object twice and only varies the settings preview URL", async () => {
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
+    mocks.uploadBytes.mockResolvedValueOnce({ metadata: { generation: "1" } })
+      .mockResolvedValueOnce({ metadata: { generation: "2" } });
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const input = container.querySelector("input[type=file]")!;
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fu1%2Favatar?alt=media";
+    for (const generation of [1, 2]) {
+      mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: generation === 1 ? null : url }) });
+      fireEvent.change(input, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
+      await waitFor(() => expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", `${url}&v=${generation}`));
+    }
+    expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
+    for (const [storageRef, , metadata] of mocks.uploadBytes.mock.calls) {
+      expect(storageRef).toEqual({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" });
+      expect(metadata).toEqual({ cacheControl: "private, max-age=300", contentType: "image/webp" });
+    }
+    expect(mocks.updateDoc).toHaveBeenNthCalledWith(1, expect.anything(), { photoURL: url, profileAvatarGeneration: "1" });
+    expect(mocks.updateDoc).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
+    await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null, profileAvatarGeneration: null }));
+    expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses public profile signals to update the open photo and re-read a different selection", async () => {
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fother%2Favatar?alt=media";
+    const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+    expect(view.result.current).toBe(url);
+    const [reference, options, notify] = mocks.onSnapshot.mock.calls.at(-1) as unknown as [
+      { args: unknown[] },
+      { includeMetadataChanges: boolean },
+      (snapshot: { data: () => { photoURL: string | null; profileAvatarGeneration?: string }; metadata?: { fromCache: boolean } }) => void,
+    ];
+    expect(reference.args.slice(1)).toEqual(["users_public", "other"]);
+    expect(options.includeMetadataChanges).toBe(true);
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "321" }), metadata: { fromCache: true } }); });
+    expect(view.result.current).toBe(url);
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "321" }), metadata: { fromCache: false } }); });
+    expect(view.result.current).toBe(url + "&v=321");
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "654" }) }); });
+    expect(view.result.current).toBe(url + "&v=654");
+    act(() => { refreshProfileAvatar(mocks.currentUser as User, url, "999"); });
+    expect(view.result.current).toBe(url + "&v=999");
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "654" }) }); });
+    expect(view.result.current).toBe(url + "&v=999");
+
+    const alternate = "https://example.test/new-profile.png";
+    mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: alternate }) });
+    act(() => { notify({ data: () => ({ photoURL: "https://example.test/stale-signal.png" }) }); });
+    await waitFor(() => expect(view.result.current).toBe(alternate));
+    expect(mocks.avatarRead).toHaveBeenCalledWith(reference);
+
+    mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: null }) });
+    act(() => { notify({ data: () => ({ photoURL: null }) }); });
+    await waitFor(() => expect(view.result.current).toBeNull());
+  });
+
+  it("does not carry an alternate avatar into a new account session when its read is denied", async () => {
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Faccount-sensitive%2Favatar?alt=media";
+    const alternate = "https://example.test/old-session-photo.png";
+    const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+    const notify = mocks.onSnapshot.mock.calls.at(-1)?.[2] as (snapshot: { data: () => { photoURL: string } }) => void;
+    mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: alternate }) });
+    act(() => { notify({ data: () => ({ photoURL: alternate }) }); });
+    await waitFor(() => expect(view.result.current).toBe(alternate));
+
+    mocks.currentUser = { uid: "new-viewer" };
+    view.rerender();
+    expect(view.result.current).toBe(url);
+    const fail = mocks.onSnapshot.mock.calls.at(-1)?.[3] as (error: Error) => void;
+    act(() => { fail(new Error("permission-denied")); });
+    expect(view.result.current).toBeNull();
+  });
+
+  it("contains and records a synchronous Firestore subscription failure", () => {
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fbroken%2Favatar?alt=media";
+    const failure = new Error("snapshot registration failed");
+    mocks.onSnapshot.mockImplementationOnce(() => { throw failure; });
+    const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+    expect(view.result.current).toBeNull();
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      "ProfileAvatar.signal", failure, { stage: "read_revision" }, expect.anything(), mocks.currentUser, "", expect.any(Function),
+    );
+  });
+
+  it("records an avatar profile read failure after the view closes", async () => {
+    let rejectRead: (error: Error) => void = () => {};
+    mocks.avatarRead.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectRead = reject; }));
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fclosed%2Favatar?alt=media";
+    const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+    const notify = mocks.onSnapshot.mock.calls.at(-1)?.[2] as (snapshot: { data: () => { photoURL: null } }) => void;
+    await act(async () => { notify({ data: () => ({ photoURL: null }) }); });
+    view.unmount();
+    const failure = new Error("profile read interrupted");
+    await act(async () => { rejectRead(failure); });
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      "ProfileAvatar.signal", failure, { stage: "read_profile" }, expect.anything(), mocks.currentUser, "", expect.any(Function),
+    );
+  });
+
+  it.each([
+    "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fu1%2Favatar?alt=media",
+    "https://example.test/provider-photo.png",
+  ])("records an avatar image failure and falls back to an initial", url => {
+    mocks.profile = { ...mocks.profile, photoURL: url };
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+
+    fireEvent.error(screen.getByRole("img", { name: "Old Name" }));
+    expect(mocks.logClientError).toHaveBeenCalledWith("ProfileAvatar.image", expect.any(Error), { stage: "load_image" }, expect.anything(), mocks.currentUser);
+    expect(screen.queryByRole("img", { name: "Old Name" })).toBeNull();
+  });
+
+  it("records an upload interrupted by an account change before writing the profile", async () => {
+    const viewer = mocks.currentUser;
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
+    mocks.uploadBytes.mockImplementationOnce(async () => {
+      mocks.currentUser = { uid: "new-viewer" };
+      return { metadata: { generation: "123" } };
+    });
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    fireEvent.change(container.querySelector("input[type=file]")!, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
+    await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith(
+      "PaneAccount.changeAvatar", expect.any(Error), { stage: "save_profile" }, expect.anything(), viewer,
+    ));
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+  });
+
+  it("keeps the old photo and records the stage when the upload fails", async () => {
+    const oldPhoto = "https://example.test/old-photo.png";
+    mocks.profile = { ...mocks.profile, photoURL: oldPhoto };
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
+    const failure = new Error("upload failed");
+    mocks.uploadBytes.mockRejectedValueOnce(failure);
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    fireEvent.change(container.querySelector("input[type=file]")!, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
+    await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith("PaneAccount.changeAvatar", failure, { stage: "upload" }));
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", oldPhoto);
   });
 
   it("keeps optional medical details discoverable and places consent before account actions", () => {
@@ -271,7 +428,7 @@ describe("PaneAccount nickname save", () => {
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("profile.photoDeleteConfirm", { destructive: true }));
     expect(mocks.updateDoc).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
-    await waitFor(() => expect(mocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { photoURL: null }));
+    await waitFor(() => expect(mocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { photoURL: null, profileAvatarGeneration: null }));
   });
 
 });

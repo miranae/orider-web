@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { readBoardCount, clearBoardCountCache } from "./countCache";
 import { clearBoardPageCursors, nearestBoardPageCursor, saveBoardPageCursor } from "./pageCursorCache";
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "../../hooks/usePagedSearch";
@@ -341,7 +342,7 @@ export function useCreatePost() {
         ...data,
         userId: user.uid,
         nickname: profile?.nickname || user.displayName || "익명",
-        profileImage: profile?.photoURL || user.photoURL || null,
+        profileImage: resolveProfilePhotoUrl(profile?.photoURL, user.photoURL),
         activityId: data.activityId || null,
         tags: data.tags || [],
         imageUrls: data.imageUrls || [],

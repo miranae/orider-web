@@ -1,3 +1,5 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
+import SafeImage from "../SafeImage";
 import type { ReactNode } from "react";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
@@ -6,6 +8,7 @@ import { LocalizedLink as Link } from "../LocalizedLink";
 import { Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
+import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useToast } from "../../contexts/ToastContext";
 import { LanguageToggle } from "../i18n/LanguageToggle";
@@ -203,7 +206,10 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   }, [mobileOpen, closeMobileMenu]);
 
   const nickname = profile?.nickname || user?.displayName || "";
-  const photoURL = user?.photoURL || profile?.photoURL;
+  const savedPhotoURL = resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL);
+  const photoURL = useProfileAvatarDisplayUrl(savedPhotoURL);
+  const reportProfileAvatarLoadError = useProfileAvatarLoadError();
+  const [failedPhoto, setFailedPhoto] = useState<string>();
 
   const dropdownItemStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
@@ -415,7 +421,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                               }}
                             >
                               {n.fromProfileImage ? (
-                                <img src={n.fromProfileImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <SafeImage src={n.fromProfileImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               ) : (
                                 <User size={ICON_SIZE.sm} style={{ color: 'var(--ink-3)' }} />
                               )}
@@ -468,8 +474,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                       fontSize: "var(--fs-xs)", fontWeight: 600, color: 'var(--ink-0)',
                     }}
                   >
-                    {photoURL ? (
-                      <img src={photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {photoURL && photoURL !== failedPhoto ? (
+                      <img src={photoURL} alt="" onError={() => {
+                        reportProfileAvatarLoadError(savedPhotoURL);
+                        setFailedPhoto(photoURL);
+                      }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <User size={ICON_SIZE.sm} />
                     )}

@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import type { User } from "firebase/auth";
@@ -84,7 +85,7 @@ export default function KudosCommentsCard({
   const hydratedComments = useHydratedSocialProfiles(comments.filter(comment => comment.deletedAt == null && comment.hiddenByOwner !== true), "KudosCommentsCard.comments");
   const displayedKudosCount = Math.max(hydratedKudos.length, kudosCount ?? 0);
   const displayedCommentCount = Math.max(hydratedComments.length, commentCount ?? 0);
-  const currentProfileImage = profile?.photoURL ?? user?.photoURL ?? null;
+  const currentProfileImage = resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL);
 
   return (
     <Card padding="none" style={{ padding: 'var(--space-5)' }}>

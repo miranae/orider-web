@@ -1,4 +1,5 @@
 import { useState, type ImgHTMLAttributes } from "react";
+import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../hooks/useProfileAvatarDisplayUrl";
 
 interface SafeImageProps extends ImgHTMLAttributes<HTMLImageElement> {
   fallbackClassName?: string;
@@ -13,8 +14,10 @@ export default function SafeImage({
   fallbackLabel,
   ...props
 }: SafeImageProps) {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
+  const displayUrl = useProfileAvatarDisplayUrl(src);
+  const reportProfileAvatarLoadError = useProfileAvatarLoadError();
+  const [failed, setFailed] = useState<string>();
+  if (!displayUrl || displayUrl === failed) {
     return (
       <div
         aria-label={alt || fallbackLabel}
@@ -32,5 +35,16 @@ export default function SafeImage({
       </div>
     );
   }
-  return <img {...props} src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
+  return (
+    <img
+      {...props}
+      src={displayUrl}
+      alt={alt}
+      className={className}
+      onError={() => {
+        reportProfileAvatarLoadError(src);
+        setFailed(displayUrl);
+      }}
+    />
+  );
 }

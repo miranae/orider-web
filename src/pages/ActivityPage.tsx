@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { useActivityPhotoLocation } from "../hooks/useActivityPhotoLocation";
 import { usePageDataTiming } from "../hooks/usePageDataTiming";
 import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
@@ -476,7 +477,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
       && (!kudosLoaded || kudosList.length === 0)
       && !!activity?.recentKudos?.some((k) => k.userId === user.uid);
     const wasLiked = liked || fallbackLiked;
-    const currentProfileImage = profile.photoURL ?? user.photoURL ?? null;
+    const currentProfileImage = resolveProfilePhotoUrl(profile?.photoURL, user.photoURL);
     const previous = { liked, kudosList, kudosTouched };
     setKudosTouched(true);
     if (wasLiked) {
@@ -987,7 +988,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
   const stravaActivityId = getStravaActivityId(activity);
   const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
   const activityNickname = author.nickname?.trim() || (isActivityOwner ? profile?.nickname?.trim() || user?.displayName?.trim() : null) || tCommon("label.rider");
-  const activityProfileImage = author.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
+  const activityProfileImage = author.profileImage || (user?.uid === activity.userId ? resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL) : null);
   const hasAnalysisRoute = !!streams?.latlng?.length;
   const hasTrack = !!(publicAccess?.routeParts?.length || activity.thumbnailTrack || hasAnalysisRoute || activityIndependentRoute(streams));
   const canCreateFromOwnRoute = isActivityOwner && hasAnalysisRoute && sport !== "swim";

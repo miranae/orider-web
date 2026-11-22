@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../../services/firebase";
@@ -32,7 +33,7 @@ export function useCreateComment(postId: string) {
       const commentData = {
         userId: user.uid,
         nickname: profile?.nickname || user.displayName || "익명",
-        profileImage: profile?.photoURL || user.photoURL || null,
+        profileImage: resolveProfilePhotoUrl(profile?.photoURL, user.photoURL),
         text: text.trim(),
         createdAt: Date.now(),
         deletedAt: null,
