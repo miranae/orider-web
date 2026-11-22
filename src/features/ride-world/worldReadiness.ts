@@ -1,0 +1,71 @@
+import { logClientError } from "../../services/errorLogger";
+
+type Listener = (ready: boolean) => void;
+export type WorldErrorReporter = (source: string, error: unknown, context: Record<string, unknown>) => void;
+const monitors = new Map<string, { subscribe: (listener: Listener, report: WorldErrorReporter) => () => void }>();
+
+/** 같은 월드의 연결은 준비 상태 요청을 공유한다. */
+export function watchWorldReadiness(endpoint: string, listener: Listener, report: WorldErrorReporter = logClientError): () => void {
+  const url = new URL(endpoint);
+  url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+  url.pathname = "/ready";
+  url.search = "";
+  url.hash = "";
+  const address = url.href;
+  let monitor = monitors.get(address);
+  if (!monitor) {
+    const listeners = new Map<Listener, WorldErrorReporter>();
+    let ready: boolean | undefined;
+    let lastFailure: string | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let request: AbortController | undefined;
+    const check = async () => {
+      const controller = new AbortController();
+      request = controller;
+      const deadline = setTimeout(() => controller.abort(), 1500);
+      let next = false;
+      let status: number | undefined;
+      let failure: unknown;
+      try {
+        status = (await fetch(address, { signal: controller.signal, cache: "no-store" })).status;
+        next = status === 204;
+        if (!next) failure = new Error("World readiness returned HTTP " + status);
+      } catch (error) {
+        failure = error;
+      } finally {
+        clearTimeout(deadline);
+      }
+      if (!listeners.size) return;
+      const cause = next ? undefined : status !== undefined ? "http:" + status
+        : controller.signal.aborted ? "timeout"
+        : "network:" + (failure instanceof Error ? failure.name + ":" + failure.message : String(failure));
+      if (cause && cause !== lastFailure) {
+        for (const record of new Set(listeners.values())) {
+          record("RideWorld.readiness", failure, { endpoint: address, status, cause });
+        }
+      }
+      lastFailure = cause;
+      if (next !== ready) {
+        ready = next;
+        for (const notify of listeners.keys()) notify(next);
+      }
+      if (listeners.size) timer = setTimeout(() => void check(), 1500);
+    };
+    monitor = {
+      subscribe(notify, record) {
+        listeners.set(notify, record);
+        if (ready !== undefined) notify(ready);
+        if (!request) void check();
+        return () => {
+          listeners.delete(notify);
+          if (listeners.size) return;
+          clearTimeout(timer);
+          request?.abort();
+          monitors.delete(address);
+        };
+      },
+    };
+    monitors.set(address, monitor);
+  }
+  return monitor.subscribe(listener, report);
+}

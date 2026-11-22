@@ -1,19 +1,24 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MeetingDiscord from "./MeetingDiscord";
 import type { MeetingDiscordView } from "../../services/clubMeetings";
+import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
+import type { useWorldEvent } from "../ride-world/useWorldEvent";
 const api = vi.hoisted(() => ({signals:[] as (()=>void)[],getClubMeetingDiscord:vi.fn(),openClubMeetingDiscord:vi.fn(),closeClubMeetingDiscord:vi.fn()}));
+const transport = vi.hoisted(() => ({ paths: [] as string[], subscribe: vi.fn<typeof useWorldEvent>() }));
+vi.mock("../ride-world/useWorldEvent",()=>({useWorldEvent:transport.subscribe}));
 vi.mock("./useClubMeetingsApi",()=>({useClubMeetingsApi:()=>api}));
 vi.mock("../../services/errorLogger",()=>({logClientError:vi.fn()}));
 vi.mock("../../components/LocalizedLink",()=>({LocalizedLink:({to,children,...props}:any)=><a href={to} {...props}>{children}</a>}));
-vi.mock("firebase/firestore",()=>({doc:(_db:unknown,path:string)=>path,onSnapshot:(_ref:unknown,next:()=>void)=>{api.signals.push(next);return vi.fn();}}));
-const services={firestore:{},ensureAppCheckReady:async()=>{}};
+vi.mock("firebase/firestore",()=>({doc:(_db:unknown,path:string)=>path,onSnapshot:(path:string,next:()=>void)=>{transport.paths.push(path);api.signals.push(next);return vi.fn();}}));
+const services={auth:{currentUser:{uid:"host"}},firestore:{},ensureAppCheckReady:async()=>{}};
 vi.mock("../../contexts/FirebaseServicesContext",()=>({useFirebaseServices:()=>services}));
 const view=(extra:Partial<MeetingDiscordView>={}):MeetingDiscordView=>({available:true,isHost:true,linked:true,state:"none",inviteUrl:null,channelUrl:null,serverInviteUrl:"https://discord.gg/server",expiresAt:null,...extra});
 const ready=view({state:"ready",inviteUrl:"https://discord.gg/meeting"});
 const show=(extra={})=>render(<MemoryRouter><MeetingDiscord eventId="meeting" groupId="club" uid="host" en={false} {...extra}/></MemoryRouter>);
-beforeEach(()=>{vi.resetAllMocks();api.signals=[];api.getClubMeetingDiscord.mockResolvedValue(view());api.openClubMeetingDiscord.mockResolvedValue(ready);api.closeClubMeetingDiscord.mockResolvedValue(view({state:"closed"}));});
+beforeEach(()=>{vi.resetAllMocks();transport.paths=[];api.signals=[];api.getClubMeetingDiscord.mockResolvedValue(view());api.openClubMeetingDiscord.mockResolvedValue(ready);api.closeClubMeetingDiscord.mockResolvedValue(view({state:"closed"}));});
+afterEach(()=>{vi.unstubAllEnvs();resetRuntimeConfigForTests();});
 describe("meeting public Discord voice",()=>{
  it("keeps public-room guidance available on demand without replacing close confirmation",async()=>{
   api.getClubMeetingDiscord.mockResolvedValue(ready);show();
@@ -62,6 +67,37 @@ describe("meeting public Discord voice",()=>{
  it("refreshes from a server signal without periodic polling",async()=>{
   show();await screen.findByRole("button",{name:"음성 채널 열기"});api.getClubMeetingDiscord.mockResolvedValue(ready);
   await act(async()=>api.signals[0]!());await screen.findByRole("link",{name:"디스코드에서 함께하기"});
+ });
+ it("keeps the Firestore invite while the initial world connection is unavailable",async()=>{
+  vi.stubEnv("VITE_ORIDER_LOCAL_WORLD","1");
+  vi.stubEnv("VITE_ORIDER_LOCAL_DISCORD_REDIS","1");
+  resetRuntimeConfigForTests({useEmulators:true,firebaseProjectId:"demo-orider-world"});
+  api.getClubMeetingDiscord.mockResolvedValue(ready);
+  show();
+  await screen.findByRole("link",{name:"디스코드에서 함께하기"});
+  act(()=>transport.subscribe.mock.lastCall?.[4]?.disconnected?.(1013));
+  expect(screen.getByRole("link",{name:"디스코드에서 함께하기"})).toBeInTheDocument();
+ });
+ it("uses the Discord WebSocket for invalidation, and clears stale links on disconnect or revocation",async()=>{
+  vi.stubEnv("VITE_ORIDER_LOCAL_WORLD","1");
+  vi.stubEnv("VITE_ORIDER_LOCAL_DISCORD_REDIS","1");
+  resetRuntimeConfigForTests({useEmulators:true,firebaseProjectId:"demo-orider-world"});
+  const signal=()=>transport.subscribe.mock.lastCall?.[4];
+  show();
+  await screen.findByRole("button",{name:"음성 채널 열기"});
+  expect(transport.subscribe.mock.lastCall?.[0]).toBe("meeting");
+  expect(signal()?.topic).toBe("discord");
+  expect(transport.paths).toEqual(["events/meeting/discord_signals/latest","events/meeting","groups/club","groups/club/members/host"]);
+  api.getClubMeetingDiscord.mockResolvedValue(ready);
+  await act(async()=>signal()?.changed("1"));
+  await screen.findByRole("link",{name:"디스코드에서 함께하기"});
+  act(()=>signal()?.disconnected?.(1013));
+  expect(screen.queryByRole("link",{name:"디스코드에서 함께하기"})).toBeNull();
+  await act(async()=>signal()?.changed("2"));
+  await screen.findByRole("link",{name:"디스코드에서 함께하기"});
+  act(()=>signal()?.disconnected?.(4003));
+  expect(screen.queryByRole("link",{name:"디스코드에서 함께하기"})).toBeNull();
+  expect(screen.getByRole("alert")).toBeInTheDocument();
  });
  it("discards an old account's response after the scope changes",async()=>{
   let release!:(value:MeetingDiscordView)=>void;api.getClubMeetingDiscord.mockImplementationOnce(()=>new Promise(resolve=>{release=resolve;}));

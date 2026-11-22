@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isLocalWorldEventEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -17,17 +18,38 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const refreshSelection = useRef<() => void>(() => {});
   const [retry, setRetry] = useState(0);
   const [state, setState] = useState<State>({scope, data: null, receivedAt: 0, loading: true, error: null});
+  const activeState = state.scope === scope ? state : {data: null, loading: !!uid, error: null, receivedAt: 0};
+  const world = useWorldEvent(activeState.data?.status === "LIVE" ? eventId : undefined,
+    uid === services.auth.currentUser?.uid ? services.auth.currentUser : null, selectedUid);
+  const worldActive = world !== null;
+  const syncLocationSignal = useRef<() => void>(() => {});
+  const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
+  const spectatorSignal = useRef<(code?: number) => void>(() => {});
+  const spectatorActiveScope = useRef<string | null>(null);
+  const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
+  const previousBinding = useRef({ scope, viewer, services });
+  if (previousBinding.current.scope !== scope || previousBinding.current.viewer !== viewer ||
+      previousBinding.current.services !== services) {
+    previousBinding.current = { scope, viewer, services };
+    spectatorActiveScope.current = null;
+  }
+  useWorldEvent(spectatorRedis ? eventId : undefined, viewer, undefined, undefined, {
+    topic: "spectator",
+    changed: () => { spectatorActiveScope.current = scope; syncLocationSignal.current(); spectatorSignal.current(); },
+    disconnected: code => { spectatorActiveScope.current = null; syncLocationSignal.current(); spectatorSignal.current(code); },
+  });
   useEffect(() => {
     let disposed = false, inFlight = false, queued = false, blocked = false, generation = 0;
     let lastReadAt = 0, recoveryAttempts = 0;
     let recovery: ReturnType<typeof setTimeout> | undefined;
     let stops: (() => void)[] = [];
+    let stopLocationSignal: (() => void) | undefined;
     const readySubscriptions = new Set<string>();
     let scheduled: ReturnType<typeof setTimeout> | undefined;
     const viewer = services.auth.currentUser;
     const current = () => !disposed && services.auth.currentUser === viewer && viewer?.uid === uid;
     const clear = (error: unknown = null, loading = false) => setState({scope, data: null, receivedAt: 0, loading, error});
-    const stop = () => { stops.forEach(unsubscribe => unsubscribe()); stops = []; readySubscriptions.clear(); clearTimeout(scheduled); scheduled = undefined; clearTimeout(recovery); recovery = undefined; };
+    const stop = () => { stopLocationSignal?.(); stopLocationSignal = undefined; stops.forEach(unsubscribe => unsubscribe()); stops = []; readySubscriptions.clear(); clearTimeout(scheduled); scheduled = undefined; clearTimeout(recovery); recovery = undefined; };
     setState(old => old.scope === scope && old.data ? {...old, error: null} : {scope, data: null, receivedAt: 0, loading: !!uid, error: null});
     if (!uid || !groupId || !eventId || !viewer || viewer.uid !== uid) return;
     const fail = (error: unknown) => {
@@ -42,7 +64,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
           recovery = setTimeout(() => { recovery = undefined; void start(); }, 1000 * 2 ** recoveryAttempts++);
         }
       } else { blocked = true; clear(error); }
-      logClientError("ClubMeetingSpectator.read", error, {eventId});
+      logClientError("ClubMeetingSpectator.read", error, {eventId}, services, viewer);
     };
     const load = async () => {
       if (document.hidden || !current() || blocked) return;
@@ -59,7 +81,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         if (selectedRef.current !== requestedUid) { queued = true; return; }
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
-        if (readySubscriptions.size === 4) recoveryAttempts = 0;
+        if (readySubscriptions.size === (spectatorActiveScope.current === scope ? 3 : 4)) recoveryAttempts = 0;
         setState(old => ({scope, data: retainNewerSamples(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
       } catch (error) {
         if (current() && ticket === generation) fail(error);
@@ -77,6 +99,23 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         void load();
       }, Math.max(100, 5000 - (Date.now() - lastReadAt)));
     };
+    spectatorSignal.current = code => signal(code === 4003 || code === 4004);
+    const syncSignal = () => {
+      const path = `events/${eventId}/spectator_signals/latest`;
+      if (spectatorActiveScope.current === scope) {
+        stopLocationSignal?.();
+        stopLocationSignal = undefined;
+        readySubscriptions.delete(path);
+      } else if (!stopLocationSignal && stops.length && current() && !blocked && !document.hidden) {
+        try {
+          stopLocationSignal = onSnapshot(doc(services.firestore, path), () => {
+            readySubscriptions.add(path);
+            signal();
+          }, fail);
+        } catch (error) { fail(error); }
+      }
+    };
+    syncLocationSignal.current = syncSignal;
     let starting: number | null = null;
     const start = async () => {
       if (starting === generation || stops.length) return;
@@ -88,7 +127,6 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         if (!current() || document.hidden || blocked || ticket !== generation) return;
         // 신호 문서에는 위치가 없다. 권한·모임 상태가 바뀌어도 기존 조회로 다시 확인한다.
         const paths = [
-          {path: `events/${eventId}/spectator_signals/latest`, sensitive: false},
           {path: `events/${eventId}`, sensitive: true},
           {path: `groups/${groupId}`, sensitive: true},
           {path: `groups/${groupId}/members/${uid}`, sensitive: true},
@@ -98,6 +136,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
           const unsubscribe = onSnapshot(doc(services.firestore, path), () => { readySubscriptions.add(path); signal(sensitive); }, fail);
           if (blocked || ticket !== generation) unsubscribe(); else stops.push(unsubscribe);
         }
+        syncSignal();
         void load();
       } catch (error) { if (ticket === generation) fail(error); }
       finally { if (starting === ticket) starting = null; }
@@ -109,13 +148,14 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("focus", focus);
     window.addEventListener("online", focus);
-    return () => { disposed = true; stop(); document.removeEventListener("visibilitychange", visible); window.removeEventListener("focus", focus); window.removeEventListener("online", focus); };
-  }, [services, scope, groupId, eventId, uid, retry]);
+    return () => { disposed = true; spectatorSignal.current = () => {}; syncLocationSignal.current = () => {}; stop(); document.removeEventListener("visibilitychange", visible); window.removeEventListener("focus", focus); window.removeEventListener("online", focus); };
+  }, [services, scope, groupId, eventId, uid, retry, spectatorRedis, viewer]);
+  useEffect(() => { syncLocationSignal.current(); if (world) spectatorSignal.current(); }, [world, worldActive]);
   useEffect(() => {
     if (previousSelection.current !== selectedUid) {
       previousSelection.current = selectedUid;
       refreshSelection.current();
     }
   }, [selectedUid]);
-  return { ...(state.scope === scope ? state : {data: null, loading: !!uid, error: null, receivedAt: 0}), reload: () => setRetry(v => v + 1) };
+  return { ...activeState, reload: () => setRetry(v => v + 1) };
 }
