@@ -10,7 +10,6 @@ vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 describe("group next events", () => {
   beforeEach(() => {
     installEventDiscoveryFixture();
-    setCallableImplementation("getGroupNextEvents", () => { throw Object.assign(new Error("Not deployed"), { code: "functions/not-found" }); });
     vi.mocked(logClientError).mockClear();
     setCollectionDocs("events", []);
   });
@@ -39,6 +38,20 @@ describe("group next events", () => {
     ]);
     expect(result.current.eventByGroup.get("g1")?.id).toBe("next");
     expect(result.current.eventByGroup.has("g2")).toBe(false);
+  });
+
+  it("reads next events only from the supported list callable, never the removed batch callable (#3835)", async () => {
+    mockCallableInvocations.length = 0;
+    setCollectionDocs("events", [{ id: "next", info: { groupId: "g1", status: "OPEN", startTime: 100, name: "Next" }, counters: { totalRegistered: 3 } }]);
+    const { result } = renderHook(() => useGroupNextEvents(["g1", "g2"]));
+    await waitFor(() => expect(result.current.eventByGroup.get("g1")?.id).toBe("next"));
+    expect(mockCallableInvocations.some(call => call.name === "getGroupNextEvents")).toBe(false);
+    expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes").map(call => call.data)).toEqual([
+      { groupId: "g1", publicOnly: false, statuses: ["OPEN", "LIVE"], limit: 250 },
+      { groupId: "g2", publicOnly: false, statuses: ["OPEN", "LIVE"], limit: 250 },
+    ]);
+    expect(result.current.byGroup.get("g1")).toContain("Next");
+    expect(result.current.eventByGroup.get("g1")?.registered).toBe(3);
   });
 
   it("carries the server participant count and meeting kind without counting on the client", async () => {
@@ -111,7 +124,7 @@ describe("group next events", () => {
 
 
 describe("bounded next-event discovery continuation", () => {
-  beforeEach(() => { installEventDiscoveryFixture(); setCallableImplementation("getGroupNextEvents", () => { throw Object.assign(new Error("Not deployed"), { code: "functions/not-found" }); }); });
+  beforeEach(() => { installEventDiscoveryFixture(); });
 
   it("reports an empty private scan window as incomplete without automatic requests", async () => {
     setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: "~ed1_" + "a".repeat(48) } }));
