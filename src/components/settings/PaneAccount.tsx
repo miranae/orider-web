@@ -1,4 +1,3 @@
-import { PublicDataSettingsCard } from "./PublicDataSettingsCard";
 import { NotificationPreferencesCard } from "./NotificationPreferencesCard";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -393,7 +392,6 @@ export function PaneAccount() {
         </FieldGrid>
       </SettingsCard>
 
-      <PublicDataSettingsCard />
       <NotificationPreferencesCard />
 
       <ProfileBodyEditor />
