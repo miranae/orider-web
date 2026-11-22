@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { getDoc } from "firebase/firestore";
+import { getDoc, getDocFromServer } from "firebase/firestore";
 import { PaneAccount } from "./PaneAccount";
 
 const mocks = vi.hoisted(() => ({
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   updateProfile: vi.fn(async () => undefined),
   uploadBytes: vi.fn(),
   deleteObject: vi.fn(async () => undefined),
+  getMetadata: vi.fn(async () => ({ generation: "2" })),
   promptValue: "New Name",
   logClientError: vi.fn(),
   showToast: vi.fn(),
@@ -52,6 +53,7 @@ vi.mock("firebase/storage", () => ({
   ref: (_storage: unknown, fullPath: string) => ({ bucket: "test.firebasestorage.app", fullPath }),
   uploadBytes: mocks.uploadBytes,
   deleteObject: mocks.deleteObject,
+  getMetadata: mocks.getMetadata,
 }));
 
 vi.mock("firebase/auth", () => ({
@@ -110,6 +112,7 @@ describe("PaneAccount nickname save", () => {
     mocks.updateProfile.mockClear().mockResolvedValue(undefined);
     mocks.uploadBytes.mockReset();
     mocks.deleteObject.mockClear();
+    mocks.getMetadata.mockClear();
     mocks.logClientError.mockClear();
     mocks.showToast.mockClear();
     mocks.navigate.mockClear();
@@ -142,9 +145,20 @@ describe("PaneAccount nickname save", () => {
     }
     expect(mocks.updateDoc).toHaveBeenNthCalledWith(1, expect.anything(), { photoURL: url });
     expect(mocks.updateDoc).toHaveBeenNthCalledWith(2, expect.anything(), { photoURL: url });
+    vi.mocked(getDocFromServer).mockResolvedValueOnce({ data: () => ({ photoURL: url }) } as Awaited<ReturnType<typeof getDocFromServer>>);
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
-    await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null }));
-    expect(mocks.deleteObject).toHaveBeenCalledWith({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" });
+    await waitFor(() => expect(mocks.deleteObject).toHaveBeenCalledWith({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" }));
+    expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null });
+  });
+
+  it("records an avatar image failure and falls back to an initial", () => {
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fu1%2Favatar?alt=media";
+    mocks.profile = { ...mocks.profile, photoURL: url };
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+
+    fireEvent.error(screen.getByRole("img", { name: "Old Name" }));
+    expect(mocks.logClientError).toHaveBeenCalledWith("ProfileAvatar.image", expect.any(Error), { stage: "load_image" });
+    expect(screen.queryByRole("img", { name: "Old Name" })).toBeNull();
   });
 
   it("keeps the old photo and records the stage when the upload fails", async () => {
