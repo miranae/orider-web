@@ -1,3 +1,5 @@
+import { logClientError } from "../../services/errorLogger";
+
 type Listener = (ready: boolean) => void;
 const monitors = new Map<string, { subscribe: (listener: Listener) => () => void }>();
 
@@ -20,15 +22,20 @@ export function watchWorldReadiness(endpoint: string, listener: Listener): () =>
       request = controller;
       const deadline = setTimeout(() => controller.abort(), 1500);
       let next = false;
+      let status: number | undefined;
+      let failure: unknown;
       try {
-        next = (await fetch(address, { signal: controller.signal, cache: "no-store" })).status === 204;
-      } catch {
-        next = false;
+        status = (await fetch(address, { signal: controller.signal, cache: "no-store" })).status;
+        next = status === 204;
+        if (!next) failure = new Error("World readiness returned HTTP " + status);
+      } catch (error) {
+        failure = error;
       } finally {
         clearTimeout(deadline);
       }
       if (!listeners.size) return;
       if (next !== ready) {
+        if (!next) logClientError("RideWorld.readiness", failure, { endpoint: address, status });
         ready = next;
         for (const notify of listeners) notify(next);
       }

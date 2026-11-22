@@ -1,3 +1,4 @@
+import { logClientError } from "../../services/errorLogger";
 import { watchWorldReadiness } from "./worldReadiness";
 
 /** 기본 경로는 호출자가 유지하며, 준비된 월드의 첫 유효 신호 뒤에만 가속 경로를 활성화한다. */
@@ -9,6 +10,7 @@ export function followWorldSignal(
 ): () => void {
   let active = true, ready = false, denied = false, generation = 0, backoff = 500;
   let socket: WebSocket | undefined;
+  let accepted = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let initial: ReturnType<typeof setTimeout> | undefined;
   function close() {
@@ -21,7 +23,8 @@ export function followWorldSignal(
   function lost(code: number) {
     close();
     denied = code === 4003 || code === 4004;
-    disconnected(code);
+    if (accepted || denied) disconnected(code);
+    accepted = false;
     if (active && ready && !denied) {
       timer = setTimeout(() => void open(), backoff);
       backoff = Math.min(backoff * 2, 5000);
@@ -35,23 +38,36 @@ export function followWorldSignal(
       if (!active || ticket !== generation || !ready) return;
       const connection = new WebSocket(url);
       socket = connection;
-      initial = setTimeout(() => { if (socket === connection) lost(1013); }, 3000);
-      connection.addEventListener("open", () => connection.send(JSON.stringify(request)));
+      const failed = (phase: string, error: unknown) => {
+        if (socket !== connection) return;
+        logClientError("RideWorld.signal", error, { endpoint: url, phase });
+        lost(1013);
+      };
+      initial = setTimeout(() => failed("first-frame", new Error("World signal timed out")), 3000);
+      connection.addEventListener("open", () => {
+        if (socket !== connection) return;
+        try { connection.send(JSON.stringify(request)); }
+        catch (error) { failed("subscribe", error); }
+      });
       connection.addEventListener("close", event => { if (socket === connection) lost(event.code); });
-      connection.addEventListener("error", () => { if (socket === connection) lost(1013); });
+      connection.addEventListener("error", () => failed("transport", new Error("World WebSocket error")));
       connection.addEventListener("message", ({ data }) => {
         if (socket !== connection) return;
         try {
           if (receive(JSON.parse(String(data)))) {
             clearTimeout(initial);
+            accepted = true;
             backoff = 500;
           }
-        } catch {
-          lost(1013);
+        } catch (error) {
+          failed("decode", error);
         }
       });
-    } catch {
-      if (active && ticket === generation) lost(1013);
+    } catch (error) {
+      if (active && ticket === generation) {
+        logClientError("RideWorld.signal", error, { endpoint: url, phase: "connect" });
+        lost(1013);
+      }
     }
   }
   const unwatch = watchWorldReadiness(url, available => {

@@ -99,6 +99,7 @@ export function useWorldEvent(
     let delayMs = 1000;
     let ready = false;
     let denied = false;
+    let signalAccepted = false;
     let generation = 0;
     let initial: ReturnType<typeof setTimeout> | undefined;
     const open = async () => {
@@ -127,6 +128,7 @@ export function useWorldEvent(
                 : signalTopic === "discord" ? frame.discordVersion : frame.meetingVersion;
               if (version === null || typeof version === "string" && /^\d+:\d{1,9}$/.test(version)) {
                 clearTimeout(initial);
+                signalAccepted = true;
                 signalCurrent.current?.changed(version);
                 delayMs = 1000;
               }
@@ -169,8 +171,9 @@ export function useWorldEvent(
           clearTimeout(initial);
           if (subscribeCurrent.current === subscribe) subscribeCurrent.current = null;
           setState(null);
-          signalCurrent.current?.disconnected(code);
           denied = code === 4003 || code === 4004;
+          if (signalAccepted || denied) signalCurrent.current?.disconnected(code);
+          signalAccepted = false;
           if (!denied && ready) {
             retry = setTimeout(() => void open(), delayMs);
             delayMs = Math.min(10000, delayMs * 2);
@@ -178,7 +181,8 @@ export function useWorldEvent(
         });
       } catch (error) {
         if (!disposed && attempt === generation) {
-          signalCurrent.current?.disconnected(1013);
+          if (signalAccepted) signalCurrent.current?.disconnected(1013);
+          signalAccepted = false;
           logClientError("RideWorld.connectEvent", error, { eventId: event });
           if (ready) retry = setTimeout(() => void open(), delayMs);
         }
@@ -195,7 +199,8 @@ export function useWorldEvent(
       subscribeCurrent.current = null;
       connection?.close();
       setState(null);
-      if (!denied) signalCurrent.current?.disconnected(1013);
+      if (signalAccepted && !denied) signalCurrent.current?.disconnected(1013);
+      signalAccepted = false;
     });
     return () => {
       disposed = true;

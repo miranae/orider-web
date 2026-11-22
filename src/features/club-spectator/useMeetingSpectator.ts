@@ -95,7 +95,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         void load();
       }, Math.max(100, 5000 - (Date.now() - lastReadAt)));
     };
-    spectatorSignal.current = code => signal(code !== undefined);
+    spectatorSignal.current = code => signal(code === 4003 || code === 4004);
     const syncSignal = () => {
       const path = `events/${eventId}/spectator_signals/latest`;
       if (worldActiveRef.current || spectatorActiveScope.current === scope) {

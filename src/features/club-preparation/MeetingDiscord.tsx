@@ -52,10 +52,12 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
     changed: () => { setWorldScope(scope); if (!document.hidden) void reload(); },
     disconnected: code => {
       if (!mounted.current || current.current !== scope) return;
+      const denied = code === 4003 || code === 4004;
+      if (worldScope !== scope && !denied) return;
       setWorldScope(null);
       generation.current++; busy.current = false; queued.current = false;
       setPending(false); setResult(null); setConfirmClose(false);
-      if (code === 4003) setError(true);
+      if (denied) setError(true);
     },
   });
   useEffect(() => {

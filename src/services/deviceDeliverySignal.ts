@@ -1,5 +1,6 @@
 import { getAuth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
+import { logClientError } from "./errorLogger";
 import { followWorldSignal } from "../features/ride-world/followWorldSignal";
 
 export function subscribeDeviceDeliverySignal<T>(
@@ -48,11 +49,14 @@ export function subscribeDeviceDeliverySignal<T>(
       }).catch((error: Error & { code?: string }) => {
         if (!active() || revision !== expected) return;
         if (error.code === "permission-denied" || error.code === "unauthenticated") denied();
-        else restore();
+        else {
+          logClientError("RideWorld.deviceDeliveryRead", error, { resourceKind: resource.split(":")[0] });
+          restore();
+        }
       });
       return true;
     },
-    code => { if (code === 4003) denied(); else restore(); },
+    code => { if (code === 4003 || code === 4004) denied(); else restore(); },
   );
   return () => { closed = true; revision++; stopWorld(); stopCanonical(); };
 }
