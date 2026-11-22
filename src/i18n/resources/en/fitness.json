@@ -1444,5 +1444,7 @@
   "analysis.concise.totalHours": "{{recent}}h · prev {{previous}}h",
   "analysis.concise.maxHr": "Max HR",
   "analysis.concise.previousValue": "Prev {{value}}",
-  "analysis.concise.fixedWindow": "Last 28 days · previous 28 days"
+  "analysis.concise.fixedWindow": "Last 28 days · previous 28 days",
+  "analysis.concise.powerBasis": "Power",
+  "analysis.concise.heartRateBasis": "Heart rate"
 }

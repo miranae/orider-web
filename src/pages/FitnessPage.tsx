@@ -362,7 +362,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const analysisView = part === "analysis" && (discipline === "bike" || discipline === "run") ? <CoachAnalysisView key={discipline} discipline={discipline}
     powerPeriodsEnabled={periodPowerEnabled}
     // 기간 비교를 쓸 수 없는 환경만 기존 28일 커브를 둔다. 기록이 없으면 카드를 두지 않는다(설명 문구 없음).
-    fallbackPowerCurve={(currentPowerCurve?.points.length ?? 0) >= 2 ? <BikePowerCurveEvidence compact current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
+    // 브라우저가 CP 로 계산한 기대 파워 곡선은 분석에 두지 않는다(P6).
+    fallbackPowerCurve={(currentPowerCurve?.points.length ?? 0) >= 2 ? <BikePowerCurveEvidence compact current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} /> : null}
     runPaceCurve={runPaceCurve}
     // 임베드 표면은 FTP 결정을 쓰지 않는다 — 결정 영역과 진입 줄을 두지 않는다.
     ftpReviewAvailable={!embedded && (bikeFtpDecision?.status === "actionable" || thresholdDecision?.automaticCandidateW != null)}

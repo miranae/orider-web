@@ -29,6 +29,10 @@ export interface CoachAnalysisSummary {
   rows: CurveRow[];
   recentZones: ZoneGroup[];
   previousZones: ZoneGroup[];
+  /** 두 기간 존 기준. 같은 기준이 없으면 "mixed" — 화면은 기간마다 기준 이름을 붙인다. */
+  zoneBasis: ZoneChannel | "mixed" | null;
+  /** 두 기간 모두 체중 기준(W/kg) 점이 있는지. 없으면 W/kg 를 고를 수 없다. */
+  weightNormalizedAvailable: boolean;
   recentHours: MovingHours | null;
   previousHours: MovingHours | null;
   /** 서버 기간 통계의 러닝 페이스 커브(두 기간 같은 산출 기준). 없으면 null. */
@@ -50,11 +54,19 @@ export function periodPower(period: PowerCurvePeriodResult | undefined, duration
  * 한 기간의 존 묶음 — 파워 존이 기록돼 있으면 파워, 없으면 심박. 서버 값을 고르기만 하고 계산하지 않는다(P6).
  * 존 비중·고강도 비율 같은 파생 값은 서버가 내려줄 때까지 두지 않는다.
  */
-export function zoneGroups(period: TrainingAnalysisPeriodResult | undefined): ZoneGroup[] {
+export type ZoneChannel = "power" | "heartRate";
+export function zoneGroups(period: TrainingAnalysisPeriodResult | undefined, channel?: ZoneChannel): ZoneGroup[] {
   if (!period) return [];
   const power = period.zones.power.groups.filter(group => group.observedSeconds > 0);
-  if (power.length > 0) return power;
-  return period.zones.heartRate.groups.filter(group => group.observedSeconds > 0);
+  const heartRate = period.zones.heartRate.groups.filter(group => group.observedSeconds > 0);
+  if (channel) return channel === "power" ? power : heartRate;
+  return power.length > 0 ? power : heartRate;
+}
+
+/** 두 기간에 함께 있는 존 기준 — 파워가 둘 다 있으면 파워, 아니면 심박이 둘 다 있으면 심박. */
+export function commonZoneChannel(recent: TrainingAnalysisPeriodResult | undefined, previous: TrainingAnalysisPeriodResult | undefined): ZoneChannel | null {
+  for (const channel of ["power", "heartRate"] as const) if (zoneGroups(recent, channel).length > 0 && zoneGroups(previous, channel).length > 0) return channel;
+  return null;
 }
 
 /** 서버 이동 시간 합계. 전체 값(totalValue)이 없거나 기간이 일부만 집계됐으면 관측 값을 partial 로 표시한다. */
@@ -82,6 +94,14 @@ export function periodPaceCurves(recent: TrainingAnalysisPeriodResult | undefine
   return result.recent.length || result.previous.length ? result : null;
 }
 
+/** 같은 기준이면 그 기준으로 두 기간을, 아니면 기간마다 가진 기준을 그대로 두고 "mixed" 로 표시한다. */
+function zoneComparison(recent: TrainingAnalysisPeriodResult | undefined, previous: TrainingAnalysisPeriodResult | undefined) {
+  const common = commonZoneChannel(recent, previous);
+  if (common) return { recentZones: zoneGroups(recent, common), previousZones: zoneGroups(previous, common), zoneBasis: common };
+  const recentZones = zoneGroups(recent), previousZones = zoneGroups(previous);
+  return { recentZones, previousZones, zoneBasis: recentZones.length && previousZones.length ? "mixed" as const : recentZones.length || previousZones.length ? ("boundaries" in (recentZones[0] ?? previousZones[0]!) ? "heartRate" as const : "power" as const) : null };
+}
+
 export function summarizeCoachAnalysis({ power, training, unit = "W" }: { power: PowerCurvePeriodsResponse | null; training: TrainingAnalysisPeriodsResponse | null; unit?: PowerUnit }): CoachAnalysisSummary {
   const [recentPower, previousPower] = power?.periods ?? [];
   const comparable = !!recentPower && !!previousPower && recentPower.points.length > 0 && previousPower.points.length > 0;
@@ -97,8 +117,8 @@ export function summarizeCoachAnalysis({ power, training, unit = "W" }: { power:
     sixtyMin: comparable ? row(3600) : null,
     powerPartial: comparable && (recentPower.status === "partial" || previousPower.status === "partial"),
     rows,
-    recentZones: zoneGroups(recentTraining),
-    previousZones: zoneGroups(previousTraining),
+    ...zoneComparison(recentTraining, previousTraining),
+    weightNormalizedAvailable: comparable && [recentPower, previousPower].every(period => (period.weightNormalized?.points.length ?? 0) > 0),
     recentHours: movingHours(recentTraining),
     previousHours: movingHours(previousTraining),
     pace: periodPaceCurves(recentTraining, previousTraining),

@@ -51,7 +51,7 @@ export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fal
   const isBike = discipline === "bike";
   const [windowDays, setWindowDays] = useState<WindowDays>(DEFAULT_WINDOW);
   const [request, setRequest] = useState<{ days: number; periods: PowerCurvePeriod[]; id: number }>(() => ({ days: DEFAULT_WINDOW, periods: trainingWindowPeriods(DEFAULT_WINDOW, Date.now()), id: 1 }));
-  const [unit, setUnit] = useState<PowerUnit>("W");
+  const [chosenUnit, setUnit] = useState<PowerUnit>("W");
   // 기간 탭을 연달아 누르면 마지막 기간만 부른다(기간 분석 호출 한도 보호).
   const firstWindow = useRef(true);
   useEffect(() => {
@@ -66,7 +66,10 @@ export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fal
     ? { request: { discipline, periods: request.periods }, requestId: request.id } : null, [trainingAvailable, discipline, request]);
   const power = usePowerCurvePeriods(ownerUid, powerSelection, powerPeriodsEnabled);
   const training = useTrainingAnalysisPeriods(ownerUid, trainingSelection, trainingAvailable);
-  const summary = summarizeCoachAnalysis({ power: power.response, training: training.response, unit });
+  // 체중 기준 점이 없으면 W/kg 를 고를 수 없게 하고 W 로 보인다(카드·토글이 사라지지 않게).
+  const wattSummary = summarizeCoachAnalysis({ power: power.response, training: training.response, unit: "W" });
+  const unit: PowerUnit = chosenUnit === "W/kg" && wattSummary.weightNormalizedAvailable ? "W/kg" : "W";
+  const summary = unit === "W" ? wattSummary : summarizeCoachAnalysis({ power: power.response, training: training.response, unit });
   const days = request.days;
   const loading = power.state === "loading" || training.state === "loading";
   const failed = power.state === "error" || training.state === "error";
@@ -103,7 +106,7 @@ export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fal
     </div>}
 
     {isBike && (powerPeriodsEnabled
-      ? power.response && summary.rows.length > 0 && <PowerCurveCard response={power.response} rows={summary.rows} unit={unit} onUnitChange={setUnit} days={days} format={format} />
+      ? power.response && summary.rows.length > 0 && <PowerCurveCard response={power.response} rows={summary.rows} unit={unit} onUnitChange={setUnit} weightNormalizedAvailable={summary.weightNormalizedAvailable} days={days} format={format} />
       : fallbackPowerCurve)}
 
     {periodPace && <Card title={t("analysis.concise.paceCurveTitle")} data-testid="coach-analysis-pace">
@@ -118,7 +121,7 @@ export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fal
     {discipline === "run" && runSlot}
 
     {(summary.recentZones.length > 0 || summary.previousZones.length > 0 || summary.recentHours || summary.previousHours)
-      && <CompositionCard recent={summary.recentZones} previous={summary.previousZones} recentHours={summary.recentHours} previousHours={summary.previousHours} />}
+      && <CompositionCard recent={summary.recentZones} previous={summary.previousZones} mixed={summary.zoneBasis === "mixed"} recentHours={summary.recentHours} previousHours={summary.previousHours} />}
 
     {ownerUid && <Card title={t("analysis.concise.nextTitle")} data-testid="coach-analysis-next">
       <div className="coach-analysis__next">
@@ -141,7 +144,7 @@ function FtpReviewLink({ label }: { label: string }) {
   return <Link data-testid="coach-analysis-ftp" className={buttonClass({ variant: "ghost", block: true, align: "start" })} to={{ search: `?${params}` }}>{label} ›</Link>;
 }
 
-function PowerCurveCard({ response, rows, unit, onUnitChange, days, format: formatValue }: { response: PowerCurvePeriodsResponse; rows: CurveRow[]; unit: PowerUnit; onUnitChange: (unit: PowerUnit) => void; days: number; format: (value: number | null) => string }) {
+function PowerCurveCard({ response, rows, unit, onUnitChange, weightNormalizedAvailable, days, format: formatValue }: { response: PowerCurvePeriodsResponse; rows: CurveRow[]; unit: PowerUnit; onUnitChange: (unit: PowerUnit) => void; weightNormalizedAvailable: boolean; days: number; format: (value: number | null) => string }) {
   const { t } = useTranslation("fitness");
   const durationLabel = (seconds: number) => seconds < 60 ? t("duration.sec", { n: seconds }) : t("duration.min", { n: seconds / 60 });
   const format = (value: number | null) => value == null ? "—" : unit === "W/kg" ? value.toFixed(2) : String(Math.round(value));
@@ -155,7 +158,7 @@ function PowerCurveCard({ response, rows, unit, onUnitChange, days, format: form
   const y = (value: number) => 130 - value / high * 110;
   return <Card title={t("analysis.concise.curveTitle")} data-testid="coach-analysis-curve"
     actions={<ToggleControls variant="axis" density="compact" aria-label={t("periodCurve.unit")}>
-      {(["W/kg", "W"] as const).map(value => <ToggleButton key={value} selected={unit === value} onClick={() => onUnitChange(value)}>{value}</ToggleButton>)}
+      {(["W/kg", "W"] as const).map(value => <ToggleButton key={value} selected={unit === value} disabled={value === "W/kg" && !weightNormalizedAvailable} onClick={() => onUnitChange(value)}>{value}</ToggleButton>)}
     </ToggleControls>}>
     <div className="coach-analysis__legend">
       <Text variant="caption"><span className="coach-analysis__line" />{t("analysis.concise.recent", { days })}</Text>
@@ -176,7 +179,7 @@ function PowerCurveCard({ response, rows, unit, onUnitChange, days, format: form
   </Card>;
 }
 
-function CompositionCard({ recent, previous, recentHours, previousHours }: { recent: ZoneGroup[]; previous: ZoneGroup[]; recentHours: MovingHours | null; previousHours: MovingHours | null }) {
+function CompositionCard({ recent, previous, mixed, recentHours, previousHours }: { recent: ZoneGroup[]; previous: ZoneGroup[]; mixed: boolean; recentHours: MovingHours | null; previousHours: MovingHours | null }) {
   const { t } = useTranslation("fitness");
   // 서버 존 시간을 그대로 막대로 둔다(합치거나 비율을 새로 계산하지 않는다, P6). 범례는 첫 막대에만.
   const strips = [...recent.map(group => ({ group, period: t("analysis.concise.recentShort") })), ...previous.map(group => ({ group, period: t("analysis.concise.previousShort") }))];
@@ -187,8 +190,9 @@ function CompositionCard({ recent, previous, recentHours, previousHours }: { rec
   return <Card title={t("analysis.concise.compositionTitle")} data-testid="coach-analysis-composition"
     sub={recentHours || previousHours ? t("analysis.concise.totalHours", { recent: hours(recentHours), previous: hours(previousHours) }) : undefined}>
     {strips.length > 0 && <div className="coach-analysis__composition">
-      {/* 기준(FTP·LTHR)이 기간마다 하나면 기간 이름만 둔다 — 좁은 화면에서 존 범례가 잘리지 않게. */}
-      {strips.map(({ group, period }, index) => <DistributionStrip key={index} label={recent.length > 1 || previous.length > 1 ? `${period} · ${basis(group)}` : period}
+      {/* 기준(FTP·LTHR)이 기간마다 하나면 기간 이름만 둔다 — 좁은 화면에서 존 범례가 잘리지 않게.
+          두 기간 존 종류가 다르면(파워/심박) 기간마다 종류를 붙여 같은 비교로 보이지 않게 한다. */}
+      {strips.map(({ group, period }, index) => <DistributionStrip key={index} label={[period, mixed ? t("boundaries" in group ? "analysis.concise.heartRateBasis" : "analysis.concise.powerBasis") : null, recent.length > 1 || previous.length > 1 ? basis(group) : null].filter(Boolean).join(" · ")}
         items={group.seconds.map((seconds, zone) => ({ id: `z${zone + 1}`, label: `Z${zone + 1}`, weight: seconds, detail: formatElapsedBoundary(seconds),
           color: `var(--zone-${Math.min(zone + 1, 5)})`, unlabelled: index > 0 }))} />)}
     </div>}

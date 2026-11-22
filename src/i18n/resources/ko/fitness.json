@@ -1444,5 +1444,7 @@
   "analysis.concise.totalHours": "{{recent}}h · 이전 {{previous}}h",
   "analysis.concise.maxHr": "최대 심박",
   "analysis.concise.previousValue": "이전 {{value}}",
-  "analysis.concise.fixedWindow": "최근 28일 · 이전 28일"
+  "analysis.concise.fixedWindow": "최근 28일 · 이전 28일",
+  "analysis.concise.powerBasis": "파워",
+  "analysis.concise.heartRateBasis": "심박"
 }

@@ -49,6 +49,13 @@ describe("coachAnalysisSummary", () => {
     expect(summary.rows).toEqual([{ durationSeconds: 300, recent: 4.4, previous: 4 }]);
   });
 
+  it("두 기간 모두 체중 기준 점이 있어야 W/kg 를 고를 수 있다", () => {
+    const withWeight = summarizeCoachAnalysis({ power: powerResponse(powerPeriod({ 300: 330 }, 5, { 300: 4.4 }), powerPeriod({ 300: 300 }, 5, { 300: 4 })), training: null });
+    const withoutWeight = summarizeCoachAnalysis({ power: powerResponse(powerPeriod({ 300: 330 }, 5, { 300: 4.4 }), powerPeriod({ 300: 300 }, 5)), training: null });
+    expect(withWeight.weightNormalizedAvailable).toBe(true);
+    expect(withoutWeight.weightNormalizedAvailable).toBe(false);
+  });
+
   it("한 기간이라도 파워 기록이 없으면 비교 불가로 판정하고 두 기간 기록 수를 더한다", () => {
     const summary = summarizeCoachAnalysis({ power: powerResponse(powerPeriod({ 300: 250 }, 3), powerPeriod({}, 0)), training: null });
     expect(summary.insufficient).toEqual({ powerActivityCount: 3 });
@@ -68,6 +75,19 @@ describe("coachAnalysisSummary", () => {
     const summary = summarizeCoachAnalysis({ power: null, training: trainingResponse(both, trainingPeriod({})) });
     expect(summary.recentZones).toHaveLength(1);
     expect(summary.previousZones).toEqual([]);
+  });
+
+  it("두 기간 존 기준을 맞춘다 — 같은 기준이 있으면 그것, 없으면 mixed", () => {
+    const powerAndHr = trainingPeriod({ power: [[10, 0, 0, 0, 0, 0, 0]], hr: [[5, 5, 0, 0, 0]] });
+    const hrOnly = trainingPeriod({ hr: [[5, 0, 0, 0, 5]] });
+    const powerOnly = trainingPeriod({ power: [[10, 0, 0, 0, 0, 0, 0]] });
+    const common = summarizeCoachAnalysis({ power: null, training: trainingResponse(powerAndHr, hrOnly) });
+    expect(common.zoneBasis).toBe("heartRate");
+    expect(common.recentZones.map(group => group.seconds)).toEqual([[5, 5, 0, 0, 0]]);
+    const mixed = summarizeCoachAnalysis({ power: null, training: trainingResponse(powerOnly, hrOnly) });
+    expect(mixed.zoneBasis).toBe("mixed");
+    expect(mixed.recentZones.map(group => group.seconds)).toEqual([[10, 0, 0, 0, 0, 0, 0]]);
+    expect(mixed.previousZones.map(group => group.seconds)).toEqual([[5, 0, 0, 0, 5]]);
   });
 
   it("이동 시간은 서버 합계를 시간으로만 바꾸고, 전체 값이 없거나 일부 집계면 partial 로 표시한다", () => {

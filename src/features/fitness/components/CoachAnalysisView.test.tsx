@@ -90,6 +90,22 @@ describe("CoachAnalysisView", () => {
     expect(screen.getByTestId("coach-analysis-pace")).not.toHaveTextContent("analysis.concise.fixedWindow");
   });
 
+  it("체중 기준 값이 없으면 W/kg 를 고를 수 없고 파워 커브 카드는 남는다", () => {
+    view();
+    const toggle = within(screen.getByTestId("coach-analysis-curve")).getByRole("button", { name: "W/kg" });
+    expect(toggle).toBeDisabled();
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("coach-analysis-curve")).toBeInTheDocument();
+  });
+
+  it("두 기간 존 종류가 다르면 기간마다 종류를 붙인다", () => {
+    const hrPeriod = { ...trainingPeriod([1, 1, 1, 1, 1], 3600), zones: { power: { groups: [] }, heartRate: { groups: [{ boundaries: { reference: "lthr", referenceBpm: 170 }, seconds: [1, 1, 1, 1, 1], observedSeconds: 5 }] } } };
+    mocks.training.mockReturnValue(ready({ periods: [trainingPeriod([1, 1, 1, 1, 1], 3600), hrPeriod] }));
+    view();
+    const labels = within(screen.getByTestId("coach-analysis-composition")).getAllByRole("group").map(group => group.getAttribute("aria-label"));
+    expect(labels).toEqual(["analysis.concise.recentShort · analysis.concise.powerBasis", "analysis.concise.previousShort · analysis.concise.heartRateBasis"]);
+  });
+
   it("앱 임베드에서는 비교 불가 줄에 웹 설정 링크를 두지 않는다", () => {
     mocks.scope = "embedded";
     mocks.power.mockReturnValue(ready({ periods: [powerPeriod({}, 1), powerPeriod({}, 0)] }));
