@@ -10,10 +10,11 @@ export function profileAvatarUrl(bucket: string, uid: string): string {
 export function parseProfileAvatarUrl(url?: string | null): { bucket: string; uid: string } | undefined {
   if (!url) return undefined;
   const match = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/([^/]+)\/o\/profiles%2F([^/?]+)%2Favatar\?alt=media$/.exec(url);
-  if (!match) return undefined;
+  const [, encodedBucket, encodedUid] = match ?? [];
+  if (!encodedBucket || !encodedUid) return undefined;
   try {
-    const bucket = decodeURIComponent(match[1]);
-    const uid = decodeURIComponent(match[2]);
+    const bucket = decodeURIComponent(encodedBucket);
+    const uid = decodeURIComponent(encodedUid);
     if (profileAvatarUrl(bucket, uid) === url) return { bucket, uid };
   } catch {
     // Malformed external URL or an invalid Storage object owner.
