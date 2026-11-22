@@ -1,5 +1,5 @@
 import { useState, type ImgHTMLAttributes } from "react";
-import { reportProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../hooks/useProfileAvatarDisplayUrl";
+import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../hooks/useProfileAvatarDisplayUrl";
 
 interface SafeImageProps extends ImgHTMLAttributes<HTMLImageElement> {
   fallbackClassName?: string;
@@ -15,6 +15,7 @@ export default function SafeImage({
   ...props
 }: SafeImageProps) {
   const displayUrl = useProfileAvatarDisplayUrl(src);
+  const reportProfileAvatarLoadError = useProfileAvatarLoadError();
   const [failed, setFailed] = useState<string>();
   if (!displayUrl || displayUrl === failed) {
     return (

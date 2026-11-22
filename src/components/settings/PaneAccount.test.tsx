@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   currentUser: { uid: "u1" } as { uid: string } | null,
   callable: vi.fn(),
+  onSnapshot: vi.fn((..._args: unknown[]) => () => {}),
   navigate: vi.fn(),
   confirm: vi.fn(async () => true),
 }));
@@ -39,6 +40,7 @@ vi.mock("firebase/firestore", () => ({
   doc: vi.fn((...args: unknown[]) => ({ kind: "doc", args })),
   getDocFromServer: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
   getDoc: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
+  onSnapshot: (...args: unknown[]) => mocks.onSnapshot(...args),
   setDoc: vi.fn(async () => undefined),
   updateDoc: (...args: unknown[]) => mocks.updateDoc(...args),
   collection: vi.fn((...args: unknown[]) => ({ kind: "collection", args })),
@@ -58,9 +60,11 @@ vi.mock("firebase/auth", () => ({
 }));
 
 vi.mock("../../services/firebase", () => ({
-  firestore: {},
+  firestore: { app: { options: { storageBucket: "test.firebasestorage.app" } } },
   functions: {},
   storage: {},
+  ensureAppCheckReady: vi.fn(),
+  getAppCheckToken: vi.fn(),
   get auth() {
     return { currentUser: mocks.currentUser };
   },
@@ -109,6 +113,7 @@ describe("PaneAccount nickname save", () => {
     mocks.updateProfile.mockClear().mockResolvedValue(undefined);
     mocks.uploadBytes.mockReset();
     mocks.logClientError.mockClear();
+    mocks.onSnapshot.mockClear();
     mocks.showToast.mockClear();
     mocks.navigate.mockClear();
     mocks.confirm.mockClear().mockResolvedValue(true);
@@ -131,35 +136,33 @@ describe("PaneAccount nickname save", () => {
     const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fu1%2Favatar?alt=media";
     for (const generation of [1, 2]) {
       fireEvent.change(input, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
-      await waitFor(() => expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", expect.stringContaining(`${url}&v=${generation}&t=`)));
+      await waitFor(() => expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", `${url}&v=${generation}`));
     }
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
     for (const [storageRef, , metadata] of mocks.uploadBytes.mock.calls) {
       expect(storageRef).toEqual({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" });
       expect(metadata).toEqual({ cacheControl: "public, max-age=300", contentType: "image/webp" });
     }
-    expect(mocks.updateDoc).toHaveBeenNthCalledWith(1, expect.anything(), { photoURL: url });
-    expect(mocks.updateDoc).toHaveBeenNthCalledWith(2, expect.anything(), { photoURL: url });
+    expect(mocks.updateDoc).toHaveBeenNthCalledWith(1, expect.anything(), { photoURL: url, profileAvatarGeneration: "1" });
+    expect(mocks.updateDoc).toHaveBeenNthCalledWith(2, expect.anything(), { photoURL: url, profileAvatarGeneration: "2" });
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
-    await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null }));
+    await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null, profileAvatarGeneration: null }));
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
   });
 
-  it("refreshes a canonical avatar already open in a different window every five minutes", () => {
-    vi.useFakeTimers();
-    try {
-      vi.setSystemTime(0);
-      const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fother%2Favatar?alt=media";
-      const view = renderHook(() => useProfileAvatarDisplayUrl(url));
-      expect(view.result.current).toBe(url + "&t=0");
-      act(() => { vi.advanceTimersByTime(299_999); });
-      expect(view.result.current).toBe(url + "&t=0");
-      act(() => { vi.advanceTimersByTime(1); });
-      expect(view.result.current).toBe(url + "&t=1");
-      view.unmount();
-    } finally {
-      vi.useRealTimers();
-    }
+  it("refreshes an open canonical photo after its public profile revision changes", () => {
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fother%2Favatar?alt=media";
+    const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+    expect(view.result.current).toBe(url);
+    const [reference, notify] = mocks.onSnapshot.mock.calls.at(-1) as unknown as [
+      { args: unknown[] },
+      (snapshot: { get: (name: string) => string | undefined }) => void,
+    ];
+    expect(reference.args.slice(1)).toEqual(["users_public", "other"]);
+    act(() => { notify({ get: name => name === "photoURL" ? url : "321" }); });
+    expect(view.result.current).toBe(url + "&v=321");
+    act(() => { notify({ get: name => name === "photoURL" ? url : "654" }); });
+    expect(view.result.current).toBe(url + "&v=654");
   });
 
   it.each([
@@ -170,7 +173,7 @@ describe("PaneAccount nickname save", () => {
     render(<MemoryRouter><PaneAccount /></MemoryRouter>);
 
     fireEvent.error(screen.getByRole("img", { name: "Old Name" }));
-    expect(mocks.logClientError).toHaveBeenCalledWith("ProfileAvatar.image", expect.any(Error), { stage: "load_image" });
+    expect(mocks.logClientError).toHaveBeenCalledWith("ProfileAvatar.image", expect.any(Error), { stage: "load_image" }, expect.anything(), mocks.currentUser);
     expect(screen.queryByRole("img", { name: "Old Name" })).toBeNull();
   });
 
@@ -343,7 +346,7 @@ describe("PaneAccount nickname save", () => {
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("profile.photoDeleteConfirm", { destructive: true }));
     expect(mocks.updateDoc).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
-    await waitFor(() => expect(mocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { photoURL: null }));
+    await waitFor(() => expect(mocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { photoURL: null, profileAvatarGeneration: null }));
   });
 
 });

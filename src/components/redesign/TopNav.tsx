@@ -7,7 +7,7 @@ import { LocalizedLink as Link } from "../LocalizedLink";
 import { Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
-import { reportProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
+import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useToast } from "../../contexts/ToastContext";
 import { LanguageToggle } from "../i18n/LanguageToggle";
@@ -207,6 +207,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   const nickname = profile?.nickname || user?.displayName || "";
   const savedPhotoURL = resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL);
   const photoURL = useProfileAvatarDisplayUrl(savedPhotoURL);
+  const reportProfileAvatarLoadError = useProfileAvatarLoadError();
   const [failedPhoto, setFailedPhoto] = useState<string>();
 
   const dropdownItemStyle: React.CSSProperties = {

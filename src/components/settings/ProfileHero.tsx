@@ -1,6 +1,6 @@
 import { Pencil } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { reportProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
+import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 import { useTranslation } from "react-i18next";
 import { Card, IconButton, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -33,6 +33,7 @@ export function ProfileHero({
 }: ProfileHeroProps) {
   const { t } = useTranslation("settings");
   const photoSrc = useProfileAvatarDisplayUrl(photoURL);
+  const reportProfileAvatarLoadError = useProfileAvatarLoadError();
   const [failedPhoto, setFailedPhoto] = useState<string>();
   const initial = (nickname || "?").slice(0, 1).toUpperCase();
   const size = 72;

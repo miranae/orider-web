@@ -198,7 +198,7 @@ export function PaneAccount() {
         const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "public, max-age=300" });
         if (auth.currentUser?.uid !== user.uid) return;
         stage = "save_profile";
-        await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
+        await updateDoc(doc(firestore, "users", user.uid), { photoURL: url, profileAvatarGeneration: result.metadata.generation });
         if (auth.currentUser?.uid !== user.uid) return;
         refreshProfileAvatar(url, result.metadata.generation);
         setPhotoOverride({ uid: user.uid, url });
@@ -222,7 +222,7 @@ export function PaneAccount() {
       await withPhotoLock(user.uid, async () => {
         if (auth.currentUser?.uid !== user.uid) return;
         // Clear the selected photo. The shared address can be overwritten by another device.
-        await updateDoc(doc(firestore, "users", user.uid), { photoURL: null });
+        await updateDoc(doc(firestore, "users", user.uid), { photoURL: null, profileAvatarGeneration: null });
         if (auth.currentUser?.uid !== user.uid) return;
         setPhotoOverride({ uid: user.uid, url: null });
         showToast(t("profile.photoRemoved"));
