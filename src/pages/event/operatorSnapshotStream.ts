@@ -19,7 +19,12 @@ export function subscribeOperatorSnapshot<T>(
     clearTimeout(timeout);
     socket?.close();
     receive(null);
-    stopFallback = fallback();
+    try { stopFallback = fallback(); }
+    catch (error) {
+      report("operatorSnapshotStream.fallback", error, { eventId });
+      active = false; generation++;
+      denied();
+    }
   };
   const timeout = setTimeout(() => {
     report("operatorSnapshotStream.timeout", new Error("Initial signal timed out"), { eventId });

@@ -1,3 +1,4 @@
+import { logClientError } from "../services/errorLogger";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 
 export function getMapboxToken(): string | undefined {
@@ -21,8 +22,8 @@ export function applyKoreaCyclingStyle(map: { getStyle: () => any; setLayoutProp
   // 아래 text-field 개별 설정보다 우선 적용되며, Mapbox Standard 스타일에서도 동작.
   try {
     map.setLanguage?.("ko");
-  } catch {
-    // 일부 스타일은 setLanguage 미지원 — 무시하고 아래 fallback 사용
+  } catch (error) {
+    logClientError("Mapbox.language", error);
   }
 
   const style = map.getStyle();
@@ -38,8 +39,8 @@ export function applyKoreaCyclingStyle(map: { getStyle: () => any; setLayoutProp
           ["get", "name_ko"],
           ["get", "name"],
         ]);
-      } catch {
-        // 일부 레이어는 expression 지원 안 함 — 무시
+      } catch (error) {
+        logClientError("Mapbox.layout", error, { layerId: layer.id });
       }
     }
 
@@ -51,8 +52,8 @@ export function applyKoreaCyclingStyle(map: { getStyle: () => any; setLayoutProp
           map.setPaintProperty(layer.id, "line-opacity", 0.7);
           map.setPaintProperty(layer.id, "line-width", 2);
         }
-      } catch {
-        // 무시
+      } catch (error) {
+        logClientError("Mapbox.paint", error, { layerId: layer.id });
       }
     }
   }

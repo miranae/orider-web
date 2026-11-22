@@ -178,6 +178,7 @@ export function useWorldEvent(
               hasFrame = true;
             } else if (frame.type === "event_delta") {
               if (!latest || frame.revision !== latest.revision + 1) {
+                report("RideWorld.deltaGap", new Error("World delta has no matching snapshot revision"), { eventId: event });
                 latest = null;
                 setState(null);
                 subscribe();
