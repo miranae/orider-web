@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { doc, onSnapshot, type Firestore } from "firebase/firestore";
+import { doc, getDocFromServer, onSnapshot, type Firestore } from "firebase/firestore";
 import { parseProfileAvatarUrl } from "@shared/profileAvatar";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
@@ -33,21 +33,56 @@ export function useProfileAvatarDisplayUrl(url?: string | null) {
 
   useEffect(() => {
     if (!uid || !url) return;
+    const profileRef = doc(firestore, "users_public", uid);
+    let active = true;
+    let knownProfile = false;
+    let sequence = 0;
+    let alternateSignal: string | null | undefined;
+    const isCurrent = () => active && services.auth?.currentUser === viewer
+      && services.isSessionApproved?.(viewer ?? null) !== false;
+    const generation = (value: unknown) => typeof value === "string" && /^[0-9]{1,21}$/.test(value) ? value : undefined;
     // Firestore shares subscriptions to the same document within the same app.
-    return onSnapshot(doc(firestore, "users_public", uid), (snapshot) => {
-      if (services.auth?.currentUser !== viewer || services.isSessionApproved?.(viewer ?? null) === false) return;
+    const unsubscribe = onSnapshot(profileRef, { includeMetadataChanges: true }, (snapshot) => {
+      if (!isCurrent() || snapshot.metadata?.fromCache) return;
       const data = snapshot.data();
-      if (snapshot.metadata?.fromCache || !data) return;
-      if (data.photoURL !== url) {
-        refreshProfileAvatar(firestore, url, false);
+      if (!data && !knownProfile) return;
+      knownProfile = true;
+      const signalUrl = typeof data?.photoURL === "string" ? data.photoURL : null;
+      if (signalUrl === url) {
+        sequence++;
+        alternateSignal = undefined;
+        refreshProfileAvatar(firestore, url, generation(data?.profileAvatarGeneration));
         return;
       }
-      const revision: unknown = data.profileAvatarGeneration;
-      refreshProfileAvatar(firestore, url, typeof revision === "string" && /^[0-9]{1,21}$/.test(revision) ? revision : undefined);
+
+      if (alternateSignal === signalUrl) return;
+      alternateSignal = signalUrl;
+      const request = ++sequence;
+      // A different selection needs the normal public profile read before replacing the image.
+      void getDocFromServer(profileRef).then((confirmed) => {
+        if (!isCurrent() || request !== sequence) return;
+        const current = confirmed.data();
+        const selectedUrl = current?.photoURL;
+        if (selectedUrl === url) {
+          alternateSignal = undefined;
+          refreshProfileAvatar(firestore, url, generation(current?.profileAvatarGeneration));
+          return;
+        }
+        refreshProfileAvatar(firestore, url, typeof selectedUrl === "string" && selectedUrl.startsWith("https://") ? selectedUrl : false);
+      }).catch((error) => {
+        if (!isCurrent() || request !== sequence) return;
+        alternateSignal = undefined;
+        logClientError("ProfileAvatar.signal", error, { stage: "read_profile" }, services, viewer);
+      });
     }, (error) => logClientError("ProfileAvatar.signal", error, { stage: "read_revision" }, services, viewer));
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [firestore, services, uid, url, viewer]);
 
   if (version === false) return null;
+  if (version?.startsWith("https://")) return version;
   if (!match || !url) return url;
   const publicEndpoint = "https://firebasestorage.googleapis.com";
   const displayUrl = isEmulatorRuntime()

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   currentUser: { uid: "u1" } as { uid: string } | null,
   callable: vi.fn(),
+  avatarRead: vi.fn(async () => ({ data: () => ({}) })),
   onSnapshot: vi.fn((..._args: unknown[]) => () => {}),
   navigate: vi.fn(),
   confirm: vi.fn(async () => true),
@@ -38,7 +39,7 @@ vi.mock("firebase/functions", () => ({
 
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn((...args: unknown[]) => ({ kind: "doc", args })),
-  getDocFromServer: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
+  getDocFromServer: mocks.avatarRead,
   getDoc: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
   onSnapshot: (...args: unknown[]) => mocks.onSnapshot(...args),
   setDoc: vi.fn(async () => undefined),
@@ -65,8 +66,8 @@ vi.mock("../../services/firebase", () => ({
   storage: {},
   ensureAppCheckReady: vi.fn(),
   getAppCheckToken: vi.fn(),
-  get auth() {
-    return { currentUser: mocks.currentUser };
+  auth: {
+    get currentUser() { return mocks.currentUser; },
   },
 }));
 
@@ -114,6 +115,7 @@ describe("PaneAccount nickname save", () => {
     mocks.uploadBytes.mockReset();
     mocks.logClientError.mockClear();
     mocks.onSnapshot.mockClear();
+    mocks.avatarRead.mockClear();
     mocks.showToast.mockClear();
     mocks.navigate.mockClear();
     mocks.confirm.mockClear().mockResolvedValue(true);
@@ -150,21 +152,33 @@ describe("PaneAccount nickname save", () => {
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
   });
 
-  it("refreshes an open canonical photo after its public profile revision changes", () => {
+  it("uses public profile signals to update the open photo and re-read a different selection", async () => {
     const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fother%2Favatar?alt=media";
     const view = renderHook(() => useProfileAvatarDisplayUrl(url));
     expect(view.result.current).toBe(url);
-    const [reference, notify] = mocks.onSnapshot.mock.calls.at(-1) as unknown as [
+    const [reference, options, notify] = mocks.onSnapshot.mock.calls.at(-1) as unknown as [
       { args: unknown[] },
-      (snapshot: { data: () => { photoURL: string | null; profileAvatarGeneration?: string } }) => void,
+      { includeMetadataChanges: boolean },
+      (snapshot: { data: () => { photoURL: string | null; profileAvatarGeneration?: string }; metadata?: { fromCache: boolean } }) => void,
     ];
     expect(reference.args.slice(1)).toEqual(["users_public", "other"]);
-    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "321" }) }); });
+    expect(options.includeMetadataChanges).toBe(true);
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "321" }), metadata: { fromCache: true } }); });
+    expect(view.result.current).toBe(url);
+    act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "321" }), metadata: { fromCache: false } }); });
     expect(view.result.current).toBe(url + "&v=321");
     act(() => { notify({ data: () => ({ photoURL: url, profileAvatarGeneration: "654" }) }); });
     expect(view.result.current).toBe(url + "&v=654");
+
+    const alternate = "https://example.test/new-profile.png";
+    mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: alternate }) });
+    act(() => { notify({ data: () => ({ photoURL: "https://example.test/stale-signal.png" }) }); });
+    await waitFor(() => expect(view.result.current).toBe(alternate));
+    expect(mocks.avatarRead).toHaveBeenCalledWith(reference);
+
+    mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: null }) });
     act(() => { notify({ data: () => ({ photoURL: null }) }); });
-    expect(view.result.current).toBeNull();
+    await waitFor(() => expect(view.result.current).toBeNull());
   });
 
   it.each([
