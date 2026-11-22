@@ -145,14 +145,18 @@ export function useWorldEvent(
             if (frame.type === "event_signal") {
               const version = signalTopic === "spectator" ? frame.spectatorVersion
                 : signalTopic === "discord" ? frame.discordVersion : frame.meetingVersion;
+              const validPhase = frame.meetingPhase !== undefined &&
+                ["OPEN", "LIVE", "FINISHED", "CANCELLED"].includes(frame.meetingPhase);
               if (version === null || typeof version === "string" && /^\d+:\d{1,9}$/.test(version)) {
                 clearTimeout(initial);
                 signalAccepted = true;
                 hasFrame = true;
                 signalCurrent.current?.changed(version);
                 delayMs = 1000;
+              } else if (version !== undefined || !validPhase) {
+                throw new Error("Invalid World event signal revision");
               }
-              if (frame.meetingPhase) signalCurrent.current?.phaseChanged?.(frame.meetingPhase);
+              if (validPhase && frame.meetingPhase) signalCurrent.current?.phaseChanged?.(frame.meetingPhase);
               return;
             }
             if (!Number.isSafeInteger(frame.revision) || frame.revision <= (latest?.revision ?? 0)) return;

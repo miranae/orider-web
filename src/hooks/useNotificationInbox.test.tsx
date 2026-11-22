@@ -183,7 +183,8 @@ describe("notification signal subscription", () => {
 it("uses an owned Redis signal and keeps pagination on a reconnect with the same revision", async () => {
   const { onSnapshot } = await import("firebase/firestore");
   const originalSnapshot = vi.mocked(onSnapshot).getMockImplementation();
-  vi.mocked(onSnapshot).mockImplementation(() => () => {});
+  const stopFallback = vi.fn();
+  vi.mocked(onSnapshot).mockImplementation(() => () => {}).mockReturnValueOnce(vi.fn()).mockReturnValueOnce(stopFallback);
   const sockets: FakeSocket[] = [];
   class FakeSocket extends EventTarget {
     static CLOSING = 2;
@@ -221,17 +222,19 @@ it("uses an owned Redis signal and keeps pagination on a reconnect with the same
     await act(async () => result.current.more());
     expect(result.current.items.map(item => item.id)).toEqual(["newest", "older"]);
     act(() => { sockets[0]?.dispatchEvent(new CloseEvent("close", { code: 1013 })); });
-    const canonicalSignal = vi.mocked(onSnapshot).mock.calls[1]?.[2] as (snap: unknown) => void;
-    await act(async () => canonicalSignal({
-      metadata: { fromCache: false }, exists: () => true, data: () => ({ revision: 2 }),
-    }));
-    expect(result.current.items.map(item => item.id)).toEqual(["newest", "older"]);
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(sockets).toHaveLength(2);
     expect(onSnapshot).toHaveBeenCalledTimes(2);
     const fallbackReads = state.list.mock.calls.length;
     await act(async () => sockets[1]?.deliver(revision));
     expect(state.list).toHaveBeenCalledTimes(fallbackReads);
+    expect(stopFallback).not.toHaveBeenCalled();
+    const canonicalSignal = vi.mocked(onSnapshot).mock.calls[1]?.[2] as (snap: unknown) => void;
+    await act(async () => canonicalSignal({
+      metadata: { fromCache: false }, exists: () => true, data: () => ({ revision: 2 }),
+    }));
+    expect(stopFallback).toHaveBeenCalledOnce();
+    expect(result.current.items.map(item => item.id)).toEqual(["newest", "older"]);
     act(() => { sockets[1]?.dispatchEvent(new CloseEvent("close", { code: 4003 })); });
     expect(result.current.items).toEqual([]);
     expect(result.current.failed).toBe(true);

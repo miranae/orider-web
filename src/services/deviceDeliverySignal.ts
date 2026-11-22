@@ -6,11 +6,11 @@ import { followWorldSignal } from "../features/ride-world/followWorldSignal";
 export function subscribeDeviceDeliverySignal<T>(
   firestore: Firestore, uid: string, resource: string,
   read: () => Promise<T>, receive: (snapshot: T) => void, onError: (error: Error) => void,
-  fallback: (serverOnly: boolean) => () => void,
+  fallback: (serverOnly: boolean, isCurrent: () => boolean) => () => void,
 ): () => void {
   if (!import.meta.env.DEV || import.meta.env.VITE_ORIDER_LOCAL_WORLD !== "1" ||
       import.meta.env.VITE_ORIDER_LOCAL_DEVICE_REDIS !== "1" || firestore.app.options.projectId !== "demo-orider-lab") {
-    return fallback(false);
+    return fallback(false, () => true);
   }
   const auth = getAuth(firestore.app);
   const user = auth.currentUser;
@@ -21,7 +21,7 @@ export function subscribeDeviceDeliverySignal<T>(
   const restore = () => {
     if (!active()) return;
     revision++;
-    stopFallback ??= fallback(true);
+    stopFallback ??= fallback(true, active);
   };
   const denied = () => {
     if (!active()) return;

@@ -100,8 +100,8 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
       onChange(delivery);
     };
     return subscribeDeviceDeliverySignal(firestore, uid, `workout-receipt:${deliveryId}`,
-      () => getDocFromServer(ref), receive, onError, serverOnly => serverOnly
-        ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (!snap.metadata.fromCache) receive(snap); }, onError)
+      () => getDocFromServer(ref), receive, onError, (serverOnly, isCurrent) => serverOnly
+        ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (isCurrent() && !snap.metadata.fromCache) receive(snap); }, error => { if (isCurrent()) onError(error); })
         : onSnapshot(ref, receive, onError));
   }
 
@@ -125,8 +125,8 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
       onChange(state);
     };
     return subscribeDeviceDeliverySignal(firestore, uid, `workout-device:${deviceId}`,
-      () => getDocFromServer(ref), receive, onError, serverOnly => serverOnly
-        ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (!snap.metadata.fromCache) receive(snap); }, onError)
+      () => getDocFromServer(ref), receive, onError, (serverOnly, isCurrent) => serverOnly
+        ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (isCurrent() && !snap.metadata.fromCache) receive(snap); }, error => { if (isCurrent()) onError(error); })
         : onSnapshot(ref, receive, onError));
   }
 

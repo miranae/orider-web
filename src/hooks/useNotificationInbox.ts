@@ -97,33 +97,47 @@ export function useNotificationInbox() {
       let canonicalRevision: unknown = undefined;
       let worldRevision: string | null | undefined;
       let awaitingFallback = false;
+      let worldResumed = false;
+      let revoked = false;
+      let stopSource: (() => void) | undefined;
+      const stopCanonical = () => { stopSource?.(); stopSource = undefined; };
+      const revoke = () => {
+        revoked = true;
+        stopWorld?.();
+        stopCanonical();
+        generation.current += 1; again = false; preserveNext = false; pageDepth.current = 1;
+        setState(null); setLoading(false); setFailed(true);
+      };
       const canonicalChanged = (revision: unknown) => {
         const preservePages = awaitingFallback;
         awaitingFallback = false;
+        if (preservePages && worldResumed) stopCanonical();
         if (revision === canonicalRevision) return;
         canonicalRevision = revision;
         pull(preservePages);
       };
       const fallback = (error: unknown) => {
         logClientError("useNotificationInbox.signal", error, undefined, services, user);
-        if (canonicalRevision === undefined && worldRevision === undefined) canonicalChanged(null);
+        const code = (error as { code?: string })?.code;
+        if (disposed || revoked) return;
+        if (redisSignal && (code === "permission-denied" || code === "unauthenticated")) revoke();
+        else if (canonicalRevision === undefined && worldRevision === undefined) canonicalChanged(null);
       };
-      let stopSource: (() => void) | undefined;
       const startSource = () => {
-        if (disposed || stopSource) return;
+        if (disposed || revoked || stopSource) return;
         try {
           const source = doc(services.firestore, "notification_signals", uid);
           const changed = (snap: DocumentSnapshot) => {
-            if (redisSignal && snap.metadata?.fromCache) return;
+            if (disposed || revoked || (redisSignal && snap.metadata?.fromCache)) return;
             canonicalChanged(snap.exists() ? snap.data()?.revision ?? null : null);
           };
-          stopSource = redisSignal
+          const stop = redisSignal
             ? onSnapshot(source, { includeMetadataChanges: true }, changed, fallback)
             : onSnapshot(source, changed, fallback);
+          if (revoked) stop();
+          else stopSource = stop;
         } catch (error) { fallback(error); }
       };
-      const stopCanonical = () => { stopSource?.(); stopSource = undefined; };
-      startSource();
       const stopWorld = redisSignal && user ? followWorldSignal(
         "ws://127.0.0.1:19487/notification-signals",
         async () => ({ v: 1, type: "notification_subscribe", token: await user.getIdToken() }),
@@ -131,8 +145,9 @@ export function useNotificationInbox() {
           const frame = data as { v?: number; type?: string; revision?: string | null } | null;
           if (frame?.v !== 1 || frame.type !== "notification_signal" ||
               (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
+          worldResumed = true;
           const handoff = stopSource !== undefined;
-          stopCanonical();
+          if (!awaitingFallback) stopCanonical();
           if (frame.revision !== worldRevision) {
             worldRevision = frame.revision;
             pull(handoff);
@@ -140,17 +155,16 @@ export function useNotificationInbox() {
           return true;
         },
         code => {
-          if (code === 4003 || code === 4004) {
-            stopCanonical();
-            generation.current += 1; again = false; preserveNext = false; pageDepth.current = 1;
-            setState(null); setLoading(false); setFailed(true);
-          } else {
+          worldResumed = false;
+          if (code === 4003 || code === 4004) revoke();
+          else {
             awaitingFallback = true;
             startSource();
           }
         },
         (source, error, context) => logClientError(source, error, context, services, user),
       ) : undefined;
+      startSource();
       unsubscribe = () => { stopWorld?.(); stopCanonical(); };
     }
     return () => { disposed = true; generation.current += 1; unsubscribe(); document.removeEventListener("visibilitychange", visibility); };

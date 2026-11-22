@@ -173,15 +173,15 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
     const unsubscribe = subscribeDeviceDeliverySignal(firestore, uid, `ftp-receipt:${receiptId}`,
       () => Promise.all([getDocFromServer(receiptRef), getDocsFromServer(deviceQuery)] as const),
       ([receipt, devices]) => { receiveReceipt(receipt); receiveDevices(devices); },
-      receiptError, serverOnly => {
+      receiptError, (serverOnly, isCurrent) => {
         const failReceipt = (error: Error) => receiptError(error, "receipt");
         const failDevices = (error: Error) => receiptError(error, "deviceReceipts");
         const serverOptions = { includeMetadataChanges: true };
         const stopReceipt = serverOnly
-          ? onSnapshot(receiptRef, serverOptions, snap => { if (!snap.metadata.fromCache) receiveReceipt(snap); }, failReceipt)
+          ? onSnapshot(receiptRef, serverOptions, snap => { if (isCurrent() && !snap.metadata.fromCache) receiveReceipt(snap); }, error => { if (isCurrent()) failReceipt(error); })
           : onSnapshot(receiptRef, receiveReceipt, failReceipt);
         const stopDevices = serverOnly
-          ? onSnapshot(deviceQuery, serverOptions, snap => { if (!snap.metadata.fromCache) receiveDevices(snap); }, failDevices)
+          ? onSnapshot(deviceQuery, serverOptions, snap => { if (isCurrent() && !snap.metadata.fromCache) receiveDevices(snap); }, error => { if (isCurrent()) failDevices(error); })
           : onSnapshot(deviceQuery, receiveDevices, failDevices);
         return () => { stopReceipt(); stopDevices(); };
       });

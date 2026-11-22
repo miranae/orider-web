@@ -105,6 +105,9 @@ export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWo
     }, (error) => {
       if (operationRef.current !== operation) return;
       logClientError("useRiderWorkoutDelivery.deviceState", error, undefined, services, viewer);
+      deliverySubscriptionRevision += 1;
+      unsubscribeDelivery?.(); unsubscribeDelivery = null;
+      setPointer(null); setDelivery(null);
       setSubmitState("error"); setSubmitErrorKind("conflict"); setSubmitError(error); setRestoreLoading(true);
     });
     return () => { deliverySubscriptionRevision += 1; unsubscribePointer(); unsubscribeDelivery?.(); };
