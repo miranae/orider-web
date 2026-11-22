@@ -6,6 +6,7 @@ import { LocalizedLink as Link } from "../LocalizedLink";
 import { Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
+import { useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useToast } from "../../contexts/ToastContext";
 import { LanguageToggle } from "../i18n/LanguageToggle";
@@ -203,7 +204,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   }, [mobileOpen, closeMobileMenu]);
 
   const nickname = profile?.nickname || user?.displayName || "";
-  const photoURL = user?.photoURL || profile?.photoURL;
+  const photoURL = useProfileAvatarDisplayUrl(profile ? profile.photoURL : user?.photoURL);
 
   const dropdownItemStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 'var(--space-2)',

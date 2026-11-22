@@ -14,15 +14,17 @@ import {
   getDocs,
   writeBatch,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { deleteObject, ref, uploadBytes } from "firebase/storage";
 import { updateProfile } from "firebase/auth";
 
 import type { Visibility } from "@shared/types";
+import { isProfileAvatarUrl, profileAvatarPath, profileAvatarUrl } from "@shared/profileAvatar";
 import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
+import { refreshProfileAvatar, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 import { logClientError } from "../../services/errorLogger";
 
 import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } from "./_primitives";
@@ -63,6 +65,7 @@ export function PaneAccount() {
   const [existingActivityCount, setExistingActivityCount] = useState<number | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoOverride, setPhotoOverride] = useState<{ uid: string; url: string | null }>();
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +94,12 @@ export function PaneAccount() {
     setExistingActivityCount(null);
   }, [user?.uid]);
 
+  useEffect(() => {
+    if (photoOverride && (photoOverride.uid !== user?.uid || photoOverride.url === profile?.photoURL)) setPhotoOverride(undefined);
+  }, [photoOverride, profile?.photoURL, user?.uid]);
+  const ownPhotoOverride = photoOverride?.uid === user?.uid ? photoOverride : undefined;
+  const photoURL = ownPhotoOverride ? ownPhotoOverride.url : profile ? profile.photoURL : user?.photoURL;
+  const photoPreview = useProfileAvatarDisplayUrl(photoURL);
   if (!user) return null;
   const currentVisibility: Visibility = profile?.defaultVisibility ?? "private";
 
@@ -150,8 +159,9 @@ export function PaneAccount() {
   }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!user) return;
+    if (!user || user.isAnonymous || photoUploading) return;
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       showToast(t("profile.imageOnly"));
@@ -163,38 +173,59 @@ export function PaneAccount() {
       const canvas = document.createElement("canvas");
       canvas.width = 512;
       canvas.height = 512;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("canvas context 실패");
-      const min = Math.min(bitmap.width, bitmap.height);
-      const sx = (bitmap.width - min) / 2;
-      const sy = (bitmap.height - min) / 2;
-      ctx.drawImage(bitmap, sx, sy, min, min, 0, 0, 512, 512);
-      bitmap.close();
+      try {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas context unavailable");
+        const min = Math.min(bitmap.width, bitmap.height);
+        ctx.drawImage(bitmap, (bitmap.width - min) / 2, (bitmap.height - min) / 2, min, min, 0, 0, 512, 512);
+      } finally {
+        bitmap.close();
+      }
       const blob = await new Promise<Blob>((resolve, reject) =>
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/webp", 0.8),
       );
-      const storageRef = ref(storage, `profiles/${user.uid}/avatar.webp`);
-      await uploadBytes(storageRef, blob, { contentType: "image/webp" });
-      const downloadURL = await getDownloadURL(storageRef);
-      await updateDoc(doc(firestore, "users", user.uid), { photoURL: downloadURL });
+      if (!blob.type.startsWith("image/") || blob.size >= 2 * 1024 * 1024) throw new Error("Invalid avatar encoding");
+      if (auth.currentUser?.uid !== user.uid) return;
+      const storageRef = ref(storage, profileAvatarPath(user.uid));
+      const url = profileAvatarUrl(storageRef.bucket, user.uid);
+      const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "public, max-age=300" });
+      if (auth.currentUser?.uid !== user.uid) return;
+      await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
+      if (auth.currentUser?.uid !== user.uid) return;
+      refreshProfileAvatar(url, result.metadata.generation);
+      setPhotoOverride({ uid: user.uid, url });
       showToast(t("profile.photoUpdated"));
     } catch {
       showToast(t("profile.photoUploadFailed"));
     } finally {
       setPhotoUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
   async function handleRemovePhoto() {
-    if (!user) return;
+    if (!user || user.isAnonymous || photoUploading) return;
     // 아바타 위 작은 아이콘이라 잘못 누르기 쉬워 한 번 더 묻는다
     if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { destructive: true }))) return;
+    if (auth.currentUser?.uid !== user.uid) return;
+    setPhotoUploading(true);
     try {
+      const storageRef = ref(storage, profileAvatarPath(user.uid));
+      if (isProfileAvatarUrl(photoURL, storageRef.bucket, user.uid)) {
+        try {
+          await deleteObject(storageRef);
+        } catch (error) {
+          if ((error as { code?: string }).code !== "storage/object-not-found") throw error;
+        }
+      }
+      if (auth.currentUser?.uid !== user.uid) return;
       await updateDoc(doc(firestore, "users", user.uid), { photoURL: null });
+      if (auth.currentUser?.uid !== user.uid) return;
+      setPhotoOverride({ uid: user.uid, url: null });
       showToast(t("profile.photoRemoved"));
     } catch {
       showToast(t("profile.photoRemoveFailed"));
+    } finally {
+      setPhotoUploading(false);
     }
   }
 
@@ -268,7 +299,7 @@ export function PaneAccount() {
       <div data-testid="S1-1-1"><ProfileHero
         nickname={profile?.nickname ?? ""}
         email={profile?.email}
-        photoURL={profile?.photoURL}
+        photoURL={photoPreview}
         friendCode={friendCode}
         stravaConnected={profile?.stravaConnected}
         onEditNickname={nicknameSaving ? undefined : handleSaveNickname}
@@ -286,19 +317,20 @@ export function PaneAccount() {
             title={t("profile.copyCode")}
           />
         }
-        avatarAside={profile?.photoURL ? (
+        avatarAside={photoURL && !user.isAnonymous ? (
           <IconButton
             variant="ghost"
             size="compact"
             className="settings-profile-avatar__action"
             icon={<Trash2 size={ICON_SIZE.xs} />}
             onClick={handleRemovePhoto}
+            disabled={photoUploading}
             aria-label={t("profile.photoDelete")}
             title={t("profile.photoDelete")}
             style={{ color: "var(--rose)" }}
           />
         ) : undefined}
-        avatarBadge={
+        avatarBadge={user.isAnonymous ? undefined :
           <>
             <IconButton
               variant="ghost"
