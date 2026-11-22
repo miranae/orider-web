@@ -143,7 +143,8 @@ export function useWorldEvent(
         connection.addEventListener("message", ({ data }) => {
           try {
             const frame = JSON.parse(String(data)) as WorldEventFrame | WorldEventDelta | MeetingSignal;
-            if (disposed || liveScope.current !== scope || socket !== connection || frame.v !== 1 || frame.eventId !== event) return;
+            if (disposed || liveScope.current !== scope || socket !== connection || frame.eventId !== event) return;
+            if (frame.v !== 1) throw new Error("Unsupported World event protocol version");
             if (frame.type === "event_signal") {
               const version = signalTopic === "spectator" ? frame.spectatorVersion
                 : signalTopic === "discord" ? frame.discordVersion : frame.meetingVersion;
@@ -169,7 +170,8 @@ export function useWorldEvent(
             if (frame.type === "event_snapshot" && (!Array.isArray(frame.markers) || !Array.isArray(frame.roster))) {
               throw new Error("Invalid World event snapshot arrays");
             }
-            if (!Number.isSafeInteger(frame.revision) || frame.revision <= (latest?.revision ?? 0)) return;
+            if (!Number.isSafeInteger(frame.revision)) throw new Error("Invalid World event revision");
+            if (frame.revision <= (latest?.revision ?? 0)) return;
             if (frame.type === "event_snapshot" && Array.isArray(frame.markers) && Array.isArray(frame.roster)) {
               clearTimeout(initial);
               latest = frame;

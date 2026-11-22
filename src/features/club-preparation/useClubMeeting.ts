@@ -242,14 +242,16 @@ export function useClubMeeting(
       try {
         attachFallback = () => {
           if (worldActive || stopLocationSignal || !subscribed() || document.hidden || denied) return;
-          stopLocationSignal = onSnapshot(doc(services.firestore, `events/${eventId}/meeting_snapshot_signals/latest`), { includeMetadataChanges: true }, snapshot => {
+          try {
+            stopLocationSignal = onSnapshot(doc(services.firestore, `events/${eventId}/meeting_snapshot_signals/latest`), { includeMetadataChanges: true }, snapshot => {
           if (!subscribed() || worldActive || snapshot.metadata.fromCache) return;
           signalFailures = 0;
           const stamp = snapshot.data()?.updatedAt;
           signalVersion = stamp ? `${stamp.seconds}:${stamp.nanoseconds}` : null;
           if (signalFailed) { signalFailed = false; changed(); }
           else if (data && !inFlight && hasNewerSignal()) changed();
-          }, failed);
+            }, failed);
+          } catch (error) { failed(error); }
         };
         attachFallback();
         for (const path of [`events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`]) {

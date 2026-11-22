@@ -331,7 +331,7 @@ export default function EventLivePage() {
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(eventId) : []));
+  const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(`${eventId}:${user?.uid ?? "guest"}`) : []));
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [sosMuted, setSosMuted] = useState(() => (eventId ? loadSosMuted(eventId) : false));
   const [viewerCount, setViewerCount] = useState(0);
@@ -340,7 +340,16 @@ export default function EventLivePage() {
   const eventStatus = eventContext?.eventId === eventId ? eventContext?.status : null;
   const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
   const [viewport, setViewport] = useState<WorldViewport>();
-  const trackingBib = /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : followBibs[followBibs.length - 1];
+  const trackingScope = `${eventId}:${user?.uid ?? "guest"}`;
+  const previousTrackingScope = useRef(trackingScope);
+  const sameTrackingScope = previousTrackingScope.current === trackingScope;
+  useEffect(() => {
+    if (previousTrackingScope.current === trackingScope) return;
+    previousTrackingScope.current = trackingScope;
+    setSearchBib("");
+    setFollowBibs(eventId ? loadFollowedBibs(trackingScope) : []);
+  }, [trackingScope, eventId]);
+  const trackingBib = !sameTrackingScope ? undefined : /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : followBibs[followBibs.length - 1];
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport, undefined, trackingBib, !authLoading);
   const guestWorldActive = !user && worldFrame !== null;
   const snapshot = savedSnapshot;
@@ -449,9 +458,9 @@ export default function EventLivePage() {
 
   // 팔로우 저장
   useEffect(() => {
-    if (!eventId) return;
-    saveFollowedBibs(eventId, followBibs);
-  }, [eventId, followBibs]);
+    if (!eventId || !sameTrackingScope) return;
+    saveFollowedBibs(trackingScope, followBibs);
+  }, [eventId, followBibs, sameTrackingScope, trackingScope]);
 
   // SOS 알림 음소거 저장 + 최신값 ref 동기화 (폴링 클로저용)
   useEffect(() => {
