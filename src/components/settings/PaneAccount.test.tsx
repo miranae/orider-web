@@ -203,13 +203,24 @@ describe("PaneAccount nickname save", () => {
     expect(view.result.current).toBeNull();
   });
 
+  it("contains and records a synchronous Firestore subscription failure", () => {
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fbroken%2Favatar?alt=media";
+    const failure = new Error("snapshot registration failed");
+    mocks.onSnapshot.mockImplementationOnce(() => { throw failure; });
+    const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+    expect(view.result.current).toBeNull();
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      "ProfileAvatar.signal", failure, { stage: "read_revision" }, expect.anything(), mocks.currentUser, "", expect.any(Function),
+    );
+  });
+
   it("records an avatar profile read failure after the view closes", async () => {
     let rejectRead: (error: Error) => void = () => {};
     mocks.avatarRead.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectRead = reject; }));
     const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fclosed%2Favatar?alt=media";
     const view = renderHook(() => useProfileAvatarDisplayUrl(url));
     const notify = mocks.onSnapshot.mock.calls.at(-1)?.[2] as (snapshot: { data: () => { photoURL: null } }) => void;
-    act(() => { notify({ data: () => ({ photoURL: null }) }); });
+    await act(async () => { notify({ data: () => ({ photoURL: null }) }); });
     view.unmount();
     const failure = new Error("profile read interrupted");
     await act(async () => { rejectRead(failure); });

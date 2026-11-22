@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { User } from "firebase/auth";
-import { doc, getDocFromServer, onSnapshot } from "firebase/firestore";
+import { doc, getDocFromServer, onSnapshot, type Unsubscribe } from "firebase/firestore";
 import { parseProfileAvatarUrl } from "@shared/profileAvatar";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
@@ -40,7 +40,6 @@ export function useProfileAvatarDisplayUrl(url?: string | null) {
 
   useEffect(() => {
     if (!uid || !url || !approved) return;
-    const profileRef = doc(firestore, "users_public", uid);
     let active = true;
     let knownProfile = false;
     let sequence = 0;
@@ -53,49 +52,60 @@ export function useProfileAvatarDisplayUrl(url?: string | null) {
       setObserved(prior => prior?.scope === scope && prior.version === version ? prior : { scope, version, uploadGeneration });
     };
     const generation = (value: unknown) => typeof value === "string" && /^[0-9]{1,21}$/.test(value) ? value : undefined;
-    // Firestore shares subscriptions to the same document within the same app.
-    const unsubscribe = onSnapshot(profileRef, { includeMetadataChanges: true }, (snapshot) => {
-      if (!isCurrent() || snapshot.metadata?.fromCache) return;
-      const data = snapshot.data();
-      if (!data && !knownProfile) return;
-      knownProfile = true;
-      const signalUrl = typeof data?.photoURL === "string" ? data.photoURL : null;
-      if (signalUrl === url) {
-        sequence++;
-        alternateSignal = undefined;
-        showVersion(generation(data?.profileAvatarGeneration));
-        return;
-      }
-
-      if (alternateSignal === signalUrl) return;
-      alternateSignal = signalUrl;
-      const request = ++sequence;
-      // A different selection needs the normal public profile read before replacing the image.
-      void getDocFromServer(profileRef).then((confirmed) => {
-        if (!isCurrent() || request !== sequence) return;
-        const current = confirmed.data();
-        const selectedUrl = current?.photoURL;
-        if (selectedUrl === url) {
-          alternateSignal = undefined;
-          showVersion(generation(current?.profileAvatarGeneration));
-          return;
-        }
-        showVersion(typeof selectedUrl === "string" && selectedUrl.startsWith("https://") ? selectedUrl : false);
-      }).catch((error) => {
-        const isReadCurrent = () => isCurrent() && request === sequence;
-        logClientError("ProfileAvatar.signal", error, { stage: "read_profile" }, services, viewer, "", isReadCurrent);
-        if (isReadCurrent()) {
-          alternateSignal = undefined;
-          showVersion(false);
-        }
-      });
-    }, (error) => {
+    const readFailed = (error: unknown) => {
       logClientError("ProfileAvatar.signal", error, { stage: "read_revision" }, services, viewer, "", isCurrent);
       if (isCurrent()) showVersion(false);
-    });
+    };
+    let unsubscribe: Unsubscribe | undefined;
+    try {
+      const profileRef = doc(firestore, "users_public", uid);
+      // Firestore shares subscriptions to the same document within the same app.
+      unsubscribe = onSnapshot(profileRef, { includeMetadataChanges: true }, (snapshot) => {
+        if (!isCurrent() || snapshot.metadata?.fromCache) return;
+        const data = snapshot.data();
+        if (!data && !knownProfile) return;
+        knownProfile = true;
+        const signalUrl = typeof data?.photoURL === "string" ? data.photoURL : null;
+        if (signalUrl === url) {
+          sequence++;
+          alternateSignal = undefined;
+          showVersion(generation(data?.profileAvatarGeneration));
+          return;
+        }
+
+        if (alternateSignal === signalUrl) return;
+        alternateSignal = signalUrl;
+        const request = ++sequence;
+        // A different selection needs the normal public profile read before replacing the image.
+        void Promise.resolve().then(() => getDocFromServer(profileRef)).then((confirmed) => {
+          if (!isCurrent() || request !== sequence) return;
+          const current = confirmed.data();
+          const selectedUrl = current?.photoURL;
+          if (selectedUrl === url) {
+            alternateSignal = undefined;
+            showVersion(generation(current?.profileAvatarGeneration));
+            return;
+          }
+          showVersion(typeof selectedUrl === "string" && selectedUrl.startsWith("https://") ? selectedUrl : false);
+        }).catch((error) => {
+          const isReadCurrent = () => isCurrent() && request === sequence;
+          logClientError("ProfileAvatar.signal", error, { stage: "read_profile" }, services, viewer, "", isReadCurrent);
+          if (isReadCurrent()) {
+            alternateSignal = undefined;
+            showVersion(false);
+          }
+        });
+      }, readFailed);
+    } catch (error) {
+      readFailed(error);
+    }
     return () => {
       active = false;
-      unsubscribe();
+      try {
+        unsubscribe?.();
+      } catch (error) {
+        logClientError("ProfileAvatar.signal", error, { stage: "stop_revision" }, services, viewer, "", isCurrent);
+      }
     };
   }, [approved, firestore, scope, services, uid, url, viewer]);
 
