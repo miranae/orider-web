@@ -182,6 +182,8 @@ describe("notification signal subscription", () => {
 
 it("uses an owned Redis signal and keeps pagination on a reconnect with the same revision", async () => {
   const { onSnapshot } = await import("firebase/firestore");
+  const originalSnapshot = vi.mocked(onSnapshot).getMockImplementation();
+  vi.mocked(onSnapshot).mockImplementation(() => () => {});
   const sockets: FakeSocket[] = [];
   class FakeSocket extends EventTarget {
     static CLOSING = 2;
@@ -212,7 +214,18 @@ it("uses an owned Redis signal and keeps pagination on a reconnect with the same
     await act(async () => sockets[0]?.deliver(revision));
     await act(async () => sockets[0]?.deliver(revision));
     expect(state.list).toHaveBeenCalledTimes(initialReads + 1);
+    state.list.mockImplementation(async (cursor?: string) => cursor === "page-2"
+      ? { items: [{ id: "older" }], nextCursor: null }
+      : { items: [{ id: "newest" }], nextCursor: "page-2" });
+    await act(async () => result.current.refresh());
+    await act(async () => result.current.more());
+    expect(result.current.items.map(item => item.id)).toEqual(["newest", "older"]);
     act(() => { sockets[0]?.dispatchEvent(new CloseEvent("close", { code: 1013 })); });
+    const canonicalSignal = vi.mocked(onSnapshot).mock.calls[1]?.[2] as (snap: unknown) => void;
+    await act(async () => canonicalSignal({
+      metadata: { fromCache: false }, exists: () => true, data: () => ({ revision: 2 }),
+    }));
+    expect(result.current.items.map(item => item.id)).toEqual(["newest", "older"]);
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(sockets).toHaveLength(2);
     expect(onSnapshot).toHaveBeenCalledTimes(2);
@@ -224,6 +237,7 @@ it("uses an owned Redis signal and keeps pagination on a reconnect with the same
     expect(result.current.failed).toBe(true);
     unmount();
   } finally {
+    vi.mocked(onSnapshot).mockImplementation(originalSnapshot!);
     vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); resetRuntimeConfigForTests();
   }
 });

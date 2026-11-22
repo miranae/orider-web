@@ -22,49 +22,70 @@ export function useNotificationInbox() {
   const [state, setState] = useState<{ client: typeof client; uid: string; items: Notification[]; cursor: string | null } | null>(null);
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false);
   const generation = useRef(0); const activeClient = useRef(client); activeClient.current = client;
+  const pageDepth = useRef(1);
   const pendingRefresh = useRef<{ client: typeof client; generation: number; promise: Promise<void> } | null>(null);
-  const refresh = useCallback((): Promise<void> => {
+  const reload = useCallback((preservePages = false): Promise<void> => {
     const pending = pendingRefresh.current;
     if (pending?.client === client && pending.generation === generation.current) return pending.promise;
     const request = ++generation.current;
     if (!uid) { setState(null); setFailed(false); setLoading(false); return Promise.resolve(); }
     setLoading(true); setFailed(false);
+    const currentRequest = () => request === generation.current && activeClient.current === client;
+    const requestedDepth = preservePages ? pageDepth.current : 1;
     const promise = (async () => {
-    try { const page = await client.list(); if (request === generation.current && activeClient.current === client) setState({ client, uid, items: page.items, cursor: page.nextCursor }); }
-    catch (error) {
-      logClientError("useNotificationInbox.list", error, undefined, services, user);
-      if (request === generation.current) { setState(null); setFailed(true); }
-    }
-    finally {
-      if (request === generation.current) setLoading(false);
-      if (pendingRefresh.current?.generation === request && pendingRefresh.current.client === client) pendingRefresh.current = null;
-    }
+      try {
+        const page = await client.list();
+        const items = [...page.items];
+        let cursor = page.nextCursor;
+        let loaded = 1;
+        // Signal sources use separate revisions. Revalidate opened pages on handoff
+        // so a healthy fallback preserves pagination without keeping stale rows.
+        for (; loaded < requestedDepth && cursor && currentRequest(); loaded++) {
+          const next = await client.list(cursor);
+          items.push(...next.items);
+          cursor = next.nextCursor;
+        }
+        if (currentRequest()) {
+          pageDepth.current = loaded;
+          setState({ client, uid, items, cursor });
+        }
+      } catch (error) {
+        logClientError("useNotificationInbox.list", error, undefined, services, user);
+        if (currentRequest()) { pageDepth.current = 1; setState(null); setFailed(true); }
+      } finally {
+        if (currentRequest()) setLoading(false);
+        if (pendingRefresh.current?.generation === request && pendingRefresh.current.client === client) pendingRefresh.current = null;
+      }
     })();
     pendingRefresh.current = { client, generation: request, promise };
     return promise;
   }, [client, services, uid, user]);
+  const refresh = useCallback(() => reload(), [reload]);
   useEffect(() => {
+    pageDepth.current = 1;
     setState(null);
-    let disposed = false, again = false;
+    let disposed = false, again = false, preserveNext = false;
     // 신호를 받으면 한 번 읽는다. 이미 읽는 중이면 그 응답이 새 알림보다 앞설 수 있으므로
     // 끝난 뒤 한 번 더 읽는다(합치기만 하면 진행 중 요청에 묻혀 새 알림을 놓친다).
-    const pull = () => {
+    const pull = (preservePages = false) => {
       if (disposed || document.visibilityState !== "visible") return;
       const pending = pendingRefresh.current;
       if (pending?.client === client && pending.generation === generation.current) {
         // 진행 중인 조회가 pull 이 아니라 탭 복귀·직접 refresh() 로 시작됐어도, 그 응답은 새 알림보다
         // 앞설 수 있으므로 끝난 뒤 한 번 더 읽는다(이 신호를 버리지 않는다).
+        preserveNext ||= preservePages;
         if (!again) { again = true; void pending.promise.finally(drain); }
         return;
       }
-      void refresh().finally(drain);
+      void reload(preservePages).finally(drain);
     };
     const drain = () => {
       if (!again || disposed) return;
-      again = false; pull();
+      const preserve = preserveNext;
+      again = false; preserveNext = false; pull(preserve);
     };
     const visibility = () => {
-      if (document.visibilityState !== "visible") { generation.current += 1; again = false; setState(null); setLoading(false); }
+      if (document.visibilityState !== "visible") { generation.current += 1; again = false; preserveNext = false; pageDepth.current = 1; setState(null); setLoading(false); }
       else void refresh();
     };
     document.addEventListener("visibilitychange", visibility);
@@ -75,10 +96,13 @@ export function useNotificationInbox() {
       // 그 사이에 생긴 알림을 놓친다. 구독이 실패하면 한 번 직접 읽는다.
       let canonicalRevision: unknown = undefined;
       let worldRevision: string | null | undefined;
+      let awaitingFallback = false;
       const canonicalChanged = (revision: unknown) => {
+        const preservePages = awaitingFallback;
+        awaitingFallback = false;
         if (revision === canonicalRevision) return;
         canonicalRevision = revision;
-        pull();
+        pull(preservePages);
       };
       const fallback = (error: unknown) => {
         logClientError("useNotificationInbox.signal", error, undefined, services, user);
@@ -107,36 +131,43 @@ export function useNotificationInbox() {
           const frame = data as { v?: number; type?: string; revision?: string | null } | null;
           if (frame?.v !== 1 || frame.type !== "notification_signal" ||
               (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
+          const handoff = stopSource !== undefined;
           stopCanonical();
           if (frame.revision !== worldRevision) {
             worldRevision = frame.revision;
-            pull();
+            pull(handoff);
           }
           return true;
         },
         code => {
           if (code === 4003 || code === 4004) {
             stopCanonical();
-            generation.current += 1; again = false;
+            generation.current += 1; again = false; preserveNext = false; pageDepth.current = 1;
             setState(null); setLoading(false); setFailed(true);
-          } else startSource();
+          } else {
+            awaitingFallback = true;
+            startSource();
+          }
         },
         (source, error, context) => logClientError(source, error, context, services, user),
       ) : undefined;
       unsubscribe = () => { stopWorld?.(); stopCanonical(); };
     }
     return () => { disposed = true; generation.current += 1; unsubscribe(); document.removeEventListener("visibilitychange", visibility); };
-  }, [refresh, services, uid, client, redisSignal, user]);
+  }, [refresh, reload, services, uid, client, redisSignal, user]);
   const current = state?.uid === uid && state.client === client ? state : null;
   const more = async () => {
     if (!current?.cursor || loading || !uid) return;
     const request = ++generation.current; setLoading(true); setFailed(false);
+    pageDepth.current += 1;
     try {
       const page = await client.list(current.cursor);
       if (request === generation.current && activeClient.current === client) setState({ client, uid, items: [...current.items, ...page.items], cursor: page.nextCursor });
     } catch (error) {
       logClientError("useNotificationInbox.more", error, undefined, services, user);
-      if (request === generation.current) { setState(null); setFailed(true); }
+      if (request === generation.current && activeClient.current === client) {
+        pageDepth.current = 1; setState(null); setFailed(true);
+      }
     }
     finally { if (request === generation.current) setLoading(false); }
   };
@@ -155,6 +186,7 @@ export function useNotificationInbox() {
         const code = (error as { code?: string })?.code;
         if (code === "functions/permission-denied" || code === "functions/unauthenticated") {
           generation.current += 1;
+          pageDepth.current = 1;
           setState(null);
           setLoading(false);
         }
