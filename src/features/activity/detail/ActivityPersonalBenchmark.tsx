@@ -1,3 +1,4 @@
+import { capDecimals } from "../../../utils/numberDisplay";
 import { PowerReadingControls } from "./PowerReadingControls";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,8 +28,8 @@ function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; sta
   const id = useId();
   const [selectedDuration, setSelectedDuration] = useState(300);
   const duration = (seconds: number) => i18n.language.startsWith("ko")
-    ? seconds < 60 ? `${seconds}초` : seconds < 3600 ? `${seconds / 60}분` : `${seconds / 3600}시간`
-    : seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${seconds / 60}m` : `${seconds / 3600}h`;
+    ? seconds < 60 ? `${seconds}초` : seconds < 3600 ? `${capDecimals(seconds / 60)}분` : `${capDecimals(seconds / 3600)}시간`
+    : seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${capDecimals(seconds / 60)}m` : `${capDecimals(seconds / 3600)}h`;
   if (state.status !== "ready") return <><PowerReadingControls /><Text as="p" variant="bodySmall" tone="secondary">{t(`benchmark.${state.status}`)}</Text></>;
   const benchmark = personalBenchmark(metrics, state.pdc);
   if (benchmark.reason !== "ready") return <><PowerReadingControls /><Text as="p" variant="bodySmall" tone="secondary">{t(`benchmark.${benchmark.reason}`)}</Text></>;

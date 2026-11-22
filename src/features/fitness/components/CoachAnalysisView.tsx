@@ -1,3 +1,4 @@
+import { capDecimals } from "../../../utils/numberDisplay";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
@@ -146,7 +147,7 @@ function FtpReviewLink({ label }: { label: string }) {
 
 function PowerCurveCard({ response, rows, unit, onUnitChange, weightNormalizedAvailable, days, format: formatValue }: { response: PowerCurvePeriodsResponse; rows: CurveRow[]; unit: PowerUnit; onUnitChange: (unit: PowerUnit) => void; weightNormalizedAvailable: boolean; days: number; format: (value: number | null) => string }) {
   const { t } = useTranslation("fitness");
-  const durationLabel = (seconds: number) => seconds < 60 ? t("duration.sec", { n: seconds }) : t("duration.min", { n: seconds / 60 });
+  const durationLabel = (seconds: number) => seconds < 60 ? t("duration.sec", { n: seconds }) : t("duration.min", { n: capDecimals(seconds / 60) });
   const format = (value: number | null) => value == null ? "—" : unit === "W/kg" ? value.toFixed(2) : String(Math.round(value));
   const [recent, previous] = response.periods;
   const curves = [recent, previous].map(period => CURVE_DURATIONS

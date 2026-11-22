@@ -1,3 +1,4 @@
+import { capDecimals } from "../../utils/numberDisplay";
 import type { PowerDurationKey } from "@shared/types/personal-records";
 
 export type RangeOption = 30 | 90 | 180 | 365;
@@ -66,8 +67,8 @@ export const POWER_DURATION_KEY_SEC: Record<PowerDurationKey, number> = {
 export function makeDurationLabel(t: TFn) {
   return (sec: number): string => {
     if (sec < 60) return t("duration.sec", { n: sec });
-    if (sec < 3600) return t("duration.min", { n: sec / 60 });
-    return t("duration.hour", { n: sec / 3600 });
+    if (sec < 3600) return t("duration.min", { n: capDecimals(sec / 60) });
+    return t("duration.hour", { n: capDecimals(sec / 3600) });
   };
 }
 

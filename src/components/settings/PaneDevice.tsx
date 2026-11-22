@@ -1,3 +1,4 @@
+import { capDecimals } from "../../utils/numberDisplay";
 import GlossaryText from "../common/GlossaryText";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -1014,7 +1015,7 @@ export function PaneDevice() {
               rows={[
                 { k: "FTP", v: `${s.ftpWatts} W` },
                 { k: t("device.fieldMaxHr"), v: `${s.maxHeartRate} bpm` },
-                { k: t("device.fieldWeight"), v: `${s.riderWeightKg} kg` },
+                { k: t("device.fieldWeight"), v: `${capDecimals(s.riderWeightKg)} kg` },
               ]}
             />
           }
@@ -1052,11 +1053,11 @@ export function PaneDevice() {
               rows={[
                 {
                   k: t("device.readAutoPause"),
-                  v: `${s.autoPauseSpeedThreshold} km/h · ${s.autoPauseDelaySeconds}s`,
+                  v: `${capDecimals(s.autoPauseSpeedThreshold)} km/h · ${s.autoPauseDelaySeconds}s`,
                 },
                 { k: t("device.readAutoLapMode"), v: autoLapLabel(s.autoLapConfig.mode) },
                 ...(s.autoLapConfig.mode === "DISTANCE"
-                  ? [{ k: t("device.readAutoLapDistance"), v: `${s.autoLapConfig.distanceKm} km` }]
+                  ? [{ k: t("device.readAutoLapDistance"), v: `${capDecimals(s.autoLapConfig.distanceKm)} km` }]
                   : []),
                 ...(s.autoLapConfig.mode === "TIME"
                   ? [{ k: t("device.readAutoLapTime"), v: `${s.autoLapConfig.timeMinutes} ${t("device.readAutoLapTimeUnit")}` }]
@@ -1085,7 +1086,7 @@ export function PaneDevice() {
               rows={s.alertSettings.thresholds.map((th) => ({
                 k: alertMetricLabel(th.metric),
                 v: th.enabled
-                  ? `${th.minValue ?? "-"} ~ ${th.maxValue ?? "-"}`
+                  ? `${th.minValue == null ? "-" : capDecimals(th.minValue)} ~ ${th.maxValue == null ? "-" : capDecimals(th.maxValue)}`
                   : t("device.readAlertOff"),
               }))}
             />
