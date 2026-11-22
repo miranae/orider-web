@@ -38,8 +38,8 @@ export interface SnapshotLocation {
   uid: string;
   lat: number;
   lng: number;
-  speed: number;
-  distance: number;
+  speed: number | null;
+  distance: number | null;
   status: string;
   displayName: string;
   bib: number | null;
@@ -166,8 +166,8 @@ function RiderCard({
   onUnfollow: () => void;
 }) {
   const { t } = useTranslation("event");
-  const distKm = loc.distance / 1000;
-  const pct = totalDistKm > 0 ? Math.min(100, (distKm / totalDistKm) * 100) : 0;
+  const distKm = loc.distance == null ? null : loc.distance / 1000;
+  const pct = totalDistKm > 0 && distKm != null ? Math.min(100, (distKm / totalDistKm) * 100) : 0;
   const initial = loc.displayName?.charAt(0) ?? "?";
   const statusText =
     loc.status === "FINISHED" ? t("liveView.resultPending") :
@@ -218,7 +218,7 @@ function RiderCard({
       <div style={{ marginBottom: "var(--space-3)" }}>
         <div className="flex justify-between" style={{ fontSize: "var(--ft-body-size)", marginBottom: "var(--space-1-5)" }}>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
-            {distKm.toFixed(1)} km
+            {distKm?.toFixed(1) ?? "—"} km
           </span>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)" }}>
             {totalDistKm > 0 ? `${totalDistKm.toFixed(1)} km` : "—"}
@@ -265,7 +265,7 @@ function RiderCard({
             textAlign: "right",
           }}
         >
-          {pct.toFixed(1)}%
+          {distKm == null ? "—" : pct.toFixed(1)}%
         </div>
       </div>
 
@@ -281,7 +281,7 @@ function RiderCard({
         }}
       >
         {[
-          [t("liveView.speed"), loc.speed > 0 ? loc.speed.toFixed(1) : "—", "km/h"],
+          [t("liveView.speed"), loc.speed != null && loc.speed > 0 ? loc.speed.toFixed(1) : "—", "km/h"],
           [t("liveView.activityTime"), formatDuration(loc.durationSec), t("liveView.durationUnit")],
           [t("liveView.heartRate"), loc.hr != null && loc.hr > 0 ? String(loc.hr) : "—", "bpm"],
           [t("liveView.lastCheckpoint"), `${loc.lastCp ?? 0}`, ""],
@@ -340,7 +340,7 @@ export default function EventLivePage() {
   const eventStatus = eventContext?.eventId === eventId ? eventContext?.status : null;
   const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
   const [viewport, setViewport] = useState<WorldViewport>();
-  const trackingBib = /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : followBibs.at(-1);
+  const trackingBib = /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : followBibs[followBibs.length - 1];
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport, undefined, trackingBib, !authLoading);
   const guestWorldActive = !user && worldFrame !== null;
   const snapshot = useMemo<SnapshotData | null>(() => {
@@ -943,7 +943,7 @@ export default function EventLivePage() {
               </div>
               <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-0-5)", fontFamily: "var(--font-mono)" }}>
                 {searchedParticipant.status !== "FINISHED" && searchedParticipant.overallRank != null ? `${t("liveView.highlight.overallRank", { rank: searchedParticipant.overallRank })} · ` : ""}
-                {t("liveView.lastCheckpoint")} {searchedParticipant.lastCp ?? 0} · {(searchedParticipant.distance / 1000).toFixed(1)}km · {searchedParticipant.speed.toFixed(1)}km/h
+                {t("liveView.lastCheckpoint")} {searchedParticipant.lastCp ?? 0} · {searchedParticipant.distance == null ? "—" : (searchedParticipant.distance / 1000).toFixed(1)}km · {searchedParticipant.speed?.toFixed(1) ?? "—"}km/h
               </div>
             </div>
             <Button type="button" onClick={addFollow} variant="primary" size="sm">

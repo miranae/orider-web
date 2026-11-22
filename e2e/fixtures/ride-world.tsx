@@ -1,3 +1,4 @@
+import { logClientError } from "../../src/services/errorLogger";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initializeApp } from "firebase/app";
@@ -27,7 +28,7 @@ function Fixture() {
   useEffect(() => {
     const email = sessionStorage.getItem("world-fixture-email");
     const password = sessionStorage.getItem("world-fixture-password");
-    if (email && password) void signInWithEmailAndPassword(auth, email, password).then(({ user }) => setUser(user));
+    if (email && password) void signInWithEmailAndPassword(auth, email, password).then(({ user }) => setUser(user)).catch(error => { logClientError("rideWorldFixture.auth", error); });
   }, []);
   return <>
     <input aria-label="이벤트" value={eventId} onChange={(event) => setEventId(event.currentTarget.value)} />

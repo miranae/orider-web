@@ -97,8 +97,8 @@ interface SnapshotLocation {
   uid: string;
   lat: number;
   lng: number;
-  speed: number;
-  distance: number;
+  speed: number | null;
+  distance: number | null;
   status: string;
   displayName: string;
   bib: number | null;
