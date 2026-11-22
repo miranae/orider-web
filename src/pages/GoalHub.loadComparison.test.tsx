@@ -16,8 +16,8 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-it.each([false, true])("shows goal-period actual load and expiry on the goal tab (mobile=%s)", mobile => {
-  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: mobile && query.includes("max-width"), media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+it("shows goal-period actual load and expiry on the desktop goal tab", () => {
+  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
   renderWithProviders(<GoalHub wizard={<div />} />, { authenticated: true, user: { uid: "owner" }, route: "/ko/coach/goals?sport=bike" });
   const summary = screen.getByRole("region", { name: "목표기간 훈련 부하" });
   expect(summary).toHaveTextContent("2026-08-17 ~ 2026-10-18");
@@ -34,5 +34,14 @@ it.each(["loading", "cached", "error", "sport-mismatch"])("does not query or sho
   renderWithProviders(<GoalHub wizard={<div />} />, { authenticated: true, user: { uid: "owner" } });
   expect(screen.queryByRole("region", { name: "목표기간 훈련 부하" })).not.toBeInTheDocument();
   expect(screen.queryByText("160")).not.toBeInTheDocument();
+  expect(usePlanLoadComparison).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }));
+});
+
+it("leaves goal-period load out of the phone goal card and does not query it", () => {
+  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: query.includes("max-width"), media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+  renderWithProviders(<GoalHub wizard={<div />} />, { authenticated: true, user: { uid: "owner" }, route: "/ko/coach/goals?sport=bike" });
+  expect(screen.getByTestId("K3-1-1")).toHaveTextContent("D+5");
+  expect(screen.queryByRole("region", { name: "목표기간 훈련 부하" })).not.toBeInTheDocument();
+  expect(screen.queryByTestId("K3-1-2")).not.toBeInTheDocument();
   expect(usePlanLoadComparison).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }));
 });

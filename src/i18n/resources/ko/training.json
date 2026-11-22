@@ -250,7 +250,23 @@
     },
     "goalDayEstimate": "목표일 예상",
     "planProgress": "계획진행률",
-    "readError": "기존 목표를 확인하지 못했습니다. 다시 불러온 뒤 생성하거나 변경할 수 있습니다."
+    "readError": "기존 목표를 확인하지 못했습니다. 다시 불러온 뒤 생성하거나 변경할 수 있습니다.",
+    "planShort": "계획 보기",
+    "cachedChip": "이전 정보",
+    "planWeeks": "계획 진행",
+    "planWeeksValue": "{{current}} / {{total}}주",
+    "replacesShort": "시작하면 '{{name}}' 목표는 포기됩니다.",
+    "tiles": {
+      "distance": "거리",
+      "elevation": "상승",
+      "targetTime": "목표 기록",
+      "targetWkg": "목표 W/kg"
+    },
+    "typeHints": {
+      "event": "날짜와 거리",
+      "climb": "코스와 시간",
+      "program": "입문 프로그램"
+    }
   },
   "goals": {
     "wizardTitle": {

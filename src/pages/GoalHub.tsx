@@ -28,6 +28,7 @@ import { Button, buttonClass, Card, IconButton, Text } from "../theme/components
 import { ICON_SIZE } from "../theme/tokens/icon";
 import { Pencil } from "lucide-react";
 import GoalActionsMenu from "./GoalActionsMenu";
+import { MobileGoalActions, MobileGoalCard, MobileGoalTypeRows } from "./GoalHubMobile";
 
 export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const { t, i18n } = useTranslation("training");
@@ -40,15 +41,17 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const { profile } = useAuth();
   const goalReady = !model.loading && model.loadError == null && model.freshLoaded !== false;
   const scope = goalLoadScope(model.weeks, goal, Date.now());
-  const load = usePlanLoadComparison({ uid: user?.uid, discipline, weeks: model.weeks, range: scope.range, ftp: profile?.ftp,
-    enabled: goalReady && model.goalMatchesDiscipline && !!user && !user.isAnonymous && !!goal && scope.valid });
   const mobile = useMobile();
+  // 휴대폰은 목표 부하 요약·목표일 CTL/TSB 를 그리지 않으므로 조회도 하지 않는다.
+  const load = usePlanLoadComparison({ uid: user?.uid, discipline, weeks: model.weeks, range: scope.range, ftp: profile?.ftp,
+    enabled: !mobile && goalReady && model.goalMatchesDiscipline && !!user && !user.isAnonymous && !!goal && scope.valid });
   const rawTitle = goal?.title || goal?.courseName || "";
   const title = formatPlanGoalTitle(rawTitle);
   const targetMs = goal?.targetDate ?? goal?.eventDate;
   const displayDate = targetMs != null && Number.isFinite(new Date(targetMs).getTime()) ? new Date(targetMs) : null;
   const [choice, setChoice] = useState<{ sport: string; kind: "event" | "climb" } | null>(null);
   const [error, setError] = useState(false);
+  const [changing, setChanging] = useState(false);
   const types = useRef<HTMLDivElement>(null);
   const dialog = useDialog();
   const services = useFirebaseServices();
@@ -57,7 +60,7 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const projectionOwner = `${user?.uid ?? ""}:${discipline}:${goal?.id ?? ""}`;
   const [projection, setProjection] = useState<{ owner: string; value: FitnessProjection } | null>(null);
   useEffect(() => {
-    if (!user || user.isAnonymous || !goal) return;
+    if (mobile || !user || user.isAnonymous || !goal) return;
     let cancelled = false;
     const viewer = services.auth.currentUser;
     void getDoc(doc(firestore, "users", user.uid, "fitness", `projection_${discipline}`)).then(snapshot => {
@@ -69,10 +72,13 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
       if (!cancelled) setProjection(null);
     });
     return () => { cancelled = true; };
-  }, [user, goal, discipline, firestore, projectionOwner, services]);
+  }, [mobile, user, goal, discipline, firestore, projectionOwner, services]);
   const goalDay = projection?.owner === projectionOwner ? projection.value.goalDay : null;
   useEffect(() => {
-    if (params.get("new") === "1") types.current?.scrollIntoView?.({ behavior: "smooth" });
+    if (params.get("new") !== "1") return;
+    // 휴대폰은 유형 목록이 "목표 변경" 아래 접혀 있으므로 펼친 뒤 이동한다.
+    setChanging(true);
+    requestAnimationFrame(() => types.current?.scrollIntoView?.({ behavior: "smooth" }));
   }, [params]);
   const abandon = async () => {
     if (!goal || goal.runProgram || !await dialog.confirm(t("confirmations.abandonConfirm"), { destructive: true })) return;
@@ -90,7 +96,15 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
       {/* 캐시로 목표 카드를 먼저 그렸으면 위에 로딩 줄을 끼워 카드를 밀었다 당기지 않는다(진입 때 화면이 깜박였다). */}
       {!model.loadError && !goalReady && !goal && <Text role="status">{t("climbGoal.loading")}</Text>}
       {model.loadError != null && <div role="alert"><Text as="p">{t("goalHub.readError")}</Text><Button size="sm" onClick={model.retryLoad}>{t("goalHub.retry")}</Button></div>}
-      {goal && <Card data-testid="K3-1">
+      {goal && mobile && <MobileGoalCard goal={goal} title={title.name} meta={title.meta ?? undefined}
+        dateLabel={displayDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language, { timeZone: "Asia/Seoul" }) ?? null}
+        countdown={goalCountdown(targetMs)} cached={!!model.cacheHit && model.freshLoaded === false}
+        weeks={model.weeks} discipline={discipline} goalReady={goalReady} error={error} />}
+      {goal && mobile && <MobileGoalActions goalReady={goalReady} changing={changing} onToggleChange={() => setChanging(open => !open)}
+        onAbandon={() => void abandon()} canAbandon={!goal.runProgram} />}
+      {mobile && (!goal || changing) && <MobileGoalTypeRows listRef={types} discipline={discipline} goalReady={goalReady}
+        hasRunProgram={!!goal?.runProgram} onChoose={choose} />}
+      {goal && !mobile && <Card data-testid="K3-1">
         {model.cacheHit && model.freshLoaded === false && <Text as="p">{t("embeddedStatus.cached", { ns: "common" })}</Text>}
         <GoalSourceNotice goal={goal} discipline={discipline} />
         {/* 목표 변경은 제목 옆 연필 아이콘, 드문 목표 포기는 ⋯ 메뉴(확인 대화 유지)로 둔다. */}
@@ -111,14 +125,14 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
         </div>
         {error && <Text role="alert">{t("errors.abandonError")}</Text>}
       </Card>}
-      <div ref={types} data-testid="K3-2"><Text as="h2" variant="title">{t(goal ? "goalHub.other" : "goalHub.new")}</Text>
+      {!mobile && <div ref={types} data-testid="K3-2"><Text as="h2" variant="title">{t(goal ? "goalHub.other" : "goalHub.new")}</Text>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
         <Button data-testid={discipline === "bike" ? "K3-2-1" : discipline === "run" ? "K3-2-3" : "K3-2-4"} disabled={!goalReady} onClick={() => choose("event")}>{t(`goalHub.types.${discipline}`)}</Button>
         {discipline === "bike" && <Button data-testid="K3-2-2" disabled={!goalReady} onClick={() => choose("climb")}>{t("climbGoal.title")}</Button>}
         {discipline === "run" && !goal?.runProgram && <LocalizedLink data-testid="K3-2-program" to="/coach/plan?sport=run">{t("goalHub.program")}</LocalizedLink>}
         </div>
-      </div>
-      {selected && goal && <Text role="status">{t("goalHub.replaces", { name: goal.title || goal.courseName })}</Text>}
+      </div>}
+      {selected && goal && <Text role="status">{t(mobile ? "goalHub.replacesShort" : "goalHub.replaces", { name: mobile ? title.name || goal.courseName : goal.title || goal.courseName })}</Text>}
       {goalReady && selected === "event" && <section data-testid="K3-3">{wizard}</section>}
       {goalReady && selected === "climb" && <section data-testid="K3-4"><ClimbGoalSetupPage embedded /></section>}
     </>}
