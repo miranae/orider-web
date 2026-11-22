@@ -107,10 +107,12 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         stopLocationSignal = undefined;
         readySubscriptions.delete(path);
       } else if (!stopLocationSignal && stops.length && current() && !blocked && !document.hidden) {
-        stopLocationSignal = onSnapshot(doc(services.firestore, path), () => {
-          readySubscriptions.add(path);
-          signal();
-        }, fail);
+        try {
+          stopLocationSignal = onSnapshot(doc(services.firestore, path), () => {
+            readySubscriptions.add(path);
+            signal();
+          }, fail);
+        } catch (error) { fail(error); }
       }
     };
     syncLocationSignal.current = syncSignal;

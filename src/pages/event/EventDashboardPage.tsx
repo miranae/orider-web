@@ -616,6 +616,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
       void getDoc(latestRef).then(snap => {
         if (current()) receive(snap.exists() ? snap.data() as SnapshotData : null);
       }).catch(error => {
+        logClientError("EventDashboard.signalRead", error, { eventId }, services, user);
         if (current()) snapshotFailed(error);
       });
     };

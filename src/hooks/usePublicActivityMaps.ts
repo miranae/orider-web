@@ -42,11 +42,11 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
         // revision 은 공개 범위·지도·콘텐츠 버전 해시라 같으면 표시할 내용도 같다. 같은 객체를 유지해 썸네일을 다시 그리지 않는다.
         setState(previous => previous?.context === context && !previous.failed && sameMapRevisions(previous.maps, maps) ? previous : { context, maps, failed: false });
       }).catch(error => {
+        logClientError("usePublicActivityMaps.load", error, { activityIds: key }, services, sdkUser);
         if (stopped || request !== generation.current || signalEpoch !== activeSignal) return;
         setState({ context, maps: {}, failed: true });
         // 일시 실패는 신호가 다시 오지 않으면 복구되지 않으므로 몇 번만 늦춰 다시 시도한다.
         if (failures < RETRY_DELAYS_MS.length) retryTimer = setTimeout(refresh, RETRY_DELAYS_MS[failures++]);
-        else logClientError("usePublicActivityMaps.load", error, { activityIds: key }, services, sdkUser);
       }).finally(() => { if (request !== generation.current) return; loading = false; if (again && !stopped) refresh(); });
     };
     const signals: { key: string; path: readonly [string, string]; activityId?: string }[] = ids.map(id => ({ key: `activity:${id}`, path: ["activity_map_signals", id], activityId: id }));

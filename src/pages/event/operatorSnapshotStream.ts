@@ -40,7 +40,9 @@ export function subscribeOperatorSnapshot<T>(
       try {
         const frame = JSON.parse(String(data));
         if (frame.v !== 1 || frame.eventId !== eventId || frame.type !== "operator_snapshot_signal") return;
-        if (typeof frame.revision !== "string" && frame.revision !== null) return;
+        if (typeof frame.revision !== "string" && frame.revision !== null) {
+          throw new Error("Invalid operator snapshot revision");
+        }
         clearTimeout(timeout);
         const ticket = ++generation;
         if (frame.revision === null) receive(null);
