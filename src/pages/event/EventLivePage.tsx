@@ -366,8 +366,7 @@ export default function EventLivePage() {
   }, [worldPresenceEnabled, eventId, liveReadsEnabled, hasWorldPresence]);
 
   useEffect(() => {
-    if (!eventId || !liveReadsEnabled || hasWorldPresence ||
-        worldPresenceEnabled && presenceFallbackEvent !== eventId) return;
+    if (!eventId || !liveReadsEnabled) return;
     let active = true;
     const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
     const sessionId = viewerSessionIdForEvent(eventId);
@@ -699,7 +698,7 @@ export default function EventLivePage() {
     );
   }
 
-  if (!guestWorldActive && (viewerRecoveryError || loadError)) {
+  if (viewerRecoveryError || loadError) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <ErrorState

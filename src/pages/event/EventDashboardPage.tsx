@@ -342,7 +342,6 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
   const [viewport, setViewport] = useState<WorldViewport>();
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport);
-  const worldPresenceActive = worldFrame !== null;
   const snapshot = savedSnapshot;
   const mapLocations = savedSnapshot?.locations ?? [];
 
@@ -352,7 +351,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const courseLoadAbortRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    if (!eventId || !eventStatus || trackingEnded || worldPresenceActive) return;
+    if (!eventId || !eventStatus || trackingEnded) return;
     let cancelled = false;
     const refresh = async () => {
       try {
@@ -366,7 +365,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     void refresh();
     const timer = window.setInterval(() => void refresh(), 30_000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [eventId, eventStatus, trackingEnded, worldPresenceActive]);
+  }, [eventId, eventStatus, trackingEnded, db]);
 
   useEffect(() => {
     if (!eventId) return;

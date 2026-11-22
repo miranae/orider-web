@@ -86,8 +86,12 @@ function createPool(services: FirebaseServices, user: User | null, onEmpty: () =
           if (generation !== sequence || services.auth.currentUser !== user) return;
           try {
             const frame = JSON.parse(String(data)) as { v?: number; type?: string; activityId?: string } | null;
-            if (frame?.v !== 1 || frame.type !== "activity_map_signal") return;
-            if (frame.activityId !== undefined && !batch.includes(frame.activityId)) return;
+            if (frame?.v !== 1 || frame.type !== "activity_map_signal") {
+              lost("protocol", new Error("Invalid activity map signal frame")); return;
+            }
+            if (frame.activityId !== undefined && !batch.includes(frame.activityId)) {
+              lost("scope", new Error("Unexpected activity map signal scope")); return;
+            }
             ready.add(socket);
             if (ready.size !== batches.length) return;
             clearTimeout(baselineTimer);

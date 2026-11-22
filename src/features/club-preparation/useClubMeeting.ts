@@ -92,7 +92,7 @@ export function useClubMeeting(
         Date.now() < data.runtimeWindow.opensAtMs && data.rideStatus !== "CANCELLED") {
         timer = setTimeout(() => {
           dirty = true;
-          if (automatic()) void request(false).catch(() => {});
+          if (automatic()) void request(false).catch(error => logClientError("ClubMeetingSnapshot.reauthorize", error, { eventId }, services, viewer));
           else schedule();
         }, Math.min(2_147_483_647, data.runtimeWindow.opensAtMs - Date.now()));
         return;
@@ -101,7 +101,7 @@ export function useClubMeeting(
       const delay = failures ? RETRY_DELAYS[failures - 1] : dirty ? 0 : undefined;
       if (delay === undefined) return;
       timer = setTimeout(() => {
-        if (automatic()) void request(false).catch(() => {});
+        if (automatic()) void request(false).catch(error => logClientError("ClubMeetingSnapshot.reauthorize", error, { eventId }, services, viewer));
       }, delay);
     };
     // 유효한 요청 실패는 여기서 기록하고 다시 던진다. 자동 호출부는 이미 기록된 거부만 흡수한다.
@@ -192,7 +192,7 @@ export function useClubMeeting(
         inFlight = false;
         data = null;
         setState({ scope, data: null, loading: true, error: null });
-        void request(false).catch(() => {});
+        void request(false).catch(error => logClientError("ClubMeetingSnapshot.reauthorize", error, { eventId }, services, viewer));
       }
       attachFallback?.();
     };
@@ -268,7 +268,7 @@ export function useClubMeeting(
                 inFlight = false;
                 data = null;
                 setState({scope, data: null, loading: true, error: null});
-                void request(false).catch(() => {});
+                void request(false).catch(error => logClientError("ClubMeetingSnapshot.reauthorize", error, { eventId }, services, viewer));
                 previous = signature;
                 previousContext = context;
                 return;
@@ -277,7 +277,7 @@ export function useClubMeeting(
             }
             if (previous !== undefined && previous !== signature) {
               if (inFlight) changed();
-              else void request(false).catch(() => {});
+              else void request(false).catch(error => logClientError("ClubMeetingSnapshot.reauthorize", error, { eventId }, services, viewer));
             }
             previous = signature;
           }, failed));
@@ -285,7 +285,7 @@ export function useClubMeeting(
       } catch (error) { failed(error); }
     };
     subscribe();
-    if (!document.hidden) void request(false).catch(() => {});
+    if (!document.hidden) void request(false).catch(error => logClientError("ClubMeetingSnapshot.reauthorize", error, { eventId }, services, viewer));
     // 같은 복귀 전환의 visibility/focus 이벤트를 한 요청으로 합친다.
     const wake = () => {
       if (document.hidden) {
@@ -306,7 +306,7 @@ export function useClubMeeting(
         lastWakeAt = Date.now();
         signalFailures = 0;
         subscribe();
-        void request(false).catch(() => {});
+        void request(false).catch(error => logClientError("ClubMeetingSnapshot.reauthorize", error, { eventId }, services, viewer));
       }, 0);
     };
     document.addEventListener("visibilitychange", wake);
