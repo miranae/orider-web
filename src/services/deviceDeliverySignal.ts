@@ -39,12 +39,13 @@ export function subscribeDeviceDeliverySignal<T>(
     async () => ({ v: 1, type: "device_subscribe", token: await user.getIdToken(), resource }),
     data => {
       if (!active()) return false;
-      const frame = data as { v?: number; type?: string } | null;
-      if (frame?.v !== 1 || frame.type !== "device_signal") return false;
+      const frame = data as { v?: number; type?: string; revision?: string | null } | null;
+      if (frame?.v !== 1 || frame.type !== "device_signal" ||
+          (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
       const expected = ++revision;
+      stopCanonical();
       void read().then(snapshot => {
         if (!active() || revision !== expected) return;
-        stopCanonical();
         receive(snapshot);
       }).catch((error: Error & { code?: string }) => {
         logClientError("RideWorld.deviceDeliveryRead", error, { resourceKind: resource.split(":")[0] });

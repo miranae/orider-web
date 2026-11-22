@@ -146,13 +146,16 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
           receipt: parsed?.mutationId === mutationId ? parsed : null,
         } : current);
     };
-    const receiptError = (error: Error) => {
+    const receiptError = (error: Error, target?: "receipt" | "deviceReceipts") => {
       const { code } = error as Error & { code?: string };
       if (receiptGeneration.current === generation && (code === "permission-denied" || code === "unauthenticated")) {
-        if (code === "permission-denied") receiptGeneration.current++;
-        setState(current => current.scopeKey === scopeKey ? { ...current, receipt: null, deviceReceipts: [] } : current);
+        setState(current => current.scopeKey === scopeKey ? {
+          ...current,
+          receipt: target === "deviceReceipts" ? current.receipt : null,
+          deviceReceipts: target === "receipt" ? current.deviceReceipts : [],
+        } : current);
       }
-      logClientError("useBikeFtpDecision.receipt", error, { mutationId });
+      logClientError("useBikeFtpDecision.receipt", error, { mutationId, target });
     };
 
     const deviceQuery = query(
@@ -171,9 +174,8 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
       () => Promise.all([getDocFromServer(receiptRef), getDocsFromServer(deviceQuery)] as const),
       ([receipt, devices]) => { receiveReceipt(receipt); receiveDevices(devices); },
       receiptError, () => {
-        const stopReceipt = onSnapshot(receiptRef, receiveReceipt, receiptError);
-        const stopDevices = onSnapshot(deviceQuery, receiveDevices,
-          receiptError);
+        const stopReceipt = onSnapshot(receiptRef, receiveReceipt, error => receiptError(error, "receipt"));
+        const stopDevices = onSnapshot(deviceQuery, receiveDevices, error => receiptError(error, "deviceReceipts"));
         return () => { stopReceipt(); stopDevices(); };
       });
 

@@ -45,6 +45,10 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
   const viewer = services.auth?.currentUser;
   const [worldScope, setWorldScope] = useState<{ scope: string; viewer: typeof viewer } | null>(null);
   const activeWorldScope = useRef<typeof worldScope>(null);
+  useEffect(() => {
+    activeWorldScope.current = null;
+    setWorldScope(null);
+  }, [scope, viewer, ended]);
   const worldOwnsSignals = worldScope?.scope === scope && worldScope.viewer === viewer;
   const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
     import.meta.env.VITE_ORIDER_LOCAL_DISCORD_REDIS === "1" && isEmulatorRuntime() &&

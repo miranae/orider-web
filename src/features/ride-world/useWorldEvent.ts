@@ -96,10 +96,12 @@ export function useWorldEvent(
     let disposed = false;
     let socket: WebSocket | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    let readinessGrace: ReturnType<typeof setTimeout> | undefined;
     let delayMs = 1000;
     let ready = false;
     let denied = false;
     let signalAccepted = false;
+    let hasFrame = false;
     let generation = 0;
     let initial: ReturnType<typeof setTimeout> | undefined;
     const open = async () => {
@@ -133,6 +135,7 @@ export function useWorldEvent(
               if (version === null || typeof version === "string" && /^\d+:\d{1,9}$/.test(version)) {
                 clearTimeout(initial);
                 signalAccepted = true;
+                hasFrame = true;
                 signalCurrent.current?.changed(version);
                 delayMs = 1000;
               }
@@ -143,6 +146,7 @@ export function useWorldEvent(
             if (frame.type === "event_snapshot" && Array.isArray(frame.markers) && Array.isArray(frame.roster)) {
               clearTimeout(initial);
               latest = frame;
+              hasFrame = true;
             } else if (frame.type === "event_delta") {
               if (!latest || frame.revision !== latest.revision + 1) {
                 latest = null;
@@ -171,10 +175,11 @@ export function useWorldEvent(
         });
         connection.addEventListener("close", ({ code }) => {
           if (disposed || socket !== connection) return;
-          if (code !== 1000) {
+          if (code !== 1000 || !hasFrame) {
             logClientError("RideWorld.eventClosed", new Error("World event socket closed"), { eventId: event, code });
           }
           socket = undefined;
+          hasFrame = false;
           clearTimeout(initial);
           if (subscribeCurrent.current === subscribe) subscribeCurrent.current = null;
           setState(null);
@@ -195,24 +200,35 @@ export function useWorldEvent(
         }
       }
     };
-    const stopWatching = watchWorldReadiness(url, available => {
-      ready = available;
-      if (available) { void open(); return; }
+    const fallBack = () => {
       generation++;
       clearTimeout(retry);
       clearTimeout(initial);
       const connection = socket;
       socket = undefined;
+      hasFrame = false;
       subscribeCurrent.current = null;
       connection?.close();
       setState(null);
       if (signalAccepted && !denied) signalCurrent.current?.disconnected(1013);
       signalAccepted = false;
+    };
+    const stopWatching = watchWorldReadiness(url, available => {
+      ready = available;
+      clearTimeout(readinessGrace);
+      if (available) {
+        if (!socket) void open();
+        return;
+      }
+      // An established stream can outlive a transient readiness probe failure.
+      if (socket && hasFrame) readinessGrace = setTimeout(fallBack, 2000);
+      else fallBack();
     });
     return () => {
       disposed = true;
       subscribeCurrent.current = null;
       stopWatching();
+      clearTimeout(readinessGrace);
       clearTimeout(retry);
       clearTimeout(initial);
       if (socket && socket.readyState < WebSocket.CLOSING) socket.close();

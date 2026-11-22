@@ -51,7 +51,7 @@ export function followWorldSignal(
       });
       connection.addEventListener("close", ({ code }) => {
         if (socket !== connection) return;
-        if (code !== 1000) {
+        if (code !== 1000 || !accepted) {
           logClientError("RideWorld.signalClosed", new Error("World signal socket closed"), { endpoint: url, code });
         }
         lost(code);
@@ -60,11 +60,13 @@ export function followWorldSignal(
       connection.addEventListener("message", ({ data }) => {
         if (socket !== connection) return;
         try {
-          if (receive(JSON.parse(String(data)))) {
-            clearTimeout(initial);
-            accepted = true;
-            backoff = 500;
+          if (!receive(JSON.parse(String(data)))) {
+            failed("validate", new Error("Invalid World signal frame"));
+            return;
           }
+          clearTimeout(initial);
+          accepted = true;
+          backoff = 500;
         } catch (error) {
           failed("decode", error);
         }

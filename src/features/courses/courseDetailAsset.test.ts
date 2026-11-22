@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
 describe("코스 상세 정적 트랙", () => {
-  it("로컬 월드 변경 신호가 닫히면 표시를 비우고 Firestore에서 다시 확인한다", async () => {
+  it.each(["disconnect", "invalid frame"])("로컬 월드 변경 신호 실패(%s) 뒤 Firestore에서 다시 확인한다", async failure => {
     vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
     vi.stubEnv("VITE_ORIDER_LOCAL_COURSE_REDIS", "1");
     const socket = Object.assign(new EventTarget(), { send: vi.fn(), close: vi.fn() });
@@ -45,7 +45,11 @@ describe("코스 상세 정적 트랙", () => {
     expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "course_subscribe", courseId: "course" }));
     socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "course_signal", revision: null }) }));
     await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
-    socket.dispatchEvent(new CloseEvent("close", { code: 1013 }));
+    if (failure === "invalid frame") {
+      socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "course_signal", revision: "invalid" }) }));
+    } else {
+      socket.dispatchEvent(new CloseEvent("close", { code: 1013 }));
+    }
     expect(onData).toHaveBeenLastCalledWith(null);
     expect(sdk.onSnapshot).toHaveBeenCalledTimes(2);
     const observeSource = sdk.onSnapshot.mock.calls[1]?.[2] as (snapshot: unknown) => void;
