@@ -331,7 +331,7 @@ export default function EventLivePage() {
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(`${eventId}:${user?.uid ?? "guest"}`) : []));
+  const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(JSON.stringify([eventId, user ? ["user", user.uid] : ["anonymous"]])) : []));
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [sosMuted, setSosMuted] = useState(() => (eventId ? loadSosMuted(eventId) : false));
   const [viewerCount, setViewerCount] = useState(0);
@@ -340,7 +340,7 @@ export default function EventLivePage() {
   const eventStatus = eventContext?.eventId === eventId ? eventContext?.status : null;
   const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
   const [viewport, setViewport] = useState<WorldViewport>();
-  const trackingScope = `${eventId}:${user?.uid ?? "guest"}`;
+  const trackingScope = JSON.stringify([eventId, user ? ["user", user.uid] : ["anonymous"]]);
   const previousTrackingScope = useRef(trackingScope);
   const sameTrackingScope = previousTrackingScope.current === trackingScope;
   useEffect(() => {
@@ -528,11 +528,17 @@ export default function EventLivePage() {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
+  const snapshotRequest = useRef(0);
+  const liveSnapshotScope = useRef(trackingScope);
+  liveSnapshotScope.current = trackingScope;
   const fetchSnapshot = useCallback(async () => {
     if (!eventId || !liveReadsEnabled) return;
+    const ticket = ++snapshotRequest.current;
+    const current = () => liveEventRef.current === eventId && liveSnapshotScope.current === trackingScope
+      && ticket === snapshotRequest.current;
     try {
       const latest = await getDoc(doc(firestore, "events", eventId, "snapshots", "public_latest"));
-      if (liveEventRef.current !== eventId) return;
+      if (!current()) return;
       if (!latest.exists()) {
         setSnapshot(null);
         setLoadError(null);
@@ -606,17 +612,17 @@ export default function EventLivePage() {
         setHighlights((prev) => [...newHighlights, ...prev].slice(0, 20));
       }
     } catch (err) {
-      if (liveEventRef.current !== eventId) return;
       logClientError("EventLivePage.fetchSnapshot", err, { eventId });
+      if (!current()) return;
       const code = (err as { code?: string })?.code;
       if (code === "permission-denied" || code === "unauthenticated") {
         setSnapshot(null); snapshotRef.current = null; setHighlights([]);
         setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
       } else if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
     } finally {
-      if (liveEventRef.current === eventId) setLoading(false);
+      if (current()) setLoading(false);
     }
-  }, [eventId, followBibs, liveReadsEnabled, guestWorldActive, t]);
+  }, [eventId, followBibs, liveReadsEnabled, guestWorldActive, trackingScope, t]);
 
   useEffect(() => {
     if (!liveReadsEnabled) return;
