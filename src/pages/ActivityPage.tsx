@@ -477,7 +477,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
       && (!kudosLoaded || kudosList.length === 0)
       && !!activity?.recentKudos?.some((k) => k.userId === user.uid);
     const wasLiked = liked || fallbackLiked;
-    const currentProfileImage = profile.photoURL ?? user.photoURL ?? null;
+    const currentProfileImage = resolveProfilePhotoUrl(profile?.photoURL, user.photoURL);
     const previous = { liked, kudosList, kudosTouched };
     setKudosTouched(true);
     if (wasLiked) {

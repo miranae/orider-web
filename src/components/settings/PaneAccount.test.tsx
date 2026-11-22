@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { getDoc } from "firebase/firestore";
 import { PaneAccount } from "./PaneAccount";
+import { useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 
 const mocks = vi.hoisted(() => ({
   user: { uid: "u1" } as { uid: string } | null,
@@ -130,7 +131,7 @@ describe("PaneAccount nickname save", () => {
     const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fu1%2Favatar?alt=media";
     for (const generation of [1, 2]) {
       fireEvent.change(input, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
-      await waitFor(() => expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", `${url}&v=${generation}`));
+      await waitFor(() => expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", expect.stringContaining(`${url}&v=${generation}&t=`)));
     }
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
     for (const [storageRef, , metadata] of mocks.uploadBytes.mock.calls) {
@@ -142,6 +143,23 @@ describe("PaneAccount nickname save", () => {
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
     await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null }));
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes a canonical avatar already open in a different window every five minutes", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(0);
+      const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fother%2Favatar?alt=media";
+      const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+      expect(view.result.current).toBe(url + "&t=0");
+      act(() => { vi.advanceTimersByTime(299_999); });
+      expect(view.result.current).toBe(url + "&t=0");
+      act(() => { vi.advanceTimersByTime(1); });
+      expect(view.result.current).toBe(url + "&t=1");
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each([

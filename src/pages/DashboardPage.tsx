@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { usePageDataTiming } from "../hooks/usePageDataTiming";
 import WeeklyTssBars from "../components/dashboard/WeeklyTrainingLoadBars";
 export { default as WeeklyTssBars } from "../components/dashboard/WeeklyTrainingLoadBars";
@@ -599,7 +600,7 @@ function DashboardContent() {
     })} /></div></div>
         <Card className="desktop-dashboard-identity">
           {user && !user.isAnonymous ? <>
-            <Link to="/athlete/me" className="desktop-dashboard-profile"><Avatar name={userName} imageUrl={profile?.photoURL || user.photoURL} size="xl" /><Text as="h2" variant="subtitle" weight={600}>{userName}</Text></Link>
+            <Link to="/athlete/me" className="desktop-dashboard-profile"><Avatar name={userName} imageUrl={resolveProfilePhotoUrl(profile?.photoURL, user.photoURL)} size="xl" /><Text as="h2" variant="subtitle" weight={600}>{userName}</Text></Link>
             <ProfileSocialStats />
             <Link to={`/athlete/me/activities?sport=${canonicalHome.enabled || discipline === "tri" ? "all" : discipline}`} className="desktop-dashboard-profile-link"><span>{t("todayStrip.week")}</span><ChevronRight size={ICON_SIZE.md} aria-hidden="true" /></Link>
           </> : <>
