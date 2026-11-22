@@ -7,6 +7,7 @@ import { httpsCallable } from "firebase/functions";
 import {
   doc,
   getDoc,
+  getDocFromServer,
   updateDoc,
   collection,
   query,
@@ -198,16 +199,26 @@ export function PaneAccount() {
         if (auth.currentUser !== viewer) return;
         const storageRef = ref(storage, profileAvatarPath(user.uid));
         const url = profileAvatarUrl(storageRef.bucket, user.uid);
+        const profileRef = doc(firestore, "users", user.uid);
+        stage = "read_profile";
+        const activeProfile = (await getDocFromServer(profileRef)).data();
+        if (!activeProfile) throw new Error("Avatar owner profile is unavailable");
+        if (auth.currentUser !== viewer) return;
+        const alreadySelected = activeProfile.photoURL === url;
+
         stage = "upload";
         const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "private, max-age=300" });
-        stage = "save_profile";
+        stage = alreadySelected ? "complete_upload" : "save_profile";
         if (auth.currentUser !== viewer) {
           logClientError("PaneAccount.changeAvatar", new Error("Avatar upload outlasted the editing session"),
             { stage }, firebaseServices, viewer);
           return;
         }
-        await updateDoc(doc(firestore, "users", user.uid), { photoURL: url, profileAvatarGeneration: result.metadata.generation });
-        if (auth.currentUser?.uid !== user.uid) return;
+        // Storage finalization publishes replacements. Only a newly selected URL needs a profile write.
+        if (!alreadySelected) {
+          await updateDoc(profileRef, { photoURL: url, profileAvatarGeneration: result.metadata.generation });
+        }
+        if (auth.currentUser !== viewer) return;
         refreshProfileAvatar(viewer, url, result.metadata.generation);
         setPhotoOverride({ uid: user.uid, url });
         showToast(t("profile.photoUpdated"));

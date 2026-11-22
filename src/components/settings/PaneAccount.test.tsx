@@ -138,6 +138,7 @@ describe("PaneAccount nickname save", () => {
     const input = container.querySelector("input[type=file]")!;
     const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fu1%2Favatar?alt=media";
     for (const generation of [1, 2]) {
+      mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: generation === 1 ? null : url }) });
       fireEvent.change(input, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
       await waitFor(() => expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", `${url}&v=${generation}`));
     }
@@ -147,7 +148,7 @@ describe("PaneAccount nickname save", () => {
       expect(metadata).toEqual({ cacheControl: "private, max-age=300", contentType: "image/webp" });
     }
     expect(mocks.updateDoc).toHaveBeenNthCalledWith(1, expect.anything(), { photoURL: url, profileAvatarGeneration: "1" });
-    expect(mocks.updateDoc).toHaveBeenNthCalledWith(2, expect.anything(), { photoURL: url, profileAvatarGeneration: "2" });
+    expect(mocks.updateDoc).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
     await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null, profileAvatarGeneration: null }));
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);

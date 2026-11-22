@@ -53,6 +53,7 @@ export function useProfileAvatarDisplayUrl(url?: string | null) {
     };
     const generation = (value: unknown) => typeof value === "string" && /^[0-9]{1,21}$/.test(value) ? value : undefined;
     const readFailed = (error: unknown) => {
+      sequence++;
       logClientError("ProfileAvatar.signal", error, { stage: "read_revision" }, services, viewer, "", isCurrent);
       if (isCurrent()) showVersion(false);
     };
