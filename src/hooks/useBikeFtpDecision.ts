@@ -146,7 +146,14 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
           receipt: parsed?.mutationId === mutationId ? parsed : null,
         } : current);
     };
-    const receiptError = (error: Error) => logClientError("useBikeFtpDecision.receipt", error, { mutationId });
+    const receiptError = (error: Error) => {
+      const { code } = error as Error & { code?: string };
+      if (receiptGeneration.current === generation && (code === "permission-denied" || code === "unauthenticated")) {
+        receiptGeneration.current++;
+        setState(current => current.scopeKey === scopeKey ? { ...current, receipt: null, deviceReceipts: [] } : current);
+      }
+      logClientError("useBikeFtpDecision.receipt", error, { mutationId });
+    };
 
     const deviceQuery = query(
       collection(firestore, "users", uid, "deviceStateReceipts"),
@@ -166,7 +173,7 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
       receiptError, () => {
         const stopReceipt = onSnapshot(receiptRef, receiveReceipt, receiptError);
         const stopDevices = onSnapshot(deviceQuery, receiveDevices,
-          error => logClientError("useBikeFtpDecision.deviceReceipts", error, { mutationId }));
+          receiptError);
         return () => { stopReceipt(); stopDevices(); };
       });
 

@@ -110,7 +110,11 @@ export function useWorldEvent(
         if (disposed || !ready || attempt !== generation) return;
         const connection = new WebSocket(url);
         socket = connection;
-        initial = setTimeout(() => { if (socket === connection) connection.close(); }, 3000);
+        initial = setTimeout(() => {
+          if (socket !== connection) return;
+          logClientError("RideWorld.eventFirstFrame", new Error("World event first frame timed out"), { eventId: event });
+          connection.close();
+        }, 3000);
         let latest: WorldEventFrame | null = null;
         const subscribe = () => {
           if (!disposed && connection.readyState === WebSocket.OPEN) {
@@ -167,6 +171,9 @@ export function useWorldEvent(
         });
         connection.addEventListener("close", ({ code }) => {
           if (disposed || socket !== connection) return;
+          if (code !== 1000) {
+            logClientError("RideWorld.eventClosed", new Error("World event socket closed"), { eventId: event, code });
+          }
           socket = undefined;
           clearTimeout(initial);
           if (subscribeCurrent.current === subscribe) subscribeCurrent.current = null;

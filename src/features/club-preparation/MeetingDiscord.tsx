@@ -44,16 +44,22 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
   }, [eventId, scope, getClubMeetingDiscord]);
   const viewer = services.auth?.currentUser;
   const [worldScope, setWorldScope] = useState<string | null>(null);
+  const activeWorldScope = useRef<string | null>(null);
   const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
     import.meta.env.VITE_ORIDER_LOCAL_DISCORD_REDIS === "1" && isEmulatorRuntime() &&
     getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true && viewer?.uid === uid;
   useWorldEvent(redisSignals && !ended ? eventId : undefined, viewer, undefined, undefined, {
     topic: "discord",
-    changed: () => { setWorldScope(scope); if (!document.hidden) void reload(); },
+    changed: () => {
+      activeWorldScope.current = scope;
+      setWorldScope(scope);
+      if (!document.hidden) void reload();
+    },
     disconnected: code => {
       if (!mounted.current || current.current !== scope) return;
       const denied = code === 4003 || code === 4004;
-      if (worldScope !== scope && !denied) return;
+      if (activeWorldScope.current !== scope && !denied) return;
+      activeWorldScope.current = null;
       setWorldScope(null);
       generation.current++; busy.current = false; queued.current = false;
       setPending(false); setResult(null); setConfirmClose(false);

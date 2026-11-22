@@ -101,7 +101,7 @@ export function useNotificationInbox() {
           return true;
         },
         code => {
-          if (code === 4003) {
+          if (code === 4003 || code === 4004) {
             stopCanonical();
             generation.current += 1; again = false;
             setState(null); setLoading(false); setFailed(true);

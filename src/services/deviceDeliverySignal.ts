@@ -27,7 +27,7 @@ export function subscribeDeviceDeliverySignal<T>(
     if (!active()) return;
     revision++;
     stopCanonical();
-    onError(new Error("기기 전달 상태 접근이 거절됐습니다."));
+    onError(Object.assign(new Error("기기 전달 상태 접근이 거절됐습니다."), { code: "permission-denied" }));
   };
   if (!user || user.uid !== uid || user.isAnonymous) {
     denied();

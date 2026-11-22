@@ -49,7 +49,13 @@ export function followWorldSignal(
         try { connection.send(JSON.stringify(request)); }
         catch (error) { failed("subscribe", error); }
       });
-      connection.addEventListener("close", event => { if (socket === connection) lost(event.code); });
+      connection.addEventListener("close", ({ code }) => {
+        if (socket !== connection) return;
+        if (code !== 1000) {
+          logClientError("RideWorld.signalClosed", new Error("World signal socket closed"), { endpoint: url, code });
+        }
+        lost(code);
+      });
       connection.addEventListener("error", () => failed("transport", new Error("World WebSocket error")));
       connection.addEventListener("message", ({ data }) => {
         if (socket !== connection) return;
