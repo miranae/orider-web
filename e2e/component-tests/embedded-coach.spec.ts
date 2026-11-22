@@ -73,7 +73,7 @@ for (const state of ["data", "insufficient"] as const) {
     await expect(page.getByTestId("coach-analysis")).toBeVisible();
     await expect(page.getByTestId("coach-analysis-composition")).toContainText(/h · 이전 .*h/);
     if (state === "data") {
-      await expect(page.getByTestId("coach-analysis-summary")).toContainText("+4.0%");
+      await expect(page.getByTestId("coach-analysis-summary")).toContainText("312 W이전 300");
       await expect(page.getByTestId("coach-analysis-curve").getByRole("row")).toHaveCount(5);
     } else {
       await expect(page.getByTestId("coach-analysis-insufficient")).toHaveText("파워 기록 3회 · 비교 불가");

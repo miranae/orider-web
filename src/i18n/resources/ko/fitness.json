@@ -1436,12 +1436,13 @@
   "analysis.concise.recentShort": "최근",
   "analysis.concise.previousShort": "이전",
   "analysis.concise.duration": "구간",
-  "analysis.concise.change": "변화",
   "analysis.concise.compositionTitle": "훈련 구성",
   "analysis.concise.nextTitle": "다음에 할 일",
   "analysis.concise.applyPlan": "계획에 반영",
   "analysis.concise.planQuestion": "최근 {{days}}일 분석을 반영해 앞으로의 훈련 계획을 조정해 주세요.",
   "analysis.concise.ftpReview": "FTP 재평가",
   "analysis.concise.totalHours": "{{recent}}h · 이전 {{previous}}h",
-  "analysis.concise.maxHr": "최대 심박"
+  "analysis.concise.maxHr": "최대 심박",
+  "analysis.concise.previousValue": "이전 {{value}}",
+  "analysis.concise.fixedWindow": "최근 28일 · 이전 28일"
 }

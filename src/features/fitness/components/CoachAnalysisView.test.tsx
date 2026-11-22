@@ -13,7 +13,7 @@ vi.mock("../../../hooks/usePowerCurvePeriods", () => ({ usePowerCurvePeriods: (.
 vi.mock("../../../hooks/useTrainingAnalysisPeriods", () => ({ useTrainingAnalysisPeriods: (...args: unknown[]) => mocks.training(...args) }));
 vi.mock("../../../services/trainingAnalysisPeriods", () => ({ trainingAnalysisPeriodsAvailable: () => true }));
 vi.mock("../../coach/CoachQuestionLauncher", () => ({ CoachQuestionLauncher: (props: { triggerLabel: string; presetQuestion: string }) => { mocks.launcher(props); return <button type="button">{props.triggerLabel}</button>; } }));
-vi.mock("../../../components/charts/CriticalPaceCurve", () => ({ default: () => <div data-testid="pace-curve" /> }));
+vi.mock("../../../components/charts/CriticalPaceCurve", () => ({ default: (props: { recentPoints: unknown[]; periodLabels?: { recent: string } }) => <div data-testid="pace-curve" data-points={props.recentPoints.length} data-label={props.periodLabels?.recent} /> }));
 
 const DAY = 86_400_000;
 const powerPeriod = (watts: Record<number, number>, included: number) => ({
@@ -42,13 +42,14 @@ describe("CoachAnalysisView", () => {
   it("요약·파워 커브 표·훈련 구성을 최근/이전 기간 비교로 그린다", () => {
     view();
     const summary = screen.getByTestId("coach-analysis-summary");
-    expect(summary).toHaveTextContent("analysis.concise.fiveMin+4.0%");
-    expect(summary).toHaveTextContent("analysis.concise.sixtyMin+2.0%");
-    // 존 비중·고강도 변화는 서버 정본이 없어 두지 않는다(P6).
-    expect(summary).not.toHaveTextContent("%p");
+    // 변화율·존 비중은 서버 정본이 없어 두지 않고 두 기간 서버 값을 나란히 둔다(P6).
+    expect(summary).toHaveTextContent("analysis.concise.fiveMin312 Wanalysis.concise.previousValue 300");
+    expect(summary).toHaveTextContent("analysis.concise.sixtyMin204 Wanalysis.concise.previousValue 200");
+    expect(summary).not.toHaveTextContent("%");
     const rows = within(screen.getByTestId("coach-analysis-curve")).getAllByRole("row");
     expect(rows).toHaveLength(5);
-    expect(rows[2]).toHaveTextContent("312+4.0%");
+    expect(rows[2]).toHaveTextContent("duration.min 5312300");
+    expect(screen.getByTestId("coach-analysis-curve")).not.toHaveTextContent("%");
     const composition = screen.getByTestId("coach-analysis-composition");
     expect(composition).toHaveTextContent("analysis.concise.totalHours 70.0 50.0");
     expect(within(composition).getAllByRole("group")).toHaveLength(2);
@@ -74,8 +75,19 @@ describe("CoachAnalysisView", () => {
 
   it("러닝은 페이스 커브와 함께 기록·예측 영역을 둔다", () => {
     view({ discipline: "run", runSlot: <p>러닝 기록 요약</p>, runPaceCurve: { recent28: [{ durationSec: 60, paceSecPerKm: 300 }], prev28: [] } });
-    expect(screen.getByTestId("pace-curve")).toBeInTheDocument();
+    // 서버 기간 페이스가 없으면 고정 28일 커브를 그 창 이름 그대로 둔다(선택 기간처럼 보이지 않게).
+    expect(screen.getByTestId("pace-curve")).toHaveAttribute("data-label", "analysis.concise.recent 28");
+    expect(screen.getByTestId("coach-analysis-pace")).toHaveTextContent("analysis.concise.fixedWindow");
     expect(screen.getByText("러닝 기록 요약")).toBeInTheDocument();
+  });
+
+  it("러닝 페이스는 서버 기간 통계가 있으면 선택 기간을 따른다", () => {
+    const running = (pace: number) => ({ paceCurves: [{ sourceBasis: "run_metrics_pace_curve", points: [{ durationSeconds: 300, paceSecPerKm: pace }, { durationSeconds: 600, paceSecPerKm: pace + 10 }] }] });
+    mocks.training.mockReturnValue(ready({ periods: [{ ...trainingPeriod([1, 1, 1, 1, 1], 3600), running: running(240) }, { ...trainingPeriod([1, 1, 1, 1, 1], 3600), running: running(250) }] }));
+    view({ discipline: "run", runPaceCurve: { recent28: [{ durationSec: 60, paceSecPerKm: 300 }], prev28: [] } });
+    expect(screen.getByTestId("pace-curve")).toHaveAttribute("data-points", "2");
+    expect(screen.getByTestId("pace-curve")).toHaveAttribute("data-label", "analysis.concise.recent 90");
+    expect(screen.getByTestId("coach-analysis-pace")).not.toHaveTextContent("analysis.concise.fixedWindow");
   });
 
   it("앱 임베드에서는 비교 불가 줄에 웹 설정 링크를 두지 않는다", () => {
@@ -100,7 +112,7 @@ describe("CoachAnalysisView", () => {
   it("계획에 반영은 분석 수치를 담은 코치 질문으로 열고, FTP 재평가는 제안이 있을 때만 둔다", () => {
     const first = view();
     expect(mocks.launcher.mock.lastCall![0].presetQuestion).toContain("analysis.concise.planQuestion 90");
-    expect(mocks.launcher.mock.lastCall![0].presetQuestion).toContain("+4.0%");
+    expect(mocks.launcher.mock.lastCall![0].presetQuestion).not.toContain("%");
     expect(screen.queryByTestId("coach-analysis-ftp")).not.toBeInTheDocument();
     first.unmount();
     view({ ftpReviewAvailable: true });

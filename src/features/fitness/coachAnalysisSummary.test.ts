@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PowerCurvePeriodResult, PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
 import type { TrainingAnalysisPeriodResult, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
-import { changePct, movingHours, signedChange, summarizeCoachAnalysis, zoneGroups } from "./coachAnalysisSummary";
+import { movingHours, periodPaceCurves, summarizeCoachAnalysis, zoneGroups } from "./coachAnalysisSummary";
 
 const DAY = 86_400_000;
 function powerPeriod(watts: Record<number, number>, included: number, wattsPerKg?: Record<number, number>): PowerCurvePeriodResult {
@@ -28,30 +28,31 @@ function trainingPeriod({ power = [], hr = [], movingSec = null as number | null
 const trainingResponse = (...periods: TrainingAnalysisPeriodResult[]) => ({ periods } as unknown as TrainingAnalysisPeriodsResponse);
 
 describe("coachAnalysisSummary", () => {
-  it("최근·이전 5분/60분 파워 변화율과 표 행을 만든다", () => {
+  it("최근·이전 5분/60분 파워와 표 행을 서버 값 그대로 나란히 만든다(변화율 없음)", () => {
     const summary = summarizeCoachAnalysis({
       power: powerResponse(powerPeriod({ 5: 900, 300: 312, 1200: 260, 3600: 204 }, 12), powerPeriod({ 5: 900, 300: 300, 3600: 200 }, 10)),
       training: null,
     });
     expect(summary.insufficient).toBeNull();
-    expect(summary.fiveMinPct).toBe(4);
-    expect(summary.sixtyMinPct).toBe(2);
-    expect(summary.rows.map(row => [row.durationSeconds, row.changePct])).toEqual([[5, 0], [300, 4], [1200, null], [3600, 2]]);
+    expect(summary.fiveMin).toEqual({ durationSeconds: 300, recent: 312, previous: 300 });
+    expect(summary.sixtyMin).toEqual({ durationSeconds: 3600, recent: 204, previous: 200 });
+    expect(summary.rows.map(row => [row.durationSeconds, row.recent, row.previous])).toEqual([[5, 900, 900], [300, 312, 300], [1200, 260, null], [3600, 204, 200]]);
+    expect(Object.keys(summary.rows[0]!)).not.toContain("changePct");
   });
 
-  it("W/kg 표는 체중 기준 값만 쓰고 요약 타일은 W 기준을 유지한다", () => {
+  it("W/kg 이면 체중 기준 서버 값만 쓴다", () => {
     const summary = summarizeCoachAnalysis({
       power: powerResponse(powerPeriod({ 300: 330, 3600: 220 }, 5, { 300: 4.4 }), powerPeriod({ 300: 300, 3600: 200 }, 5, { 300: 4 })),
       training: null, unit: "W/kg",
     });
-    expect(summary.fiveMinPct).toBe(10);
-    expect(summary.rows).toEqual([{ durationSeconds: 300, recent: 4.4, previous: 4, changePct: 10 }]);
+    expect(summary.fiveMin).toEqual({ durationSeconds: 300, recent: 4.4, previous: 4 });
+    expect(summary.rows).toEqual([{ durationSeconds: 300, recent: 4.4, previous: 4 }]);
   });
 
   it("한 기간이라도 파워 기록이 없으면 비교 불가로 판정하고 두 기간 기록 수를 더한다", () => {
     const summary = summarizeCoachAnalysis({ power: powerResponse(powerPeriod({ 300: 250 }, 3), powerPeriod({}, 0)), training: null });
     expect(summary.insufficient).toEqual({ powerActivityCount: 3 });
-    expect(summary.fiveMinPct).toBeNull();
+    expect(summary.fiveMin).toBeNull();
     expect(summary.rows).toEqual([]);
   });
 
@@ -81,12 +82,14 @@ describe("coachAnalysisSummary", () => {
     expect(summarizeCoachAnalysis({ power: powerResponse(partial, powerPeriod({ 300: 300, 3600: 200 }, 4)), training: null }).powerPartial).toBe(true);
   });
 
-  it("변화율·부호 표기 경계", () => {
-    expect(changePct(110, 0)).toBeNull();
-    expect(changePct(null, 100)).toBeNull();
-    expect(changePct(95, 100)).toBe(-5);
-    expect(signedChange(4)).toBe("+4.0");
-    expect(signedChange(-1.25)).toBe("−1.3");
-    expect(signedChange(0)).toBe("0.0");
+  it("러닝 기간 페이스 커브는 두 기간에 같은 산출 기준이 있는 서버 커브를 고른다", () => {
+    const curve = (sourceBasis: string, pace: number) => ({ sourceBasis, points: [{ durationSeconds: 300, paceSecPerKm: pace }] });
+    const period = (...paceCurves: unknown[]) => ({ running: { paceCurves } }) as unknown as TrainingAnalysisPeriodResult;
+    expect(periodPaceCurves(period(curve("speed_curve_kmh_converted", 250), curve("run_metrics_pace_curve", 240)), period(curve("run_metrics_pace_curve", 260))))
+      .toEqual({ recent: [{ durationSec: 300, paceSecPerKm: 240 }], previous: [{ durationSec: 300, paceSecPerKm: 260 }] });
+    expect(periodPaceCurves(period(curve("speed_curve_kmh_converted", 250)), period(curve("run_metrics_pace_curve", 260))))
+      .toEqual({ recent: [], previous: [{ durationSec: 300, paceSecPerKm: 260 }] });
+    expect(periodPaceCurves(period(), period())).toBeNull();
+    expect(periodPaceCurves(undefined, undefined)).toBeNull();
   });
 });

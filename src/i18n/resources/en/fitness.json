@@ -1436,12 +1436,13 @@
   "analysis.concise.recentShort": "Recent",
   "analysis.concise.previousShort": "Previous",
   "analysis.concise.duration": "Duration",
-  "analysis.concise.change": "Change",
   "analysis.concise.compositionTitle": "Training mix",
   "analysis.concise.nextTitle": "Next steps",
   "analysis.concise.applyPlan": "Apply to plan",
   "analysis.concise.planQuestion": "Please adjust my upcoming training plan based on the last {{days}} days of analysis.",
   "analysis.concise.ftpReview": "Review FTP",
   "analysis.concise.totalHours": "{{recent}}h · prev {{previous}}h",
-  "analysis.concise.maxHr": "Max HR"
+  "analysis.concise.maxHr": "Max HR",
+  "analysis.concise.previousValue": "Prev {{value}}",
+  "analysis.concise.fixedWindow": "Last 28 days · previous 28 days"
 }
