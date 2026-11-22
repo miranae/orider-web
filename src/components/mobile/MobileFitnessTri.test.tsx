@@ -43,20 +43,21 @@ describe("MobileFitnessPage tri", () => {
   });
 
   it("shows a visible condition title and all three current metrics with basis and action", () => {
-    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" currentBasis="2026-07-14 · 현재 요약" currentStatusSlot={<p>서버 판정 처리 중</p>} />);
+    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" currentBasis="2026-07-14 · 현재 요약" currentStatusSlot={<p>서버 판정 처리 중</p>} conditionTodayPlan={{ label: null, planHref: "/coach/plan?sport=run" }} />);
     expect(screen.getByRole("heading", { level: 1, name: "컨디션" })).not.toHaveClass("sr-only");
     const metrics = container.querySelector("[data-mobile-fitness-status]")!;
     expect(metrics).toHaveTextContent("CTL"); expect(metrics).toHaveTextContent("ATL"); expect(metrics).toHaveTextContent("TSB");
     expect(metrics).toHaveTextContent("12.0"); expect(metrics).toHaveTextContent("10.0"); expect(metrics).toHaveTextContent("+2.0");
     expect(screen.getByText("서버 판정 처리 중")).toBeInTheDocument();
     expect(screen.queryByText("체력이 피로보다 높아요")).not.toBeInTheDocument();
-    expect(screen.getByText("2026-07-14 · 현재 요약")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /오늘/ })).toHaveAttribute("href", "/ko/coach/plan?sport=run");
+    // 휴대폰 컨디션은 기준일 줄 없이 상태·숫자만 두고, 계획은 아래 한 줄로 연다.
+    expect(screen.queryByText("2026-07-14 · 현재 요약")).not.toBeInTheDocument();
+    expect(screen.getByTestId("K1-1-3")).toHaveAttribute("href", "/ko/coach/plan?sport=run");
   });
 
   it("retains the history instance and chosen range across exercise view changes", () => {
     const today = new Date().toISOString().slice(0, 10);
-    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" pmcHistoryPoints={[{ date: today, ctl: 12, atl: 10, tsb: 2, dailyLoad: 30 }]} />);
+    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" embedded pmcHistoryPoints={[{ date: today, ctl: 12, atl: 10, tsb: 2, dailyLoad: 30 }]} />);
     const history = container.querySelector(".pmc-history")!;
     fireEvent.click(within(history as HTMLElement).getByRole("button", { name: "180일" }));
     fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));
@@ -75,9 +76,9 @@ describe("MobileFitnessPage tri", () => {
 
   it("always shows integrated history when switching from the workouts view to tri", () => {
     const points = [{ date: new Date().toISOString().slice(0, 10), ctl: 12, atl: 10, tsb: 2, dailyLoad: 30 }];
-    const view = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" pmcHistoryPoints={points} />);
+    const view = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" embedded pmcHistoryPoints={points} />);
     fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));
-    view.rerender(<MobileFitnessPage data={{ ...previewData, discipline: "tri", combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] } }} part="condition" pmcHistoryPoints={points} />);
+    view.rerender(<MobileFitnessPage data={{ ...previewData, discipline: "tri", combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] } }} part="condition" embedded pmcHistoryPoints={points} />);
     expect(view.container.querySelector(".pmc-history")?.closest("[hidden]")).toBeNull();
     expect(screen.getByRole("button", { name: "장기 추이" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "연도별 비교" })).toBeInTheDocument();
@@ -94,7 +95,7 @@ describe("MobileFitnessPage tri", () => {
   it("keeps integrated source context and the planned projection accessible after moving its snapshot", () => {
     const data = { ...previewData, discipline: "tri" as const, combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] },
       pmcProjection: [{ date: Date.parse("2026-07-15T00:00:00Z"), ctl: 13, atl: 11, tsb: 2 }] };
-    const { container } = renderWithProviders(<MobileFitnessPage data={data} part="condition" currentBasis="통합 현재값 기준일 · 2026-07-14" pmcHistoryPoints={[]} />);
+    const { container } = renderWithProviders(<MobileFitnessPage data={data} part="condition" embedded currentBasis="통합 현재값 기준일 · 2026-07-14" pmcHistoryPoints={[]} />);
     // 통합 카드 아래 기준일·출처 설명 줄은 두지 않는다.
     expect(screen.queryByText("통합 현재값 기준일 · 2026-07-14")).not.toBeInTheDocument();
     const detail = container.querySelector(".mobile-fitness-daily-details")!;
@@ -108,6 +109,16 @@ describe("MobileFitnessPage tri", () => {
     expect(within(detail as HTMLElement).getByRole("status")).toHaveTextContent("예측");
     fireEvent.click(screen.getByRole("button", { name: "장기 추이" }));
     expect(detail).not.toBeVisible();
+  });
+
+  it("keeps the phone trend to the long-term view with six weeks and one year", () => {
+    const points = [{ date: new Date().toISOString().slice(0, 10), ctl: 12, atl: 10, tsb: 2, dailyLoad: 30 }];
+    const { container } = renderWithProviders(<MobileFitnessPage data={{ ...previewData, discipline: "tri", combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] } }} part="condition" pmcHistoryPoints={points} />);
+    expect(screen.queryByRole("group", { name: "차트 보기" })).not.toBeInTheDocument();
+    expect(container.querySelector(".mobile-fitness-daily-details")).toBeNull();
+    const ranges = within(screen.getByTestId("K1-2-1")).getAllByRole("button");
+    expect(ranges.map(button => button.textContent)).toEqual(["6주", "1년"]);
+    expect(ranges[0]).toHaveAttribute("aria-pressed", "true");
   });
 
   it("keeps discipline evidence on integrated condition before the weekly summary", () => {

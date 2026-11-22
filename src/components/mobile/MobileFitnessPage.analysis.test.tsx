@@ -21,11 +21,32 @@ const data: MobileFitnessData = {
     { durationSeconds: 1200, peak: 220, expected: 250, gapPct: -12, label: "weakness" }],
 };
 describe("mobile web analysis evidence", () => {
-  it("only exposes the condition supplement on the standalone condition surface", () => {
-    const view = renderWithProviders(<MobileFitnessPage data={data} part="condition" conditionSupplementSlot={<div>cross-sport contribution</div>} />);
-    expect(screen.getByText("cross-sport contribution")).toBeInTheDocument();
-    view.rerender(<MobileFitnessPage data={data} part="analysis" conditionSupplementSlot={<div>cross-sport contribution</div>} />);
-    expect(screen.queryByText("cross-sport contribution")).not.toBeInTheDocument();
+  it("orders the phone condition as status, today plan, trend, recent activities and goal", () => {
+    renderWithProviders(<MobileFitnessPage data={data} part="condition" pmcHistoryPoints={[]}
+      conditionTodayPlan={{ label: "스윗스팟 75분", planHref: "/coach/plan?sport=bike" }}
+      conditionRecentActivities={[{ id: "a1", label: "어제 · 남산 업힐", load: 96 }, { id: "a2", label: "11/19 · 한강", load: null }]}
+      conditionGoal={{ name: "가을 그란폰도", daysLeft: 27, planHref: "/coach/plan?sport=bike" }} conditionPendingAggregate />);
+    const current = document.getElementById("condition-current")!;
+    expect(within(current).getByText("집계 대기")).toBeVisible();
+    const plan = screen.getByTestId("K1-1-3");
+    expect(plan).toHaveTextContent("오늘 계획스윗스팟 75분계획 보기 ›");
+    expect(plan).toHaveAttribute("href", expect.stringContaining("/coach/plan?sport=bike"));
+    const recent = screen.getByTestId("K1-3");
+    expect(within(recent).getByRole("link", { name: "어제 · 남산 업힐부하 96" })).toHaveAttribute("href", expect.stringContaining("/activity/a1"));
+    expect(within(recent).getByRole("link", { name: "11/19 · 한강" })).toBeVisible();
+    expect(within(recent).getByRole("link", { name: "더보기" })).toHaveAttribute("href", expect.stringContaining("/athlete/me/activities"));
+    expect(screen.getByTestId("K1-2-6")).toHaveTextContent("가을 그란폰도 · D-27계획 ›");
+    // 브라우저 계산 변화값·보기 전환은 휴대폰 컨디션에 두지 않는다.
+    expect(screen.queryByRole("group", { name: "차트 보기" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/CTL \+/)).not.toBeInTheDocument();
+    const order = [current, plan, document.getElementById("condition-trend")!, recent, screen.getByTestId("K1-2-6")];
+    order.slice(1).forEach((node, index) => expect(order[index]!.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy());
+  });
+  it("keeps only the plan link when no cached plan is available", () => {
+    renderWithProviders(<MobileFitnessPage data={data} part="condition" conditionTodayPlan={{ label: null, planHref: "/coach/plan?sport=bike" }} />);
+    expect(screen.getByTestId("K1-1-3")).toHaveTextContent(/^계획 보기 ›$/);
+    expect(screen.queryByTestId("K1-3")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("K1-2-6")).not.toBeInTheDocument();
   });
   it("mounts one condition story with its simulator before the mobile chart and activity evidence", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={data} part="condition" currentStatusSlot={<h2>outer status must not repeat</h2>} coachSlot={<FitnessCoachBriefing part="condition" mobilePriority impacts={[]} selectedActivityId={null} onSelectActivity={() => undefined} forecast={null} current={{ ctl: 40, atl: 45, tsb: -5 }} decisionSlot={null} locale="ko-KR" canonicalAvailable discipline="bike" statusSlot={<h2>canonical story status</h2>} />} />);
@@ -107,7 +128,8 @@ it("keeps condition focused on current state and load without analysis and setti
   renderWithProviders(<MobileFitnessPage data={data} part="condition" ridingEvidenceSlot={<p>activity details</p>} powerCurveEvidenceSlot={<p>comparison</p>} />);
   expect(document.getElementById("condition-current")).toBeVisible();
   expect(screen.queryByRole("navigation", { name: /컨디션/ })).not.toBeInTheDocument();
-  expect(document.getElementById("condition-load")).toBeVisible();
+  // 휴대폰 컨디션은 주간 부하를 추이 카드의 한 줄로 접어 둔다.
+  expect(document.getElementById("condition-load")).toBeNull();
   expect(screen.queryByText("activity details")).not.toBeInTheDocument();
   expect(screen.queryByText("comparison")).not.toBeInTheDocument();
   expect(screen.queryByTestId("K5-1-3")).not.toBeInTheDocument();
