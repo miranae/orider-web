@@ -620,7 +620,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     const useRedis = import.meta.env.DEV && import.meta.env.VITE_ORIDER_OPERATOR_SNAPSHOTS === "1" &&
       isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-");
     const unsub = useRedis && user ? subscribeOperatorSnapshot(eventId, user, receive,
-      () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))), fallback, () => { void getDoc(latestRef).then(snap => receive(snap.exists() ? snap.data() as SnapshotData : null)).catch(snapshotFailed); }) : fallback();
+      () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))), fallback, current => { void getDoc(latestRef).then(snap => { if (current()) receive(snap.exists() ? snap.data() as SnapshotData : null); }).catch(error => { if (current()) snapshotFailed(error); }); }) : fallback();
     return () => { active = false; revision++; unsub(); };
   }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt]);
 

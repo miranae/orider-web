@@ -82,6 +82,8 @@ export function useWorldEvent(
   const signalOnly = signal !== undefined;
   const signalTopic = signal?.topic;
   const scope = JSON.stringify([eventId, user?.uid, signalOnly, signalTopic, allowGuest]);
+  const liveScope = useRef(scope);
+  liveScope.current = scope;
   const signalCurrent = useRef(signal);
   signalCurrent.current = signal;
   const options = useRef({ track, viewport, trackBib });
@@ -141,7 +143,7 @@ export function useWorldEvent(
         connection.addEventListener("message", ({ data }) => {
           try {
             const frame = JSON.parse(String(data)) as WorldEventFrame | WorldEventDelta | MeetingSignal;
-            if (disposed || socket !== connection || frame.v !== 1 || frame.eventId !== event) return;
+            if (disposed || liveScope.current !== scope || socket !== connection || frame.v !== 1 || frame.eventId !== event) return;
             if (frame.type === "event_signal") {
               const version = signalTopic === "spectator" ? frame.spectatorVersion
                 : signalTopic === "discord" ? frame.discordVersion : frame.meetingVersion;
@@ -151,7 +153,7 @@ export function useWorldEvent(
                 clearTimeout(initial);
                 signalAccepted = true;
                 hasFrame = true;
-                signalCurrent.current?.changed(version);
+                (liveScope.current === scope ? signalCurrent.current : undefined)?.changed(version);
                 delayMs = 1000;
               } else if (version !== undefined || !validPhase) {
                 throw new Error("Invalid World event signal revision");
@@ -160,7 +162,7 @@ export function useWorldEvent(
                 clearTimeout(initial);
                 hasFrame = true;
                 delayMs = 1000;
-                signalCurrent.current?.phaseChanged?.(frame.meetingPhase);
+                (liveScope.current === scope ? signalCurrent.current : undefined)?.phaseChanged?.(frame.meetingPhase);
               }
               return;
             }
@@ -207,7 +209,7 @@ export function useWorldEvent(
           if (subscribeCurrent.current === subscribe) subscribeCurrent.current = null;
           setState(null);
           denied = code === 4003 || code === 4004;
-          if (signalAccepted || denied) signalCurrent.current?.disconnected(code);
+          if (signalAccepted || denied) (liveScope.current === scope ? signalCurrent.current : undefined)?.disconnected(code);
           signalAccepted = false;
           if (!denied && ready) {
             retry = setTimeout(() => void open(), delayMs);
@@ -216,7 +218,7 @@ export function useWorldEvent(
         });
       } catch (error) {
         if (!disposed && attempt === generation) {
-          if (signalAccepted) signalCurrent.current?.disconnected(1013);
+          if (signalAccepted) (liveScope.current === scope ? signalCurrent.current : undefined)?.disconnected(1013);
           signalAccepted = false;
           report("RideWorld.connectEvent", error, { eventId: event });
           if (ready) retry = setTimeout(() => void open(), delayMs);
@@ -233,7 +235,7 @@ export function useWorldEvent(
       subscribeCurrent.current = null;
       connection?.close();
       setState(null);
-      if (signalAccepted && !denied) signalCurrent.current?.disconnected(1013);
+      if (signalAccepted && !denied) (liveScope.current === scope ? signalCurrent.current : undefined)?.disconnected(1013);
       signalAccepted = false;
     };
     const stopWatching = watchWorldReadiness(url, available => {

@@ -1,4 +1,4 @@
-import { isLocalWorldEventEnabled, useWorldEvent, worldLocation, type WorldViewport } from "../../features/ride-world/useWorldEvent";
+import { isLocalWorldEventEnabled, useWorldEvent, type WorldViewport } from "../../features/ride-world/useWorldEvent";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -343,21 +343,14 @@ export default function EventLivePage() {
   const trackingBib = /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : followBibs[followBibs.length - 1];
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport, undefined, trackingBib, !authLoading);
   const guestWorldActive = !user && worldFrame !== null;
-  const snapshot = useMemo<SnapshotData | null>(() => {
-    if (!worldFrame) return savedSnapshot;
-    const metadata = new Map(savedSnapshot?.locations.map((item) => [item.uid, item]));
-    return {
-      timestamp: worldFrame.updatedAt,
-      counts: { ...(savedSnapshot?.counts ?? { ...worldFrame.counts, finished: 0, dnf: 0, sos: 0, offCourse: 0 }),
-        riding: worldFrame.counts.riding },
-      checkpoints: savedSnapshot?.checkpoints ?? [],
-      locations: worldFrame.markers.map((marker) => {
-        const location = worldLocation(marker);
-        const previous = metadata.get(location.uid);
-        return previous ? { ...previous, lat: location.lat, lng: location.lng, speed: location.speed,
-          status: location.status, rideKind: location.rideKind } : location;
-      }),
-    };
+  const snapshot = savedSnapshot;
+  const mapLocations = useMemo(() => {
+    if (!worldFrame) return savedSnapshot?.locations ?? [];
+    const canonical = new Map(savedSnapshot?.locations.map(row => [row.uid, row]));
+    return worldFrame.markers.flatMap(marker => {
+      const row = canonical.get(marker.uid ?? marker.id);
+      return row ? [{ ...row, lat: marker.lat, lng: marker.lon, rideKind: marker.kind }] : [];
+    });
   }, [savedSnapshot, worldFrame]);
   const hasWorldPresence = worldFrame !== null;
   const worldPresenceEnabled = isLocalWorldEventEnabled();
@@ -534,7 +527,7 @@ export default function EventLivePage() {
   }, [snapshot]);
 
   const fetchSnapshot = useCallback(async () => {
-    if (!eventId || !liveReadsEnabled || guestWorldActive) return;
+    if (!eventId || !liveReadsEnabled) return;
     try {
       const latest = await getDoc(doc(firestore, "events", eventId, "snapshots", "public_latest"));
       if (liveEventRef.current !== eventId) return;
@@ -613,7 +606,11 @@ export default function EventLivePage() {
     } catch (err) {
       if (liveEventRef.current !== eventId) return;
       logClientError("EventLivePage.fetchSnapshot", err, { eventId });
-      if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
+      const code = (err as { code?: string })?.code;
+      if (code === "permission-denied" || code === "unauthenticated") {
+        setSnapshot(null); snapshotRef.current = null; setHighlights([]);
+        setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
+      } else if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
     } finally {
       if (liveEventRef.current === eventId) setLoading(false);
     }
@@ -1013,7 +1010,7 @@ export default function EventLivePage() {
           </div>
           <div style={{ height: 340 }}>
             <EventMap
-              locations={followedParticipants.length > 0 ? followedParticipants : snapshot.locations}
+              locations={followedParticipants.length > 0 ? followedParticipants : mapLocations}
               selectedUid={selectedUid}
               onSelectParticipant={setSelectedUid}
               onWorldViewport={worldFrame ? setViewport : undefined}

@@ -36,7 +36,7 @@ describe("operator snapshot stream", () => {
     const snapshot = { timestamp: 1, counts: { sos: 1 }, checkpoints: [], locations: [] };
     socket.frame("other", snapshot);
     socket.frame("official", snapshot);
-    expect(receive.mock.calls).toEqual([[null]]);
+    expect(receive.mock.calls).toEqual([]);
     expect(refresh).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(3000);
     expect(fallback).not.toHaveBeenCalled();
@@ -44,7 +44,7 @@ describe("operator snapshot stream", () => {
     expect(fallback).toHaveBeenCalledTimes(1);
     expect(receive).toHaveBeenLastCalledWith(null);
     socket.frame("official", snapshot);
-    expect(receive).toHaveBeenCalledTimes(2);
+    expect(receive).toHaveBeenCalledTimes(1);
     stop();
     expect(stopFallback).toHaveBeenCalledTimes(1);
   });

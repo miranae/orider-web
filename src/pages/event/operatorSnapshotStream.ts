@@ -7,9 +7,10 @@ export function subscribeOperatorSnapshot<T>(
   receive: (snapshot: T | null) => void,
   denied: () => void,
   fallback: () => () => void,
-  refresh?: () => void,
+  refresh?: (current: () => boolean) => void,
 ): () => void {
   let active = true;
+  let generation = 0;
   let socket: WebSocket | undefined;
   let stopFallback: (() => void) | undefined;
   const useFallback = () => {
@@ -28,17 +29,21 @@ export function subscribeOperatorSnapshot<T>(
     const connection = new WebSocket("ws://127.0.0.1:19494/operator-snapshots");
     socket = connection;
     connection.addEventListener("open", () => {
-      if (active && !stopFallback) connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token }));
+      if (active && !stopFallback) {
+        try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token })); }
+        catch (error) { logClientError("operatorSnapshotStream.send", error, { eventId }); useFallback(); }
+      }
     });
     connection.addEventListener("message", ({ data }) => {
       if (!active || stopFallback) return;
       try {
         const frame = JSON.parse(String(data));
         if (frame.v !== 1 || frame.eventId !== eventId || frame.type !== "operator_snapshot_signal") return;
-        clearTimeout(timeout);
         if (typeof frame.revision !== "string" && frame.revision !== null) return;
-        receive(null);
-        refresh?.();
+        clearTimeout(timeout);
+        const ticket = ++generation;
+        if (frame.revision === null) receive(null);
+        refresh?.(() => active && !stopFallback && ticket === generation);
       } catch (error) {
         logClientError("operatorSnapshotStream.decode", error);
         useFallback();
@@ -48,8 +53,12 @@ export function subscribeOperatorSnapshot<T>(
       if (!active || stopFallback) return;
       if (code === 4003) {
         clearTimeout(timeout);
+        active = false; generation++;
         denied();
-      } else useFallback();
+      } else {
+        logClientError("operatorSnapshotStream.close", new Error("Operator signal closed"), { eventId, code });
+        generation++; useFallback();
+      }
     });
   }).catch(error => { logClientError("operatorSnapshotStream.connect", error); useFallback(); });
   return () => {
