@@ -13,10 +13,7 @@
 .coach-surface .mobile-plan-goal-row { margin-inline: 0; }
 .coach-surface .mobile-plan-adaptation { padding-inline: 0; }
 /* 오늘·선택 행 강조는 카드와 같은 모서리로. 구분선은 강조 칸과 겹치지 않게 숨긴다. */
-.coach-surface .mobile-plan-day[data-highlight] {
-  border-radius: var(--r-md);
-  border-bottom-color: transparent;
-}
+
 
 /* 오늘 카드 */
 .mobile-plan-today {
@@ -40,8 +37,8 @@
   overflow-wrap: anywhere;
 }
 .mobile-plan-today__structure { font-variant-numeric: tabular-nums; }
-.mobile-plan-today__actions { display: flex; gap: var(--space-2); }
-.mobile-plan-today__actions > * { flex: 1; min-height: 44px; }
+.mobile-plan-today__head { align-items: center; }
+.mobile-plan-today__edit { flex-shrink: 0; min-height: 44px; margin: calc(var(--space-2) * -1) calc(var(--space-2) * -1) calc(var(--space-2) * -1) 0; color: var(--accent); }
 /* 카드 안의 결정·러닝 30분 제안은 카드 테두리 없이 구분선 아래 한 줄로 붙인다. */
 .mobile-plan-today .mobile-plan-today__extras {
   display: flex;
@@ -162,8 +159,39 @@
 
 
 
-.mobile-plan-day-row { display: grid; grid-template-columns: var(--space-8) var(--space-0-5) minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); }
-.mobile-plan-rest-load { margin-inline-start: calc(var(--space-8) + var(--space-0-5) + var(--space-3) * 2); }
+/* 요일 한 줄: 요일·날짜 | 강도 막대 | 운동명 | 짧은 상태. 누르면 상세를 펼친다. */
+.mobile-plan-day { border-bottom: 1px solid var(--line-soft); }
+.mobile-plan-day:last-child { border-bottom: 0; }
+.mobile-plan-day-row {
+  display: grid;
+  grid-template-columns: var(--space-8) 3px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-0);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.mobile-plan-day[data-highlight] > .mobile-plan-day-row { background: color-mix(in oklch, var(--lime) 6%, transparent); border-radius: var(--r-md); }
+.mobile-plan-day-row__date { display: flex; flex-direction: column; align-items: center; line-height: 1.2; color: var(--ink-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.mobile-plan-day-row__date strong { color: var(--ink-0); font-size: var(--fs-sm); }
+.mobile-plan-day-row__date strong[data-today] { color: var(--accent); }
+.mobile-plan-day-row__bar { width: 3px; height: 24px; border-radius: var(--r-xs); }
+.mobile-plan-day-row__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-base); }
+.mobile-plan-day-row__name[data-rest] { color: var(--ink-3); }
+.mobile-plan-day-row__status { color: var(--ink-3); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.mobile-plan-day-row__status[data-status="done"] { color: var(--color-success); }
+.mobile-plan-day-row__status[data-status="today"] { color: var(--accent); }
+.mobile-plan-day-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mobile-plan-day-detail { display: flex; flex-direction: column; gap: var(--space-2); padding: 0 0 var(--space-3) calc(var(--space-8) + 3px + var(--space-3) * 2); }
+.mobile-plan-day-detail > p { margin: 0; }
+.mobile-plan-day-detail__sport { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--fs-sm); }
+.mobile-plan-day-detail__edit { align-self: flex-start; min-height: 44px; }
 
 /* 계획 조정 카드가 그릴 내용이 없으면(조정 없음) 감싼 상자의 위아래 패딩만 남아 다음 블록을 24 밀었다. */
 .plan-decision-slot:empty { display: none; }

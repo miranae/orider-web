@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { PlanModel } from "../../../hooks/usePlanModel";
@@ -41,6 +41,11 @@ function layout(mobile: boolean) {
     onchange: null, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn() }));
 }
 
+/** 요일 줄은 기본으로 접혀 있다 — 상세(계획/실제/비교 근거·편집)를 보려면 줄을 눌러 펼친다. */
+function expandDays() {
+  document.querySelectorAll<HTMLButtonElement>('.mobile-plan-day-row[aria-expanded="false"]').forEach(row => fireEvent.click(row));
+}
+
 it("renders actual load directly in desktop normal, rest, skipped, goal and future day cards", async () => {
   layout(false);
   renderWithProviders(<PlanPresentation model={model} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />, { authenticated: true });
@@ -56,9 +61,11 @@ it("renders actual load directly in desktop normal, rest, skipped, goal and futu
 it("passes the selected mobile week's comparison through the real MobilePlanPage wrapper", () => {
   layout(true);
   const view = renderWithProviders(<PlanPresentation model={model} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />, { authenticated: true });
+  expandDays();
   expect(screen.getByRole("group", { name: "2026-10-20 부하 비교" })).toHaveTextContent("달성 — · 차이 +118 TSS");
   expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range).toEqual({ start: "2026-10-19", end: "2026-10-25" });
   view.rerender(<PlanPresentation model={model} mobileWeekOffset={1} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />);
+  expandDays();
   expect(screen.queryByRole("group", { name: "2026-10-19 부하 비교" })).not.toBeInTheDocument();
   expect(within(screen.getByRole("group", { name: "2026-10-26 부하 비교" })).getAllByRole("definition")[1]).toHaveTextContent("예정");
   expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range).toEqual({ start: "2026-10-26", end: "2026-11-01" });
@@ -69,6 +76,7 @@ it.each([false, true])("shows weekly fulfillment and retains daily execution fac
   layout(mobile);
   loadFixture.days.slice(0, 5).forEach(row => { row.fulfilledWeek = { weekNumber: 1, plannedTss: 255, actualTss: 300, estimated: false }; });
   renderWithProviders(<PlanPresentation model={model} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />, { authenticated: true });
+  expandDays();
   // 휴대폰은 주간 부하 요약을 이번 주 머리 한 줄(완료 · 부하)로 합쳐 별도 주간 근거 상자를 두지 않는다.
   if (mobile) expect(screen.queryByRole("group", { name: "W1 주간 부하 근거" })).not.toBeInTheDocument();
   else {

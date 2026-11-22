@@ -17,7 +17,8 @@ describe("bounded month record search and navigation", () => {
     renderWithProviders(<App activities={records(count)} />, { route: base });
     expect(rows()).toHaveLength(Math.min(count, 20));
     expect(screen.getByRole("searchbox", { name: "선택한 달에서 활동 찾기" })).toHaveValue("");
-    expect(screen.getByText(/선택 종목으로 불러온 기록/)).toHaveTextContent("2026년 9월");
+    expect(screen.getByRole("searchbox", { name: "선택한 달에서 활동 찾기" })).toHaveAttribute("placeholder", "활동 검색");
+    expect(screen.queryByText(/선택 종목으로 불러온 기록/)).not.toBeInTheDocument();
     if (count === 0) expect(screen.getByText("아직 활동 기록이 없어요")).toBeInTheDocument();
   });
   it("preserves query, exact month, sport and bounded page after activity/back, forward and reload", async () => {

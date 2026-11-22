@@ -1,6 +1,6 @@
 import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
 import { goalCountdown } from "../../../utils/goalCountdown";
-import { ChevronLeft, ChevronRight, Moon, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import GlossaryText from "../../../components/common/GlossaryText";
 import SportIcon from "../../../components/common/SportIcon";
@@ -8,7 +8,6 @@ import { planDayKey as kstDateString, planCalendarDate } from "@shared/training/
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlanWeek, PlanDay, WorkoutKind } from "@shared/types/goal";
-import { getDisciplineColor } from "../../../utils/disciplineFilter";
 import type { Discipline } from "../../../utils/disciplineFilter";
 import { getWorkoutDiscipline as _gwDiscipline } from "../../../utils/workoutDiscipline";
 import { effectivePlanTSS, sumEffectivePlanTSS } from "../../../utils/planTss";
@@ -17,6 +16,7 @@ import { Button, Card, IconButton, Text } from "../../../theme/components";
 import { formatPlanGoalTitle } from "./planDisplay";
 import "./MobilePlanContent.css";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
+import { getDisciplineColor } from "../../../utils/disciplineFilter";
 import PlanDayLoadComparison, { type PlanCalendarLoads } from "./PlanDayLoadComparison";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
@@ -130,6 +130,7 @@ export default function MobilePlanContent({
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const [showPastDays, setShowPastDays] = useState(false);
+  const [expandedRows, setExpandedDates] = useState<ReadonlySet<string>>(() => new Set());
   const WORKOUT_LABELS = useMemo(() => buildWorkoutLabels(t), [t]);
   const DAY_NAMES = useMemo(() => [
     tCommon('weekday.mon'),
@@ -198,14 +199,11 @@ export default function MobilePlanContent({
       {nextWorkout ? (
         <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next mobile-plan-today" aria-label={t("mobile.todayCard")}>
           <div className="mobile-plan-today__head">
-            <Text as="span" variant="caption" tone="secondary">{todayEyebrow} · {nextDateLabel} {nextWeekday}</Text>
-            {nextTss > 0 && <Text as="span" variant="caption" tone="secondary"><GlossaryText>{`${nextTss} TSS`}</GlossaryText></Text>}
+            <Text as="span" variant="caption" tone="secondary">{todayEyebrow} · {nextDateLabel} {nextWeekday}{nextTss > 0 && <> · <GlossaryText>{`${nextTss} TSS`}</GlossaryText></>}</Text>
+            {onEditWorkout && actionable && <Button type="button" size="sm" variant="ghost" className="mobile-plan-today__edit" onClick={() => onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex)}>{t("mobile.edit")}</Button>}
           </div>
           <strong className="mobile-plan-today__title"><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
           {nextDuration > 0 && <Text as="span" variant="bodySmall" tone="secondary" className="mobile-plan-today__structure">{`${nextDuration} ${t("mobile.minutesUnit")}`}{nextWorkout.intervals?.length ? ` · ${t("mobile.intervalCount", { count: nextWorkout.intervals.length })}` : ""}</Text>}
-          {onEditWorkout && actionable && <div className="mobile-plan-today__actions">
-            <Button type="button" variant="secondary" leadingIcon={<Pencil size={ICON_SIZE.sm} aria-hidden="true" />} onClick={() => onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex)}>{t("mobile.edit")}</Button>
-          </div>}
           {decisionSlot && <div className="mobile-plan-today__extras plan-decision-slot">{decisionSlot}</div>}
         </Card>
       ) : decisionSlot && <div className="plan-decision-slot mobile-plan-today__extras mobile-plan-today__extras--standalone">{decisionSlot}</div>}
@@ -259,90 +257,37 @@ export default function MobilePlanContent({
         const intensityLabel = (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? t("intensityChip.mod")
           : (day.workout === "ftp" || day.workout === "vo2" || day.workout === "sim" || day.workout === "intervalRun" || day.workout === "intervalSwim") ? t("intensityChip.hard")
           : t("intensityChip.easy");
-
-        if (isRest) {
-          return (
-            <div
-            data-plan-date={dayStr}
-            aria-current={dayStr === selectedDate ? "date" : undefined}
-            data-testid={dayStr === selectedDate ? "K4-5-6" : undefined} key={i} style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)' }}>
-                <div style={{ width: 32, textAlign: "center" }}>
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{weekdayName}</div>
-                  <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>{dayOfMonth ?? ""}</div>
-                </div>
-                <div style={{ flex: 1, padding: "var(--space-3) var(--space-2)", border: "1px dashed var(--line)", borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 'var(--space-2)',
-                  background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
-                  <Moon size={ICON_SIZE.md} aria-hidden="true" />
-                  <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)" }}>{t('mobile.restDay')}</span>
-                  {saved && saved.outcome !== 'rest' && <Text variant="caption" tone="secondary">{stateLabel}</Text>}
-                </div>
-              </div>
-              <div className="mobile-plan-rest-load">{!embedded && loadState && <PlanDayLoadComparison compact day={day} row={dayLoads?.get(dayStr)} state={loadState} evidence={recordEvidence} />}</div>
-            </div>
-          );
-        }
-
+        const plannedLoad = isRest ? 0 : day.adjustedTSS ?? day.plannedTSS;
+        const statusText = isDone ? t("mobile.stateDone") : isToday ? t("mobile.stateToday") : !isRest && Number.isFinite(plannedLoad) && plannedLoad > 0 ? String(plannedLoad) : "";
+        const rowKey = `${currentWeek?.id ?? ""}:${i}`;
+        const open = expandedRows.has(rowKey);
+        const detailId = `mobile-plan-day-${dayStr}-${i}`;
+        // 기본은 한 줄(요일·날짜 | 강도 막대 | 운동명 | 짧은 상태). 줄을 누르면 기존 계획/실제/비교 근거와 편집을 펼친다.
         return (
-          <div key={i} className="mobile-plan-day mobile-plan-day-row"
+          <div key={i} className={`mobile-plan-day${isRest ? " mobile-plan-day--rest" : ""}`}
             data-plan-date={dayStr}
-            data-highlight={isToday || dayStr === selectedDate ? "" : undefined}
+            data-highlight={dayStr === selectedDate ? "" : undefined}
             aria-current={dayStr === selectedDate ? "date" : undefined}
-            data-testid={dayStr === selectedDate ? "K4-5-6" : undefined}
-            role={onEditWorkout ? "button" : undefined}
-            tabIndex={onEditWorkout ? 0 : undefined}
-            aria-label={onEditWorkout ? `${weekdayName} ${dayOfMonth ?? ""} ${label} · ${stateLabel}` : undefined}
-            onClick={() => openEditFor(i)}
-            onKeyDown={onEditWorkout ? (event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openEditFor(i);
-              }
-            } : undefined}
-            style={{
-              padding: "13px 16px", borderBottom: "1px solid var(--line-soft)",
-              background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent",
-              cursor: onEditWorkout ? "pointer" : "default",
-            }}>
-            <div style={{ width: 32, textAlign: "center" }}>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{weekdayName}</div>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>
-                {dayOfMonth ?? ""}
-              </div>
-            </div>
-            <div style={{ width: 3, height: 36, background: getDisciplineColor(getWorkoutDisciplineForDisplay(day.workout, goalDiscipline)), borderRadius: "var(--r-xs)", flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginBottom: "var(--space-0-5)" }}>
-                {(() => {
-                  const d = getWorkoutDisciplineForDisplay(day.workout, goalDiscipline);
-                  const c = getDisciplineColor(d);
-                  return (
-                    <span style={{
-                      fontSize: "var(--fs-base)", padding: "2px var(--space-1-5)", borderRadius: "var(--r-xs)",
-                      background: `color-mix(in oklch, ${c} 14%, var(--bg-2))`,
-                      color: c, border: `1px solid color-mix(in oklch, ${c} 30%, transparent)`,
-                      display: "flex", alignItems: "center", gap: "var(--space-0-5)",
-                    }}>{d !== "tri" && <SportIcon sport={d} size={ICON_SIZE.md} />} {t(`discipline.${d}`)}</span>
-                  );
-                })()}
-                <span style={{
-                  fontSize: "var(--fs-base)", padding: "2px var(--space-1-5)", borderRadius: "var(--r-xs)",
-                  background: "var(--bg-3)", color: intensityColor,
-                }}>{intensityLabel}</span>
-                {/* 자동 조정 chip — week 단위 canonical factor 사용 */}
-                {day.adjustedTSS != null && currentWeek?.adjustmentFactor != null && (
-                  <AdjustedChip factor={currentWeek.adjustmentFactor} />
-                )}
-              </div>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{label}</div>
+            data-testid={dayStr === selectedDate ? "K4-5-6" : undefined}>
+            <button type="button" className="mobile-plan-day-row" aria-expanded={open} aria-controls={open ? detailId : undefined}
+              aria-label={`${weekdayName} ${dayOfMonth ?? ""} ${isRest ? t("mobile.restDay") : label} · ${stateLabel}`}
+              onClick={() => setExpandedDates(current => { const next = new Set(current); if (next.has(rowKey)) next.delete(rowKey); else next.add(rowKey); return next; })}>
+              <span className="mobile-plan-day-row__date"><span>{weekdayName}</span><strong data-today={isToday ? "" : undefined}>{dayOfMonth ?? ""}</strong></span>
+              <span className="mobile-plan-day-row__bar" aria-hidden="true" style={{ background: isRest ? "transparent" : intensityColor }} />
+              <span className="mobile-plan-day-row__name" data-rest={isRest ? "" : undefined}>{isRest ? t("mobile.restDay") : label}</span>
+              <span className="mobile-plan-day-row__status" data-status={isDone ? "done" : isToday ? "today" : undefined}>{statusText}</span>
+            </button>
+            {open && <div id={detailId} className="mobile-plan-day-detail">
+              {!isRest && (() => {
+                const d = getWorkoutDisciplineForDisplay(day.workout, goalDiscipline);
+                return <span className="mobile-plan-day-detail__sport" style={{ color: getDisciplineColor(d) }}>{d !== "tri" && <SportIcon sport={d} size={ICON_SIZE.sm} />}<span>{t(`discipline.${d}`)}</span><span aria-hidden="true">·</span><span style={{ color: intensityColor }}>{intensityLabel}</span></span>;
+              })()}
+              {!isRest && day.adjustedTSS != null && currentWeek?.adjustmentFactor != null && <AdjustedChip factor={currentWeek.adjustmentFactor} />}
               {!embedded && loadState && <PlanDayLoadComparison compact day={day} row={dayLoads?.get(dayStr)} state={loadState} evidence={recordEvidence} />}
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
-                {stateLabel}
-                {!loadState && recordEvidence}
-
-              </div>
-            </div>
-            {state === "done" && <span style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
+              <Text as="p" variant="caption" tone="secondary">{stateLabel}</Text>
+              {!loadState && recordEvidence}
+              {onEditWorkout && !isRest && <Button type="button" size="sm" variant="secondary" className="mobile-plan-day-detail__edit" onClick={() => openEditFor(i)}>{t("mobile.edit")}</Button>}
+            </div>}
           </div>
         );
       })}

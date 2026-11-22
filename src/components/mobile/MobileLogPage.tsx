@@ -368,7 +368,7 @@ export default function MobileLogPage({ showSportFilter = true, periodReturnSlot
 
       {!loading && tab === "activity" && (
         <>
-          <div className="mobile-log__finder"><label htmlFor={searchId}><Text variant="bodySmall">{t("mobileLog.searchMonth")}</Text></label><Input id={searchId} type="search" value={searchQuery} onChange={event => setSearch(event.target.value)} aria-describedby={`${searchId}-scope`} /><Text as="p" id={`${searchId}-scope`} variant="caption" tone="secondary">{t("mobileLog.searchScope", { month: monthLabel })}</Text></div>
+          <div className="mobile-log__finder"><Input id={searchId} type="search" value={searchQuery} onChange={event => setSearch(event.target.value)} aria-label={t("mobileLog.searchMonth")} placeholder={t("mobileLog.searchPlaceholder")} /></div>
           <section aria-label={t("mobileLog.tabActivity")}>
             {visibleRecentActs.map(activityRow)}
           </section>

@@ -9,6 +9,12 @@ const today = (() => {
   return Date.parse(`${kstDate}T00:00:00+09:00`);
 })();
 
+
+/** 요일 줄은 기본으로 접혀 있다 — 상세(계획/실제/비교 근거·편집)를 보려면 줄을 눌러 펼친다. */
+function expandDays() {
+  document.querySelectorAll<HTMLButtonElement>('.mobile-plan-day-row[aria-expanded="false"]').forEach(row => fireEvent.click(row));
+}
+
 const workout: PlanDay = {
   date: today,
   dayOfWeek: 1,
@@ -42,6 +48,7 @@ describe("MobilePlanContent product hierarchy", () => {
     const edit = vi.fn();
     const mixedWeek = { ...week, days: [workout, { ...workout, date: today + 86_400_000, workout: "easySwim" as const }] };
     const view = renderWithProviders(<MobilePlanContent currentWeek={mixedWeek} weekLabel="W1" goalDiscipline="run" onEditWorkout={edit} />);
+    expandDays();
     expect(screen.getAllByText("러닝").length).toBeGreaterThan(0);
     expect(screen.getAllByText("수영").length).toBeGreaterThan(0);
     expect(screen.queryByText("사이클")).not.toBeInTheDocument();
@@ -52,6 +59,7 @@ describe("MobilePlanContent product hierarchy", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
     view.rerender(<MobilePlanContent embedded currentWeek={week} weekLabel="W2" goalDiscipline="bike" />);
+    expandDays();
     expect(screen.getByText("사이클")).toBeInTheDocument();
     expect(screen.queryByText("러닝")).not.toBeInTheDocument();
     expect(workout.workout).toBe("z2");
@@ -87,6 +95,12 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(todayCard).toHaveTextContent("75 분");
     expect(todayCard).toHaveTextContent("60 TSS");
     expect(screen.getByRole("group", { name: "주간 선택" })).toHaveTextContent("이번 주");
+    // 요일 줄은 한 줄(요일·날짜 | 막대 | 운동명 | 상태)로 접혀 있고, 누르면 종목·강도·비교 근거가 펼쳐진다.
+    const row = document.querySelector<HTMLButtonElement>(".mobile-plan-day-row")!;
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(row).toHaveTextContent("오늘");
+    expect(screen.queryByText("가벼움")).not.toBeInTheDocument();
+    fireEvent.click(row);
     expect(screen.getByText("사이클")).toBeInTheDocument();
     expect(screen.getByText("가벼움")).toBeInTheDocument();
     expect(screen.getByTestId("K4-7-1")).toHaveTextContent("완료 0/1 · 부하 60");
@@ -188,6 +202,7 @@ it("uses canonical KST dates for weekdays while preserving the stored edit index
   if (pastDays) fireEvent.click(pastDays);
   const action = screen.getByRole('button', { name: /^금 16 / });
   fireEvent.click(action);
+  fireEvent.click(screen.getAllByRole('button', { name: "편집" }).at(-1)!);
   expect(edit).toHaveBeenCalledWith(friday, week.id, 0);
   expect(screen.getByText('토')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /^월 16 / })).not.toBeInTheDocument();
@@ -206,6 +221,8 @@ it("keeps the whole seven-day web week in place without a height-changing past-d
 it("uses saved evidence labels instead of treating partial and manual completion mirrors as confirmed done",()=>{
   const days=[{...workout,completed:true,executionStatus:"partial"},{...workout,completed:true},{...workout,actualActivityId:"candidate",matchMethod:"legacy-time-window",matchConfidence:"probable"},{...workout,executionStatus:"postponed",postponedToLocalDate:"2026-11-01"}];
   renderWithProviders(<MobilePlanContent currentWeek={{...week,days:days as PlanDay[]}} weekLabel="이번 주" nextAction={null}/>);
+  expect(screen.queryByText("부분 완료로 기록됨")).not.toBeInTheDocument();
+  expandDays();
   expect(screen.getByText("부분 완료로 기록됨")).toBeInTheDocument();
   expect(screen.getByText("완료 표시 · 연결 근거 확인 필요")).toBeInTheDocument();
   expect(screen.getByText("추정 연결 후보 · 확인 필요")).toBeInTheDocument();
@@ -223,16 +240,19 @@ it.each(["completed", "skipped", "postponed", "partial"])("uses saved %s before 
   expect(edit).toHaveBeenCalledExactlyOnceWith(pending, week.id, 1);
 });
 
-it("오늘 카드의 편집은 글자 버튼 하나이고 요일 줄은 눌러서 편집한다", () => {
+it("오늘 카드의 편집은 머리 오른쪽 작은 글자 버튼이고 요일 줄은 펼친 뒤 편집한다", () => {
   const edit = vi.fn();
   renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="이번 주" onEditWorkout={edit} />);
   const buttons = screen.getAllByRole("button", { name: "편집" });
   expect(buttons).toHaveLength(1);
-  expect(screen.getByTestId("K4-5m-2")).toContainElement(buttons[0]!);
-  expect(buttons[0]).toHaveTextContent("편집");
+  expect(screen.getByTestId("K4-5m-2").querySelector(".mobile-plan-today__head")).toContainElement(buttons[0]!);
   fireEvent.click(buttons[0]!);
   expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
-  fireEvent.click(document.querySelector(".mobile-plan-day-row")!);
+  const row = document.querySelector<HTMLButtonElement>(".mobile-plan-day-row")!;
+  fireEvent.click(row);
+  expect(edit).toHaveBeenCalledTimes(1);
+  expect(row).toHaveAttribute("aria-expanded", "true");
+  fireEvent.click(screen.getAllByRole("button", { name: "편집" })[1]!);
   expect(edit).toHaveBeenCalledTimes(2);
 });
 

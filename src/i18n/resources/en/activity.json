@@ -1425,7 +1425,6 @@
     "totalElevation": "Elevation gain",
     "chooseFile": "Choose file",
     "searchMonth": "Find an activity in the selected month",
-    "searchScope": "{{month}} · Search the names, dates and IDs of loaded records for the selected sport. Change the month to view other periods.",
     "noMatching": "No matches in the selected month and sport.",
     "clearSearch": "Clear search",
     "previousPage": "Previous records",
@@ -1436,7 +1435,8 @@
     "tabList": "List",
     "tabCalendar": "Calendar",
     "viewToggle": "View",
-    "importLink": "Import"
+    "importLink": "Import",
+    "searchPlaceholder": "Search activities"
   },
   "import": {
     "modalTitle": "Upload activity",
