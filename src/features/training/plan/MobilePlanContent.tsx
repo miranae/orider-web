@@ -1,8 +1,7 @@
 import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
 import { goalCountdown } from "../../../utils/goalCountdown";
-import { isSportUiEnabled } from "../../../config/sportFeatures";
 import { ChevronLeft, ChevronRight, Moon, Pencil } from "lucide-react";
-import InfoTip from "../../../components/InfoTip";
+import { LocalizedLink } from "../../../components/LocalizedLink";
 import GlossaryText from "../../../components/common/GlossaryText";
 import SportIcon from "../../../components/common/SportIcon";
 import { planDayKey as kstDateString, planCalendarDate } from "@shared/training/planDate";
@@ -18,7 +17,6 @@ import { Button, Card, IconButton, Text } from "../../../theme/components";
 import { formatPlanGoalTitle } from "./planDisplay";
 import "./MobilePlanContent.css";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
-import PlanWeekLoadSummary from "./PlanWeekLoadSummary";
 import PlanDayLoadComparison, { type PlanCalendarLoads } from "./PlanDayLoadComparison";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
@@ -77,10 +75,13 @@ export interface MobilePlanContentProps extends PlanCalendarLoads {
   selectedDate?: string;
   embedded?: boolean;
   chromeSlot?: ReactNode;
-  /** 오늘 운동 결정 카드 — 오늘의 다음 운동 바로 아래에 둔다. */
+  /** 오늘 훈련 결정·러닝 30분 제안 — 오늘 카드 안에 있을 때만 둔다. */
   decisionSlot?: ReactNode;
   adaptationSlot?: ReactNode;
-  actionsSlot?: ReactNode;
+  /** 이번 주 머리 오른쪽: + 추가 · ⋯ 계획 관리. */
+  weekActionsSlot?: ReactNode;
+  /** 이번 주 목록 아래: 접힌 계획 대비 기록. */
+  comparisonSlot?: ReactNode;
   footerSlot?: ReactNode;
   currentWeek: PlanWeek | null;
   weekLabel: string;
@@ -111,22 +112,17 @@ export default function MobilePlanContent({
   chromeSlot,
   decisionSlot,
   adaptationSlot,
-  actionsSlot,
+  weekActionsSlot,
+  comparisonSlot,
   footerSlot,
   currentWeek,
   weekLabel,
   canPrevWeek = true,
   canNextWeek = true,
-  goalLoadSummary,
   goalTitle,
   goalDiscipline,
   goalDate,
   daysLeft,
-  progressPct,
-  completedTSS,
-  totalTSS,
-  weeksLeft,
-  remainingSessions,
   onWeekPrev,
   onWeekNext,
   onEditWorkout,
@@ -150,7 +146,6 @@ export default function MobilePlanContent({
     if (!d.date) return false;
     return kstDateString(d.date) === todayStr;
   });
-  const [goalExpanded, setGoalExpanded] = useState(false);
   const formattedGoal = goalTitle ? formatPlanGoalTitle(goalTitle) : null;
   const todayWorkout = todayIdx >= 0 ? days[todayIdx] : null;
   const pendingWorkout = (day: PlanDay) => embedded
@@ -169,131 +164,69 @@ export default function MobilePlanContent({
   const nextWorkoutLabel = nextWorkout ? workoutLabel(nextWorkout) : "";
   const nextDuration = nextWorkout ? nextWorkout.adjustedDurationMin ?? nextWorkout.plannedDurationMin : 0;
 
-  /**
-   * 데스크톱 PlanPage 의 일별 칸 클릭과 동일하게 WorkoutEditModal(완료/건너뛰기/변경/교환) 을 연다.
-   * 별도의 "주간 편집" 단일 동작이 데스크톱에 없으므로, 헤더 "편집" 은 가장 행동 가능한 날
-   * (오늘 → 없으면 첫 비휴식일) 의 운동 편집을 여는 것으로 미러링한다.
-   */
+  /** 데스크톱 PlanPage 의 일별 칸 클릭과 동일하게 WorkoutEditModal(완료/건너뛰기/변경/교환) 을 연다. */
   const openEditFor = (i: number) => {
     const day = days[i];
     if (!day || !currentWeek) return;
     onEditWorkout?.(day, currentWeek.id, i);
   };
-  const editTargetIdx = todayIdx >= 0 ? todayIdx : days.findIndex(d => d.workout !== "rest");
+
+  // 이번 주 한 줄 요약: 저장된 완료 상태와 이미 보여 주던 주간 처방 부하 합계만 쓴다(새 파생 지표 없음).
+  const scheduledDays = days.filter(day => day.workout !== "rest" && !day.skipped);
+  const dayDone = (day: PlanDay) => {
+    if (embedded) return day.completed;
+    const saved = presentPlanDayRecord(day, { date: kstDateString(day.date), today: todayStr });
+    return saved ? saved.outcome === "completed" : day.completed;
+  };
+  const doneCount = scheduledDays.filter(dayDone).length;
+  const weekLoad = Math.round(sumEffectivePlanTSS(scheduledDays));
+  const nextDateStr = nextWorkout ? kstDateString(nextWorkout.date) : "";
+  const nextWeekday = nextWorkout ? DAY_NAMES[(planCalendarDate(nextWorkout.date).getUTCDay() + 6) % 7] ?? "" : "";
+  const nextDateLabel = nextDateStr ? `${Number(nextDateStr.slice(5, 7))}/${Number(nextDateStr.slice(8, 10))}` : "";
+  const nextTss = nextWorkout ? effectivePlanTSS(nextWorkout) : 0;
+  const todayEyebrow = goalDate && nextDateStr > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal")
+    : nextDateStr === todayStr ? t("mobile.todayLabel") : t("mobile.nextLabel");
+  const goalCountdownLabel = goalDate ? goalCountdown(goalDate.getTime()) : daysLeft != null ? `${t("page.daysLeftPrefix")}${daysLeft}` : "—";
+  const goalHref = `/coach/goals?sport=${goalDiscipline === "run" || goalDiscipline === "swim" ? goalDiscipline : "bike"}`;
 
   return (
     <div data-testid="K4-5m" className="mobile-plan-content">
       {embedded && <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>}
       {chromeSlot}
 
-      {/* 훈련 계획의 첫 항목은 오늘의 다음 운동이다(코치 "오늘 훈련" 탭 제거, 2026-11-13). */}
-      {nextWorkout && (
-        <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next">
-          <div className="mobile-plan-next-main">
-            <div className="mobile-plan-next-copy">
-              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{goalDate && kstDateString(nextWorkout.date) > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal") : kstDateString(nextWorkout.date) === todayStr ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
-              <strong><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
-              <span>{kstDateString(nextWorkout.date) !== todayStr && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
-            </div>
-            {onEditWorkout && <IconButton size="sm" icon={<Pencil size={ICON_SIZE.sm} />} aria-label={t("mobile.edit")} title={t("mobile.edit")} onClick={() => { if (actionable) onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex); }} />}
+      {/* 오늘 카드 하나 — 다음 운동, 오늘 훈련 결정, 러닝 30분 제안을 한 카드에 둔다. */}
+      {nextWorkout ? (
+        <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next mobile-plan-today" aria-label={t("mobile.todayCard")}>
+          <div className="mobile-plan-today__head">
+            <Text as="span" variant="caption" tone="secondary">{todayEyebrow} · {nextDateLabel} {nextWeekday}</Text>
+            {nextTss > 0 && <Text as="span" variant="caption" tone="secondary"><GlossaryText>{`${nextTss} TSS`}</GlossaryText></Text>}
           </div>
+          <strong className="mobile-plan-today__title"><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
+          {nextDuration > 0 && <Text as="span" variant="bodySmall" tone="secondary" className="mobile-plan-today__structure">{`${nextDuration} ${t("mobile.minutesUnit")}`}{nextWorkout.intervals?.length ? ` · ${t("mobile.intervalCount", { count: nextWorkout.intervals.length })}` : ""}</Text>}
+          {onEditWorkout && actionable && <div className="mobile-plan-today__actions">
+            <Button type="button" variant="secondary" leadingIcon={<Pencil size={ICON_SIZE.sm} aria-hidden="true" />} onClick={() => onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex)}>{t("mobile.edit")}</Button>
+          </div>}
+          {decisionSlot && <div className="mobile-plan-today__extras plan-decision-slot">{decisionSlot}</div>}
         </Card>
-      )}
-
-      {decisionSlot && <div className="plan-decision-slot">{decisionSlot}</div>}
-
-      {goalTitle && (
-        <Card padding="compact" data-testid="K4-2" className="mobile-plan-goal">
-          {/* 계획 관리 동작은 목표 카드 머리 오른쪽 ⋯ 하나로 둔다 — 별도 "계획 관리" 줄·시트를 두지 않는다. */}
-          <div className="mobile-plan-goal-top">
-            <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t("goal")}</Text>
-            {actionsSlot}
-          </div>
-          <div className="mobile-plan-goal-heading">
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 data-testid="K4-2-1" title={embedded ? goalTitle : undefined} aria-label={goalTitle} className={`mobile-plan-goal-title${embedded && goalExpanded ? " is-expanded" : ""}`}>{embedded && goalExpanded ? goalTitle : formattedGoal?.name}</h2>
-              {!(embedded && goalExpanded) && formattedGoal?.meta && <div className="mobile-plan-goal-meta">{formattedGoal.meta}</div>}
-            </div>
-            {(formattedGoal?.meta || goalTitle.length > 32) && (
-              !embedded ? <InfoTip activation="click" title={t("mobile.showOriginal")} label={t("mobile.showOriginal")} content={goalTitle}>{t("mobile.showOriginal")}</InfoTip> : <Button type="button" variant="ghost" size="sm" data-testid="K4-2-3" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)} style={{ flexShrink: 0 }}>
-                {goalExpanded ? t("mobile.collapseGoal") : t("mobile.showOriginal")}
-              </Button>
-            )}
-          </div>
-          {!embedded && <Text as="p" variant="caption" tone="secondary">{goalDate ? goalCountdown(goalDate.getTime()) : "—"}</Text>}
-          {embedded ? <><div data-testid="K4-2-2" role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
-            <div style={{ width: `${Math.min(100, Math.max(0, progressPct ?? 0))}%`, height: "100%", background: "var(--lime)" }} />
-          </div>
-          <div className="mobile-plan-goal-stats">
-            <span><small>{t("mobile.goalCountdown")}</small><strong>{goalDate ? goalCountdown(goalDate.getTime()) : daysLeft != null ? `${t("page.daysLeftPrefix")}${daysLeft}` : "—"}</strong></span>
-            <span><small><InfoTip title={t("metrics.progress")} content={t("metrics.progressBasis")}>{t("metrics.progress")}</InfoTip></small><strong>{progressPct != null ? `${progressPct}%` : "—"}</strong></span>
-            {totalTSS != null && totalTSS > 0 && <span><small><GlossaryText>{t("metrics.completedTSS")}</GlossaryText></small><strong>{completedTSS ?? 0}/{totalTSS}</strong></span>}
-            {remainingSessions != null && <span><small>{t("metrics.sessionsLeft")}</small><strong>{remainingSessions} {t("mobile.sessionsUnit")}</strong></span>}
-            {weeksLeft != null && <span><small>{t("metrics.weeksLeft")}</small><strong>{weeksLeft} {t("metrics.weeksUnit")}</strong></span>}
-          </div>
-          </> : goalLoadSummary}
-        </Card>
-      )}
+      ) : decisionSlot && <div className="plan-decision-slot mobile-plan-today__extras mobile-plan-today__extras--standalone">{decisionSlot}</div>}
 
       {adaptationSlot}
 
-      {/* Week navigation */}
-      <div data-testid="K4-5m-1" className="mobile-plan-week-navigation" role="group" aria-label={t('mobile.weekHeading')}>
-        <IconButton icon={<ChevronLeft />} onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')} />
-        <Text variant="bodyMedium" weight={600}>{weekLabel}</Text>
-        <IconButton icon={<ChevronRight />} onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')} />
-      </div>
-
-      {/* Weekly summary */}
-      {currentWeek && (() => {
-        const scheduledDays = days.filter(d => d.workout !== "rest" && !d.skipped);
-        const totalTSS = sumEffectivePlanTSS(scheduledDays);
-        const totalMins = Math.round(scheduledDays.reduce((s, d) => {
-          return s + Math.max(0, d.adjustedDurationMin ?? d.plannedDurationMin ?? 0);
-        }, 0));
-        const h = Math.floor(totalMins / 60);
-        const m = totalMins % 60;
-        const sessions = scheduledDays.length;
-
-        const bikeTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout, goalDiscipline) === "bike").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const runTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout, goalDiscipline) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const swimTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout, goalDiscipline) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
-        const stackTotal = bikeTSS + runTSS + swimTSS || 1;
-
-        return (
-          <section data-testid="K4-7-1" className="mobile-plan-week-summary" aria-label={t('mobile.weeklySummary')}>
-            <Text as="h3" variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklySummary')}</Text>
-            <div className="mobile-plan-week-metrics">
-              {totalTSS > 0 && <span><small><GlossaryText>{t('mobile.weeklyTSS')}</GlossaryText></small><strong>{Math.round(totalTSS)}</strong></span>}
-              <span><small>{t('mobile.timeLabel')}</small><strong>{h}h {m}m</strong></span>
-              <span><small>{t('mobile.sessions')}</small><strong>{sessions}</strong></span>
-            </div>
-            {[bikeTSS, runTSS, swimTSS].filter(load => load > 0).length > 1 && <div className="mobile-plan-sport-load">
-              <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t('mobile.sportLoad')}</Text>
-              <div className="mobile-plan-sport-bar" aria-hidden="true">
-                {bikeTSS > 0 && <div style={{ width: `${(bikeTSS/stackTotal)*100}%`, background: "var(--aqua)" }} />}
-                {runTSS > 0 && <div style={{ width: `${(runTSS/stackTotal)*100}%`, background: "var(--amber)" }} />}
-                {swimTSS > 0 && <div style={{ width: `${(swimTSS/stackTotal)*100}%`, background: "var(--lime)" }} />}
-              </div>
-              <div className="mobile-plan-sport-legend">
-                {bikeTSS > 0 && <span><i style={{ background: "var(--aqua)" }} />{t('discipline.bike')} {Math.round(bikeTSS)}</span>}
-                {runTSS > 0 && <span><i style={{ background: "var(--amber)" }} />{t('discipline.run')} {Math.round(runTSS)}</span>}
-                {isSportUiEnabled("swim") && swimTSS > 0 && <span><i style={{ background: "var(--lime)" }} />{t('discipline.swim')} {Math.round(swimTSS)}</span>}
-              </div>
-            </div>}
-          </section>
-        );
-      })()}
-
-      {!embedded && currentWeek && <PlanWeekLoadSummary week={currentWeek} dayLoads={dayLoads} state={loadState} />}
-
-      {/* Weekly plan — vertical list */}
-      <div className="mobile-plan-week-header flex items-center justify-between">
-        <Text variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklyPlan')}</Text>
-        {onEditWorkout && editTargetIdx >= 0 && (
-          <IconButton size="sm" icon={<Pencil size={ICON_SIZE.sm} />} aria-label={t('mobile.edit')} title={t('mobile.edit')} onClick={() => openEditFor(editTargetIdx)} />
+      {/* 이번 주 — 주 이동·한 줄 요약·추가·계획 관리를 머리 한 줄에 둔다. */}
+      <section className="mobile-plan-week" aria-labelledby="mobile-plan-week-title">
+        <div className="mobile-plan-week-header">
+          <div data-testid="K4-5m-1" className="mobile-plan-week-navigation" role="group" aria-label={t('mobile.weekHeading')}>
+            <IconButton size="sm" icon={<ChevronLeft />} onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')} />
+            <Text as="h2" id="mobile-plan-week-title" variant="bodyMedium" weight={600} className="mobile-plan-week-title">{weekLabel}</Text>
+            <IconButton size="sm" icon={<ChevronRight />} onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')} />
+          </div>
+          {weekActionsSlot && <div className="mobile-plan-week-actions">{weekActionsSlot}</div>}
+        </div>
+        {currentWeek && scheduledDays.length > 0 && (
+          <Text as="p" data-testid="K4-7-1" variant="bodySmall" tone="secondary" className="mobile-plan-week-line" aria-label={t('mobile.weeklySummary')}>
+            {t("mobile.weekDone", { done: doneCount, total: scheduledDays.length })}{weekLoad > 0 && <> · <GlossaryText>{t("mobile.weekLoad", { tss: weekLoad })}</GlossaryText></>}
+          </Text>
         )}
-      </div>
       {embedded && todayIdx > 0 && (
         <Button type="button" variant="secondary" onClick={() => setShowPastDays(value => !value)} aria-expanded={showPastDays}
           style={{ margin: "0 var(--space-4) var(--space-1)", minHeight: "var(--dim-button-height)", height: "var(--dim-button-height)", justifyContent: "flex-start" }}>
@@ -413,9 +346,19 @@ export default function MobilePlanContent({
           </div>
         );
       })}
+      </section>
 
+      {comparisonSlot}
 
-
+      {/* 목표는 한 줄 — 이름 · D-N 과 목표 탭으로 가는 링크만 둔다. 목표 관리는 목표 탭에 있다. */}
+      {goalTitle && (
+        <LocalizedLink data-testid="K4-2" className="mobile-plan-goal-row" to={goalHref} aria-label={`${goalTitle} · ${goalCountdownLabel} · ${t("mobile.goalLink")}`}>
+          <span data-testid="K4-2-1" className="mobile-plan-goal-row__name">{formattedGoal?.name ?? goalTitle}</span>
+          <span className="mobile-plan-goal-row__countdown" aria-hidden="true">·</span>
+          <span className="mobile-plan-goal-row__countdown">{goalCountdownLabel}</span>
+          <span className="mobile-plan-goal-row__link" aria-hidden="true">{t("mobile.goalLink")}</span>
+        </LocalizedLink>
+      )}
 
       {footerSlot}
     </div>

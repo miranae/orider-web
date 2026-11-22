@@ -1,13 +1,9 @@
-.mobile-log__recent-preview { margin: var(--space-4); /* 위 4·아래 12 → 블록 간격 16 */ border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-1); overflow: hidden; }
-.mobile-log__month-glance { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--line-soft); background: var(--bg-1); }
-.mobile-log__glance-metric { display: flex; flex-direction: column; gap: var(--space-0-5); min-width: 0; color: var(--ink-2); font-size: var(--fs-xs); }
+.mobile-log__month-glance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); }
+.mobile-log__glance-metric { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-3); border-radius: var(--r-lg); background: var(--bg-1); color: var(--ink-2); font-size: var(--fs-xs); }
 .mobile-log__glance-metric > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mobile-log__glance-metric small { font-size: inherit; color: var(--ink-3); }
-.mobile-log__glance-metric strong { color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mobile-log__glance-note { grid-column: 1 / -1; color: var(--ink-3); font-size: var(--fs-xs); }
+.mobile-log__glance-metric strong { color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-lg); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mobile-log__day-dot { width: var(--space-1-5); height: var(--space-1-5); flex: none; border-radius: 50%; }
-.mobile-log__recent-heading { display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 700; }
-.mobile-log__recent-heading button { min-height: 32px; padding: 0 var(--space-2); border: 0; background: none; color: var(--accent); font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
 .mobile-log__activity { display: grid; width: 100%; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: 0; border-bottom: 1px solid var(--line-soft); background: var(--bg-1); text-align: left; cursor: pointer; }
 .mobile-log__activity:last-child { border-bottom: 0; }
 .mobile-log__activity:hover { background: var(--bg-2); }
@@ -23,11 +19,10 @@
 .mobile-log__summary-item { min-width: 0; padding: var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--bg-1); }
 .mobile-log__summary-label { min-height: 2em; color: var(--ink-3); font-size: var(--fs-xs); line-height: 1.3; overflow-wrap: anywhere; }
 .mobile-log__summary-value { color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-base); font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.mobile-log__activity:focus-visible, .mobile-log__calendar-day:focus-visible, .mobile-log__recent-heading button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mobile-log__activity:focus-visible, .mobile-log__calendar-day:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (min-width: 600px) and (max-width: 900px) {
   .mobile-log__calendar-day { aspect-ratio: auto !important; }
 }
-@media (max-width: 24rem) { .mobile-log__month-glance { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); } }
 
 .mobile-log__finder, .mobile-log__pagination, .mobile-log__empty { padding: var(--space-3) var(--space-4); }
 .mobile-log__finder { display: grid; gap: var(--space-2); }
@@ -36,3 +31,12 @@
 
 /* Date, plan label and sport dots must remain inside the same calendar cell. */
 .mobile-log__calendar-day { min-height: calc(3em + var(--space-4)); }
+
+/* 월 머리 · 목록|달력 토글 · 가져오기 */
+.mobile-log__month-head { padding: var(--space-2) var(--space-4) 0; }
+.mobile-log__view-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-4) var(--space-2); }
+.mobile-log__view-toggle { display: flex; padding: 3px; border-radius: var(--r-md); background: var(--bg-1); }
+.mobile-log__view-toggle button { min-height: 44px; padding: 0 var(--space-4); border: 0; border-radius: calc(var(--r-md) - 2px); background: transparent; color: var(--ink-2); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.mobile-log__view-toggle button[aria-selected="true"] { background: var(--bg-3); color: var(--ink-0); font-weight: 600; }
+.mobile-log__import-link { min-height: 44px; padding: 0 var(--space-2); border: 0; background: none; color: var(--accent); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.mobile-log__view-toggle button:focus-visible, .mobile-log__import-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

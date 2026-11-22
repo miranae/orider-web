@@ -25,6 +25,9 @@ test.beforeAll(async ({ request }) => {
   }
   await put(request,`users/${uid}/fitness/timeseries_bike`,{ discipline: "bike",schemaVersion: 1,computedAt: now,startDate: new Date(now-90*86400000).toISOString().slice(0,10),endDate: new Date(now).toISOString().slice(0,10),pointCount: 91,points: Array.from({ length: 91 },(_,i) => ({ date: new Date(now-(90-i)*86400000).toISOString().slice(0,10),ctl: 35+i/20,atl: 40+i/30,tsb: -5+i/60,dailyLoad: 40 })) });
 });
+// 휴대폰(768 미만)은 계획/기록 하위 탭을 짧은 이름(계획 | 기록)으로 둔다.
+const recordsTab=(width: number) => width<768? "기록":"활동 기록·수행 확인";
+const planTab=(width: number) => width<768? "계획":"훈련 계획";
 async function enter(page: Page,width: number,path: string,loginEmail=email) {
   await page.setViewportSize({ width,height: 900 });
   await page.route("**/*",route => { const url=new URL(route.request().url()); return ["127.0.0.1","localhost"].includes(url.hostname)&&["5193","19199","18180","15001","19198"].includes(url.port)? route.continue():route.abort(); });
@@ -36,7 +39,7 @@ async function enter(page: Page,width: number,path: string,loginEmail=email) {
 for(const width of [320,393,768,1440,1920]) {
   test(`real app records ${width}px: local emulator, route and bottom`,async ({ page },info) => {
     await enter(page,width,`/athlete/me/activities?sport=bike&date=${day}`);
-    await expect(page.getByRole("link",{ name: "활동 기록·수행 확인",exact: true })).toBeVisible();
+    await expect(page.getByRole("link",{ name: recordsTab(width),exact: true })).toBeVisible();
     await expect(page.getByRole("button",{ name: /^Local synthetic activity 14\b/ }).first()).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.screenshot({ animations: "disabled",path: info.outputPath("records-start.png") });
@@ -46,10 +49,11 @@ for(const width of [320,393,768,1440,1920]) {
   test(`real app plan ${width}px: plan/record date and sport`,async ({ page },info) => {
     await enter(page,width,`/coach/plan?sport=bike&date=${day}`);
     await expect(page.getByText(/로컬 검수 그란폰도/).first()).toBeVisible();
-    const records=page.getByRole("link",{ name: "활동 기록·수행 확인",exact: true }); await expect(records).toHaveAttribute("href",`/ko/athlete/me/activities?sport=bike&date=${day}`); await records.click();
-    await expect(page.getByRole("link",{ name: "훈련 계획",exact: true })).toHaveAttribute("href",`/ko/coach/plan?sport=bike&date=${day}`);
+    const records=page.getByRole("link",{ name: recordsTab(width),exact: true }); await expect(records).toHaveAttribute("href",`/ko/athlete/me/activities?sport=bike&date=${day}`); await records.click();
+    await expect(page.getByRole("link",{ name: planTab(width),exact: true })).toHaveAttribute("href",`/ko/coach/plan?sport=bike&date=${day}`);
     await page.goBack(); await expect(page.getByText(/로컬 검수 그란폰도/).first()).toBeVisible();
-    await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow","6");
+    // 좁은 화면 목표는 한 줄(이름 · D-N · 목표 ›)이라 진행 막대는 넓은 달력에만 있다.
+    if(width>=1024) await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow","6");
     await page.screenshot({ animations: "disabled",path: info.outputPath("plan-start.png") });
   });
 }
@@ -164,7 +168,7 @@ for(const width of [320,393,768,1440,1920]) {
     await page.screenshot({ animations: "disabled",path: info.outputPath("next-workout-edit-entry.png") });
     await page.keyboard.press("Escape"); await expect(dialog).toHaveCount(0);
     await expect(nextWorkout).toBeFocused();
-    const records=page.getByRole("link",{ name: "활동 기록·수행 확인",exact: true });
+    const records=page.getByRole("link",{ name: recordsTab(width),exact: true });
     await expect(records).toHaveAttribute("href",`/ko/athlete/me/activities?sport=bike&date=${planDayKey(start+86400000)}`);
     await records.click(); await page.goBack(); await expect(page).toHaveURL(new RegExp(`date=${planDayKey(start+86400000)}`));
     await page.reload(); await expect(page.getByRole("dialog")).toHaveCount(0);

@@ -728,10 +728,6 @@
     "distanceUnknownTitle": "{{week}}주 · 거리 미확인",
     "distancePartialTitle": "{{week}}주 · {{value}}+ km"
   },
-  "recentActivitySummary": {
-    "partial": "일부 활동 이력을 확인하지 못해 최근 7일 합계를 표시할 수 없어요.",
-    "allSports": "최근 7일 · 전체 종목"
-  },
   "todayStrip": {
     "goalCountdownTitle": "목표일까지 남은 날",
     "goalCountdownLabel": "목표 날짜 설명",

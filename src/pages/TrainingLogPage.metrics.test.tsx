@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect } from "react";
+import { useLayoutEffect } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useNavigate, useLocation } from "react-router-dom";
 import { getDocs, onSnapshot, where } from "firebase/firestore";
@@ -8,11 +8,10 @@ import * as planOverlay from "../features/training/plan/usePlanRecordOverlay";
 import type {Activity} from "@shared/types";
 import { planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 
-const state = vi.hoisted(() => ({ mobile: false, user: { uid: "rider" } as { uid: string; isAnonymous?: boolean } | null, recentRead: vi.fn() }));
+const state = vi.hoisted(() => ({ mobile: false, user: { uid: "rider" } as { uid: string; isAnonymous?: boolean } | null }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user }) }));
 vi.mock("../hooks/useMobile", () => ({ useMobile: () => state.mobile }));
 vi.mock("../components/mobile/ImportActivityModal", () => ({ default: () => null }));
-vi.mock("../components/activity/RecentActivitySummary", () => ({ default: function Summary({ sport }: { sport: string }) { useEffect(() => { state.recentRead(); }, []); return <section data-testid="rolling-summary">Rolling summary · {sport}</section>; } }));
 
 // 훈련 달력의 날짜 경계는 실행 머신의 시간대와 무관하게 KST 계약을 따른다.
 // 아래 기록은 이번 달 1일 12시~다음 날에 놓인다. 1일 정오 전에 돌면 아직 미래라 화면이 달성 판정을 하지 않아
@@ -34,7 +33,6 @@ const summaries = [
 beforeEach(() => {
   state.mobile = false;
   state.user = { uid: "rider" };
-  state.recentRead.mockClear();
   const docs = [...summaries, null].map((summary, index) => ({
     id: `ride-${index}`,
     data: () => ({ userId: "rider", startTime: startTime + index * 2 * 3600000, type: "Ride", description: `Ride ${index}`, summary }),
@@ -57,27 +55,13 @@ function QueryNavigation() {
 }
 
 describe("운동 기록의 부분 요약", () => {
-  it("mounts the recent summary only for a mobile owner's activity tab and keeps it across sport changes", async () => {
+  it("모바일 기록은 짧은 제목과 하위 탭으로 목록부터 연다", async () => {
     state.mobile = true;
-    render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
-    await screen.findByRole("tab", { name: "활동" });
-    expect(state.recentRead).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("tab", { name: "활동" }));
-    expect(await screen.findByTestId("rolling-summary")).toHaveTextContent("run");
-    expect(state.recentRead).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Change sport query" }));
-    expect(screen.getByTestId("rolling-summary")).toHaveTextContent("bike");
-    expect(state.recentRead).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("tab", { name: "월간" }));
-    expect(screen.queryByTestId("rolling-summary")).not.toBeInTheDocument();
-  });
-  it("does not mount the personal recent summary for an anonymous log session", async () => {
-    state.mobile = true;
-    state.user = { uid: "anonymous", isAnonymous: true };
-    render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("tab", { name: "활동" }));
-    expect(state.recentRead).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("rolling-summary")).not.toBeInTheDocument();
+    render(<MemoryRouter initialEntries={["/?sport=run"]}><TrainingLogPage /></MemoryRouter>);
+    expect(await screen.findByRole("tab", { name: "목록" })).toHaveAttribute("aria-selected", "true");
+    expect(within(screen.getByTestId("P1-H")).getByRole("heading", { level: 1 })).toHaveTextContent("기록");
+    expect(screen.getByRole("link", { name: "계획" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "기록" })).toBeInTheDocument();
   });
   it("desktop calendar honors sport queries and subsequent navigation", async () => {
     const docs = [
@@ -88,7 +72,6 @@ describe("운동 기록의 부분 요약", () => {
     vi.mocked(getDocs).mockResolvedValue({ docs: [], empty: true } as never).mockResolvedValueOnce({ docs, empty: false } as never);
     render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("이동거리", "5.0"));
-    expect(state.recentRead).not.toHaveBeenCalled();
     expect(within(screen.getByTestId("P1-H")).getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByText("Change sport query", { selector: "button" }));
     await waitFor(() => expectMetric("이동거리", "20.0"));
@@ -117,11 +100,11 @@ describe("운동 기록의 부분 요약", () => {
     await waitFor(() => expectMetric("활동횟수", "7"));
     const glance = screen.getByLabelText("이번 달 운동 요약");
     expect(glance).toHaveTextContent("1h 30m");
-    expect(glance).toHaveTextContent("140");
-    expectMetric("누적 상승고도", "150m");
     expect(glance).toHaveTextContent("15.0km");
+    fireEvent.click(screen.getByRole("tab", { name: "달력" }));
+    expectMetric("누적 상승고도", "150m");
     expect(container.textContent).not.toMatch(/NaN|Infinity/);
-    fireEvent.click(screen.getByRole("tab", { name: "활동" }));
+    fireEvent.click(screen.getByRole("tab", { name: "목록" }));
     expect(screen.getByText("Ride 2")).toBeInTheDocument();
     expect([...container.querySelectorAll(".mobile-log__activity-distance")].filter((item) => item.textContent === "—")).toHaveLength(5);
     expect(container.textContent).not.toMatch(/NaN|Infinity/);
@@ -189,7 +172,7 @@ it("개별 미확인 거리·시간은 실제 영 기록과 구분한다", async
     .mockResolvedValueOnce({docs, empty: false} as never);
   render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
   await waitFor(() => expectMetric("활동횟수", "2"));
-  fireEvent.click(screen.getByRole("tab", {name: "활동"}));
+  fireEvent.click(screen.getByRole("tab", {name: "목록"}));
   const zero = screen.getByText("실제 영 기록").closest("button")!;
   const missing = screen.getByText("미확인 기록").closest("button")!;
   expect(zero).toHaveTextContent("0.0km");
@@ -230,7 +213,7 @@ it.each([false, true])("월 경계 대표 후보를 첫 조회에 확보하고 �
   expect(getDocs).toHaveBeenCalledTimes(4);
   expectMetric("이동거리", mobile ? "0.0km" : "0.0");
   if (mobile) {
-    fireEvent.click(screen.getByRole("tab", {name: "활동"}));
+    fireEvent.click(screen.getByRole("tab", {name: "목록"}));
     expect(screen.getAllByText("월말 원본")).toHaveLength(1);
   } else {
     expect(screen.getByRole("button", {name: /월말 원본/})).toBeInTheDocument();
@@ -280,7 +263,7 @@ describe("activity month owner isolation", () => {
     const frames: string[]=[];
     function Probe() { useLayoutEffect(() => { frames.push(document.body.textContent ?? ""); }); return <TrainingLogPage/>; }
     const view=render(<MemoryRouter><Probe/></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("tab",{name:"활동"}));
+    fireEvent.click(await screen.findByRole("tab",{name:"목록"}));
     expect(await screen.findByText("이전 계정 기록")).toBeInTheDocument();
     const next=pending();vi.mocked(getDocs).mockImplementationOnce(() => next.promise);
     state.user={uid:"next-owner"};
@@ -304,7 +287,7 @@ describe("activity month owner isolation", () => {
     state.user={uid:"next-owner"};
     view.rerender(<MemoryRouter><TrainingLogPage/></MemoryRouter>);
     await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(6));
-    fireEvent.click(screen.getByRole("tab",{name:"활동"}));
+    fireEvent.click(screen.getByRole("tab",{name:"목록"}));
     if(afterCurrent) await act(async () => next.resolve(snapshot("next-owner","새 계정 완료 기록")));
     await act(async () => { if(outcome==="success") previous.resolve(snapshot("rider","늦은 이전 기록")); else previous.reject(new Error("old-owner-failure")); });
     expect(screen.queryByText("늦은 이전 기록")).not.toBeInTheDocument();
@@ -340,7 +323,7 @@ it.each([false, true])("preserves a selected day through month navigation, histo
   vi.mocked(getDocs).mockReset().mockResolvedValue({ docs: [], empty: true } as never);
   const mount = (entry: string) => render(<MemoryRouter initialEntries={[entry]}><HistoryProbe /><TrainingLogPage /></MemoryRouter>);
   const view = mount("/ko/athlete/me/activities?sport=run&date=2026-09-17");
-  const planLink = () => screen.getByRole("link", { name: "훈련 계획" });
+  const planLink = () => screen.getByRole("link", { name: mobile ? "계획" : "훈련 계획" });
   await waitFor(() => expect(planLink()).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-09-17"));
   fireEvent.click(screen.getByRole("button", { name: /이전 달/ }));
   await waitFor(() => expect(planLink()).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-08-01"));
@@ -436,7 +419,7 @@ it.each(["rider", "other"])("keeps period return inside mobile day detail and sc
     expect(link.closest(".coach-detail")).not.toBeNull();
     expect(link).toHaveAttribute("href", "/ko/coach/analysis?sport=bike&detail=analysis-periods");
   } else {
-    await screen.findByRole("tab", { name: "활동" });
+    await screen.findByRole("tab", { name: "목록" });
     expect(screen.queryByRole("link", { name: "기간 분석으로 돌아가기" })).toBeNull();
   }
 });

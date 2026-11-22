@@ -728,10 +728,6 @@
     "distanceUnknownTitle": "Week of {{week}} · Distance unavailable",
     "distancePartialTitle": "Week {{week}} · {{value}}+ km"
   },
-  "recentActivitySummary": {
-    "partial": "The last 7 days total is unavailable because some activity history could not be verified.",
-    "allSports": "Last 7 days · all sports"
-  },
   "todayStrip": {
     "goalCountdownTitle": "Days to your goal",
     "goalCountdownLabel": "Goal date explanation",

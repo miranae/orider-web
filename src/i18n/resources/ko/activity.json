@@ -1432,7 +1432,11 @@
     "nextPage": "다음 기록",
     "recordPages": "활동 기록 페이지",
     "dayPages": "이 날짜의 활동 페이지",
-    "pageStatus": "{{total}}개 중 {{from}}–{{to}} · {{page}}/{{pages}}페이지"
+    "pageStatus": "{{total}}개 중 {{from}}–{{to}} · {{page}}/{{pages}}페이지",
+    "tabList": "목록",
+    "tabCalendar": "달력",
+    "viewToggle": "보기",
+    "importLink": "가져오기"
   },
   "import": {
     "modalTitle": "활동 업로드",

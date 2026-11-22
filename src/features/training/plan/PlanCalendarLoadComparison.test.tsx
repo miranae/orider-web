@@ -69,8 +69,12 @@ it.each([false, true])("shows weekly fulfillment and retains daily execution fac
   layout(mobile);
   loadFixture.days.slice(0, 5).forEach(row => { row.fulfilledWeek = { weekNumber: 1, plannedTss: 255, actualTss: 300, estimated: false }; });
   renderWithProviders(<PlanPresentation model={model} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />, { authenticated: true });
-  expect(screen.getByRole("group", { name: "W1 주간 부하 근거" })).toHaveTextContent("W1 주간 부하 목표로 충족");
-  expect(screen.getAllByText("W1 주간 부하 목표로 충족")).toHaveLength(1);
+  // 휴대폰은 주간 부하 요약을 이번 주 머리 한 줄(완료 · 부하)로 합쳐 별도 주간 근거 상자를 두지 않는다.
+  if (mobile) expect(screen.queryByRole("group", { name: "W1 주간 부하 근거" })).not.toBeInTheDocument();
+  else {
+    expect(screen.getByRole("group", { name: "W1 주간 부하 근거" })).toHaveTextContent("W1 주간 부하 목표로 충족");
+    expect(screen.getAllByText("W1 주간 부하 목표로 충족")).toHaveLength(1);
+  }
   expect(screen.getByRole("group", { name: "2026-10-19 부하 비교" })).not.toHaveTextContent("W1 주간 부하 목표로 충족");
   expect(screen.getAllByText("계획 수행 미확정").length).toBeGreaterThan(0);
   expect(weeks[0].days[0].completed).toBe(false);

@@ -84,6 +84,17 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByTestId("mobile-decision-preview-id")).toHaveTextContent(decision.projectionId);
     expect(document.querySelector("[data-decision-id]")).toHaveAttribute("data-decision-id", decision.projectionId);
   });
+  it("renders a compact plan row with the server status and session only", () => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, unavailableReason: null, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" compact /></MemoryRouter>);
+    const row = screen.getByTestId("K4-4");
+    expect(row).toHaveClass("training-decision-row");
+    expect(row).toHaveAttribute("data-decision-id", decision.projectionId);
+    expect(within(row).getByTestId("K4-4-1")).not.toBeEmptyDOMElement();
+    expect(row.querySelector(".training-decision-card__delta")).toBeNull();
+    expect(row.querySelector(".training-decision-card__reasons")).toBeNull();
+  });
   it("keeps Plan empty when the decision API is unavailable", () => {
     mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);

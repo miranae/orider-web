@@ -1432,7 +1432,11 @@
     "nextPage": "Next records",
     "recordPages": "Activity record pages",
     "dayPages": "Activities on this date",
-    "pageStatus": "{{from}}–{{to}} of {{total}} · Page {{page}}/{{pages}}"
+    "pageStatus": "{{from}}–{{to}} of {{total}} · Page {{page}}/{{pages}}",
+    "tabList": "List",
+    "tabCalendar": "Calendar",
+    "viewToggle": "View",
+    "importLink": "Import"
   },
   "import": {
     "modalTitle": "Upload activity",
