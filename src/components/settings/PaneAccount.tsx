@@ -208,7 +208,7 @@ export function PaneAccount() {
         }
         await updateDoc(doc(firestore, "users", user.uid), { photoURL: url, profileAvatarGeneration: result.metadata.generation });
         if (auth.currentUser?.uid !== user.uid) return;
-        refreshProfileAvatar(firestore, url, result.metadata.generation);
+        refreshProfileAvatar(viewer, url, result.metadata.generation);
         setPhotoOverride({ uid: user.uid, url });
         showToast(t("profile.photoUpdated"));
       });

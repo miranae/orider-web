@@ -181,6 +181,23 @@ describe("PaneAccount nickname save", () => {
     await waitFor(() => expect(view.result.current).toBeNull());
   });
 
+  it("does not carry an alternate avatar into a new account session when its read is denied", async () => {
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Faccount-sensitive%2Favatar?alt=media";
+    const alternate = "https://example.test/old-session-photo.png";
+    const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+    const notify = mocks.onSnapshot.mock.calls.at(-1)?.[2] as (snapshot: { data: () => { photoURL: string } }) => void;
+    mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: alternate }) });
+    act(() => { notify({ data: () => ({ photoURL: alternate }) }); });
+    await waitFor(() => expect(view.result.current).toBe(alternate));
+
+    mocks.currentUser = { uid: "new-viewer" };
+    view.rerender();
+    expect(view.result.current).toBe(url);
+    const fail = mocks.onSnapshot.mock.calls.at(-1)?.[3] as (error: Error) => void;
+    act(() => { fail(new Error("permission-denied")); });
+    expect(view.result.current).toBeNull();
+  });
+
   it("records an avatar profile read failure after the view closes", async () => {
     let rejectRead: (error: Error) => void = () => {};
     mocks.avatarRead.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectRead = reject; }));
