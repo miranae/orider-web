@@ -1,0 +1,14 @@
+/* 코치 분석(웹·앱 공용) — 요약 3칸 → 파워 커브 → 훈련 구성 → 다음에 할 일. */
+.coach-analysis { display: grid; gap: var(--space-4); padding-block: var(--space-3) var(--space-6); min-width: 0; }
+.coach-analysis__tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.coach-analysis__tile { display: grid; gap: var(--space-1); min-width: 0; }
+.coach-analysis__notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--r-lg); }
+.coach-analysis__link { color: var(--accent); font-weight: 600; text-decoration: none; min-height: var(--dim-button-height); display: inline-flex; align-items: center; }
+.coach-analysis__link:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
+.coach-analysis__legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-bottom: var(--space-2); }
+.coach-analysis__line { display: inline-block; width: var(--space-4); border-top: 2px solid var(--accent); margin-right: var(--space-2); vertical-align: middle; }
+.coach-analysis__line--previous { border-top: 2px dashed var(--ink-2); }
+.coach-analysis__chart { display: block; width: 100%; max-width: 32rem; height: auto; margin-bottom: var(--space-3); font-size: var(--fs-xs); font-family: var(--font-ui); }
+.coach-analysis__composition { display: grid; gap: var(--space-3); }
+.coach-analysis__next { display: grid; gap: var(--space-2); }

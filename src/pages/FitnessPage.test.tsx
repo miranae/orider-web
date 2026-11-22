@@ -1056,19 +1056,17 @@ describe("FitnessPage", () => {
 
 
 
-    it("분석 러닝에는 거리 기록·출처와 마일스톤 상세를 두지 않는다", async () => {
+    it("데스크톱 러닝 분석도 웹·앱 공용 분석 구조 하나만 그린다", async () => {
       viewport.isMobile = false;
       setCollectionDocs("activities", [{ id: "run-1", userId: "test-uid", type: "Run", startTime: Date.now(), deletedAt: null, summary: { distance: 5_000 } }]);
       renderWithProviders(<AnalysisFixture sport="run" />, { authenticated: true, route: "/ko/coach/analysis?sport=run" });
-      expect(await screen.findByRole("heading", { name: "수행 능력 변화" })).toBeInTheDocument();
+      expect(await screen.findByTestId("coach-analysis")).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "분석 기간" })).toHaveAttribute("data-testid", "K5-0-3");
+      expect(screen.getByTestId("coach-analysis-next")).toHaveTextContent("다음에 할 일");
+      // 예전 묶음 제목·원본 기록 보드·설명 문구는 두지 않는다.
+      expect(screen.queryByRole("heading", { name: "수행 능력 변화" })).not.toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).not.toBeInTheDocument();
-      expect(document.getElementById("analysis-run-records")).toBeNull();
-      expect(screen.queryByRole("link", { name: "거리 기록·출처와 마일스톤 보기 →" })).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
-      // 기간 선택 탭·불러오기 버튼은 두지 않는다. 기간별 훈련 구성은 사이클과 같이 남긴다(P9, 2026-11-19).
-      expect(screen.queryByTestId("K5-0-3")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("navigation", { name: "구간 바로가기" })).not.toBeInTheDocument();
     });
 
     it("모바일 컨디션에도 원본 기록 보드와 마일스톤 슬롯을 전달한다", async () => {

@@ -70,6 +70,10 @@ interface Props {
    */
   presetIntent?: "check_in" | "free";
   triggerLabel?: string;
+  /** 진입 버튼 모양 — 화면의 주요 행동으로 둘 때 primary(기본은 outline). */
+  triggerVariant?: "outline" | "primary";
+  /** 한 화면에 진입 버튼이 둘일 때 구분하는 테스트 id(기본 K6-F-1). */
+  triggerTestId?: string;
 }
 
 const actionRoutes: Record<CoachActionCode, string> = {
@@ -123,7 +127,7 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
 
 export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false,
   ridePlanSelection = null, progressPlannerSelection = null, presetQuestion = null, presetIntent = "free",
-  triggerLabel, onRequestSettled }: Props) {
+  triggerLabel, triggerVariant = "outline", triggerTestId = "K6-F-1", onRequestSettled }: Props) {
   const { getCoachConsentPolicy } = useCoachConsentApi();
   const { askCoachP2, askCoachV2, getCoachProgressPlannerCapabilities, getCoachStatus } = useCoachApi();
   const { auth } = useFirebaseServices();
@@ -632,7 +636,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     <>
       {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
       {showPmcInsight && user && <CoachPmcInsightCard user={user} discipline={discipline} onQuestionSelect={choosePmcQuestion} />}
-      <Button data-testid="K6-F-1" ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={ICON_SIZE.md} />} onClick={openProgressPlannerQuestion}>{triggerLabel ?? t("open")}</Button>
+      <Button data-testid={triggerTestId} ref={triggerRef} block={triggerBlock} variant={triggerVariant} leadingIcon={<Sparkles size={ICON_SIZE.md} />} onClick={openProgressPlannerQuestion}>{triggerLabel ?? t("open")}</Button>
       {open && createPortal(
         <div data-testid="K6-S" className="coach-sheet mobile-dialog-viewport" role="presentation">
           <button type="button" className="coach-sheet__backdrop" tabIndex={-1} aria-hidden="true" aria-label={t("close")}
