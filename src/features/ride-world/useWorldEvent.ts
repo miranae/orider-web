@@ -4,7 +4,7 @@ import type { User } from "firebase/auth";
 import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { watchWorldReadiness, type WorldErrorReporter } from "./worldReadiness";
-import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { useFirebaseServices, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 export interface WorldEventMarker {
   id: string;
@@ -54,7 +54,7 @@ export function isLocalWorldEventEnabled(): boolean {
   return endpoint !== null && isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true;
 }
 
-interface EventState { scope: string; frame: WorldEventFrame }
+interface EventState { scope: string; services: FirebaseServices; viewer: User | null; frame: WorldEventFrame }
 
 export interface WorldViewport { lat: number; lon: number }
 
@@ -156,7 +156,12 @@ export function useWorldEvent(
               } else if (version !== undefined || !validPhase) {
                 throw new Error("Invalid World event signal revision");
               }
-              if (validPhase && frame.meetingPhase) signalCurrent.current?.phaseChanged?.(frame.meetingPhase);
+              if (validPhase && frame.meetingPhase) {
+                clearTimeout(initial);
+                hasFrame = true;
+                delayMs = 1000;
+                signalCurrent.current?.phaseChanged?.(frame.meetingPhase);
+              }
               return;
             }
             if (!Number.isSafeInteger(frame.revision) || frame.revision <= (latest?.revision ?? 0)) return;
@@ -185,7 +190,7 @@ export function useWorldEvent(
               };
             } else return;
             delayMs = 1000;
-            setState({ scope, frame: latest });
+            setState({ scope, services, viewer: identity, frame: latest });
           } catch (error) {
             report("RideWorld.decodeEvent", error, { eventId: event });
             if (socket === connection) connection.close();
@@ -253,7 +258,7 @@ export function useWorldEvent(
     };
   }, [eventId, scope, signalOnly, signalTopic, user, allowGuest, services]);
   useEffect(() => { subscribeCurrent.current?.(); }, [track, viewport?.lat, viewport?.lon, trackBib]);
-  return state?.scope === scope ? state.frame : null;
+  return state?.scope === scope && state.services === services && state.viewer === (user ?? null) ? state.frame : null;
 }
 
 export function worldLocation(marker: WorldEventMarker) {

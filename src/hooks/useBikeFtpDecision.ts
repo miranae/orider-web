@@ -60,7 +60,9 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
   // 임베드 진입(`/embed/*`)은 일반 Firebase 를 초기화하지 않고 **임베드 전용 named app**
   // 을 쓴다. `services/firebase` 의 모듈 싱글턴을 직접 쓰면 그 경로에서 undefined 라
   // `collection()` 이 던지고, 피트니스 표면이 통째로 렌더되지 않는다 (#847).
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
+  const viewer = services.auth?.currentUser ?? null;
   const [state, setState] = useState<ScopedState>({ ...EMPTY_STATE, scopeKey: "" });
   const decisionGeneration = useRef(0);
   const receiptGeneration = useRef(0);
@@ -155,7 +157,7 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
           deviceReceipts: target === "receipt" ? current.deviceReceipts : [],
         } : current);
       }
-      logClientError("useBikeFtpDecision.receipt", error, { mutationId, target });
+      logClientError("useBikeFtpDecision.receipt", error, { mutationId, target }, services, viewer);
     };
 
     const deviceQuery = query(
@@ -184,13 +186,13 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
           ? onSnapshot(deviceQuery, serverOptions, snap => { if (isCurrent() && !snap.metadata.fromCache) receiveDevices(snap); }, error => { if (isCurrent()) failDevices(error); })
           : onSnapshot(deviceQuery, receiveDevices, failDevices);
         return () => { stopReceipt(); stopDevices(); };
-      });
+      }, (source, error, context) => logClientError(source, error, context, services, viewer));
 
     return () => {
       if (receiptGeneration.current === generation) receiptGeneration.current += 1;
       unsubscribe();
     };
-  }, [active, enabled, firestore, mutationId, scopeKey, uid]);
+  }, [active, enabled, firestore, mutationId, scopeKey, uid, services, viewer]);
 
   if (state.scopeKey !== scopeKey) {
     return { ...EMPTY_STATE, loading: Boolean(uid && enabled) };

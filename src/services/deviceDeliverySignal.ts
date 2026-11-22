@@ -1,12 +1,13 @@
 import { getAuth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
-import { logClientError } from "./errorLogger";
+import type { WorldErrorReporter } from "../features/ride-world/worldReadiness";
 import { followWorldSignal } from "../features/ride-world/followWorldSignal";
 
 export function subscribeDeviceDeliverySignal<T>(
   firestore: Firestore, uid: string, resource: string,
   read: () => Promise<T>, receive: (snapshot: T) => void, onError: (error: Error) => void,
   fallback: (serverOnly: boolean, isCurrent: () => boolean) => () => void,
+  report: WorldErrorReporter,
 ): () => void {
   if (!import.meta.env.DEV || import.meta.env.VITE_ORIDER_LOCAL_WORLD !== "1" ||
       import.meta.env.VITE_ORIDER_LOCAL_DEVICE_REDIS !== "1" || firestore.app.options.projectId !== "demo-orider-lab") {
@@ -48,7 +49,7 @@ export function subscribeDeviceDeliverySignal<T>(
         if (!active() || revision !== expected) return;
         receive(snapshot);
       }).catch((error: Error & { code?: string }) => {
-        logClientError("RideWorld.deviceDeliveryRead", error, { resourceKind: resource.split(":")[0] });
+        report("RideWorld.deviceDeliveryRead", error, { resourceKind: resource.split(":")[0] });
         if (!active() || revision !== expected) return;
         if (error.code === "permission-denied") denied();
         else {
@@ -59,6 +60,7 @@ export function subscribeDeviceDeliverySignal<T>(
       return true;
     },
     code => { if (code === 4003 || code === 4004) denied(); else restore(); },
+    report,
   );
   return () => { closed = true; revision++; stopWorld(); stopCanonical(); };
 }

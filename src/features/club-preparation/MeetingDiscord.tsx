@@ -43,20 +43,20 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
     }
   }, [eventId, scope, getClubMeetingDiscord]);
   const viewer = services.auth?.currentUser;
-  const [worldScope, setWorldScope] = useState<{ scope: string; viewer: typeof viewer } | null>(null);
+  const [worldScope, setWorldScope] = useState<{ scope: string; viewer: typeof viewer; services: typeof services } | null>(null);
   const activeWorldScope = useRef<typeof worldScope>(null);
   useEffect(() => {
     activeWorldScope.current = null;
     setWorldScope(null);
-  }, [scope, viewer, ended]);
-  const worldOwnsSignals = worldScope?.scope === scope && worldScope.viewer === viewer;
+  }, [scope, viewer, services, ended]);
+  const worldOwnsSignals = worldScope?.scope === scope && worldScope.viewer === viewer && worldScope.services === services;
   const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
     import.meta.env.VITE_ORIDER_LOCAL_DISCORD_REDIS === "1" && isEmulatorRuntime() &&
     getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true && viewer?.uid === uid;
   useWorldEvent(redisSignals && !ended ? eventId : undefined, viewer, undefined, undefined, {
     topic: "discord",
     changed: () => {
-      const binding = { scope, viewer };
+      const binding = { scope, viewer, services };
       activeWorldScope.current = binding;
       setWorldScope(binding);
       if (!document.hidden) void reload();
@@ -65,7 +65,7 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       if (!mounted.current || current.current !== scope) return;
       const denied = code === 4003 || code === 4004;
       const binding = activeWorldScope.current;
-      if ((binding?.scope !== scope || binding.viewer !== viewer) && !denied) return;
+      if ((binding?.scope !== scope || binding.viewer !== viewer || binding.services !== services) && !denied) return;
       activeWorldScope.current = null;
       setWorldScope(null);
       generation.current++; busy.current = false; queued.current = false;

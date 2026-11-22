@@ -29,9 +29,10 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
   const spectatorActiveScope = useRef<string | null>(null);
   const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
-  const previousBinding = useRef({ scope, viewer });
-  if (previousBinding.current.scope !== scope || previousBinding.current.viewer !== viewer) {
-    previousBinding.current = { scope, viewer };
+  const previousBinding = useRef({ scope, viewer, services });
+  if (previousBinding.current.scope !== scope || previousBinding.current.viewer !== viewer ||
+      previousBinding.current.services !== services) {
+    previousBinding.current = { scope, viewer, services };
     spectatorActiveScope.current = null;
   }
   useWorldEvent(spectatorRedis ? eventId : undefined, viewer, undefined, undefined, {
