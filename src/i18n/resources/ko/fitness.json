@@ -1449,7 +1449,7 @@
   "analysis.concise.heartRateBasis": "심박",
   "condition.phone.todayPlan": "오늘 계획",
   "condition.phone.viewPlan": "계획 보기 ›",
-  "condition.phone.weeklyLoad": "주간 부하 {{value}}",
+  "condition.phone.weeklyLoad": "주간 부하",
   "condition.phone.recentTitle": "최근 활동",
   "condition.phone.load": "부하 {{value}}",
   "condition.phone.more": "더보기",

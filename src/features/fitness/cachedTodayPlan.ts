@@ -2,6 +2,7 @@ import type { PlanDay, WorkoutKind } from "@shared/types/goal";
 import { planDayKey } from "@shared/training/planDate";
 import { planSnapshotKey, readPlanSnapshot, type PlanSnapshot } from "../../embedded/planSnapshotCache";
 import { prepareTrainingSurfaceCacheOwner } from "../../embedded/trainingSurfaceCache";
+import { logClientError } from "../../services/errorLogger";
 
 export interface CachedTodayPlan {
   workout: WorkoutKind;
@@ -31,7 +32,9 @@ export function readCachedTodayPlan(uid: string | null | undefined, anonymous: b
       workoutName: day.executionWorkoutOverride ? null : day.workoutName?.trim() || null,
       durationMin: workout !== "rest" && Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : null,
     };
-  } catch {
+  } catch (error) {
+    // 캐시 읽기 실패는 기록만 하고 「계획 보기」만 두는 쪽으로 물러선다.
+    logClientError("cachedTodayPlan.read", error, { sport });
     return null;
   }
 }

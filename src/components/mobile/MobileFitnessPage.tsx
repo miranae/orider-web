@@ -683,7 +683,6 @@ export default function MobileFitnessPage({
   conditionRecentActivities = [],
   conditionGoal = null,
   conditionPendingAggregate = false,
-  weeklyLoadServer = false,
   currentBasis,
   currentStatusSlot = null,
   ridingEvidenceSlot = null,
@@ -730,8 +729,6 @@ export default function MobileFitnessPage({
   conditionGoal?: { name: string; daysLeft: number | null; planHref: string } | null;
   /** 최근 활동의 날짜가 서버 부하 집계에 아직 없을 때. */
   conditionPendingAggregate?: boolean;
-  /** 주간 부하가 서버 정본(일별 부하 또는 주간 요약)에서 왔는지. 아니면 숫자를 숨긴다. */
-  weeklyLoadServer?: boolean;
   currentBasis?: string;
   currentStatusSlot?: ReactNode;
   periodEvidenceSlot?: ReactNode;
@@ -1037,13 +1034,9 @@ export default function MobileFitnessPage({
         ...(isBike && embedded ? [{ id: "condition-ftp", label: t("fitness:condition.basis.title") }] : []),
         ...(!embedded && !mobileCondition && hasThresholdSettings ? [{ id: "thresholds", label: t("fitness:condition.settings.title") }] : []),
       ]} />) : null;
-  // 휴대폰 컨디션 주간 부하 — 서버 정본일 때만 이번 주 값을 보인다. 평균은 서버 값이 없어 두지 않는다(P6).
-  const phoneWeeklyBars = !data.weeklyLoadStoredSummary && data.weeklyTSS.length > 0
-    ? <WeeklyTssBars compact values={data.weeklyTSS} color={weeklyLoadColor} t={t} /> : undefined;
-  const phoneWeeklyValue = weeklyLoadServer && data.thisWeekTSS != null && Number.isFinite(data.thisWeekTSS)
-    && !(data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad) ? Math.round(data.thisWeekTSS) : null;
-  const phoneWeeklyLoad = mobileCondition && sectionState.trend === "ready" && (phoneWeeklyValue != null || phoneWeeklyBars)
-    ? <ConditionWeeklyLoadRow value={phoneWeeklyValue}>{phoneWeeklyBars}</ConditionWeeklyLoadRow> : null;
+  // 휴대폰 컨디션 주간 부하 — 접힌 줄에는 숫자를 두지 않는다(브라우저 합계 미표시, P6). 펼치면 기존 주별 막대를 그대로 보인다.
+  const phoneWeeklyLoad = mobileCondition && sectionState.trend === "ready" && !data.weeklyLoadStoredSummary && data.weeklyTSS.length > 0
+    ? <ConditionWeeklyLoadRow><WeeklyTssBars compact values={data.weeklyTSS} color={weeklyLoadColor} t={t} /></ConditionWeeklyLoadRow> : null;
   const conditionTrend = (          <section id={part === "condition" ? "condition-trend" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "condition-section-target" : undefined}>
           <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
             {sectionState.trend === "loading" ? (

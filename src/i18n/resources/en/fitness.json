@@ -1449,7 +1449,7 @@
   "analysis.concise.heartRateBasis": "Heart rate",
   "condition.phone.todayPlan": "Today's plan",
   "condition.phone.viewPlan": "View plan ›",
-  "condition.phone.weeklyLoad": "Weekly load {{value}}",
+  "condition.phone.weeklyLoad": "Weekly load",
   "condition.phone.recentTitle": "Recent activities",
   "condition.phone.load": "Load {{value}}",
   "condition.phone.more": "More",

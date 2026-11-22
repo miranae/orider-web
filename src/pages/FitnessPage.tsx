@@ -493,10 +493,6 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     const goalDaysLeft = activeGoal ? Math.ceil((activeGoal.eventDate - Date.now()) / 86_400_000) : null;
     const phoneGoal = phoneCondition && discipline !== "tri" && activeGoal
       ? { name: goalDisplayName ?? t("condition.phone.goalFallback"), daysLeft: goalDaysLeft != null && goalDaysLeft >= 0 ? goalDaysLeft : null, planHref } : null;
-    // 주간 부하 숫자는 서버 일별 부하(정본)나 서버 주간 요약에서 온 경우에만 보인다.
-    const phoneWeeklyLoadServer = weeklyStats.storedSummary || (discipline === "tri"
-      ? Object.values(triFitnessBreakdown).every(entry => entry.canonical || entry.fitness.length === 0)
-      : hasCanonicalTimeseries);
     const renderMobileContent = (decisionState?: TodayTrainingDecisionState) => {
       // 휴대폰 컨디션은 코치 브리핑(활동 영향·브라우저 계산 변화값) 대신 한 줄 블록을 쓴다.
       const mobileCoachBriefing = discipline !== "tri" && currentPoint && !phoneCondition ? (
@@ -545,7 +541,6 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             conditionRecentActivities={phoneRecentActivities}
             conditionGoal={phoneGoal}
             conditionPendingAggregate={phoneCondition && phonePendingAggregate}
-            weeklyLoadServer={phoneWeeklyLoadServer}
             currentBasis={currentBasis}
             currentStatusSlot={currentStatusSlot}
             periodEvidenceSlot={<>{weekChangeSlot}{part === "condition" && currentPoint && <FitnessWeeklyInsight includeLoadSummary={false}

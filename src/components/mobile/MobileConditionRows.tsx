@@ -58,13 +58,12 @@ export function ConditionGoalRow({ name, daysLeft, planHref }: { name: string; d
   </LocalizedLink>;
 }
 
-/** 이번 주 부하 한 줄. 펼치면 기존 주별 막대를 보인다. */
-export function ConditionWeeklyLoadRow({ value, children }: { value: number | null; children?: ReactNode }) {
+/** 주간 부하 접힌 한 줄. 숫자는 두지 않고, 펼치면 기존 주별 막대를 그대로 보인다. */
+export function ConditionWeeklyLoadRow({ children }: { children: ReactNode }) {
   const { t } = useTranslation("fitness");
   const [open, setOpen] = useState(false);
   const panelId = useId();
-  const label = t("condition.phone.weeklyLoad", { value: value == null ? "—" : value });
-  if (!children) return <div data-testid="K1-7-2" className="mobile-condition-weekly"><span className="mobile-condition-weekly__label">{label}</span></div>;
+  const label = t("condition.phone.weeklyLoad");
   return <div data-testid="K1-7-2" className="mobile-condition-weekly">
     <button type="button" className="mobile-condition-weekly__toggle" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(previous => !previous)}>
       <span className="mobile-condition-weekly__label">{label}</span>
