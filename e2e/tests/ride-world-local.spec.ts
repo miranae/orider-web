@@ -25,8 +25,9 @@ test("브라우저가 로컬 월드 이벤트를 구독하고 범위 이탈 시 
   const riders: WebSocket[] = [];
   try {
     await page.addInitScript(({ email, password }) => {
-      sessionStorage.setItem("world-fixture-email", email);
-      sessionStorage.setItem("world-fixture-password", password);
+      Object.defineProperty(window, "__worldFixtureCredentials", {
+        value: { email, password }, configurable: true,
+      });
     }, { email: viewer.email, password });
     await page.goto("/e2e/fixtures/ride-world.html?event=" + eventId);
     for (const [kind, identity] of [["virtual", rider], ["outdoor", hidden]] as const) {
@@ -98,8 +99,9 @@ test("브라우저가 회원 권한으로 모임 준비와 출발·종료 신호
       event.set({ info: { status: "OPEN", kind: "CLUB_MEETING", groupId } }),
     ]);
     await page.addInitScript(({ email, password }) => {
-      sessionStorage.setItem("world-fixture-email", email);
-      sessionStorage.setItem("world-fixture-password", password);
+      Object.defineProperty(window, "__worldFixtureCredentials", {
+        value: { email, password }, configurable: true,
+      });
     }, { email, password });
     await page.goto("/e2e/fixtures/ride-world.html?view=prep&event=" + eventId);
     await expect(page.getByTestId("meeting-phase")).toHaveText("OPEN");

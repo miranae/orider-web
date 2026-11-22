@@ -26,9 +26,12 @@ function Fixture() {
   } : undefined, /^\d{1,6}$/.test(bib) ? Number(bib) : undefined,
     new URLSearchParams(location.search).get("view") === "guest");
   useEffect(() => {
-    const email = sessionStorage.getItem("world-fixture-email");
-    const password = sessionStorage.getItem("world-fixture-password");
-    if (email && password) void signInWithEmailAndPassword(auth, email, password).then(({ user }) => setUser(user)).catch(error => { logClientError("rideWorldFixture.auth", error); });
+    const fixtureWindow = window as Window & { __worldFixtureCredentials?: { email: string; password: string } };
+    const credentials = fixtureWindow.__worldFixtureCredentials;
+    delete fixtureWindow.__worldFixtureCredentials;
+    if (credentials) void signInWithEmailAndPassword(auth, credentials.email, credentials.password)
+      .then(({ user }) => setUser(user))
+      .catch(error => { logClientError("rideWorldFixture.auth", error); });
   }, []);
   return <>
     <input aria-label="이벤트" value={eventId} onChange={(event) => setEventId(event.currentTarget.value)} />
