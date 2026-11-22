@@ -140,8 +140,7 @@ describe("PaneAccount nickname save", () => {
       expect(storageRef).toEqual({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" });
       expect(metadata).toEqual({ cacheControl: "public, max-age=300", contentType: "image/webp" });
     }
-    expect(mocks.updateDoc).toHaveBeenNthCalledWith(1, expect.anything(), { photoURL: url });
-    expect(mocks.updateDoc).toHaveBeenNthCalledWith(2, expect.anything(), { photoURL: url });
+    expect(mocks.updateDoc).toHaveBeenCalledExactlyOnceWith(expect.anything(), { photoURL: url });
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
     await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null }));
     expect(mocks.deleteObject).toHaveBeenCalledWith({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" });

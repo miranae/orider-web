@@ -190,7 +190,7 @@ export function PaneAccount() {
       const url = profileAvatarUrl(storageRef.bucket, user.uid);
       const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "public, max-age=300" });
       if (auth.currentUser?.uid !== user.uid) return;
-      await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
+      if (photoURL !== url) await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
       if (auth.currentUser?.uid !== user.uid) return;
       refreshProfileAvatar(url, result.metadata.generation);
       setPhotoOverride({ uid: user.uid, url });
