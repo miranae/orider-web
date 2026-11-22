@@ -23,7 +23,8 @@ vi.mock("../../hooks/useGroupNextEvents", () => ({
   useGroupNextEvents: () => ({ byGroup: new Map(), eventByGroup: state.events, incompleteGroups: new Set(), loading: false }),
 }));
 vi.mock("../../components/group/GroupRequestHistory", () => ({
-  default: ({ defaultOpen }: { defaultOpen?: boolean }) => <div data-testid="request-history">{defaultOpen ? "open" : "closed"}</div>,
+  // 실제 컴포넌트는 기록이 없으면 행을 숨긴다 — 여기서는 받은 행 문구만 그대로 보인다.
+  default: ({ row }: { row?: { label: string; count?: string } }) => <div data-testid="request-history">{row ? `${row.label}|${row.count ?? ""}` : "card"}</div>,
 }));
 
 function renderPage(route = "/ko/clubs") {
@@ -84,20 +85,18 @@ describe("GroupsPage phone layout (meetings first)", () => {
     expect(screen.getByTestId("C0-1-1")).toBeInTheDocument();
   });
 
-  it("keeps invite code and join requests as rows, the requests row only when there are requests", () => {
+  it("keeps invite code as a row and hands the join-request row to the history, with a count only while pending", () => {
     const view = renderPage();
-    expect(screen.queryByTestId("C0-1-4")).not.toBeInTheDocument();
     expect(screen.queryByTestId("C0-3-1")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /초대 코드 입력/ }));
     expect(screen.getByTestId("C0-3-1")).toBeInTheDocument();
+    // 대기 0건이어도 기록 컴포넌트는 늘 붙어 있어 지난 신청(승인·거절·취소)을 열 수 있다.
+    expect(screen.getByTestId("request-history")).toHaveTextContent("가입 신청|");
     view.unmount();
 
     state.pending = new Set(["a", "b"]);
     renderPage();
-    const requests = screen.getByTestId("C0-1-4");
-    expect(requests).toHaveTextContent("가입 신청2건");
-    fireEvent.click(requests);
-    expect(screen.getByTestId("request-history")).toHaveTextContent("open");
+    expect(screen.getByTestId("request-history")).toHaveTextContent("가입 신청|2건");
   });
 
   it("opens club search directly when the address carries a search", () => {

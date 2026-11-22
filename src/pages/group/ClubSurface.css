@@ -227,3 +227,8 @@
 /* 휴대폰 활동 탭 이번 주 요약 세 칸 — 값이 한 줄에 들어가게 */
 .club-week-tiles p { font-size: var(--fs-sm); color: var(--ink-2); }
 .club-week-tiles strong { font-size: var(--ft-title-size); white-space: nowrap; }
+/* 휴대폰 「가입 신청」 행 — 펼침 제목을 다른 행과 같은 모양으로 */
+.club-m-section > .club-m-row + .club-m-details,
+.club-m-section > .club-m-panel + .club-m-details { border-top: 1px solid var(--line-soft); }
+.club-m-details > summary { list-style: none; }
+.club-m-details > summary::-webkit-details-marker { display: none; }
