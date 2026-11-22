@@ -210,6 +210,9 @@ it("uses an owned Redis signal and keeps pagination on a reconnect with the same
     sockets[0]?.dispatchEvent(new Event("open"));
     expect(sockets[0]?.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "notification_subscribe", token: "local-test-token" }));
     expect(onSnapshot).toHaveBeenCalledOnce();
+    const serverSignal = { metadata: { fromCache: false }, exists: () => true, data: () => ({ revision: 2 }) };
+    const initialSignal = vi.mocked(onSnapshot).mock.calls[0]?.[2] as (snap: unknown) => void;
+    await act(async () => initialSignal(serverSignal));
     const initialReads = state.list.mock.calls.length;
     const revision = "1790000000:012345678";
     await act(async () => sockets[0]?.deliver(revision));
@@ -230,9 +233,8 @@ it("uses an owned Redis signal and keeps pagination on a reconnect with the same
     expect(state.list).toHaveBeenCalledTimes(fallbackReads);
     expect(stopFallback).not.toHaveBeenCalled();
     const canonicalSignal = vi.mocked(onSnapshot).mock.calls[1]?.[2] as (snap: unknown) => void;
-    await act(async () => canonicalSignal({
-      metadata: { fromCache: false }, exists: () => true, data: () => ({ revision: 2 }),
-    }));
+    await act(async () => canonicalSignal(serverSignal));
+    expect(state.list).toHaveBeenCalledTimes(fallbackReads + 2);
     expect(stopFallback).toHaveBeenCalledOnce();
     expect(result.current.items.map(item => item.id)).toEqual(["newest", "older"]);
     act(() => { sockets[1]?.dispatchEvent(new CloseEvent("close", { code: 4003 })); });

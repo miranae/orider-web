@@ -112,7 +112,7 @@ export function useNotificationInbox() {
         const preservePages = awaitingFallback;
         awaitingFallback = false;
         if (preservePages && worldResumed) stopCanonical();
-        if (revision === canonicalRevision) return;
+        if (!preservePages && revision === canonicalRevision) return;
         canonicalRevision = revision;
         pull(preservePages);
       };

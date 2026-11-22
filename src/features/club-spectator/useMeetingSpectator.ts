@@ -66,7 +66,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
           recovery = setTimeout(() => { recovery = undefined; void start(); }, 1000 * 2 ** recoveryAttempts++);
         }
       } else { blocked = true; clear(error); }
-      logClientError("ClubMeetingSpectator.read", error, {eventId});
+      logClientError("ClubMeetingSpectator.read", error, {eventId}, services, viewer);
     };
     const load = async () => {
       if (document.hidden || !current() || blocked) return;

@@ -18,6 +18,7 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
   eventId: string; groupId: string; uid: string; ended?: boolean; en: boolean;
 }) {
   const services = useFirebaseServices();
+  const viewer = services.auth?.currentUser ?? null;
   const queued = useRef(false);
   const {getClubMeetingDiscord, openClubMeetingDiscord, closeClubMeetingDiscord} = useClubMeetingsApi();
   const text = (ko: string, english: string) => en ? english : ko;
@@ -39,10 +40,9 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       }
     } catch (reason) {
       if (mounted.current && current.current === scope && request === generation.current) setError(true);
-      logClientError("MeetingDiscord.load", reason);
+      logClientError("MeetingDiscord.load", reason, undefined, services, viewer);
     }
-  }, [eventId, scope, getClubMeetingDiscord]);
-  const viewer = services.auth?.currentUser;
+  }, [eventId, scope, getClubMeetingDiscord, services, viewer]);
   const [worldScope, setWorldScope] = useState<{ scope: string; viewer: typeof viewer; services: typeof services } | null>(null);
   const activeWorldScope = useRef<typeof worldScope>(null);
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       if (disposed) return;
       generation.current++; busy.current = false; queued.current = false; setPending(false);
       setResult(null); setError(true);
-      logClientError("MeetingDiscord.signal", reason);
+      logClientError("MeetingDiscord.signal", reason, undefined, services, viewer);
       stops.forEach(stop => stop());
     };
     void services.ensureAppCheckReady().then(() => {
@@ -102,7 +102,7 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
     }).catch(failed);
     document.addEventListener("visibilitychange", changed);
     return () => { disposed = true; stops.forEach(stop => stop()); document.removeEventListener("visibilitychange", changed); };
-  }, [services, eventId, groupId, uid, reload, signalRetry, worldOwnsSignals, scope]);
+  }, [services, eventId, groupId, uid, reload, signalRetry, worldOwnsSignals, scope, viewer]);
   const mutate = async (close: boolean) => {
     if (busy.current) return;
     busy.current = true; setPending(true); setError(false); const operation = ++generation.current;
@@ -111,7 +111,7 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       if (mounted.current && current.current === scope && operation === generation.current) { setResult({scope, value}); setConfirmClose(false); }
     } catch (reason) {
       if (mounted.current && current.current === scope && operation === generation.current) setError(true);
-      logClientError("MeetingDiscord.change", reason);
+      logClientError("MeetingDiscord.change", reason, undefined, services, viewer);
     } finally {
       if (mounted.current && current.current === scope && operation === generation.current) { busy.current = false; setPending(false); if (queued.current) { queued.current = false; void reload(); } }
     }

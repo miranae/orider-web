@@ -46,7 +46,7 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
         setState({ context, maps: {}, failed: true });
         // 일시 실패는 신호가 다시 오지 않으면 복구되지 않으므로 몇 번만 늦춰 다시 시도한다.
         if (failures < RETRY_DELAYS_MS.length) retryTimer = setTimeout(refresh, RETRY_DELAYS_MS[failures++]);
-        else logClientError("usePublicActivityMaps.load", error, { activityIds: key });
+        else logClientError("usePublicActivityMaps.load", error, { activityIds: key }, services, sdkUser);
       }).finally(() => { if (request !== generation.current) return; loading = false; if (again && !stopped) refresh(); });
     };
     const signals: { key: string; path: readonly [string, string]; activityId?: string }[] = ids.map(id => ({ key: `activity:${id}`, path: ["activity_map_signals", id], activityId: id }));
@@ -68,7 +68,7 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
         const seq = snapshot.data()?.seq;
         observe(signal.key, typeof seq === "number" ? seq : 0);
       }, error => {
-        logClientError("usePublicActivityMaps.signal", error, { signal: signal.path[0], activityId: signal.activityId });
+        logClientError("usePublicActivityMaps.signal", error, { signal: signal.path[0], activityId: signal.activityId }, services, sdkUser);
         if (!seen.has(signal.key)) observe(signal.key, -1);
       }));
       unsubscribeSource = () => unsubscribes.forEach(unsubscribe => unsubscribe());

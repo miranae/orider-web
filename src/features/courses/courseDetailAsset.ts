@@ -136,7 +136,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   onData: (data: DocumentData | null) => void, onError: (error: Error) => void): () => void {
   if (!id || id.includes("/") || id === "." || id === "..") {
     const error = new Error("잘못된 코스 식별자");
-    logClientError("CourseDetail.invalidId", error);
+    logClientError("CourseDetail.invalidId", error, undefined, services, services.auth?.currentUser ?? null);
     onData(null);
     onError(error);
     return () => {};
@@ -162,7 +162,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       } else onData(data ? { ...data, id } : null);
     };
     const failed = (error: Error) => {
-      if (current()) { logClientError("CourseDetail.legacyRead", error, { courseId: id }); onData(null); onError(error); }
+      if (current()) { logClientError("CourseDetail.legacyRead", error, { courseId: id }, services, user); onData(null); onError(error); }
     };
     legacyStop = publicOnly ? onSnapshot(source, { includeMetadataChanges: true }, next, failed) : onSnapshot(source, next, failed);
   };
@@ -193,7 +193,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
         lastVersion = version; lastTrack = track;
       } catch (error) {
         if (!active()) return;
-        logClientError("CourseDetail.assetFallback", error, { courseId: id });
+        logClientError("CourseDetail.assetFallback", error, { courseId: id }, services, user);
         let snapshot;
         try { snapshot = await getDoc(doc(services.firestore, "courses", id)); }
         catch (fallbackError) {
@@ -223,7 +223,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       if (active()) onData({ ...metadata, elevationProfile: track.elevationProfile, altitudeSemantics: track.altitudeSemantics, id, trackLoadState: "ready" });
     } catch (error) {
       if (active()) {
-        logClientError("CourseDetail.metadataRead", error, { courseId: id });
+        logClientError("CourseDetail.metadataRead", error, { courseId: id }, services, user);
         onData(null);
         if (worldEnabled) legacy(true);
         else onError(error instanceof Error ? error : new Error(String(error)));
