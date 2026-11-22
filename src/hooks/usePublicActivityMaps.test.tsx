@@ -44,7 +44,7 @@ it("drops an in-flight map after a Redis revocation and clears any displayed map
   m.load.mockResolvedValue(map);
   act(() => socket.onmessage(frame));
   await waitFor(() => expect(view.result.current.maps.a).toEqual(map));
-  act(() => socket.onclose());
+  act(() => socket.onclose(new CloseEvent('close', { code: 1013 })));
   expect(view.result.current).toMatchObject({ maps: {}, failed: true });
   expect(m.listeners.filter(listener => !listener.unsubscribe.mock.calls.length)).toHaveLength(2);
   view.unmount();

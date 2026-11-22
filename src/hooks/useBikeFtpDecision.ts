@@ -173,9 +173,16 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
     const unsubscribe = subscribeDeviceDeliverySignal(firestore, uid, `ftp-receipt:${receiptId}`,
       () => Promise.all([getDocFromServer(receiptRef), getDocsFromServer(deviceQuery)] as const),
       ([receipt, devices]) => { receiveReceipt(receipt); receiveDevices(devices); },
-      receiptError, () => {
-        const stopReceipt = onSnapshot(receiptRef, receiveReceipt, error => receiptError(error, "receipt"));
-        const stopDevices = onSnapshot(deviceQuery, receiveDevices, error => receiptError(error, "deviceReceipts"));
+      receiptError, serverOnly => {
+        const failReceipt = (error: Error) => receiptError(error, "receipt");
+        const failDevices = (error: Error) => receiptError(error, "deviceReceipts");
+        const serverOptions = { includeMetadataChanges: true };
+        const stopReceipt = serverOnly
+          ? onSnapshot(receiptRef, serverOptions, snap => { if (!snap.metadata.fromCache) receiveReceipt(snap); }, failReceipt)
+          : onSnapshot(receiptRef, receiveReceipt, failReceipt);
+        const stopDevices = serverOnly
+          ? onSnapshot(deviceQuery, serverOptions, snap => { if (!snap.metadata.fromCache) receiveDevices(snap); }, failDevices)
+          : onSnapshot(deviceQuery, receiveDevices, failDevices);
         return () => { stopReceipt(); stopDevices(); };
       });
 

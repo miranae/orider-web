@@ -180,7 +180,7 @@ describe("notification signal subscription", () => {
   });
 });
 
-it("uses an owned Redis signal and refreshes after reconnect with the same revision", async () => {
+it("uses an owned Redis signal and keeps pagination on a reconnect with the same revision", async () => {
   const { onSnapshot } = await import("firebase/firestore");
   const sockets: FakeSocket[] = [];
   class FakeSocket extends EventTarget {
@@ -218,7 +218,7 @@ it("uses an owned Redis signal and refreshes after reconnect with the same revis
     expect(onSnapshot).toHaveBeenCalledTimes(2);
     const fallbackReads = state.list.mock.calls.length;
     await act(async () => sockets[1]?.deliver(revision));
-    expect(state.list).toHaveBeenCalledTimes(fallbackReads + 1);
+    expect(state.list).toHaveBeenCalledTimes(fallbackReads);
     act(() => { sockets[1]?.dispatchEvent(new CloseEvent("close", { code: 4003 })); });
     expect(result.current.items).toEqual([]);
     expect(result.current.failed).toBe(true);

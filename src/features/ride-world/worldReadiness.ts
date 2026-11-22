@@ -1,10 +1,11 @@
 import { logClientError } from "../../services/errorLogger";
 
 type Listener = (ready: boolean) => void;
-const monitors = new Map<string, { subscribe: (listener: Listener) => () => void }>();
+export type WorldErrorReporter = (source: string, error: unknown, context: Record<string, unknown>) => void;
+const monitors = new Map<string, { subscribe: (listener: Listener, report: WorldErrorReporter) => () => void }>();
 
 /** 같은 월드의 연결은 준비 상태 요청을 공유한다. */
-export function watchWorldReadiness(endpoint: string, listener: Listener): () => void {
+export function watchWorldReadiness(endpoint: string, listener: Listener, report: WorldErrorReporter = logClientError): () => void {
   const url = new URL(endpoint);
   url.protocol = url.protocol === "wss:" ? "https:" : "http:";
   url.pathname = "/ready";
@@ -13,7 +14,7 @@ export function watchWorldReadiness(endpoint: string, listener: Listener): () =>
   const address = url.href;
   let monitor = monitors.get(address);
   if (!monitor) {
-    const listeners = new Set<Listener>();
+    const listeners = new Map<Listener, WorldErrorReporter>();
     let ready: boolean | undefined;
     let lastFailure: string | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -39,18 +40,20 @@ export function watchWorldReadiness(endpoint: string, listener: Listener): () =>
         : controller.signal.aborted ? "timeout"
         : "network:" + (failure instanceof Error ? failure.name + ":" + failure.message : String(failure));
       if (cause && cause !== lastFailure) {
-        logClientError("RideWorld.readiness", failure, { endpoint: address, status, cause });
+        for (const record of new Set(listeners.values())) {
+          record("RideWorld.readiness", failure, { endpoint: address, status, cause });
+        }
       }
       lastFailure = cause;
       if (next !== ready) {
         ready = next;
-        for (const notify of listeners) notify(next);
+        for (const notify of listeners.keys()) notify(next);
       }
       if (listeners.size) timer = setTimeout(() => void check(), 1500);
     };
     monitor = {
-      subscribe(notify) {
-        listeners.add(notify);
+      subscribe(notify, record) {
+        listeners.set(notify, record);
         if (ready !== undefined) notify(ready);
         if (!request) void check();
         return () => {
@@ -64,5 +67,5 @@ export function watchWorldReadiness(endpoint: string, listener: Listener): () =>
     };
     monitors.set(address, monitor);
   }
-  return monitor.subscribe(listener);
+  return monitor.subscribe(listener, report);
 }

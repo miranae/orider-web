@@ -100,7 +100,9 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
       onChange(delivery);
     };
     return subscribeDeviceDeliverySignal(firestore, uid, `workout-receipt:${deliveryId}`,
-      () => getDocFromServer(ref), receive, onError, () => onSnapshot(ref, receive, onError));
+      () => getDocFromServer(ref), receive, onError, serverOnly => serverOnly
+        ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (!snap.metadata.fromCache) receive(snap); }, onError)
+        : onSnapshot(ref, receive, onError));
   }
 
   function subscribeRiderWorkoutDeviceState(
@@ -123,7 +125,9 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
       onChange(state);
     };
     return subscribeDeviceDeliverySignal(firestore, uid, `workout-device:${deviceId}`,
-      () => getDocFromServer(ref), receive, onError, () => onSnapshot(ref, receive, onError));
+      () => getDocFromServer(ref), receive, onError, serverOnly => serverOnly
+        ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (!snap.metadata.fromCache) receive(snap); }, onError)
+        : onSnapshot(ref, receive, onError));
   }
 
   return { subscribeRiderWorkoutDevices, createRiderWorkoutDelivery, subscribeRiderWorkoutDelivery, subscribeRiderWorkoutDeviceState };

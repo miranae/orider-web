@@ -1,5 +1,5 @@
 import { logClientError } from "../../services/errorLogger";
-import { watchWorldReadiness } from "./worldReadiness";
+import { watchWorldReadiness, type WorldErrorReporter } from "./worldReadiness";
 
 /** 기본 경로는 호출자가 유지하며, 준비된 월드의 첫 유효 신호 뒤에만 가속 경로를 활성화한다. */
 export function followWorldSignal(
@@ -7,6 +7,7 @@ export function followWorldSignal(
   subscribe: () => Promise<unknown>,
   receive: (data: unknown) => boolean,
   disconnected: (code: number) => void,
+  report: WorldErrorReporter = logClientError,
 ): () => void {
   let active = true, ready = false, denied = false, generation = 0, backoff = 500;
   let socket: WebSocket | undefined;
@@ -40,7 +41,7 @@ export function followWorldSignal(
       socket = connection;
       const failed = (phase: string, error: unknown) => {
         if (socket !== connection) return;
-        logClientError("RideWorld.signal", error, { endpoint: url, phase });
+        report("RideWorld.signal", error, { endpoint: url, phase });
         lost(1013);
       };
       initial = setTimeout(() => failed("first-frame", new Error("World signal timed out")), 3000);
@@ -52,7 +53,7 @@ export function followWorldSignal(
       connection.addEventListener("close", ({ code }) => {
         if (socket !== connection) return;
         if (code !== 1000 || !accepted) {
-          logClientError("RideWorld.signalClosed", new Error("World signal socket closed"), { endpoint: url, code });
+          report("RideWorld.signalClosed", new Error("World signal socket closed"), { endpoint: url, code });
         }
         lost(code);
       });
@@ -73,7 +74,7 @@ export function followWorldSignal(
       });
     } catch (error) {
       if (active && ticket === generation) {
-        logClientError("RideWorld.signal", error, { endpoint: url, phase: "connect" });
+        report("RideWorld.signal", error, { endpoint: url, phase: "connect" });
         lost(1013);
       }
     }
@@ -82,6 +83,6 @@ export function followWorldSignal(
     ready = available;
     if (available) void open();
     else if (!denied) lost(1013);
-  });
+  }, report);
   return () => { active = false; unwatch(); close(); };
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Notification } from "@shared/types";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, type DocumentSnapshot } from "firebase/firestore";
 import { createWebNotificationClient } from "../services/webNotifications";
 import { getRuntimeConfig, isEmulatorRuntime } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
@@ -32,7 +32,7 @@ export function useNotificationInbox() {
     const promise = (async () => {
     try { const page = await client.list(); if (request === generation.current && activeClient.current === client) setState({ client, uid, items: page.items, cursor: page.nextCursor }); }
     catch (error) {
-      logClientError("useNotificationInbox.list", error, { uid });
+      logClientError("useNotificationInbox.list", error, undefined, services, user);
       if (request === generation.current) { setState(null); setFailed(true); }
     }
     finally {
@@ -42,7 +42,7 @@ export function useNotificationInbox() {
     })();
     pendingRefresh.current = { client, generation: request, promise };
     return promise;
-  }, [client, uid]);
+  }, [client, services, uid, user]);
   useEffect(() => {
     setState(null);
     let disposed = false, again = false;
@@ -73,21 +73,29 @@ export function useNotificationInbox() {
     else {
       // 첫 조회도 첫 신호 스냅샷에서 시작한다 — 먼저 읽고 나중에 기준 revision 을 잡으면
       // 그 사이에 생긴 알림을 놓친다. 구독이 실패하면 한 번 직접 읽는다.
-      let seenRevision: unknown = undefined, first = true;
-      const changed = (revision: unknown) => {
-        if (!first && revision === seenRevision) return;
-        first = false; seenRevision = revision;
+      let canonicalRevision: unknown = undefined;
+      let worldRevision: string | null | undefined;
+      const canonicalChanged = (revision: unknown) => {
+        if (revision === canonicalRevision) return;
+        canonicalRevision = revision;
         pull();
       };
-      const fallback = (error: unknown) => { logClientError("useNotificationInbox.signal", error, { uid }); if (first) changed(null); };
+      const fallback = (error: unknown) => {
+        logClientError("useNotificationInbox.signal", error, undefined, services, user);
+        if (canonicalRevision === undefined && worldRevision === undefined) canonicalChanged(null);
+      };
       let stopSource: (() => void) | undefined;
       const startSource = () => {
         if (disposed || stopSource) return;
-        first = true;
         try {
-          stopSource = onSnapshot(doc(services.firestore, "notification_signals", uid), snap => {
-            changed(snap.exists() ? snap.data()?.revision ?? null : null);
-          }, fallback);
+          const source = doc(services.firestore, "notification_signals", uid);
+          const changed = (snap: DocumentSnapshot) => {
+            if (redisSignal && snap.metadata?.fromCache) return;
+            canonicalChanged(snap.exists() ? snap.data()?.revision ?? null : null);
+          };
+          stopSource = redisSignal
+            ? onSnapshot(source, { includeMetadataChanges: true }, changed, fallback)
+            : onSnapshot(source, changed, fallback);
         } catch (error) { fallback(error); }
       };
       const stopCanonical = () => { stopSource?.(); stopSource = undefined; };
@@ -99,8 +107,11 @@ export function useNotificationInbox() {
           const frame = data as { v?: number; type?: string; revision?: string | null } | null;
           if (frame?.v !== 1 || frame.type !== "notification_signal" ||
               (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
-          if (stopSource) { stopCanonical(); first = true; }
-          changed(frame.revision);
+          stopCanonical();
+          if (frame.revision !== worldRevision) {
+            worldRevision = frame.revision;
+            pull();
+          }
           return true;
         },
         code => {
@@ -110,6 +121,7 @@ export function useNotificationInbox() {
             setState(null); setLoading(false); setFailed(true);
           } else startSource();
         },
+        (source, error, context) => logClientError(source, error, context, services, user),
       ) : undefined;
       unsubscribe = () => { stopWorld?.(); stopCanonical(); };
     }
@@ -123,7 +135,7 @@ export function useNotificationInbox() {
       const page = await client.list(current.cursor);
       if (request === generation.current && activeClient.current === client) setState({ client, uid, items: [...current.items, ...page.items], cursor: page.nextCursor });
     } catch (error) {
-      logClientError("useNotificationInbox.more", error, { uid });
+      logClientError("useNotificationInbox.more", error, undefined, services, user);
       if (request === generation.current) { setState(null); setFailed(true); }
     }
     finally { if (request === generation.current) setLoading(false); }
@@ -138,7 +150,7 @@ export function useNotificationInbox() {
         setState(value => value?.uid === uid && value.client === client ? { ...value, items: value.items.map(item => result.ids.includes(item.id) ? { ...item, read: true } : item) } : value);
       }
     } catch (error) {
-      logClientError("useNotificationInbox.markRead", error, { uid });
+      logClientError("useNotificationInbox.markRead", error, undefined, services, user);
       if (activeClient.current === client) {
         const code = (error as { code?: string })?.code;
         if (code === "functions/permission-denied" || code === "functions/unauthenticated") {

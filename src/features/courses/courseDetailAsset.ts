@@ -230,19 +230,29 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       }
     }
   };
-  const startFirestore = () => onSnapshot(doc(services.firestore, "courses", id, "cache_metadata", "current"), (snapshot) => {
-    if (!current()) return;
-    if (!snapshot.exists()) {
-      ++generation; request?.abort(); legacy(); return;
-    }
-    legacyStop?.(); legacyStop = undefined;
-    void refresh();
-  }, (error) => {
-    if (!current()) return;
-    logClientError("CourseDetail.signalFallback", error, { courseId: id });
-    onData(null); ++generation; request?.abort(); legacy();
-  });
-  if (worldEnabled || !COURSE_ID.test(id)) legacy(worldEnabled);
+  const startFirestore = () => {
+    const source = doc(services.firestore, "courses", id, "cache_metadata", "current");
+    const next = (snapshot: DocumentSnapshot) => {
+      if (!current() || (worldEnabled && snapshot.metadata?.fromCache)) return;
+      if (!snapshot.exists()) {
+        ++generation; request?.abort(); legacy(worldEnabled); return;
+      }
+      legacyStop?.(); legacyStop = undefined;
+      void refresh();
+    };
+    const failed = (error: Error) => {
+      if (!current()) return;
+      logClientError("CourseDetail.signalFallback", error, { courseId: id }, services, user);
+      onData(null); ++generation; request?.abort(); legacy(worldEnabled);
+    };
+    return worldEnabled ? onSnapshot(source, { includeMetadataChanges: true }, next, failed) : onSnapshot(source, next, failed);
+  };
+  let stopFirestore: (() => void) | undefined;
+  const restoreFirestore = () => {
+    if (current() && !stopFirestore) stopFirestore = startFirestore();
+  };
+  if (COURSE_ID.test(id)) restoreFirestore();
+  else legacy();
   const signalStop = worldEnabled
     ? followWorldSignal("ws://127.0.0.1:19487/course-signals",
         async () => ({ v: 1, type: "course_subscribe", courseId: id }),
@@ -251,20 +261,23 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
           const frame = data as { v?: number; type?: string; revision?: string | null } | null;
           if (frame?.v !== 1 || frame.type !== "course_signal" ||
               (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
+          stopFirestore?.(); stopFirestore = undefined;
           legacyStop?.(); legacyStop = undefined;
           void refresh();
           return true;
         },
         () => {
-          if (!current() || legacyStop) return;
+          if (!current()) return;
           ++generation; request?.abort();
+          legacyStop?.(); legacyStop = undefined;
           lastVersion = undefined; lastTrack = undefined;
           onData(null);
-          legacy(true);
-        })
-    : COURSE_ID.test(id) ? startFirestore() : undefined;
+          restoreFirestore();
+        },
+        (source, error, context) => logClientError(source, error, context, services, user))
+    : undefined;
   return () => {
     disposed = true; ++generation; request?.abort();
-    legacyStop?.(); signalStop?.();
+    stopFirestore?.(); legacyStop?.(); signalStop?.();
   };
 }

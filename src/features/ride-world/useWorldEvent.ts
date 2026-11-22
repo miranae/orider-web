@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
-import { watchWorldReadiness } from "./worldReadiness";
+import { watchWorldReadiness, type WorldErrorReporter } from "./worldReadiness";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 export interface WorldEventMarker {
   id: string;
@@ -77,6 +78,7 @@ interface SignalSubscription {
 export function useWorldEvent(
   eventId: string | undefined, user: User | null | undefined, track?: string | null, viewport?: WorldViewport, signal?: SignalSubscription, trackBib?: number, allowGuest = false,
 ) {
+  const services = useFirebaseServices();
   const signalOnly = signal !== undefined;
   const signalTopic = signal?.topic;
   const scope = JSON.stringify([eventId, user?.uid, signalOnly, signalTopic, allowGuest]);
@@ -91,7 +93,9 @@ export function useWorldEvent(
         !getRuntimeConfig().firebaseProjectId?.startsWith("demo-")) return;
     const url = endpoint;
     const event = eventId;
-    const identity = user;
+    const identity = user ?? null;
+    const report: WorldErrorReporter = (source, error, context) =>
+      logClientError(source, error, context, services, identity);
     const viewerSessionId = !identity && allowGuest ? viewerSessionIdForEvent(event) : undefined;
     let disposed = false;
     let socket: WebSocket | undefined;
@@ -114,17 +118,26 @@ export function useWorldEvent(
         socket = connection;
         initial = setTimeout(() => {
           if (socket !== connection) return;
-          logClientError("RideWorld.eventFirstFrame", new Error("World event first frame timed out"), { eventId: event });
+          report("RideWorld.eventFirstFrame", new Error("World event first frame timed out"), { eventId: event });
           connection.close();
         }, 3000);
         let latest: WorldEventFrame | null = null;
         const subscribe = () => {
-          if (!disposed && connection.readyState === WebSocket.OPEN) {
+          if (disposed || socket !== connection || connection.readyState !== WebSocket.OPEN) return;
+          try {
             connection.send(JSON.stringify({ v: 1, type: "event_subscribe", eventId: event, token, guest: !identity && allowGuest, viewerSessionId, signalOnly, signalTopic, ...options.current }));
+          } catch (error) {
+            report("RideWorld.subscribeEvent", error, { eventId: event });
+            connection.close();
           }
         };
         subscribeCurrent.current = subscribe;
         connection.addEventListener("open", subscribe);
+        connection.addEventListener("error", () => {
+          if (disposed || socket !== connection) return;
+          report("RideWorld.eventTransport", new Error("World event WebSocket failed"), { eventId: event });
+          connection.close();
+        });
         connection.addEventListener("message", ({ data }) => {
           try {
             const frame = JSON.parse(String(data)) as WorldEventFrame | WorldEventDelta | MeetingSignal;
@@ -170,13 +183,14 @@ export function useWorldEvent(
             delayMs = 1000;
             setState({ scope, frame: latest });
           } catch (error) {
-            logClientError("RideWorld.decodeEvent", error, { eventId: event });
+            report("RideWorld.decodeEvent", error, { eventId: event });
+            if (socket === connection) connection.close();
           }
         });
         connection.addEventListener("close", ({ code }) => {
           if (disposed || socket !== connection) return;
           if (code !== 1000 || !hasFrame) {
-            logClientError("RideWorld.eventClosed", new Error("World event socket closed"), { eventId: event, code });
+            report("RideWorld.eventClosed", new Error("World event socket closed"), { eventId: event, code });
           }
           socket = undefined;
           hasFrame = false;
@@ -195,7 +209,7 @@ export function useWorldEvent(
         if (!disposed && attempt === generation) {
           if (signalAccepted) signalCurrent.current?.disconnected(1013);
           signalAccepted = false;
-          logClientError("RideWorld.connectEvent", error, { eventId: event });
+          report("RideWorld.connectEvent", error, { eventId: event });
           if (ready) retry = setTimeout(() => void open(), delayMs);
         }
       }
@@ -223,7 +237,7 @@ export function useWorldEvent(
       // An established stream can outlive a transient readiness probe failure.
       if (socket && hasFrame) readinessGrace = setTimeout(fallBack, 2000);
       else fallBack();
-    });
+    }, report);
     return () => {
       disposed = true;
       subscribeCurrent.current = null;
@@ -233,7 +247,7 @@ export function useWorldEvent(
       clearTimeout(initial);
       if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
     };
-  }, [eventId, scope, signalOnly, signalTopic, user, allowGuest]);
+  }, [eventId, scope, signalOnly, signalTopic, user, allowGuest, services]);
   useEffect(() => { subscribeCurrent.current?.(); }, [track, viewport?.lat, viewport?.lon, trackBib]);
   return state?.scope === scope ? state.frame : null;
 }

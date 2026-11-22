@@ -38,8 +38,9 @@ describe("코스 상세 정적 트랙", () => {
     const service = services();
     service.firestore.app.options.projectId = "demo-orider-lab";
     const onData = vi.fn();
+    sdk.onSnapshot.mockImplementation(() => vi.fn());
     const stop = subscribeCourseDetail(service, "course", onData, vi.fn());
-    expect(sdk.onSnapshot).toHaveBeenCalledWith("courses/course", { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
+    expect(sdk.onSnapshot).toHaveBeenCalledWith("courses/course/cache_metadata/current", { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
     await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(1));
     socket.dispatchEvent(new Event("open"));
     expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "course_subscribe", courseId: "course" }));
@@ -52,9 +53,9 @@ describe("코스 상세 정적 트랙", () => {
     }
     expect(onData).toHaveBeenLastCalledWith(null);
     expect(sdk.onSnapshot).toHaveBeenCalledTimes(2);
-    const observeSource = sdk.onSnapshot.mock.calls[1]?.[2] as (snapshot: unknown) => void;
-    observeSource({ exists: () => true, data: () => ({ name: "Revoked", hidden: true }) });
-    expect(onData).toHaveBeenLastCalledWith(null);
+    const observeMetadata = sdk.onSnapshot.mock.calls[1]?.[2] as (snapshot: unknown) => void;
+    observeMetadata({ exists: () => true });
+    await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
     stop();
   });
   it("상세 메타데이터가 원본 트랙과 고도를 제외한다", () => {
