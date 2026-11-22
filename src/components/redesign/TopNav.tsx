@@ -1,4 +1,5 @@
 import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
+import SafeImage from "../SafeImage";
 import type { ReactNode } from "react";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
@@ -420,7 +421,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                               }}
                             >
                               {n.fromProfileImage ? (
-                                <img src={n.fromProfileImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <SafeImage src={n.fromProfileImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               ) : (
                                 <User size={ICON_SIZE.sm} style={{ color: 'var(--ink-3)' }} />
                               )}

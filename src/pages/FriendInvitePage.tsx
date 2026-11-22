@@ -9,6 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFriends } from "../hooks/useFriends";
 import { useToast } from "../contexts/ToastContext";
 import { logClientError } from "../services/errorLogger";
+import SafeImage from "../components/SafeImage";
 import { Button, Card } from "../theme/components";
 
 interface InvitePreview {
@@ -217,7 +218,7 @@ export default function FriendInvitePage() {
           )}
           <div className="w-16 h-16 mx-auto mb-4 bg-[var(--bg-2)] rounded-full flex items-center justify-center overflow-hidden">
             {invitePreview?.photoURL ? (
-              <img src={invitePreview.photoURL} alt="" className="h-full w-full object-cover" />
+              <SafeImage src={invitePreview.photoURL} alt="" fallbackLabel={invitePreview.nickname} className="h-full w-full object-cover" />
             ) : (
               <svg
                 className="w-8 h-8 text-[color:var(--lime)]"
