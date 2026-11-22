@@ -140,10 +140,26 @@ describe("PaneAccount nickname save", () => {
       expect(storageRef).toEqual({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" });
       expect(metadata).toEqual({ cacheControl: "public, max-age=300", contentType: "image/webp" });
     }
-    expect(mocks.updateDoc).toHaveBeenCalledExactlyOnceWith(expect.anything(), { photoURL: url });
+    expect(mocks.updateDoc).toHaveBeenNthCalledWith(1, expect.anything(), { photoURL: url });
+    expect(mocks.updateDoc).toHaveBeenNthCalledWith(2, expect.anything(), { photoURL: url });
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
     await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null }));
     expect(mocks.deleteObject).toHaveBeenCalledWith({ bucket: "test.firebasestorage.app", fullPath: "profiles/u1/avatar" });
+  });
+
+  it("keeps the old photo and records the stage when the upload fails", async () => {
+    const oldPhoto = "https://example.test/old-photo.png";
+    mocks.profile = { ...mocks.profile, photoURL: oldPhoto };
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
+    const failure = new Error("upload failed");
+    mocks.uploadBytes.mockRejectedValueOnce(failure);
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    fireEvent.change(container.querySelector("input[type=file]")!, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
+    await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith("PaneAccount.changeAvatar", failure, { stage: "upload" }));
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", oldPhoto);
   });
 
   it("keeps optional medical details discoverable and places consent before account actions", () => {

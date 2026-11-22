@@ -204,7 +204,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   }, [mobileOpen, closeMobileMenu]);
 
   const nickname = profile?.nickname || user?.displayName || "";
-  const photoURL = useProfileAvatarDisplayUrl(profile ? profile.photoURL : user?.photoURL);
+  const photoURL = useProfileAvatarDisplayUrl(profile?.photoURL === undefined ? user?.photoURL : profile.photoURL);
 
   const dropdownItemStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 'var(--space-2)',

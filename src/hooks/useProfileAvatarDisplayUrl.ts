@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
+import { isEmulatorRuntime } from "../services/runtimeConfig";
 
 const listeners = new Set<() => void>();
-let lastUpload: { url: string; generation: string } | undefined;
+const generations = new Map<string, string>();
 const serverGeneration = () => undefined;
 
 function subscribe(listener: () => void) {
@@ -10,12 +11,17 @@ function subscribe(listener: () => void) {
 }
 
 export function refreshProfileAvatar(url: string, generation: string) {
-  lastUpload = { url, generation };
+  generations.set(url, generation);
   for (const listener of listeners) listener();
 }
 
 /** Refresh the edited avatar in this browser without changing its stored URL. */
 export function useProfileAvatarDisplayUrl(url?: string | null) {
-  const generation = useSyncExternalStore(subscribe, () => lastUpload?.url === url ? lastUpload?.generation : undefined, serverGeneration);
-  return url && generation ? `${url}&v=${encodeURIComponent(generation)}` : url;
+  const generation = useSyncExternalStore(subscribe, () => url ? generations.get(url) : undefined, serverGeneration);
+  let displayUrl = url;
+  const publicEndpoint = "https://firebasestorage.googleapis.com";
+  if (url?.startsWith(publicEndpoint + "/v0/b/") && url.endsWith("%2Favatar?alt=media") && isEmulatorRuntime()) {
+    displayUrl = `http://localhost:${import.meta.env.VITE_STORAGE_EMULATOR_PORT || "9199"}${url.slice(publicEndpoint.length)}`;
+  }
+  return displayUrl && generation ? `${displayUrl}&v=${encodeURIComponent(generation)}` : displayUrl;
 }

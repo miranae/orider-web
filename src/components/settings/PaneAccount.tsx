@@ -98,7 +98,8 @@ export function PaneAccount() {
     if (photoOverride && (photoOverride.uid !== user?.uid || photoOverride.url === profile?.photoURL)) setPhotoOverride(undefined);
   }, [photoOverride, profile?.photoURL, user?.uid]);
   const ownPhotoOverride = photoOverride?.uid === user?.uid ? photoOverride : undefined;
-  const photoURL = ownPhotoOverride ? ownPhotoOverride.url : profile ? profile.photoURL : user?.photoURL;
+  const savedPhotoURL = profile?.photoURL === undefined ? user?.photoURL : profile.photoURL;
+  const photoURL = ownPhotoOverride ? ownPhotoOverride.url : savedPhotoURL;
   const photoPreview = useProfileAvatarDisplayUrl(photoURL);
   if (!user) return null;
   const currentVisibility: Visibility = profile?.defaultVisibility ?? "private";
@@ -168,6 +169,7 @@ export function PaneAccount() {
       return;
     }
     setPhotoUploading(true);
+    let stage = "encode";
     try {
       const bitmap = await createImageBitmap(file);
       const canvas = document.createElement("canvas");
@@ -188,14 +190,17 @@ export function PaneAccount() {
       if (auth.currentUser?.uid !== user.uid) return;
       const storageRef = ref(storage, profileAvatarPath(user.uid));
       const url = profileAvatarUrl(storageRef.bucket, user.uid);
+      stage = "upload";
       const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "public, max-age=300" });
       if (auth.currentUser?.uid !== user.uid) return;
-      if (photoURL !== url) await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
+      stage = "save_profile";
+      await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
       if (auth.currentUser?.uid !== user.uid) return;
       refreshProfileAvatar(url, result.metadata.generation);
       setPhotoOverride({ uid: user.uid, url });
       showToast(t("profile.photoUpdated"));
-    } catch {
+    } catch (error) {
+      logClientError("PaneAccount.changeAvatar", error, { stage });
       showToast(t("profile.photoUploadFailed"));
     } finally {
       setPhotoUploading(false);
@@ -208,9 +213,14 @@ export function PaneAccount() {
     if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { destructive: true }))) return;
     if (auth.currentUser?.uid !== user.uid) return;
     setPhotoUploading(true);
+    let stage = "clear_profile";
     try {
       const storageRef = ref(storage, profileAvatarPath(user.uid));
+      await updateDoc(doc(firestore, "users", user.uid), { photoURL: null });
+      if (auth.currentUser?.uid !== user.uid) return;
+      setPhotoOverride({ uid: user.uid, url: null });
       if (isProfileAvatarUrl(photoURL, storageRef.bucket, user.uid)) {
+        stage = "delete_object";
         try {
           await deleteObject(storageRef);
         } catch (error) {
@@ -218,11 +228,9 @@ export function PaneAccount() {
         }
       }
       if (auth.currentUser?.uid !== user.uid) return;
-      await updateDoc(doc(firestore, "users", user.uid), { photoURL: null });
-      if (auth.currentUser?.uid !== user.uid) return;
-      setPhotoOverride({ uid: user.uid, url: null });
       showToast(t("profile.photoRemoved"));
-    } catch {
+    } catch (error) {
+      logClientError("PaneAccount.removeAvatar", error, { stage });
       showToast(t("profile.photoRemoveFailed"));
     } finally {
       setPhotoUploading(false);
