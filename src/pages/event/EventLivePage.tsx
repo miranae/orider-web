@@ -366,7 +366,8 @@ export default function EventLivePage() {
   }, [worldPresenceEnabled, eventId, liveReadsEnabled, hasWorldPresence]);
 
   useEffect(() => {
-    if (!eventId || !liveReadsEnabled) return;
+    if (!eventId || !liveReadsEnabled || hasWorldPresence ||
+        worldPresenceEnabled && presenceFallbackEvent !== eventId) return;
     let active = true;
     const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
     const sessionId = viewerSessionIdForEvent(eventId);
