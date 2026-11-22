@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { buildReviewContext, resolveSource, sourceImports } from './review-context.mjs';
-import { packReviewSourceGroups } from './lib/review-source-batches.mjs';
+import { MAX_REVIEW_BATCHES, packReviewSourceGroups } from './lib/review-source-batches.mjs';
 
 function fixture(t) {
   const repo = mkdtempSync(join(tmpdir(), 'review-context-'));
@@ -238,12 +238,17 @@ test("shared dependency graph fits the existing limit with complete pair and sou
   assert.deepEqual(normalized(packReviewSourceGroups({ ...request, groups: [...groups].reverse() })), normalized(chunks));
 });
 
-test("oversized dependency pairs and more than 24 required batches still fail closed", () => {
+test("promotion review covers more than 24 batches while oversized pairs and the shared cap fail closed", () => {
   const core = new Set(["bootstrap"]);
   const cost = file => file === "bootstrap" ? 100 : 700;
   const bytes = files => [...files].reduce((sum, file) => sum + cost(file), 0);
   const request = { core, cost, bytes, maxBytes: 1000 };
   assert.throws(() => packReviewSourceGroups({ ...request, groups: [new Set(["caller", "callee"])] }), /pair exceeds/);
-  const groups = Array.from({ length: 25 }, (_, index) => new Set([`source${index}`]));
-  assert.throws(() => packReviewSourceGroups({ ...request, groups }), /more than 24 batches/);
+  const groups = Array.from({ length: MAX_REVIEW_BATCHES + 1 }, (_, index) => new Set([`source${index}`]));
+  const accepted = packReviewSourceGroups({ ...request, groups: groups.slice(0, MAX_REVIEW_BATCHES) });
+  assert.equal(accepted.length, MAX_REVIEW_BATCHES);
+  for (const group of groups.slice(0, MAX_REVIEW_BATCHES)) {
+    assert.ok(accepted.some(chunk => [...group].every(file => chunk.has(file))));
+  }
+  assert.throws(() => packReviewSourceGroups({ ...request, groups }), /more than 64 batches/);
 });

@@ -9,11 +9,21 @@ import {
 import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createClubMeetingsApi } from "../../services/clubMeetings";
 import { logClientError } from "../../services/errorLogger";
+import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { newClubMeeting } from "./meetingCopy";
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 vi.mock("../../services/clubMeetings", () => { const api = {
   getClubMeetingSnapshot: vi.fn(),
 }; return { ...api, createClubMeetingsApi: vi.fn(() => api) }; });
+const worldSignals = vi.hoisted(() => ({
+  current: undefined as undefined | { changed: (version: string | null) => void; disconnected: (code: number) => void },
+}));
+vi.mock("../ride-world/useWorldEvent", () => ({
+  useWorldEvent: (_id: unknown, _user: unknown, _track: unknown, _viewport: unknown, options: typeof worldSignals.current) => {
+    worldSignals.current = options;
+    return null;
+  },
+}));
 const signals = vi.hoisted(() => ({ listeners: [] as {path: string; next: (snapshot: any) => void; error: (error: unknown) => void; stop: ReturnType<typeof vi.fn>}[] }));
 vi.mock("firebase/firestore", () => ({
   doc: (_db: unknown, path: string) => path,
@@ -31,7 +41,7 @@ const snapshot = (revision: number): ClubMeetingSnapshot => ({
   meeting: newClubMeeting(),
   members: [],
 });
-afterEach(() => { cleanup(); signals.listeners = []; vi.useRealTimers(); vi.restoreAllMocks(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); signals.listeners = []; vi.useRealTimers(); vi.restoreAllMocks(); vi.resetAllMocks(); vi.unstubAllEnvs(); resetRuntimeConfigForTests(); });
 describe("서버 모임 읽기 상태", () => {
   it("이전 poll 응답이 조작 후 최신 응답을 덮어쓰지 않는다", async () => {
     let first!: (value: ClubMeetingSnapshot) => void;
@@ -117,6 +127,45 @@ describe("변경 신호 기반 스냅샷 비용", () => {
     act(() => { document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new Event("focus")); });
     await tick();
   };
+
+  it("월드 신호로 준비 화면을 갱신하고 연결이 끊기면 기존 신호를 다시 구독한다", async () => {
+    const { result } = setup({ ...snapshot(1), snapshotSignalVersion: "1:0" });
+    await tick();
+    const fallback = signals.listeners.find(({ path }) => path.endsWith("meeting_snapshot_signals/latest"))!;
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValue({ ...snapshot(2), snapshotSignalVersion: "2:0" });
+    act(() => worldSignals.current?.changed("2:0"));
+    await tick();
+    expect(fallback.stop).toHaveBeenCalledOnce();
+    expect(result.current.data?.revision).toBe(2);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    act(() => worldSignals.current?.disconnected(1013));
+    expect(signals.listeners.filter(({ path }) => path.endsWith("meeting_snapshot_signals/latest"))).toHaveLength(2);
+  });
+
+  it("로컬 Redis 신호가 끊기면 Firestore를 구독하고 복구 뒤 원본 스냅샷을 다시 읽는다", async () => {
+    vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
+    vi.stubEnv("VITE_ORIDER_LOCAL_MEETING_REDIS", "1");
+    resetRuntimeConfigForTests({ useEmulators: true, firebaseProjectId: "demo-orider-world" });
+    const { result } = setup();
+    await tick();
+    act(() => worldSignals.current?.changed("2:000000000"));
+    await tick();
+    act(() => worldSignals.current?.disconnected(1013));
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValue(snapshot(3));
+    act(() => worldSignals.current?.changed(null));
+    await tick();
+    expect(result.current.data?.revision).toBe(3);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+    const fallbackListeners = signals.listeners.filter(({ path }) => path.endsWith("meeting_snapshot_signals/latest"));
+    expect(fallbackListeners).toHaveLength(2);
+    expect(fallbackListeners[1]?.stop).toHaveBeenCalledOnce();
+
+    vi.mocked(getClubMeetingSnapshot).mockRejectedValue({ code: "functions/permission-denied" });
+    act(() => worldSignals.current?.disconnected(4003));
+    expect(result.current.data).toBeNull();
+    await tick();
+    expect(result.current.error).toEqual({ code: "functions/permission-denied" });
+  });
 
   it("변경 없는 화면은 수백 분을 열어도 최초 스냅샷만 읽는다", async () => {
     setup({...snapshot(1), snapshotSignalVersion: "1:0"});

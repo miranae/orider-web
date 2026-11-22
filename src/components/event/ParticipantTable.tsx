@@ -7,8 +7,8 @@ export interface LocationData {
   uid: string;
   lat: number;
   lng: number;
-  speed: number;
-  distance: number;
+  speed: number | null;
+  distance: number | null;
   status: string;
   displayName: string;
   bib: number | null;
@@ -155,7 +155,7 @@ export default function ParticipantTable({
               const emoji = pendingFinish && statusKey === "FINISHED" ? "⏹" : STATUS_EMOJIS[statusKey] ?? "·";
               const label = getStatusLabel(loc.status);
               const sel = loc.uid === selectedUid;
-              const distKm = loc.distance / 1000;
+              const distKm = loc.distance == null ? null : loc.distance / 1000;
               return (
                 <tr
                   key={loc.uid}
@@ -197,17 +197,17 @@ export default function ParticipantTable({
                     </span>
                   </td>
                   <td style={{ padding: "9px 14px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
-                    {distKm.toFixed(1)} km
+                    {distKm?.toFixed(1) ?? "—"} km
                   </td>
                   <td
                     style={{
                       padding: "9px 14px",
                       textAlign: "right",
                       fontFamily: "var(--font-mono)",
-                      color: loc.speed > 0 ? "var(--ink-2)" : "var(--ink-3)",
+                      color: loc.speed != null && loc.speed > 0 ? "var(--ink-2)" : "var(--ink-3)",
                     }}
                   >
-                    {loc.speed > 0 ? loc.speed.toFixed(1) : "–"}
+                    {loc.speed != null && loc.speed > 0 ? loc.speed.toFixed(1) : "–"}
                   </td>
                   <td style={{ padding: "9px 14px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--ink-3)" }}>
                     CP{loc.lastCp ?? 0}

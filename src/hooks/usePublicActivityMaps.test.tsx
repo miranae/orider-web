@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { usePublicActivityMaps } from "./usePublicActivityMaps";
 type Listener = { path: string; next: (snapshot: { data: () => { seq?: number } | undefined }) => void; error: (error: Error) => void; unsubscribe: ReturnType<typeof vi.fn> };
-const m = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string; isAnonymous?: boolean }, services: { auth: { currentUser: {} as unknown }, firestore: {} }, load: vi.fn(), listeners: [] as Listener[] }));
+const m = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string; isAnonymous?: boolean }, services: { auth: { currentUser: {} as unknown }, firestore: { app: { options: { projectId: "fixture" } } } }, load: vi.fn(), listeners: [] as Listener[] }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: m.user }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => m.services }));
 vi.mock("../services/publicActivityMaps", () => ({ loadPublicActivityMap: (...args: unknown[]) => m.load(...args) }));
@@ -17,7 +17,64 @@ const signalAt = (path: string, seq?: number) => act(() => { m.listeners.filter(
 const signal = (id: string, seq?: number) => signalAt(`activity_map_signals/${id}`, seq);
 const viewerSignal = (seq?: number) => signalAt("activity_map_viewer_signals/owner", seq);
 beforeEach(() => { vi.clearAllMocks(); m.listeners = []; m.user = { uid: "owner", isAnonymous: true }; m.services.auth.currentUser = m.user; m.load.mockResolvedValue(map); });
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); m.services.firestore.app.options.projectId = "fixture"; });
 
+it("drops an in-flight map after a Redis revocation and clears any displayed map when the socket fails", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
+  vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
+  vi.stubEnv("VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS", "1");
+  m.services.firestore.app.options.projectId = "demo-orider-lab";
+  m.services.auth.currentUser = { uid: "owner", getIdToken: async () => "emulator-token" };
+  const socket = { send: vi.fn(), close: vi.fn(), onopen: vi.fn(), onmessage: (_: { data: string }) => {}, onclose: vi.fn() };
+  const open = vi.fn();
+  vi.stubGlobal("WebSocket", class { constructor() { open(); return socket; } });
+  let settle!: (value: unknown) => void;
+  m.load.mockImplementationOnce(() => new Promise(resolve => { settle = resolve; })).mockResolvedValue(null);
+  const view = renderHook(() => usePublicActivityMaps(["a"]));
+  await waitFor(() => expect(open).toHaveBeenCalledOnce());
+  const frame = { data: JSON.stringify({ v: 1, type: "activity_map_signal" }) };
+  act(() => socket.onopen());
+  expect(socket.send).toHaveBeenCalledWith(expect.stringContaining("emulator-token"));
+  expect(m.listeners).toHaveLength(2);
+  act(() => socket.onmessage(frame));
+  expect(m.listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
+  act(() => socket.onmessage(frame));
+  await act(async () => settle(map));
+  await waitFor(() => expect(view.result.current.maps).toEqual({ a: null }));
+  m.load.mockResolvedValue(map);
+  act(() => socket.onmessage(frame));
+  await waitFor(() => expect(view.result.current.maps.a).toEqual(map));
+  act(() => socket.onclose(new CloseEvent('close', { code: 1013 })));
+  expect(view.result.current).toMatchObject({ maps: {}, failed: true });
+  expect(m.listeners.filter(listener => !listener.unsubscribe.mock.calls.length)).toHaveLength(2);
+  view.unmount();
+});
+it("shares one connection across visible cards and refreshes only the changed activity", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
+  vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
+  vi.stubEnv("VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS", "1");
+  m.services.firestore.app.options.projectId = "demo-orider-lab";
+  m.services.auth.currentUser = { uid: "owner", getIdToken: async () => "emulator-token" };
+  const socket = { send: vi.fn(), close: vi.fn(), onopen: vi.fn(), onmessage: (_: { data: string }) => {} };
+  const open = vi.fn();
+  vi.stubGlobal("WebSocket", class { constructor() { open(); return socket; } });
+  const first = renderHook(() => usePublicActivityMaps(["a"]));
+  const second = renderHook(() => usePublicActivityMaps(["b"]));
+  try {
+    await waitFor(() => expect(open).toHaveBeenCalledOnce());
+    act(() => socket.onopen());
+    expect(JSON.parse(socket.send.mock.calls[0][0]).activityIds).toEqual(["a", "b"]);
+    const frame = (activityId?: string) => ({ data: JSON.stringify({ v: 1, type: "activity_map_signal", activityId }) });
+    act(() => socket.onmessage(frame()));
+    await waitFor(() => expect(m.load).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+    m.load.mockClear();
+    act(() => socket.onmessage(frame("a")));
+    await waitFor(() => expect(m.load).toHaveBeenCalledTimes(1));
+    expect(m.load).toHaveBeenCalledWith(m.services, "a");
+    expect(second.result.current.maps.b).toBeDefined();
+  } finally { first.unmount(); second.unmount(); }
+});
 it("loads once every signal has a baseline and never polls", async () => {
   vi.useFakeTimers();
   const view = renderHook(() => usePublicActivityMaps(["a", "b"]));

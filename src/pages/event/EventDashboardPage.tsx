@@ -1,3 +1,4 @@
+import { useWorldEvent, type WorldViewport } from "../../features/ride-world/useWorldEvent";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -9,6 +10,8 @@ import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, getDoc, getDocs, collection, onSnapshot } from "firebase/firestore";
+import { subscribeOperatorSnapshot } from "./operatorSnapshotStream";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { loadPrivateSnapshotWithRetry } from "./privateSnapshotPages";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
@@ -18,6 +21,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
+import EventMap from "../../components/event/EventMap";
 import { decodePolyline } from "../../utils/polyline";
 import ParticipantTable from "../../components/event/ParticipantTable";
 import { localeTag } from "../../utils/localeDate";
@@ -89,11 +93,12 @@ interface EventInfo {
 }
 
 interface SnapshotLocation {
+  rideKind?: "outdoor" | "virtual";
   uid: string;
   lat: number;
   lng: number;
-  speed: number;
-  distance: number;
+  speed: number | null;
+  distance: number | null;
   status: string;
   displayName: string;
   bib: number | null;
@@ -247,7 +252,8 @@ export default function EventDashboardPage() {
 }
 
 function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permissions: ReturnType<typeof eventPermissions>; onStart: () => void; operatorBusy: boolean }) {
-  const { auth, firestore: db, functions, getAppCheckToken } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { auth, firestore: db, functions, getAppCheckToken } = services;
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -275,7 +281,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
 
   const [eventInfo, setEventInfo] = useState<EventInfo | null>(null);
   const [registeredCount, setRegisteredCount] = useState<number>(0);
-  const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
+  const [savedSnapshot, setSnapshot] = useState<SnapshotData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
@@ -334,6 +340,10 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const [viewerCount, setViewerCount] = useState(0);
   const eventStatus = eventInfo?.status;
   const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
+  const [viewport, setViewport] = useState<WorldViewport>();
+  const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport);
+  const snapshot = savedSnapshot;
+  const mapLocations = savedSnapshot?.locations ?? [];
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
@@ -355,7 +365,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     void refresh();
     const timer = window.setInterval(() => void refresh(), 30_000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [eventId, eventStatus, trackingEnded]);
+  }, [eventId, eventStatus, trackingEnded, db]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -489,15 +499,13 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
       if (!page.exists()) throw new Error("이벤트 위치 페이지가 누락됨");
       return (page.data().locations ?? []) as SnapshotLocation[];
     };
-    const unsub = onSnapshot(
-      latestRef,
-      (snap) => {
+    const receive = (snapshot: SnapshotData | null) => {
         if (!isCurrentSnapshot()) return;
-        if (snap.exists()) {
+        if (snapshot) {
           const currentRevision = ++revision;
           void (async () => {
             const { snapshot: raw, locations } = await loadPrivateSnapshotWithRetry(
-              snap.data() as SnapshotData, readPage, async () => {
+              snapshot, readPage, async () => {
                 const latest = await getDoc(latestRef);
                 return latest.exists() ? latest.data() as SnapshotData : null;
               },
@@ -585,21 +593,41 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         } else {
           revision++;
           setSnapshot(null);
+          setAlerts([]);
           setSnapshotError(null);
         }
         setLoading(false);
-      },
-      (err) => {
+    };
+    const snapshotFailed = (err: Error) => {
         if (!isCurrentSnapshot()) return;
         revision++;
         logClientError("EventDashboard.liveSnapshot", err, { eventId });
         setSnapshot(null);
+        setAlerts([]);
+        prevStatusRef.current.clear();
+        prevCpRef.current.clear();
         setSnapshotError(err.message ?? t("dashboard.errorLoadSnapshot"));
         setLoading(false);
-      }
-    );
+    };
+    const fallback = () => onSnapshot(latestRef, snap => receive(snap.exists() ? snap.data() as SnapshotData : null), snapshotFailed);
+    const useRedis = import.meta.env.DEV && import.meta.env.VITE_ORIDER_OPERATOR_SNAPSHOTS === "1" &&
+      isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-");
+    const refreshCanonical = (current: () => boolean) => {
+      void getDoc(latestRef).then(snap => {
+        if (current()) receive(snap.exists() ? snap.data() as SnapshotData : null);
+      }).catch(error => {
+        logClientError("EventDashboard.signalRead", error, { eventId }, services, user);
+        if (current()) snapshotFailed(error);
+      });
+    };
+    const unsub = useRedis && user ? subscribeOperatorSnapshot(
+      eventId, user, receive,
+      () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))),
+      fallback, refreshCanonical,
+      (source, error, context) => logClientError(source, error, context, services, user),
+    ) : fallback();
     return () => { active = false; revision++; unsub(); };
-  }, [authEpoch, eventId, eventStatus, trackingEnded, t, user?.uid, snapshotAttempt]);
+  }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt, db, services]);
 
   const handleFinishEvent = useCallback(async () => {
     if (!permissions.canStartFinish || !eventId || !user || finishing || pendingFinish.current || auth.currentUser?.uid !== user.uid) return;
@@ -909,7 +937,17 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         {/* Center: map + table */}
         <section style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
           <div style={{ flex: 1, minHeight: 300, position: "relative" }}>
-            <RouteMap
+            {worldFrame ? (
+              <EventMap
+                locations={mapLocations}
+                selectedUid={selectedUid}
+                onSelectParticipant={setSelectedUid}
+                courseLatlngs={combinedRoute ? [combinedRoute] : undefined}
+                waypoints={courseWaypoints.map((point, index) => ({ ...point, id: String(index) }))}
+                onWorldViewport={setViewport}
+                followSelected
+              />
+            ) : <RouteMap
               latlng={combinedRoute}
               height="h-full"
               interactive
@@ -920,7 +958,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                 name: w.name,
                 icon: LANE_ICONS[w.lane],
               }))}
-            />
+            />}
             {!trackingEnded && <div
               style={{
                 position: "absolute",

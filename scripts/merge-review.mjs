@@ -4,6 +4,7 @@ import { accessSync, constants, copyFileSync, mkdirSync, readFileSync, realpathS
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { MAX_REVIEW_BATCHES } from "./lib/review-source-batches.mjs";
 import { enforceReviewFloor } from "./review-policy.mjs";
 
 export class IsolationError extends Error {}
@@ -281,7 +282,7 @@ async function main() {
   let inputs = [input];
   if (input.startsWith('{"reviewBatches":')) {
     const value = JSON.parse(input);
-    if (Object.keys(value).join() !== "reviewBatches" || !Array.isArray(value.reviewBatches) || !value.reviewBatches.length || value.reviewBatches.length > 24 || value.reviewBatches.some(text => typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > 1040000)) throw new Error("Invalid review batches");
+    if (Object.keys(value).join() !== "reviewBatches" || !Array.isArray(value.reviewBatches) || !value.reviewBatches.length || value.reviewBatches.length > MAX_REVIEW_BATCHES || value.reviewBatches.some(text => typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > 1040000)) throw new Error("Invalid review batches");
     inputs = value.reviewBatches;
   }
   const result = await reviewWithFallback({ binding: reviewBinding(request, diff, input), diff, input,
