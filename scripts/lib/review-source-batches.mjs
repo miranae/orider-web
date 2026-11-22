@@ -1,3 +1,5 @@
+export const MAX_REVIEW_BATCHES = 64;
+
 /** Keep complete dependency groups together without repeatedly copying shared sources. */
 export function packReviewSourceGroups({ groups, core, cost, bytes, maxBytes }) {
   const ordered = [...new Map(groups.map(group => [
@@ -39,6 +41,6 @@ export function packReviewSourceGroups({ groups, core, cost, bytes, maxBytes }) 
     chunks.push(chunk);
   }
   if (!chunks.length) chunks.push(new Set(core));
-  if (chunks.length > 24) throw new Error("Review requires more than 24 batches; split the PR");
+  if (chunks.length > MAX_REVIEW_BATCHES) throw new Error(`Review requires more than ${MAX_REVIEW_BATCHES} batches; split the PR`);
   return chunks;
 }
