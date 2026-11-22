@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import {
   collection,
   doc,
+  getDocFromServer,
+  getDocsFromServer,
   limit,
   onSnapshot,
   orderBy,
   query,
   where,
+  type DocumentSnapshot,
+  type QuerySnapshot,
 } from "firebase/firestore";
 
 import {
@@ -19,6 +23,7 @@ import {
 } from "@shared/types/threshold";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
+import { subscribeDeviceDeliverySignal } from "../services/deviceDeliverySignal";
 
 interface Options {
   uid?: string | null;
@@ -55,7 +60,9 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
   // 임베드 진입(`/embed/*`)은 일반 Firebase 를 초기화하지 않고 **임베드 전용 named app**
   // 을 쓴다. `services/firebase` 의 모듈 싱글턴을 직접 쓰면 그 경로에서 undefined 라
   // `collection()` 이 던지고, 피트니스 표면이 통째로 렌더되지 않는다 (#847).
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
+  const viewer = services.auth?.currentUser ?? null;
   const [state, setState] = useState<ScopedState>({ ...EMPTY_STATE, scopeKey: "" });
   const decisionGeneration = useRef(0);
   const receiptGeneration = useRef(0);
@@ -131,35 +138,61 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
         : current);
       return;
     }
-    const receiptRef = doc(firestore, "users", uid, "ftpMutationReceipts", encodeURIComponent(mutationId));
-    const unsubscribeReceipt = onSnapshot(receiptRef, (snapshot) => {
+    const receiptId = encodeURIComponent(mutationId);
+    const receiptRef = doc(firestore, "users", uid, "ftpMutationReceipts", receiptId);
+    const receiveReceipt = (snapshot: DocumentSnapshot) => {
       if (receiptGeneration.current !== generation) return;
       const parsed = snapshot.exists() ? parseFtpMutationReceipt(snapshot.data()) : null;
       setState((current) => current.scopeKey === scopeKey ? {
           ...current,
           receipt: parsed?.mutationId === mutationId ? parsed : null,
         } : current);
-    }, (error) => logClientError("useBikeFtpDecision.receipt", error, { mutationId }));
+    };
+    const receiptError = (error: Error, target?: "receipt" | "deviceReceipts") => {
+      const { code } = error as Error & { code?: string };
+      if (receiptGeneration.current === generation && (code === "permission-denied" || code === "unauthenticated")) {
+        setState(current => current.scopeKey === scopeKey ? {
+          ...current,
+          receipt: target === "deviceReceipts" ? current.receipt : null,
+          deviceReceipts: target === "receipt" ? current.deviceReceipts : [],
+        } : current);
+      }
+      logClientError("useBikeFtpDecision.receipt", error, { mutationId, target }, services, viewer);
+    };
 
     const deviceQuery = query(
       collection(firestore, "users", uid, "deviceStateReceipts"),
       where("ftpRevision", "==", mutationId),
       limit(25),
     );
-    const unsubscribeDevices = onSnapshot(deviceQuery, (snapshot) => {
+    const receiveDevices = (snapshot: QuerySnapshot) => {
       if (receiptGeneration.current !== generation) return;
       const deviceReceipts = snapshot.docs
         .map((item) => parseFtpDeviceReceipt({ ...item.data(), deviceId: item.id }))
         .filter((item): item is FtpDeviceReceipt => item?.ftpRevision === mutationId);
       setState((current) => current.scopeKey === scopeKey ? { ...current, deviceReceipts } : current);
-    }, (error) => logClientError("useBikeFtpDecision.deviceReceipts", error, { mutationId }));
+    };
+    const unsubscribe = subscribeDeviceDeliverySignal(firestore, uid, `ftp-receipt:${receiptId}`,
+      () => Promise.all([getDocFromServer(receiptRef), getDocsFromServer(deviceQuery)] as const),
+      ([receipt, devices]) => { receiveReceipt(receipt); receiveDevices(devices); },
+      receiptError, (serverOnly, isCurrent) => {
+        const failReceipt = (error: Error) => receiptError(error, "receipt");
+        const failDevices = (error: Error) => receiptError(error, "deviceReceipts");
+        const serverOptions = { includeMetadataChanges: true };
+        const stopReceipt = serverOnly
+          ? onSnapshot(receiptRef, serverOptions, snap => { if (isCurrent() && !snap.metadata.fromCache) receiveReceipt(snap); }, error => { if (isCurrent()) failReceipt(error); })
+          : onSnapshot(receiptRef, receiveReceipt, failReceipt);
+        const stopDevices = serverOnly
+          ? onSnapshot(deviceQuery, serverOptions, snap => { if (isCurrent() && !snap.metadata.fromCache) receiveDevices(snap); }, error => { if (isCurrent()) failDevices(error); })
+          : onSnapshot(deviceQuery, receiveDevices, failDevices);
+        return () => { stopReceipt(); stopDevices(); };
+      }, (source, error, context) => logClientError(source, error, context, services, viewer));
 
     return () => {
       if (receiptGeneration.current === generation) receiptGeneration.current += 1;
-      unsubscribeReceipt();
-      unsubscribeDevices();
+      unsubscribe();
     };
-  }, [active, enabled, firestore, mutationId, scopeKey, uid]);
+  }, [active, enabled, firestore, mutationId, scopeKey, uid, services, viewer]);
 
   if (state.scopeKey !== scopeKey) {
     return { ...EMPTY_STATE, loading: Boolean(uid && enabled) };

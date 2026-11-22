@@ -22,8 +22,42 @@ beforeEach(() => {
     return vi.fn();
   });
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
 describe("코스 상세 정적 트랙", () => {
+  it.each(["disconnect", "invalid frame"])("로컬 월드 변경 신호 실패(%s) 뒤 Firestore에서 다시 확인한다", async failure => {
+    vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
+    vi.stubEnv("VITE_ORIDER_LOCAL_COURSE_REDIS", "1");
+    const socket = Object.assign(new EventTarget(), { send: vi.fn(), close: vi.fn() });
+    const connect = vi.fn();
+    vi.stubGlobal("WebSocket", class { constructor() { connect(); return socket; } });
+    const version = await hash(body);
+    const fetcher = vi.fn().mockImplementation((url: string) => url.endsWith("/ready")
+      ? Promise.resolve(new Response(null, { status: 204 }))
+      : Promise.resolve(new Response(url.includes("documents/") ? JSON.stringify(fields(version)) : body)));
+    vi.stubGlobal("fetch", fetcher);
+    const service = services();
+    service.firestore.app.options.projectId = "demo-orider-lab";
+    const onData = vi.fn();
+    sdk.onSnapshot.mockImplementation(() => vi.fn());
+    const stop = subscribeCourseDetail(service, "course", onData, vi.fn());
+    expect(sdk.onSnapshot).toHaveBeenCalledWith("courses/course/cache_metadata/current", { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
+    await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(1));
+    socket.dispatchEvent(new Event("open"));
+    expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "course_subscribe", courseId: "course" }));
+    socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "course_signal", revision: null }) }));
+    await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
+    if (failure === "invalid frame") {
+      socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "course_signal", revision: "invalid" }) }));
+    } else {
+      socket.dispatchEvent(new CloseEvent("close", { code: 1013 }));
+    }
+    expect(onData).toHaveBeenLastCalledWith(null);
+    expect(sdk.onSnapshot).toHaveBeenCalledTimes(2);
+    const observeMetadata = sdk.onSnapshot.mock.calls[1]?.[2] as (snapshot: unknown) => void;
+    observeMetadata({ exists: () => true });
+    await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
+    stop();
+  });
   it("상세 메타데이터가 원본 트랙과 고도를 제외한다", () => {
     const url = courseMetadataUrl(services().firestore, "course");
     expect(url).toContain("mask.fieldPaths=trackAsset");

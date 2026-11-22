@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type ClubMeetingSnapshot } from "../../services/clubMeetings";
 import { logClientError } from "../../services/errorLogger";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
+import { useWorldEvent } from "../ride-world/useWorldEvent";
 import { useClubMeetingsApi } from "./useClubMeetingsApi";
 
 const RETRY_DELAYS = [1000, 5000, 15_000];
@@ -20,6 +22,18 @@ export function useClubMeeting(
   if (current.current.scope !== scope) {
     current.current = { scope, generation: current.current.generation + 1 };
   }
+  const worldChange = useRef<(version: string | null) => void>(() => {});
+  const worldDisconnect = useRef<(code: number) => void>(() => {});
+  const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+    import.meta.env.VITE_ORIDER_LOCAL_MEETING_REDIS === "1" && isEmulatorRuntime() &&
+    getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true;
+  const worldPhase = useRef<(phase: string) => void>(() => {});
+  const viewer = services.auth?.currentUser;
+  useWorldEvent(groupId && uid && uid === viewer?.uid ? eventId : undefined, viewer, undefined, undefined, {
+    changed: version => worldChange.current(version),
+    disconnected: code => worldDisconnect.current(code),
+    phaseChanged: phase => worldPhase.current(phase),
+  });
   const controller = useRef<((cursor?: string) => Promise<void>) | null>(null);
   const [state, setState] = useState<{
     scope: string;
@@ -52,6 +66,10 @@ export function useClubMeeting(
     let signalFailed = false;
     let retrySignalTimer: ReturnType<typeof setTimeout> | undefined;
     let stops: (() => void)[] = [];
+    let stopLocationSignal: (() => void) | undefined;
+    let attachFallback: (() => void) | undefined;
+    let worldActive = false;
+    const stopSignal = () => { stopLocationSignal?.(); stopLocationSignal = undefined; };
     const newerSignal = (candidate: string | null | undefined, previous: string | null | undefined) => {
       if (!candidate) return false;
       if (!previous) return true;
@@ -74,7 +92,10 @@ export function useClubMeeting(
         Date.now() < data.runtimeWindow.opensAtMs && data.rideStatus !== "CANCELLED") {
         timer = setTimeout(() => {
           dirty = true;
-          if (automatic()) void request(false).catch(() => {});
+          if (automatic()) void request(false).catch(error => {
+          // request() logs the sanitized failure before rejecting.
+          if (valid()) setState({ scope, data, loading: false, error });
+        });
           else schedule();
         }, Math.min(2_147_483_647, data.runtimeWindow.opensAtMs - Date.now()));
         return;
@@ -83,7 +104,10 @@ export function useClubMeeting(
       const delay = failures ? RETRY_DELAYS[failures - 1] : dirty ? 0 : undefined;
       if (delay === undefined) return;
       timer = setTimeout(() => {
-        if (automatic()) void request(false).catch(() => {});
+        if (automatic()) void request(false).catch(error => {
+          // request() logs the sanitized failure before rejecting.
+          if (valid()) setState({ scope, data, loading: false, error });
+        });
       }, delay);
     };
     // 유효한 요청 실패는 여기서 기록하고 다시 던진다. 자동 호출부는 이미 기록된 거부만 흡수한다.
@@ -151,18 +175,51 @@ export function useClubMeeting(
       dirty = true;
       schedule();
     };
+    worldChange.current = version => {
+      if (!valid()) return;
+      const reconnected = redisSignals && !worldActive;
+      worldActive = true;
+      if (reconnected) consumedSignalVersion = undefined;
+      signalVersion = version;
+      stopSignal();
+      if (signalFailed) { signalFailed = false; changed(); }
+      else if (reconnected && (data || inFlight)) changed();
+      else if (data && hasNewerSignal()) changed();
+    };
+    worldPhase.current = phase => {
+      if (data && phase !== data.rideStatus) changed();
+    };
+    worldDisconnect.current = code => {
+      if (!valid()) return;
+      worldActive = false;
+      if (code === 4003) {
+        // The server has revoked the socket scope. Drop the old roster before the callable reauthorizes.
+        identity.generation++;
+        inFlight = false;
+        data = null;
+        setState({ scope, data: null, loading: true, error: null });
+        if (!document.hidden && !denied) void request(false).catch(error => {
+          // request() logs the sanitized failure before rejecting.
+          if (valid()) setState({ scope, data, loading: false, error });
+        });
+      }
+      attachFallback?.();
+    };
     const subscribe = () => {
       clearTimeout(retrySignalTimer);
       const attempt = ++subscription;
       const subscribed = () => valid() && attempt === subscription;
       stops.forEach(stop => stop());
       stops = [];
+      stopSignal();
+      attachFallback = undefined;
       if (!valid() || document.hidden || denied) return;
       const failed = (error: unknown) => {
         if (!subscribed()) return;
         subscription++;
         stops.forEach(stop => stop());
         stops = [];
+        stopSignal();
         const code = String((error as {code?: unknown})?.code ?? "");
         const terminal = /^(?:permission-denied|unauthenticated|not-found)$/.test(code);
         logClientError("ClubMeetingSnapshot.signal", new Error("모임 변경 신호 읽기 실패"),
@@ -183,14 +240,20 @@ export function useClubMeeting(
         if (delay !== undefined) retrySignalTimer = setTimeout(subscribe, delay);
       };
       try {
-        stops.push(onSnapshot(doc(services.firestore, `events/${eventId}/meeting_snapshot_signals/latest`), { includeMetadataChanges: true }, snapshot => {
-          if (!subscribed() || snapshot.metadata.fromCache) return;
+        attachFallback = () => {
+          if (worldActive || stopLocationSignal || !subscribed() || document.hidden || denied) return;
+          try {
+            stopLocationSignal = onSnapshot(doc(services.firestore, `events/${eventId}/meeting_snapshot_signals/latest`), { includeMetadataChanges: true }, snapshot => {
+          if (!subscribed() || worldActive || snapshot.metadata.fromCache) return;
           signalFailures = 0;
           const stamp = snapshot.data()?.updatedAt;
           signalVersion = stamp ? `${stamp.seconds}:${stamp.nanoseconds}` : null;
           if (signalFailed) { signalFailed = false; changed(); }
           else if (data && !inFlight && hasNewerSignal()) changed();
-        }, failed));
+            }, failed);
+          } catch (error) { failed(error); }
+        };
+        attachFallback();
         for (const path of [`events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`]) {
           let previous: string | undefined;
           let previousContext: string | undefined;
@@ -216,7 +279,10 @@ export function useClubMeeting(
                 inFlight = false;
                 data = null;
                 setState({scope, data: null, loading: true, error: null});
-                void request(false).catch(() => {});
+                void request(false).catch(error => {
+          // request() logs the sanitized failure before rejecting.
+          if (valid()) setState({ scope, data, loading: false, error });
+        });
                 previous = signature;
                 previousContext = context;
                 return;
@@ -225,7 +291,10 @@ export function useClubMeeting(
             }
             if (previous !== undefined && previous !== signature) {
               if (inFlight) changed();
-              else void request(false).catch(() => {});
+              else void request(false).catch(error => {
+          // request() logs the sanitized failure before rejecting.
+          if (valid()) setState({ scope, data, loading: false, error });
+        });
             }
             previous = signature;
           }, failed));
@@ -233,7 +302,10 @@ export function useClubMeeting(
       } catch (error) { failed(error); }
     };
     subscribe();
-    if (!document.hidden) void request(false).catch(() => {});
+    if (!document.hidden) void request(false).catch(error => {
+          // request() logs the sanitized failure before rejecting.
+          if (valid()) setState({ scope, data, loading: false, error });
+        });
     // 같은 복귀 전환의 visibility/focus 이벤트를 한 요청으로 합친다.
     const wake = () => {
       if (document.hidden) {
@@ -244,6 +316,7 @@ export function useClubMeeting(
         subscription++;
         stops.forEach(stop => stop());
         stops = [];
+        stopSignal();
         clearTimeout(retrySignalTimer);
         return;
       }
@@ -253,13 +326,20 @@ export function useClubMeeting(
         lastWakeAt = Date.now();
         signalFailures = 0;
         subscribe();
-        void request(false).catch(() => {});
+        void request(false).catch(error => {
+          // request() logs the sanitized failure before rejecting.
+          if (valid()) setState({ scope, data, loading: false, error });
+        });
       }, 0);
     };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("focus", wake);
     return () => {
       disposed = true;
+      worldChange.current = () => {};
+      worldDisconnect.current = () => {};
+      worldPhase.current = () => {};
+      stopSignal();
       controller.current = null;
       clearTimer();
       clearTimeout(wakeTimer);
@@ -269,7 +349,7 @@ export function useClubMeeting(
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
     };
-  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot, services]);
+  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot, services, redisSignals]);
   return {
     data: state.scope === scope ? state.data : null,
     loading: state.scope !== scope || state.loading,

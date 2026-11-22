@@ -1,3 +1,4 @@
+import { isLocalWorldEventEnabled, useWorldEvent, type WorldViewport } from "../../features/ride-world/useWorldEvent";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -17,7 +18,7 @@ import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
 import { Button, Card, IconButton, Switch, Text, Input } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
-import { activeViewerCountFromSummary, createViewerSessionId } from "../../features/event/viewerPresence";
+import { activeViewerCountFromSummary, viewerSessionIdForEvent } from "../../features/event/viewerPresence";
 import { createViewerHeartbeatRunner } from "../../features/event/liveViewerRecovery";
 import { useAuth } from "../../contexts/AuthContext";
 import AppInstallLinks from "../../components/AppInstallLinks";
@@ -30,12 +31,15 @@ import {
 } from "../../utils/firestoreSessionRecovery";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
+const WORLD_PRESENCE_GRACE_MS = 3_000;
+
 export interface SnapshotLocation {
+  rideKind?: "outdoor" | "virtual";
   uid: string;
   lat: number;
   lng: number;
-  speed: number;
-  distance: number;
+  speed: number | null;
+  distance: number | null;
   status: string;
   displayName: string;
   bib: number | null;
@@ -162,8 +166,8 @@ function RiderCard({
   onUnfollow: () => void;
 }) {
   const { t } = useTranslation("event");
-  const distKm = loc.distance / 1000;
-  const pct = totalDistKm > 0 ? Math.min(100, (distKm / totalDistKm) * 100) : 0;
+  const distKm = loc.distance == null ? null : loc.distance / 1000;
+  const pct = totalDistKm > 0 && distKm != null ? Math.min(100, (distKm / totalDistKm) * 100) : 0;
   const initial = loc.displayName?.charAt(0) ?? "?";
   const statusText =
     loc.status === "FINISHED" ? t("liveView.resultPending") :
@@ -214,7 +218,7 @@ function RiderCard({
       <div style={{ marginBottom: "var(--space-3)" }}>
         <div className="flex justify-between" style={{ fontSize: "var(--ft-body-size)", marginBottom: "var(--space-1-5)" }}>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
-            {distKm.toFixed(1)} km
+            {distKm?.toFixed(1) ?? "—"} km
           </span>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)" }}>
             {totalDistKm > 0 ? `${totalDistKm.toFixed(1)} km` : "—"}
@@ -261,7 +265,7 @@ function RiderCard({
             textAlign: "right",
           }}
         >
-          {pct.toFixed(1)}%
+          {distKm == null ? "—" : pct.toFixed(1)}%
         </div>
       </div>
 
@@ -277,7 +281,7 @@ function RiderCard({
         }}
       >
         {[
-          [t("liveView.speed"), loc.speed > 0 ? loc.speed.toFixed(1) : "—", "km/h"],
+          [t("liveView.speed"), loc.speed != null && loc.speed > 0 ? loc.speed.toFixed(1) : "—", "km/h"],
           [t("liveView.activityTime"), formatDuration(loc.durationSec), t("liveView.durationUnit")],
           [t("liveView.heartRate"), loc.hr != null && loc.hr > 0 ? String(loc.hr) : "—", "bpm"],
           [t("liveView.lastCheckpoint"), `${loc.lastCp ?? 0}`, ""],
@@ -318,7 +322,7 @@ export default function EventLivePage() {
   const [eventStartTime, setEventStartTime] = useState<number | null>(null);
   const [totalDistanceKm, setTotalDistanceKm] = useState<number>(0);
   const [now, setNow] = useState(() => Date.now());
-  const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
+  const [savedSnapshot, setSnapshot] = useState<SnapshotData | null>(null);
   const snapshotRef = useRef<SnapshotData | null>(null);
   // 「갱신 지연」 문구를 눌러 다시 읽는 중이면 거듭 누름은 무시한다.
   const staleRefreshRef = useRef(false);
@@ -327,7 +331,7 @@ export default function EventLivePage() {
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(eventId) : []));
+  const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(JSON.stringify([eventId, user ? ["user", user.uid] : ["anonymous"]])) : []));
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [sosMuted, setSosMuted] = useState(() => (eventId ? loadSosMuted(eventId) : false));
   const [viewerCount, setViewerCount] = useState(0);
@@ -335,6 +339,24 @@ export default function EventLivePage() {
 
   const eventStatus = eventContext?.eventId === eventId ? eventContext?.status : null;
   const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
+  const [viewport, setViewport] = useState<WorldViewport>();
+  const trackingScope = JSON.stringify([eventId, user ? ["user", user.uid] : ["anonymous"]]);
+  const previousTrackingScope = useRef(trackingScope);
+  const sameTrackingScope = previousTrackingScope.current === trackingScope;
+  useEffect(() => {
+    if (previousTrackingScope.current === trackingScope) return;
+    previousTrackingScope.current = trackingScope;
+    setSearchBib("");
+    setFollowBibs(eventId ? loadFollowedBibs(trackingScope) : []);
+  }, [trackingScope, eventId]);
+  const trackingBib = !sameTrackingScope ? undefined : /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : followBibs[followBibs.length - 1];
+  const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport, undefined, trackingBib, !authLoading);
+  const guestWorldActive = !user && worldFrame !== null;
+  const snapshot = savedSnapshot;
+  const mapLocations = savedSnapshot?.locations ?? [];
+  const hasWorldPresence = worldFrame !== null;
+  const worldPresenceEnabled = isLocalWorldEventEnabled();
+  const [presenceFallbackEvent, setPresenceFallbackEvent] = useState<string | null>(null);
   const liveReadsEnabled = !!eventStatus && !trackingEnded;
   const liveEventRef = useRef<string | null>(null);
   liveEventRef.current = liveReadsEnabled ? eventId ?? null : null;
@@ -344,16 +366,20 @@ export default function EventLivePage() {
   const sosMutedRef = useRef(sosMuted);
 
   useEffect(() => {
-    if (!eventId || !liveReadsEnabled) return;
+    if (!worldPresenceEnabled || !eventId || !liveReadsEnabled || hasWorldPresence) {
+      setPresenceFallbackEvent(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setPresenceFallbackEvent(eventId), WORLD_PRESENCE_GRACE_MS);
+    return () => window.clearTimeout(timer);
+  }, [worldPresenceEnabled, eventId, liveReadsEnabled, hasWorldPresence]);
+
+  useEffect(() => {
+    if (!eventId || !liveReadsEnabled || hasWorldPresence ||
+        worldPresenceEnabled && presenceFallbackEvent !== eventId) return;
     let active = true;
     const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
-    const storageKey = `event-viewer-session:${eventId}`;
-    let viewerSessionId = sessionStorage.getItem(storageKey);
-    if (!viewerSessionId || !/^[A-Za-z0-9_-]{16,100}$/.test(viewerSessionId)) {
-      viewerSessionId = createViewerSessionId();
-      sessionStorage.setItem(storageKey, viewerSessionId);
-    }
-    const sessionId = viewerSessionId;
+    const sessionId = viewerSessionIdForEvent(eventId);
     const handleViewerError = (source: string, error: unknown, context?: Record<string, unknown>) => {
       if (!active) return prepareFirestoreSessionRecovery(error);
       const recovery = prepareFirestoreSessionRecovery(error);
@@ -420,9 +446,9 @@ export default function EventLivePage() {
       unsubscribeViewers();
       void ensureAppCheckReady()
         .then(() => heartbeat({ eventId, viewerSessionId: sessionId, active: false }))
-        .catch(() => undefined);
+        .catch(error => logClientError("EventLivePage.viewerDeactivate", error, { eventId }));
     };
-  }, [eventId, liveReadsEnabled, t]);
+  }, [eventId, liveReadsEnabled, hasWorldPresence, worldPresenceEnabled, presenceFallbackEvent, t]);
 
   // URL bib 쿼리 → 팔로우 리스트에 자동 추가
   useEffect(() => {
@@ -432,9 +458,9 @@ export default function EventLivePage() {
 
   // 팔로우 저장
   useEffect(() => {
-    if (!eventId) return;
-    saveFollowedBibs(eventId, followBibs);
-  }, [eventId, followBibs]);
+    if (!eventId || !sameTrackingScope) return;
+    saveFollowedBibs(trackingScope, followBibs);
+  }, [eventId, followBibs, sameTrackingScope, trackingScope]);
 
   // SOS 알림 음소거 저장 + 최신값 ref 동기화 (폴링 클로저용)
   useEffect(() => {
@@ -502,11 +528,17 @@ export default function EventLivePage() {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
+  const snapshotRequest = useRef(0);
+  const liveSnapshotScope = useRef(trackingScope);
+  liveSnapshotScope.current = trackingScope;
   const fetchSnapshot = useCallback(async () => {
     if (!eventId || !liveReadsEnabled) return;
+    const ticket = ++snapshotRequest.current;
+    const current = () => liveEventRef.current === eventId && liveSnapshotScope.current === trackingScope
+      && ticket === snapshotRequest.current;
     try {
       const latest = await getDoc(doc(firestore, "events", eventId, "snapshots", "public_latest"));
-      if (liveEventRef.current !== eventId) return;
+      if (!current()) return;
       if (!latest.exists()) {
         setSnapshot(null);
         setLoadError(null);
@@ -580,13 +612,17 @@ export default function EventLivePage() {
         setHighlights((prev) => [...newHighlights, ...prev].slice(0, 20));
       }
     } catch (err) {
-      if (liveEventRef.current !== eventId) return;
       logClientError("EventLivePage.fetchSnapshot", err, { eventId });
-      if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
+      if (!current()) return;
+      const code = (err as { code?: string })?.code;
+      if (code === "permission-denied" || code === "unauthenticated") {
+        setSnapshot(null); snapshotRef.current = null; setHighlights([]);
+        setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
+      } else if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
     } finally {
-      if (liveEventRef.current === eventId) setLoading(false);
+      if (current()) setLoading(false);
     }
-  }, [eventId, followBibs, liveReadsEnabled, t]);
+  }, [eventId, followBibs, liveReadsEnabled, guestWorldActive, trackingScope, t]);
 
   useEffect(() => {
     if (!liveReadsEnabled) return;
@@ -912,7 +948,7 @@ export default function EventLivePage() {
               </div>
               <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-0-5)", fontFamily: "var(--font-mono)" }}>
                 {searchedParticipant.status !== "FINISHED" && searchedParticipant.overallRank != null ? `${t("liveView.highlight.overallRank", { rank: searchedParticipant.overallRank })} · ` : ""}
-                {t("liveView.lastCheckpoint")} {searchedParticipant.lastCp ?? 0} · {(searchedParticipant.distance / 1000).toFixed(1)}km · {searchedParticipant.speed.toFixed(1)}km/h
+                {t("liveView.lastCheckpoint")} {searchedParticipant.lastCp ?? 0} · {searchedParticipant.distance == null ? "—" : (searchedParticipant.distance / 1000).toFixed(1)}km · {searchedParticipant.speed?.toFixed(1) ?? "—"}km/h
               </div>
             </div>
             <Button type="button" onClick={addFollow} variant="primary" size="sm">
@@ -982,9 +1018,10 @@ export default function EventLivePage() {
           </div>
           <div style={{ height: 340 }}>
             <EventMap
-              locations={followedParticipants.length > 0 ? followedParticipants : snapshot.locations}
+              locations={followedParticipants.length > 0 ? followedParticipants : mapLocations}
               selectedUid={selectedUid}
               onSelectParticipant={setSelectedUid}
+              onWorldViewport={worldFrame ? setViewport : undefined}
             />
           </div>
         </Card>
