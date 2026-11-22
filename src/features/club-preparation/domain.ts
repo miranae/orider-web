@@ -1,6 +1,6 @@
 import { elevationProfileSchema, meetingSegmentsSchema, type MeetingSegment } from './segmentCatalog';
+import { oneDecimal as shown } from './checkpointPresentation';
 import { z } from 'zod';
-import { haversineMeters } from '../courseEngine/geo';
 export const STORAGE_KEY = 'orider.club-preparation.v1';
 export const BASE_TIME = Date.parse('2026-10-18T09:00:00+09:00');
 export type Kind = { id: string; name: string; active: boolean };
@@ -95,26 +95,19 @@ export function duplicateMeeting(m: Meeting, id: string): Meeting { return { ...
  */
 export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack' | 'courseSource'>, previous?: Pick<Meeting, 'venue' | 'courseTrack'>): string | null {
   if (m.venue !== 'indoor') return null;
-  if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.';
-  if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 끊어진 구간이 없는 코스나 GPX로 다시 준비해주세요.';
-  // 경로를 새로 고르거나 실내로 바꿀 때만 본다 — 이미 저장된 실내 모임의 제목·설명 수정은 막지 않는다.
-  const trackChanged = !previous || previous.venue !== 'indoor' || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
-  if (trackChanged && m.courseSource?.kind === 'saved-course' && isLegacySparseCourseTrack(m.courseTrack.points)) return '이 기존 코스는 예전 방식으로 저장돼 경로가 성겨, 실내 주행에서 도로를 벗어난 직선으로 보여요. GPX를 올리거나 앱 실내 코스를 골라주세요.';
+  if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 앱 실내 코스를 골라주세요.';
+  if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 앱 실내 코스를 골라주세요.';
+  // 경로를 새로 고르거나 실외에서 실내로 바꿀 때만 본다 — 이미 저장된 실내 모임(기존 코스·GPX)의 제목·설명 수정은 막지 않는다.
+  // 실내·실외 구분 전에 만든 모임(venue 없음)도 저장된 코스 그대로면 실내를 골라 저장할 수 있다 — 수정하려면 반드시 골라야 하기 때문이다.
+  const trackChanged = !previous || previous.venue === 'outdoor' || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
+  // 새로 고르는 실내 코스는 앱 내장 코스만 받는다 — 성긴 기존 코스·끊어진 GPX 로 출발이 막히던 경우를 선택 단계에서 없앤다(#1779).
+  if (trackChanged && m.courseSource?.kind !== 'builtin') return '실내 모임은 앱 실내 코스만 쓸 수 있어요. 앱 실내 코스를 골라주세요.';
   return null;
 }
-/** 2026-06 이전 서버가 기존 코스를 줄여 저장한 점 수(orider-g1-web #250 이전 상한). */
-export const LEGACY_COURSE_MAX_POINTS = 200;
-/** 성긴 경로로 보는 점 간격 중앙값(m). 도로를 따라 만든 경로는 20m 안팎이다. */
-export const SPARSE_COURSE_SPACING_M = 100;
-/**
- * 예전 방식으로 줄여 저장된 기존 코스인지 — 정상 데이터에서는 걸리지 않는 안전장치다. 2026-06 이전 기존 코스는 200점으로
- * 저장돼(멧돼지 73.6km 에 약 370m 간격) 실내 주행이 점 사이 직선으로 도로·건물을 가로질렀다(2026-11-15, orider-g1-web#3704).
- * 사용자가 올린 GPX·앱 실내 코스는 원본이라 더 나은 데이터가 없으므로 보지 않는다(호출부가 `saved-course` 만 넘긴다).
- */
-export function isLegacySparseCourseTrack(points: readonly CoursePoint[]): boolean {
-  if (points.length < 2 || points.length > LEGACY_COURSE_MAX_POINTS) return false;
-  const gaps = points.slice(1).map((point, index) => haversineMeters(points[index]!.lat, points[index]!.lon, point.lat, point.lon)).sort((x, y) => x - y);
-  return gaps[Math.floor(gaps.length / 2)]! > SPARSE_COURSE_SPACING_M;
+/** 고른 코스가 실내·실외 선택에 맞는지 — 실내는 앱 내장 코스만, 실외는 내장 코스를 쓰지 않는다. 코스가 없으면 맞는 것으로 본다. */
+export function courseFitsVenue(m: Pick<Meeting, 'courseSource'>, venue: MeetingVenue): boolean {
+  if (!m.courseSource) return true;
+  return venue === 'indoor' ? m.courseSource.kind === 'builtin' : m.courseSource.kind !== 'builtin';
 }
 export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (!s.members.some(member => member.id === actor)) throw new Error('등록된 회원만 모임을 만들 수 있습니다.');
@@ -155,8 +148,16 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
     change('상세 안내', current.description, m.description);
     change('코스 소개', current.courseHighlights, m.courseHighlights);
     change('코스 준비', current.courseReady ? '확정' : '준비 중', m.courseReady ? '확정' : '준비 중');
-    change('거리', current.distanceKm === undefined ? '미정' : `${current.distanceKm}km`, m.distanceKm === undefined ? '미정' : `${m.distanceKm}km`);
-    change('획득고도', current.elevationGainM === undefined ? '미정' : `${current.elevationGainM}m`, m.elevationGainM === undefined ? '미정' : `${m.elevationGainM}m`);
+    // 바뀌었는지는 저장 값으로 판단한다. 한 자리로 줄인 표시가 같아지는 작은 변경은 세 자리까지 적어 차이를 보인다.
+    const measure = (label: string, before: number | undefined, after: number | undefined, unit: string) => {
+      if (before === after) return;
+      const text = (format: (value: number) => number) => [before, after].map(value => value === undefined ? '미정' : `${format(value)}${unit}`);
+      const rounded = text(shown);
+      const [from, to] = rounded[0] === rounded[1] ? text(value => Number(value.toFixed(3))) : rounded;
+      changes.push(`${label}: ${from} → ${to}.`);
+    };
+    measure('거리', current.distanceKm, m.distanceKm, 'km');
+    measure('획득고도', current.elevationGainM, m.elevationGainM, 'm');
     if (JSON.stringify(current.courseTrack) !== JSON.stringify(m.courseTrack)) changes.push(`GPX: ${current.courseTrack?.fileName ?? '미첨부'} → ${m.courseTrack?.fileName ?? '미첨부'}.`);
     const segments = (meeting: Meeting) => meeting.segments?.map(segment => `${segment.name} (${segment.mode}${segment.instruction ? ` · ${segment.instruction}` : ''})`).join(' → ') || '없음';
     if (JSON.stringify(current.segments) !== JSON.stringify(m.segments)) changes.push(`주요 구간: ${segments(current)} → ${segments(m)}.`);
@@ -164,8 +165,15 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
     const sourceLabel = (source: CourseSource | undefined) => source ? `${({ 'saved-course': '기존 코스', gpx: 'GPX', segments: '세그먼트 조합', builtin: '앱 실내 코스' })[source.kind]} · ${source.name}` : '미정';
     change('코스 출처', sourceLabel(current.courseSource), sourceLabel(m.courseSource));
     if (sourceLabel(current.courseSource) === sourceLabel(m.courseSource) && current.courseSource?.id !== m.courseSource?.id) changes.push('코스 출처: 이름이 같은 다른 코스로 연결이 변경되었습니다.');
-    const checkpoints = (meeting: Meeting) => meeting.courseCheckpoints?.map(point => `${point.name}${point.distanceKm === undefined ? '' : ` (${point.distanceKm}km)`}${point.note ? ` · ${point.note}` : ''}`).join(' / ');
-    if (JSON.stringify(current.courseCheckpoints) !== JSON.stringify(m.courseCheckpoints)) changes.push(`체크포인트: ${checkpoints(current) || '없음'} → ${checkpoints(m) || '없음'}.`);
+    const checkpoints = (meeting: Meeting, distance = shown) => meeting.courseCheckpoints?.map(point => `${point.name}${point.distanceKm === undefined ? '' : ` (${distance(point.distanceKm)}km)`}${point.note ? ` · ${point.note}` : ''}`).join(' / ') || '없음';
+    if (JSON.stringify(current.courseCheckpoints) !== JSON.stringify(m.courseCheckpoints)) {
+      const before = checkpoints(current);
+      const after = checkpoints(m);
+      const preciseDistance = (distance: number) => Number(distance.toFixed(3));
+      changes.push(before === after
+        ? `체크포인트: ${checkpoints(current, preciseDistance)} → ${checkpoints(m, preciseDistance)}.`
+        : `체크포인트: ${before} → ${after}.`);
+    }
     change('주차 안내', current.parking, m.parking);
     change('우천·진행 판단', current.weather, m.weather);
     const joins = (meeting: Meeting) => meeting.joins.map(j => `${j.place} ${j.time}`).join(' / ');

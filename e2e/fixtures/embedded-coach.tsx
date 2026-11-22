@@ -30,9 +30,17 @@ import "../../src/pages/coach/CoachSurface.css";
 
 const resources = import.meta.glob("../../src/i18n/resources/ko/*.json", { eager: true, import: "default" });
 await i18next.init({ lng: "ko", fallbackLng: "ko", resources: { ko: Object.fromEntries(Object.entries(resources).map(([path,value]) => [path.split("/").slice(-1)[0]!.replace(".json", ""), value])) as ResourceLanguage }, interpolation: { escapeValue: false } });
-resetRuntimeConfigForTests({ useEmulators: true });
+// ?analysisFixture=1 — 코치 분석 기간 비교를 로컬 함수 주소(15001)로 부른다. 응답은 Playwright 가 합성 데이터로 돌려준다.
+const analysisFixture = new URLSearchParams(window.location.search).has("analysisFixture");
+resetRuntimeConfigForTests(analysisFixture ? { useEmulators: true, firebaseProjectId: "demo-orider-coach-local", firebaseFunctionsRegion: "asia-northeast3",
+  firebaseFunctionsBase: "http://127.0.0.1:15001/demo-orider-coach-local/asia-northeast3", trainingAnalysisPeriodsEnabled: true, activityAnalysisExpansionEnabled: true } : { useEmulators: true });
+// 앱 호스트가 넘기는 다크 테마 색(EmbeddedBootstrapRoot 의 다크 기본값과 같다) — 없으면 강조색·보조 글자색이 비어 선이 안 보인다.
+if (analysisFixture) {
+  document.documentElement.setAttribute("data-theme", "dark");
+  for (const [key, value] of Object.entries({ bg: "oklch(0.13 0.007 250)", surface: "oklch(0.18 0.008 250)", "text-primary": "oklch(0.97 0.003 250)", "text-secondary": "oklch(0.80 0.006 250)", accent: "oklch(0.78 0.120 192)", "safe-top": "0px", "safe-bottom": "0px" })) document.documentElement.style.setProperty(`--orider-host-${key}`, value);
+}
 const app = initializeApp({ apiKey: "fake-local-key", projectId: "demo-orider-coach-local", appId: "local-embedded-parity" }, "embedded-parity-fixture");
-const auth = getAuth(app), firestore = getFirestore(app), functions = getFunctions(app);
+const auth = getAuth(app), firestore = getFirestore(app), functions = analysisFixture ? getFunctions(app, "asia-northeast3") : getFunctions(app);
 connectAuthEmulator(auth, "http://127.0.0.1:19199", { disableWarnings: true });
 connectFirestoreEmulator(firestore, "127.0.0.1", 18180);
 connectFunctionsEmulator(functions, "127.0.0.1", 15001);

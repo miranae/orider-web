@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { checkpointDistanceValue, checkpointTypeLabel } from './checkpointPresentation';
+import { checkpointDistanceValue, checkpointTypeLabel, oneDecimal } from './checkpointPresentation';
 describe('체크포인트 표시',()=>{
-  it('거리 표시만 두 자리로 줄이고 실제 0과 미정을 구별한다',()=>{
+  it('거리 표시만 한 자리로 줄이고 실제 0과 미정을 구별한다',()=>{
     const original=31.264664971566393;
-    expect(checkpointDistanceValue(original)).toBe('31.26');expect(original).toBe(31.264664971566393);
+    expect(checkpointDistanceValue(original)).toBe('31.3');expect(original).toBe(31.264664971566393);
     expect(checkpointDistanceValue(0)).toBe('0');expect(checkpointDistanceValue()).toBe('');
+    expect(checkpointDistanceValue(1.15)).toBe('1.2');
+    expect(oneDecimal(-1.15)).toBe(-1.2);
   });
   it('알려진 유형 코드는 한국어로 표시하고 자유 입력은 보존한다',()=>{
     expect(checkpointTypeLabel('GENERIC')).toBe('일반 경유지');expect(checkpointTypeLabel('FOOD')).toBe('음식·보급');

@@ -8,7 +8,8 @@ export const group = {
   description: (english ? "A welcoming club for riding together. " : "함께 모여 즐겁게 달리는 클럽입니다. ").repeat(20),
 };
 export const user = { uid: role === "leader" ? "fixture-host" : "fixture-member", isAnonymous: false, displayName: "Fixture rider" };
-export const services = { auth: { currentUser: user }, firestore: {}, functions: {}, scope: "web", ensureAppCheckReady: async () => {} };
+// 미리보기의 코스 지도(RouteMap)가 로그인 변화를 구독한다 — 가짜 auth 도 구독 해제 함수를 돌려줘야 화면이 죽지 않는다.
+export const services = { auth: { currentUser: user, onIdTokenChanged: () => () => {} }, firestore: {}, functions: {}, scope: "web", ensureAppCheckReady: async () => {} };
 export const useAuth = () => ({ user, loading: false, signIn: async () => {} });
 export const useGroup = () => ({ group, loading: false, error: null, retry: () => {} });
 export const useGroupMemberRole = () => ({ role, loading: false, error: null, retry: () => {} });

@@ -23,3 +23,15 @@ export function isMeetingStartNotFuture(
   const start = meetingStartMs(date, time);
   return Number.isFinite(start) && start <= now;
 }
+
+/**
+ * 날짜에 요일을 붙인 표시(예: `2026-11-28 (토) 08:00`) — 날짜 숫자만으로는 요일 착오를 확인할 수 없다(#1779).
+ * 형식이 틀리면 입력값을 그대로 돌려준다.
+ */
+export function meetingDateTimeLabel(date: string, time: string, locale = "ko"): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return `${date} ${time}`.trim();
+  const day = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(day.getTime())) return `${date} ${time}`.trim();
+  const weekday = new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" }).format(day);
+  return `${date} (${weekday}) ${time}`.trim();
+}

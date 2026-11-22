@@ -1,12 +1,69 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { createSeed, loadLocal, saveMeeting, STORAGE_KEY } from './domain';
-import { applyCoursePlan, readGpxCoursePlan, readSegmentCoursePlan } from './meetingCoursePlan';
+import { applyCoursePlan, courseStartPlace, readGpxCoursePlan, readSegmentCoursePlan } from './meetingCoursePlan';
 import { meetingSegmentsSchema, selectSegment } from './segmentCatalog';
 const segment = (elevations?: number[], latitude = 37) => `<trkseg>${[0, 1, 2, 3].map((step) => `<trkpt lat="${latitude + step * .001}" lon="127">${elevations ? `<ele>${elevations[step]}</ele>` : ''}</trkpt>`).join('')}</trkseg>`;
 const gpx = (track: string, extra = '') => `<gpx>${extra}<trk><name>한 바퀴</name>${track}</trk></gpx>`;
 
 describe('모임 코스 가져오기', () => {
+  it('명시된 출발 지점이 트랙 시작과 조금 어긋나도 다른 경유지보다 우선한다', () => {
+    const plan = readGpxCoursePlan(gpx(segment(), '<wpt lat="37" lon="127"><name>근처 카페</name></wpt><wpt lat="37.00002" lon="127"><name>강변공원 북문</name><type>START</type></wpt>'), 'start.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('강변공원 북문');
+  });
+  it('순환 GPX에서 명시된 출발 지점은 복귀 구간에 투영돼도 출발 위치로 사용한다', () => {
+    const points = [[37, 127], [37.001, 127], [37.001, 127.001], [37.0001, 127], [37, 127]];
+    const route = `<trkseg>${points.map(([lat, lon]) => `<trkpt lat="${lat}" lon="${lon}"/>`).join('')}</trkseg>`;
+    const plan = readGpxCoursePlan(gpx(route, '<wpt lat="37" lon="127"><name>근처 카페</name></wpt><wpt lat="37.0001" lon="127"><name>공원 입구</name><type>START</type></wpt>'), 'loop.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(plan.checkpoints.find(point => point.name === '공원 입구')?.distanceKm).toBeGreaterThan(0.025);
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('공원 입구');
+  });
+
+  it('서로 다른 구간의 출발 표식이 트랙 시작 근처에 있으면 실제 시작 좌표를 사용한다', () => {
+    const plan = readGpxCoursePlan(gpx(segment() + segment(undefined, 37.00003), '<wpt lat="37.0001" lon="127"><name>첫 구간 입구</name><type>START</type></wpt><wpt lat="37.00003" lon="127"><name>다음 구간 입구</name><type>START</type></wpt>'), 'multi-part.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
+  });
+
+  it('같은 이름의 출발 표식이 중복돼도 집결 장소 이름을 유지한다', () => {
+    const start = '<wpt lat="37.00002" lon="127"><name>강변공원 북문</name><type>START</type></wpt>';
+    const plan = readGpxCoursePlan(gpx(segment(), start.repeat(2)), 'duplicate-start.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(plan.checkpoints.filter(point => point.name === '강변공원 북문')).toHaveLength(2);
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('강변공원 북문');
+  });
+
+  it('좌표가 다른 동명 출발 표식은 하나의 장소로 합치지 않는다', () => {
+    const route = segment() + segment(undefined, 37.0001) + segment(undefined, 37.0002);
+    const plan = readGpxCoursePlan(gpx(route, '<wpt lat="37.0001" lon="127"><name>공원 입구</name><type>START</type></wpt><wpt lat="37.0002" lon="127"><name>공원 입구</name><type>START</type></wpt>'), 'same-name-starts.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
+  });
+
+  it('순환 GPX의 명시된 도착 표식을 집결 장소로 쓰지 않는다', () => {
+    const route = '<trkseg><trkpt lat="37" lon="127"/><trkpt lat="37.002" lon="127"/><trkpt lat="37" lon="127"/></trkseg>';
+    const plan = readGpxCoursePlan(gpx(route, '<wpt lat="37" lon="127"><name>완주 행사장</name><type>FINISH</type></wpt>'), 'finish.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(plan.checkpoints.find(point => point.name === '완주 행사장')?.distanceKm).toBe(0);
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
+  });
+
+  it('첫 좌표에서 11m 떨어진 다음 GPX 구간의 출발 표식을 집결 장소로 쓰지 않는다', () => {
+    const plan = readGpxCoursePlan(gpx(segment() + segment(undefined, 36.9999), '<wpt lat="36.9999" lon="127"><name>다음 구간 입구</name><type>START</type></wpt>'), 'split-start.gpx');
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const };
+    expect(plan.track?.segmentStarts).toHaveLength(2);
+    expect(courseStartPlace(applyCoursePlan(meeting, plan))).toBe('37.00000, 127.00000');
+  });
+
+  it('경로 없는 저장 코스의 0km 도착 표식만으로 집결 장소를 설정하지 않는다', () => {
+    const meeting = { ...createSeed().meetings[2]!, venue: 'outdoor' as const, courseTrack: undefined,
+      courseSource: {kind: 'saved-course' as const, name: '기존 코스'},
+      courseCheckpoints: [{name: '완주 행사장', type: 'FINISH', distanceKm: 0, lat: 37, lon: 127, source: 'course' as const}] };
+    expect(courseStartPlace(meeting)).toBe('');
+  });
+
   it('고도 있는 GPX는 원본 수치·전체 주행 구간·오르막 경로를 자동 생성한다', () => {
     const xml = gpx(segment([50, 100, 170, 120]));
     const plan = readGpxCoursePlan(xml, 'ride.gpx');

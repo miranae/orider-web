@@ -5,6 +5,9 @@ import { createSeed, duplicateMeeting, loadLocal, saveMeeting, STORAGE_KEY } fro
 const choice = { id: 'native_test', name: '가을 고개', city: '정선', distance: 2400, averageGrade: 4.2 };
 afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
 describe('기존 공개 세그먼트 연결', () => {
+  it('세그먼트 거리와 코스 요약에 같은 한 자리 반올림을 적용한다', () => {
+    expect(segmentDistance({ ...choice, distance: 1150 })).toBe('1.2 km');
+  });
   it('실제 overview sl의 위도·경도와 상세 누적 획고를 가져오되 고저차는 사용하지 않는다', () => {
     const segment = parseSegmentCatalog({segments:[{...choice, sl:[[37,127],[37.1,127.1]]}]})[0]!;
     expect(segment.geometry).toEqual([{lat:37,lon:127},{lat:37.1,lon:127.1}]);

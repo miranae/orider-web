@@ -17,8 +17,8 @@ describe('모임 코스 지도와 고도표',()=>{
   });
   it('가까운 동일 유형 경유지를 각 레인에 두고 거리 위치와 전체 이름을 유지한다',()=>{
     const meeting={...createSeed().meetings[2]!,courseTrack:{fileName:'ride',distanceKm:100,points:[{lat:37,lon:127},{lat:37.01,lon:127}],elevationProfile:[{distance:0,elevation:0},{distance:100000,elevation:100}]},courseCheckpoints:[{name:'첫 보급소',type:'FOOD',lat:37,lon:127,distanceKm:26.83,source:'course' as const},{name:'다음 보급소',type:'FOOD',lat:37.01,lon:127,distanceKm:27,source:'course' as const}]};
-    render(<ClubCourseMap meeting={meeting}/>);const first=screen.getByRole('button',{name:'첫 보급소 · 26.83km 지도에서 경유지 보기'});const second=screen.getByRole('button',{name:'다음 보급소 · 27km 지도에서 경유지 보기'});
-    expect(first.closest('.event-lane-row')).not.toBe(second.closest('.event-lane-row'));expect(first.style.left).toBe('26.83%');expect(second.style.left).toBe('27%');expect(first.textContent).toContain('26.83km');expect(first.title).toBe('첫 보급소 · 26.83km');
+    render(<ClubCourseMap meeting={meeting}/>);const first=screen.getByRole('button',{name:'첫 보급소 · 26.8km 지도에서 경유지 보기'});const second=screen.getByRole('button',{name:'다음 보급소 · 27km 지도에서 경유지 보기'});
+    expect(first.closest('.event-lane-row')).not.toBe(second.closest('.event-lane-row'));expect(first.style.left).toBe('26.83%');expect(second.style.left).toBe('27%');expect(first.textContent).toContain('26.8km');expect(first.title).toBe('첫 보급소 · 26.8km');
     fireEvent.click(first);expect(captured.map.flyToPosition).toEqual([37,127]);
   });
   it('경유지 확대와 프로필 탐색 후 전체 경로를 다시 볼 수 있고 반복 요청도 전달한다',()=>{

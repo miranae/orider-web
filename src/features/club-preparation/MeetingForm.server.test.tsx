@@ -195,8 +195,9 @@ describe("실제 서버 저장을 기다리는 작성 초안", () => {
       render(<MeetingForm state={{ ...state, meetings: [indoor] }} initial={indoor} initialRevision={4}
         draftNamespace="indoor-no-course" onSave={save} onClose={vi.fn()} />);
       preview();
-      fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
-      expect(await screen.findByText("실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.")).toBeTruthy();
+      // 미리보기로 넘어가기 전에 막는다(#1779).
+      expect(screen.queryByRole("button", { name: "변경 내용 저장" })).toBeNull();
+      expect((await screen.findAllByText("실내 모임은 코스 경로가 필요해요. 앱 실내 코스를 골라주세요.")).length).toBeGreaterThan(0);
       expect(save).not.toHaveBeenCalled();
     });
     it("지난 기존 모임의 일정을 유지한 설명 수정은 저장할 수 있다", async () => {
@@ -238,7 +239,8 @@ describe("실내 / 실외 선택", () => {
   it("새 모임은 선택하기 전에는 미리보기로 넘어가지 않고 고른 값을 저장한다", async () => {
     const save = vi.fn().mockResolvedValue(undefined);
     // 실내 모임은 이어진 코스 경로가 있어야 저장된다 — 경로를 준비한 모임으로 본다.
-    const fresh = { ...newClubMeeting(), title: "새 모임", date: "2030-10-25", place: "집결지",
+    const fresh = { ...newClubMeeting(), title: "새 모임", date: "2030-10-25",
+      courseSource: { kind: "builtin" as const, id: "builtin_hangang", name: "한강 자전거길" },
       courseTrack: { fileName: "코스", points: Array.from({ length: 60 }, (_, i) => ({ lat: 37.5 + i * 0.00018, lon: 127 })), segmentStarts: [0], distanceKm: 1.2, elevationGainM: 0 } };
     render(
       <MeetingForm
@@ -252,12 +254,19 @@ describe("실내 / 실외 선택", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "모집글 미리보기" })[0]!);
     expect(screen.queryByRole("button", { name: "모집 시작" })).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: /실내/ }));
+    // 실내 모임은 모이는 곳이 없다 — 집결 장소·합류 안내를 묻지 않는다(#1779).
+    expect(document.getElementById("meeting-place")).toBeNull();
+    expect(screen.queryByText("합류·이동 안내")).toBeNull();
+    expect(screen.getByLabelText("출발 시각")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name: "모집글 미리보기" })[0]!);
-    expect(screen.getByText(/실내 · 2030-10-25/)).toBeTruthy();
+    // 요일을 함께 보여 날짜 착오를 확인할 수 있다. 2030-10-25 는 금요일.
+    expect(screen.getByText(/실내 · 2030-10-25 \(금\) 08:00$/)).toBeTruthy();
+    expect(screen.queryByText("집결 장소")).toBeNull();
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "모집 시작" }));
     await waitFor(() => expect(save).toHaveBeenCalled());
-    expect(save.mock.calls[0]![0]).toMatchObject({ venue: "indoor" });
+    // 서버가 필수로 받는 집결 장소는 고정 문구로 채운다.
+    expect(save.mock.calls[0]![0]).toMatchObject({ venue: "indoor", place: "앱 실내 라이딩", joins: [{ id: "main", place: "앱 실내 라이딩" }] });
   });
   it("값이 없는 기존 모임을 수정하면 선택을 요구한다", () => {
     render(
