@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   collection,
@@ -124,7 +125,7 @@ export function useBoardLike(postId: string, serverLikeCount = 0) {
     return [{
       userId: user.uid,
       nickname: profile?.nickname ?? user.displayName ?? "User",
-      profileImage: profile?.photoURL ?? user.photoURL ?? null,
+      profileImage: resolveProfilePhotoUrl(profile?.photoURL, user.photoURL),
     }, ...otherLikers];
   }, [user, profile, isLiked, otherLikers]);
 

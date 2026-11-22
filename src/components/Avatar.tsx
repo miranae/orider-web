@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useProfileAvatarDisplayUrl } from "../hooks/useProfileAvatarDisplayUrl";
+import { reportProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../hooks/useProfileAvatarDisplayUrl";
 import { LocalizedLink as Link } from "./LocalizedLink";
 // 다크 테마용 아바타 배경색 (채도 낮은 다크 팔레트)
 const COLORS = [
@@ -56,7 +56,10 @@ export default function Avatar({
       alt={displayName}
       loading="lazy"
       decoding="async"
-      onError={() => setFailed(src)}
+      onError={() => {
+        reportProfileAvatarLoadError(imageUrl);
+        setFailed(src);
+      }}
       className={`${sizeClass} rounded-full object-cover ${className}`}
     />
   ) : (

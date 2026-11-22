@@ -7,6 +7,7 @@ import { httpsCallable } from "firebase/functions";
 import {
   doc,
   getDoc,
+  getDocFromServer,
   updateDoc,
   collection,
   query,
@@ -14,17 +15,17 @@ import {
   getDocs,
   writeBatch,
 } from "firebase/firestore";
-import { deleteObject, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, getMetadata, ref, uploadBytes } from "firebase/storage";
 import { updateProfile } from "firebase/auth";
 
 import type { Visibility } from "@shared/types";
-import { isProfileAvatarUrl, profileAvatarPath, profileAvatarUrl } from "@shared/profileAvatar";
+import { isProfileAvatarUrl, profileAvatarPath, profileAvatarUrl, resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { refreshProfileAvatar, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
+import { refreshProfileAvatar } from "../../hooks/useProfileAvatarDisplayUrl";
 import { logClientError } from "../../services/errorLogger";
 
 import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } from "./_primitives";
@@ -44,6 +45,10 @@ const VIS_OPTS: VisOpt[] = [
   { value: "friends", labelKey: "privacy.visOptFriends", icon: User },
   { value: "private", labelKey: "privacy.visOptPrivate", icon: Eye },
 ];
+
+function withPhotoLock(uid: string, operation: () => Promise<void>) {
+  return navigator.locks?.request(`profile-avatar:${uid}`, operation) ?? operation();
+}
 
 export function PaneAccount() {
   const { t } = useTranslation("settings");
@@ -66,6 +71,7 @@ export function PaneAccount() {
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoOverride, setPhotoOverride] = useState<{ uid: string; url: string | null }>();
+  const [pendingPhotoDeletion, setPendingPhotoDeletion] = useState<{ uid: string; generation: string }>();
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,9 +104,9 @@ export function PaneAccount() {
     if (photoOverride && (photoOverride.uid !== user?.uid || photoOverride.url === profile?.photoURL)) setPhotoOverride(undefined);
   }, [photoOverride, profile?.photoURL, user?.uid]);
   const ownPhotoOverride = photoOverride?.uid === user?.uid ? photoOverride : undefined;
-  const savedPhotoURL = profile?.photoURL === undefined ? user?.photoURL : profile.photoURL;
+  const savedPhotoURL = resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL);
   const photoURL = ownPhotoOverride ? ownPhotoOverride.url : savedPhotoURL;
-  const photoPreview = useProfileAvatarDisplayUrl(photoURL);
+  const ownPendingPhotoDeletion = pendingPhotoDeletion?.uid === user?.uid ? pendingPhotoDeletion : undefined;
   if (!user) return null;
   const currentVisibility: Visibility = profile?.defaultVisibility ?? "private";
 
@@ -187,18 +193,21 @@ export function PaneAccount() {
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/webp", 0.8),
       );
       if (!blob.type.startsWith("image/") || blob.size >= 2 * 1024 * 1024) throw new Error("Invalid avatar encoding");
-      if (auth.currentUser?.uid !== user.uid) return;
-      const storageRef = ref(storage, profileAvatarPath(user.uid));
-      const url = profileAvatarUrl(storageRef.bucket, user.uid);
-      stage = "upload";
-      const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "public, max-age=300" });
-      if (auth.currentUser?.uid !== user.uid) return;
-      stage = "save_profile";
-      await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
-      if (auth.currentUser?.uid !== user.uid) return;
-      refreshProfileAvatar(url, result.metadata.generation);
-      setPhotoOverride({ uid: user.uid, url });
-      showToast(t("profile.photoUpdated"));
+      await withPhotoLock(user.uid, async () => {
+        if (auth.currentUser?.uid !== user.uid) return;
+        const storageRef = ref(storage, profileAvatarPath(user.uid));
+        const url = profileAvatarUrl(storageRef.bucket, user.uid);
+        stage = "upload";
+        const result = await uploadBytes(storageRef, blob, { contentType: blob.type, cacheControl: "public, max-age=300" });
+        if (auth.currentUser?.uid !== user.uid) return;
+        stage = "save_profile";
+        await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
+        if (auth.currentUser?.uid !== user.uid) return;
+        refreshProfileAvatar(url, result.metadata.generation);
+        setPendingPhotoDeletion(undefined);
+        setPhotoOverride({ uid: user.uid, url });
+        showToast(t("profile.photoUpdated"));
+      });
     } catch (error) {
       logClientError("PaneAccount.changeAvatar", error, { stage });
       showToast(t("profile.photoUploadFailed"));
@@ -215,20 +224,47 @@ export function PaneAccount() {
     setPhotoUploading(true);
     let stage = "clear_profile";
     try {
-      const storageRef = ref(storage, profileAvatarPath(user.uid));
-      await updateDoc(doc(firestore, "users", user.uid), { photoURL: null });
-      if (auth.currentUser?.uid !== user.uid) return;
-      setPhotoOverride({ uid: user.uid, url: null });
-      if (isProfileAvatarUrl(photoURL, storageRef.bucket, user.uid)) {
-        stage = "delete_object";
-        try {
-          await deleteObject(storageRef);
-        } catch (error) {
-          if ((error as { code?: string }).code !== "storage/object-not-found") throw error;
+      await withPhotoLock(user.uid, async () => {
+        if (auth.currentUser?.uid !== user.uid) return;
+        const storageRef = ref(storage, profileAvatarPath(user.uid));
+        const profileRef = doc(firestore, "users", user.uid);
+        const currentPhotoURL = (await getDocFromServer(profileRef)).data()?.photoURL;
+        if (auth.currentUser?.uid !== user.uid) return;
+        // A retry only applies to the generation from the original removal.
+        const retry = photoURL === null && ownPendingPhotoDeletion;
+        if (retry && currentPhotoURL !== null) {
+          setPendingPhotoDeletion(undefined);
+          return;
         }
-      }
-      if (auth.currentUser?.uid !== user.uid) return;
-      showToast(t("profile.photoRemoved"));
+        let generation: string | undefined;
+        if (retry || isProfileAvatarUrl(currentPhotoURL, storageRef.bucket, user.uid)) {
+          stage = "read_object";
+          try {
+            generation = (await getMetadata(storageRef)).generation;
+          } catch (error) {
+            if ((error as { code?: string }).code !== "storage/object-not-found") throw error;
+          }
+        }
+        if (auth.currentUser?.uid !== user.uid) return;
+        if (!retry) {
+          stage = "clear_profile";
+          await updateDoc(profileRef, { photoURL: null });
+          if (auth.currentUser?.uid !== user.uid) return;
+          setPhotoOverride({ uid: user.uid, url: null });
+        }
+        if (generation && (!retry || generation === retry.generation)) {
+          stage = "delete_object";
+          setPendingPhotoDeletion({ uid: user.uid, generation });
+          try {
+            await deleteObject(storageRef);
+          } catch (error) {
+            if ((error as { code?: string }).code !== "storage/object-not-found") throw error;
+          }
+        }
+        if (auth.currentUser?.uid !== user.uid) return;
+        setPendingPhotoDeletion(undefined);
+        showToast(t("profile.photoRemoved"));
+      });
     } catch (error) {
       logClientError("PaneAccount.removeAvatar", error, { stage });
       showToast(t("profile.photoRemoveFailed"));
@@ -307,7 +343,7 @@ export function PaneAccount() {
       <div data-testid="S1-1-1"><ProfileHero
         nickname={profile?.nickname ?? ""}
         email={profile?.email}
-        photoURL={photoPreview}
+        photoURL={photoURL}
         friendCode={friendCode}
         stravaConnected={profile?.stravaConnected}
         onEditNickname={nicknameSaving ? undefined : handleSaveNickname}
@@ -325,7 +361,7 @@ export function PaneAccount() {
             title={t("profile.copyCode")}
           />
         }
-        avatarAside={photoURL && !user.isAnonymous ? (
+        avatarAside={(photoURL || ownPendingPhotoDeletion) && !user.isAnonymous ? (
           <IconButton
             variant="ghost"
             size="compact"

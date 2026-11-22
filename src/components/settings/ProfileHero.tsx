@@ -1,5 +1,6 @@
 import { Pencil } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { reportProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 import { useTranslation } from "react-i18next";
 import { Card, IconButton, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -31,6 +32,8 @@ export function ProfileHero({
   friendCodeAction,
 }: ProfileHeroProps) {
   const { t } = useTranslation("settings");
+  const photoSrc = useProfileAvatarDisplayUrl(photoURL);
+  const [failedPhoto, setFailedPhoto] = useState<string>();
   const initial = (nickname || "?").slice(0, 1).toUpperCase();
   const size = 72;
   return (
@@ -46,9 +49,13 @@ export function ProfileHero({
     >
       <div className="settings-profile-avatar-group">
       <div className="settings-profile-avatar">
-        {photoURL ? (
+        {photoSrc && photoSrc !== failedPhoto ? (
           <img
-            src={photoURL}
+            src={photoSrc}
+            onError={() => {
+              reportProfileAvatarLoadError(photoURL);
+              setFailedPhoto(photoSrc);
+            }}
             alt={nickname}
             style={{
               width: size,
