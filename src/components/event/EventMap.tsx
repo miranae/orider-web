@@ -1,3 +1,4 @@
+import { logClientError } from "../../services/errorLogger";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
@@ -287,7 +288,11 @@ export default function EventMap({
       mapboxAccessToken={mapboxToken}
       mapStyle={MAP_STYLE}
       initialViewState={DEFAULT_VIEW}
-      onLoad={(e) => applyKoreaCyclingStyle(e.target)}
+      onLoad={(e) => {
+        try { applyKoreaCyclingStyle(e.target); }
+        catch (error) { logClientError("EventMap.style", error); }
+      }}
+      onError={event => logClientError("EventMap.render", event.error)}
       onMoveEnd={onWorldViewport ? ({ viewState }) => onWorldViewport({
         lat: Math.round(viewState.latitude * 200) / 200,
         lon: Math.round(viewState.longitude * 200) / 200,

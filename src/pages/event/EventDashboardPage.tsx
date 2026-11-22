@@ -252,7 +252,8 @@ export default function EventDashboardPage() {
 }
 
 function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permissions: ReturnType<typeof eventPermissions>; onStart: () => void; operatorBusy: boolean }) {
-  const { auth, firestore: db, functions, getAppCheckToken } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { auth, firestore: db, functions, getAppCheckToken } = services;
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -343,14 +344,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport);
   const worldPresenceActive = worldFrame !== null;
   const snapshot = savedSnapshot;
-  const mapLocations = useMemo(() => {
-    if (!worldFrame) return savedSnapshot?.locations ?? [];
-    const canonical = new Map(savedSnapshot?.locations.map(row => [row.uid, row]));
-    return worldFrame.markers.flatMap(marker => {
-      const row = canonical.get(marker.uid ?? marker.id);
-      return row ? [{ ...row, lat: marker.lat, lng: marker.lon, rideKind: marker.kind }] : [];
-    });
-  }, [savedSnapshot, worldFrame]);
+  const mapLocations = savedSnapshot?.locations ?? [];
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
@@ -619,10 +613,21 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     const fallback = () => onSnapshot(latestRef, snap => receive(snap.exists() ? snap.data() as SnapshotData : null), snapshotFailed);
     const useRedis = import.meta.env.DEV && import.meta.env.VITE_ORIDER_OPERATOR_SNAPSHOTS === "1" &&
       isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-");
-    const unsub = useRedis && user ? subscribeOperatorSnapshot(eventId, user, receive,
-      () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))), fallback, current => { void getDoc(latestRef).then(snap => { if (current()) receive(snap.exists() ? snap.data() as SnapshotData : null); }).catch(error => { if (current()) snapshotFailed(error); }); }) : fallback();
+    const refreshCanonical = (current: () => boolean) => {
+      void getDoc(latestRef).then(snap => {
+        if (current()) receive(snap.exists() ? snap.data() as SnapshotData : null);
+      }).catch(error => {
+        if (current()) snapshotFailed(error);
+      });
+    };
+    const unsub = useRedis && user ? subscribeOperatorSnapshot(
+      eventId, user, receive,
+      () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))),
+      fallback, refreshCanonical,
+      (source, error, context) => logClientError(source, error, context, services, user),
+    ) : fallback();
     return () => { active = false; revision++; unsub(); };
-  }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt]);
+  }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt, db, services]);
 
   const handleFinishEvent = useCallback(async () => {
     if (!permissions.canStartFinish || !eventId || !user || finishing || pendingFinish.current || auth.currentUser?.uid !== user.uid) return;
@@ -780,7 +785,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           </div>
         </div>
         <div data-testid="O1-0" className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
-          {!trackingEnded && <Chip aria-live="polite"><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: worldFrame?.viewers ?? viewerCount })}</Chip>}
+          {!trackingEnded && <Chip aria-live="polite"><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</Chip>}
           {/* 관전자 뷰는 보조 동작이라 작은 아이콘으로 둔다. */}
           {!trackingEnded && <IconButton variant="ghost" size="sm" aria-label={t("action.spectatorView")} title={t("action.spectatorView")}
             icon={<Telescope size={ICON_SIZE.sm} />} onClick={() => eventId && window.open(`/live/${eventId}`, "_blank", "noopener")} />}

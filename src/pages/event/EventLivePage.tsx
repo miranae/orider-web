@@ -344,14 +344,7 @@ export default function EventLivePage() {
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport, undefined, trackingBib, !authLoading);
   const guestWorldActive = !user && worldFrame !== null;
   const snapshot = savedSnapshot;
-  const mapLocations = useMemo(() => {
-    if (!worldFrame) return savedSnapshot?.locations ?? [];
-    const canonical = new Map(savedSnapshot?.locations.map(row => [row.uid, row]));
-    return worldFrame.markers.flatMap(marker => {
-      const row = canonical.get(marker.uid ?? marker.id);
-      return row ? [{ ...row, lat: marker.lat, lng: marker.lon, rideKind: marker.kind }] : [];
-    });
-  }, [savedSnapshot, worldFrame]);
+  const mapLocations = savedSnapshot?.locations ?? [];
   const hasWorldPresence = worldFrame !== null;
   const worldPresenceEnabled = isLocalWorldEventEnabled();
   const [presenceFallbackEvent, setPresenceFallbackEvent] = useState<string | null>(null);
@@ -444,7 +437,7 @@ export default function EventLivePage() {
       unsubscribeViewers();
       void ensureAppCheckReady()
         .then(() => heartbeat({ eventId, viewerSessionId: sessionId, active: false }))
-        .catch(() => undefined);
+        .catch(error => logClientError("EventLivePage.viewerDeactivate", error, { eventId }));
     };
   }, [eventId, liveReadsEnabled, hasWorldPresence, worldPresenceEnabled, presenceFallbackEvent, t]);
 
@@ -819,7 +812,7 @@ export default function EventLivePage() {
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-3)', marginLeft: "auto" }}>
-          <div aria-live="polite" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: worldFrame?.viewers ?? viewerCount })}</div>
+          <div aria-live="polite" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</div>
           {elapsedLabel && (
             <div style={{ textAlign: "right", fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
               <div>{t("label.elapsed")}</div>

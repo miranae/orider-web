@@ -8,6 +8,7 @@ export function subscribeOperatorSnapshot<T>(
   denied: () => void,
   fallback: () => () => void,
   refresh?: (current: () => boolean) => void,
+  report: typeof logClientError = logClientError,
 ): () => void {
   let active = true;
   let generation = 0;
@@ -21,7 +22,7 @@ export function subscribeOperatorSnapshot<T>(
     stopFallback = fallback();
   };
   const timeout = setTimeout(() => {
-    logClientError("operatorSnapshotStream.timeout", new Error("Initial signal timed out"));
+    report("operatorSnapshotStream.timeout", new Error("Initial signal timed out"), { eventId });
     useFallback();
   }, 2500);
   void viewer.getIdToken().then(token => {
@@ -31,7 +32,7 @@ export function subscribeOperatorSnapshot<T>(
     connection.addEventListener("open", () => {
       if (active && !stopFallback) {
         try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token })); }
-        catch (error) { logClientError("operatorSnapshotStream.send", error, { eventId }); useFallback(); }
+        catch (error) { report("operatorSnapshotStream.send", error, { eventId }); useFallback(); }
       }
     });
     connection.addEventListener("message", ({ data }) => {
@@ -45,7 +46,7 @@ export function subscribeOperatorSnapshot<T>(
         if (frame.revision === null) receive(null);
         refresh?.(() => active && !stopFallback && ticket === generation);
       } catch (error) {
-        logClientError("operatorSnapshotStream.decode", error);
+        report("operatorSnapshotStream.decode", error, { eventId });
         useFallback();
       }
     });
@@ -56,11 +57,11 @@ export function subscribeOperatorSnapshot<T>(
         active = false; generation++;
         denied();
       } else {
-        logClientError("operatorSnapshotStream.close", new Error("Operator signal closed"), { eventId, code });
+        report("operatorSnapshotStream.close", new Error("Operator signal closed"), { eventId, code });
         generation++; useFallback();
       }
     });
-  }).catch(error => { logClientError("operatorSnapshotStream.connect", error); useFallback(); });
+  }).catch(error => { report("operatorSnapshotStream.connect", error, { eventId }); useFallback(); });
   return () => {
     active = false;
     clearTimeout(timeout);
