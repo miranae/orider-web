@@ -79,6 +79,8 @@ import { toLocalDate } from "../utils/dateUtils";
 import { fitnessTodayKey } from "@shared/training/dateKey";
 import TriFitnessView from "./fitness/TriFitnessView";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
+import { readCachedTodayPlan } from "../features/fitness/cachedTodayPlan";
+import { storedActivityLoad, storedActivityName } from "../features/fitness/storedActivityLoad";
 import LoadQualityEvidence from "../features/sufficiency/LoadQualityEvidence";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
 
@@ -87,7 +89,6 @@ export interface FitnessViewProps {
   part?: "all" | "condition" | "analysis";
   model: FitnessModel;
   thresholdsSlot?: ReactNode;
-  conditionSupplementSlot?: ReactNode;
   hasThresholdSettings?: boolean;
 }
 
@@ -106,7 +107,7 @@ export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
   </GlossaryProvider>;
 }
 
-function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, conditionSupplementSlot, hasThresholdSettings = Boolean(thresholdsSlot) }: FitnessViewProps) {
+function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, hasThresholdSettings = Boolean(thresholdsSlot) }: FitnessViewProps) {
   const [chartView, setChartView] = useState<"trend" | "years" | "activities">("trend");
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   // 기간 파워 비교는 이 플래그가 켜진 환경에서만 조회된다. 꺼져 있으면 분석은 기존 28일 파워 커브를 보여준다.
@@ -464,8 +465,37 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   }
 
   if (renderMobile) {
+    const phoneCondition = part === "condition" && !embedded;
+    const planHref = `/coach/plan?sport=${discipline}`;
+    const cachedPlan = phoneCondition && discipline !== "tri"
+      ? readCachedTodayPlan(user.uid, user.isAnonymous === true, discipline, i18n.resolvedLanguage ?? i18n.language) : null;
+    const phoneTodayPlan = {
+      planHref,
+      label: cachedPlan ? [cachedPlan.workoutName ?? trainingT(`workouts.${cachedPlan.workout}`), cachedPlan.durationMin != null ? trainingT("decision.duration", { value: cachedPlan.durationMin }) : null].filter(Boolean).join(" ") : null,
+    };
+    // 최근 활동 — 이름·날짜와 서버가 저장한 활동 부하(TSS)만 읽는다(P6). 영향 변화값은 계산하지 않는다.
+    const recentDisciplineActivities = phoneCondition && discipline !== "tri"
+      ? disciplineActivities.filter(activity => !isNegligibleActivitySummary(activity.summary)).sort((a, b) => b.startTime - a.startTime) : [];
+    const todayKey = toLocalDate(Date.now());
+    const yesterdayKey = toLocalDate(Date.now() - 86_400_000);
+    const phoneRecentActivities = recentDisciplineActivities.slice(0, 3).map(activity => {
+      const dayKey = toLocalDate(activity.startTime);
+      const startedAt = new Date(activity.startTime);
+      const date = dayKey === todayKey ? t("condition.phone.today") : dayKey === yesterdayKey ? t("condition.phone.yesterday")
+        : `${startedAt.getMonth() + 1}/${startedAt.getDate()}`;
+      const name = storedActivityName(activity) ?? t(/run/i.test(activity.type) ? "discipline.run" : /swim/i.test(activity.type) ? "discipline.swim" : "discipline.bike");
+      return { id: activity.id, label: `${date} · ${name}`, load: storedActivityLoad(activity, metricsMap.get(activity.id)) };
+    });
+    // 최근 활동 날짜가 서버 일별 부하에 아직 없으면 집계 대기 칩 하나만 둔다.
+    const newestRecent = recentDisciplineActivities[0] ?? null;
+    const phonePendingAggregate = Boolean(newestRecent && hasCanonicalTimeseries
+      && activityDayLoad(newestRecent, fitnessData, model.fitnessDateKeyBasis) == null);
+    const goalDaysLeft = activeGoal ? Math.ceil((activeGoal.eventDate - Date.now()) / 86_400_000) : null;
+    const phoneGoal = phoneCondition && discipline !== "tri" && activeGoal
+      ? { name: goalDisplayName ?? t("condition.phone.goalFallback"), daysLeft: goalDaysLeft != null && goalDaysLeft >= 0 ? goalDaysLeft : null, planHref } : null;
     const renderMobileContent = (decisionState?: TodayTrainingDecisionState) => {
-      const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
+      // 휴대폰 컨디션은 코치 브리핑(활동 영향·브라우저 계산 변화값) 대신 한 줄 블록을 쓴다.
+      const mobileCoachBriefing = discipline !== "tri" && currentPoint && !phoneCondition ? (
         <FitnessCoachBriefing
           showConditionChoices={embedded}
           currentBasis={currentBasis}
@@ -507,7 +537,10 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             powerCurveEvidenceSlot={part === "condition" && discipline === "bike" ? <BikePowerCurveEvidence compact={!embedded} current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
             runPaceCurve={runPaceCurve}
             runningRecordsSlot={part === "condition" && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
-            conditionSupplementSlot={conditionSupplementSlot}
+            conditionTodayPlan={phoneCondition && discipline !== "tri" ? phoneTodayPlan : null}
+            conditionRecentActivities={phoneRecentActivities}
+            conditionGoal={phoneGoal}
+            conditionPendingAggregate={phoneCondition && phonePendingAggregate}
             currentBasis={currentBasis}
             currentStatusSlot={currentStatusSlot}
             periodEvidenceSlot={<>{weekChangeSlot}{part === "condition" && currentPoint && <FitnessWeeklyInsight includeLoadSummary={false}

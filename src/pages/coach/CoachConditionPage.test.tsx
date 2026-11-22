@@ -11,7 +11,6 @@ vi.mock("./CoachFitnessModelContext", () => ({ useCoachFitnessModel: () => ({
 }) }));
 vi.mock("../FitnessPage", () => ({ FitnessView: ({ hasThresholdSettings }: { hasThresholdSettings: boolean }) =>
   <section aria-label="Current condition">Condition content{hasThresholdSettings && <button>Edit thresholds inline</button>}</section> }));
-vi.mock("../../components/dashboard/CrossDisciplineLoadCard", () => ({ default: () => <div>Cross-sport load</div> }));
 
 function CurrentLocation() {
   const location = useLocation();

@@ -1446,5 +1446,16 @@
   "analysis.concise.previousValue": "이전 {{value}}",
   "analysis.concise.fixedWindow": "최근 28일 · 이전 28일",
   "analysis.concise.powerBasis": "파워",
-  "analysis.concise.heartRateBasis": "심박"
+  "analysis.concise.heartRateBasis": "심박",
+  "condition.phone.todayPlan": "오늘 계획",
+  "condition.phone.viewPlan": "계획 보기 ›",
+  "condition.phone.weeklyLoad": "주간 부하",
+  "condition.phone.recentTitle": "최근 활동",
+  "condition.phone.load": "부하 {{value}}",
+  "condition.phone.more": "더보기",
+  "condition.phone.goalPlan": "계획 ›",
+  "condition.phone.goalFallback": "목표",
+  "condition.phone.pending": "집계 대기",
+  "condition.phone.today": "오늘",
+  "condition.phone.yesterday": "어제"
 }
