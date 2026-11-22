@@ -22,8 +22,6 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const world = useWorldEvent(activeState.data?.status === "LIVE" ? eventId : undefined,
     uid === services.auth.currentUser?.uid ? services.auth.currentUser : null, selectedUid);
   const worldActive = world !== null;
-  const worldActiveRef = useRef(worldActive);
-  worldActiveRef.current = worldActive;
   const syncLocationSignal = useRef<() => void>(() => {});
   const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
@@ -83,7 +81,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         if (selectedRef.current !== requestedUid) { queued = true; return; }
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
-        if (readySubscriptions.size === (worldActiveRef.current || spectatorActiveScope.current === scope ? 3 : 4)) recoveryAttempts = 0;
+        if (readySubscriptions.size === (spectatorActiveScope.current === scope ? 3 : 4)) recoveryAttempts = 0;
         setState(old => ({scope, data: retainNewerSamples(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
       } catch (error) {
         if (current() && ticket === generation) fail(error);
@@ -104,13 +102,12 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     spectatorSignal.current = code => signal(code === 4003 || code === 4004);
     const syncSignal = () => {
       const path = `events/${eventId}/spectator_signals/latest`;
-      if (worldActiveRef.current || spectatorActiveScope.current === scope) {
+      if (spectatorActiveScope.current === scope) {
         stopLocationSignal?.();
         stopLocationSignal = undefined;
         readySubscriptions.delete(path);
       } else if (!stopLocationSignal && stops.length && current() && !blocked && !document.hidden) {
         stopLocationSignal = onSnapshot(doc(services.firestore, path), () => {
-          if (worldActiveRef.current) return;
           readySubscriptions.add(path);
           signal();
         }, fail);
@@ -151,20 +148,12 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     window.addEventListener("online", focus);
     return () => { disposed = true; spectatorSignal.current = () => {}; syncLocationSignal.current = () => {}; stop(); document.removeEventListener("visibilitychange", visible); window.removeEventListener("focus", focus); window.removeEventListener("online", focus); };
   }, [services, scope, groupId, eventId, uid, retry, spectatorRedis, viewer]);
-  useEffect(() => syncLocationSignal.current(), [worldActive]);
+  useEffect(() => { syncLocationSignal.current(); if (world) spectatorSignal.current(); }, [world, worldActive]);
   useEffect(() => {
     if (previousSelection.current !== selectedUid) {
       previousSelection.current = selectedUid;
       refreshSelection.current();
     }
   }, [selectedUid]);
-  if (!world || !activeState.data) return { ...activeState, reload: () => setRetry(v => v + 1) };
-  const locations = new Map(world.markers.map((marker) => [marker.uid, marker]));
-  const data = { ...activeState.data, locations: activeState.data.locations.flatMap((rider) => {
-    const location = locations.get(rider.uid);
-    return location ? [{ ...rider, lat: location.lat, lng: location.lon, speedMps: location.speedMps ?? null,
-      sampledAtMs: location.capturedAt, powerWatts: location.power ?? null,
-      powerExpiresAtMs: location.powerExpiresAtMs ?? null, status: location.status === "paused" ? "STOPPED" as const : "RIDING" as const }] : [];
-  }) };
-  return { ...activeState, data, reload: () => setRetry(v => v + 1) };
+  return { ...activeState, reload: () => setRetry(v => v + 1) };
 }

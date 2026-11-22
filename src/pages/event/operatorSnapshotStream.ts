@@ -1,3 +1,4 @@
+import { logClientError } from "../../services/errorLogger";
 type Viewer = { getIdToken(): Promise<string> };
 
 export function subscribeOperatorSnapshot<T>(
@@ -6,6 +7,7 @@ export function subscribeOperatorSnapshot<T>(
   receive: (snapshot: T | null) => void,
   denied: () => void,
   fallback: () => () => void,
+  refresh?: () => void,
 ): () => void {
   let active = true;
   let socket: WebSocket | undefined;
@@ -17,7 +19,10 @@ export function subscribeOperatorSnapshot<T>(
     receive(null);
     stopFallback = fallback();
   };
-  const timeout = setTimeout(useFallback, 2500);
+  const timeout = setTimeout(() => {
+    logClientError("operatorSnapshotStream.timeout", new Error("Initial signal timed out"));
+    useFallback();
+  }, 2500);
   void viewer.getIdToken().then(token => {
     if (!active || stopFallback) return;
     const connection = new WebSocket("ws://127.0.0.1:19494/operator-snapshots");
@@ -29,13 +34,13 @@ export function subscribeOperatorSnapshot<T>(
       if (!active || stopFallback) return;
       try {
         const frame = JSON.parse(String(data));
-        if (frame.v !== 1 || frame.eventId !== eventId || frame.type !== "operator_snapshot") return;
-        const snapshot = frame.snapshot;
-        if (snapshot !== null && (!snapshot || !Number.isFinite(snapshot.timestamp) || !snapshot.counts ||
-          !Array.isArray(snapshot.checkpoints) || !Array.isArray(snapshot.locations))) return;
+        if (frame.v !== 1 || frame.eventId !== eventId || frame.type !== "operator_snapshot_signal") return;
         clearTimeout(timeout);
-        receive(snapshot as T | null);
-      } catch {
+        if (typeof frame.revision !== "string" && frame.revision !== null) return;
+        receive(null);
+        refresh?.();
+      } catch (error) {
+        logClientError("operatorSnapshotStream.decode", error);
         useFallback();
       }
     });
@@ -46,7 +51,7 @@ export function subscribeOperatorSnapshot<T>(
         denied();
       } else useFallback();
     });
-  }).catch(useFallback);
+  }).catch(error => { logClientError("operatorSnapshotStream.connect", error); useFallback(); });
   return () => {
     active = false;
     clearTimeout(timeout);

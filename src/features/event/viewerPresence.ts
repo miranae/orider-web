@@ -1,3 +1,4 @@
+import { logClientError } from "../../services/errorLogger";
 import { Timestamp, collection, getCountFromServer, query, where, type Firestore } from "firebase/firestore";
 
 /** 활성 시청자 판정 창. 서버 heartbeat 는 30초 간격이다. */
@@ -28,7 +29,8 @@ export function viewerSessionIdForEvent(eventId: string): string {
     const sessionId = createViewerSessionId();
     sessionStorage.setItem(storageKey, sessionId);
     return sessionId;
-  } catch {
+  } catch (error) {
+    logClientError("viewerPresence.sessionStorage", error);
     return createViewerSessionId();
   }
 }

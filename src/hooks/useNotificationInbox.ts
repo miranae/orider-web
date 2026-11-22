@@ -121,7 +121,11 @@ export function useNotificationInbox() {
         const code = (error as { code?: string })?.code;
         if (disposed || revoked) return;
         if (redisSignal && (code === "permission-denied" || code === "unauthenticated")) revoke();
-        else if (canonicalRevision === undefined && worldRevision === undefined) canonicalChanged(null);
+        else {
+          stopCanonical();
+          canonicalChanged(null);
+          if (redisSignal) setTimeout(() => { if (!disposed && !revoked) startSource(); }, 1000);
+        }
       };
       const startSource = () => {
         if (disposed || revoked || stopSource) return;

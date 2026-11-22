@@ -340,7 +340,7 @@ export default function EventLivePage() {
   const eventStatus = eventContext?.eventId === eventId ? eventContext?.status : null;
   const trackingEnded = eventStatus === "FINISHED" || eventStatus === "CANCELLED";
   const [viewport, setViewport] = useState<WorldViewport>();
-  const trackingBib = /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : undefined;
+  const trackingBib = /^\d{1,6}$/.test(searchBib.trim()) ? Number(searchBib.trim()) : followBibs.at(-1);
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport, undefined, trackingBib, !authLoading);
   const guestWorldActive = !user && worldFrame !== null;
   const snapshot = useMemo<SnapshotData | null>(() => {

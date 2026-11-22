@@ -9,7 +9,7 @@ class FakeSocket extends EventTarget {
   close = vi.fn();
   constructor() { super(); FakeSocket.latest = this; }
   frame(eventId: string, snapshot: unknown) {
-    this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "operator_snapshot", eventId, snapshot }) }));
+    this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "operator_snapshot_signal", eventId, revision: String(snapshot) }) }));
   }
   end(code: number) {
     const event = new Event("close");
@@ -27,7 +27,8 @@ describe("operator snapshot stream", () => {
     const stopFallback = vi.fn();
     const fallback = vi.fn(() => stopFallback);
     const denied = vi.fn();
-    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "demo-token" }, receive, denied, fallback);
+    const refresh = vi.fn();
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "demo-token" }, receive, denied, fallback, refresh);
     await Promise.resolve();
     const socket = FakeSocket.latest;
     socket.dispatchEvent(new Event("open"));
@@ -35,7 +36,8 @@ describe("operator snapshot stream", () => {
     const snapshot = { timestamp: 1, counts: { sos: 1 }, checkpoints: [], locations: [] };
     socket.frame("other", snapshot);
     socket.frame("official", snapshot);
-    expect(receive.mock.calls).toEqual([[snapshot]]);
+    expect(receive.mock.calls).toEqual([[null]]);
+    expect(refresh).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(3000);
     expect(fallback).not.toHaveBeenCalled();
     socket.end(1013);

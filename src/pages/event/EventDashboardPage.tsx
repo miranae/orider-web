@@ -1,4 +1,4 @@
-import { useWorldEvent, worldLocation, type WorldViewport } from "../../features/ride-world/useWorldEvent";
+import { useWorldEvent, type WorldViewport } from "../../features/ride-world/useWorldEvent";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -342,21 +342,14 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const [viewport, setViewport] = useState<WorldViewport>();
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport);
   const worldPresenceActive = worldFrame !== null;
-  const snapshot = useMemo<SnapshotData | null>(() => {
-    if (!worldFrame) return savedSnapshot;
-    const metadata = new Map(savedSnapshot?.locations.map((item) => [item.uid, item]));
-    return {
-      timestamp: worldFrame.updatedAt,
-      counts: { ...(savedSnapshot?.counts ?? { ...worldFrame.counts, finished: 0, dnf: 0, sos: 0, offCourse: 0 }),
-        riding: worldFrame.counts.riding },
-      checkpoints: savedSnapshot?.checkpoints ?? [],
-      locations: worldFrame.markers.map((marker) => {
-        const location = worldLocation(marker);
-        const previous = metadata.get(location.uid);
-        return previous ? { ...previous, lat: location.lat, lng: location.lng, speed: location.speed,
-          status: location.status, rideKind: location.rideKind } : location;
-      }),
-    };
+  const snapshot = savedSnapshot;
+  const mapLocations = useMemo(() => {
+    if (!worldFrame) return savedSnapshot?.locations ?? [];
+    const canonical = new Map(savedSnapshot?.locations.map(row => [row.uid, row]));
+    return worldFrame.markers.flatMap(marker => {
+      const row = canonical.get(marker.uid ?? marker.id);
+      return row ? [{ ...row, lat: marker.lat, lng: marker.lon, rideKind: marker.kind }] : [];
+    });
   }, [savedSnapshot, worldFrame]);
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
@@ -627,7 +620,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     const useRedis = import.meta.env.DEV && import.meta.env.VITE_ORIDER_OPERATOR_SNAPSHOTS === "1" &&
       isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-");
     const unsub = useRedis && user ? subscribeOperatorSnapshot(eventId, user, receive,
-      () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))), fallback) : fallback();
+      () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))), fallback, () => { void getDoc(latestRef).then(snap => receive(snap.exists() ? snap.data() as SnapshotData : null)).catch(snapshotFailed); }) : fallback();
     return () => { active = false; revision++; unsub(); };
   }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt]);
 
@@ -941,7 +934,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           <div style={{ flex: 1, minHeight: 300, position: "relative" }}>
             {worldFrame ? (
               <EventMap
-                locations={snapshot?.locations ?? []}
+                locations={mapLocations}
                 selectedUid={selectedUid}
                 onSelectParticipant={setSelectedUid}
                 courseLatlngs={combinedRoute ? [combinedRoute] : undefined}

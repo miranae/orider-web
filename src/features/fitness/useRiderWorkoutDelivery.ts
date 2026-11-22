@@ -100,6 +100,7 @@ export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWo
       }, (error) => {
         if (operationRef.current !== operation || deliverySubscriptionRevision !== subscriptionRevision) return;
         logClientError("useRiderWorkoutDelivery.delivery", error, undefined, services, viewer);
+        setDelivery(null); setPointer(null); latestConfirmedDeliveryRef.current = null;
         setSubmitState("error"); setSubmitErrorKind("conflict"); setSubmitError(error); setRestoreLoading(true);
       });
     }, (error) => {
