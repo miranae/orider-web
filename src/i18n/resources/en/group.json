@@ -626,5 +626,15 @@
   "meetings.title": "Meetings",
   "meetings.description": "Find upcoming club meetings and races.",
   "meetings.create": "Create a meeting",
-  "meetings.tools": "Calendar & race tools"
+  "meetings.tools": "Calendar & race tools",
+  "list.upcomingMeetings": "Upcoming meetings",
+  "list.myClubs": "My clubs",
+  "list.upcomingJoin": "Join",
+  "list.upcomingParticipants": "{{count}} joined",
+  "list.requestsRow": "Join requests",
+  "list.requestsCount": "{{count}}",
+  "list.findShort": "Find",
+  "list.createShort": "Create",
+  "subNav.activity": "Activity",
+  "subNav.more": "Club menu"
 }
