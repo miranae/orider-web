@@ -1,7 +1,4 @@
-import { Button } from "../../theme/components";
 import { Users } from "lucide-react";
-import SportIcon from "../../components/common/SportIcon";
-import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -9,24 +6,25 @@ import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
 import { canManageGroup } from "../../features/group/groupPermissions";
 import GroupSubNav from "../../components/group/GroupSubNav";
-import RideCard from "../../components/group/RideCard";
-import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { EmptyState, ErrorState } from "../../components/redesign";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { useMobile } from "../../hooks/useMobile";
+import GroupWeekPage from "./GroupWeekPage";
+import GroupRideList from "../../components/group/GroupRideList";
 
+/** 휴대폰은 공동 기록 주소(/rides)도 활동 화면(이번 주 + 공동 기록)으로 연다 — 기존 링크·앱 경로가 그대로 활동 탭에 닿는다. */
 export default function GroupRidesPage() {
+  return useMobile() ? <GroupWeekPage /> : <GroupRidesContent />;
+}
+
+function GroupRidesContent() {
   const { t } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading, error: groupError, retry: groupRetry } = useGroup(groupId);
   const { role, loading: roleLoading, error: roleError, retry: roleRetry } = useGroupMemberRole(groupId, user?.uid);
-  const { rides, loading, loadingMore, error, loadMoreError, retry, hasMore, loadMore } = useGroupRideStats(groupId);
-
-  const [minActivities, setMinActivities] = useState(0);
-
-  const filteredRides = useMemo(() => {
-    if (minActivities === 0) return rides;
-    return rides.filter((r) => r.participantCount >= minActivities);
-  }, [rides, minActivities]);
+  const stats = useGroupRideStats(groupId);
+  const { error, retry } = stats;
 
   if (groupLoading || roleLoading) {
     return (
@@ -75,43 +73,7 @@ export default function GroupRidesPage() {
     <div className="club-surface">
       <GroupSubNav group={group} isCreator={isCreator} />
 
-      <p className="club-record-scope" data-testid="club-ride-list-scope">{t("rides.listScope")}</p>
-      <div data-testid="C2-0" className="flex flex-wrap items-center gap-3 mb-4">
-        <span className="text-[length:var(--ft-body-medium-size)]" style={{ color: "var(--ink-2)" }}>{t("rides.activityCountFilter")}:</span>
-        {[0, 2, 5].map((n) => (
-          <Button size="sm" variant={minActivities === n ? "primary" : "secondary"} data-testid="C2-0-1"
-            key={n}
-            onClick={() => setMinActivities(n)}
-            aria-pressed={minActivities === n}
-          >
-            {n === 0 ? t("filter.all") : t("rides.minimumActivityCount", { count: n })}
-          </Button>
-        ))}
-      </div>
-
-      {loading && rides.length === 0 ? (
-        <LoadingSkeleton kind="list" count={5} />
-      ) : filteredRides.length === 0 && !hasMore ? (
-        <EmptyState icon={<SportIcon sport="bike" size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t("empty.noRides")} compact
-          // 참가 인원 필터 때문에 비었으면 문구를 누르면 필터를 푼다.
-          resolve={minActivities > 0 ? { onClick: () => setMinActivities(0) } : undefined} />
-      ) : (
-        <div data-testid="C2-1" className="space-y-3">
-          {filteredRides.map((r) => (
-            <RideCard key={r.groupRideId} ride={r} />
-          ))}
-          {loadMoreError && <p role="alert">{t(loadMoreError === "unavailable" ? "error.rideStatsUnavailable" : "error.rideStatsLoadFailed")}</p>}
-          {hasMore && (
-            <Button size="sm" variant="secondary" data-testid="C2-1-2"
-              type="button"
-              onClick={() => { void loadMore(); }}
-              disabled={loadingMore}
-            >
-              {loadingMore ? t("rides.loadingMore") : loadMoreError ? t("invite.retry") : t("rides.loadMore")}
-            </Button>
-          )}
-        </div>
-      )}
+      <GroupRideList stats={stats} />
     </div>
   );
 }

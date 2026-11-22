@@ -10,6 +10,10 @@ export interface NextEventInfo {
   groupId: string;
   name: string;
   startTime: number;
+  /** 클럽 모임이면 모임 상세(`/club/:id/meetings/:eventId`), 아니면 이벤트 상세로 간다. */
+  meeting: boolean;
+  /** 응답에 담긴 서버 참가 집계(counters.totalRegistered). 없으면 null — 화면에서 세지 않는다. */
+  registered: number | null;
 }
 
 function toMillis(v: unknown): number {
@@ -95,7 +99,8 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
             const name = info.name ?? t("dashboard.fallbackEventName");
             const existing = map.get(groupId);
             if (!existing || startTime < existing.startTime) {
-              map.set(groupId, { id: doc.id, groupId, name, startTime });
+              const registered = d.counters?.totalRegistered;
+              map.set(groupId, { id: doc.id, groupId, name, startTime, meeting: info.kind === "CLUB_MEETING", registered: typeof registered === "number" ? registered : null });
             }
           });
         });

@@ -58,6 +58,12 @@ function badgeText(name: string): string {
   return Array.from(trimmed).slice(0, 2).join("");
 }
 
+/** 클럽 아이콘 글자 — 운영자가 정한 배지, 없으면 이름에서 만든다(최대 3자). */
+export function clubBadgeLabel(group: { name: string; badge?: unknown }): string {
+  const badge = typeof group.badge === "string" ? group.badge.trim() : "";
+  return Array.from(badge || badgeText(group.name)).slice(0, 3).join("").toUpperCase();
+}
+
 export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, joining, joinPending, joinChecking, joinUnconfirmed, onShowPendingRequest, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
   const { user } = useAuth();
   const { role: ownRole } = useGroupMemberRole(showMyRole ? group.id : undefined, showMyRole ? user?.uid : undefined, showMyRole ? group.creatorId : undefined);
@@ -65,8 +71,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
   const primarySport = (group.sports && group.sports[0]) ?? group.discipline ?? "bike";
   const meta = DISCIPLINE_META[primarySport] ?? DISCIPLINE_META.bike!;
   const kindLabel = group.kind ? t(KIND_LABEL_KEYS[group.kind]) : null;
-  const badge = typeof group.badge === "string" ? group.badge.trim() : "";
-  const badgeLabel = Array.from(badge || badgeText(group.name)).slice(0, 3).join("").toUpperCase();
+  const badgeLabel = clubBadgeLabel(group);
 
   const content = (
     <Card padding="none"
