@@ -650,6 +650,7 @@
   "src/hooks/usePowerCurvePeriods.ts",
   "src/hooks/usePowerDurationWindows.ts",
   "src/hooks/usePowerEffortPreferences.ts",
+  "src/hooks/useProfileAvatarDisplayUrl.ts",
   "src/hooks/usePublicActivityMaps.ts",
   "src/hooks/usePublicActivitySession.ts",
   "src/hooks/usePublicClubDirectory.ts",
