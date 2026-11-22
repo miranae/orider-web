@@ -102,6 +102,8 @@ interface TodayTrainingDecisionCardProps {
   suppressExecution?: boolean;
   onSignIn?: () => void;
   decisionState?: TodayTrainingDecisionState;
+  /** 휴대폰 계획: 오늘 카드 안의 한 줄 — 상태·권고 운동·변화량만 둔다. */
+  compact?: boolean;
 }
 
 /** 모바일 상단 요약과 상세 카드가 동일한 판정 응답을 소비하도록 한 번만 조회한다. */
@@ -125,7 +127,7 @@ export default function TodayTrainingDecisionCard(props: TodayTrainingDecisionCa
     : <ConnectedTodayTrainingDecisionCard {...props} />;
 }
 
-function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness", suppressExecution = false, onSignIn = () => undefined, decisionState }: TodayTrainingDecisionCardProps & { decisionState: TodayTrainingDecisionState }) {
+function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness", suppressExecution = false, onSignIn = () => undefined, decisionState, compact = false }: TodayTrainingDecisionCardProps & { decisionState: TodayTrainingDecisionState }) {
   const { t, i18n } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailableReason, refresh } = decisionState;
   const webResolve = useFirebaseServices().scope !== "embedded";
@@ -193,6 +195,34 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
     : []);
   const executableSessions = decision.effectiveSessions
     .filter((session) => session.current.workout !== "rest" && !blockedExecutionSessionIds.has(session.sessionId));
+
+  // 한 줄에는 서버가 준 상태·운동·시간만 둔다(화면 계산 차이값은 두지 않는다).
+  // 권고가 운동이 아닌 행동(재확인 등)이면 기존 운동을 권고처럼 보이지 않게 행동 이름만 둔다.
+  // 실행·변경안 승인 같은 동작은 한 줄 아래에 기존 패널 그대로 둔다. 근거는 눌러서 펼친다.
+  if (compact && surface === "plan") {
+    const rowSession = applied ? effective : recommendationPending ? recommended : effective ?? scheduled;
+    const rowAction = recommendationPending && !recommended && action ? t(`decision.status.${action}`) : null;
+    return <div data-testid="K4-4" className="training-decision-row" data-decision-id={tupleId}
+      data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
+      {decision.healthGate.state === "stop" && <Alert variant="danger" title={t("decision.healthStop")} />}
+      <div data-testid="K4-4-1" className="training-decision-row__line" data-row-action={rowAction ? action ?? "" : undefined}>
+        <Text as="strong" variant="bodySmall" weight={600}>{t(`decision.status.${statusKey}`)}</Text>
+        {rowAction ? <Text as="span" variant="bodySmall" tone="secondary">{rowAction}</Text>
+          : rowSession && <Text as="span" variant="bodySmall" tone="secondary">
+          {t(`decision.workout.${rowSession.current.workout}`, { defaultValue: rowSession.current.workout })} · {t("decision.duration", { value: rowSession.current.durationMin })}
+        </Text>}
+      </div>
+      {reasonCodes.length > 0 && <details className="training-decision-row__reasons">
+        <summary>{t(recommendedAdjustment ? "decision.reasonTitle" : "decision.reasonTitlePlain")}</summary>
+        <div>{reasonCodes.map((code) => <Chip key={code} variant="default" wrap>
+          {t(`decision.reason.${code}`, { defaultValue: t("decision.reasonFallback") })}
+        </Chip>)}</div>
+      </details>}
+      {(decision.capabilities.proposal === "available" || decision.proposal !== null || decision.receipt !== null)
+        && <ProposalPanel decision={decision} recommendationVisible={recommendationVisible} refresh={refresh} />}
+      {!suppressExecution && executableSessions.length > 0 && <TrainingExecutionPanel decision={decision} sessions={executableSessions} onChanged={refresh} />}
+    </div>;
+  }
 
   return <Card data-testid={surface === "today" ? "K2-2" : surface === "plan" ? "K4-4" : undefined} className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>

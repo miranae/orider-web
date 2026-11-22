@@ -75,3 +75,10 @@
   .training-decision-card__actions, .training-decision-proposal__actions { align-items: stretch; flex-direction: column; }
   .training-decision-card__actions > *, .training-decision-proposal__actions > * { width: 100%; justify-content: center; }
 }
+
+/* 휴대폰 계획 오늘 카드 안의 결정 한 줄. */
+.training-decision-row { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.training-decision-row__line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); min-width: 0; }
+.training-decision-row__reasons summary { min-height: 44px; display: flex; align-items: center; color: var(--ink-2); font-size: var(--fs-sm); cursor: pointer; }
+.training-decision-row__reasons > div { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.training-decision-row .training-decision-proposal { margin: 0; padding: 0; border: 0; background: transparent; }

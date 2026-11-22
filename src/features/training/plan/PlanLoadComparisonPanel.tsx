@@ -1,6 +1,8 @@
 import { useLocation, useSearchParams } from "react-router-dom";
 import { LocalizedLink } from "../../../components/LocalizedLink";
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 import { useTranslation } from "react-i18next";
 import type { PlanWeek } from "@shared/types/goal";
 import { planCalendarDate, planDayKey } from "@shared/training/planDate";
@@ -40,10 +42,12 @@ export interface PlanLoadComparisonProps {
   selectedDate?: string;
   ftp?: number;
   enabled?: boolean;
+  /** 휴대폰: 한 줄로 접어 두고 누르면 펼친다. 기간 링크(#plan-load-comparison·loadPeriod)로 오면 펼친 채 연다. */
+  collapsible?: boolean;
 }
 
 /** Compare prescribed load with all accepted activity load, independently of workout completion links. */
-export default function PlanLoadComparison({ uid, discipline, weeks, selectedDate, ftp, enabled = true }: PlanLoadComparisonProps) {
+export default function PlanLoadComparison({ uid, discipline, weeks, selectedDate, ftp, enabled = true, collapsible = false }: PlanLoadComparisonProps) {
   const { t, i18n } = useTranslation("training");
   // 부하 미확인 문구를 누르면 종목의 부하 기준값 칸으로 간다 — 설정 화면은 웹에만 있다.
   const webResolve = useFirebaseServices().scope !== "embedded";
@@ -52,6 +56,7 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
   const initialDate = selectedDate && validDate(selectedDate) ? selectedDate : today;
   const location = useLocation();
   const [params, setParams] = useSearchParams();
+  const [expanded, setExpanded] = useState(() => !collapsible || location.hash === "#plan-load-comparison" || params.has("loadPeriod"));
   const requestedPeriod = params.get("loadPeriod");
   const period: Period = requestedPeriod === "day" || requestedPeriod === "month" || requestedPeriod === "range" ? requestedPeriod : "week";
   const date = params.get("loadDate") ?? initialDate;
@@ -69,7 +74,7 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
   const dayLink = (day: string) => <LocalizedLink to={`/athlete/me/activities?sport=${discipline}&date=${day}&day=${day}&detail=record-day`} state={{ periodEvidence: result.state === "ready" ? { uid, date: day, discipline, row: result.days.find(row => row.date === day), activityIds: result.days.find(row => row.date === day)?.activityIds ?? [] } : undefined, periodReturn: { pathname: location.pathname, search: `?${originParams}`, hash: "#plan-load-comparison" } }}>{t("loadComparison.reviewDay", { date: day })}</LocalizedLink>;
   const range = useMemo(() => periodRange(period, date, custom), [period, date, custom]);
   const valid = getPlanLoadRangeBounds(range) !== null;
-  const result = usePlanPeriodComparison({ uid, discipline, weeks, range, enabled: enabled && valid, ftp });
+  const result = usePlanPeriodComparison({ uid, discipline, weeks, range, enabled: enabled && valid && expanded, ftp });
   const number = (value: number | null | undefined, signed = false) => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1, signDisplay: signed ? "exceptZero" : "auto" }).format(value);
   const ready = valid && (result.state === "ready" || result.state === "incomplete");
   const summary = ready ? result.summary : null;
@@ -86,10 +91,19 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
     } else setDate(planDayKey(time + direction * (period === "week" ? 7 : 1) * DAY_MS));
   };
   if (!enabled) return null;
+  if (collapsible && !expanded) return <section id="plan-load-comparison" className="plan-load-comparison plan-load-comparison--collapsed" aria-labelledby={`${id}-title`}>
+    <button type="button" className="plan-load-comparison__toggle" aria-expanded={false} aria-controls={`${id}-body`} onClick={() => setExpanded(true)}>
+      <Text as="h2" variant="bodyMedium" weight={600} id={`${id}-title`}>{t("loadComparison.title")}</Text>
+      <ChevronRight size={ICON_SIZE.sm} aria-hidden="true" />
+    </button>
+  </section>;
   return <section id="plan-load-comparison" className="plan-load-comparison" aria-labelledby={`${id}-title`}>
-    <Card>
+    <Card id={`${id}-body`}>
       <div className="plan-load-comparison__heading">
-        <Text as="h2" variant="title" id={`${id}-title`}>{t("loadComparison.title")}</Text>
+        {collapsible ? <button type="button" className="plan-load-comparison__toggle plan-load-comparison__toggle--open" aria-expanded={true} aria-controls={`${id}-body`} onClick={() => setExpanded(false)}>
+          <Text as="h2" variant="title" id={`${id}-title`}>{t("loadComparison.title")}</Text>
+          <ChevronDown size={ICON_SIZE.sm} aria-hidden="true" />
+        </button> : <Text as="h2" variant="title" id={`${id}-title`}>{t("loadComparison.title")}</Text>}
         <ToggleControls aria-label={t("loadComparison.period")} style={{ marginBottom: 0 }}>
           {(["day", "week", "month", "range"] as const).map(value => <ToggleButton key={value} selected={period === value} onClick={() => changePeriod(value)}>{t(`loadComparison.${value}`)}</ToggleButton>)}
         </ToggleControls>

@@ -203,20 +203,15 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
           loadState={props.loadState}
           nextAction={props.nextAction}
           decisionSlot={props.decisionSlot}
+          comparisonSlot={isMobile ? loadComparisonPanel : undefined}
           selectedDate={props.selectedDate}
           currentWeek={props.currentWeek}
           weekLabel={props.weekLabel}
           goalId={serverManagedPlan ? undefined : goal?.id}
           goalTitle={props.goalTitle}
           goalDiscipline={props.goalDiscipline}
-          goalLoadSummary={props.goalLoadSummary}
           goalDate={props.goalDate}
           daysLeft={props.daysLeft}
-          progressPct={props.progressPct}
-          completedTSS={props.completedTSS}
-          totalTSS={props.totalTSS}
-          weeksLeft={props.weeksLeft}
-          projectedCTL={props.projectedCTL}
           adaptationFlag={goal?.adaptationFlag}
           onWeekPrev={props.onWeekPrev}
           onWeekNext={props.onWeekNext}
@@ -227,8 +222,6 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
           }}
           onIcsExport={exportPlanIcs}
           onReroll={serverManagedPlan ? undefined : rerollPlan}
-          onGoalReset={serverManagedPlan ? undefined : () => navigate(`/coach/goals?sport=${discipline}&new=1&returnTo=${encodeURIComponent(`/coach/plan?sport=${discipline}`)}`)}
-          onAbandon={abandonGoal}
         />
       )}
     />
@@ -242,8 +235,11 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
   const selectedDate = selectedDay?.owner === selectionOwner ? planDayKey(selectedDay.day.date) : targetDate;
   const recordDate = selectedDate && (!model.goalMatchesDiscipline || visibleDays.some(day => planDayKey(day.date) === selectedDate))
     ? selectedDate : planDayKey(visibleDays[0]?.date ?? Date.now());
-  const loadComparison = model.goalMatchesDiscipline && goal && weeks.length > 0 && !loading && !loadError && model.freshLoaded !== false && !user.isAnonymous ? <div className="site-shell"><PlanLoadComparison key={selectionOwner} uid={user.uid} discipline={discipline} weeks={weeks} selectedDate={targetDate ?? undefined} ftp={profile?.ftp} /></div> : null;
-  const goalLink = <><PlanComparisonReturn /><header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div></header>{discipline === "run" && loadComparison}<PlanRecordNavigation date={recordDate} />{discipline !== "run" && loadComparison}{model.goalMatchesDiscipline && weeks.length > 0 && (mobileWeekOffset !== 0 || targetDate) && <Button size="sm" variant="ghost" onClick={() => {
+  const loadComparisonPanel = model.goalMatchesDiscipline && goal && weeks.length > 0 && !loading && !loadError && model.freshLoaded !== false && !user.isAnonymous ? <PlanLoadComparison key={selectionOwner} uid={user.uid} discipline={discipline} weeks={weeks} selectedDate={targetDate ?? undefined} ftp={profile?.ftp} collapsible={isMobile} /> : null;
+  const loadComparison = loadComparisonPanel && <div className="site-shell">{loadComparisonPanel}</div>;
+  // 휴대폰은 제목 "계획" + 종목 탭, 짧은 하위 탭(계획 | 기록) 뒤에 바로 계획을 둔다. 계획 대비 기록은 이번 주 아래에 접어 둔다.
+  const headerLoadComparison = isMobile ? null : loadComparison;
+  const goalLink = <><PlanComparisonReturn /><header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{isMobile ? t("planRecords.planShort") : t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div></header>{discipline === "run" && headerLoadComparison}<PlanRecordNavigation date={recordDate} compact={isMobile} />{discipline !== "run" && headerLoadComparison}{model.goalMatchesDiscipline && weeks.length > 0 && (mobileWeekOffset !== 0 || targetDate) && <Button size="sm" variant="ghost" onClick={() => {
     setMobileWeekOffset(0);
     const next = new URLSearchParams(searchParams);
     ["date", "weekId", "dayIndex", "detail"].forEach(key => next.delete(key));
@@ -269,6 +265,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
           </div>
           {content}
         </div>
+        {isMobile && loadComparison}
       </>
     );
     if (run30Program) {
@@ -293,7 +290,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
 
   if (!loading && loadError) {
     return <>{goalLink}{targetNotice}{renderPresentation(
-      <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />,
+      <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" compact={isMobile} />,
     )}</>;
   }
 
@@ -308,7 +305,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
       {renderPresentation(
         <>
           {run30Offer}
-          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" compact={isMobile} />
         </>,
       )}
       {selectedDay?.owner === selectionOwner && goal && !serverManagedPlan && (

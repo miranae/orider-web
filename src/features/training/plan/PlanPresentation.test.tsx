@@ -273,7 +273,7 @@ it.each([false, true])("distinguishes post-goal stored workouts and keeps their 
   renderWithProviders(<PlanPresentation model={scoped} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
   expect(screen.queryByTestId("plan-scope-notice")).not.toBeInTheDocument();
   expect(screen.queryByText("달력에는 목표기간 밖의 저장 계획도 표시합니다.")).not.toBeInTheDocument();
-  expect(screen.getByText("목표일 이후 저장된 운동")).toBeInTheDocument();
+  expect(screen.getByText(/목표일 이후 저장된 운동/)).toBeInTheDocument();
   expect(screen.getByTestId(mobile ? "K4-5m" : "K4-5")).toHaveTextContent("45");
 });
 

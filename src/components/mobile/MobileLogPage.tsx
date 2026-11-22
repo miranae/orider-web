@@ -9,14 +9,13 @@ import { useState, useMemo, useEffect, useId, type ReactNode } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { Upload } from "lucide-react";
 import type { Activity } from "@shared/types";
 import ImportActivityModal from "./ImportActivityModal";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDiscipline, getDisciplineColor, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import { isIndoorActivity } from "../../utils/indoorActivity";
 import { planDayKey, planCalendarDate } from "@shared/training/planDate";
-import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../../utils/estimateTSS";
+import { acceptedPhysicalActivities, estimateActivityTss } from "../../utils/estimateTSS";
 import "./MobileLogPage.css";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 import { Resolvable } from "../redesign/states/Resolvable";
@@ -32,7 +31,6 @@ function formatDuration(ms: number): string {
 }
 
 interface MobileLogPageProps {
-  recentSummarySlot?: ReactNode;
   periodReturnSlot?: ReactNode;
   /** false 면 종목 필터를 그리지 않는다(부모가 같은 필터를 위에 둘 때). */
   showSportFilter?: boolean;
@@ -76,16 +74,17 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ showSportFilter = true, recentSummarySlot, periodReturnSlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
+export default function MobileLogPage({ showSportFilter = true, periodReturnSlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [importParams, setImportParams] = useSearchParams();
   const location = useLocation();
   const searchId = useId();
-  const tab = importParams.get("view") === "activities" ? "activity" : "month";
+  // 기본은 목록(최근 활동). 달력은 view=calendar 로 연다. 옛 view=activities 링크도 목록이다.
+  const tab = importParams.get("view") === "calendar" ? "month" : "activity";
   const setTab = (nextTab: "month" | "activity") => {
     const next = new URLSearchParams(importParams);
-    if (nextTab === "activity") next.set("view", "activities"); else next.delete("view");
+    if (nextTab === "month") next.set("view", "calendar"); else next.delete("view");
     setImportParams(next, { preventScrollReset: true });
   };
   const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
@@ -174,8 +173,6 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
     distanceKm: monthRepresentatives.reduce((sum, a) => sum + (Number.isFinite(a.summary.distance) && a.summary.distance > 0 ? a.summary.distance : 0), 0) / 1000,
     timeMs: monthRepresentatives.reduce((sum, a) => sum + (Number.isFinite(a.summary.ridingTimeMillis) ? a.summary.ridingTimeMillis : 0), 0),
     elevationM: Math.round(monthRepresentatives.reduce((sum, a) => sum + (Number.isFinite(a.summary.elevationGain) ? a.summary.elevationGain : 0), 0)),
-    // 아는 값만 더하고, 추정치가 섞이면 라벨로 밝힌다. 모르면 null — 0 을 쓰지 않는다 (#2237).
-    load: sumAcceptedActivityTss(monthRepresentatives, ftp),
   };
 
   const monthLabel = t("mobileLog.monthLabel", { year, month: month + 1 });
@@ -234,69 +231,45 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center sticky top-0 z-10"
-        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
-        {/* 제목·월은 위 머리(운동 기록)와 아래 달력이 이미 보여 준다 — 가져오기 버튼만 오른쪽에 둔다. */}
-        <div style={{ flex: 1 }} />
-        <Button data-testid="P1-0-2" size="sm" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={ICON_SIZE.md} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
-      </div>
-
       {/* 종목 필터 — 웹 계획/기록은 같은 필터를 하위 탭 위 머리에 두므로 여기서는 숨긴다. */}
       {showSportFilter && <SportFilterTabs value={sportFilter} onChange={setSportFilter} />}
 
+      {/* 이번 달 합계: 횟수 · 거리 · 시간 */}
+      <div className="mobile-log__month-head">{monthControls}</div>
       {loading && <MobileLogSkeleton />}
-
-      {/* Tabs */}
-      <div className="flex" role="tablist" style={{ borderBottom: "1px solid var(--line-soft)", background: "var(--bg-1)" }}>
-        {(["month", "activity"] as const).map((k) => {
-          const label = k === "month" ? t("mobileLog.tabMonth") : t("mobileLog.tabActivity");
-          const active = tab === k;
-          return (
-            <button key={k} onClick={() => setTab(k)}
-              role="tab"
-              aria-selected={active}
-              className="flex-1 flex items-center justify-center relative"
-              style={{ padding: "12px 0", fontSize: "var(--fs-sm)", fontWeight: 500, minHeight: 44,
-                color: active ? "var(--ink-0)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer" }}>
-              {label}
-              {active && <div style={{ position: "absolute", bottom: 0, left: 16, right: 16, height: 2, background: "var(--lime)", borderRadius: "2px 2px 0 0" }} />}
-            </button>
-          );
-        })}
-      </div>
-
-      {tab === "activity" && recentSummarySlot}
-
-      {!loading && tab === "month" && (
+      {!loading && (
         <div className="mobile-log__month-glance" aria-label={t("mobileLog.monthAtGlance")}>
-          <div className="mobile-log__glance-metric">
-            <span>{t("mobileLog.glanceDistance")}</span>
-            <strong>{aggregateUnavailable ? "–" : new Intl.NumberFormat(i18n.language, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(monthTotals.distanceKm)}{!aggregateUnavailable && <small>km</small>}</strong>
-          </div>
           <div className="mobile-log__glance-metric">
             <span>{t("mobileLog.glanceSessions")}</span>
             <strong>{aggregateUnavailable ? "–" : monthRepresentatives.length}</strong>
           </div>
           <div className="mobile-log__glance-metric">
+            <span>{t("mobileLog.glanceDistance")}</span>
+            <strong>{aggregateUnavailable ? "–" : new Intl.NumberFormat(i18n.language, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(monthTotals.distanceKm)}{!aggregateUnavailable && <small>km</small>}</strong>
+          </div>
+          <div className="mobile-log__glance-metric">
             <span>{t("mobileLog.glanceTime")}</span>
             <strong>{aggregateUnavailable ? "–" : formatDuration(monthTotals.timeMs)}</strong>
           </div>
-          <div className="mobile-log__glance-metric">
-            <span><GlossaryText>{t("mobileLog.glanceTss")}</GlossaryText>{monthTotals.load.estimated && <sup aria-hidden="true">*</sup>}</span>
-            <strong>{aggregateUnavailable ? "–" : monthTotals.load.value ?? "–"}</strong>
-          </div>
-          {!aggregateUnavailable && monthTotals.load.unknownCount > 0 && <div className="mobile-log__glance-note">{t("mobileLog.loadPartial", { count: monthTotals.load.unknownCount })}</div>}
-          {!aggregateUnavailable && monthTotals.load.estimated && <div className="mobile-log__glance-note">* {t("stat.tssEstimatedIncluded")} {t("mobileLog.estimateBasis")}</div>}
         </div>
       )}
+
+      {/* 목록 | 달력 + 가져오기 */}
+      <div className="mobile-log__view-row">
+        <div className="mobile-log__view-toggle" role="tablist" aria-label={t("mobileLog.viewToggle")}>
+          {(["activity", "month"] as const).map((k) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
+              {k === "activity" ? t("mobileLog.tabList") : t("mobileLog.tabCalendar")}
+            </button>
+          ))}
+        </div>
+        <button type="button" data-testid="P1-0-2" className="mobile-log__import-link" onClick={() => setImportOpen(true)}>{t("mobileLog.importLink")}</button>
+      </div>
 
       {!loading && tab === "month" && (
         <>
           {/* Calendar */}
           <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
-            {monthControls}
-
             <div className="grid grid-cols-7 gap-1">
               {DAY_NAMES.map((d, i) => (
                 <div key={d} style={{
@@ -352,16 +325,6 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
             </div>
           </div>
 
-          {recentActs.length > 0 && (
-            <section className="mobile-log__recent-preview" aria-label={t("mobileLog.recentActivity")}>
-              <div className="mobile-log__recent-heading">
-                <span>{t("mobileLog.recentActivity")}</span>
-                <button type="button" onClick={() => setTab("activity")}>{t("mobileLog.viewAll")} →</button>
-              </div>
-              {recentActs.slice(0, 2).map(activityRow)}
-            </section>
-          )}
-
           {/* 월간 요약 */}
           <div style={{ padding: "14px 16px 8px" }}>
             <Text variant="eyebrow">{t("mobileLog.monthlySummary")}</Text>
@@ -405,8 +368,7 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
 
       {!loading && tab === "activity" && (
         <>
-          <div style={{ padding: "var(--space-3) var(--space-4) 0" }}>{monthControls}</div>
-          <div className="mobile-log__finder"><label htmlFor={searchId}><Text variant="bodySmall">{t("mobileLog.searchMonth")}</Text></label><Input id={searchId} type="search" value={searchQuery} onChange={event => setSearch(event.target.value)} aria-describedby={`${searchId}-scope`} /><Text as="p" id={`${searchId}-scope`} variant="caption" tone="secondary">{t("mobileLog.searchScope", { month: monthLabel })}</Text></div>
+          <div className="mobile-log__finder"><Input id={searchId} type="search" value={searchQuery} onChange={event => setSearch(event.target.value)} aria-label={t("mobileLog.searchMonth")} placeholder={t("mobileLog.searchPlaceholder")} /></div>
           <section aria-label={t("mobileLog.tabActivity")}>
             {visibleRecentActs.map(activityRow)}
           </section>

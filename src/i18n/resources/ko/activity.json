@@ -1425,14 +1425,18 @@
     "totalElevation": "누적 상승고도",
     "chooseFile": "파일 선택",
     "searchMonth": "선택한 달에서 활동 찾기",
-    "searchScope": "{{month}} · 선택 종목으로 불러온 기록의 이름·날짜·ID에서 검색합니다. 다른 달은 월을 이동해 확인하세요.",
     "noMatching": "선택한 달과 종목에서 검색 결과가 없습니다.",
     "clearSearch": "검색 지우기",
     "previousPage": "이전 기록",
     "nextPage": "다음 기록",
     "recordPages": "활동 기록 페이지",
     "dayPages": "이 날짜의 활동 페이지",
-    "pageStatus": "{{total}}개 중 {{from}}–{{to}} · {{page}}/{{pages}}페이지"
+    "pageStatus": "{{total}}개 중 {{from}}–{{to}} · {{page}}/{{pages}}페이지",
+    "tabList": "목록",
+    "tabCalendar": "달력",
+    "viewToggle": "보기",
+    "importLink": "가져오기",
+    "searchPlaceholder": "활동 검색"
   },
   "import": {
     "modalTitle": "활동 업로드",

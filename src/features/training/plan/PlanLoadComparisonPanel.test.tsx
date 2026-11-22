@@ -123,3 +123,19 @@ it.each([false, true])("restores period and parent fulfillment through record dr
   expect(screen.getByTestId("period-location")).toHaveTextContent(original);
   expect(requestedRange()).toEqual({start:"2026-10-19",end:"2026-10-19"});
 });
+
+it("휴대폰에서는 한 줄로 접어 두고 누를 때만 펼쳐 조회한다", () => {
+  render(<PlanLoadComparison uid="owner" discipline="bike" weeks={[]} selectedDate="2026-10-23" collapsible />, { wrapper: MemoryRouter });
+  const toggle = screen.getByRole("button", { name: "계획 대비 기록" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByRole("group", { name: "계획" })).not.toBeInTheDocument();
+  expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].enabled).toBe(false);
+  fireEvent.click(toggle);
+  expect(screen.getByRole("button", { name: "계획 대비 기록" })).toHaveAttribute("aria-expanded", "true");
+  expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].enabled).toBe(true);
+});
+
+it("기간 링크로 들어오면 접지 않고 펼친 채 연다", () => {
+  render(<MemoryRouter initialEntries={["/ko/coach/plan?loadPeriod=month#plan-load-comparison"]}><PlanLoadComparison uid="owner" discipline="bike" weeks={[]} collapsible /></MemoryRouter>);
+  expect(screen.getByRole("button", { name: "계획 대비 기록" })).toHaveAttribute("aria-expanded", "true");
+});
