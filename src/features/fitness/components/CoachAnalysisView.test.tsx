@@ -21,9 +21,9 @@ const powerPeriod = (watts: Record<number, number>, included: number) => ({
   points: Object.entries(watts).map(([seconds, value]) => ({ durationSeconds: Number(seconds), watts: value })),
   coverage: { includedActivityCount: included },
 }) as unknown as PowerCurvePeriodResult;
-const trainingPeriod = (power: number[], movingSec: number) => ({
-  fromInclusive: 0, toExclusive: 70 * DAY, totals: { movingTimeSec: { observedValue: movingSec } },
-  zones: { power: { groups: [{ seconds: power }] }, heartRate: { groups: [] } },
+const trainingPeriod = (power: number[], movingSec: number, totalSec: number | null = movingSec) => ({
+  fromInclusive: 0, toExclusive: 70 * DAY, status: "complete", coverage: { truncated: false }, totals: { movingTimeSec: { observedValue: movingSec, totalValue: totalSec } },
+  zones: { power: { groups: [{ ftp: 240, seconds: power, observedSeconds: power.reduce((a, b) => a + b, 0) }] }, heartRate: { groups: [] } },
 }) as unknown as TrainingAnalysisPeriodResult;
 const ready = <T,>(response: T) => ({ state: "ready", response, retry: vi.fn() });
 
@@ -39,16 +39,19 @@ beforeEach(() => {
 });
 
 describe("CoachAnalysisView", () => {
-  it("요약 3칸·파워 커브 표·훈련 구성을 최근/이전 기간 비교로 그린다", () => {
+  it("요약·파워 커브 표·훈련 구성을 최근/이전 기간 비교로 그린다", () => {
     view();
     const summary = screen.getByTestId("coach-analysis-summary");
     expect(summary).toHaveTextContent("analysis.concise.fiveMin+4.0%");
     expect(summary).toHaveTextContent("analysis.concise.sixtyMin+2.0%");
-    expect(summary).toHaveTextContent("analysis.concise.highShare+5.0%p");
+    // 존 비중·고강도 변화는 서버 정본이 없어 두지 않는다(P6).
+    expect(summary).not.toHaveTextContent("%p");
     const rows = within(screen.getByTestId("coach-analysis-curve")).getAllByRole("row");
     expect(rows).toHaveLength(5);
     expect(rows[2]).toHaveTextContent("312+4.0%");
-    expect(screen.getByTestId("coach-analysis-composition")).toHaveTextContent("analysis.concise.weeklyHours 7.0 5.0");
+    const composition = screen.getByTestId("coach-analysis-composition");
+    expect(composition).toHaveTextContent("analysis.concise.totalHours 70.0 50.0");
+    expect(within(composition).getAllByRole("group")).toHaveLength(2);
     expect(screen.queryByTestId("coach-analysis-insufficient")).not.toBeInTheDocument();
   });
 
@@ -61,6 +64,18 @@ describe("CoachAnalysisView", () => {
     expect(screen.queryByTestId("coach-analysis-summary")).not.toBeInTheDocument();
     expect(screen.queryByTestId("coach-analysis-curve")).not.toBeInTheDocument();
     expect(screen.getByTestId("coach-analysis-composition")).toBeInTheDocument();
+  });
+
+  it("일부만 집계된 이동 시간은 ~ 로 표시한다", () => {
+    mocks.training.mockReturnValue(ready({ periods: [trainingPeriod([1, 1, 1, 1, 1], 70 * 3600, null), trainingPeriod([1, 1, 1, 1, 1], 50 * 3600)] }));
+    view();
+    expect(screen.getByTestId("coach-analysis-composition")).toHaveTextContent("analysis.concise.totalHours ~70.0 50.0");
+  });
+
+  it("러닝은 페이스 커브와 함께 기록·예측 영역을 둔다", () => {
+    view({ discipline: "run", runSlot: <p>러닝 기록 요약</p>, runPaceCurve: { recent28: [{ durationSec: 60, paceSecPerKm: 300 }], prev28: [] } });
+    expect(screen.getByTestId("pace-curve")).toBeInTheDocument();
+    expect(screen.getByText("러닝 기록 요약")).toBeInTheDocument();
   });
 
   it("앱 임베드에서는 비교 불가 줄에 웹 설정 링크를 두지 않는다", () => {

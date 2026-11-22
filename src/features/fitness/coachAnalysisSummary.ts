@@ -1,8 +1,9 @@
 import type { PowerCurvePeriodResult, PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
-import type { TrainingAnalysisPeriodResult, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
+import type { PeriodHrZoneGroup, PeriodPowerZoneGroup, TrainingAnalysisPeriodResult, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 
 /**
- * 코치 분석(최근 N일 ↔ 이전 N일) 요약 계산. 화면에 그리는 숫자만 만들고 문구는 두지 않는다.
+ * 코치 분석(최근 N일 ↔ 이전 N일) 요약. 서버 값을 고르고 두 기간 값을 나란히 견준다(변화율).
+ * 존 비중처럼 서버 값을 합쳐 새 지표를 만드는 계산은 두지 않는다(P6).
  * 기간 순서는 서버 응답 그대로 [최근, 이전] 이다(trainingWindowPeriods).
  */
 
@@ -10,20 +11,23 @@ export type PowerUnit = "W" | "W/kg";
 /** 요약 표에 두는 지속시간(초) — 5초·5분·20분·60분. */
 export const ANALYSIS_TABLE_DURATIONS = [5, 300, 1200, 3600] as const;
 
-export interface ZoneShare { low: number; mid: number; high: number }
 export interface CurveRow { durationSeconds: number; recent: number | null; previous: number | null; changePct: number | null }
+/** 서버가 낸 존 묶음 그대로(기준별 존 시간). 화면은 합치거나 다시 나누지 않는다. */
+export type ZoneGroup = PeriodPowerZoneGroup | PeriodHrZoneGroup;
+/** 서버 이동 시간(시간 단위로만 바꾼다). 기간 일부만 집계됐으면 partial. */
+export interface MovingHours { hours: number; partial: boolean }
 export interface CoachAnalysisSummary {
   /** 파워 기간 비교를 받았지만 두 기간을 견줄 수 없을 때만 값이 있다. */
   insufficient: { powerActivityCount: number } | null;
   fiveMinPct: number | null;
   sixtyMinPct: number | null;
-  /** Z4+ 비중 변화(%p). */
-  highSharePp: number | null;
+  /** 두 기간 중 하나라도 일부 기록만 집계됐는지(파워 비교). */
+  powerPartial: boolean;
   rows: CurveRow[];
-  recentZones: ZoneShare | null;
-  previousZones: ZoneShare | null;
-  recentWeeklyHours: number | null;
-  previousWeeklyHours: number | null;
+  recentZones: ZoneGroup[];
+  previousZones: ZoneGroup[];
+  recentHours: MovingHours | null;
+  previousHours: MovingHours | null;
 }
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
@@ -46,41 +50,23 @@ export function changePct(recent: number | null, previous: number | null): numbe
 }
 
 /**
- * 존 시간을 Z1–2 / Z3 / Z4+ 비중으로 묶는다. 같은 채널의 여러 기준(FTP·LTHR) 묶음은 존 번호끼리 더한다.
- * 파워 존이 있으면 파워, 없으면 심박을 쓴다 — 두 기간이 같은 채널이어야 하므로 채널은 호출자가 고른다.
+ * 한 기간의 존 묶음 — 파워 존이 기록돼 있으면 파워, 없으면 심박. 서버 값을 고르기만 하고 계산하지 않는다(P6).
+ * 존 비중·고강도 비율 같은 파생 값은 서버가 내려줄 때까지 두지 않는다.
  */
-export function zoneShare(period: TrainingAnalysisPeriodResult | undefined, channel: "power" | "heartRate"): ZoneShare | null {
+export function zoneGroups(period: TrainingAnalysisPeriodResult | undefined): ZoneGroup[] {
+  if (!period) return [];
+  const power = period.zones.power.groups.filter(group => group.observedSeconds > 0);
+  if (power.length > 0) return power;
+  return period.zones.heartRate.groups.filter(group => group.observedSeconds > 0);
+}
+
+/** 서버 이동 시간 합계. 전체 값(totalValue)이 없거나 기간이 일부만 집계됐으면 관측 값을 partial 로 표시한다. */
+export function movingHours(period: TrainingAnalysisPeriodResult | undefined): MovingHours | null {
   if (!period) return null;
-  const groups = channel === "power" ? period.zones.power.groups : period.zones.heartRate.groups;
-  const totals: number[] = [];
-  for (const group of groups) group.seconds.forEach((seconds, index) => { totals[index] = (totals[index] ?? 0) + (Number.isFinite(seconds) && seconds > 0 ? seconds : 0); });
-  const sum = totals.reduce((acc, value) => acc + (value ?? 0), 0);
-  if (sum <= 0) return null;
-  const part = (from: number, to: number) => totals.slice(from, to).reduce((acc, value) => acc + (value ?? 0), 0) / sum;
-  return { low: part(0, 2), mid: part(2, 3), high: part(3, totals.length) };
-}
-
-function observedZoneSeconds(period: TrainingAnalysisPeriodResult | undefined, channel: "power" | "heartRate"): number {
-  if (!period) return 0;
-  const groups = channel === "power" ? period.zones.power.groups : period.zones.heartRate.groups;
-  return groups.reduce((acc, group) => acc + group.seconds.reduce((sum, value) => sum + (value > 0 ? value : 0), 0), 0);
-}
-
-/** 두 기간 모두 파워 존이 있으면 파워, 아니면 심박(둘 다 없으면 null). */
-export function zoneChannel(recent: TrainingAnalysisPeriodResult | undefined, previous: TrainingAnalysisPeriodResult | undefined): "power" | "heartRate" | null {
-  if (observedZoneSeconds(recent, "power") > 0 && observedZoneSeconds(previous, "power") > 0) return "power";
-  if (observedZoneSeconds(recent, "heartRate") > 0 || observedZoneSeconds(previous, "heartRate") > 0) return "heartRate";
-  if (observedZoneSeconds(recent, "power") > 0 || observedZoneSeconds(previous, "power") > 0) return "power";
-  return null;
-}
-
-/** 주당 이동 시간(시간). 관측 값이 없으면 null. */
-export function weeklyHours(period: TrainingAnalysisPeriodResult | undefined): number | null {
-  if (!period) return null;
-  const seconds = period.totals.movingTimeSec.observedValue;
-  const days = (period.toExclusive - period.fromInclusive) / 86_400_000;
-  if (seconds == null || !Number.isFinite(seconds) || days <= 0) return null;
-  return round1(seconds / 3600 / (days / 7));
+  const total = period.totals.movingTimeSec;
+  const seconds = total.totalValue ?? total.observedValue;
+  if (seconds == null || !Number.isFinite(seconds)) return null;
+  return { hours: seconds / 3600, partial: total.totalValue == null || period.status === "partial" || period.coverage.truncated };
 }
 
 export function summarizeCoachAnalysis({ power, training, unit = "W" }: { power: PowerCurvePeriodsResponse | null; training: TrainingAnalysisPeriodsResponse | null; unit?: PowerUnit }): CoachAnalysisSummary {
@@ -95,19 +81,16 @@ export function summarizeCoachAnalysis({ power, training, unit = "W" }: { power:
     return { durationSeconds, recent, previous, changePct: changePct(recent, previous) };
   }).filter(row => row.recent != null || row.previous != null) : [];
   const [recentTraining, previousTraining] = training?.periods ?? [];
-  const channel = zoneChannel(recentTraining, previousTraining);
-  const recentZones = channel ? zoneShare(recentTraining, channel) : null;
-  const previousZones = channel ? zoneShare(previousTraining, channel) : null;
   return {
     insufficient,
     fiveMinPct: pct(300),
     sixtyMinPct: pct(3600),
-    highSharePp: recentZones && previousZones ? round1((recentZones.high - previousZones.high) * 100) : null,
+    powerPartial: comparable && (recentPower.status === "partial" || previousPower.status === "partial"),
     rows,
-    recentZones,
-    previousZones,
-    recentWeeklyHours: weeklyHours(recentTraining),
-    previousWeeklyHours: weeklyHours(previousTraining),
+    recentZones: zoneGroups(recentTraining),
+    previousZones: zoneGroups(previousTraining),
+    recentHours: movingHours(recentTraining),
+    previousHours: movingHours(previousTraining),
   };
 }
 

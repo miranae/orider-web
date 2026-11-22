@@ -71,7 +71,7 @@ for (const state of ["data", "insufficient"] as const) {
     expect(signup.ok()).toBe(true);
     await page.goto(`/ko/embed/fitness?sport=bike&page=analysis&analysisFixture=1&fixtureEmail=${encodeURIComponent(email)}`);
     await expect(page.getByTestId("coach-analysis")).toBeVisible();
-    await expect(page.getByTestId("coach-analysis-composition")).toContainText("주 6.2h · 이전 5.8h");
+    await expect(page.getByTestId("coach-analysis-composition")).toContainText(/h · 이전 .*h/);
     if (state === "data") {
       await expect(page.getByTestId("coach-analysis-summary")).toContainText("+4.0%");
       await expect(page.getByTestId("coach-analysis-curve").getByRole("row")).toHaveCount(5);

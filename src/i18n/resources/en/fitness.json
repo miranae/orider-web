@@ -1427,7 +1427,6 @@
   "analysis.concise.loading": "Loading…",
   "analysis.concise.fiveMin": "5-min power",
   "analysis.concise.sixtyMin": "60-min power",
-  "analysis.concise.highShare": "High intensity",
   "analysis.concise.insufficient": "{{count}} power rides · not comparable",
   "analysis.concise.enablePower": "Turn on virtual power",
   "analysis.concise.curveTitle": "Power curve",
@@ -1439,9 +1438,10 @@
   "analysis.concise.duration": "Duration",
   "analysis.concise.change": "Change",
   "analysis.concise.compositionTitle": "Training mix",
-  "analysis.concise.weeklyHours": "{{recent}}h/wk · prev {{previous}}h",
   "analysis.concise.nextTitle": "Next steps",
   "analysis.concise.applyPlan": "Apply to plan",
   "analysis.concise.planQuestion": "Please adjust my upcoming training plan based on the last {{days}} days of analysis.",
-  "analysis.concise.ftpReview": "Review FTP"
+  "analysis.concise.ftpReview": "Review FTP",
+  "analysis.concise.totalHours": "{{recent}}h · prev {{previous}}h",
+  "analysis.concise.maxHr": "Max HR"
 }

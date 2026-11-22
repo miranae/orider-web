@@ -15,7 +15,8 @@ import { FOCUS_TARGETS, withFocus } from "../../../services/focusTarget";
 import { CoachQuestionLauncher } from "../../coach/CoachQuestionLauncher";
 import CriticalPaceCurve from "../../../components/charts/CriticalPaceCurve";
 import type { CurvePeriods, RunPacePoint } from "../fitnessCurveDocuments";
-import { periodPower, signedChange, summarizeCoachAnalysis, type CurveRow, type PowerUnit, type ZoneShare } from "../coachAnalysisSummary";
+import { periodPower, signedChange, summarizeCoachAnalysis, type CurveRow, type MovingHours, type PowerUnit, type ZoneGroup } from "../coachAnalysisSummary";
+import { formatElapsedBoundary } from "../../activity/detail/activityRangeSelection";
 import "./coach-analysis.css";
 
 /** 분석 기간(최근 N일 ↔ 이전 N일) 선택지. */
@@ -33,14 +34,16 @@ export interface CoachAnalysisViewProps {
   ftpReviewAvailable?: boolean;
   /** 기존 FTP 판단 영역(요청했을 때만 열리는 #ftp-decision). */
   ftpSection?: ReactNode;
+  /** 러닝 기록 요약·레이스 예측 — 러닝도 사이클과 같은 깊이로 둔다(P9). */
+  runSlot?: ReactNode;
 }
 
 /**
  * 코치 분석 — 웹·앱(임베드)이 같은 한 구조를 쓴다.
- * 요약 3칸 → 파워 커브 → 훈련 구성 → 다음에 할 일. 설명 문구 없이 숫자·짧은 제목·버튼만 둔다.
+ * 요약 → 파워 커브(러닝: 페이스 커브·기록) → 훈련 구성 → 다음에 할 일. 설명 문구 없이 숫자·짧은 제목·버튼만 둔다.
  * 두 기간 비교는 서버 호출이라 화면이 열릴 때와 기간을 바꿀 때(연속 선택은 마지막만) 한 번씩만 부른다.
  */
-export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fallbackPowerCurve = null, runPaceCurve, ftpReviewAvailable = false, ftpSection = null }: CoachAnalysisViewProps) {
+export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fallbackPowerCurve = null, runPaceCurve, ftpReviewAvailable = false, ftpSection = null, runSlot = null }: CoachAnalysisViewProps) {
   const { t } = useTranslation("fitness");
   const { user, signIn } = useAuth();
   const webScope = useFirebaseServices().scope !== "embedded";
@@ -68,16 +71,16 @@ export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fal
   const loading = power.state === "loading" || training.state === "loading";
   const failed = power.state === "error" || training.state === "error";
   const retry = () => { if (training.state === "error") training.retry(); if (power.state === "error") setRequest(current => ({ ...current, id: current.id + 1 })); };
-  const percent = (value: number | null) => value == null ? "—" : `${signedChange(value)}%`;
+  // 일부 기록만 집계된 기간이 섞이면 값 앞에 "~" 를 붙인다(설명 문구 없이).
+  const approx = summary.powerPartial ? "~" : "";
+  const percent = (value: number | null) => value == null ? "—" : `${approx}${signedChange(value)}%`;
   const tiles = isBike && power.response && !summary.insufficient ? [
     { key: "fiveMin", label: t("analysis.concise.fiveMin"), value: summary.fiveMinPct, text: percent(summary.fiveMinPct) },
     { key: "sixtyMin", label: t("analysis.concise.sixtyMin"), value: summary.sixtyMinPct, text: percent(summary.sixtyMinPct) },
-    { key: "high", label: t("analysis.concise.highShare"), value: summary.highSharePp, text: summary.highSharePp == null ? "—" : `${signedChange(summary.highSharePp)}%p` },
   ] : [];
   const planDetails = [
     summary.fiveMinPct != null ? `${t("analysis.concise.fiveMin")} ${percent(summary.fiveMinPct)}` : null,
     summary.sixtyMinPct != null ? `${t("analysis.concise.sixtyMin")} ${percent(summary.sixtyMinPct)}` : null,
-    summary.highSharePp != null ? `${t("analysis.concise.highShare")} ${signedChange(summary.highSharePp)}%p` : null,
   ].filter(Boolean).join(", ");
   const planQuestion = t("analysis.concise.planQuestion", { days }) + (planDetails ? ` (${planDetails})` : "");
   const paceAvailable = !!runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0);
@@ -100,14 +103,17 @@ export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fal
     </div>}
 
     {isBike && (powerPeriodsEnabled
-      ? power.response && summary.rows.length > 0 && <PowerCurveCard response={power.response} rows={summary.rows} unit={unit} onUnitChange={setUnit} days={days} />
+      ? power.response && summary.rows.length > 0 && <PowerCurveCard response={power.response} rows={summary.rows} unit={unit} onUnitChange={setUnit} days={days} approx={approx} />
       : fallbackPowerCurve)}
 
     {discipline === "run" && paceAvailable && <Card title={t("analysis.concise.paceCurveTitle")} data-testid="coach-analysis-pace">
       <CriticalPaceCurve stableSelection recentPoints={runPaceCurve!.recent28} prevPoints={runPaceCurve!.prev28} />
     </Card>}
 
-    {summary.recentZones && <CompositionCard recent={summary.recentZones} previous={summary.previousZones} recentHours={summary.recentWeeklyHours} previousHours={summary.previousWeeklyHours} />}
+    {discipline === "run" && runSlot}
+
+    {(summary.recentZones.length > 0 || summary.previousZones.length > 0 || summary.recentHours || summary.previousHours)
+      && <CompositionCard recent={summary.recentZones} previous={summary.previousZones} recentHours={summary.recentHours} previousHours={summary.previousHours} />}
 
     {ownerUid && <Card title={t("analysis.concise.nextTitle")} data-testid="coach-analysis-next">
       <div className="coach-analysis__next">
@@ -130,7 +136,7 @@ function FtpReviewLink({ label }: { label: string }) {
   return <Link data-testid="coach-analysis-ftp" className={buttonClass({ variant: "ghost", block: true, align: "start" })} to={{ search: `?${params}` }}>{label} ›</Link>;
 }
 
-function PowerCurveCard({ response, rows, unit, onUnitChange, days }: { response: PowerCurvePeriodsResponse; rows: CurveRow[]; unit: PowerUnit; onUnitChange: (unit: PowerUnit) => void; days: number }) {
+function PowerCurveCard({ response, rows, unit, onUnitChange, days, approx }: { response: PowerCurvePeriodsResponse; rows: CurveRow[]; unit: PowerUnit; onUnitChange: (unit: PowerUnit) => void; days: number; approx: string }) {
   const { t } = useTranslation("fitness");
   const durationLabel = (seconds: number) => seconds < 60 ? t("duration.sec", { n: seconds }) : t("duration.min", { n: seconds / 60 });
   const format = (value: number | null) => value == null ? "—" : unit === "W/kg" ? value.toFixed(2) : String(Math.round(value));
@@ -160,24 +166,26 @@ function PowerCurveCard({ response, rows, unit, onUnitChange, days }: { response
     <DataTable caption={t("analysis.concise.curveTitle")} captionVisibility="screen-reader" emptyLabel="—" rowKey={row => String(row.durationSeconds)} rows={rows} columns={[
       { id: "duration", header: t("analysis.concise.duration"), cell: row => durationLabel(row.durationSeconds) },
       { id: "value", header: unit, align: "end", cell: row => format(row.recent) },
-      { id: "change", header: t("analysis.concise.change"), align: "end", cell: row => <Text variant="bodySmall" tone={row.changePct != null && row.changePct > 0 ? "accent" : "secondary"}>{row.changePct == null ? "—" : `${signedChange(row.changePct)}%`}</Text> },
+      { id: "change", header: t("analysis.concise.change"), align: "end", cell: row => <Text variant="bodySmall" tone={row.changePct != null && row.changePct > 0 ? "accent" : "secondary"}>{row.changePct == null ? "—" : `${approx}${signedChange(row.changePct)}%`}</Text> },
     ]} />
   </Card>;
 }
 
-function CompositionCard({ recent, previous, recentHours, previousHours }: { recent: ZoneShare; previous: ZoneShare | null; recentHours: number | null; previousHours: number | null }) {
+function CompositionCard({ recent, previous, recentHours, previousHours }: { recent: ZoneGroup[]; previous: ZoneGroup[]; recentHours: MovingHours | null; previousHours: MovingHours | null }) {
   const { t } = useTranslation("fitness");
-  const items = (share: ZoneShare, unlabelled: boolean) => ([
-    { id: "low", label: "Z1–2", weight: share.low, color: "var(--zone-2)" },
-    { id: "mid", label: "Z3", weight: share.mid, color: "var(--zone-3)" },
-    { id: "high", label: "Z4+", weight: share.high, color: "var(--zone-5)" },
-  ]).map(item => ({ ...item, detail: `${Math.round(item.weight * 100)}%`, unlabelled }));
-  const hours = (value: number | null) => value == null ? "—" : value.toFixed(1);
+  // 서버 존 시간을 그대로 막대로 둔다(합치거나 비율을 새로 계산하지 않는다, P6). 범례는 첫 막대에만.
+  const strips = [...recent.map(group => ({ group, period: t("analysis.concise.recentShort") })), ...previous.map(group => ({ group, period: t("analysis.concise.previousShort") }))];
+  const basis = (group: ZoneGroup) => "boundaries" in group
+    ? `${group.boundaries.reference === "lthr" ? "LTHR" : t("analysis.concise.maxHr")} ${group.boundaries.referenceBpm} bpm`
+    : `FTP ${group.ftp} W`;
+  const hours = (value: MovingHours | null) => value == null ? "—" : `${value.partial ? "~" : ""}${value.hours.toFixed(1)}`;
   return <Card title={t("analysis.concise.compositionTitle")} data-testid="coach-analysis-composition"
-    sub={recentHours != null || previousHours != null ? t("analysis.concise.weeklyHours", { recent: hours(recentHours), previous: hours(previousHours) }) : undefined}>
-    <div className="coach-analysis__composition">
-      <DistributionStrip label={t("analysis.concise.recentShort")} items={items(recent, false)} />
-      {previous && <DistributionStrip label={t("analysis.concise.previousShort")} items={items(previous, true)} />}
-    </div>
+    sub={recentHours || previousHours ? t("analysis.concise.totalHours", { recent: hours(recentHours), previous: hours(previousHours) }) : undefined}>
+    {strips.length > 0 && <div className="coach-analysis__composition">
+      {/* 기준(FTP·LTHR)이 기간마다 하나면 기간 이름만 둔다 — 좁은 화면에서 존 범례가 잘리지 않게. */}
+      {strips.map(({ group, period }, index) => <DistributionStrip key={index} label={recent.length > 1 || previous.length > 1 ? `${period} · ${basis(group)}` : period}
+        items={group.seconds.map((seconds, zone) => ({ id: `z${zone + 1}`, label: `Z${zone + 1}`, weight: seconds, detail: formatElapsedBoundary(seconds),
+          color: `var(--zone-${Math.min(zone + 1, 5)})`, unlabelled: index > 0 }))} />)}
+    </div>}
   </Card>;
 }

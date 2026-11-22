@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PowerCurvePeriodResult, PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
 import type { TrainingAnalysisPeriodResult, TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
-import { changePct, signedChange, summarizeCoachAnalysis, weeklyHours, zoneChannel, zoneShare } from "./coachAnalysisSummary";
+import { changePct, movingHours, signedChange, summarizeCoachAnalysis, zoneGroups } from "./coachAnalysisSummary";
 
 const DAY = 86_400_000;
 function powerPeriod(watts: Record<number, number>, included: number, wattsPerKg?: Record<number, number>): PowerCurvePeriodResult {
@@ -14,13 +14,14 @@ function powerPeriod(watts: Record<number, number>, included: number, wattsPerKg
   } as PowerCurvePeriodResult;
 }
 const powerResponse = (...periods: PowerCurvePeriodResult[]) => ({ periods } as unknown as PowerCurvePeriodsResponse);
-function trainingPeriod({ power = [], hr = [], movingSec = null as number | null, days = 90 }: { power?: number[][]; hr?: number[][]; movingSec?: number | null; days?: number }): TrainingAnalysisPeriodResult {
+function trainingPeriod({ power = [], hr = [], movingSec = null as number | null, totalSec, partial = false }: { power?: number[][]; hr?: number[][]; movingSec?: number | null; totalSec?: number | null; partial?: boolean }): TrainingAnalysisPeriodResult {
+  const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
   return {
-    fromInclusive: 0, toExclusive: days * DAY,
-    totals: { movingTimeSec: { observedValue: movingSec } },
+    fromInclusive: 0, toExclusive: 90 * DAY, status: partial ? "partial" : "complete", coverage: { truncated: false },
+    totals: { movingTimeSec: { observedValue: movingSec, totalValue: totalSec === undefined ? movingSec : totalSec } },
     zones: {
-      power: { groups: power.map(seconds => ({ seconds })) },
-      heartRate: { groups: hr.map(seconds => ({ seconds })) },
+      power: { groups: power.map(seconds => ({ ftp: 240, seconds, observedSeconds: sum(seconds) })) },
+      heartRate: { groups: hr.map(seconds => ({ boundaries: { reference: "lthr", referenceBpm: 170 }, seconds, observedSeconds: sum(seconds) })) },
     },
   } as unknown as TrainingAnalysisPeriodResult;
 }
@@ -58,29 +59,26 @@ describe("coachAnalysisSummary", () => {
     expect(summarizeCoachAnalysis({ power: null, training: null }).insufficient).toBeNull();
   });
 
-  it("존 시간을 Z1–2 / Z3 / Z4+ 로 묶고 Z4+ 비중 변화를 %p 로 낸다", () => {
-    const recent = trainingPeriod({ power: [[30, 30, 20, 10, 10]], movingSec: 360000 });
-    const previous = trainingPeriod({ power: [[40, 30, 15, 10, 5]] });
-    expect(zoneShare(recent, "power")).toEqual({ low: 0.6, mid: 0.2, high: 0.2 });
-    const summary = summarizeCoachAnalysis({ power: null, training: trainingResponse(recent, previous) });
-    expect(summary.highSharePp).toBe(5);
+  it("존은 서버 묶음을 그대로 고른다 — 파워 존이 있으면 파워, 없으면 심박", () => {
+    const both = trainingPeriod({ power: [[10, 0, 0, 0, 0, 0, 0]], hr: [[5, 5, 0, 0, 0]] });
+    expect(zoneGroups(both).map(group => group.seconds)).toEqual([[10, 0, 0, 0, 0, 0, 0]]);
+    expect(zoneGroups(trainingPeriod({ hr: [[5, 0, 0, 0, 5]] })).map(group => group.seconds)).toEqual([[5, 0, 0, 0, 5]]);
+    expect(zoneGroups(trainingPeriod({ power: [[0, 0, 0, 0, 0, 0, 0]] }))).toEqual([]);
+    const summary = summarizeCoachAnalysis({ power: null, training: trainingResponse(both, trainingPeriod({})) });
+    expect(summary.recentZones).toHaveLength(1);
+    expect(summary.previousZones).toEqual([]);
   });
 
-  it("여러 기준 묶음은 존 번호끼리 더한다", () => {
-    expect(zoneShare(trainingPeriod({ hr: [[10, 10, 0, 0, 0], [0, 0, 10, 10, 0]] }), "heartRate")).toEqual({ low: 0.5, mid: 0.25, high: 0.25 });
+  it("이동 시간은 서버 합계를 시간으로만 바꾸고, 전체 값이 없거나 일부 집계면 partial 로 표시한다", () => {
+    expect(movingHours(trainingPeriod({ movingSec: 18 * 3600 }))).toEqual({ hours: 18, partial: false });
+    expect(movingHours(trainingPeriod({ movingSec: 9 * 3600, totalSec: null }))).toEqual({ hours: 9, partial: true });
+    expect(movingHours(trainingPeriod({ movingSec: 9 * 3600, partial: true }))).toEqual({ hours: 9, partial: true });
+    expect(movingHours(trainingPeriod({ movingSec: null, totalSec: null }))).toBeNull();
   });
 
-  it("두 기간 모두 파워 존이 있어야 파워를 쓰고 아니면 심박으로 맞춘다", () => {
-    const powerOnly = trainingPeriod({ power: [[10, 0, 0, 0]], hr: [[5, 5, 0, 0, 0]] });
-    const hrOnly = trainingPeriod({ hr: [[5, 0, 0, 0, 5]] });
-    expect(zoneChannel(powerOnly, powerOnly)).toBe("power");
-    expect(zoneChannel(powerOnly, hrOnly)).toBe("heartRate");
-    expect(zoneChannel(trainingPeriod({}), trainingPeriod({}))).toBeNull();
-  });
-
-  it("주당 이동 시간은 기간 길이로 나눈다", () => {
-    expect(weeklyHours(trainingPeriod({ movingSec: 28 * 3600, days: 28 }))).toBe(7);
-    expect(weeklyHours(trainingPeriod({ movingSec: null }))).toBeNull();
+  it("파워 비교 기간이 일부만 집계됐으면 powerPartial", () => {
+    const partial = { ...powerPeriod({ 300: 310, 3600: 200 }, 4), status: "partial" } as PowerCurvePeriodResult;
+    expect(summarizeCoachAnalysis({ power: powerResponse(partial, powerPeriod({ 300: 300, 3600: 200 }, 4)), training: null }).powerPartial).toBe(true);
   });
 
   it("변화율·부호 표기 경계", () => {

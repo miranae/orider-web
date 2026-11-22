@@ -358,20 +358,23 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const hasSufficiency = Boolean(pdcSufficiency?.blocks.length || loadSufficiency?.blocks.length || activityWindowSufficiency?.blocks.length);
   const loadTrendBlock = findSufficiencyBlock(loadSufficiency, "load_history", "trend");
   const loadFormBlock = findSufficiencyBlock(loadSufficiency, "load_history", "form");
-  // Saved training thresholds remain reviewable even before any activity history exists.
-  const emptyAnalysisFtpEntry = !embedded && part === "analysis" && discipline === "bike" ? <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled compact={renderMobile} collapsible={!renderMobile}>
-    <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={model.zoneEvidence.hr.counts != null || model.zoneEvidence.power.counts != null} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={deriveEstimatedFtpProgression(pdc?.history)} ftpHistory={ftpHistory} ftpHistoryControls={ftpHistoryControls} t={t} />
-  </FtpDecisionSection> : null;
   // 코치 분석 — 웹(모바일·데스크톱)과 앱 임베드가 같은 한 구조를 쓴다. FTP 판단은 "FTP 재평가"로 요청했을 때만 연다.
   const analysisView = part === "analysis" && (discipline === "bike" || discipline === "run") ? <CoachAnalysisView key={discipline} discipline={discipline}
     powerPeriodsEnabled={periodPowerEnabled}
     // 기간 비교를 쓸 수 없는 환경만 기존 28일 커브를 둔다. 기록이 없으면 카드를 두지 않는다(설명 문구 없음).
     fallbackPowerCurve={(currentPowerCurve?.points.length ?? 0) >= 2 ? <BikePowerCurveEvidence compact current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
     runPaceCurve={runPaceCurve}
-    ftpReviewAvailable={bikeFtpDecision?.status === "actionable" || thresholdDecision?.automaticCandidateW != null}
-    ftpSection={discipline === "bike" ? <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled compact={renderMobile} collapsible={!renderMobile} requestedOnly>
+    // 임베드 표면은 FTP 결정을 쓰지 않는다 — 결정 영역과 진입 줄을 두지 않는다.
+    ftpReviewAvailable={!embedded && (bikeFtpDecision?.status === "actionable" || thresholdDecision?.automaticCandidateW != null)}
+    ftpSection={discipline === "bike" && !embedded ? <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled compact={renderMobile} collapsible={!renderMobile} requestedOnly>
       <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={model.zoneEvidence.hr.counts != null || model.zoneEvidence.power.counts != null} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={deriveEstimatedFtpProgression(pdc?.history)} ftpHistory={ftpHistory} ftpHistoryControls={ftpHistoryControls} t={t} />
-    </FtpDecisionSection> : null} /> : null;
+    </FtpDecisionSection> : null}
+    // 러닝도 사이클과 같은 깊이(P9) — 거리 기록 요약과 레이스 예측(스테이지)을 분석에 둔다.
+    runSlot={discipline === "run" ? <>
+      <RunRecordsSummary evidence={model.runEvidence} openInApp
+        readiness={needsRunAnalysisReadiness(model.runEvidence, model.runEvidence.thresholdPaceSec != null, !!zoneDistribution?.some(value => value != null))} />
+      {!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
+    </> : null} /> : null;
 
 
   // 웹 분석은 기간을 바꿀 때 활동을 다시 읽는 동안에도 화면을 유지한다 — 로딩 골격으로 바꾸면 분석이 새로
@@ -403,16 +406,16 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         <ErrorState title={t("canonical.errorTitle")} description={t("canonical.errorBody")} onRetry={state.retry} />
       </div>;
     }
-    if (state.display === "empty" && !hasSufficiency) {
+    if (state.display === "empty" && !hasSufficiency && !analysisView) {
       return <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <EmptyState icon="📈" title={t("canonical.emptyTitle")} description={t("canonical.emptyBody")} />
         {!embedded && thresholdsSlot}
-        {emptyAnalysisFtpEntry}
       </div>;
     }
   }
 
-  if (!hasSufficiency && renderMobile && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
+  // 코치 분석은 최근 기록이 없어도 연다 — 이전 기간에만 기록이 있으면 180일·1년 비교로 볼 수 있다.
+  if (!hasSufficiency && renderMobile && !analysisView && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
       <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         {part === "all" && discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -428,7 +431,6 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           ]}
         />
         {!embedded && thresholdsSlot}
-        {emptyAnalysisFtpEntry}
       </div>
     );
   }
@@ -645,7 +647,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       </div>
     );
   }
-  if (!hasSufficiency && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
+  if (!hasSufficiency && !analysisView && activities.length === 0 && fitnessData.length === 0 && !currentPoint && model.pmcHistoryPoints.length === 0) {
     return (
       <div className="fitness-reading">
         {pageHeader}
@@ -663,7 +665,6 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             ]}
           />
           {!embedded && thresholdsSlot}
-          {emptyAnalysisFtpEntry}
         </div>
       </div>
     );

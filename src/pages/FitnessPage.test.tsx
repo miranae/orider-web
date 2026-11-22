@@ -38,11 +38,12 @@ vi.mock("../features/fitness/components/PmcHistoryPanel", async (importOriginal)
 }));
 
 vi.mock("../components/mobile/MobileFitnessPage", () => ({
-  default: ({ data, coachSlot, goalSummarySlot, pmcHistoryPoints, pmcHistoryCanonical, sectionState, runningRecordsSlot }: { runningRecordsSlot?: ReactNode; sectionState?: { trend: string; derived: string }; data: { pmcProjection?: unknown; discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number } | null; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null; pdcSufficiency?: { blocks: unknown[] } | null }; coachSlot?: ReactNode; goalSummarySlot?: ReactNode; pmcHistoryPoints?: Array<{ date: string }>; pmcHistoryCanonical?: boolean }) => (
+  default: ({ data, coachSlot, goalSummarySlot, pmcHistoryPoints, pmcHistoryCanonical, sectionState, runningRecordsSlot, analysisSlot }: { runningRecordsSlot?: ReactNode; analysisSlot?: ReactNode; sectionState?: { trend: string; derived: string }; data: { pmcProjection?: unknown; discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number } | null; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null; pdcSufficiency?: { blocks: unknown[] } | null }; coachSlot?: ReactNode; goalSummarySlot?: ReactNode; pmcHistoryPoints?: Array<{ date: string }>; pmcHistoryCanonical?: boolean }) => (
     <div data-testid="mobile-fitness-props" data-has-projection={String(Boolean(data.pmcProjection))} data-trend-state={sectionState?.trend} data-derived-state={sectionState?.derived}>
       {coachSlot}
       {goalSummarySlot}
       {runningRecordsSlot}
+      {analysisSlot}
       <div data-testid="pmc-history" data-count={pmcHistoryPoints?.length} data-start={pmcHistoryPoints?.[0]?.date} data-canonical={String(pmcHistoryCanonical)} />
       mobile fitness dashboard: {data.discipline}
       <span>selected {data.ctl}/{data.atl}/{data.tsb}</span>
@@ -1055,6 +1056,14 @@ describe("FitnessPage", () => {
     });
 
 
+
+    it.each([false, true])("최근 기록이 없어도 분석은 빈 화면 대신 공용 분석을 연다(모바일=%s)", async mobile => {
+      viewport.isMobile = mobile;
+      setCollectionDocs("activities", []);
+      renderWithProviders(<AnalysisFixture sport="bike" />, { authenticated: true, route: "/ko/coach/analysis?sport=bike" });
+      expect(await screen.findByTestId("coach-analysis")).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "분석 기간" })).toBeInTheDocument();
+    });
 
     it("데스크톱 러닝 분석도 웹·앱 공용 분석 구조 하나만 그린다", async () => {
       viewport.isMobile = false;
