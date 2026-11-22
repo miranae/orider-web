@@ -263,3 +263,22 @@ it("결정·제안 슬롯은 오늘 카드 안, 비교 슬롯은 이번 주 아�
   expect(screen.getByTestId("K4-7-1").compareDocumentPosition(comparison) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(comparison.compareDocumentPosition(screen.getByTestId("K4-2")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
+
+it("이번 주 부하와 오늘 카드는 처방 부하만 쓴다 — 완료한 날의 실측 부하를 섞지 않는다", () => {
+  const done = { ...workout, completed: true, actualTSS: 100, executionStatus: "completed", actualActivityId: "ride", matchMethod: "manual", matchConfidence: "manual" } as PlanDay;
+  const next = { ...workout, date: today + 86_400_000, plannedTSS: 40, adjustedTSS: 30 };
+  renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [done, next] }} weekLabel="이번 주" />);
+  expect(screen.getByTestId("K4-7-1")).toHaveTextContent("부하 90");
+  expect(screen.getByTestId("K4-5m-2")).toHaveTextContent("30 TSS");
+});
+
+it("펼친 요일에는 저장된 연결 활동과 후보 활동으로 가는 링크를 둔다", () => {
+  const linked = { ...workout, completed: true, executionStatus: "completed", actualActivityId: "linked-ride", matchMethod: "manual", matchConfidence: "manual" } as PlanDay;
+  const candidate = { ...workout, date: today + 86_400_000, actualActivityId: "candidate-ride", matchMethod: "legacy-time-window", matchConfidence: "probable" } as PlanDay;
+  renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [linked, candidate] }} weekLabel="이번 주" loadState="ready" dayLoads={new Map()} />);
+  expect(screen.queryAllByTestId("K4-5-5")).toHaveLength(0);
+  expandDays();
+  const hrefs = screen.getAllByTestId("K4-5-5").map(link => link.getAttribute("href"));
+  expect(hrefs.some(href => href?.endsWith("/activity/linked-ride"))).toBe(true);
+  expect(hrefs.some(href => href?.endsWith("/activity/candidate-ride"))).toBe(true);
+});

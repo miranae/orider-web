@@ -10,7 +10,6 @@ import { useTranslation } from "react-i18next";
 import type { PlanWeek, PlanDay, WorkoutKind } from "@shared/types/goal";
 import type { Discipline } from "../../../utils/disciplineFilter";
 import { getWorkoutDiscipline as _gwDiscipline } from "../../../utils/workoutDiscipline";
-import { effectivePlanTSS, sumEffectivePlanTSS } from "../../../utils/planTss";
 import AdjustedChip from "../../../components/training/AdjustedChip";
 import { Button, Card, IconButton, Text } from "../../../theme/components";
 import { formatPlanGoalTitle } from "./planDisplay";
@@ -180,11 +179,13 @@ export default function MobilePlanContent({
     return saved ? saved.outcome === "completed" : day.completed;
   };
   const doneCount = scheduledDays.filter(dayDone).length;
-  const weekLoad = Math.round(sumEffectivePlanTSS(scheduledDays));
+  // 처방 부하만 더한다(adjustedTSS ?? plannedTSS) — 완료된 날의 실측 부하를 섞지 않는다.
+  const prescribedLoad = (day: PlanDay) => { const value = day.adjustedTSS ?? day.plannedTSS; return Number.isFinite(value) && value > 0 ? value : 0; };
+  const weekLoad = Math.round(scheduledDays.reduce((sum, day) => sum + prescribedLoad(day), 0));
   const nextDateStr = nextWorkout ? kstDateString(nextWorkout.date) : "";
   const nextWeekday = nextWorkout ? DAY_NAMES[(planCalendarDate(nextWorkout.date).getUTCDay() + 6) % 7] ?? "" : "";
   const nextDateLabel = nextDateStr ? `${Number(nextDateStr.slice(5, 7))}/${Number(nextDateStr.slice(8, 10))}` : "";
-  const nextTss = nextWorkout ? effectivePlanTSS(nextWorkout) : 0;
+  const nextTss = nextWorkout ? prescribedLoad(nextWorkout) : 0;
   const todayEyebrow = goalDate && nextDateStr > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal")
     : nextDateStr === todayStr ? t("mobile.todayLabel") : t("mobile.nextLabel");
   const goalCountdownLabel = goalDate ? goalCountdown(goalDate.getTime()) : daysLeft != null ? `${t("page.daysLeftPrefix")}${daysLeft}` : "—";
@@ -249,6 +250,9 @@ export default function MobilePlanContent({
         const recordEvidence = <>
                 {saved && saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
                 {saved?.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", {date: saved.postponedToLocalDate})}</Text>}
+                {/* 저장된 연결 활동·후보 활동으로 가는 링크 — 데스크톱 날짜 칸과 같은 근거를 펼친 줄에 둔다. */}
+                {saved?.activityLinks.map(link => <LocalizedLink key={link.id} data-testid="K4-5-5" to={`/activity/${encodeURIComponent(link.id)}`} onClick={event => event.stopPropagation()}>{t(link.kind === "candidate" ? "planRecords.viewCandidate" : "today.viewActivity")}</LocalizedLink>)}
+                {embedded && day.actualActivityId && <LocalizedLink data-testid="K4-5-5" to={`/activity/${encodeURIComponent(day.actualActivityId)}`}>{t("today.viewActivity")}</LocalizedLink>}
         </>;
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
