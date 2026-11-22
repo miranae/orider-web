@@ -27,11 +27,20 @@ vi.mock("firebase/firestore", () => ({
 }));
 vi.mock("../../components/event/EventMap", () => ({ default: () => null }));
 
+import type { WorldEventFrame } from "../../features/ride-world/useWorldEvent";
+const presence = vi.hoisted(() => ({ enabled: false, frame: null as WorldEventFrame | null }));
+vi.mock("../../features/ride-world/useWorldEvent", async importActual => ({
+  ...await importActual<typeof import("../../features/ride-world/useWorldEvent")>(),
+  isLocalWorldEventEnabled: () => presence.enabled,
+  useWorldEvent: () => presence.frame,
+}));
+
 import EventLivePage from "./EventLivePage";
 
 describe("confirmed ended public live events", () => {
   beforeEach(() => {
     state.status = "FINISHED"; state.metadataError = false;
+    presence.enabled = false; presence.frame = null;
     heartbeat.mockClear(); ensureAppCheckReady.mockClear(); subscribe.mockReset(); read.mockReset();
     subscribe.mockImplementation(() => () => {});
     read.mockImplementation(async (path: string) => {
@@ -79,6 +88,43 @@ describe("confirmed ended public live events", () => {
     expect(screen.queryByText("dashboard.trackingEnded")).toBeNull();
   });
 
+  it("does not start Firestore presence when the local socket provides a snapshot within the grace window", async () => {
+    vi.useFakeTimers();
+    try {
+      state.status = "LIVE";
+      presence.enabled = true;
+      const view = render(<EventLivePage />);
+      await act(async () => {});
+      await act(async () => vi.advanceTimersByTimeAsync(2_000));
+      expect(heartbeat).not.toHaveBeenCalled();
+      presence.frame = { v: 1, type: "event_snapshot", eventId: "event-1", revision: 1, updatedAt: 1,
+        viewers: 1, counts: { riding: 0, total: 0 }, markers: [], roster: [] };
+      view.rerender(<EventLivePage />);
+      await act(async () => vi.advanceTimersByTimeAsync(3_001));
+      expect(heartbeat).not.toHaveBeenCalled();
+      expect(subscribe).not.toHaveBeenCalledWith("events/event-1/viewer_summary/current", expect.any(Function), expect.any(Function));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restores Firestore presence when the local socket still has no snapshot after the grace window", async () => {
+    vi.useFakeTimers();
+    try {
+      state.status = "LIVE";
+      presence.enabled = true;
+      render(<EventLivePage />);
+      await act(async () => {});
+      await act(async () => vi.advanceTimersByTimeAsync(2_999));
+      expect(heartbeat).not.toHaveBeenCalled();
+      await act(async () => vi.advanceTimersByTimeAsync(1));
+      expect(heartbeat).toHaveBeenCalledWith(expect.objectContaining({ active: true }));
+      expect(subscribe).toHaveBeenCalledWith("events/event-1/viewer_summary/current", expect.any(Function), expect.any(Function));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("renders share and host view as icon-only header actions with their labels", async () => {
     state.status = "LIVE";
     read.mockImplementation(async (path: string) => {
@@ -98,7 +144,7 @@ describe("confirmed ended public live events", () => {
 
   it("unfollows a followed athlete from an icon-only X with the existing label", async () => {
     state.status = "LIVE";
-    localStorage.setItem("event-follow:event-1", JSON.stringify([7]));
+    localStorage.setItem("event-follow:[\"event-1\",[\"anonymous\"]]", JSON.stringify([7]));
     const rider = { uid: "r7", lat: 37, lng: 127, speed: 20, distance: 5000, status: "RIDING", displayName: "Follow fixture", bib: 7, category: null, rank: 1, overallRank: 1, lastCp: null, geohash: null };
     read.mockImplementation(async (path: string) => {
       if (path === "events/event-1") return { exists: () => true, data: () => ({ info: { name: "Live fixture", status: "LIVE" } }) };
@@ -112,8 +158,8 @@ describe("confirmed ended public live events", () => {
     expect(button).toHaveTextContent("");
     act(() => { button.click(); });
     expect(screen.queryByRole("button", { name: "action.unfollowAthlete" })).toBeNull();
-    expect(localStorage.getItem("event-follow:event-1")).toBe("[]");
-    localStorage.removeItem("event-follow:event-1");
+    expect(localStorage.getItem("event-follow:[\"event-1\",[\"anonymous\"]]")).toBe("[]");
+    localStorage.removeItem("event-follow:[\"event-1\",[\"anonymous\"]]");
   });
 
   it("waits for metadata before opening any live data path", async () => {
@@ -126,4 +172,38 @@ describe("confirmed ended public live events", () => {
     expect(await screen.findByText("dashboard.trackingEnded")).toBeInTheDocument();
     expect(read).toHaveBeenCalledTimes(1);
   });
+  it("keeps revoked public locations cleared when an older authorized read completes late", async () => {
+    state.status = "LIVE";
+    presence.enabled = true;
+    let completeOld: (value: unknown) => void = () => {};
+    let snapshotReads = 0;
+    const oldRead = new Promise(resolve => { completeOld = resolve; });
+    read.mockImplementation(async (path: string) => {
+      if (path === "events/event-1") return {
+        exists: () => true, data: () => ({ info: { name: "Privacy fixture", status: "LIVE" } }),
+      };
+      if (path.includes("/snapshots/")) {
+        snapshotReads++;
+        if (snapshotReads === 1) return oldRead;
+        throw Object.assign(new Error("denied-fixture"), { code: "permission-denied" });
+      }
+      return { exists: () => false };
+    });
+    const view = render(<EventLivePage />);
+    await waitFor(() => expect(snapshotReads).toBe(1));
+    presence.frame = { v: 1, type: "event_snapshot", eventId: "event-1", revision: 1, updatedAt: 1,
+      viewers: 1, counts: { riding: 0, total: 0 }, markers: [], roster: [] };
+    view.rerender(<EventLivePage />);
+    await screen.findByText("denied-fixture");
+    await act(async () => {
+      completeOld({ exists: () => true, data: () => ({
+        timestamp: Date.now(), checkpoints: [],
+        locations: [{ uid: "private-rider", lat: 37, lng: 127, speed: 20, distance: 5000,
+          status: "RIDING", displayName: "Revoked rider", bib: 7 }],
+      }) });
+    });
+    expect(screen.getByText("denied-fixture")).toBeInTheDocument();
+    expect(screen.queryByText("Revoked rider")).toBeNull();
+  });
+
 });

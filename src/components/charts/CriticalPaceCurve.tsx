@@ -11,6 +11,8 @@ interface CriticalPaceCurveProps {
   stableSelection?: boolean;
   recentPoints?: readonly RunPacePoint[];
   prevPoints?: readonly RunPacePoint[];
+  /** 고정 28일 대신 다른 비교 기간(코치 분석의 선택 기간)일 때 범례·값 이름. 주면 28일 기간 안내 문구를 두지 않는다. */
+  periodLabels?: { recent: string; previous: string };
 }
 
 const xTicks = [0.5, 1, 5, 10, 30, 60, 120];
@@ -20,11 +22,13 @@ const REF_MARKER_BASE = [
   { dur: 46, label: "10K" },
 ];
 
-export default function CriticalPaceCurve({ color = "var(--amber)", stableSelection = false, recentPoints = [], prevPoints = [] }: CriticalPaceCurveProps) {
+export default function CriticalPaceCurve({ color = "var(--amber)", stableSelection = false, recentPoints = [], prevPoints = [], periodLabels }: CriticalPaceCurveProps) {
   const { t } = useTranslation("dashboard");
   // 빈 곡선 문구를 누르면 기록을 들여오는 연결 화면으로 간다(웹에서만).
   const emptyFix = useFirebaseServices().scope !== "embedded" ? { to: "/settings/connections" } : undefined;
   const { t: fitnessT } = useTranslation("fitness");
+  const recentLabel = periodLabels?.recent ?? fitnessT("period.recent");
+  const previousLabel = periodLabels?.previous ?? fitnessT("period.previous");
   const chartId = useId();
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
   const refMarkers = [
@@ -88,9 +92,9 @@ export default function CriticalPaceCurve({ color = "var(--amber)", stableSelect
 
   return (
     <div className="critical-pace-curve space-y-3">
-    <ChartLegend items={[{ label: fitnessT("period.recent"), color }, { label: fitnessT("period.previous"), color: "var(--ink-3)", dasharray: "5 4" }]} />
+    <ChartLegend items={[{ label: recentLabel, color }, { label: previousLabel, color: "var(--ink-3)", dasharray: "5 4" }]} />
     <ChartFrame variant="embedded">
-    <p id={`${chartId}-periods`} className="critical-pace-curve__note">{fitnessT("criticalPace.periodNote")}</p>
+    <p id={`${chartId}-periods`} className={periodLabels ? "sr-only" : "critical-pace-curve__note"}>{periodLabels ? `${recentLabel} · ${previousLabel}` : fitnessT("criticalPace.periodNote")}</p>
     <div className="critical-pace-curve__references" aria-label={fitnessT("criticalPace.referenceNote")}>
       {refMarkers.map(({ dur, label }) => <span key={label}>{label} · {dur}m</span>)}
     </div>
@@ -114,13 +118,13 @@ export default function CriticalPaceCurve({ color = "var(--amber)", stableSelect
     <p id={`${chartId}-reference-note`} className="critical-pace-curve__note">{fitnessT("criticalPace.referenceNote")}</p>
     {selected != null && <Card variant="inset" padding="compact" id={`${chartId}-tooltip`} className={stableSelection ? "critical-pace-curve__readout" : undefined} tabIndex={stableSelection ? 0 : undefined} aria-label={stableSelection ? fitnessT("criticalPace.duration") : undefined} role="status" aria-live="polite">
       <Text as="p" variant="bodySmall">{fitnessT("criticalPace.duration")} · {durationLabel(selected)}</Text>
-      <div className="critical-pace-curve__values">{[{ label: fitnessT("period.recent"), point: recentPoints.find(point => point.durationSec === selected) }, { label: fitnessT("period.previous"), point: prevPoints.find(point => point.durationSec === selected) }].map(({ label, point }) => <ChartValue key={label} primary={point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"} secondary={label} />)}</div>
-      <Text as="p" variant="bodySmall" tone="secondary">{fitnessT("criticalPace.periodNote")}</Text>
+      <div className="critical-pace-curve__values">{[{ label: recentLabel, point: recentPoints.find(point => point.durationSec === selected) }, { label: previousLabel, point: prevPoints.find(point => point.durationSec === selected) }].map(({ label, point }) => <ChartValue key={label} primary={point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"} secondary={label} />)}</div>
+      {!periodLabels && <Text as="p" variant="bodySmall" tone="secondary">{fitnessT("criticalPace.periodNote")}</Text>}
     </Card>}
     </ChartFrame>
     <DataTable caption={fitnessT("criticalPace.title")} captionVisibility="screen-reader" rows={durations} rowKey={duration => String(duration)} emptyLabel={t("charts.fitness.noData")} columns={[
       { id: "duration", header: fitnessT("criticalPace.duration"), rowHeader: true, cell: duration => duration < 60 ? `${duration}s` : `${duration / 60}m` },
-      ...([{ id: "recent", points: recentPoints }, { id: "previous", points: prevPoints }]).map(({ id, points }) => ({ id, header: fitnessT(`criticalPace.${id}`), align: "end" as const, cell: (duration: number) => { const point = points.find(point => point.durationSec === duration); return <ChartValue primary={point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"} />; } })),
+      ...([{ id: "recent", points: recentPoints }, { id: "previous", points: prevPoints }]).map(({ id, points }) => ({ id, header: periodLabels ? (id === "recent" ? recentLabel : previousLabel) : fitnessT(`criticalPace.${id}`), align: "end" as const, cell: (duration: number) => { const point = points.find(point => point.durationSec === duration); return <ChartValue primary={point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"} />; } })),
     ]} /></div>
   );
 }

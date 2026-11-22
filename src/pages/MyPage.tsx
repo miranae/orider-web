@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -29,7 +30,7 @@ export default function MyPage() {
         className="flex items-center gap-3.5"
         style={{ padding: "var(--space-5) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}
       >
-        <Avatar userId={user.uid} name={nickname} imageUrl={user.photoURL || profile?.photoURL} size="lg" />
+        <Avatar userId={user.uid} name={nickname} imageUrl={resolveProfilePhotoUrl(profile?.photoURL, user.photoURL)} size="lg" />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>
             {nickname}

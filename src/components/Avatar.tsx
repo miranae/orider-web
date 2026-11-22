@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../hooks/useProfileAvatarDisplayUrl";
 import { LocalizedLink as Link } from "./LocalizedLink";
 // 다크 테마용 아바타 배경색 (채도 낮은 다크 팔레트)
 const COLORS = [
@@ -44,14 +46,21 @@ export default function Avatar({
   tapTarget = true,
 }: AvatarProps) {
   const { t } = useTranslation("common");
+  const src = useProfileAvatarDisplayUrl(imageUrl);
+  const reportProfileAvatarLoadError = useProfileAvatarLoadError();
+  const [failed, setFailed] = useState<string>();
   const displayName = typeof name === "string" && name.trim() ? name : t("label.rider");
   const sizeClass = SIZES[size];
-  const inner = imageUrl ? (
+  const inner = src && src !== failed ? (
     <img
-      src={imageUrl}
+      src={src}
       alt={displayName}
       loading="lazy"
       decoding="async"
+      onError={() => {
+        reportProfileAvatarLoadError(imageUrl);
+        setFailed(src);
+      }}
       className={`${sizeClass} rounded-full object-cover ${className}`}
     />
   ) : (

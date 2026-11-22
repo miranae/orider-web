@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   collection, doc, getDoc, onSnapshot, deleteDoc, setDoc,
@@ -217,7 +218,7 @@ export function useFriends() {
       await sendFriendRequest({
         uid: user.uid,
         nickname: profile?.nickname || user.displayName || "",
-        profileImage: profile?.photoURL || user.photoURL || null,
+        profileImage: resolveProfilePhotoUrl(profile?.photoURL, user.photoURL),
       }, targetUserId, firestore);
       track("friend_request_send");
     } finally {

@@ -88,6 +88,7 @@
   "src/features/fitness/activityImpact.test.ts",
   "src/features/fitness/activityStimulus.test.ts",
   "src/features/fitness/chartPalette.test.ts",
+  "src/features/fitness/coachAnalysisSummary.test.ts",
   "src/features/fitness/components/bikeObservedPeriodRecords.test.ts",
   "src/features/fitness/deriveMonthlyCyclingVo2maxTrend.test.ts",
   "src/features/fitness/derivedDocumentReadAttempts.test.ts",

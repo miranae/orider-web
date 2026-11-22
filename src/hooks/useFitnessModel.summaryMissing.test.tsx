@@ -171,7 +171,7 @@ describe("retained activity without raw summary",()=>{
 });
 
 
-describe("running threshold model to actual mobile analysis contract", () => {
+describe("running threshold model to actual mobile threshold card contract", () => {
   it.each([
     { canonical: 260, profile: undefined, expected: "4:20", basis: "저장된 러닝 훈련 기준" },
     { canonical: undefined, profile: 280, expected: "4:40", basis: "프로필에 저장된 러닝 기준" },
@@ -180,7 +180,7 @@ describe("running threshold model to actual mobile analysis contract", () => {
     mocks.profile = profile == null ? null : { thresholdPace: profile };
     mocks.userFitness = canonical == null ? null : { thresholds: { run: { thresholdPace: canonical } } };
     seed([]);
-    function View() { const model = useFitnessModel("run", options); return <><output data-testid="threshold-model">{model.runEvidence.thresholdPaceSec}</output><MobileFitnessPage data={model.mobilePageProps.data} part="analysis" /></>; }
+    function View() { const model = useFitnessModel("run", options); return <><output data-testid="threshold-model">{model.runEvidence.thresholdPaceSec}</output><MobileFitnessPage data={model.mobilePageProps.data} part="condition" embedded /></>; }
     render(<MemoryRouter><View /></MemoryRouter>);
     expect(screen.getByTestId("threshold-model")).toHaveTextContent(String(canonical ?? profile));
     expect(screen.getAllByText(expected).length).toBeGreaterThan(0);

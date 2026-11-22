@@ -1,5 +1,4 @@
 import type { FtpHistoryControls } from "../../hooks/useFtpHistory";
-import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import CriticalPaceCurve from "../charts/CriticalPaceCurve";
 import type { CurvePeriods, RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
 import ConditionSectionNav from "../../features/fitness/components/ConditionSectionNav";
@@ -30,10 +29,6 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
-import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
-import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
-import { AnalysisGroup } from "../../features/fitness/components/AnalysisGroup";
-import { ConciseExplanationsContext } from "../../features/fitness/conciseExplanations";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
@@ -590,17 +585,17 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
 }
 
 /** 기간 읽기 인증과 열기 상태는 실제 사이클 상세 도구에서만 구독한다. */
-function MobilePowerCurvePeriods({ ownerUid, enabled, inline = false, nativeActivities = [], windowDays, loadSignal, onPeriodsChange }: { ownerUid: string; enabled: boolean; inline?: boolean; nativeActivities?: readonly NativePowerLoadedActivity[]; windowDays?: number; loadSignal?: number; onPeriodsChange?: (periods: PowerCurvePeriod[]) => void }) {
+function MobilePowerCurvePeriods({ ownerUid, enabled, inline = false, nativeActivities = [] }: { ownerUid: string; enabled: boolean; inline?: boolean; nativeActivities?: readonly NativePowerLoadedActivity[] }) {
   const { t } = useTranslation("fitness");
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   if (!user || user.isAnonymous || user.uid !== ownerUid) return null;
   if (inline) return <section data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3">
-    <PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} windowDays={windowDays} loadSignal={loadSignal} onPeriodsChange={onPeriodsChange} />
+    <PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} />
   </section>;
   return <details data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
     <summary className="cursor-pointer py-3"><Text variant="label">{t("periodCurve.title")}</Text></summary>
-    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} windowDays={windowDays} embedded /></div>}
+    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} embedded /></div>}
   </details>;
 }
 
@@ -690,12 +685,7 @@ export default function MobileFitnessPage({
   powerCurveEvidenceSlot = null,
   runningRecordsSlot = null,
   triEvidenceSlot = null,
-  periodWindowDays,
-  periodTimeseries = null,
-  periodLoadSignal,
-  analysisPeriods,
-  onAnalysisPeriodsChange,
-  periodZonesFromServer = false,
+  analysisSlot = null,
   nativePowerActivities = [],
   todayDecisionState,
   todayDecisionSignedIn = true,
@@ -717,7 +707,6 @@ export default function MobileFitnessPage({
   /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
   pmcHistoryPoints?: readonly PmcHistoryPoint[];
   pmcHistoryCanonical?: boolean;
-  periodTimeseries?: FitnessTimeseriesDoc | null;
   /** 정본 loadSnapshot.dateKeyBasis — PMC 이력의 오늘 키. 없으면 UTC. */
   fitnessDateKeyBasis?: FitnessDateKeyBasis;
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
@@ -726,13 +715,8 @@ export default function MobileFitnessPage({
   hasThresholdSettings?: boolean;
   goalSummarySlot?: ReactNode;
   periodSlot?: ReactNode;
-  /** 웹 분석 공용 "불러오기" — 값이 바뀌면 두 기간 비교 패널이 함께 불러온다. */
-  periodLoadSignal?: number;
-  /** 사이클 분석: 위 파워 비교가 불러온 기간 — 아래 "기간별 훈련 구성"이 같은 기간으로 불러온다. */
-  analysisPeriods?: PowerCurvePeriod[] | null;
-  onAnalysisPeriodsChange?: (periods: PowerCurvePeriod[]) => void;
-  /** 기간별 심박·파워 존을 서버 기간 통계(위 기간과 연동)로 보여줄 때 고정 30일 분포 카드를 숨긴다. */
-  periodZonesFromServer?: boolean;
+  /** 코치 분석(part="analysis") 본문 — 웹·앱이 같은 CoachAnalysisView 를 넘긴다. */
+  analysisSlot?: ReactNode;
   conditionSupplementSlot?: ReactNode;
   currentBasis?: string;
   currentStatusSlot?: ReactNode;
@@ -741,8 +725,6 @@ export default function MobileFitnessPage({
   powerCurveEvidenceSlot?: ReactNode;
   runningRecordsSlot?: ReactNode;
   triEvidenceSlot?: ReactNode;
-  /** 분석 상단 기간 선택(일). 기간별 훈련 강도의 기본 비교가 최근 N일 ↔ 이전 N일이 된다. */
-  periodWindowDays?: number;
   nativePowerActivities?: readonly NativePowerLoadedActivity[];
   /** 오늘 결정 상세와 공유하는 단일 서버 판정 상태. 모바일 소스가 한 번만 조회한다. */
   todayDecisionState?: TodayTrainingDecisionState;
@@ -860,7 +842,7 @@ export default function MobileFitnessPage({
 
   </>);
   const bikePeriodZoneContent = (<>
-          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods windowDays={periodWindowDays} nativeActivities={nativePowerActivities} inline={part === "condition" && embedded || part === "analysis" && !embedded} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
+          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods nativeActivities={nativePowerActivities} inline={part === "condition" && embedded || part === "analysis" && !embedded} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
 
           {/* 두 종목 부하 근거를 파워 우선 선택으로 숨기지 않는다. */}
           {sectionState.derived === "ready" && (part === "condition" || part === "analysis" && !embedded) && data.zoneEvidence && <FitnessZoneDistributions compact={part === "analysis" && !embedded} evidence={data.zoneEvidence} discipline={zoneDiscipline} />}
@@ -1029,37 +1011,6 @@ export default function MobileFitnessPage({
           {analysisInsufficientNote}
         </div>
   );
-  // 웹 분석 = 선택한 기간 동안 무엇이 바뀌었나. 수행 능력 변화 → 기간별 훈련 구성 → 해석과 근거.
-  // 두 기간 비교(파워 커브·훈련 구성)는 서버 호출이라 위 공용 버튼으로만 함께 불러온다.
-  const definedAnalysisSets = mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null);
-  const webAnalysisContent = mobileAnalysis ? (<ConciseExplanationsContext.Provider value><div style={{ paddingTop: 14 }}>
-          {sectionState.derived === "loading" && <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedLoading")}</div>}
-          {sectionState.derived === "error" && <div role="alert" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedError")}</div>}
-          <AnalysisGroup id="analysis-comparison" title={t("fitness:analysis.groups.performance")}>
-            {/* 기간 파워 비교를 조회할 수 없는 환경에서는 기존 28일 파워 커브를 보여준다. */}
-            {isBike && !(powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled) && bikePowerCurveContent}
-            {isBike && powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} onPeriodsChange={onAnalysisPeriodsChange} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
-            {runCurveContent}
-            {!isBike && modelContent}
-            {/* 러닝 레이스 예측(스테이지)은 거리 기록 상세를 뺀 뒤에도 분석에 남긴다(P9). */}
-            {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
-            {thresholdCard}
-            {thresholdMissingCard}
-          </AnalysisGroup>
-          <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")}>
-            {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled ? analysisPeriods : undefined} />}
-            {!periodZonesFromServer && sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} discipline={zoneDiscipline} />}
-            {!periodZonesFromServer && legacyZonesCard}
-            {zoneDefsCard}
-            {hrZonesMissingCard}
-          </AnalysisGroup>
-          {/* 해석과 근거 묶음은 두지 않는다. 데이터 준비 상태만 남기고, FTP 판단은 제안 링크로 들어올 때만 연다. */}
-          <SufficiencyGroup summaryOnly sets={definedAnalysisSets} testId="analysis-readiness-summary" />
-          {sufficiencyCards}
-          {analysisInsufficientNote}
-          {bikeThresholdSection}
-        </div></ConciseExplanationsContext.Provider>) : null;
-
   const conditionStory = part === "condition" && data.discipline !== "tri" && isValidElement(coachSlot);
   const conditionNavigation = embedded ? (<ConditionSectionNav sections={[
         { id: "condition-current", label: t("fitness:condition.current.title") },
@@ -1125,9 +1076,7 @@ export default function MobileFitnessPage({
       </div>}
 
 
-      {!embedded && part === "analysis" ? <div className="mobile-analysis-period">
-        {periodSlot}
-      </div> : periodSlot}
+      {periodSlot}
       {activeTab === "overview" && (
         <div style={{ paddingTop: "var(--space-2)" }}>
           {conditionStoryContent}
@@ -1226,7 +1175,10 @@ export default function MobileFitnessPage({
         </div>
       )}
 
-      {activeTab === "analysis" && (webAnalysisContent ?? analysisContent)}
+      {activeTab === "analysis" && (part === "analysis" ? <>
+        {sectionState.derived === "error" && <div role="alert" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedError")}</div>}
+        {analysisSlot}
+      </> : analysisContent)}
     </div>
   );
 }

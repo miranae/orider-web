@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import "./ExploreReview.css";
 import "./ExploreAthletesPage.css";
@@ -163,7 +164,7 @@ export default function ExploreAthletesPage() {
       await sendFriendRequest({
         uid: user.uid,
         nickname: profile?.nickname || user.displayName || "",
-        profileImage: profile?.photoURL || user.photoURL || null,
+        profileImage: resolveProfilePhotoUrl(profile?.photoURL, user.photoURL),
       }, item.id, firestore);
       track("friend_request_send", { via: "explore_search", matched_by: item.matchedBy });
       showToast(t("search.toast.sent", { nickname: item.nickname || t("defaultNickname") }));

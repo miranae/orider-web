@@ -1,10 +1,5 @@
 import IntegratedLoadCard from "./IntegratedLoadCard";
-import RunRecordsBoard from "../fitness/RunRecordsBoard";
-import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
-import { sufficiencyBlock, sufficiencySet } from "../../features/sufficiency/__fixtures__";
-import { mockCallableInvocations } from "../../__tests__/mocks/firebase";
-import GlossaryProvider from "../common/GlossaryProvider";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import type { BikeThresholdDecisionV2 } from "@shared/types/threshold";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -13,12 +8,6 @@ import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
 vi.mock("./SportPerformanceCard", () => ({ default: () => null }));
 // 레이스 예측은 스테이지 전용이라 여기서는 배치만 본다.
 vi.mock("../../features/fitness/RunningRaceEstimatesPanel", () => ({ default: () => <div data-testid="K5-6" /> }));
-function expandDetails() {
-  for (const details of document.querySelectorAll("details")) {
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
-  }
-}
 const data: MobileFitnessData = {
   ctl: 40, atl: 45, tsb: -5, pmcHistory: [], weeklyTSS: [], thisWeekTSS: null, avgWeekTSS: null, restDays: null,
   threshold: null, hasLoadData: true, combinedLoad: null, loadFocus: null, cyclingAbility: null,
@@ -51,121 +40,26 @@ describe("mobile web analysis evidence", () => {
     expect(container.querySelector("#condition-trend")!.compareDocumentPosition(container.querySelector("#condition-activities")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("shows the same running pace curve even without a configured threshold pace", () => {
-    renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run", threshold: null }} part="analysis" runPaceCurve={{
-      recent28: [{ durationSec: 30, paceSecPerKm: 176 }, { durationSec: 1800, paceSecPerKm: 749 }],
-      prev28: [{ durationSec: 30, paceSecPerKm: 180 }],
-    }} />);
-    const curve = screen.getByTestId("K5-2-3");
-    expect(within(curve).getByRole("table")).toHaveTextContent("2:56 /km");
-    expect(within(curve).getByRole("table")).toHaveTextContent("12:29 /km");
-    const chart = within(curve).getByRole("img");
-    fireEvent.focus(chart);
-    fireEvent.keyDown(chart, { key: "Home" });
-    const readout = within(curve).getByRole("status");
-    expect(readout).toHaveTextContent("최근 28일");
-    expect(readout).toHaveTextContent("2:56 /km");
-    expect(readout).toHaveTextContent("이전 28일");
-    expect(readout).toHaveTextContent("3:00 /km");
-    fireEvent.pointerLeave(chart);
-    fireEvent.blur(chart);
-    expect(readout).toBeVisible();
-    expect(readout).toHaveTextContent("2:56 /km");
-  });
-  it("distinguishes missing running curve evidence from the threshold setting", () => {
-    renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run", threshold: null }} part="analysis" runPaceCurve={{ recent28: [], prev28: [] }} />);
-    expect(screen.getByTestId("K5-2-3")).toHaveTextContent("역치 페이스 설정과는 별개입니다");
-    expect(within(screen.getByTestId("K5-2-3")).queryByRole("img")).not.toBeInTheDocument();
-  });
   it("keeps a pending condition status separate from confirmed insufficient data", () => {
     renderWithProviders(<MobileFitnessPage data={{ ...data, hasLoadData: false }} part="condition" sectionState={{ trend: "loading", derived: "loading" }} />);
     const current = document.getElementById("condition-current")!;
     expect(current).toHaveTextContent("피트니스 추이를 불러오는 중…");
     expect(current).not.toHaveTextContent("아직 계산할 기록이 없어요");
   });
-  it("orders web analysis as performance change then training composition, without activity flow or interpretation", () => {
-    const view = renderWithProviders(<MobileFitnessPage data={data} part="analysis" />);
-    const headings = screen.getAllByRole("heading", { level: 2 }).map(node => node.textContent);
-    expect(headings.indexOf("수행 능력 변화")).toBeGreaterThanOrEqual(0);
-    expect(headings.indexOf("수행 능력 변화")).toBeLessThan(headings.indexOf("기간별 훈련 구성"));
-    expect(headings).not.toContain("해석과 근거");
-    expect(screen.queryByText("활동량과 주간 흐름")).not.toBeInTheDocument();
-    view.rerender(<MobileFitnessPage data={data} part="analysis" embedded />);
-    expect(screen.queryByRole("heading", { name: "수행 능력 변화" })).not.toBeInTheDocument();
-  });
-
-  it("loads the fixed 90-day power comparison without a period picker or load button", async () => {
-    const calls = () => mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
-    const before = calls();
-    const props = { data, part: "analysis" as const, powerCurvePeriodsOwnerUid: "test-uid", powerCurvePeriodsEnabled: true, periodWindowDays: 90, powerCurveEvidenceSlot: <p>28-day curve</p> };
-    const view = renderWithProviders(<MobileFitnessPage {...props} periodLoadSignal={0} />, { authenticated: true });
-    // 기간 선택·불러오기 버튼·비교 방식 선택 없이 늘 최근 90일 ↔ 이전 90일만 비교한다(2026-11-19).
-    expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "날짜 직접 선택" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /최근 90일 ↔ 이전 90일/ })).not.toBeInTheDocument();
-    // 단위는 드롭다운이 아니라 제목 줄 오른쪽의 작은 W · W/kg 토글이다(2026-11-20).
-    expect(screen.queryByRole("combobox", { name: "단위" })).not.toBeInTheDocument();
-    const unitToggle = screen.getByRole("group", { name: "단위" });
-    expect(unitToggle.closest(".period-curve-header")).toHaveTextContent("기간별 실측 파워 비교");
-    expect(screen.getByTestId("K5-5-1")).toBeVisible();
-    expect(screen.queryByText("28-day curve")).not.toBeInTheDocument();
-    view.rerender(<MobileFitnessPage {...props} periodLoadSignal={1} />);
-    await waitFor(() => expect(calls()).toBe(before + 1));
-  });
-  it("loads once when the comparison panel mounts after the automatic load signal was already raised", async () => {
-    const calls = () => mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
-    const before = calls();
-    // 활동·시계열이 늦게 와서 패널이 신호가 1이 된 뒤에야 마운트되는 경로.
-    renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled periodWindowDays={90} periodLoadSignal={1} />, { authenticated: true });
-    await waitFor(() => expect(calls()).toBe(before + 1));
-  });
-  it("keeps the all-records button in running analysis even with the records board slot and no qualified record", () => {
-    renderWithProviders(<MobileFitnessPage part="analysis" runningRecordsSlot={<p>board</p>} data={{ ...data, discipline: "run", runEvidence: { thresholdPaceSec: 300, records: [] } }} />, { authenticated: true });
-    expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
-  });
-  it("keeps the 28-day power curve when the period power comparison is not available", () => {
-    renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled={false} powerCurveEvidenceSlot={<p>28-day curve</p>} />, { authenticated: true });
-    expect(screen.getByText("28-day curve")).toBeVisible();
-    expect(screen.queryByTestId("K5-5-1")).not.toBeInTheDocument();
-  });
-
-  it.each(["bike", "run"] as const)("keeps cycling PDC requirements scoped on %s", discipline => {
-    const pdcSufficiency = sufficiencySet([
-      sufficiencyBlock(),
-      sufficiencyBlock({ featureId: "power_model", viewId: "cp_w_prime" }),
-      sufficiencyBlock({ featureId: "rider_profile", viewId: "profile" }),
-      sufficiencyBlock({ featureId: "ftp_estimate", viewId: "current" }),
-    ]);
-    renderWithProviders(<MobileFitnessPage data={{ ...data, discipline, pdcSufficiency }} consistencyStreak={{ streakWeeks: 2, activeDays90d: 4, activeWeeks90d: 2, score90d: 10, thisWeekCount: 1, needsThisWeek: 0 }} part="analysis" />);
-    // 분석은 "지표별 데이터 근거" 묶음을 두지 않는다(어느 종목이든).
-    expect(screen.queryByTestId("K5-sufficiency-group")).not.toBeInTheDocument();
-    if (discipline === "run") expect(screen.getByTestId("K5-4")).toBeVisible();
-  });
 
 
-  it("keeps the qualified record summary but drops the distance record source board in analysis", () => {
-    renderWithProviders(<MobileFitnessPage part="analysis" runningRecordsSlot={<p>달성한 러닝 마일스톤</p>} data={{ ...data, discipline: "run",
-      runEvidence: { thresholdPaceSec: null, records: [{ distance: "5km", seconds: 1200, date: "2026-10-01", activityId: "activity", startTime: 1, qualification: "source_qualified", unit: "seconds" }] } }} />);
-    expect(screen.getByTestId("K5-4")).toHaveTextContent("5km · 20:00");
-    // 휴대폰에서는 앱을 열고, 데스크톱(테스트 환경)은 기존 웹 기록 페이지로 간다.
-    expect(within(screen.getByTestId("K5-4")).getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
-    expect(screen.queryByRole("button", { name: /거리 기록·출처와 마일스톤/ })).not.toBeInTheDocument();
-    expect(screen.queryByText("달성한 러닝 마일스톤")).not.toBeInTheDocument();
-    // 따로 있던 '거리 기록·출처와 마일스톤 보기' 링크는 위 버튼과 겹쳐 두지 않는다.
-    expect(screen.queryByRole("link", { name: "거리 기록·출처와 마일스톤 보기 →" })).not.toBeInTheDocument();
-    expect(document.getElementById("condition-metrics")).toBeNull();
 
+  it("draws only the shared coach analysis body on the analysis surface", () => {
+    renderWithProviders(<MobileFitnessPage data={data} part="analysis" analysisSlot={<section data-testid="shared-analysis" />} ftpDecision={pendingDecision} />, { authenticated: true });
+    expect(screen.getByRole("heading", { level: 1, name: "분석" })).toHaveAttribute("data-testid", "K5-0-1");
+    expect(screen.getByTestId("shared-analysis")).toBeInTheDocument();
+    // 예전 분석 본문(요약 카드 중복·데이터 근거 묶음·존 정의·28일 커브)은 그리지 않는다.
+    for (const id of ["K5-sufficiency-group", "analysis-readiness-summary", "K5-3-1", "K5-2-1", "K5-5-1"]) expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+    expect(document.getElementById("ftp-decision")).toBeNull();
   });
-
   it("does not add the new evidence to legacy embedded all view", () => {
     renderWithProviders(<MobileFitnessPage data={data} embedded />);
     expect(screen.queryByTestId("K5-1-3")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("K5-1-4")).not.toBeInTheDocument();
-  });
-  it("does not show a trend line for only one measured month or an empty gap card", () => {
-    renderWithProviders(<MobileFitnessPage data={{ ...data, monthlyVo2maxTrend: [{ period: "2026-09", v: 53 }],
-      powerGaps: [{ durationSeconds: 60, peak: 450, expected: 450, gapPct: 0, label: "on_par" }] }} part="analysis" />);
-    expect(screen.queryByRole("img", { name: /2026-09/ })).not.toBeInTheDocument();
     expect(screen.queryByTestId("K5-1-4")).not.toBeInTheDocument();
   });
 });
@@ -185,33 +79,11 @@ it("excludes bike FTP decisions from other sports", () => {
   expect(document.getElementById("ftp-decision")).toBeNull();
   expect(screen.queryByRole("button", { name: "이 FTP로 변경" })).toBeNull();
 });
-it("renders the two-line running analysis summary outside the full records board", () => {
-  renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run", runEvidence: { thresholdPaceSec: null, records: [], unverifiedRecords: [{ distance: "5km", storedValue: 1200, date: "2026-10-01", activityId: "old", startTime: 1, qualification: "legacy_unverified", unit: "unverified" }] } }} part="analysis" />, { authenticated: true });
-  expect(screen.getByTestId("K5-4")).toHaveTextContent("시간과 페이스를 표시하지 않습니다");
-  expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
-});
 
 
 
-it('names the mobile coach analysis surface and explains repeated zone labels and FTP ranges', () => {
-  const zones = [{ name: '회복', pct: 100, color: 'var(--aqua)', rangeLabel: '<55% FTP', percentLabel: '<55%' }];
-  const { container } = renderWithProviders(<GlossaryProvider><MobileFitnessPage data={{ ...data, zones, zoneSource: 'power' }} part="analysis" /></GlossaryProvider>);
-  expect(screen.getByRole('heading', { level: 1, name: '분석' })).toHaveAttribute('data-testid', 'K5-0-1');
-  expect(container.querySelectorAll('[data-glossary-term="z1"] button').length).toBeGreaterThanOrEqual(2);
-  expect(screen.getByTestId('K5-3-1').querySelector('[data-glossary-term="ftp"] button')).not.toBeNull();
-  expect(container.querySelector('button button, a button, svg button')).toBeNull();
-});
 
 
-it("keeps only the two app buttons when running analysis is not ready", () => {
-  renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run" }} part="analysis" />, { authenticated: true });
-  // '러닝 분석 준비' 제목·설명은 두지 않는다. 기간별 훈련 구성은 사이클과 같이 남긴다(P9, 2026-11-19).
-  expect(screen.queryByRole("heading", { name: "러닝 분석 준비" })).not.toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "기간별 훈련 구성" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "러닝 훈련 기준 설정" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "기록 전체 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
-  expect(screen.queryByText(/심박 구간을 표시할 수/)).not.toBeInTheDocument();
-});
 
 
 
@@ -229,34 +101,6 @@ it("keeps the integrated contribution proportions when swimming controls are hid
   expect(within(contribution).queryByRole("img", { name: /수영/ })).not.toBeInTheDocument();
 });
 
-it("keeps the stage running race estimates in running analysis", () => {
-  renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run" }} part="analysis" runningRaceEstimatesOwnerUid="test-uid" />, { authenticated: true });
-  expect(within(document.getElementById("analysis-comparison")!).getByTestId("K5-6")).toBeInTheDocument();
-});
-
-it("hides the fixed 30-day zone cards when period zones come from the server period comparison", () => {
-  const zoneEvidence = { windowDays: 30, startTime: 0, endTime: 1, hr: { counts: [10, 10, 10, 10, 10], total: 50, recordCount: 1, missingCount: 0, boundaries: null }, power: { counts: null, total: 0, recordCount: 0, missingCount: 0 } };
-  const view = renderWithProviders(<MobileFitnessPage data={{ ...data, zoneEvidence }} part="analysis" />);
-  expect(within(document.getElementById("analysis-periods")!).getAllByText(/30/).length).toBeGreaterThan(0);
-  view.unmount();
-  renderWithProviders(<MobileFitnessPage data={{ ...data, zoneEvidence }} part="analysis" periodZonesFromServer />);
-  expect(within(document.getElementById("analysis-periods")!).queryByText(/30/)).not.toBeInTheDocument();
-});
-
-it("does not label the whole mobile analysis insufficient when a permitted recorded curve is visible", () => {
-  renderWithProviders(<MobileFitnessPage data={{ ...data, powerCurve: [{ durationSeconds: 5, maxPower: 500 }, { durationSeconds: 1200, maxPower: 200 }] }} part="analysis" />);
-  expect(screen.queryByText("분석할 데이터가 아직 충분하지 않아요.")).not.toBeInTheDocument();
-});
-
-it("retains the server power-curve lock even when raw points are present", () => {
-  const block = sufficiencyBlock({ featureId: "power_curve", viewId: "mobile", state: "locked", nextAction: { code: "record_power_ride" },
-    requirements: [{ requirementId: "power_curve_points", kind: "count", satisfaction: "not_met", guarantee: "minimum", target: { value: 2, unit: "point" }, current: { value: 1, unit: "point" } }] });
-  const fixture = { ...data, powerCurve: [{ durationSeconds: 5, maxPower: 500 }, { durationSeconds: 1200, maxPower: 200 }], activityWindowSufficiency: sufficiencySet([block]) };
-  renderWithProviders(<MobileFitnessPage data={fixture} part="analysis" />);
-  expect(screen.queryByRole("img", { name: /파워 커브 · 최근 28일/ })).not.toBeInTheDocument();
-  expect(screen.getByTestId("K5-2-1-sufficiency")).toBeVisible();
-  expect(block.state).toBe("locked");
-});
 
 
 it("keeps condition focused on current state and load without analysis and settings links", () => {
@@ -275,27 +119,6 @@ it("keeps condition focused on current state and load without analysis and setti
 });
 
 
-it("shows the running pace curve once without the source-only distance record list", () => {
-  const view = renderWithProviders(<MobileFitnessPage part="analysis" data={{ ...data, discipline: "run" }} runPaceCurve={{ recent28: [{ durationSec: 60, paceSecPerKm: 300 }], prev28: [{ durationSec: 60, paceSecPerKm: 320 }] }} runningRecordsSlot={<p>Original distance sources</p>} />);
-  expect(view.container.querySelectorAll('[data-testid="K5-2-3"]')).toHaveLength(1);
-  expect(screen.queryByText("Original distance sources")).not.toBeInTheDocument();
-});
-
-it("keeps model, FTP and evidence sections out of analysis unless an FTP decision is requested", () => {
-  const pdcSufficiency = sufficiencySet([
-    sufficiencyBlock(),
-    sufficiencyBlock({ featureId: "power_model", viewId: "cp_w_prime" }),
-    sufficiencyBlock({ featureId: "rider_profile", viewId: "profile" }),
-    sufficiencyBlock({ featureId: "ftp_estimate", viewId: "current" }),
-  ]);
-  const view = renderWithProviders(<MobileFitnessPage data={{ ...data, pdcSufficiency }} part="analysis" />);
-  for (const title of [/추정 지표와 산출 근거/, /훈련 기준 — FTP 판단/, /지표별 데이터 근거/, /해석과 근거/]) expect(screen.queryByText(title)).not.toBeInTheDocument();
-  expect(document.getElementById("analysis-interpretation")).toBeNull();
-  view.unmount();
-  // FTP 제안 링크(#ftp-decision)로 들어오면 결정 영역을 연다.
-  renderWithProviders(<MobileFitnessPage data={{ ...data, pdcSufficiency }} part="analysis" />, { route: "/ko/coach/analysis?sport=bike#ftp-decision" });
-  expect(screen.getAllByText(/훈련 기준 — FTP 판단/).length).toBeGreaterThan(0);
-});
 
 // 러닝 역치 페이스·수영 CSS 가 없다는 문구를 누르면 그 칸으로 간다.
 describe("missing run/swim threshold resolution", () => {
@@ -303,8 +126,8 @@ describe("missing run/swim threshold resolution", () => {
     ["run", "러닝 역치 페이스가 설정되지 않았어요. 설정한 페이스가 있을 때 표시합니다.", "/settings/training?sport=run&focus=threshold-pace"],
     ["swim", "수영 임계 속도(CSS)가 설정되지 않았어요. 설정한 속도가 있을 때 표시합니다.", "/settings/training?sport=swim&focus=css"],
   ] as const)("makes the %s missing-threshold notice itself open its field", (discipline, label, href) => {
-    // 웹 러닝 분석은 준비 카드가 대신하므로, 카드가 그려지는 임베드 분석 표면에서 본다.
-    renderWithProviders(<MobileFitnessPage data={{ ...data, discipline, threshold: null }} part="analysis" embedded />);
+    // 코치 분석은 기준값 카드를 두지 않는다 — 카드가 그려지는 임베드 컨디션 지표에서 본다.
+    renderWithProviders(<MobileFitnessPage data={{ ...data, discipline, threshold: null }} part="condition" embedded />);
     expect(screen.getByRole("link", { name: label })).toHaveAttribute("href", expect.stringContaining(href));
   });
 });

@@ -1,3 +1,4 @@
+import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { useEffect, useRef, useState } from "react";
 import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { useTranslation } from "react-i18next";
@@ -52,7 +53,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   const [localKudos, setLocalKudos] = useState(activity.kudosCount ?? 0);
   const [recent, setRecent] = useState(initialRecent);
   const hydratedRecent = useHydratedSocialProfiles(recent, "ActivitySocialFooter.recentKudos");
-  const currentProfileImage = profile?.photoURL ?? user?.photoURL ?? null;
+  const currentProfileImage = resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL);
   // 댓글 인라인 작성 — 💬 클릭 시 카드 안에서 바로 입력(상세 이동 없이). 기존 댓글 "목록"은
   // 직접 구독하지 않고 상위에서 전달한 제한된 미리보기만 표시한다. 전체 목록은 상세에서 읽는다.
   const [showComment, setShowComment] = useState(false);
