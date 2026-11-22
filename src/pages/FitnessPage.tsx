@@ -14,7 +14,7 @@ import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesP
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import "./FitnessPage.css";
 import { PowerCurvePeriodsPanel } from "../features/fitness/components/PowerCurvePeriodsPanel";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useTrainingDecision } from "../hooks/useTrainingDecision";
 import { useSearchParams } from "react-router-dom";
@@ -79,7 +79,7 @@ import { toLocalDate } from "../utils/dateUtils";
 import { fitnessTodayKey } from "@shared/training/dateKey";
 import TriFitnessView from "./fitness/TriFitnessView";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
-import { readCachedTodayPlan } from "../features/fitness/cachedTodayPlan";
+import { readCachedTodayPlan, todayPlanLabel, type CachedTodayPlan } from "../features/fitness/cachedTodayPlan";
 import { storedActivityLoad, storedActivityName } from "../features/fitness/storedActivityLoad";
 import LoadQualityEvidence from "../features/sufficiency/LoadQualityEvidence";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
@@ -206,6 +206,18 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       : undefined;
 
   const renderMobile = embedded || isMobile;
+  // 휴대폰 컨디션 오늘 계획 — 캐시 소유자 확인(다른 계정이면 캐시를 비운다)이 부작용이라 렌더 밖에서 읽는다.
+  const phoneConditionPlanSport = renderMobile && part === "condition" && !embedded && discipline !== "tri" ? discipline : null;
+  const planLocale = i18n.resolvedLanguage ?? i18n.language;
+  const planUid = user?.uid ?? null;
+  const planAnonymous = user?.isAnonymous === true;
+  const [cachedPlan, setCachedPlan] = useState<{ key: string; plan: CachedTodayPlan | null } | null>(null);
+  const cachedPlanKey = phoneConditionPlanSport && planUid ? `${planUid}\u0000${planAnonymous}\u0000${phoneConditionPlanSport}\u0000${planLocale}` : null;
+  useEffect(() => {
+    if (!cachedPlanKey || !planUid || !phoneConditionPlanSport) return;
+    setCachedPlan({ key: cachedPlanKey, plan: readCachedTodayPlan(planUid, planAnonymous, phoneConditionPlanSport, planLocale) });
+  }, [cachedPlanKey, planUid, planAnonymous, phoneConditionPlanSport, planLocale]);
+  const todayPlan = cachedPlanKey && cachedPlan?.key === cachedPlanKey ? cachedPlan.plan : null;
   const activityImpacts = discipline === "tri" || !hasCanonicalTimeseries
     ? []
     : deriveActivityImpacts(fitnessData, disciplineActivities, { limit: 6, dateKeyBasis: model.fitnessDateKeyBasis });
@@ -467,12 +479,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   if (renderMobile) {
     const phoneCondition = part === "condition" && !embedded;
     const planHref = `/coach/plan?sport=${discipline}`;
-    const cachedPlan = phoneCondition && discipline !== "tri"
-      ? readCachedTodayPlan(user.uid, user.isAnonymous === true, discipline, i18n.resolvedLanguage ?? i18n.language) : null;
-    const phoneTodayPlan = {
-      planHref,
-      label: cachedPlan ? [cachedPlan.workoutName ?? trainingT(`workouts.${cachedPlan.workout}`), cachedPlan.durationMin != null ? trainingT("decision.duration", { value: cachedPlan.durationMin }) : null].filter(Boolean).join(" ") : null,
-    };
+    const phoneTodayPlan = { planHref, label: todayPlanLabel(todayPlan, trainingT, key => i18n.exists(`training:${key}`)) };
     // 최근 활동 — 이름·날짜와 서버가 저장한 활동 부하(TSS)만 읽는다(P6). 영향 변화값은 계산하지 않는다.
     const recentDisciplineActivities = phoneCondition && discipline !== "tri"
       ? disciplineActivities.filter(activity => !isNegligibleActivitySummary(activity.summary)).sort((a, b) => b.startTime - a.startTime) : [];
