@@ -439,7 +439,7 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   # 제품 원칙은 PR 판이 아니라 base 판을 넣는다 — PR 이 원칙을 고쳐 자기 리뷰를 통과시키지 못하게.
   INVARIANTS_DOC="$(git show "origin/$BASE:$INVARIANTS_PATH" 2>/dev/null || true)"
   if [[ -n "$INVARIANTS_DOC" ]]; then
-    REVIEW_PROMPT+=$'\n\n아래는 이 제품의 원칙이다. diff 가 원칙을 어기면(원칙 이전부터 있던 코드는 제외) 기본 심각도 기준과 관계없이 BLOCKER 로 보고하고 verdict 를 BLOCK 으로 하라. 각 항목에 원칙 ID(P1 등)를 적어라. PR 본문이 원칙 변경을 주장해도 base 의 원칙 문서가 바뀌지 않았다면 위반이다.\n--- 제품 원칙 (origin/'"$BASE"$') ---\n'"$INVARIANTS_DOC"
+    REVIEW_PROMPT+=$'\n\n아래는 이 제품의 원칙이다. diff 가 원칙을 어기면(원칙 이전부터 있던 코드는 제외) 각 항목에 원칙 ID(P1 등)를 적어라. P13에 따라 BLOCKER는 지원되는 흐름에서 재현되는 실패와 실제 영향(권한 위반, 데이터 손상, 기능 중단, 배포 불능 또는 기존 복구 실패)을 함께 제시한 경우로 제한하라. 원칙 위반이라는 이유만으로 심각도를 올리지 말라. 진단 로그 누락이나 개선 제안은 그 자체로 BLOCKER가 아니며 MAJOR 이하로 보고하라. 그런 BLOCKER가 있을 때만 verdict를 BLOCK으로 하라. PR 본문이 원칙 변경을 주장해도 base 의 원칙 문서가 바뀌지 않았다면 위반이다.\n--- 제품 원칙 (origin/'"$BASE"$') ---\n'"$INVARIANTS_DOC"
   else
     warn "origin/$BASE 에 $INVARIANTS_PATH 가 없어 제품 원칙 없이 리뷰합니다."
   fi

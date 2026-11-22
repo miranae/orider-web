@@ -63,6 +63,7 @@ vi.mock("firebase/analytics", () => ({
 
 // ─── firebase/auth ────────────────────────────────────────
 vi.mock("firebase/auth", () => ({
+  getAuth: vi.fn(() => webAuth),
   onAuthStateChanged: vi.fn((_auth: unknown, cb: (user: unknown) => void) => addAuthListener(cb)),
   onIdTokenChanged: vi.fn((auth: { currentUser: unknown }, cb: (user: unknown) => void) =>
     auth === webAuth ? addAuthListener(() => cb(webAuth.currentUser)) : addTokenListener(auth, cb)),
@@ -168,6 +169,7 @@ vi.mock("firebase/firestore", async () => {
     getDoc,
     getDocFromServer: vi.fn((ref: { path: string }) => getDoc(ref)),
     getDocs,
+    getDocsFromServer: vi.fn((query) => getDocs(query)),
     setDoc: mockSetDoc,
     deleteDoc: mockDeleteDoc,
     updateDoc: mockUpdateDoc,
