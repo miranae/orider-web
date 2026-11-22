@@ -2,7 +2,9 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { collection, doc, getDocFromServer, onSnapshot, query, where, type DocumentSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 convenience exports 기본값. 임베드는 createRiderWorkoutDeliveryClient(services)를 사용한다.
-import { ensureAppCheckReady, firestore, functions } from "./firebase";
+import { auth, ensureAppCheckReady, firestore, functions, getAppCheckToken } from "./firebase";
+import { logClientError } from "./errorLogger";
+import type { WorldErrorReporter } from "../features/ride-world/worldReadiness";
 import { subscribeDeviceDeliverySignal } from "./deviceDeliverySignal";
 import {
   createRiderWorkoutDeliveryResponseSchema,
@@ -52,8 +54,14 @@ export function classifyRiderWorkoutDeliveryError(error: unknown): RiderWorkoutD
   return "unknown";
 }
 
-export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices, "firestore" | "functions" | "ensureAppCheckReady">) {
+export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices, "firestore" | "functions" | "ensureAppCheckReady">
+  & Partial<Pick<FirebaseServices, "auth" | "isSessionApproved" | "getAppCheckToken">>) {
   const { firestore, functions, ensureAppCheckReady } = services;
+  function deviceReporter(): WorldErrorReporter {
+    const loggingServices = services.auth ? { ...services, auth: services.auth } : undefined;
+    const viewer = loggingServices?.auth.currentUser;
+    return (source, error, context) => logClientError(source, error, context, loggingServices, viewer);
+  }
   function subscribeRiderWorkoutDevices(
     uid: string,
     onChange: (devices: RiderWorkoutDeviceRegistration[]) => void,
@@ -100,7 +108,9 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
       onChange(delivery);
     };
     return subscribeDeviceDeliverySignal(firestore, uid, `workout-receipt:${deliveryId}`,
-      () => getDocFromServer(ref), receive, onError, () => onSnapshot(ref, receive, onError));
+      () => getDocFromServer(ref), receive, onError, (serverOnly, isCurrent) => serverOnly
+        ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (isCurrent() && !snap.metadata.fromCache) receive(snap); }, error => { if (isCurrent()) onError(error); })
+        : onSnapshot(ref, receive, onError), deviceReporter());
   }
 
   function subscribeRiderWorkoutDeviceState(
@@ -123,12 +133,14 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
       onChange(state);
     };
     return subscribeDeviceDeliverySignal(firestore, uid, `workout-device:${deviceId}`,
-      () => getDocFromServer(ref), receive, onError, () => onSnapshot(ref, receive, onError));
+      () => getDocFromServer(ref), receive, onError, (serverOnly, isCurrent) => serverOnly
+        ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (isCurrent() && !snap.metadata.fromCache) receive(snap); }, error => { if (isCurrent()) onError(error); })
+        : onSnapshot(ref, receive, onError), deviceReporter());
   }
 
   return { subscribeRiderWorkoutDevices, createRiderWorkoutDelivery, subscribeRiderWorkoutDelivery, subscribeRiderWorkoutDeviceState };
 }
 export const subscribeRiderWorkoutDevices: ReturnType<typeof createRiderWorkoutDeliveryClient>["subscribeRiderWorkoutDevices"] = (...args) => createRiderWorkoutDeliveryClient({ firestore, functions, ensureAppCheckReady }).subscribeRiderWorkoutDevices(...args);
 export const createRiderWorkoutDelivery: ReturnType<typeof createRiderWorkoutDeliveryClient>["createRiderWorkoutDelivery"] = (...args) => createRiderWorkoutDeliveryClient({ firestore, functions, ensureAppCheckReady }).createRiderWorkoutDelivery(...args);
-export const subscribeRiderWorkoutDelivery: ReturnType<typeof createRiderWorkoutDeliveryClient>["subscribeRiderWorkoutDelivery"] = (...args) => createRiderWorkoutDeliveryClient({ firestore, functions, ensureAppCheckReady }).subscribeRiderWorkoutDelivery(...args);
-export const subscribeRiderWorkoutDeviceState: ReturnType<typeof createRiderWorkoutDeliveryClient>["subscribeRiderWorkoutDeviceState"] = (...args) => createRiderWorkoutDeliveryClient({ firestore, functions, ensureAppCheckReady }).subscribeRiderWorkoutDeviceState(...args);
+export const subscribeRiderWorkoutDelivery: ReturnType<typeof createRiderWorkoutDeliveryClient>["subscribeRiderWorkoutDelivery"] = (...args) => createRiderWorkoutDeliveryClient({ auth, firestore, functions, ensureAppCheckReady, getAppCheckToken }).subscribeRiderWorkoutDelivery(...args);
+export const subscribeRiderWorkoutDeviceState: ReturnType<typeof createRiderWorkoutDeliveryClient>["subscribeRiderWorkoutDeviceState"] = (...args) => createRiderWorkoutDeliveryClient({ auth, firestore, functions, ensureAppCheckReady, getAppCheckToken }).subscribeRiderWorkoutDeviceState(...args);

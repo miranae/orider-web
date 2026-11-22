@@ -18,6 +18,7 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
   eventId: string; groupId: string; uid: string; ended?: boolean; en: boolean;
 }) {
   const services = useFirebaseServices();
+  const viewer = services.auth?.currentUser ?? null;
   const queued = useRef(false);
   const {getClubMeetingDiscord, openClubMeetingDiscord, closeClubMeetingDiscord} = useClubMeetingsApi();
   const text = (ko: string, english: string) => en ? english : ko;
@@ -39,21 +40,37 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       }
     } catch (reason) {
       if (mounted.current && current.current === scope && request === generation.current) setError(true);
-      logClientError("MeetingDiscord.load", reason);
+      logClientError("MeetingDiscord.load", reason, undefined, services, viewer);
     }
-  }, [eventId, scope, getClubMeetingDiscord]);
-  const viewer = services.auth?.currentUser;
+  }, [eventId, scope, getClubMeetingDiscord, services, viewer]);
+  const [worldScope, setWorldScope] = useState<{ scope: string; viewer: typeof viewer; services: typeof services } | null>(null);
+  const activeWorldScope = useRef<typeof worldScope>(null);
+  useEffect(() => {
+    activeWorldScope.current = null;
+    setWorldScope(null);
+  }, [scope, viewer, services, ended]);
+  const worldOwnsSignals = worldScope?.scope === scope && worldScope.viewer === viewer && worldScope.services === services;
   const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
     import.meta.env.VITE_ORIDER_LOCAL_DISCORD_REDIS === "1" && isEmulatorRuntime() &&
     getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true && viewer?.uid === uid;
   useWorldEvent(redisSignals && !ended ? eventId : undefined, viewer, undefined, undefined, {
     topic: "discord",
-    changed: () => { if (!document.hidden) void reload(); },
+    changed: () => {
+      const binding = { scope, viewer, services };
+      activeWorldScope.current = binding;
+      setWorldScope(binding);
+      if (!document.hidden) void reload();
+    },
     disconnected: code => {
       if (!mounted.current || current.current !== scope) return;
+      const denied = code === 4003 || code === 4004;
+      const binding = activeWorldScope.current;
+      if ((binding?.scope !== scope || binding.viewer !== viewer || binding.services !== services) && !denied) return;
+      activeWorldScope.current = null;
+      setWorldScope(null);
       generation.current++; busy.current = false; queued.current = false;
       setPending(false); setResult(null); setConfirmClose(false);
-      if (code === 4003) setError(true);
+      if (denied) setError(true);
     },
   });
   useEffect(() => {
@@ -72,20 +89,20 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       if (disposed) return;
       generation.current++; busy.current = false; queued.current = false; setPending(false);
       setResult(null); setError(true);
-      logClientError("MeetingDiscord.signal", reason);
+      logClientError("MeetingDiscord.signal", reason, undefined, services, viewer);
       stops.forEach(stop => stop());
     };
     void services.ensureAppCheckReady().then(() => {
       if (disposed) return;
       const paths = [`events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`];
-      if (!redisSignals) paths.unshift(`events/${eventId}/discord_signals/latest`);
+      if (!worldOwnsSignals) paths.unshift(`events/${eventId}/discord_signals/latest`);
       for (const path of paths) {
         stops.push(onSnapshot(doc(services.firestore, path), changed, failed));
       }
     }).catch(failed);
     document.addEventListener("visibilitychange", changed);
     return () => { disposed = true; stops.forEach(stop => stop()); document.removeEventListener("visibilitychange", changed); };
-  }, [services, eventId, groupId, uid, reload, signalRetry, redisSignals]);
+  }, [services, eventId, groupId, uid, reload, signalRetry, worldOwnsSignals, scope, viewer]);
   const mutate = async (close: boolean) => {
     if (busy.current) return;
     busy.current = true; setPending(true); setError(false); const operation = ++generation.current;
@@ -94,7 +111,7 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       if (mounted.current && current.current === scope && operation === generation.current) { setResult({scope, value}); setConfirmClose(false); }
     } catch (reason) {
       if (mounted.current && current.current === scope && operation === generation.current) setError(true);
-      logClientError("MeetingDiscord.change", reason);
+      logClientError("MeetingDiscord.change", reason, undefined, services, viewer);
     } finally {
       if (mounted.current && current.current === scope && operation === generation.current) { busy.current = false; setPending(false); if (queued.current) { queued.current = false; void reload(); } }
     }

@@ -142,7 +142,7 @@ describe("변경 신호 기반 스냅샷 비용", () => {
     expect(signals.listeners.filter(({ path }) => path.endsWith("meeting_snapshot_signals/latest"))).toHaveLength(2);
   });
 
-  it("로컬 Redis 신호가 유실돼도 원본 스냅샷을 복구하고 Firestore 신호 구독을 열지 않는다", async () => {
+  it("로컬 Redis 신호가 끊기면 Firestore를 구독하고 복구 뒤 원본 스냅샷을 다시 읽는다", async () => {
     vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
     vi.stubEnv("VITE_ORIDER_LOCAL_MEETING_REDIS", "1");
     resetRuntimeConfigForTests({ useEmulators: true, firebaseProjectId: "demo-orider-world" });
@@ -156,7 +156,9 @@ describe("변경 신호 기반 스냅샷 비용", () => {
     await tick();
     expect(result.current.data?.revision).toBe(3);
     expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
-    expect(signals.listeners.some(({ path }) => path.endsWith("meeting_snapshot_signals/latest"))).toBe(false);
+    const fallbackListeners = signals.listeners.filter(({ path }) => path.endsWith("meeting_snapshot_signals/latest"));
+    expect(fallbackListeners).toHaveLength(2);
+    expect(fallbackListeners[1]?.stop).toHaveBeenCalledOnce();
 
     vi.mocked(getClubMeetingSnapshot).mockRejectedValue({ code: "functions/permission-denied" });
     act(() => worldSignals.current?.disconnected(4003));

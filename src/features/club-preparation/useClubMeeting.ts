@@ -232,7 +232,7 @@ export function useClubMeeting(
       };
       try {
         attachFallback = () => {
-          if (redisSignals || worldActive || stopLocationSignal || !subscribed() || document.hidden || denied) return;
+          if (worldActive || stopLocationSignal || !subscribed() || document.hidden || denied) return;
           stopLocationSignal = onSnapshot(doc(services.firestore, `events/${eventId}/meeting_snapshot_signals/latest`), { includeMetadataChanges: true }, snapshot => {
           if (!subscribed() || worldActive || snapshot.metadata.fromCache) return;
           signalFailures = 0;

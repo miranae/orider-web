@@ -1,5 +1,6 @@
 import { getDoc, doc, onSnapshot, type Firestore, type DocumentData, type DocumentSnapshot } from "firebase/firestore";
 import { logClientError } from "../../services/errorLogger";
+import { followWorldSignal } from "../ride-world/followWorldSignal";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 // 목록과 상세는 별도 계약이다. 상세 표시 필드는 유지하고 무거운 원본만 정적 파일에서 받는다.
@@ -14,6 +15,7 @@ const MAX_BYTES = 16 * 1024 * 1024;
 const CACHE_NAME = "orider-public-course-tracks-v1";
 const MAX_CACHE_ENTRIES = 8;
 const HASH = /^[a-f0-9]{64}$/;
+const COURSE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 type Value = { nullValue?: unknown; stringValue?: string; timestampValue?: string; booleanValue?: boolean;
   integerValue?: string; doubleValue?: number; arrayValue?: { values?: Value[] }; mapValue?: { fields?: Record<string, Value> } };
 function decode(value: Value): unknown {
@@ -28,7 +30,7 @@ function decode(value: Value): unknown {
   throw new Error("지원하지 않는 코스 필드 형식");
 }
 export function courseMetadataUrl(firestore: Firestore, id: string): string {
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new Error("잘못된 코스 식별자");
+  if (!COURSE_ID.test(id)) throw new Error("잘못된 코스 식별자");
   const project = firestore.app.options.projectId;
   if (!project) throw new Error("코스 프로젝트 설정 없음");
   const settings = (firestore.toJSON() as { settings?: { host?: string; ssl?: boolean } }).settings;
@@ -132,6 +134,13 @@ export async function loadCourseSource(services: Pick<FirebaseServices, "auth" |
 /** 작은 서버 변경 신호를 구독하고 메타데이터만 다시 읽는다. 기존 코스는 SDK 구독으로 호환한다. */
 export function subscribeCourseDetail(services: FirebaseServices, id: string,
   onData: (data: DocumentData | null) => void, onError: (error: Error) => void): () => void {
+  if (!id || id.includes("/") || id === "." || id === "..") {
+    const error = new Error("잘못된 코스 식별자");
+    logClientError("CourseDetail.invalidId", error, undefined, services, services.auth?.currentUser ?? null);
+    onData(null);
+    onError(error);
+    return () => {};
+  }
   const user = services.auth.currentUser;
   let disposed = false;
   let generation = 0;
@@ -139,7 +148,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   let lastVersion: string | undefined;
   let lastTrack: DocumentData | undefined;
   let legacyStop: (() => void) | undefined;
-  const worldEnabled = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+  const worldEnabled = COURSE_ID.test(id) && import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
     import.meta.env.VITE_ORIDER_LOCAL_COURSE_REDIS === "1" && services.firestore.app.options.projectId === "demo-orider-lab";
   const current = () => !disposed && services.auth.currentUser === user;
   const legacy = (publicOnly = false) => {
@@ -153,7 +162,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       } else onData(data ? { ...data, id } : null);
     };
     const failed = (error: Error) => {
-      if (current()) { logClientError("CourseDetail.legacyRead", error, { courseId: id }); onData(null); onError(error); }
+      if (current()) { logClientError("CourseDetail.legacyRead", error, { courseId: id }, services, user); onData(null); onError(error); }
     };
     legacyStop = publicOnly ? onSnapshot(source, { includeMetadataChanges: true }, next, failed) : onSnapshot(source, next, failed);
   };
@@ -184,7 +193,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
         lastVersion = version; lastTrack = track;
       } catch (error) {
         if (!active()) return;
-        logClientError("CourseDetail.assetFallback", error, { courseId: id });
+        logClientError("CourseDetail.assetFallback", error, { courseId: id }, services, user);
         let snapshot;
         try { snapshot = await getDoc(doc(services.firestore, "courses", id)); }
         catch (fallbackError) {
@@ -214,66 +223,61 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       if (active()) onData({ ...metadata, elevationProfile: track.elevationProfile, altitudeSemantics: track.altitudeSemantics, id, trackLoadState: "ready" });
     } catch (error) {
       if (active()) {
-        logClientError("CourseDetail.metadataRead", error, { courseId: id });
-        onData(null); onError(error instanceof Error ? error : new Error(String(error)));
+        logClientError("CourseDetail.metadataRead", error, { courseId: id }, services, user);
+        onData(null);
+        if (worldEnabled) legacy(true);
+        else onError(error instanceof Error ? error : new Error(String(error)));
       }
     }
   };
-  const startFirestore = () => onSnapshot(doc(services.firestore, "courses", id, "cache_metadata", "current"), (snapshot) => {
-    if (!current()) return;
-    if (!snapshot.exists()) {
-      ++generation; request?.abort(); legacy(); return;
-    }
-    legacyStop?.(); legacyStop = undefined;
-    void refresh();
-  }, (error) => {
-    if (!current()) return;
-    logClientError("CourseDetail.signalFallback", error, { courseId: id });
-    onData(null); ++generation; request?.abort(); legacy();
-  });
-  let signalStop: (() => void) | undefined;
-  let socket: WebSocket | undefined;
-  let firstFrameTimer: ReturnType<typeof setTimeout> | undefined;
-  let switchedToSource = false;
-  const fallBack = () => {
-    if (!current() || switchedToSource) return;
-    switchedToSource = true;
-    clearTimeout(firstFrameTimer);
-    ++generation; request?.abort();
-    lastVersion = undefined; lastTrack = undefined;
-    onData(null);
-    const previous = socket;
-    socket = undefined;
-    previous?.close();
-    legacyStop?.(); legacyStop = undefined;
-    legacy(true);
+  const startFirestore = () => {
+    const source = doc(services.firestore, "courses", id, "cache_metadata", "current");
+    const next = (snapshot: DocumentSnapshot) => {
+      if (!current() || (worldEnabled && snapshot.metadata?.fromCache)) return;
+      if (!snapshot.exists()) {
+        ++generation; request?.abort(); legacy(worldEnabled); return;
+      }
+      legacyStop?.(); legacyStop = undefined;
+      void refresh();
+    };
+    const failed = (error: Error) => {
+      if (!current()) return;
+      logClientError("CourseDetail.signalFallback", error, { courseId: id }, services, user);
+      onData(null); ++generation; request?.abort(); legacy(worldEnabled);
+    };
+    return worldEnabled ? onSnapshot(source, { includeMetadataChanges: true }, next, failed) : onSnapshot(source, next, failed);
   };
-  if (worldEnabled) {
-    try {
-      const live = new WebSocket("ws://127.0.0.1:19487/course-signals");
-      socket = live;
-      firstFrameTimer = setTimeout(fallBack, 6000);
-      live.onopen = () => live.send(JSON.stringify({ v: 1, type: "course_subscribe", courseId: id }));
-      live.onmessage = ({ data }) => {
-        if (!current() || socket !== live) return;
-        try {
-          const frame = JSON.parse(String(data)) as { v?: number; type?: string; revision?: string | null } | null;
+  let stopFirestore: (() => void) | undefined;
+  const restoreFirestore = () => {
+    if (current() && !stopFirestore) stopFirestore = startFirestore();
+  };
+  if (COURSE_ID.test(id)) restoreFirestore();
+  else legacy();
+  const signalStop = worldEnabled
+    ? followWorldSignal("ws://127.0.0.1:19487/course-signals",
+        async () => ({ v: 1, type: "course_subscribe", courseId: id }),
+        (data) => {
+          if (!current()) return false;
+          const frame = data as { v?: number; type?: string; revision?: string | null } | null;
           if (frame?.v !== 1 || frame.type !== "course_signal" ||
-              (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return;
-          clearTimeout(firstFrameTimer);
+              (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
+          stopFirestore?.(); stopFirestore = undefined;
           legacyStop?.(); legacyStop = undefined;
           void refresh();
-        } catch (error) {
-          logClientError("CourseDetail.worldFrame", error, { courseId: id });
-          fallBack();
-        }
-      };
-      live.onerror = fallBack;
-      live.onclose = fallBack;
-    } catch { fallBack(); }
-  } else signalStop = startFirestore();
+          return true;
+        },
+        () => {
+          if (!current()) return;
+          ++generation; request?.abort();
+          legacyStop?.(); legacyStop = undefined;
+          lastVersion = undefined; lastTrack = undefined;
+          onData(null);
+          restoreFirestore();
+        },
+        (source, error, context) => logClientError(source, error, context, services, user))
+    : undefined;
   return () => {
-    disposed = true; ++generation; request?.abort(); clearTimeout(firstFrameTimer);
-    legacyStop?.(); signalStop?.(); socket?.close();
+    disposed = true; ++generation; request?.abort();
+    stopFirestore?.(); legacyStop?.(); signalStop?.();
   };
 }

@@ -24,30 +24,38 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
 describe("코스 상세 정적 트랙", () => {
-  it("로컬 월드 변경 신호가 닫히면 표시를 비우고 Firestore에서 다시 확인한다", async () => {
+  it.each(["disconnect", "invalid frame"])("로컬 월드 변경 신호 실패(%s) 뒤 Firestore에서 다시 확인한다", async failure => {
     vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
     vi.stubEnv("VITE_ORIDER_LOCAL_COURSE_REDIS", "1");
-    const socket = { send: vi.fn(), close: vi.fn(), onopen: () => {}, onmessage: (_: { data: string }) => {}, onclose: () => {} };
-    vi.stubGlobal("WebSocket", class { constructor() { return socket; } });
+    const socket = Object.assign(new EventTarget(), { send: vi.fn(), close: vi.fn() });
+    const connect = vi.fn();
+    vi.stubGlobal("WebSocket", class { constructor() { connect(); return socket; } });
     const version = await hash(body);
-    const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(version))))
-      .mockResolvedValueOnce(new Response(body)).mockResolvedValue(new Response(null, { status: 404 }));
+    const fetcher = vi.fn().mockImplementation((url: string) => url.endsWith("/ready")
+      ? Promise.resolve(new Response(null, { status: 204 }))
+      : Promise.resolve(new Response(url.includes("documents/") ? JSON.stringify(fields(version)) : body)));
     vi.stubGlobal("fetch", fetcher);
     const service = services();
     service.firestore.app.options.projectId = "demo-orider-lab";
     const onData = vi.fn();
+    sdk.onSnapshot.mockImplementation(() => vi.fn());
     const stop = subscribeCourseDetail(service, "course", onData, vi.fn());
-    socket.onopen();
+    expect(sdk.onSnapshot).toHaveBeenCalledWith("courses/course/cache_metadata/current", { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
+    await vi.waitFor(() => expect(connect).toHaveBeenCalledTimes(1));
+    socket.dispatchEvent(new Event("open"));
     expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "course_subscribe", courseId: "course" }));
-    socket.onmessage({ data: JSON.stringify({ v: 1, type: "course_signal", revision: null }) });
+    socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "course_signal", revision: null }) }));
     await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
-    expect(sdk.onSnapshot).not.toHaveBeenCalled();
-    socket.onclose();
+    if (failure === "invalid frame") {
+      socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "course_signal", revision: "invalid" }) }));
+    } else {
+      socket.dispatchEvent(new CloseEvent("close", { code: 1013 }));
+    }
     expect(onData).toHaveBeenLastCalledWith(null);
-    expect(sdk.onSnapshot).toHaveBeenCalledWith("courses/course", { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
-    const observeSource = sdk.onSnapshot.mock.calls[0]?.[2] as (snapshot: unknown) => void;
-    observeSource({ exists: () => true, data: () => ({ name: "Revoked", hidden: true }) });
-    expect(onData).toHaveBeenLastCalledWith(null);
+    expect(sdk.onSnapshot).toHaveBeenCalledTimes(2);
+    const observeMetadata = sdk.onSnapshot.mock.calls[1]?.[2] as (snapshot: unknown) => void;
+    observeMetadata({ exists: () => true });
+    await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
     stop();
   });
   it("상세 메타데이터가 원본 트랙과 고도를 제외한다", () => {

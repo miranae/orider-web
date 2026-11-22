@@ -68,6 +68,16 @@ describe("meeting public Discord voice",()=>{
   show();await screen.findByRole("button",{name:"음성 채널 열기"});api.getClubMeetingDiscord.mockResolvedValue(ready);
   await act(async()=>api.signals[0]!());await screen.findByRole("link",{name:"디스코드에서 함께하기"});
  });
+ it("keeps the Firestore invite while the initial world connection is unavailable",async()=>{
+  vi.stubEnv("VITE_ORIDER_LOCAL_WORLD","1");
+  vi.stubEnv("VITE_ORIDER_LOCAL_DISCORD_REDIS","1");
+  resetRuntimeConfigForTests({useEmulators:true,firebaseProjectId:"demo-orider-world"});
+  api.getClubMeetingDiscord.mockResolvedValue(ready);
+  show();
+  await screen.findByRole("link",{name:"디스코드에서 함께하기"});
+  act(()=>transport.subscribe.mock.lastCall?.[4]?.disconnected?.(1013));
+  expect(screen.getByRole("link",{name:"디스코드에서 함께하기"})).toBeInTheDocument();
+ });
  it("uses the Discord WebSocket for invalidation, and clears stale links on disconnect or revocation",async()=>{
   vi.stubEnv("VITE_ORIDER_LOCAL_WORLD","1");
   vi.stubEnv("VITE_ORIDER_LOCAL_DISCORD_REDIS","1");
@@ -77,7 +87,7 @@ describe("meeting public Discord voice",()=>{
   await screen.findByRole("button",{name:"음성 채널 열기"});
   expect(transport.subscribe.mock.lastCall?.[0]).toBe("meeting");
   expect(signal()?.topic).toBe("discord");
-  expect(transport.paths).toEqual(["events/meeting","groups/club","groups/club/members/host"]);
+  expect(transport.paths).toEqual(["events/meeting/discord_signals/latest","events/meeting","groups/club","groups/club/members/host"]);
   api.getClubMeetingDiscord.mockResolvedValue(ready);
   await act(async()=>signal()?.changed("1"));
   await screen.findByRole("link",{name:"디스코드에서 함께하기"});

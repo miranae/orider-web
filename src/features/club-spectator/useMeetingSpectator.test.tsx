@@ -156,17 +156,18 @@ it("API만 성공하고 변경 구독이 계속 실패해도 자동 복구가 �
   expect(control.request).toHaveBeenCalledTimes(4);
 });
 
-it("Redis 관전 모드에서 Firestore 위치 신호를 구독하지 않고 소켓 권한 철회에 화면을 비운다", async () => {
+it("관전 신호가 준비되면 기본 구독을 중지하고 권한 철회에 화면을 비운다", async () => {
   vi.stubEnv("VITE_ORIDER_LOCAL_SPECTATOR_REDIS", "1");
   control.request.mockResolvedValue({data: data()});
   const {result} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
   await waitFor(() => expect(result.current.data).toBeTruthy());
-  expect(control.signals.map(signal => signal.path)).toEqual(["events/meeting", "groups/club", "groups/club/members/member"]);
+  expect(control.signals.map(signal => signal.path)).toEqual(["events/meeting", "groups/club", "groups/club/members/member", "events/meeting/spectator_signals/latest"]);
   const socket = world.subscribe.mock.calls.findLast(call => call[4]?.topic === "spectator");
   expect(socket?.[0]).toBe("meeting");
   vi.useFakeTimers();
   control.request.mockResolvedValue({data: {...data(), title: "새 관전 상태"}});
   act(() => socket?.[4]?.changed("1790000000:000000000"));
+  expect(control.signals.at(-1)?.stop).toHaveBeenCalledOnce();
   await act(async () => vi.advanceTimersByTimeAsync(5001));
   expect(result.current.data?.title).toBe("새 관전 상태");
   control.request.mockResolvedValue({data: {...data(), status: "FINISHED"}});

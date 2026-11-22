@@ -46,25 +46,9 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
         setState({ context, maps: {}, failed: true });
         // 일시 실패는 신호가 다시 오지 않으면 복구되지 않으므로 몇 번만 늦춰 다시 시도한다.
         if (failures < RETRY_DELAYS_MS.length) retryTimer = setTimeout(refresh, RETRY_DELAYS_MS[failures++]);
-        else logClientError("usePublicActivityMaps.load", error, { activityIds: key });
+        else logClientError("usePublicActivityMaps.load", error, { activityIds: key }, services, sdkUser);
       }).finally(() => { if (request !== generation.current) return; loading = false; if (again && !stopped) refresh(); });
     };
-    if (import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
-        import.meta.env.VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS === "1" &&
-        services.firestore.app.options.projectId === "demo-orider-lab") {
-      const stop = subscribeLocalActivityMapSignals(services, sdkUser, ids, (ready, failed) => {
-        signalEpoch++;
-        clearTimeout(retryTimer);
-        again = false;
-        setState({ context, maps: {}, failed });
-        if (ready) refresh();
-      });
-      return () => {
-        stopped = true; generation.current++;
-        clearTimeout(retryTimer);
-        stop();
-      };
-    }
     const signals: { key: string; path: readonly [string, string]; activityId?: string }[] = ids.map(id => ({ key: `activity:${id}`, path: ["activity_map_signals", id], activityId: id }));
     const viewerUid = sdkUser && !sdkUser.isAnonymous ? sdkUser.uid : null;
     if (viewerUid) signals.push({ key: "viewer", path: ["activity_map_viewer_signals", viewerUid] });
@@ -73,17 +57,45 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
       const baselineReady = seen.size === signals.length;
       const changed = seen.has(signalKey) && seen.get(signalKey) !== seq;
       seen.set(signalKey, seq);
+      if (changed) signalEpoch++;
       if (changed || (!baselineReady && seen.size === signals.length)) refresh();
     };
-    const unsubscribes = signals.map(signal => onSnapshot(doc(services.firestore, ...signal.path), snapshot => {
-      const seq = snapshot.data()?.seq;
-      observe(signal.key, typeof seq === "number" ? seq : 0);
-    }, error => {
-      // 신호를 못 받아도 첫 조회는 한다. 이후 변경은 다음 마운트 때 반영된다.
-      logClientError("usePublicActivityMaps.signal", error, { signal: signal.path[0], activityId: signal.activityId });
-      if (!seen.has(signal.key)) observe(signal.key, -1);
-    }));
-    return () => { stopped = true; generation.current++; clearTimeout(retryTimer); unsubscribes.forEach(unsubscribe => unsubscribe()); };
+    let unsubscribeSource: (() => void) | undefined;
+    const startSource = () => {
+      if (unsubscribeSource) return;
+      seen.clear();
+      const unsubscribes = signals.map(signal => onSnapshot(doc(services.firestore, ...signal.path), snapshot => {
+        const seq = snapshot.data()?.seq;
+        observe(signal.key, typeof seq === "number" ? seq : 0);
+      }, error => {
+        logClientError("usePublicActivityMaps.signal", error, { signal: signal.path[0], activityId: signal.activityId }, services, sdkUser);
+        if (!seen.has(signal.key)) observe(signal.key, -1);
+      }));
+      unsubscribeSource = () => unsubscribes.forEach(unsubscribe => unsubscribe());
+    };
+    startSource();
+    let worldActive = false;
+    const stopWorld = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+      import.meta.env.VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS === "1" &&
+      services.firestore.app.options.projectId === "demo-orider-lab"
+      ? subscribeLocalActivityMapSignals(services, sdkUser, ids, (ready, failed) => {
+          if (worldActive || ready) {
+            signalEpoch++;
+            clearTimeout(retryTimer);
+            again = false;
+            setState({ context, maps: {}, failed });
+          }
+          worldActive = ready;
+          if (ready) {
+            unsubscribeSource?.(); unsubscribeSource = undefined;
+            refresh();
+          } else startSource();
+        })
+      : undefined;
+    return () => {
+      stopped = true; generation.current++; clearTimeout(retryTimer);
+      stopWorld?.(); unsubscribeSource?.();
+    };
   }, [context, key, enabled, services, sdkUser]);
   return enabled && state?.context === context ? state : EMPTY;
 }

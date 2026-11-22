@@ -1,5 +1,7 @@
 import type { User } from "firebase/auth";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { watchWorldReadiness } from "./worldReadiness";
+import { logClientError } from "../../services/errorLogger";
 
 type Listener = (ready: boolean, failed: boolean) => void;
 type Pool = ReturnType<typeof createPool>;
@@ -16,6 +18,7 @@ export function subscribeLocalActivityMapSignals(
 }
 
 function createPool(services: FirebaseServices, user: User | null, onEmpty: () => void) {
+  const endpoint = "ws://127.0.0.1:19487/activity-map-signals";
   const listeners = new Map<Listener, Set<string>>();
   let subscribed: string[] = [];
   let sockets: WebSocket[] = [];
@@ -25,6 +28,8 @@ function createPool(services: FirebaseServices, user: User | null, onEmpty: () =
   let baselineTimer: ReturnType<typeof setTimeout> | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let scopeTimer: ReturnType<typeof setTimeout> | undefined;
+  let available = false;
+  let unwatch: (() => void) | undefined;
 
   function notify(ready: boolean, failed: boolean, activityId?: string) {
     for (const [listener, ids] of listeners) {
@@ -41,11 +46,11 @@ function createPool(services: FirebaseServices, user: User | null, onEmpty: () =
   function retry() {
     disconnect();
     notify(false, true);
-    reconnectTimer = setTimeout(() => void connect(), backoff);
+    if (available) reconnectTimer = setTimeout(() => void connect(), backoff);
     backoff = Math.min(backoff * 2, 5000);
   }
   async function connect() {
-    if (!listeners.size || services.auth.currentUser !== user) return;
+    if (!available || !subscribed.length || !listeners.size || services.auth.currentUser !== user) return;
     const sequence = ++generation;
     try {
       const token = await user?.getIdToken();
@@ -62,13 +67,21 @@ function createPool(services: FirebaseServices, user: User | null, onEmpty: () =
         throw Error("activity map signal request too large");
       }
       const ready = new Set<WebSocket>();
-      const lost = () => { if (generation === sequence) retry(); };
-      baselineTimer = setTimeout(lost, 6000);
+      const lost = (phase: string, error: unknown) => {
+        if (generation !== sequence) return;
+        logClientError("RideWorld.activityMapSignal", error, { phase }, services, user);
+        retry();
+      };
+      baselineTimer = setTimeout(() => lost("first-frame", new Error("Activity map signal timed out")), 6000);
       for (const batch of batches) {
-        const socket = new WebSocket("ws://127.0.0.1:19487/activity-map-signals");
+        const socket = new WebSocket(endpoint);
         sockets.push(socket);
-        socket.onopen = () => socket.send(request(batch));
-        socket.onerror = socket.onclose = lost;
+        socket.onopen = () => {
+          try { socket.send(request(batch)); }
+          catch (error) { lost("subscribe", error); }
+        };
+        socket.onerror = () => lost("transport", new Error("Activity map WebSocket failed"));
+        socket.onclose = ({ code }) => lost("close", new Error(`Activity map WebSocket closed (${code})`));
         socket.onmessage = ({ data }) => {
           if (generation !== sequence || services.auth.currentUser !== user) return;
           try {
@@ -82,11 +95,14 @@ function createPool(services: FirebaseServices, user: User | null, onEmpty: () =
             const changed = connected ? frame.activityId : undefined;
             connected = true;
             notify(true, false, changed);
-          } catch { lost(); }
+          } catch (error) { lost("decode", error); }
         };
       }
-    } catch {
-      if (generation === sequence) retry();
+    } catch (error) {
+      if (generation === sequence) {
+        logClientError("RideWorld.activityMapSignal", error, { phase: "connect" }, services, user);
+        retry();
+      }
     }
   }
   function scheduleScope() {
@@ -105,6 +121,15 @@ function createPool(services: FirebaseServices, user: User | null, onEmpty: () =
   return {
     subscribe(ids: string[], listener: Listener) {
       listeners.set(listener, new Set(ids));
+      unwatch ??= watchWorldReadiness(endpoint, ready => {
+        available = ready;
+        if (ready) void connect();
+        else {
+          clearTimeout(reconnectTimer);
+          disconnect();
+          notify(false, true);
+        }
+      }, (source, error, context) => logClientError(source, error, context, services, user));
       if (connected && ids.every(id => subscribed.includes(id))) listener(true, false);
       scheduleScope();
       return () => {
@@ -112,6 +137,7 @@ function createPool(services: FirebaseServices, user: User | null, onEmpty: () =
         if (listeners.size) { scheduleScope(); return; }
         clearTimeout(scopeTimer);
         clearTimeout(reconnectTimer);
+        unwatch?.();
         disconnect();
         onEmpty();
       };

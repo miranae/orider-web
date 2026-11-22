@@ -64,6 +64,7 @@ export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWo
     setSubmitState("idle"); setSubmitError(null); setSubmitErrorKind(null);
     requestRef.current = null; expectedNewDeliveryRef.current = null; latestConfirmedDeliveryRef.current = null;
     if (!uid || !targetDeviceId) return;
+    const viewer = services.auth.currentUser;
     const unsubscribePointer = subscribeRiderWorkoutDeviceState(uid, targetDeviceId, (nextPointer) => {
       if (operationRef.current !== operation) return;
       const confirmed = latestConfirmedDeliveryRef.current;
@@ -98,14 +99,19 @@ export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWo
         setSubmitError(null); setSubmitErrorKind(null); setRestoreLoading(false);
       }, (error) => {
         if (operationRef.current !== operation || deliverySubscriptionRevision !== subscriptionRevision) return;
+        logClientError("useRiderWorkoutDelivery.delivery", error, undefined, services, viewer);
         setSubmitState("error"); setSubmitErrorKind("conflict"); setSubmitError(error); setRestoreLoading(true);
       });
     }, (error) => {
       if (operationRef.current !== operation) return;
+      logClientError("useRiderWorkoutDelivery.deviceState", error, undefined, services, viewer);
+      deliverySubscriptionRevision += 1;
+      unsubscribeDelivery?.(); unsubscribeDelivery = null;
+      setPointer(null); setDelivery(null);
       setSubmitState("error"); setSubmitErrorKind("conflict"); setSubmitError(error); setRestoreLoading(true);
     });
     return () => { deliverySubscriptionRevision += 1; unsubscribePointer(); unsubscribeDelivery?.(); };
-  }, [targetDeviceId, uid, workoutType]);
+  }, [targetDeviceId, uid, workoutType, services, subscribeRiderWorkoutDeviceState, subscribeRiderWorkoutDelivery]);
 
   useEffect(() => {
     const expiresAt = delivery?.bundle.expiresAt;

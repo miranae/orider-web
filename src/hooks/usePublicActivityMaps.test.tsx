@@ -20,6 +20,7 @@ beforeEach(() => { vi.clearAllMocks(); m.listeners = []; m.user = { uid: "owner"
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); m.services.firestore.app.options.projectId = "fixture"; });
 
 it("drops an in-flight map after a Redis revocation and clears any displayed map when the socket fails", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
   vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
   vi.stubEnv("VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS", "1");
   m.services.firestore.app.options.projectId = "demo-orider-lab";
@@ -34,19 +35,22 @@ it("drops an in-flight map after a Redis revocation and clears any displayed map
   const frame = { data: JSON.stringify({ v: 1, type: "activity_map_signal" }) };
   act(() => socket.onopen());
   expect(socket.send).toHaveBeenCalledWith(expect.stringContaining("emulator-token"));
-  expect(m.listeners).toHaveLength(0);
+  expect(m.listeners).toHaveLength(2);
   act(() => socket.onmessage(frame));
+  expect(m.listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
   act(() => socket.onmessage(frame));
   await act(async () => settle(map));
   await waitFor(() => expect(view.result.current.maps).toEqual({ a: null }));
   m.load.mockResolvedValue(map);
   act(() => socket.onmessage(frame));
   await waitFor(() => expect(view.result.current.maps.a).toEqual(map));
-  act(() => socket.onclose());
+  act(() => socket.onclose(new CloseEvent('close', { code: 1013 })));
   expect(view.result.current).toMatchObject({ maps: {}, failed: true });
+  expect(m.listeners.filter(listener => !listener.unsubscribe.mock.calls.length)).toHaveLength(2);
   view.unmount();
 });
 it("shares one connection across visible cards and refreshes only the changed activity", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
   vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
   vi.stubEnv("VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS", "1");
   m.services.firestore.app.options.projectId = "demo-orider-lab";
