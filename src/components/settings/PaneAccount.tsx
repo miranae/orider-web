@@ -7,7 +7,6 @@ import { httpsCallable } from "firebase/functions";
 import {
   doc,
   getDoc,
-  getDocFromServer,
   updateDoc,
   collection,
   query,
@@ -15,11 +14,11 @@ import {
   getDocs,
   writeBatch,
 } from "firebase/firestore";
-import { deleteObject, getMetadata, ref, uploadBytes } from "firebase/storage";
+import { ref, uploadBytes } from "firebase/storage";
 import { updateProfile } from "firebase/auth";
 
 import type { Visibility } from "@shared/types";
-import { isProfileAvatarUrl, profileAvatarPath, profileAvatarUrl, resolveProfilePhotoUrl } from "@shared/profileAvatar";
+import { profileAvatarPath, profileAvatarUrl, resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -71,7 +70,6 @@ export function PaneAccount() {
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoOverride, setPhotoOverride] = useState<{ uid: string; url: string | null }>();
-  const [pendingPhotoDeletion, setPendingPhotoDeletion] = useState<{ uid: string; generation: string }>();
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,7 +104,6 @@ export function PaneAccount() {
   const ownPhotoOverride = photoOverride?.uid === user?.uid ? photoOverride : undefined;
   const savedPhotoURL = resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL);
   const photoURL = ownPhotoOverride ? ownPhotoOverride.url : savedPhotoURL;
-  const ownPendingPhotoDeletion = pendingPhotoDeletion?.uid === user?.uid ? pendingPhotoDeletion : undefined;
   if (!user) return null;
   const currentVisibility: Visibility = profile?.defaultVisibility ?? "private";
 
@@ -204,7 +201,6 @@ export function PaneAccount() {
         await updateDoc(doc(firestore, "users", user.uid), { photoURL: url });
         if (auth.currentUser?.uid !== user.uid) return;
         refreshProfileAvatar(url, result.metadata.generation);
-        setPendingPhotoDeletion(undefined);
         setPhotoOverride({ uid: user.uid, url });
         showToast(t("profile.photoUpdated"));
       });
@@ -222,51 +218,17 @@ export function PaneAccount() {
     if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { destructive: true }))) return;
     if (auth.currentUser?.uid !== user.uid) return;
     setPhotoUploading(true);
-    let stage = "clear_profile";
     try {
       await withPhotoLock(user.uid, async () => {
         if (auth.currentUser?.uid !== user.uid) return;
-        const storageRef = ref(storage, profileAvatarPath(user.uid));
-        const profileRef = doc(firestore, "users", user.uid);
-        const currentPhotoURL = (await getDocFromServer(profileRef)).data()?.photoURL;
+        // Clear the selected photo. The shared address can be overwritten by another device.
+        await updateDoc(doc(firestore, "users", user.uid), { photoURL: null });
         if (auth.currentUser?.uid !== user.uid) return;
-        // A retry only applies to the generation from the original removal.
-        const retry = photoURL === null && ownPendingPhotoDeletion;
-        if (retry && currentPhotoURL !== null) {
-          setPendingPhotoDeletion(undefined);
-          return;
-        }
-        let generation: string | undefined;
-        if (retry || isProfileAvatarUrl(currentPhotoURL, storageRef.bucket, user.uid)) {
-          stage = "read_object";
-          try {
-            generation = (await getMetadata(storageRef)).generation;
-          } catch (error) {
-            if ((error as { code?: string }).code !== "storage/object-not-found") throw error;
-          }
-        }
-        if (auth.currentUser?.uid !== user.uid) return;
-        if (!retry) {
-          stage = "clear_profile";
-          await updateDoc(profileRef, { photoURL: null });
-          if (auth.currentUser?.uid !== user.uid) return;
-          setPhotoOverride({ uid: user.uid, url: null });
-        }
-        if (generation && (!retry || generation === retry.generation)) {
-          stage = "delete_object";
-          setPendingPhotoDeletion({ uid: user.uid, generation });
-          try {
-            await deleteObject(storageRef);
-          } catch (error) {
-            if ((error as { code?: string }).code !== "storage/object-not-found") throw error;
-          }
-        }
-        if (auth.currentUser?.uid !== user.uid) return;
-        setPendingPhotoDeletion(undefined);
+        setPhotoOverride({ uid: user.uid, url: null });
         showToast(t("profile.photoRemoved"));
       });
     } catch (error) {
-      logClientError("PaneAccount.removeAvatar", error, { stage });
+      logClientError("PaneAccount.removeAvatar", error, { stage: "clear_profile" });
       showToast(t("profile.photoRemoveFailed"));
     } finally {
       setPhotoUploading(false);
@@ -361,7 +323,7 @@ export function PaneAccount() {
             title={t("profile.copyCode")}
           />
         }
-        avatarAside={(photoURL || ownPendingPhotoDeletion) && !user.isAnonymous ? (
+        avatarAside={photoURL && !user.isAnonymous ? (
           <IconButton
             variant="ghost"
             size="compact"

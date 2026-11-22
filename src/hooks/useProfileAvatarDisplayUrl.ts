@@ -29,7 +29,7 @@ export function useProfileAvatarDisplayUrl(url?: string | null) {
 }
 
 export function reportProfileAvatarLoadError(url?: string | null) {
-  if (isCanonicalProfileAvatarUrl(url)) {
+  if (url) {
     logClientError("ProfileAvatar.image", new Error("Profile avatar image failed to load"), { stage: "load_image" });
   }
 }
