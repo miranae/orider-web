@@ -15,6 +15,7 @@ const MAX_BYTES = 16 * 1024 * 1024;
 const CACHE_NAME = "orider-public-course-tracks-v1";
 const MAX_CACHE_ENTRIES = 8;
 const HASH = /^[a-f0-9]{64}$/;
+const COURSE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 type Value = { nullValue?: unknown; stringValue?: string; timestampValue?: string; booleanValue?: boolean;
   integerValue?: string; doubleValue?: number; arrayValue?: { values?: Value[] }; mapValue?: { fields?: Record<string, Value> } };
 function decode(value: Value): unknown {
@@ -29,7 +30,7 @@ function decode(value: Value): unknown {
   throw new Error("지원하지 않는 코스 필드 형식");
 }
 export function courseMetadataUrl(firestore: Firestore, id: string): string {
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new Error("잘못된 코스 식별자");
+  if (!COURSE_ID.test(id)) throw new Error("잘못된 코스 식별자");
   const project = firestore.app.options.projectId;
   if (!project) throw new Error("코스 프로젝트 설정 없음");
   const settings = (firestore.toJSON() as { settings?: { host?: string; ssl?: boolean } }).settings;
@@ -133,6 +134,13 @@ export async function loadCourseSource(services: Pick<FirebaseServices, "auth" |
 /** 작은 서버 변경 신호를 구독하고 메타데이터만 다시 읽는다. 기존 코스는 SDK 구독으로 호환한다. */
 export function subscribeCourseDetail(services: FirebaseServices, id: string,
   onData: (data: DocumentData | null) => void, onError: (error: Error) => void): () => void {
+  if (!COURSE_ID.test(id)) {
+    const error = new Error("잘못된 코스 식별자");
+    logClientError("CourseDetail.invalidId", error);
+    onData(null);
+    onError(error);
+    return () => {};
+  }
   const user = services.auth.currentUser;
   let disposed = false;
   let generation = 0;

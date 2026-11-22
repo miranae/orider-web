@@ -57,6 +57,7 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
       const baselineReady = seen.size === signals.length;
       const changed = seen.has(signalKey) && seen.get(signalKey) !== seq;
       seen.set(signalKey, seq);
+      if (changed) signalEpoch++;
       if (changed || (!baselineReady && seen.size === signals.length)) refresh();
     };
     let unsubscribeSource: (() => void) | undefined;

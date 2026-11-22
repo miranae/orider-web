@@ -149,7 +149,7 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
     const receiptError = (error: Error) => {
       const { code } = error as Error & { code?: string };
       if (receiptGeneration.current === generation && (code === "permission-denied" || code === "unauthenticated")) {
-        receiptGeneration.current++;
+        if (code === "permission-denied") receiptGeneration.current++;
         setState(current => current.scopeKey === scopeKey ? { ...current, receipt: null, deviceReceipts: [] } : current);
       }
       logClientError("useBikeFtpDecision.receipt", error, { mutationId });

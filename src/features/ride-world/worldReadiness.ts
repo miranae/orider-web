@@ -15,6 +15,7 @@ export function watchWorldReadiness(endpoint: string, listener: Listener): () =>
   if (!monitor) {
     const listeners = new Set<Listener>();
     let ready: boolean | undefined;
+    let lastFailure: string | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let request: AbortController | undefined;
     const check = async () => {
@@ -34,8 +35,14 @@ export function watchWorldReadiness(endpoint: string, listener: Listener): () =>
         clearTimeout(deadline);
       }
       if (!listeners.size) return;
+      const cause = next ? undefined : status !== undefined ? "http:" + status
+        : controller.signal.aborted ? "timeout"
+        : "network:" + (failure instanceof Error ? failure.name + ":" + failure.message : String(failure));
+      if (cause && cause !== lastFailure) {
+        logClientError("RideWorld.readiness", failure, { endpoint: address, status, cause });
+      }
+      lastFailure = cause;
       if (next !== ready) {
-        if (!next) logClientError("RideWorld.readiness", failure, { endpoint: address, status });
         ready = next;
         for (const notify of listeners) notify(next);
       }

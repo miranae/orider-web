@@ -28,6 +28,11 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
   const spectatorActiveScope = useRef<string | null>(null);
+  const previousScope = useRef(scope);
+  if (previousScope.current !== scope) {
+    previousScope.current = scope;
+    spectatorActiveScope.current = null;
+  }
   const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
   useWorldEvent(spectatorRedis ? eventId : undefined, viewer, undefined, undefined, {
     topic: "spectator",
