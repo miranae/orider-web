@@ -70,11 +70,11 @@ export function useProfileAvatarDisplayUrl(url?: string | null) {
         }
         refreshProfileAvatar(firestore, url, typeof selectedUrl === "string" && selectedUrl.startsWith("https://") ? selectedUrl : false);
       }).catch((error) => {
-        if (!isCurrent() || request !== sequence) return;
-        alternateSignal = undefined;
-        logClientError("ProfileAvatar.signal", error, { stage: "read_profile" }, services, viewer);
+        const isReadCurrent = () => isCurrent() && request === sequence;
+        logClientError("ProfileAvatar.signal", error, { stage: "read_profile" }, services, viewer, "", isReadCurrent);
+        if (isReadCurrent()) alternateSignal = undefined;
       });
-    }, (error) => logClientError("ProfileAvatar.signal", error, { stage: "read_revision" }, services, viewer));
+    }, (error) => logClientError("ProfileAvatar.signal", error, { stage: "read_revision" }, services, viewer, "", isCurrent));
     return () => {
       active = false;
       unsubscribe();

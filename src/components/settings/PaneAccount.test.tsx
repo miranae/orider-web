@@ -181,6 +181,21 @@ describe("PaneAccount nickname save", () => {
     await waitFor(() => expect(view.result.current).toBeNull());
   });
 
+  it("records an avatar profile read failure after the view closes", async () => {
+    let rejectRead: (error: Error) => void = () => {};
+    mocks.avatarRead.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectRead = reject; }));
+    const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fclosed%2Favatar?alt=media";
+    const view = renderHook(() => useProfileAvatarDisplayUrl(url));
+    const notify = mocks.onSnapshot.mock.calls.at(-1)?.[2] as (snapshot: { data: () => { photoURL: null } }) => void;
+    act(() => { notify({ data: () => ({ photoURL: null }) }); });
+    view.unmount();
+    const failure = new Error("profile read interrupted");
+    await act(async () => { rejectRead(failure); });
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      "ProfileAvatar.signal", failure, { stage: "read_profile" }, expect.anything(), mocks.currentUser, "", expect.any(Function),
+    );
+  });
+
   it.each([
     "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fu1%2Favatar?alt=media",
     "https://example.test/provider-photo.png",
