@@ -27,7 +27,8 @@ describe("GroupsPage next meetings from the supported list callable", () => {
     mockCallableInvocations.length = 0;
     setCollectionDocs("events", [
       { id: "later", info: { groupId: "ride", status: "OPEN", startTime: Date.now() + 9 * 86400000, name: "남산 야간" } },
-      { id: "next", info: { groupId: "ride", status: "OPEN", startTime: Date.now() + 86400000, name: "북악 업힐 정모" }, counters: { totalRegistered: 14 } },
+      // 클럽 모임의 info.name 은 서버 고정값이다 — 화면은 작성 제목(info.title)을 보인다.
+      { id: "next", info: { groupId: "ride", status: "OPEN", startTime: Date.now() + 86400000, kind: "CLUB_MEETING", name: "동호회 모임", title: "북악 업힐 정모" }, counters: { totalRegistered: 14 } },
     ]);
   });
 
@@ -45,6 +46,8 @@ describe("GroupsPage next meetings from the supported list callable", () => {
     const upcoming = await screen.findByRole("region", { name: "다가오는 모임" });
     expect(within(upcoming).getByText("북악 업힐 정모")).toBeInTheDocument();
     expect(within(upcoming).getByText(/14명 참여/)).toBeInTheDocument();
+    expect(within(upcoming).queryByText("동호회 모임")).not.toBeInTheDocument();
+    expect(within(upcoming).getByRole("link", { name: "참여" })).toHaveAttribute("href", "/ko/club/ride/meetings/next");
     expect(mockCallableInvocations.some((call) => call.name === "getGroupNextEvents")).toBe(false);
   });
 });

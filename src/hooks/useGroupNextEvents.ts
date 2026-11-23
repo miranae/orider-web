@@ -27,6 +27,18 @@ function toMillis(v: unknown): number {
   return 0;
 }
 
+/** 클럽별 다음 모임 조회를 한 번에 몇 클럽까지 동시에 부르는지(예전 묶음 조회 단위). */
+export const NEXT_EVENT_CONCURRENCY = 20;
+
+/**
+ * 표시 제목. 클럽 모임의 info.name 은 서버 고정값("동호회 모임")이라 작성 제목(info.title — 서버가 details.meeting.title 을
+ * 복사한 값, 모임 탭이 보이는 제목과 같다)을 먼저 쓴다. 응답에 없으면 예전처럼 info.name.
+ */
+export function nextEventTitle(info: Record<string, unknown>): string | undefined {
+  if (info.kind === "CLUB_MEETING" && typeof info.title === "string" && info.title.trim()) return info.title.trim();
+  return typeof info.name === "string" ? info.name : undefined;
+}
+
 export function formatNextLabel(ts: number, name: string, locale: string): string {
   if (!ts) return name;
   return `${new Date(ts).toLocaleString(locale, {
@@ -73,11 +85,24 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
         const incomplete = new Set<string>();
         // 클럽별 다음 모임은 서버가 지원하는 목록 조회(listVisibleEventEnvelopes)로 읽는다. 시작 시각 오름차순이라
         // 첫 읽을 수 있는 행이 다음 모임이다. 묶음 조회(getGroupNextEvents)는 서버에서 지웠다(orider-g1-web #3835).
-        const snapshots = await Promise.all(uniqueGroupIds.map(async groupId => {
-          const page = await getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 }, services);
-          if (page.nextCursor) incomplete.add(groupId);
-          return page;
-        }));
+        // 동시 호출은 예전 묶음 단위(20)를 넘지 않는다. 한 클럽이 실패해도 다른 클럽 결과는 남기고, 실패는 남긴다
+        // (그 클럽은 「전체 목록으로 이어 보기」로 넘긴다).
+        const snapshots: Awaited<ReturnType<typeof getVisibleEventPage>>[] = [];
+        for (let offset = 0; offset < uniqueGroupIds.length; offset += NEXT_EVENT_CONCURRENCY) {
+          const chunk = uniqueGroupIds.slice(offset, offset + NEXT_EVENT_CONCURRENCY);
+          const settled = await Promise.allSettled(chunk.map(groupId => getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 }, services)));
+          if (cancelled) return;
+          settled.forEach((result, index) => {
+            const groupId = chunk[index]!;
+            if (result.status === "fulfilled") {
+              if (result.value.nextCursor) incomplete.add(groupId);
+              snapshots.push(result.value);
+              return;
+            }
+            incomplete.add(groupId);
+            logClientError("useGroupNextEvents.load", result.reason, { groupId });
+          });
+        }
 
         snapshots.forEach((snap) => {
           snap.docs.forEach((doc) => {
@@ -89,7 +114,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
             const groupId: string = info.groupId ?? "";
             if (!uniqueGroupIds.includes(groupId)) return;
             const startTime = toMillis(info.startTime);
-            const name = info.name ?? t("dashboard.fallbackEventName");
+            const name = nextEventTitle(info) ?? t("dashboard.fallbackEventName");
             const existing = map.get(groupId);
             if (!existing || startTime < existing.startTime) {
               const registered = d.counters?.totalRegistered;
