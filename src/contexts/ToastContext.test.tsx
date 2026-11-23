@@ -1,4 +1,4 @@
-import { render, screen, act, fireEvent } from "@testing-library/react";
+import { render, screen, act, fireEvent, within } from "@testing-library/react";
 import { ToastProvider, useToast } from "./ToastContext";
 
 function TestConsumer() {
@@ -33,6 +33,20 @@ describe("ToastContext", () => {
     renderToast();
     act(() => { fireEvent.click(screen.getByText("성공")); });
     expect(screen.getByText("성공 메시지")).toBeInTheDocument();
+  });
+
+  it("오류는 alert, 성공은 status 로 알리고, 닫기 × 는 버튼 하나뿐이다(실패 아이콘에 × 를 쓰지 않음)", () => {
+    renderToast();
+    act(() => { fireEvent.click(screen.getByText("에러")); });
+    act(() => { fireEvent.click(screen.getByText("성공")); });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("에러 메시지");
+    expect(alert.textContent?.match(/×/g)).toHaveLength(1);
+    expect(within(screen.getByRole("status")).getByText("성공 메시지")).toBeInTheDocument();
+    act(() => { fireEvent.click(within(alert).getByRole("button", { name: "닫기" })); });
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
   it("auto-removes toast after 2.5s + 200ms animation", () => {

@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import {
   Button, IconButton, ControlToolbar, ToolbarButton, DropdownSelect, MediaViewer, Checkbox, Card, Section, Disclosure, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
-  Stat, Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
+  Stat, Chip, Spinner, Toast, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
   MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue, ChartTooltip,
   ComparisonChart, CHART_PRESENTATION, DEFAULT_THEME,
@@ -18,6 +18,7 @@ import InfoTip from '../components/InfoTip';
 import SportIcon from '../components/common/SportIcon';
 import { COLOR_CSS_VARIABLES, CHART_CSS_VARIABLES, DIMENSION_CSS_VARIABLES } from '../theme/generated';
 import { getComparisonSeriesColors } from '../theme/charts/comparisonSeriesColors';
+import { DialogProvider, useDialog } from '../contexts/DialogContext';
 import {
   FIXTURE_METRICS, FIXTURE_RECORDS, fixtureCoordinate, fixtureDomain, fixtureNearest,
   fixtureObservedMean, fixtureRoute, fixtureRoutePath, type FixtureMetric,
@@ -81,6 +82,18 @@ const chartLabels = {
   selectRange: '구간 선택', selectRangeShort: '구간 선택', reset: '초기화',
   rangeHint: '차트를 좌우로 드래그해 확대할 구간을 선택하세요.', empty: '표시할 지표가 없습니다. 위에서 지표를 선택하세요.',
 };
+
+/** 공용 확인 대화상자 — 기본(제목·배너)과 plain(본문 한 문장 + 버튼) 비교. */
+function ConfirmDialogPreview() {
+  const dialog = useDialog();
+  const [result, setResult] = useState('');
+  const labels = { cancelLabel: '취소' };
+  return <div className="catalog-inline-controls">
+    <Button variant="secondary" onClick={async () => setResult((await dialog.confirm('선택한 활동 3개를 삭제합니다. 되돌릴 수 없습니다.', { ...labels, title: '활동 삭제', destructive: true, confirmLabel: '삭제' })) ? '삭제함' : '취소함')}>기본 확인</Button>
+    <Button variant="secondary" onClick={async () => setResult((await dialog.confirm('프로필 사진을 삭제할까요?', { ...labels, plain: true, destructive: true, confirmLabel: '삭제' })) ? '삭제함' : '취소함')}>plain 확인</Button>
+    <p className="catalog-local-status" role="status">{result}</p>
+  </div>;
+}
 
 function ControlsCatalog() {
   const [mediaOpen, setMediaOpen] = useState(false);
@@ -451,9 +464,11 @@ function ControlsCatalog() {
             </div>
           </Section>
           <div className="catalog-state-grid">
-            <div className="catalog-state-example"><Text as="h3" variant="subtitle">기본 · 비활성 · 진행 중</Text><div className="catalog-inline-controls"><IconButton icon={<Plus />} aria-label="예시 항목 추가" onClick={() => setMessage('예시 항목을 추가했습니다.')} /><Button disabled>권한 없음</Button><Button loading={loading} onClick={() => { setSaveStatus('저장 중… · 예시'); setLoading(true); }}>{loading ? '저장 중…' : '예시 저장'}</Button><Button loading>불러오는 중…</Button></div><Text as="p" variant="bodySmall" tone="tertiary">진행 중에는 중복 실행을 막습니다. 위의 예시 저장은 1초 후 완료됩니다.</Text><p className="catalog-local-status" role="status">{saveStatus}</p></div>
+            <div className="catalog-state-example"><Text as="h3" variant="subtitle">기본 · 비활성 · 진행 중</Text><div className="catalog-inline-controls"><IconButton icon={<Plus />} aria-label="예시 항목 추가" onClick={() => setMessage('예시 항목을 추가했습니다.')} /><IconButton icon={<Plus />} iconSize="large" aria-label="큰 그림 예시 항목 추가" onClick={() => setMessage('큰 그림 예시를 실행했습니다.')} /><Button disabled>권한 없음</Button><Button loading={loading} onClick={() => { setSaveStatus('저장 중… · 예시'); setLoading(true); }}>{loading ? '저장 중…' : '예시 저장'}</Button><Button loading>불러오는 중…</Button><span role="status" aria-label="불러오는 중…" className="catalog-inline-controls"><Spinner /><Spinner size="lg" /></span></div><Text as="p" variant="bodySmall" tone="tertiary">진행 중에는 중복 실행을 막습니다. 위의 예시 저장은 1초 후 완료됩니다.</Text><p className="catalog-local-status" role="status">{saveStatus}</p></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">켜짐 · 꺼짐 · 선택 불가</Text><ToggleControls aria-label="토글 상태 예시"><ToggleButton selected={stateSelected} showCheck onClick={() => setStateSelected(!stateSelected)}>실시간 위치</ToggleButton><ToggleButton selected={notifications} showCheck onClick={() => setNotifications(!notifications)}>구간 알림</ToggleButton><ToggleButton selected={false} showCheck disabled>공유 불가</ToggleButton></ToggleControls><Text as="p" variant="bodySmall" tone="tertiary">색 외에 체크와 눌림 상태로 선택을 구분합니다.</Text></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">긴 문구</Text><Button block align="start" leadingIcon={<Check />} onClick={() => setMessage('긴 문구 버튼을 실행했습니다.')}>선택한 활동의 변경 사항을 저장하고 돌아가기</Button><Text as="p" variant="bodySmall" tone="tertiary">좁은 폭과 큰 글자에서도 의미를 생략하지 않습니다.</Text></div>
+            <div className="catalog-state-example"><Text as="h3" variant="subtitle">확인 대화상자</Text><DialogProvider><ConfirmDialogPreview /></DialogProvider><Text as="p" variant="bodySmall" tone="tertiary">한 문장으로 충분한 확인은 plain으로 제목·아이콘·배너 없이 본문과 버튼만 둡니다. 빨강은 파괴적 버튼에만 씁니다.</Text></div>
+            <div className="catalog-state-example"><Text as="h3" variant="subtitle">결과 알림</Text><div className="catalog-inline-controls" style={{ flexDirection: 'column', alignItems: 'stretch' }}><Toast tone="success" dismissLabel="닫기" onDismiss={() => setMessage('알림을 닫았습니다.')}>프로필 사진을 바꿨습니다</Toast><Toast tone="error" dismissLabel="닫기" onDismiss={() => setMessage('알림을 닫았습니다.')}>프로필 사진을 바꾸지 못했습니다. 다시 시도해 주세요.</Toast><Toast tone="info" dismissLabel="닫기" onDismiss={() => setMessage('알림을 닫았습니다.')}>새 기록을 불러오는 중입니다</Toast></div><Text as="p" variant="bodySmall" tone="tertiary">실제 알림은 화면 아래 가운데에 뜹니다. 실패는 경고 삼각형, 닫기는 오른쪽 ×.</Text></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">키보드 포커스</Text><Text as="p" variant="bodySmall">Tab으로 이동하고 Enter·Space로 실행합니다. 차트 탐색 영역에서는 ←·→, Home·End로 선택 지점을 이동합니다. 포커스 테두리는 색 테마와 무관하게 유지됩니다.</Text></div>
           </div>
         </section>

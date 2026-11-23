@@ -21,6 +21,8 @@ export interface DialogOptions {
   cancelLabel?: ReactNode;
   variant?: AlertVariant;
   destructive?: boolean;
+  /** 제목·아이콘·안내 배너 없이 본문 한 문장과 버튼만 보이는 확인. 본문이 대화상자 이름이 된다. */
+  plain?: boolean;
 }
 
 export interface PromptDialogOptions extends DialogOptions {
@@ -130,9 +132,13 @@ export function DialogProvider({ children }: { children: ReactNode }) {
               aria-labelledby="app-dialog-title"
               onSubmit={request.kind === "prompt" ? submitPrompt : undefined}
             >
-              <Alert variant={variant} title={<span id="app-dialog-title">{title}</span>}>
-                {request.message}
-              </Alert>
+              {request.options.plain ? (
+                <p id="app-dialog-title" className="app-dialog__message">{request.message}</p>
+              ) : (
+                <Alert variant={variant} title={<span id="app-dialog-title">{title}</span>}>
+                  {request.message}
+                </Alert>
+              )}
               {request.kind === "prompt" &&
                 (request.options.multiline ? (
                   <Textarea

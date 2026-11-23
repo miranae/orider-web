@@ -22,6 +22,8 @@ src/theme/
     ├── Stat.tsx               라벨 + 큰 수치 + 단위 + 변화량
     ├── Alert.tsx              info/success/warning/danger + 기본 아이콘
     ├── Progress.tsx           0..1 / 0..100 자동 + variant
+    ├── Spinner.tsx            끝을 모르는 진행 표시 sm 12 / lg 36 (장식, 이름은 호출자)
+    ├── Toast.tsx              결과 알림 띠 + ToastViewport(화면 아래 가운데 고정)
     ├── Chart.tsx              ChartFrame / Header / Legend / Tooltip / Grid·Axis
     └── components.css         모든 ds-* 스타일 (외부 import 금지)
 ```
@@ -87,9 +89,12 @@ import { buttonClass } from '@/theme';
 
 - 폼 검증 실패는 `Input`, `Textarea`, `Select`의 `invalid` prop을 사용한다. 컴포넌트가 `aria-invalid=true`를 함께 연결한다.
 - 제출·저장처럼 중복 실행되면 안 되는 액션은 `disabled`만 두지 말고 `Button loading` 또는 `IconButton loading`을 사용한다.
+- 버튼 밖의 진행 표시는 `Spinner`를 쓴다. `size="lg"`(36px)는 아바타처럼 대상 위를 덮는 진행 표시(아바타 지름의 약 50%)에 쓰고, 색은 currentColor라 덮개 위에서는 호출자가 글자색을 정한다. 스피너는 장식이므로 "업로드 중…" 같은 상태 이름은 감싼 컨트롤의 `aria-label`이나 `role="status"`로 전달한다.
 - 로딩 피드백은 레이아웃을 유지해야 하면 `LoadingSkeleton`, 짧은 인라인 대기는 버튼 스피너를 쓴다.
 - 스켈레톤 높이가 실제 콘텐츠와 다르면 `minHeight`를 넘겨 로드 완료 시 레이아웃 이동을 줄인다.
+- 결과 알림은 `useToast().showToast(message, type)`로 띄우고, 모양은 공용 `Toast`/`ToastViewport`가 정한다. 모바일·데스크톱 모두 화면 아래 가운데, 하단 탭 막대·고정 작업 막대(`.mobile-form-actions--fixed`) 위에 뜬다. 의미 색으로 채운 띠(모서리 `--r-md`)에 왼쪽 의미 아이콘(성공 원 안 체크, 실패 경고 삼각형, 정보 i)과 오른쪽 닫기 ×를 둔다. 실패 아이콘에 ×를 쓰지 않는다. 색은 테마 토큰 `--toast-success-bg`·`--toast-error-bg`·`--toast-info-bg`·`--toast-fg`(design-tokens/orider.tokens.json, 앱과 같은 값)로, 라이트는 짙은 의미 색 + 흰 글자, 다크는 라이트보다 어두운 컨테이너 + 흰 글자이며 둘 다 글자 대비 4.5:1 이상이다. 문구는 최대 2줄, 한국어 어절 단위 줄바꿈, 폭은 화면 폭 − 좌우 여백(넓은 화면 상한 480px). 화면마다 알림 위치·색을 따로 정하지 않는다.
 - 에러 토스트는 성공/정보보다 길게 유지되며 닫기 버튼을 제공한다. 사용자가 반드시 읽어야 하는 오류는 토스트만 쓰지 말고 화면 내 `ErrorState`도 함께 둔다.
+- 공용 확인 대화상자(`useDialog().confirm`)는 기본으로 제목·아이콘이 있는 `Alert` 배너 안에 본문을 보인다. 한 문장으로 충분한 확인(예: "프로필 사진을 삭제할까요?")은 `plain: true`로 제목·아이콘·배너 없이 본문과 버튼만 보인다. 본문이 대화상자 이름이 되며, 파괴적 동작은 `destructive`와 동사 `confirmLabel`("삭제")을 함께 넘겨 빨강은 그 버튼에만 둔다.
 - 클릭 가능한 `Card`와 `Chip`은 직접 role/tabIndex를 붙이지 않아도 `onClick` 또는 `selectable` prop으로 키보드 실행이 보강된다.
 
 ## 긴 정보 태그
@@ -479,6 +484,8 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 `ToggleButton selected`는 일반 버튼에서 `aria-pressed`, `role="tab"`에서는 `aria-selected`만 제공한다. 선택 상태의 표면과 sheen은 두 역할에서 같고, 탭의 roving focus·키보드 탐색·연결 대상은 소비자가 소유한다.
 
 `Select variant="filter"`는 즉시 적용되는 조회 조건에 사용하는 native 선택 컨트롤이다. 중립 배경과 둥근 선택 면을 쓰며 일반 폼 Select는 유지한다. 자세한 토큰·상태·모바일 규칙은 [Native filter selection](../README.md#native-filter-selection)을 참고한다. 인접한 필터는 `Field` 제목으로 구분한다.
+
+`IconButton iconSize="large"`는 버튼 크기(기본 44px 터치 영역)를 유지한 채 그림만 HIG 막대 아이콘 크기(22px, `ICON_SIZE.lg`)로 키운다. 아바타 옆 사진 삭제처럼 넓은 여백에 홀로 놓인 보조 동작에 쓰고, 색은 ghost 기본(보조 글자색)을 유지한다.
 
 `IconButton size="compact"`는 보조 도구용 36px 표면과 18px 그림을 사용하며 기존 44px 최소 터치 영역을 유지한다. 기본 ghost 표현은 중립 배경이다. `indicator`는 작은 accent 점만 추가한다. 적용된 조건은 호출자가 `aria-label`에 포함하고, 패널의 열림 상태는 `aria-expanded`로 전달한다. 기존 sm/md/lg 크기는 바뀌지 않는다.
 

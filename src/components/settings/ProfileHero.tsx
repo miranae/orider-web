@@ -2,7 +2,7 @@ import { Pencil } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 import { useTranslation } from "react-i18next";
-import { Card, IconButton, Text } from "../../theme/components";
+import { Card, IconButton, Spinner, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface ProfileHeroProps {
@@ -14,6 +14,10 @@ interface ProfileHeroProps {
   onEditNickname?: () => void;
   /** 아바타 오른쪽 아래 모서리에 작은 원형 배지로 걸치는 아이콘 버튼 하나(사진 변경) */
   avatarBadge?: ReactNode;
+  /** 아바타 사진 자체를 눌러도 실행하는 동작(사진 변경). 배지와 같은 이름·비활성 상태를 넘긴다.
+   * 키보드 탐색은 배지 하나로 충분해 사진 버튼은 탭 순서에서 뺀다.
+   * busy 면 사진 전체를 어두운 덮개와 가운데 큰 진행 표시로 덮고 누를 수 없다. */
+  avatarAction?: { label: string; disabled?: boolean; busy?: boolean; onClick: () => void };
   /** 아바타를 가리지 않도록 아바타 옆에 두는 아이콘 버튼(사진 삭제) */
   avatarAside?: ReactNode;
   /** 친구 코드 바로 옆에 붙는 아이콘 버튼(코드 복사) */
@@ -28,6 +32,7 @@ export function ProfileHero({
   stravaConnected,
   onEditNickname,
   avatarBadge,
+  avatarAction,
   avatarAside,
   friendCodeAction,
 }: ProfileHeroProps) {
@@ -37,6 +42,40 @@ export function ProfileHero({
   const [failedPhoto, setFailedPhoto] = useState<string>();
   const initial = (nickname || "?").slice(0, 1).toUpperCase();
   const size = 72;
+  const avatar = photoSrc && photoSrc !== failedPhoto ? (
+    <img
+      src={photoSrc}
+      onError={() => {
+        reportProfileAvatarLoadError(photoURL);
+        setFailedPhoto(photoSrc);
+      }}
+      alt={nickname}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        objectFit: "cover",
+        border: "1px solid var(--line-soft)",
+      }}
+    />
+  ) : (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        display: "grid",
+        placeItems: "center",
+        // 앱과 같은 이니셜 — accent 로 채운 원 + onAccent 글자(주 버튼·카메라 배지와 같은 토큰)
+        background: "var(--control-primary-fill)",
+        color: "var(--primary-fg)",
+        fontSize: size * 0.42,
+        fontWeight: 600,
+      }}
+    >
+      {initial}
+    </div>
+  );
   return (
     <Card padding="none" className="settings-profile-hero"
       style={{
@@ -50,47 +89,28 @@ export function ProfileHero({
     >
       <div className="settings-profile-avatar-group">
       <div className="settings-profile-avatar">
-        {photoSrc && photoSrc !== failedPhoto ? (
-          <img
-            src={photoSrc}
-            onError={() => {
-              reportProfileAvatarLoadError(photoURL);
-              setFailedPhoto(photoSrc);
-            }}
-            alt={nickname}
-            style={{
-              width: size,
-              height: size,
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: "1px solid var(--line-soft)",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: size,
-              height: size,
-              borderRadius: "50%",
-              display: "grid",
-              placeItems: "center",
-              background: "color-mix(in oklch, var(--lime) 18%, var(--bg-2))",
-              color: "var(--ink-0)",
-              fontSize: size * 0.42,
-              fontWeight: 600,
-              border: "1px solid var(--line-soft)",
-            }}
+        {avatarAction ? (
+          <button
+            type="button"
+            className="settings-profile-avatar__photo"
+            onClick={avatarAction.onClick}
+            disabled={avatarAction.disabled || avatarAction.busy}
+            aria-busy={avatarAction.busy || undefined}
+            aria-label={avatarAction.label}
+            title={avatarAction.label}
+            tabIndex={-1}
           >
-            {initial}
-          </div>
-        )}
+            {avatar}
+            {avatarAction.busy && <span className="settings-profile-avatar__busy"><Spinner size="lg" /></span>}
+          </button>
+        ) : avatar}
         {avatarBadge && <div className="settings-profile-avatar__badge">{avatarBadge}</div>}
       </div>
       {avatarAside}
       </div>
 
       <div style={{ minWidth: 0 }}>
-        <div className="settings-profile-name" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
+        <div className="settings-profile-name" style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
           <h2
             style={{
               margin: 0,
@@ -112,60 +132,40 @@ export function ProfileHero({
             />
           )}
         </div>
-        <div
-          style={{
-            fontSize: "var(--fs-xs)",
-            color: "var(--ink-3)",
-            display: "flex",
-            gap: "var(--space-3)",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          {friendCode && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-              <Text variant="mono"
-                style={{
-                  fontWeight: 600,
-                  fontSize: "var(--fs-sm)",
-                  padding: "2px 8px",
-                  background: "color-mix(in oklch, var(--aqua) 12%, var(--bg-1))",
-                  border: "1px solid color-mix(in oklch, var(--aqua) 30%, transparent)",
-                  borderRadius: "var(--r-sm)",
-                  color: "var(--aqua)",
-                  fontFamily: "var(--font-code)",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                {friendCode}
-              </Text>
-              {friendCodeAction}
-              {t("profile.friendCodeLabel")}
-            </span>
-          )}
-          {email && (
-            <>
-              {friendCode && <span>·</span>}
-              <span style={{ overflowWrap: "anywhere" }}>{email}</span>
-            </>
-          )}
-          {stravaConnected && (
-            <>
-              <span>·</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: "var(--lime)",
-                  }}
-                />
+        {friendCode && (
+          <div className="settings-profile-code">
+            <Text variant="mono"
+              style={{
+                fontWeight: 600,
+                fontSize: "var(--fs-sm)",
+                padding: "2px 8px",
+                background: "color-mix(in oklch, var(--aqua) 12%, var(--bg-1))",
+                border: "1px solid color-mix(in oklch, var(--aqua) 30%, transparent)",
+                borderRadius: "var(--r-sm)",
+                color: "var(--aqua)",
+                fontFamily: "var(--font-code)",
+                letterSpacing: "0.08em",
+              }}
+            >
+              {friendCode}
+            </Text>
+            {friendCodeAction}
+            <span className="settings-profile-code__label">{t("profile.friendCodeLabel")}</span>
+          </div>
+        )}
+        {(email || stravaConnected) && (
+          // 부제는 한 줄 — 넘치면 말줄임(단어 중간 줄바꿈 없음)
+          <div className="settings-profile-sub" title={email ?? undefined}>
+            {email}
+            {stravaConnected && (
+              <>
+                {email && " · "}
+                <span className="settings-profile-sub__strava" aria-hidden />
                 {t("profile.stravaConnected")}
-              </span>
-            </>
-          )}
-        </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );
