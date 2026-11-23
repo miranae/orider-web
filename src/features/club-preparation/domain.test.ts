@@ -257,24 +257,24 @@ describe('동호회 모임 준비', () => {
     localStorage.removeItem(STORAGE_KEY);
   });
 
-  it('거리는 한 자리로 안내하되 표시가 같아지는 작은 변경도 빠뜨리지 않는다', () => {
+  it('거리는 두 자리까지 안내하되 표시가 같아지는 작은 변경도 빠뜨리지 않는다', () => {
     const base = createSeed();
     const draft = base.meetings[0]!;
     const body = (from: number, to: number) => {
       const saved = saveMeeting(saveMeeting(base, 'host', { ...draft, distanceKm: from }), 'host', { ...draft, distanceKm: to });
       return saved.meetings[0]!.notices[0]!.body;
     };
-    expect(body(31.264, 45.871)).toContain('거리: 31.3km → 45.9km.');
-    expect(body(31.21, 31.24)).toContain('거리: 31.21km → 31.24km.');
+    expect(body(31.264, 45.871)).toContain('거리: 31.26km → 45.87km.');
+    expect(body(31.211, 31.214)).toContain('거리: 31.211km → 31.214km.');
   });
 
-  it('한 자리 표기가 같은 체크포인트 거리 변경도 공지에서 구분한다', () => {
+  it('두 자리 표기가 같은 체크포인트 거리 변경도 공지에서 구분한다', () => {
     const base = createSeed();
     const draft = base.meetings[0]!;
     const withDistance = (distanceKm: number) => ({
       ...draft, courseCheckpoints: [{name: '강변', source: 'manual' as const, distanceKm}],
     });
-    const saved = saveMeeting(saveMeeting(base, 'host', withDistance(31.21)), 'host', withDistance(31.24));
-    expect(saved.meetings[0]!.notices[0]!.body).toContain('체크포인트: 강변 (31.21km) → 강변 (31.24km).');
+    const saved = saveMeeting(saveMeeting(base, 'host', withDistance(31.211)), 'host', withDistance(31.214));
+    expect(saved.meetings[0]!.notices[0]!.body).toContain('체크포인트: 강변 (31.211km) → 강변 (31.214km).');
   });
 });

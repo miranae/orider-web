@@ -1,5 +1,5 @@
 import { elevationProfileSchema, meetingSegmentsSchema, type MeetingSegment } from './segmentCatalog';
-import { oneDecimal as shown } from './checkpointPresentation';
+import { twoDecimals as shown } from './checkpointPresentation';
 import { z } from 'zod';
 export const STORAGE_KEY = 'orider.club-preparation.v1';
 export const BASE_TIME = Date.parse('2026-10-18T09:00:00+09:00');
@@ -148,7 +148,7 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
     change('상세 안내', current.description, m.description);
     change('코스 소개', current.courseHighlights, m.courseHighlights);
     change('코스 준비', current.courseReady ? '확정' : '준비 중', m.courseReady ? '확정' : '준비 중');
-    // 바뀌었는지는 저장 값으로 판단한다. 한 자리로 줄인 표시가 같아지는 작은 변경은 세 자리까지 적어 차이를 보인다.
+    // 바뀌었는지는 저장 값으로 판단한다. 두 자리로 줄인 표시가 같아지는 작은 변경은 세 자리까지 적어 차이를 보인다.
     const measure = (label: string, before: number | undefined, after: number | undefined, unit: string) => {
       if (before === after) return;
       const text = (format: (value: number) => number) => [before, after].map(value => value === undefined ? '미정' : `${format(value)}${unit}`);

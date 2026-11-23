@@ -1,6 +1,6 @@
 import InfoTip from "../../components/InfoTip";
 import { mt } from "./meetingText";
-import { oneDecimal } from "./checkpointPresentation";
+import { twoDecimals } from "./checkpointPresentation";
 import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import RouteMap from "../../components/RouteMap";
@@ -233,7 +233,7 @@ export default function ClubCourseMap({
                       const span =
                         active.profile[active.profile.length - 1]!.distance -
                         start;
-                      const distance = `${oneDecimal(item.distance / 1000)}km`;
+                      const distance = `${twoDecimals(item.distance / 1000)}km`;
                       return (
                         <div key={item.index} className="event-lane-row">
                           <span className="event-lane-name">
@@ -303,7 +303,7 @@ export default function ClubCourseMap({
                   {t(laneLabelKey(laneFor(checkpoint), "course"))} ·{" "}
                   {checkpoint.distanceKm === undefined
                     ? mt("거리 미정")
-                    : `${oneDecimal(checkpoint.distanceKm)}km`}
+                    : `${twoDecimals(checkpoint.distanceKm)}km`}
                 </small>
               </span>
             </button>

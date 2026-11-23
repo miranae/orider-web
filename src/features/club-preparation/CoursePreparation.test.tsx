@@ -198,12 +198,12 @@ describe('코스부터 준비하는 모집 작성',()=>{
     const distance=31.264664971566393;const onChange=vi.fn();
     render(<CoursePreparation meeting={{...createSeed().meetings[2]!,courseCheckpoints:[{name:'보급소',source:'course',type:'FOOD',distanceKm:distance}]}} onChange={onChange} onBusyChange={vi.fn()}/>);
     fireEvent.click(screen.getByText(/체크포인트 확인·수정/,{selector:'summary'}));
-    expect((screen.getByLabelText('출발부터 거리 (km)') as HTMLInputElement).value).toBe('31.3');
+    expect((screen.getByLabelText('출발부터 거리 (km)') as HTMLInputElement).value).toBe('31.26');
     expect((screen.getByLabelText('유형') as HTMLInputElement).value).toBe('음식·보급');expect(onChange).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('체크포인트 이름'),{target:{value:'편의점 보급'}});
     expect(onChange.mock.calls[0]![0].courseCheckpoints[0]).toMatchObject({type:'FOOD',distanceKm:distance});
-    fireEvent.change(screen.getByLabelText('출발부터 거리 (km)'),{target:{value:'12.34'}});
-    expect(onChange.mock.calls[1]![0].courseCheckpoints[0].distanceKm).toBe(12.3);
+    fireEvent.change(screen.getByLabelText('출발부터 거리 (km)'),{target:{value:'12.345'}});
+    expect(onChange.mock.calls[1]![0].courseCheckpoints[0].distanceKm).toBe(12.35);
   });
 
   it('기존 코스를 적용한 뒤 목록을 접고 다시 찾을 때 로딩한 목록을 재사용한다',async()=>{
