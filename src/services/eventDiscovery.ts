@@ -1,4 +1,3 @@
-import { logClientError } from "./errorLogger";
 import { httpsCallable } from "firebase/functions";
 import { type DocumentData } from "firebase/firestore";
 
@@ -36,22 +35,3 @@ export async function getPublicEvents(statuses: string[], cursor: string | undef
   return getVisibleEventPage({ publicOnly: true, statuses, limit: 250, ...(cursor ? { cursor } : {}) }, services);
 }
 
-const nextUnavailableUntil = new WeakMap<object, number>();
-/** New producer is optional until deployed; only a missing endpoint selects legacy discovery. */
-export async function getGroupNextEventPage(groupIds: string[], publicOnly: boolean, excludeEventId: string | undefined, services: DiscoveryServices) {
-  if ((nextUnavailableUntil.get(services.functions) ?? 0) > Date.now()) return null;
-  const viewer = services.auth.currentUser;
-  await services.ensureAppCheckReady();
-  if (services.auth.currentUser !== viewer) throw new Error("account_changed");
-  try {
-    const response = (await httpsCallable<{ groupIds: string[]; publicOnly: boolean; excludeEventId?: string }, Page & { incompleteGroupIds: string[] }>(services.functions, "getGroupNextEvents")({ groupIds, publicOnly, ...(excludeEventId ? { excludeEventId } : {}) })).data;
-    if (services.auth.currentUser !== viewer) throw new Error("account_changed");
-    if (!Array.isArray(response.rows) || !Array.isArray(response.incompleteGroupIds)) throw new Error("Invalid next event response");
-    return { docs: response.rows.map(row => ({ id: row.id, data: () => row.data })), incompleteGroupIds: response.incompleteGroupIds };
-  } catch (error) {
-    logClientError("getGroupNextEventPage", error, { groupCount: groupIds.length }, services);
-    if (!["functions/not-found", "functions/unimplemented"].includes((error as { code?: string })?.code ?? "")) throw error;
-    nextUnavailableUntil.set(services.functions, Date.now() + 60_000);
-    return null;
-  }
-}

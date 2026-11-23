@@ -5,7 +5,7 @@ export const useAuth=()=>({user:{uid:'fixture-member'}});
 export const useGroupMemberRole=()=>({role:'member',loading:false,error:null,retry:()=>{}});
 export const useGroup=()=>({group:{id:'fixture',name:'테스트 클럽',description:'함께 달리는 사람들',creatorId:'fixture-owner',memberCount:5},loading:false,error:null,retry:()=>{}});
 export const useGroupMembers=()=>({members:[]});
-export const useGroupRideStats=()=>({loading:phase==='loading',error:phase==='error'?'failed':null,weeklyStats:['paged','stale'].includes(phase??'')?{totalDistance:123000,totalTime:3600000,totalElevation:200,rideCount:42,activeMembers:45}:null,memberWeekStats:null,retry:()=>{}});
+export const useGroupRideStats=()=>({loading:phase==='loading',error:phase==='error'?'failed':null,weeklyStats:['paged','stale'].includes(phase??'')?{totalDistance:123000,totalTime:3600000,totalElevation:200,rideCount:42,activeMembers:45}:null,memberWeekStats:null,rides:[],loadingMore:false,loadMoreError:null,hasMore:false,loadMore:async()=>{},retry:()=>{}});
 
 export function useGroupWeekRanking(_groupId: string | undefined, metric: string) {
   const [size,setSize]=useState(20);

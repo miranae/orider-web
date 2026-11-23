@@ -217,7 +217,7 @@
     select,
     textarea,
     summary
-  ):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action) {
+  ):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action, .settings-profile-avatar__photo) {
     min-height: 44px;
   }
 }
@@ -230,9 +230,9 @@
 .settings-inline-copy { flex: 1 1 12rem; }
 .settings-inline-control { max-width: 100%; }
 .settings-inline-control > * { max-width: 100%; }
-/* 아바타 위 겹침 아이콘(.settings-profile-avatar__action)은 compact 36 정사각 그대로 둔다 — 히트 영역은 버튼 ::after 가 44 로 보장 */
-.settings-main :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action),
-.mobile-settings-detail :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action) { min-height: var(--dim-button-height); }
+/* 아바타 위 겹침 아이콘(.settings-profile-avatar__action, .settings-profile-avatar__photo)은 compact 36 정사각 그대로 둔다 — 히트 영역은 버튼 ::after 가 44 로 보장 */
+.settings-main :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action, .settings-profile-avatar__photo),
+.mobile-settings-detail :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-btn, .ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed], .settings-profile-avatar__action, .settings-profile-avatar__photo) { min-height: var(--dim-button-height); }
 .settings-main :is(button, input, select, textarea, summary):focus-visible,
 .mobile-settings-detail :is(button, input, select, textarea, summary):focus-visible,
 .settings-toggle:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
@@ -242,6 +242,13 @@
 .settings-profile-avatar-group { display: flex; align-items: flex-end; gap: var(--space-3); width: fit-content; }
 .settings-profile-avatar { position: relative; width: fit-content; }
 .settings-profile-avatar > img { display: block; }
+/* 사진 자체도 사진 변경을 연다 — 배지와 같은 동작, 버튼 모양 없이 사진만 보인다 */
+.settings-profile-avatar__photo { display: block; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; font: inherit; cursor: pointer; }
+.settings-profile-avatar__photo:disabled { cursor: progress; }
+.settings-profile-avatar__photo { position: relative; }
+.settings-profile-avatar__photo > img { display: block; }
+/* 업로드 중: 사진 전체 반투명 어두운 덮개 + 가운데 큰 진행 표시(지름 약 50%). 덮개는 테마와 무관하게 어둡다(공용 대화상자 뒤 덮개와 같은 방식). */
+.settings-profile-avatar__busy { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; background: rgb(0 0 0 / 0.5); color: rgb(255 255 255); }
 .settings-profile-avatar__badge { position: absolute; right: calc(-1 * var(--space-1)); bottom: calc(-1 * var(--space-1)); display: flex; }
 /* 배지는 28 원형 + 카드 배경색 테두리로 사진과 분리 — 히트 영역은 버튼 ::after 가 44 로 보장 */
 .settings-profile-avatar__badge .settings-profile-avatar__camera {
@@ -252,7 +259,12 @@
   border-radius: 50%;
   border: var(--space-0-5) solid var(--bg-1);
 }
-.settings-profile-name h2 { overflow-wrap: anywhere; }
+/* 텍스트 열은 남은 폭을 차지하고, 이름·부제는 한 줄 말줄임 — 휴지통 때문에 단어 중간에서 줄이 바뀌지 않는다 */
+.settings-profile-name h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-profile-code { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1-5); font-size: var(--fs-xs); color: var(--ink-3); }
+.settings-profile-code__label { white-space: nowrap; }
+.settings-profile-sub { margin-top: var(--space-1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--ink-3); }
+.settings-profile-sub__strava { display: inline-block; width: var(--space-1-5); height: var(--space-1-5); margin-right: var(--space-1); border-radius: 50%; background: var(--lime); vertical-align: middle; }
 .settings-visibility-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .settings-disclosure { margin-bottom: var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--r-lg); padding: var(--space-4); background: var(--bg-1); }
 .settings-disclosure > summary { cursor: pointer; font-size: var(--fs-sm); font-weight: 600; min-height: var(--dim-button-height); align-content: center; }
@@ -261,8 +273,7 @@
 .settings-scope-button { min-height: var(--dim-button-height); }
 @media (max-width: 600px) {
   .settings-field-grid { grid-template-columns: minmax(0, 1fr) !important; }
-  .settings-profile-hero { padding: var(--space-4) !important; grid-template-columns: minmax(0, 1fr) !important; }
-  .settings-profile-hero > img, .settings-profile-hero > div:first-child { justify-self: start; }
+  .settings-profile-hero { padding: var(--space-4) !important; gap: var(--space-3) !important; }
   .settings-visibility-options { grid-template-columns: minmax(0, 1fr); }
   .settings-visibility-options > button { flex-direction: row !important; align-items: center; flex-wrap: wrap; }
   .settings-content-header h2 { font-size: var(--fs-2xl); }

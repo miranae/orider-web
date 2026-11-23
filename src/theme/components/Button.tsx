@@ -28,6 +28,8 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   align?: 'center' | 'start';
   /** 아이콘 only — 정사각 padding. */
   iconOnly?: boolean;
+  /** 작은 크기(sm)의 모양은 두고 조작 높이만 44px(--dim-button-height)로 — 휴대폰 목록 머리·행의 주 동작. */
+  touchHeight?: boolean;
   /** 44px 히트 오버레이 옵트아웃 — 버튼이 44px 미만 간격으로 밀집한 툴바/그룹에서 사용 (#401). */
   dense?: boolean;
   leadingIcon?: ReactNode;
@@ -45,8 +47,8 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
  * @example
  * <Link to="/x" className={buttonClass({ variant: 'primary', size: 'sm' })}>이동</Link>
  */
-export function buttonClass(opts: { variant?: ButtonVariant; size?: ButtonSize; iconOnly?: boolean; block?: boolean; wrap?: boolean; align?: 'center' | 'start'; className?: string } = {}): string {
-  const { variant = 'secondary', size = 'md', iconOnly, block, wrap, align, className } = opts;
+export function buttonClass(opts: { variant?: ButtonVariant; size?: ButtonSize; iconOnly?: boolean; block?: boolean; wrap?: boolean; align?: 'center' | 'start'; touchHeight?: boolean; className?: string } = {}): string {
+  const { variant = 'secondary', size = 'md', iconOnly, block, wrap, align, touchHeight, className } = opts;
   return [
     'ds-btn',
     `ds-btn--${variant}`,
@@ -55,6 +57,7 @@ export function buttonClass(opts: { variant?: ButtonVariant; size?: ButtonSize; 
     block && 'ds-btn--block',
     wrap && 'ds-btn--wrap',
     align === 'start' && 'ds-btn--align-start',
+    touchHeight && 'ds-btn--touch-height',
     className,
   ].filter(Boolean).join(' ');
 }
@@ -69,6 +72,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     align,
     iconOnly,
     dense,
+    touchHeight,
     leadingIcon,
     trailingIcon,
     disabled,
@@ -95,6 +99,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         align === 'start' && 'ds-btn--align-start',
         iconOnly && 'ds-btn--icon-only',
         dense && 'ds-btn--dense',
+        touchHeight && 'ds-btn--touch-height',
         loading && 'ds-btn--loading',
         className,
       )}

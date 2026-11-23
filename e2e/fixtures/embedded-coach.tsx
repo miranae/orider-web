@@ -64,6 +64,6 @@ const authValue = { user, profile, profileLoading: false, loading: false, signIn
 function Surface() {
   const [params] = useSearchParams();
   const plan = params.get("page") === "plan" || params.get("page") === "goals";
-  return <main className="orider-embedded-root site-shell site-shell--padded py-6 coach-surface"><EmbeddedCoachNavigation defaultPage="condition" selectionKey={0} />{plan ? <PlanSurface retryKey={0} onReady={() => {}} /> : <FitnessSurface retryKey={0} onReady={() => {}} />}<output hidden data-testid="fixture-owner">{user.uid}</output></main>;
+  return <main className="orider-embedded-root site-shell site-shell--padded py-6 coach-surface ds-touch-compact"><EmbeddedCoachNavigation defaultPage="condition" selectionKey={0} />{plan ? <PlanSurface retryKey={0} onReady={() => {}} /> : <FitnessSurface retryKey={0} onReady={() => {}} />}<output hidden data-testid="fixture-owner">{user.uid}</output></main>;
 }
 createRoot(document.getElementById("root")!).render(<I18nextProvider i18n={i18next}><ThemeProvider><OriderThemeProvider><FirebaseServicesProvider services={services}><AuthContextProvider value={authValue}><LocaleProvider userId={null} profile={profile}><ToastProvider><DialogProvider><BrowserRouter><Routes><Route path="/:lang/embed/fitness" element={<Surface />} /></Routes></BrowserRouter></DialogProvider></ToastProvider></LocaleProvider></AuthContextProvider></FirebaseServicesProvider></OriderThemeProvider></ThemeProvider></I18nextProvider>);

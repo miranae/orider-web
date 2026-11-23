@@ -27,7 +27,8 @@ import { useEffect, useState, useRef, cloneElement, isValidElement, type ReactEl
 import { useAuth } from "../../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
+import type { PmcHistoryPoint, PmcRange } from "../../features/fitness/pmcHistory";
+import { ConditionGoalRow, ConditionRecentActivities, ConditionTodayPlanRow, ConditionWeeklyLoadRow, type ConditionRecentActivity, type ConditionTodayPlan } from "./MobileConditionRows";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
@@ -678,7 +679,10 @@ export default function MobileFitnessPage({
   hasThresholdSettings = Boolean(thresholdsSlot),
   goalSummarySlot = null,
   periodSlot = null,
-  conditionSupplementSlot = null,
+  conditionTodayPlan = null,
+  conditionRecentActivities = [],
+  conditionGoal = null,
+  conditionPendingAggregate = false,
   currentBasis,
   currentStatusSlot = null,
   ridingEvidenceSlot = null,
@@ -717,7 +721,14 @@ export default function MobileFitnessPage({
   periodSlot?: ReactNode;
   /** 코치 분석(part="analysis") 본문 — 웹·앱이 같은 CoachAnalysisView 를 넘긴다. */
   analysisSlot?: ReactNode;
-  conditionSupplementSlot?: ReactNode;
+  /** 휴대폰 컨디션 — 오늘 계획 줄(캐시된 계획에서만 읽는다). */
+  conditionTodayPlan?: ConditionTodayPlan | null;
+  /** 휴대폰 컨디션 — 최근 활동 3개와 서버 저장 부하. */
+  conditionRecentActivities?: readonly ConditionRecentActivity[];
+  /** 휴대폰 컨디션 — 목표 한 줄(목표명·D-N). */
+  conditionGoal?: { name: string; daysLeft: number | null; planHref: string } | null;
+  /** 최근 활동의 날짜가 서버 부하 집계에 아직 없을 때. */
+  conditionPendingAggregate?: boolean;
   currentBasis?: string;
   currentStatusSlot?: ReactNode;
   periodEvidenceSlot?: ReactNode;
@@ -744,6 +755,8 @@ export default function MobileFitnessPage({
   const { t: trainingT } = useTranslation("training");
   const [chartViews, setChartViews] = useState<Partial<Record<MobileFitnessData["discipline"], "trend" | "years" | "activities">>>({});
   const chartView = chartViews[data.discipline] ?? "trend";
+  // 휴대폰 컨디션 추이는 6주·1년 두 기간만 둔다.
+  const [conditionRange, setConditionRange] = useState<PmcRange>(42);
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
   useEffect(() => {
     setTab("overview");
@@ -1021,6 +1034,16 @@ export default function MobileFitnessPage({
         ...(isBike && embedded ? [{ id: "condition-ftp", label: t("fitness:condition.basis.title") }] : []),
         ...(!embedded && !mobileCondition && hasThresholdSettings ? [{ id: "thresholds", label: t("fitness:condition.settings.title") }] : []),
       ]} />) : null;
+  // 휴대폰 컨디션 주간 부하 — 접힌 줄에는 숫자를 두지 않는다(브라우저 합계 미표시, P6).
+  // 펼치면 예전 주간 카드가 보이던 내용을 기존 문구·컴포넌트 그대로 보인다: 서버 주간 요약, 주별 막대, 근거 부족·미확인 안내.
+  const phoneWeeklyLoad = mobileCondition && sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial)
+    ? <ConditionWeeklyLoadRow>
+      {data.weeklyLoadStoredSummary
+        ? <Text as="p" variant="bodyMedium">{t("fitness:weekly.storedSummary", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–" })}</Text>
+        : data.weeklyTSS.length > 0 ? <WeeklyTssBars compact values={data.weeklyTSS} color={weeklyLoadColor} t={t} />
+          : <Text as="p" variant="bodySmall" tone="secondary">{t("mobileFitness.weeklyUnknown")}</Text>}
+      {!!data.loadUnknownCount && <Text as="p" variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
+    </ConditionWeeklyLoadRow> : null;
   const conditionTrend = (          <section id={part === "condition" ? "condition-trend" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "condition-section-target" : undefined}>
           <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
             {sectionState.trend === "loading" ? (
@@ -1036,18 +1059,21 @@ export default function MobileFitnessPage({
               </>
             ) : (
               <>
-                {part === "condition" && pmcHistoryPoints && <ToggleControls variant="axis" aria-label={t("fitness:condition.chart.view")}>
+                {part === "condition" && !mobileCondition && pmcHistoryPoints && <ToggleControls variant="axis" aria-label={t("fitness:condition.chart.view")}>
                   {(["trend", "years", "activities"] as const).map(view => <ToggleButton key={view} selected={chartView === view} onClick={() => setChartViews(previous => ({ ...previous, [data.discipline]: view }))}>{t(view === "activities" ? "fitness:condition.chart.activities" : `fitness:history.mode.${view}`)}</ToggleButton>)}
                 </ToggleControls>}
                 {pmcHistoryPoints && (
-                  <div className="mobile-fitness-pmc" hidden={part === "condition" && chartView === "activities"}>
-                    <PmcHistoryPanel suppressMethodNotes={part === "condition"} quietSource={part === "condition"} hideLoadFacts={part === "condition"} controlledMode={part === "condition" ? chartView === "years" ? "years" : "trend" : undefined} hideModeControls={part === "condition"} key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
+                  <div className="mobile-fitness-pmc" hidden={part === "condition" && !mobileCondition && chartView === "activities"}>
+                    {mobileCondition
+                      ? <PmcHistoryPanel suppressMethodNotes quietSource hideLoadFacts controlledMode="trend" hideModeControls key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={[42, 365]} controlledRange={conditionRange} onControlledRangeChange={setConditionRange} />
+                      : <PmcHistoryPanel suppressMethodNotes={part === "condition"} quietSource={part === "condition"} hideLoadFacts={part === "condition"} controlledMode={part === "condition" ? chartView === "years" ? "years" : "trend" : undefined} hideModeControls={part === "condition"} key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />}
                   </div>
                 )}
-                <div className="mobile-fitness-daily-details" hidden={part === "condition" && Boolean(pmcHistoryPoints) && chartView !== "activities"}>
+                {!(mobileCondition && pmcHistoryPoints) && <div className="mobile-fitness-daily-details" hidden={part === "condition" && Boolean(pmcHistoryPoints) && chartView !== "activities"}>
                   {part === "condition" && <Text as="h2" variant="title">{t("fitness:condition.chart.activities")}</Text>}
                     {part === "condition" ? dailyChartContent : <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>{dailyChartContent}</DetailsSection>}
-                </div>
+                </div>}
+                {phoneWeeklyLoad}
               </>
             )}
           </SectionCard>
@@ -1088,24 +1114,26 @@ export default function MobileFitnessPage({
           ) : <SectionCard specId={part === "condition" ? "K1-1" : undefined} ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
             {part === "condition" ? <>
               {currentStatusSlot}
+              {mobileCondition && conditionPendingAggregate && <div className="mobile-condition-pending"><Chip variant="warning">{t("fitness:condition.phone.pending")}</Chip></div>}
               <div data-mobile-fitness-status className="mobile-fitness-current-metrics">
                 {(["ctl", "atl", "tsb"] as const).map(metric => <div key={metric}>
                   <Text as="div" variant="caption"><GlossaryText>{t(`fitness:${metric}`)}</GlossaryText></Text>
                   <Text as="div" variant="dataMedium">{data.hasLoadData && Number.isFinite(data[metric]) ? `${metric === "tsb" && data[metric] > 0 ? "+" : ""}${data[metric].toFixed(1)}` : "—"}</Text>
                 </div>)}
               </div>
-              {!currentStatusSlot && <Text as="p" variant="bodySmall" tone="secondary">{sectionState.trend === "loading" ? t("mobileFitness.trendLoading") : sectionState.trend === "error" ? t("mobileFitness.trendError") : tsbInterpretation}</Text>}
+              {!currentStatusSlot && !(mobileCondition && sectionState.trend === "ready") && <Text as="p" variant="bodySmall" tone="secondary">{sectionState.trend === "loading" ? t("mobileFitness.trendLoading") : sectionState.trend === "error" ? t("mobileFitness.trendError") : tsbInterpretation}</Text>}
             </> : <div data-mobile-fitness-status className="mobile-fitness-status">
               <Text as="div" variant="eyebrow" className="mobile-fitness-status__label"><GlossaryText>{t("mobileFitness.kpiTsbLabel")}</GlossaryText><span className="mobile-fitness-status__meaning">{tsbInterpretation}</span></Text>
               <span className="mobile-fitness-status__value">{tsbValue == null ? "—" : tsbValue.toFixed(1)}</span>
             </div>}
-            {currentBasis && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{currentBasis}</Text>}
+            {currentBasis && !mobileCondition && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{currentBasis}</Text>}
             {loadSet && loadForm && <SufficiencyInline set={loadSet} block={loadForm} testId="K1-1-1-sufficiency-inline" />}
-            {part === "condition" && data.discipline !== "tri" && <LocalizedLink data-testid="K1-1-3" to={`/coach/plan?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
+            {part === "condition" && data.discipline !== "tri" && !mobileCondition && <LocalizedLink data-testid="K1-1-3" to={`/coach/plan?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
             {data.discipline !== "tri" && todayDecisionState && !deferDisabledDecision && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
           </SectionCard>}
           </section>}
           {part === "condition" && !conditionStory && conditionNavigation}
+          {mobileCondition && data.discipline !== "tri" && conditionTodayPlan && <SectionCard compact><ConditionTodayPlanRow plan={conditionTodayPlan} /></SectionCard>}
 
           {loadSet && needsSufficiencyCard(loadSet, loadTrend) && <SufficiencyCard set={loadSet} block={loadTrend} testId="K1-2-sufficiency" />}
           {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
@@ -1126,11 +1154,11 @@ export default function MobileFitnessPage({
             </div>
           )}
 
-          {part === "condition" && goalSummarySlot}
+          {part === "condition" && !mobileCondition && goalSummarySlot}
+          {mobileCondition && data.discipline !== "tri" && conditionRecentActivities.length > 0 && <SectionCard compact><ConditionRecentActivities activities={conditionRecentActivities} moreHref="/athlete/me/activities" /></SectionCard>}
+          {mobileCondition && data.discipline !== "tri" && conditionGoal && <SectionCard compact><ConditionGoalRow name={conditionGoal.name} daysLeft={conditionGoal.daysLeft} planHref={conditionGoal.planHref} /></SectionCard>}
 
-          <section id={part === "condition" ? "condition-load" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? `mobile-fitness-load-section condition-section-target${data.discipline === "tri" ? " mobile-fitness-load-section--last" : ""}` : undefined}>
-          {/* 컨디션은 제목·설명·최근 7일 요약·운동 루틴 없이 주별·일별 부하 카드만 이어 보인다. */}
-          {!embedded && part === "condition" && conditionSupplementSlot}
+          {!(mobileCondition && data.discipline !== "tri") && <section id={part === "condition" ? "condition-load" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? `mobile-fitness-load-section condition-section-target${data.discipline === "tri" ? " mobile-fitness-load-section--last" : ""}` : undefined}>
           {part !== "condition" && data.discipline === "bike" && consistencyStreak && (
             <div className="mobile-fitness-streak">
               <ConsistencyStreakCard summary={consistencyStreak} compact />
@@ -1143,7 +1171,8 @@ export default function MobileFitnessPage({
 
 
           {/* 주간 TSS */}
-          {sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial) && (
+          {/* 휴대폰 컨디션은 주간 부하를 추이 카드 아래 한 줄로 접어 둔다. */}
+          {!mobileCondition && sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial) && (
             <SectionCard specId="K1-7-2" readableSub title={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummaryTitle" : "fitness:weekly.title")} sub={triCondition ? undefined : t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummary" : "fitness:weekly.sub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
               {!data.weeklyLoadStoredSummary && <WeeklyTssBars compact={!embedded} values={data.weeklyTSS} color={weeklyLoadColor} t={t} />}
               <div className="mobile-weekly-load__notes">
@@ -1156,7 +1185,7 @@ export default function MobileFitnessPage({
 
           {/* 통합 일별 부하·종목 근거는 위 카드들과 같은 간격·폭으로 이어 둔다(섹션 밖에 두면 여백이 겹쳐 벌어지고 좁아졌다). */}
           {part === "condition" && data.discipline === "tri" && triEvidenceSlot && <div id="condition-metrics" tabIndex={-1} className="condition-section-target">{triEvidenceSlot}</div>}
-          </section>
+          </section>}
 
           {part === "condition" && data.discipline !== "tri" && !mobileCondition && analysisContent}
 

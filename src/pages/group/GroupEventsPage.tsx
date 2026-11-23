@@ -29,6 +29,7 @@ import { UnifiedClubEventList, type ClubEvent } from "../../features/group/Unifi
 import { clubEventQuery, type ClubEventWindow } from "../../features/group/clubEventWindow";
 import { Button, buttonClass } from "../../theme/components";
 import { logClientError } from "../../services/errorLogger";
+import { useMobile } from "../../hooks/useMobile";
 
 export default function GroupEventsPage() {
   return <FirebaseSessionBoundary><GroupEventsContent /></FirebaseSessionBoundary>;
@@ -39,6 +40,7 @@ function GroupEventsContent() {
   const { firestore } = services;
   const viewer = services.auth.currentUser;
   const { listClubMeetings } = useClubMeetingsApi();
+  const mobile = useMobile();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
   const clubHomePath = useLocalizedPath(`/club/${groupId ?? ""}`);
@@ -222,22 +224,24 @@ function GroupEventsContent() {
   const manager = canManageGroup(group, user?.uid, role);
   if (!role) return <Navigate to={clubHomePath} replace />;
   const calendarUrl = groupCalendarUrl(group);
-
-  return (
-    <div data-testid="C3" className="space-y-4">
-      <header data-testid="C3-0">
-        <GroupSubNav group={group} isCreator={manager} compact />
-        <div className="club-meetings-heading">
-          <div><h2>{t("meetings.title")}</h2><p>{t("meetings.description")}</p></div>
-          <Link className={buttonClass({ variant: "primary", size: "sm" })} to={`/club/${group.id}/meetings/new`}>{t("meetings.create")}</Link>
-        </div>
-        {(calendarUrl || user?.uid === group.creatorId) && <details className="club-meeting-tools">
+  const meetingTools = (calendarUrl || user?.uid === group.creatorId) && <details className="club-meeting-tools">
           <summary>{t("meetings.tools")}</summary>
           <div className="club-meeting-tool-actions">
             {calendarUrl && <a data-testid="C3-0-1" className={buttonClass({ variant: "secondary", size: "sm" })} href={calendarUrl}>{t("events.subscribe")}</a>}
             {user?.uid === group.creatorId && <Link data-testid="C3-0-2" className={buttonClass({ variant: "secondary", size: "sm" })} to={`/event/create?groupId=${encodeURIComponent(group.id)}`}>{i18n.language.startsWith("en") ? "Create a race" : "대회 만들기"}</Link>}
           </div>
-        </details>}
+        </details>;
+
+  return (
+    <div data-testid="C3" className="space-y-4">
+      <header data-testid="C3-0">
+        <GroupSubNav group={group} isCreator={manager} compact />
+        {/* 휴대폰은 탭 이름(모임)이 제목이다 — 제목·설명 문장을 두지 않고 「모임 만들기」를 목록 아래 넓은 버튼으로 둔다. */}
+        {!mobile && <div className="club-meetings-heading">
+          <div><h2>{t("meetings.title")}</h2><p>{t("meetings.description")}</p></div>
+          <Link className={buttonClass({ variant: "primary", size: "sm" })} to={`/club/${group.id}/meetings/new`}>{t("meetings.create")}</Link>
+        </div>}
+        {!mobile && meetingTools}
       </header>
       <ClubCafeSchedulePanel groupId={group.id} language={i18n.language} />
       <div className="flex flex-wrap gap-2">
@@ -261,6 +265,8 @@ function GroupEventsContent() {
           {i18n.language.startsWith("en") ? "Load more meetings" : "모임 더 보기"}
         </Button>
       )}
+      {mobile && <Link data-testid="C3-0-3" className={`${buttonClass({ variant: "primary" })} club-meetings-create`} to={`/club/${group.id}/meetings/new`}>{t("meetings.create")}</Link>}
+      {mobile && meetingTools}
       {!loading && !error && (eventNextCursor || eventCursor) && <div>
         <p role="status">{t("event:discovery.partial")}</p>
         {eventCursor && <Button size="sm" variant="secondary" onClick={() => setEventPage({ scope: eventScope })}>{t("event:discovery.first")}</Button>}

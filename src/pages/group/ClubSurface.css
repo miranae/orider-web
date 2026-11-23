@@ -167,3 +167,67 @@
 .club-meetings-heading p { color:var(--ink-2); margin-top:var(--space-1); }
 .club-meeting-tools { margin-top:var(--space-3); color:var(--ink-2); }
 .club-meeting-tool-actions { display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-2); }
+
+/* 휴대폰 클럽 목록(모임 먼저) — 회색 묶음 카드 안의 행 목록. 데스크톱은 이 클래스를 쓰지 않는다. */
+.club-list-compact { display: flex; flex-direction: column; gap: var(--space-4); }
+.club-list-compact > .club-page-header { margin-bottom: 0; }
+.club-page-actions--compact { width: auto !important; flex-wrap: nowrap; }
+.club-m-section,
+.club-list-compact .club-my-section {
+  display: flex; flex-direction: column; margin: 0;
+  background: var(--bg-1); border-radius: var(--r-lg); padding: var(--space-1) var(--space-4);
+}
+.club-list-compact .club-my-section > h2,
+.club-m-section__title { margin: var(--space-3) 0 0; font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); line-height: var(--ft-title-line-height); color: var(--ink-0); }
+.club-list-compact .club-my-filters { margin-top: var(--space-3); }
+.club-m-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.club-m-list > li + li,
+.club-m-section > .club-m-row + .club-m-row,
+.club-m-section > .club-m-panel + .club-m-row { border-top: 1px solid var(--line-soft); }
+.club-m-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  min-height: 60px; padding-block: var(--space-2); color: var(--ink-0); text-decoration: none;
+}
+.club-m-row--link { min-height: 60px; }
+.club-m-row--button {
+  width: 100%; min-height: 48px; background: transparent; border: 0; padding-inline: 0;
+  font: inherit; font-size: var(--ft-body-medium-size, var(--ft-body-size)); text-align: start; cursor: pointer;
+}
+.club-m-row__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: inherit; text-decoration: none; }
+.club-m-row__title,
+.club-m-row__name { font-weight: 600; color: var(--ink-0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.club-m-row__title { font-size: var(--ft-body-medium-size, var(--ft-body-size)); }
+.club-m-row__meta { font-size: var(--fs-sm); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.club-m-row__chevron,
+.club-m-row__count { color: var(--ink-2); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.club-m-row__action { flex-shrink: 0; }
+.club-m-badge {
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--r-md); background: var(--bg-2);
+  display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 800; color: var(--ink-1); overflow: hidden; white-space: nowrap;
+}
+.club-m-panel { display: grid; gap: var(--space-2); padding-bottom: var(--space-3); }
+.club-m-find { display: flex; flex-direction: column; }
+
+/* 휴대폰 클럽 상세 머리글 ⋯ 메뉴 */
+.club-subnav-header > .club-subnav-menu { position: relative; flex: 0 0 auto; min-width: 0; }
+.club-subnav-menu__panel {
+  position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-1)); z-index: 20; min-width: 10rem;
+  display: flex; flex-direction: column; padding: var(--space-1);
+  background: var(--bg-1); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--shadow-md, 0 8px 24px rgb(0 0 0 / 0.35));
+}
+.club-subnav-menu__panel[hidden] { display: none; }
+.club-subnav-menu__item {
+  display: flex; align-items: center; min-height: 44px; padding-inline: var(--space-3); border: 0; background: transparent;
+  color: var(--ink-0); font: inherit; text-align: start; text-decoration: none; border-radius: var(--r-sm); cursor: pointer;
+}
+.club-subnav-menu__item:hover,
+.club-subnav-menu__item:focus-visible { background: var(--bg-2); }
+.club-meetings-create { width: 100%; min-height: 48px; justify-content: center; }
+/* 휴대폰 활동 탭 이번 주 요약 세 칸 — 값이 한 줄에 들어가게 */
+.club-week-tiles p { font-size: var(--fs-sm); color: var(--ink-2); }
+.club-week-tiles strong { font-size: var(--ft-title-size); white-space: nowrap; }
+/* 휴대폰 「가입 신청」 행 — 펼침 제목을 다른 행과 같은 모양으로 */
+.club-m-section > .club-m-row + .club-m-details,
+.club-m-section > .club-m-panel + .club-m-details { border-top: 1px solid var(--line-soft); }
+.club-m-details > summary { list-style: none; }
+.club-m-details > summary::-webkit-details-marker { display: none; }

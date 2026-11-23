@@ -1,5 +1,6 @@
 [
   "shared/observed-route-index.test.ts",
+  "shared/profileAvatarCrop.test.ts",
   "shared/sim/climbPrediction.test.ts",
   "shared/sim/courseSim.test.ts",
   "shared/training/activityDistanceEvidence.test.ts",

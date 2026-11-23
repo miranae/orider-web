@@ -43,7 +43,9 @@
     "loadSnapshotBasis": "이 부하는 계획에 활동을 연결하거나 후보를 저장할 때 사용한 값입니다. 활동 상세의 저장 분석은 별도로 산정되어 값이 다를 수 있어요. 이 계획에는 부하 산정 방식과 저장 시각이 제공되지 않아 차이의 원인을 확정할 수 없습니다. 계획 시간과 활동 상세의 이동시간도 서로 다른 기준입니다.",
     "notComparable": "연결 확인 전에는 이 값을 계획 수행률이나 당일 전체 부하로 비교할 수 없습니다.",
     "returnComparison": "원래 날짜의 수행 비교로 돌아가기",
-    "reviewContext": "계획을 검토하고 있습니다. 휴식하거나 기존 계획을 유지해도 됩니다. 원래 비교의 날짜·종목·기간·상세 상태는 돌아갈 때 복원됩니다."
+    "reviewContext": "계획을 검토하고 있습니다. 휴식하거나 기존 계획을 유지해도 됩니다. 원래 비교의 날짜·종목·기간·상세 상태는 돌아갈 때 복원됩니다.",
+    "planShort": "계획",
+    "recordsShort": "기록"
   },
   "title": "훈련",
   "plan": {
@@ -99,7 +101,7 @@
     "dayDetails": "{{date}} · {{workout}} 상세",
     "planTitle": "현재 목표 · 자동 생성된 운동 계획",
     "planEmpty": "아직 {{sportLabel}} 운동 계획이 없습니다",
-    "planEmptyDesc": "{{sportLabel}} 목표를 설정하면 자동으로 운동 계획이 생성됩니다.",
+    "planEmptyDesc": "목표를 정하면 계획이 만들어집니다.",
     "planEmptyAction": "{{sportLabel}} 목표 설정하기",
     "logTitle": "운동 기록",
     "logActivities": "{{count}}개 활동",
@@ -250,7 +252,23 @@
     },
     "goalDayEstimate": "목표일 예상",
     "planProgress": "계획진행률",
-    "readError": "기존 목표를 확인하지 못했습니다. 다시 불러온 뒤 생성하거나 변경할 수 있습니다."
+    "readError": "기존 목표를 확인하지 못했습니다. 다시 불러온 뒤 생성하거나 변경할 수 있습니다.",
+    "planShort": "계획 보기",
+    "cachedChip": "이전 정보",
+    "planWeeks": "계획 진행",
+    "planWeeksValue": "{{current}} / {{total}}주",
+    "replacesShort": "시작하면 '{{name}}' 목표는 포기됩니다.",
+    "tiles": {
+      "distance": "거리",
+      "elevation": "상승",
+      "targetTime": "목표 기록",
+      "targetWkg": "목표 W/kg"
+    },
+    "typeHints": {
+      "event": "날짜와 거리",
+      "climb": "코스와 시간",
+      "program": "입문 프로그램"
+    }
   },
   "goals": {
     "wizardTitle": {
@@ -550,7 +568,14 @@
     "managePlan": "계획 관리",
     "sportLoad": "종목별 부하",
     "intensityLegend": "운동 강도 범례",
-    "sessionsUnit": "회"
+    "sessionsUnit": "회",
+    "todayLabel": "오늘",
+    "nextLabel": "다음",
+    "todayCard": "오늘 운동",
+    "weekDone": "완료 {{done}}/{{total}}",
+    "weekLoad": "부하 {{tss}}",
+    "goalLink": "목표 ›",
+    "intervalCount": "인터벌 {{count}}개"
   },
   "add": {
     "title": "운동 추가",
@@ -1092,9 +1117,9 @@
   },
   "run30": {
     "title": "30분 달리기 입문",
-    "subtitle": "8주 · 24단계 · 걷기와 편한 달리기부터 시작해요.",
-    "purpose": "30분 연속 달리기는 최종 목표예요. 회차에 맞춰 걷기와 달리기로 천천히 적응해요.",
-    "phoneOnly": "휴대전화로 시작할 수 있어요. 워치는 선택 사항입니다.",
+    "subtitle": "8주 · 24단계 · 걷기부터 시작",
+    "purpose": "목표: 30분 연속 달리기",
+    "phoneOnly": "휴대전화만 있으면 됩니다.",
     "progress": "{{completed}}/{{total}} 단계 완료",
     "progressLabel": "프로그램 진행률",
     "remaining": "{{count}}단계 남음",
@@ -1212,7 +1237,7 @@
       "enrolling": "등록 반영 중…",
       "enrolled": "등록했어요. 프로그램을 불러오고 있어요.",
       "offerTitle": "30분 달리기 입문으로 바꿀 수 있어요",
-      "offerBody": "지금 러닝 목표 대신 8주 입문 프로그램으로 전환할 수 있어요. 전환 전에 기존 목표를 확인합니다.",
+      "offerBody": "전환 전에 기존 목표를 확인합니다.",
       "offerOpen": "입문 프로그램 보기",
       "customGoal": "다른 러닝 목표 만들기"
     },

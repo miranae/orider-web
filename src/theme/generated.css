@@ -118,6 +118,10 @@
   --shadow-sm: 0 1px 2px rgba(20,40,40,.05);
   --shadow-md: 0 3px 12px rgba(20,40,40,.08);
   --shadow-lg: 0 10px 28px rgba(20,40,40,.12);
+  --toast-success-bg: #2E7D32;
+  --toast-error-bg: #B71C1C;
+  --toast-info-bg: color-mix(in oklch, var(--color-info) 66%, black);
+  --toast-fg: #FFFFFF;
   --chart-series-1: #A63A00;
   --chart-series-2: #005DBA;
   --chart-series-3: #08783C;
@@ -258,6 +262,10 @@
   --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
   --shadow-md: 0 4px 14px rgba(0,0,0,.4);
   --shadow-lg: 0 12px 32px rgba(0,0,0,.5);
+  --toast-success-bg: #1B5E20;
+  --toast-error-bg: #7F1D1D;
+  --toast-info-bg: color-mix(in oklch, var(--color-info) 34%, black);
+  --toast-fg: #FFFFFF;
   --chart-series-1: #FF9F50;
   --chart-series-2: #64B5FF;
   --chart-series-3: #61D998;
@@ -399,6 +407,10 @@
     --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
     --shadow-md: 0 4px 14px rgba(0,0,0,.4);
     --shadow-lg: 0 12px 32px rgba(0,0,0,.5);
+    --toast-success-bg: #1B5E20;
+    --toast-error-bg: #7F1D1D;
+    --toast-info-bg: color-mix(in oklch, var(--color-info) 34%, black);
+    --toast-fg: #FFFFFF;
     --chart-series-1: #FF9F50;
     --chart-series-2: #64B5FF;
     --chart-series-3: #61D998;

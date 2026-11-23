@@ -624,5 +624,15 @@
   "meetings.title": "모임",
   "meetings.description": "클럽에서 함께할 모임과 대회를 확인하세요.",
   "meetings.create": "모임 만들기",
-  "meetings.tools": "캘린더·대회 도구"
+  "meetings.tools": "캘린더·대회 도구",
+  "list.upcomingMeetings": "다가오는 모임",
+  "list.myClubs": "내 클럽",
+  "list.upcomingJoin": "참여",
+  "list.upcomingParticipants": "{{count}}명 참여",
+  "list.requestsRow": "가입 신청",
+  "list.requestsCount": "{{count}}건",
+  "list.findShort": "찾기",
+  "list.createShort": "만들기",
+  "subNav.activity": "활동",
+  "subNav.more": "클럽 메뉴"
 }

@@ -3,14 +3,13 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setCollectionDocs, setCallableImplementation, mockCallableInvocations } from "../__tests__/mocks/firebase";
 import { logClientError } from "../services/errorLogger";
-import { formatNextLabel, isEligibleNextEvent, useGroupNextEvents } from "./useGroupNextEvents";
+import { NEXT_EVENT_CONCURRENCY, formatNextLabel, isEligibleNextEvent, nextEventTitle, useGroupNextEvents } from "./useGroupNextEvents";
 
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 describe("group next events", () => {
   beforeEach(() => {
     installEventDiscoveryFixture();
-    setCallableImplementation("getGroupNextEvents", () => { throw Object.assign(new Error("Not deployed"), { code: "functions/not-found" }); });
     vi.mocked(logClientError).mockClear();
     setCollectionDocs("events", []);
   });
@@ -41,6 +40,31 @@ describe("group next events", () => {
     expect(result.current.eventByGroup.has("g2")).toBe(false);
   });
 
+  it("reads next events only from the supported list callable, never the removed batch callable (#3835)", async () => {
+    mockCallableInvocations.length = 0;
+    setCollectionDocs("events", [{ id: "next", info: { groupId: "g1", status: "OPEN", startTime: 100, name: "Next" }, counters: { totalRegistered: 3 } }]);
+    const { result } = renderHook(() => useGroupNextEvents(["g1", "g2"]));
+    await waitFor(() => expect(result.current.eventByGroup.get("g1")?.id).toBe("next"));
+    expect(mockCallableInvocations.some(call => call.name === "getGroupNextEvents")).toBe(false);
+    expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes").map(call => call.data)).toEqual([
+      { groupId: "g1", publicOnly: false, statuses: ["OPEN", "LIVE"], limit: 250 },
+      { groupId: "g2", publicOnly: false, statuses: ["OPEN", "LIVE"], limit: 250 },
+    ]);
+    expect(result.current.byGroup.get("g1")).toContain("Next");
+    expect(result.current.eventByGroup.get("g1")?.registered).toBe(3);
+  });
+
+  it("carries the server participant count and meeting kind without counting on the client", async () => {
+    setCollectionDocs("events", [
+      { id: "meeting", info: { groupId: "g1", status: "OPEN", startTime: 100, name: "Meetup", kind: "CLUB_MEETING" }, counters: { totalRegistered: 14 } },
+      { id: "race", info: { groupId: "g2", status: "OPEN", startTime: 100, name: "Race" } },
+    ]);
+    const { result } = renderHook(() => useGroupNextEvents(["g1", "g2"]));
+    await waitFor(() => expect(result.current.eventByGroup.size).toBe(2));
+    expect(result.current.eventByGroup.get("g1")).toMatchObject({ meeting: true, registered: 14 });
+    expect(result.current.eventByGroup.get("g2")).toMatchObject({ meeting: false, registered: null });
+  });
+
   it("requests member-authorized discovery when public-only mode is off", async () => {
     setCollectionDocs("events", [
       { id: "group-event", info: { groupId: "g1", visibility: "GROUP", status: "OPEN", startTime: 100, name: "Members" } },
@@ -62,8 +86,54 @@ describe("group next events", () => {
     expect(vi.mocked(logClientError)).toHaveBeenCalledWith(
       "useGroupNextEvents.load",
       expect.any(Error),
-      { count: 1 },
+      { groupId: "g1" },
     );
+  });
+
+  it("keeps other clubs' next events when one club fails and logs that club", async () => {
+    setCollectionDocs("events", [
+      { id: "ok", info: { groupId: "g2", status: "OPEN", startTime: 100, name: "Kept" } },
+    ]);
+    setCallableImplementation("listVisibleEventEnvelopes", (data) => {
+      if ((data as { groupId?: string }).groupId === "g1") throw new Error("unavailable");
+      return { data: { rows: [{ id: "ok", data: { info: { groupId: "g2", status: "OPEN", startTime: 100, name: "Kept" } } }], nextCursor: null } };
+    });
+    const { result } = renderHook(() => useGroupNextEvents(["g1", "g2"]));
+    await waitFor(() => expect(result.current.eventByGroup.get("g2")?.id).toBe("ok"));
+    expect(result.current.byGroup.get("g2")).toContain("Kept");
+    expect(result.current.eventByGroup.has("g1")).toBe(false);
+    expect(result.current.incompleteGroups.has("g1")).toBe(true);
+    expect(vi.mocked(logClientError)).toHaveBeenCalledWith("useGroupNextEvents.load", expect.any(Error), { groupId: "g1" });
+  });
+
+  it("calls at most the old batch size of clubs at once", async () => {
+    let active = 0;
+    let peak = 0;
+    setCallableImplementation("listVisibleEventEnvelopes", async () => {
+      active += 1; peak = Math.max(peak, active);
+      await new Promise(resolve => setTimeout(resolve, 5));
+      active -= 1;
+      return { data: { rows: [], nextCursor: null } };
+    });
+    mockCallableInvocations.length = 0;
+    const ids = Array.from({ length: 45 }, (_, index) => `g${index}`);
+    const { result } = renderHook(() => useGroupNextEvents(ids));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes")).toHaveLength(45));
+    expect(peak).toBeLessThanOrEqual(NEXT_EVENT_CONCURRENCY);
+    expect(peak).toBeGreaterThan(1);
+  });
+
+  it("shows the authored club meeting title instead of the fixed server name", async () => {
+    setCollectionDocs("events", [
+      { id: "meeting", info: { groupId: "g1", status: "OPEN", startTime: 100, kind: "CLUB_MEETING", name: "동호회 모임", title: "북악 업힐 정모" } },
+    ]);
+    const { result } = renderHook(() => useGroupNextEvents(["g1"]));
+    await waitFor(() => expect(result.current.eventByGroup.get("g1")?.name).toBe("북악 업힐 정모"));
+    expect(result.current.byGroup.get("g1")).toContain("북악 업힐 정모");
+    expect(nextEventTitle({ kind: "CLUB_MEETING", name: "동호회 모임" })).toBe("동호회 모임");
+    expect(nextEventTitle({ kind: "CLUB_MEETING", name: "동호회 모임", title: "  " })).toBe("동호회 모임");
+    expect(nextEventTitle({ kind: "RIDE", name: "Race", title: "ignored" })).toBe("Race");
   });
 
   it("clears the previous next event while an exclusion change is loading", async () => {
@@ -100,7 +170,7 @@ describe("group next events", () => {
 
 
 describe("bounded next-event discovery continuation", () => {
-  beforeEach(() => { installEventDiscoveryFixture(); setCallableImplementation("getGroupNextEvents", () => { throw Object.assign(new Error("Not deployed"), { code: "functions/not-found" }); }); });
+  beforeEach(() => { installEventDiscoveryFixture(); });
 
   it("reports an empty private scan window as incomplete without automatic requests", async () => {
     setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: "~ed1_" + "a".repeat(48) } }));

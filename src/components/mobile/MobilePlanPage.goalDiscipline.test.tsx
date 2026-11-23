@@ -28,8 +28,10 @@ describe("MobilePlanPage goal discipline", () => {
   });
   it("uses the goal sport for a shared workout code across week and goal changes", () => {
     const view = renderWithProviders(<MobilePlanPage currentWeek={week} weekLabel="W1" goalDiscipline="run" />);
+    fireEvent.click(document.querySelector(".mobile-plan-day-row")!);
     expect(screen.getByText("러닝")).toBeInTheDocument();
     view.rerender(<MobilePlanPage currentWeek={{ ...week, id: "week-05" }} weekLabel="W2" goalDiscipline="bike" />);
+    if (document.querySelector('.mobile-plan-day-row[aria-expanded="false"]')) fireEvent.click(document.querySelector(".mobile-plan-day-row")!);
     expect(screen.getByText("사이클")).toBeInTheDocument();
     expect(screen.queryByText("러닝")).not.toBeInTheDocument();
   });

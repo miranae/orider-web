@@ -84,6 +84,40 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByTestId("mobile-decision-preview-id")).toHaveTextContent(decision.projectionId);
     expect(document.querySelector("[data-decision-id]")).toHaveAttribute("data-decision-id", decision.projectionId);
   });
+  it("renders a compact plan row with the server status and session only", () => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, unavailableReason: null, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" compact /></MemoryRouter>);
+    const row = screen.getByTestId("K4-4");
+    expect(row).toHaveClass("training-decision-row");
+    expect(row).toHaveAttribute("data-decision-id", decision.projectionId);
+    expect(within(row).getByTestId("K4-4-1")).not.toBeEmptyDOMElement();
+    expect(row.querySelector(".training-decision-card__delta")).toBeNull();
+    expect(row.querySelector(".training-decision-card__reasons")).toBeNull();
+  });
+  it("keeps the existing execution and proposal actions under the compact plan row", () => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    mocks.hook.mockReturnValue({ decision: { ...decision, proposal: { proposalId: `proposal_${"d".repeat(24)}`, status: "pending" as const,
+      expiresAt: "2096-08-15T00:00:00.000Z", confirmNonce: "n".repeat(32) } }, loading: false, scheduledOnly: false, unavailable: false, unavailableReason: null, refresh: vi.fn() });
+    mocks.proposal = { ...mocks.proposal, state: "pending" };
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" compact /></MemoryRouter>);
+    const row = screen.getByTestId("K4-4");
+    expect(within(row).getByText("계획 변경 검토")).toBeInTheDocument();
+    expect(within(row).getAllByTestId("K2-2-6").length).toBeGreaterThan(0);
+    expect(within(row).getByText("실행 패널")).toBeInTheDocument();
+  });
+  it("does not present the scheduled workout as the recommendation when the compact row asks to reassess", () => {
+    const base = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const decision = { ...base, recommendedAdjustments: base.recommendedAdjustments.map(item => ({ ...item,
+      recommendation: { ...item.recommendation, action: "reassess" as const, workout: null } })) };
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, unavailableReason: null, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" compact /></MemoryRouter>);
+    const line = screen.getByTestId("K4-4-1");
+    expect(line).toHaveAttribute("data-row-action", "reassess");
+    expect(line).toHaveTextContent("상태 확인 필요");
+    expect(line).not.toHaveTextContent("템포");
+    expect(line).not.toHaveTextContent("60분");
+  });
   it("keeps Plan empty when the decision API is unavailable", () => {
     mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);

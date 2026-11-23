@@ -97,3 +97,28 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* 휴대폰: 계획 대비 기록은 한 줄로 접어 둔다. */
+.plan-load-comparison__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+  color: var(--ink-0);
+  text-align: start;
+  cursor: pointer;
+}
+.plan-load-comparison__toggle > * { margin: 0; }
+.plan-load-comparison__toggle--open {
+  width: auto;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}

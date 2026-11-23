@@ -10,7 +10,8 @@ export function isPlanRecordTabState(state: unknown): boolean {
 }
 
 /** Existing execution views retain their canonical URLs and selected context. */
-export default function PlanRecordNavigation({ date }: { date?: string | null }) {
+/** compact: 휴대폰은 짧은 이름(계획 | 기록)을 쓴다. */
+export default function PlanRecordNavigation({ date, compact = false }: { date?: string | null; compact?: boolean }) {
   const { t } = useTranslation("training");
   const [params] = useSearchParams();
   const { pathname } = useLocation();
@@ -22,8 +23,8 @@ export default function PlanRecordNavigation({ date }: { date?: string | null })
     if (includeDate && date) next.set("date", date);
     return `?${next}`;
   };
-  return <nav aria-label={t("planRecords.title")} style={{ marginBottom: "var(--space-4)" }}><RouteTabNav state={PLAN_RECORD_TAB_STATE} tabs={[
-    { to: `/coach/plan${query(true)}`, label: t("planRecords.plan"), end: true },
-    { to: `/athlete/me/activities${query(false)}`, label: t("planRecords.records"), end: true },
+  return <nav aria-label={t("planRecords.title")} className="plan-record-nav" style={{ marginBottom: "var(--space-4)" }}><RouteTabNav state={PLAN_RECORD_TAB_STATE} tabs={[
+    { to: `/coach/plan${query(true)}`, label: t(compact ? "planRecords.planShort" : "planRecords.plan"), end: true },
+    { to: `/athlete/me/activities${query(false)}`, label: t(compact ? "planRecords.recordsShort" : "planRecords.records"), end: true },
   ]} /></nav>;
 }

@@ -17,7 +17,8 @@ describe("bounded month record search and navigation", () => {
     renderWithProviders(<App activities={records(count)} />, { route: base });
     expect(rows()).toHaveLength(Math.min(count, 20));
     expect(screen.getByRole("searchbox", { name: "선택한 달에서 활동 찾기" })).toHaveValue("");
-    expect(screen.getByText(/선택 종목으로 불러온 기록/)).toHaveTextContent("2026년 9월");
+    expect(screen.getByRole("searchbox", { name: "선택한 달에서 활동 찾기" })).toHaveAttribute("placeholder", "활동 검색");
+    expect(screen.queryByText(/선택 종목으로 불러온 기록/)).not.toBeInTheDocument();
     if (count === 0) expect(screen.getByText("아직 활동 기록이 없어요")).toBeInTheDocument();
   });
   it("preserves query, exact month, sport and bounded page after activity/back, forward and reload", async () => {
@@ -64,7 +65,7 @@ describe("bounded month record search and navigation", () => {
 
 it.each(["close", "escape"])("keeps day pagination in one modal history entry and returns to the prior context with %s", async action => {
   renderWithProviders(<App activities={records(1000)} />, { route: `${base}&q=record-9&page=2&pageMonth=2026-09` });
-  fireEvent.click(screen.getByRole("tab", { name: "월간" }));
+  fireEvent.click(screen.getByRole("tab", { name: "달력" }));
   fireEvent.click(screen.getByRole("button", { name: "9월 3일 활동 1000건" }));
   const dialog = screen.getByRole("dialog", { name: "2026-09-03 계획과 기록" });
   fireEvent.click(within(dialog).getByRole("button", { name: "다음 기록" }));
@@ -72,10 +73,10 @@ it.each(["close", "escape"])("keeps day pagination in one modal history entry an
   const close = within(dialog).getByRole("button", { name: "← 뒤로" });
   if (action === "escape") fireEvent.keyDown(close, { key: "Escape" }); else fireEvent.click(close);
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-  expect(screen.getByRole("tab", { name: "월간" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tab", { name: "달력" })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByTestId("url")).not.toHaveTextContent("dayPage");
   fireEvent.click(screen.getByRole("button", { name: "Browser Back" }));
-  await waitFor(() => expect(screen.getByRole("tab", { name: "활동" })).toHaveAttribute("aria-selected", "true"));
+  await waitFor(() => expect(screen.getByRole("tab", { name: "목록" })).toHaveAttribute("aria-selected", "true"));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.getByRole("searchbox")).toHaveValue("record-9");
   expect(screen.getByRole("navigation", { name: "활동 기록 페이지" })).toHaveTextContent("21–40");
@@ -88,7 +89,7 @@ it("shares month controls directly in the activity search tab and announces no m
   expect(changeMonth).toHaveBeenLastCalledWith(-1);
   fireEvent.click(screen.getByRole("button", { name: "다음 달 →" }));
   expect(changeMonth).toHaveBeenLastCalledWith(1);
-  expect(screen.getByRole("tab", { name: "활동" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tab", { name: "목록" })).toHaveAttribute("aria-selected", "true");
   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "no-result" } });
   expect(screen.getByText("선택한 달과 종목에서 검색 결과가 없습니다.")).toHaveAttribute("role", "status");
 });

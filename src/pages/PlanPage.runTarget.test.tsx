@@ -22,7 +22,7 @@ function setup() {
 const route = "/ko/plan?sport=run&goalId=goal-owned&weekId=week-next&dayIndex=0&date=2026-10-01";
 describe("read-only running plan target route", () => {
   it("opens a date-only log handoff in the requested week without a run-start preview", async () => {
-    setup(); model.mobile = true;
+    setup(); model.mobile = false;
     const { container } = renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
     const calendar = await screen.findByTestId("plan-presentation");
     const comparison = container.querySelector("#plan-load-comparison");
@@ -33,6 +33,16 @@ describe("read-only running plan target route", () => {
     expect(calendar).toHaveAttribute("data-week-offset", "1");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByTestId("workout-editor")).not.toBeInTheDocument();
+  });
+  it("keeps the phone header to the short title and sub-tabs, moving the comparison below the week", async () => {
+    setup(); model.mobile = true;
+    const { container } = renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
+    await screen.findByTestId("plan-presentation");
+    expect(screen.getByTestId("K4-0-1")).toHaveTextContent("계획");
+    expect(screen.getByRole("link", { name: "계획" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "기록" })).toBeInTheDocument();
+    // 휴대폰 계획 대비 기록은 머리에 두지 않고 계획 목록(MobilePlanPage) 안 이번 주 아래에 접어 둔다.
+    expect(container.querySelector("#plan-load-comparison")).toBeNull();
   });
   it.each([false, true])("opens exact preview without workout editor or execution and focuses target week mobile=%s", async mobile => {
     setup(); model.mobile = mobile;
@@ -81,7 +91,7 @@ it.each([false, true])("preserves the selected midweek day in the records handof
   model.value.weeks = [{ id: "week-current", days: [{ date: date - 86400000 }, { date }] }];
   renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
   expect(await screen.findByTestId("plan-presentation")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01");
+  expect(screen.getByRole("link", { name: model.mobile ? "기록" : "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01");
 });
 
 it("keeps an exact selected day through the real plan → records → plan route round trip", async () => {
@@ -107,9 +117,9 @@ it("replaces the old selected day with the visible week's date after intentional
   renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
   expect(await screen.findByTestId("plan-presentation")).toHaveAttribute("data-week-offset", "1");
   fireEvent.click(screen.getByRole("button", { name: "Previous plan week" }));
-  await waitFor(() => expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-09-30"));
+  await waitFor(() => expect(screen.getByRole("link", { name: model.mobile ? "기록" : "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-09-30"));
   fireEvent.click(screen.getByRole("button", { name: "Next plan week" }));
-  await waitFor(() => expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01"));
+  await waitFor(() => expect(screen.getByRole("link", { name: model.mobile ? "기록" : "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01"));
 });
 
 

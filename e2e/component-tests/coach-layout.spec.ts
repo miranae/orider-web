@@ -1,7 +1,7 @@
 import { test,expect,type Page } from "@playwright/test";
 
 const widths=[320,393,768,1440];
-const labels={ ko: { activities: "활동",month: "월간",next: "다음 기록",pages: "활동 기록 페이지",dayPages: "이 날짜의 활동 페이지",back: "← 뒤로",noMatch: "선택한 달과 종목에서 검색 결과가 없습니다." },en: { activities: "Activities",month: "Monthly",next: "Next records",pages: "Activity record pages",dayPages: "Activities on this date",back: "← Back",noMatch: "No matches in the selected month and sport." } };
+const labels={ ko: { activities: "목록",month: "달력",next: "다음 기록",pages: "활동 기록 페이지",dayPages: "이 날짜의 활동 페이지",back: "← 뒤로",noMatch: "선택한 달과 종목에서 검색 결과가 없습니다." },en: { activities: "List",month: "Calendar",next: "Next records",pages: "Activity record pages",dayPages: "Activities on this date",back: "← Back",noMatch: "No matches in the selected month and sport." } };
 async function open(page: Page,width: number,lang: "ko"|"en",route: string,query="count=1000") {
   await page.setViewportSize({ width,height: 900 });
   await page.clock.setFixedTime(new Date("2026-10-22T03:00:00Z"));
@@ -14,7 +14,7 @@ async function open(page: Page,width: number,lang: "ko"|"en",route: string,query
 }
 async function noOverflow(page: Page) {
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  for(const target of [".mobile-log__finder",".mobile-log__activity-head",".mobile-plan-next",".ftp-progression__readout"]) {
+  for(const target of [".mobile-log__finder",".mobile-log__activity-head",".mobile-log__view-row",".mobile-plan-next",".mobile-plan-week-header",".mobile-plan-goal-row",".ftp-progression__readout"]) {
     const clips=await page.locator(target).evaluateAll(nodes => nodes.filter(node => {
       const box=node.getBoundingClientRect(); return box.width>0&&(box.left<-1||box.right>innerWidth+1);
     }).length);
@@ -52,7 +52,7 @@ for(const width of widths) for(const lang of ["ko","en"] as const) {
     await page.screenshot({ path: info.outputPath("records-end.png") });
   });
   test(`detail ${width}px ${lang}: bounded day pages, Escape and original focus`,async ({ page },info) => {
-    await open(page,width,lang,"/athlete/me/activities?sport=all&date=2026-10-22");
+    await open(page,width,lang,"/athlete/me/activities?sport=all&date=2026-10-22&view=calendar");
     const trigger=page.getByRole("button",{ name: /^(?=.*22)(?=.*1000)/ });
     await trigger.click();
     const dialog=page.getByRole("dialog");

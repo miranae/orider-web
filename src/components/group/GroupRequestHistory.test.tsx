@@ -28,6 +28,27 @@ describe("GroupRequestHistory", () => {
     expect(screen.getByText(/My club/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "요청 취소" })).toBeEnabled();
   });
+  it("keeps the phone join-request row for past requests and hides it without any history", async () => {
+    setCollectionDocs("users/test-uid/group_requests", [{ id: "old", userId: "test-uid", groupId: "club", groupName: "Past club", status: "approved", requestedAt: 1, resolvedAt: 2 }]);
+    const view = renderWithProviders(<GroupRequestHistory userId="test-uid" row={{ label: "가입 신청" }} />, { authenticated: true });
+    const row = await screen.findByTestId("C0-1-4");
+    expect(row).toHaveTextContent(/^가입 신청$/);
+    expect(row.closest("details")).not.toHaveAttribute("open");
+    await userEvent.click(row);
+    expect(row.closest("details")).toHaveAttribute("open");
+    expect(screen.getByText(/Past club · 승인됨/)).toBeVisible();
+    view.unmount();
+
+    setCollectionDocs("users/test-uid/group_requests", []);
+    renderWithProviders(<GroupRequestHistory userId="test-uid" row={{ label: "가입 신청" }} />, { authenticated: true });
+    await waitFor(() => expect(limit).toHaveBeenCalledWith(10));
+    expect(screen.queryByTestId("C0-1-4")).not.toBeInTheDocument();
+  });
+  it("shows the pending count on the phone row", async () => {
+    setCollectionDocs("users/test-uid/group_requests", [{ id: "request", userId: "test-uid", groupId: "club", groupName: "My club", status: "pending", requestedAt: 1 }]);
+    renderWithProviders(<GroupRequestHistory userId="test-uid" row={{ label: "가입 신청", count: "1건" }} />, { authenticated: true });
+    expect(await screen.findByTestId("C0-1-4")).toHaveTextContent("가입 신청1건");
+  });
   it("does not dispatch when confirmation is declined", async () => {
     state.confirm.mockResolvedValue(false);
     setCollectionDocs("users/test-uid/group_requests", [{ id: "request", groupId: "club", groupName: "My club", status: "pending", requestedAt: 1 }]);

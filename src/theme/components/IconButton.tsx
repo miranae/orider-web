@@ -15,13 +15,15 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   size?: ButtonSize | 'compact';
   /** 적용 상태를 작은 점으로 표시한다. 상태 설명은 aria-label에 포함한다. */
   indicator?: boolean;
+  /** 그림 크기. 'large' 는 HIG 막대 아이콘(22px, ICON_SIZE.lg) — 터치 영역은 그대로 둔다. */
+  iconSize?: 'default' | 'large';
   icon: ReactNode;
   loading?: boolean;
   type?: 'button' | 'submit' | 'reset';
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { variant = 'ghost', size = 'md', icon, indicator, loading, disabled, type = 'button', className, ...rest },
+  { variant = 'ghost', size = 'md', icon, indicator, iconSize = 'default', loading, disabled, type = 'button', className, ...rest },
   ref,
 ) {
   return (
@@ -31,7 +33,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       disabled={disabled || loading}
       data-loading={loading || undefined}
       aria-busy={loading || undefined}
-      className={cn('ds-btn', `ds-btn--${variant}`, `ds-btn--${size}`, 'ds-btn--icon-only', loading && 'ds-btn--loading', className)}
+      className={cn('ds-btn', `ds-btn--${variant}`, `ds-btn--${size}`, 'ds-btn--icon-only', iconSize === 'large' && 'ds-btn--icon-large', loading && 'ds-btn--loading', className)}
       {...rest}
     >
       {loading ? <span className="ds-btn__spinner" aria-hidden /> : <span className="ds-btn__icon" aria-hidden>{icon}</span>}

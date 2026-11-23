@@ -16,12 +16,12 @@ import { debugLog } from "../../services/errorLogger";
 interface RequestRow { id: string; userId: string; groupId: string; name: string; status: string; requestedAt: number; resolvedAt: number }
 /** 「승인 대기」를 눌렀을 때 보여 줄 신청 — nonce 가 바뀔 때마다 한 번 찾아 초점을 둔다. */
 export type PendingRequestFocus = { groupId: string; nonce: number };
-type GroupRequestHistoryProps = { userId?: string; groupId?: string; sectionId?: string; focusRequest?: PendingRequestFocus | null };
+type GroupRequestHistoryProps = { userId?: string; groupId?: string; sectionId?: string; focusRequest?: PendingRequestFocus | null; /** 휴대폰 목록의 「가입 신청」 행에서 열었으면 기록을 펼친 채로 보인다. */ defaultOpen?: boolean; /** 휴대폰 목록: 카드 대신 「가입 신청 · N건」 행을 펼침 제목으로 쓴다. 기록이 하나도 없으면 행도 숨긴다. */ row?: { label: string; count?: string } };
 export default function GroupRequestHistory(props: GroupRequestHistoryProps) {
   return <FirebaseSessionBoundary><GroupRequestHistoryContent {...props} /></FirebaseSessionBoundary>;
 }
 
-function GroupRequestHistoryContent({ userId, groupId, sectionId, focusRequest }: GroupRequestHistoryProps) {
+function GroupRequestHistoryContent({ userId, groupId, sectionId, focusRequest, defaultOpen, row }: GroupRequestHistoryProps) {
   const { t, i18n } = useTranslation("group");
   const dialog = useDialog();
   const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
@@ -87,7 +87,7 @@ function GroupRequestHistoryContent({ userId, groupId, sectionId, focusRequest }
     }, err => { logClientError("GroupRequestHistory.pendingLookup", err, { groupId: lookupGroupId }); });
   }, [lookupGroupId, userId, groupId, firestore]);
   if (!rows.length && !error) return null;
-  const history = <Card data-testid={groupId ? "C7-1-2" : "C0-1-3"} className="space-y-3"><details><summary>{t("requests.history")}</summary>{error ? <p role="alert"><Resolvable resolve={{ onClick: () => setReadAttempt(n => n + 1) }}>{t("error.loadFailed")}</Resolvable></p> : rows.map(row => <div key={row.id} className="space-y-2"><div className="flex items-center justify-between gap-3"><span>{row.name} · {t(`requests.${row.status}`)} · {row.requestedAt ? new Date(row.requestedAt).toLocaleString(i18n.language) : "–"}{row.resolvedAt ? ` → ${new Date(row.resolvedAt).toLocaleString(i18n.language)}` : ""}</span>{!groupId && row.status === "pending" && <Button data-testid="C0-1-3-cancel" {...focusTargetProps(clubRequestFocusKey(row.groupId))} size="sm" disabled={busy !== null} onClick={async () => {
+  const entries = <>{error ? <p role="alert"><Resolvable resolve={{ onClick: () => setReadAttempt(n => n + 1) }}>{t("error.loadFailed")}</Resolvable></p> : rows.map(row => <div key={row.id} className="space-y-2"><div className="flex items-center justify-between gap-3"><span>{row.name} · {t(`requests.${row.status}`)} · {row.requestedAt ? new Date(row.requestedAt).toLocaleString(i18n.language) : "–"}{row.resolvedAt ? ` → ${new Date(row.resolvedAt).toLocaleString(i18n.language)}` : ""}</span>{!groupId && row.status === "pending" && <Button data-testid="C0-1-3-cancel" {...focusTargetProps(clubRequestFocusKey(row.groupId))} size="sm" disabled={busy !== null} onClick={async () => {
     if (!userId || busy || auth.currentUser?.uid !== userId) return;
     const scope = intent.current;
     if (!(await dialog.confirm(t("requests.cancelConfirm"), { destructive: true }))) return;
@@ -99,6 +99,11 @@ function GroupRequestHistoryContent({ userId, groupId, sectionId, focusRequest }
       await httpsCallable(functions, "cancelGroupRequest")({ groupId: row.groupId });
     } catch (err) { if (intent.current === scope) setActionErrors(prev => ({ ...prev, [row.id]: true })); logClientError("GroupRequestHistory.cancel", err); }
     finally { if (intent.current === scope) setBusy(null); }
-  }}>{t("requests.cancel")}</Button>}</div>{actionErrors[row.id] && <p role="alert">{t("requests.cancelFailed")}</p>}</div>)}</details></Card>;
+  }}>{t("requests.cancel")}</Button>}</div>{actionErrors[row.id] && <p role="alert">{t("requests.cancelFailed")}</p>}</div>)}</>;
+  if (row) return <details data-testid="C0-1-3" className="club-m-details" open={defaultOpen || undefined}>
+    <summary data-testid="C0-1-4" className="club-m-row club-m-row--button"><span>{row.label}</span>{row.count && <span className="club-m-row__count">{row.count}</span>}</summary>
+    <div className="club-m-panel">{entries}</div>
+  </details>;
+  const history = <Card data-testid={groupId ? "C7-1-2" : "C0-1-3"} className="space-y-3"><details open={defaultOpen || undefined}><summary>{t("requests.history")}</summary>{entries}</details></Card>;
   return sectionId ? <section data-testid={sectionId}>{history}</section> : history;
 }

@@ -75,11 +75,40 @@ it("keeps the stored summary separate from four weekly windows", () => {
 });
 
 
-it("summarizes wholly missing web weeks without a blank plot and retains confirmed zero", () => {
+it("folds phone weekly load into one row and keeps the existing bars behind it", () => {
   const view = renderWithProviders(<MobileFitnessPage data={{ ...weeklyFixture, weeklyTSS: [null, null, null, null], weeklyLoadPartial: true }} part="condition" />);
+  const toggle = within(screen.getByTestId("K1-7-2")).getByRole("button", { name: "주간 부하" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(toggle);
   expect(screen.getByText("주별 비교에 필요한 일별 부하 근거가 부족해요.")).toBeVisible();
   expect(within(screen.getByTestId("K1-7-2")).queryByRole("list")).not.toBeInTheDocument();
   view.rerender(<MobileFitnessPage data={{ ...weeklyFixture, weeklyTSS: [null, 0, null, null], weeklyLoadPartial: true }} part="condition" />);
   expect(within(screen.getByTestId("K1-7-2")).getByRole("list")).toHaveTextContent("0");
-  expect(screen.queryByText("주별 비교에 필요한 일별 부하 근거가 부족해요.")).not.toBeInTheDocument();
+});
+
+it("keeps the phone weekly row free of browser-summed numbers", () => {
+  const fixture = { ...weeklyFixture, weeklyTSS: [300, 280, 290, 320], thisWeekTSS: 320, avgWeekTSS: 290, hasKnownThisWeekLoad: true };
+  renderWithProviders(<MobileFitnessPage data={fixture} part="condition" />);
+  const toggle = within(screen.getByTestId("K1-7-2")).getByRole("button", { name: "주간 부하" });
+  expect(screen.queryByText(/290|320/)).not.toBeInTheDocument();
+  fireEvent.click(toggle);
+  expect(within(screen.getByTestId("K1-7-2")).getByRole("list")).toHaveTextContent("320");
+  expect(screen.queryByText(/평균/)).not.toBeInTheDocument();
+});
+
+it("keeps the phone weekly row for a stored server summary and shows it when expanded", () => {
+  renderWithProviders(<MobileFitnessPage data={{ ...weeklyFixture, weeklyTSS: [210], thisWeekTSS: 210, weeklyLoadStoredSummary: true, weeklyLoadPartial: true, hasKnownThisWeekLoad: true }} part="condition" />);
+  const row = screen.getByTestId("K1-7-2");
+  expect(row).not.toHaveTextContent("210");
+  fireEvent.click(within(row).getByRole("button", { name: "주간 부하" }));
+  expect(within(row).getByText("저장된 주간 요약 210 · 일별 기간 확인 불가")).toBeVisible();
+  expect(within(row).queryByRole("list")).not.toBeInTheDocument();
+});
+
+it("keeps the phone weekly row when weeks are empty but partial, with the existing notices", () => {
+  renderWithProviders(<MobileFitnessPage data={{ ...weeklyFixture, weeklyTSS: [], weeklyLoadPartial: true, loadUnknownCount: 2 }} part="condition" />);
+  const row = screen.getByTestId("K1-7-2");
+  fireEvent.click(within(row).getByRole("button", { name: "주간 부하" }));
+  expect(within(row).getByText("주별 비교에 필요한 일별 부하 근거가 부족해요.")).toBeVisible();
+  expect(within(row).getByText("부하 미확인 2건 · 확인된 값만 합산")).toBeVisible();
 });

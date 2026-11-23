@@ -1,4 +1,3 @@
-import { PublicDataSettingsCard } from "./PublicDataSettingsCard";
 import { NotificationPreferencesCard } from "./NotificationPreferencesCard";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,10 +15,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
-import { updateProfile } from "firebase/auth";
+import { updateProfile, type User as AuthUser } from "firebase/auth";
 
 import type { Visibility } from "@shared/types";
 import { profileAvatarPath, profileAvatarUrl, resolveProfilePhotoUrl } from "@shared/profileAvatar";
+import type { ProfileAvatarCrop } from "@shared/profileAvatarCrop";
 import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -33,6 +33,7 @@ import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } fr
 import { ProfileBodyEditor } from "./ProfileBodyEditor";
 import { PaneMedical } from "./PaneMedical";
 import { ProfileHero } from "./ProfileHero";
+import { ProfileAvatarCropDialog } from "./ProfileAvatarCropDialog";
 import { LocalizedLink } from "../LocalizedLink";
 import { PaneAiCoach } from "./PaneAiCoach";
 import { SocialLinksCard } from "./SocialLinksCard";
@@ -72,6 +73,7 @@ export function PaneAccount() {
   const [existingActivityCount, setExistingActivityCount] = useState<number | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoCrop, setPhotoCrop] = useState<{ bitmap: ImageBitmap; viewer: AuthUser }>();
   const [photoOverride, setPhotoOverride] = useState<{ uid: string; url: string | null }>();
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,7 +106,15 @@ export function PaneAccount() {
   useEffect(() => {
     if (photoOverride && (photoOverride.uid !== user?.uid || photoOverride.url === profile?.photoURL)) setPhotoOverride(undefined);
   }, [photoOverride, profile?.photoURL, user?.uid]);
+  // 편집창이 열린 사이 계정이 바뀌면 고른 사진(자르기 영역 밖 포함)을 새 계정에 보이지 않게 닫고 버린다.
+  useEffect(() => {
+    if (photoCrop && photoCrop.viewer.uid !== user?.uid) {
+      photoCrop.bitmap.close();
+      setPhotoCrop(undefined);
+    }
+  }, [photoCrop, user?.uid]);
   const ownPhotoOverride = photoOverride?.uid === user?.uid ? photoOverride : undefined;
+  const ownPhotoCrop = photoCrop?.viewer.uid === user?.uid ? photoCrop : undefined;
   const savedPhotoURL = resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL);
   const photoURL = ownPhotoOverride ? ownPhotoOverride.url : savedPhotoURL;
   if (!user) return null;
@@ -173,28 +183,63 @@ export function PaneAccount() {
     const viewer = auth.currentUser;
     if (viewer?.uid !== user.uid) return;
     if (!file.type.startsWith("image/")) {
-      showToast(t("profile.imageOnly"));
+      showToast(t("profile.photoInvalid"), "error");
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      // 기본 디코딩은 EXIF 방향을 반영한다(옵션 값 'from-image' 는 구형 엔진이 거부해 넘기지 않는다).
+      // 영역 선택 화면과 잘라 올리기가 이 한 장을 함께 써서 같은 좌표계가 된다.
+      const bitmap = await createImageBitmap(file);
+      // 디코딩 사이 계정이 바뀌었으면 이전 계정의 사진으로 편집창을 열지 않는다.
+      if (auth.currentUser !== viewer) {
+        bitmap.close();
+        return;
+      }
+      setPhotoCrop({ bitmap, viewer });
+    } catch (error) {
+      // 디코딩하지 못한 사진(손상·지원하지 않는 형식)은 다시 시도해도 같으므로 다른 사진을 고르게 한다.
+      logClientError("PaneAccount.changeAvatar", error, { stage: "encode" });
+      showToast(t("profile.photoInvalid"), "error");
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  function handlePhotoCropCancel() {
+    photoCrop?.bitmap.close();
+    setPhotoCrop(undefined);
+  }
+
+  async function handlePhotoCropConfirm(region: ProfileAvatarCrop) {
+    if (!photoCrop) return;
+    const { bitmap, viewer } = photoCrop;
+    setPhotoCrop(undefined);
+    if (!user || user.isAnonymous || photoUploading || auth.currentUser !== viewer || viewer.uid !== user.uid) {
+      bitmap.close();
       return;
     }
     setPhotoUploading(true);
     let stage = "encode";
+    let unusable = false;
     try {
-      const bitmap = await createImageBitmap(file);
       const canvas = document.createElement("canvas");
       canvas.width = 512;
       canvas.height = 512;
       try {
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas context unavailable");
-        const min = Math.min(bitmap.width, bitmap.height);
-        ctx.drawImage(bitmap, (bitmap.width - min) / 2, (bitmap.height - min) / 2, min, min, 0, 0, 512, 512);
+        ctx.drawImage(bitmap, region.x, region.y, region.side, region.side, 0, 0, 512, 512);
       } finally {
         bitmap.close();
       }
       const blob = await new Promise<Blob>((resolve, reject) =>
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/webp", 0.8),
       );
-      if (!blob.type.startsWith("image/") || blob.size >= 2 * 1024 * 1024) throw new Error("Invalid avatar encoding");
+      if (!blob.type.startsWith("image/") || blob.size >= 2 * 1024 * 1024) {
+        unusable = true;
+        throw new Error("Invalid avatar encoding");
+      }
       await withPhotoLock(user.uid, async () => {
         if (auth.currentUser !== viewer) return;
         const storageRef = ref(storage, profileAvatarPath(user.uid));
@@ -225,7 +270,7 @@ export function PaneAccount() {
       });
     } catch (error) {
       logClientError("PaneAccount.changeAvatar", error, { stage });
-      showToast(t("profile.photoUploadFailed"));
+      showToast(t(unusable ? "profile.photoInvalid" : "profile.photoUploadFailed"), "error");
     } finally {
       setPhotoUploading(false);
     }
@@ -234,7 +279,7 @@ export function PaneAccount() {
   async function handleRemovePhoto() {
     if (!user || user.isAnonymous || photoUploading) return;
     // 아바타 위 작은 아이콘이라 잘못 누르기 쉬워 한 번 더 묻는다
-    if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { destructive: true }))) return;
+    if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { plain: true, destructive: true, confirmLabel: t("profile.photoDeleteConfirmAction") }))) return;
     if (auth.currentUser?.uid !== user.uid) return;
     setPhotoUploading(true);
     try {
@@ -248,7 +293,7 @@ export function PaneAccount() {
       });
     } catch (error) {
       logClientError("PaneAccount.removeAvatar", error, { stage: "clear_profile" });
-      showToast(t("profile.photoRemoveFailed"));
+      showToast(t("profile.photoRemoveFailed"), "error");
     } finally {
       setPhotoUploading(false);
     }
@@ -328,6 +373,11 @@ export function PaneAccount() {
         friendCode={friendCode}
         stravaConnected={profile?.stravaConnected}
         onEditNickname={nicknameSaving ? undefined : handleSaveNickname}
+        avatarAction={user.isAnonymous ? undefined : {
+          label: photoUploading ? t("profile.photoUploading") : t("profile.photoChange"),
+          busy: photoUploading,
+          onClick: () => fileInputRef.current?.click(),
+        }}
         friendCodeAction={
           <IconButton
             variant="ghost"
@@ -345,28 +395,30 @@ export function PaneAccount() {
         avatarAside={photoURL && !user.isAnonymous ? (
           <IconButton
             variant="ghost"
-            size="compact"
-            className="settings-profile-avatar__action"
-            icon={<Trash2 size={ICON_SIZE.xs} />}
+            iconSize="large"
+            icon={<Trash2 size={ICON_SIZE.lg} />}
             onClick={handleRemovePhoto}
             disabled={photoUploading}
             aria-label={t("profile.photoDelete")}
             title={t("profile.photoDelete")}
-            style={{ color: "var(--rose)" }}
           />
         ) : undefined}
         avatarBadge={user.isAnonymous ? undefined :
           <>
-            <IconButton
-              variant="ghost"
-              size="compact"
-              className="settings-profile-avatar__action settings-profile-avatar__camera"
-              icon={<Camera size={ICON_SIZE.xs} />}
-              onClick={() => fileInputRef.current?.click()}
-              loading={photoUploading}
-              aria-label={photoUploading ? t("profile.photoUploading") : t("profile.photoChange")}
-              title={photoUploading ? t("profile.photoUploading") : t("profile.photoChange")}
-            />
+            {/* 업로드 중에는 배지를 숨기고 사진 위 덮개가 진행을 보인다(앱과 같은 모양) */}
+            {photoUploading ? (
+              <span role="status" className="sr-only">{t("profile.photoUploading")}</span>
+            ) : (
+              <IconButton
+                variant="primary"
+                size="compact"
+                className="settings-profile-avatar__action settings-profile-avatar__camera"
+                icon={<Camera size={ICON_SIZE.xs} />}
+                onClick={() => fileInputRef.current?.click()}
+                aria-label={t("profile.photoChange")}
+                title={t("profile.photoChange")}
+              />
+            )}
             <input
               type="file"
               accept="image/*"
@@ -374,6 +426,13 @@ export function PaneAccount() {
               style={{ display: "none" }}
               onChange={handlePhotoChange}
             />
+            {ownPhotoCrop && (
+              <ProfileAvatarCropDialog
+                image={ownPhotoCrop.bitmap}
+                onCancel={handlePhotoCropCancel}
+                onConfirm={region => void handlePhotoCropConfirm(region)}
+              />
+            )}
           </>
         }
       /></div>
@@ -393,7 +452,6 @@ export function PaneAccount() {
         </FieldGrid>
       </SettingsCard>
 
-      <PublicDataSettingsCard />
       <NotificationPreferencesCard />
 
       <ProfileBodyEditor />

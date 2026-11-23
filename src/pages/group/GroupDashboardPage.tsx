@@ -33,6 +33,7 @@ import Avatar from "../../components/Avatar";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { DropdownSelect, Button, Card, Chip, IconButton, Text, buttonClass, Textarea } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { useMobile } from "../../hooks/useMobile";
 
 interface UpcomingEvent {
   meeting: boolean;
@@ -50,6 +51,8 @@ interface UpcomingEvent {
 
 export default function GroupDashboardPage() {
   const { getClubMeetingSnapshot } = useClubMeetingsApi();
+  // 휴대폰 소식 탭은 소개·규칙·게시글·클럽 정보만 둔다. 모임·공동 기록·멤버 미리보기는 각 탭(모임·활동·⋯ 멤버)과 겹쳐 읽지도 그리지도 않는다.
+  const mobile = useMobile();
   const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
@@ -66,7 +69,7 @@ export default function GroupDashboardPage() {
   const { role: currentMemberRole, loading: roleLoading, error: roleError, retry: retryRole } = useGroupMemberRole(groupId, user?.uid);
   const accessKey = `${user?.uid ?? ""}:${currentMemberRole ?? ""}`;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(user ? groupId : undefined, accessKey);
-  const { members, loading: membersLoading, error: membersError, retry: retryMembers } = useGroupMembers(user && currentMemberRole ? groupId : undefined, 8, accessKey);
+  const { members, loading: membersLoading, error: membersError, retry: retryMembers } = useGroupMembers(user && currentMemberRole && !mobile ? groupId : undefined, 8, accessKey);
 
   const { rides, aggregate, loading: ridesLoading, error: ridesError, retry: retryRides } = useGroupRideStats(user && currentMemberRole ? groupId : undefined, accessKey);
   const { posts, loading: postsLoading, error: postsError } = useGroupPosts(user && currentMemberRole ? groupId : undefined, accessKey);
@@ -99,7 +102,8 @@ export default function GroupDashboardPage() {
   const [upcomingLoading, setUpcomingLoading] = useState(true);
   const [upcomingAttempt, setUpcomingAttempt] = useState(0);
   useEffect(() => {
-    if (!groupId || !user) { setUpcomingLoading(false); return; }
+    // 휴대폰 회원 화면은 다가오는 모임을 모임 탭에서 본다 — 방문자 미리보기에서만 읽는다.
+    if (!groupId || !user || mobile && currentMemberRole) { setUpcomingEvents([]); setUpcomingLoading(false); return; }
     let cancelled = false;
     setUpcomingEvents([]);
     setUpcomingError(false);
@@ -167,7 +171,7 @@ export default function GroupDashboardPage() {
       } finally { if (!cancelled) setUpcomingLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [groupId, t, user?.uid, accessKey, upcomingAttempt, getClubMeetingSnapshot, auth, functions, ensureAppCheckReady]);
+  }, [groupId, t, user?.uid, accessKey, upcomingAttempt, getClubMeetingSnapshot, auth, functions, ensureAppCheckReady, mobile]);
 
   if (!user && !authLoading) return <PublicClubPreview groupId={groupId} />;
 
@@ -499,7 +503,7 @@ export default function GroupDashboardPage() {
       )}
 
       {/* 다가오는 이벤트 */}
-      {(upcomingEvents.length > 0 || upcomingLoading || upcomingError || upcomingIncomplete) && (
+      {!mobile && (upcomingEvents.length > 0 || upcomingLoading || upcomingError || upcomingIncomplete) && (
         <Card data-testid="C1-4" padding="none" className="mb-4 p-4" style={{ borderRadius: "var(--r-lg)" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
@@ -548,11 +552,11 @@ export default function GroupDashboardPage() {
         </Card>
       )}
 
-      <div className={`club-news-layout${ridesError || rides.length === 0 ? " club-news-layout--no-rides" : ""}`}>
+      <div className={`club-news-layout${mobile || ridesError || rides.length === 0 ? " club-news-layout--no-rides" : ""}`}>
         {/* 멤버 랭킹 */}
         <div className="flex-1 min-w-0">
           {/* 최근 그룹 라이드 */}
-          {!ridesError && (group.sports ?? [group.discipline ?? "bike"]).includes("bike") && <div className="mt-4">
+          {!mobile && !ridesError && (group.sports ?? [group.discipline ?? "bike"]).includes("bike") && <div className="mt-4">
             <div data-testid="C1-4-2" className="flex items-center justify-between mb-3">
               <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.recentRides")}</h2>
               <Link to={`/club/${groupId}/rides`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreRides")}</Link>
@@ -574,7 +578,7 @@ export default function GroupDashboardPage() {
         {/* Sidebar */}
         <div className="club-news-sidebar">
           {/* 멤버 미리보기 */}
-          <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>
+          {!mobile && <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.memberPreview")}</h2>
               <Link to={`/club/${groupId}/members`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreMembers")}</Link>
@@ -603,7 +607,7 @@ export default function GroupDashboardPage() {
                 )}
               </div>
             )}
-          </Card>
+          </Card>}
 
           {/* 그룹 정보 카드 */}
           <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>

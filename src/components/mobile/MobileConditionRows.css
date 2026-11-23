@@ -1,0 +1,46 @@
+/* 휴대폰 컨디션 — 한 줄 블록. 터치 영역은 44px 이상. */
+.mobile-condition-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 2.75rem;
+  min-width: 0;
+  color: var(--ink-0);
+  text-decoration: none;
+}
+.mobile-condition-row:hover { color: var(--ink-0); }
+.mobile-condition-row--plan, .mobile-condition-row--goal { min-height: 3.5rem; }
+.mobile-condition-row--plan-only { justify-content: flex-start; min-height: 2.75rem; }
+.mobile-condition-row__stack { display: flex; flex-direction: column; gap: var(--space-0-5); min-width: 0; }
+.mobile-condition-row__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.mobile-condition-row__action { flex: none; color: var(--accent); font-size: var(--fs-sm); }
+
+.mobile-condition-recent__title { margin: 0 0 var(--space-1); }
+.mobile-condition-recent__list { list-style: none; margin: 0; padding: 0; }
+.mobile-condition-recent__list > li { border-bottom: 1px solid var(--line-soft); }
+.mobile-condition-row--activity { min-height: 3rem; }
+.mobile-condition-row--activity .mobile-condition-row__title { font-weight: 500; }
+.mobile-condition-row--more { justify-content: flex-start; color: var(--accent); font-size: var(--fs-sm); }
+
+.mobile-condition-weekly { margin-top: var(--space-3); border-top: 1px solid var(--line-soft); }
+.mobile-condition-weekly__toggle {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-0);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.mobile-condition-weekly > .mobile-condition-weekly__label { display: flex; align-items: center; min-height: 2.75rem; font-size: var(--fs-sm); }
+.mobile-condition-weekly__label { font-variant-numeric: tabular-nums; }
+.mobile-condition-weekly__chevron { color: var(--ink-3); transition: transform 0.15s ease; }
+.mobile-condition-weekly__toggle[aria-expanded="true"] .mobile-condition-weekly__chevron { transform: rotate(180deg); }
+
+.mobile-condition-pending { margin-top: var(--space-2); }

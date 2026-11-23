@@ -22,7 +22,6 @@ import type { Activity } from "@shared/types";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import SportFilterTabs from "../components/mobile/SportFilterTabs";
-import RecentActivitySummary from "../components/activity/RecentActivitySummary";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../utils/estimateTSS";
@@ -671,8 +670,8 @@ export default function TrainingLogPage() {
   const fitnessPeriodReturnLink = safeFitnessReturn && <LocalizedLink to={safeFitnessReturn}>{t("fitness:periodLoad.return")}</LocalizedLink>;
   // 계획/기록 세 탭은 같은 머리(제목 + 종목 전환)를 하위 탭 위에 둔다 — 이 탭만 머리가 사라져 탭을 오갈 때 위가 흔들렸다.
   const planRecordHeader = <>{!(isMobile || isNarrowLayout) && fitnessPeriodReturnLink}<PlanPeriodReturn />
-    <header data-testid="P1-H" className="coach-page-header"><Text as="h1" variant="pageTitle">{t("page.logTitle")}</Text><div><SportFilterTabs value={sportFilter} onChange={setSportFilter} /></div></header>
-    <PlanRecordNavigation date={recordDate} />
+    <header data-testid="P1-H" className="coach-page-header"><Text as="h1" variant="pageTitle">{isMobile ? t("planRecords.recordsShort") : t("page.logTitle")}</Text><div><SportFilterTabs value={sportFilter} onChange={setSportFilter} /></div></header>
+    <PlanRecordNavigation date={recordDate} compact={isMobile} />
     {/* 계획이 있으면 안내 문구 없이 기록을 바로 보인다. 오류·확인 중·계획 없음만 알린다. */}
     {(planOverlay.state !== "ready" || !planOverlay.plans.size) && <div style={{ marginBottom: "var(--space-3)" }}>
       <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}><Resolvable resolve={planOverlay.state === "ready" ? { to: sportFilter === "all" ? "/coach/goals" : `/coach/goals?sport=${sportFilter}&new=1` } : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : "planRecords.empty")}</Resolvable></Text>
@@ -700,7 +699,6 @@ export default function TrainingLogPage() {
       <MobileLogPage
         showSportFilter={false}
         periodReturnSlot={fitnessPeriodReturnLink}
-        recentSummarySlot={isMobile && !user.isAnonymous ? <RecentActivitySummary key={user.uid} sport={sportFilter} /> : undefined}
         plannedDates={[...visiblePlans.keys()]}
         plansByDate={Object.fromEntries(visiblePlans)}
         planState={planOverlay.state}

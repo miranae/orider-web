@@ -11,6 +11,8 @@ import GroupSubNav from "../../components/group/GroupSubNav";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card } from "../../theme/components";
+import { useMobile } from "../../hooks/useMobile";
+import GroupRideList from "../../components/group/GroupRideList";
 
 // 서버 group-stats의 mondayStartKst 집계와 동일한 기간을 표시한다.
 export function groupWeekRange(now = Date.now()) {
@@ -29,7 +31,10 @@ export default function GroupWeekPage() {
   const { role, loading: roleLoading, error: roleError, retry: roleRetry } = useGroupMemberRole(groupId, user?.uid);
   const accessKey = `${user?.uid ?? ""}:${role ?? ""}`;
   const { group, loading: groupLoading, error: groupError, retry: groupRetry } = useGroup(groupId, accessKey);
-  const { weeklyStats, loading, error, retry } = useGroupRideStats(role ? groupId : undefined, accessKey);
+  const rideStats = useGroupRideStats(role ? groupId : undefined, accessKey);
+  const { weeklyStats, loading, error, retry } = rideStats;
+  // 휴대폰 활동 탭: 이번 주 요약(모든 종목) 아래 공동 기록(자전거 클럽)을 함께 둔다. 같은 응답 하나로 그린다.
+  const mobile = useMobile();
   const [metric, setMetric] = useState<Metric>("distance");
   const ranking = useGroupWeekRanking(role ? groupId : undefined, metric, accessKey);
   if (groupLoading || roleLoading) return <LoadingSkeleton kind="list" count={5} />;
@@ -40,19 +45,49 @@ export default function GroupWeekPage() {
   const fmt = (value: number, key: Metric) => key === "distance" ? `${(value / 1000).toFixed(1)} km` : key === "elevation" ? `${Math.round(value)} m` : `${Math.floor(value / 3600000)}h ${Math.floor(value % 3600000 / 60000)}m`;
   const rows = ranking.entries;
   const max = rows[0]?.[metric] ?? 0;
-  return <div className="space-y-4">
-    <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, role)} />
-    {loading ? <LoadingSkeleton kind="list" count={5} /> : error ? <ErrorState title={t("week.loadFailed")} onRetry={retry} /> : <>
-    <header data-testid="C5-0"><h2 data-testid="C5-0-1">{t("subNav.week")} · {monday.toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })} – {sunday.toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })}</h2>
-    <p data-testid="C5-0-3">{t("week.source")}</p></header>
-    <section data-testid="C5-1">{weeklyStats ? <div data-testid="C5-1-1" className="grid grid-cols-2 md:grid-cols-5 gap-3">
-      {[[t("week.metricLabels.distance"), fmt(weeklyStats.totalDistance, "distance")], [t("week.activeMembers"), `${weeklyStats.activeMembers} / ${group.memberCount}`], [t("week.rideCount"), weeklyStats.rideCount], [t("week.metricLabels.time"), fmt(weeklyStats.totalTime, "time")], [t("week.metricLabels.elevation"), fmt(weeklyStats.totalElevation, "elevation")]].map(([label, value]) => <Card key={label}><p className="text-[length:var(--ft-body-medium-size)]">{label}</p><strong className="font-mono text-[length:var(--ft-title-size)]">{value}</strong></Card>)}
-    </div> : <p role="status">{t("week.unavailable")}</p>}</section>
-    <section data-testid="C5-2"><div className="flex flex-wrap gap-2">{(["distance", "time", "elevation"] as const).map(key => <Button data-testid="C5-2-1" key={key} size="sm" variant={key === metric ? "primary" : "secondary"} aria-pressed={key === metric} onClick={() => setMetric(key)}>{t(`week.metricLabels.${key}`)}</Button>)}</div>
+  const cycling = (group.sports ?? [group.discipline ?? "bike"]).includes("bike");
+  // 휴대폰 요약은 거리·활동 멤버·횟수 세 칸. 시간·상승은 아래 지표 버튼(순위)으로 본다.
+  const tiles: Array<[string, string | number]> = mobile
+    ? [[t("week.metricLabels.distance"), fmt(weeklyStats?.totalDistance ?? 0, "distance")], [t("week.activeMembers"), `${weeklyStats?.activeMembers ?? 0} / ${group.memberCount}`], [t("week.rideCount"), weeklyStats?.rideCount ?? 0]]
+    : [[t("week.metricLabels.distance"), fmt(weeklyStats?.totalDistance ?? 0, "distance")], [t("week.activeMembers"), `${weeklyStats?.activeMembers ?? 0} / ${group.memberCount}`], [t("week.rideCount"), weeklyStats?.rideCount ?? 0], [t("week.metricLabels.time"), fmt(weeklyStats?.totalTime ?? 0, "time")], [t("week.metricLabels.elevation"), fmt(weeklyStats?.totalElevation ?? 0, "elevation")]];
+  const header = <header data-testid="C5-0"><h2 data-testid="C5-0-1">{t("subNav.week")} · {monday.toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })} – {sunday.toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })}</h2>
+    <p data-testid="C5-0-3">{t("week.source")}</p></header>;
+  const rankingSection = <section data-testid="C5-2"><div className="flex flex-wrap gap-2">{(["distance", "time", "elevation"] as const).map(key => <Button data-testid="C5-2-1" key={key} size="sm" variant={key === metric ? "primary" : "secondary"} aria-pressed={key === metric} onClick={() => setMetric(key)}>{t(`week.metricLabels.${key}`)}</Button>)}</div>
     {!weeklyStats || weeklyStats.activeMembers === 0 ? <div data-testid="C5-2-3"><EmptyState title={t("week.empty")} /></div> : ranking.loading ? <LoadingSkeleton kind="list" count={5} /> : ranking.error ? <ErrorState title={t("week.loadFailed")} onRetry={ranking.retry} /> : rows.map(stats => <Card key={stats.userId} className="space-y-2"><Link data-testid="C5-2-2" to={`/athlete/${stats.userId}`}>{stats.nickname}{stats.userId === user?.uid ? ` ${t("dashboard.meIndicator")}` : ""}</Link><p className="font-mono text-[length:var(--ft-body-medium-size)]">{fmt(stats[metric], metric)}</p><progress value={stats[metric]} max={max || 1} aria-label={`${stats.nickname} · ${t(`week.metricLabels.${metric}`)}`} className="club-week-progress" /></Card>)}
     {ranking.moreError && <ErrorState title={t("week.loadFailed")} onRetry={() => { void ranking.loadMore(); }} />}
     {ranking.hasMore && <Button size="sm" variant="secondary" disabled={ranking.loadingMore} onClick={() => { void ranking.loadMore(); }}>{t("week.loadMore")}</Button>}
-    </section>
+    </section>;
+
+  if (mobile) {
+    // 휴대폰 활동: 이번 주 요약과 공동 기록이 각자 자리에서 실패·다시 시도한다 — 한쪽 실패가 화면 전체를 덮지 않는다.
+    return <div className="space-y-4">
+      <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, role)} compact />
+      {header}
+      <section data-testid="C5-1">{loading ? <LoadingSkeleton kind="list" count={1} />
+        : error ? <ErrorState title={t("week.loadFailed")} onRetry={retry} compact />
+        : weeklyStats ? <div data-testid="C5-1-1" className="club-week-tiles grid grid-cols-3 gap-3">
+          {tiles.map(([label, value]) => <Card key={label}><p className="text-[length:var(--ft-body-medium-size)]">{label}</p><strong className="font-mono text-[length:var(--ft-title-size)]">{value}</strong></Card>)}
+        </div>
+        : <div className="flex flex-wrap items-center gap-2"><p role="status">{t("week.unavailable")}</p><Button size="sm" variant="secondary" data-testid="C5-1-2" onClick={retry}>{t("invite.retry")}</Button></div>}</section>
+      {!loading && !error && rankingSection}
+      {cycling && <section data-testid="C5-3" aria-labelledby="club-week-rides" className="space-y-3">
+        <h2 id="club-week-rides">{t("subNav.rides")}</h2>
+        {/* 공동 기록 화면(GroupRidesContent)과 같은 오류 처리: 첫 조회 실패는 이 자리에서 다시 시도, 다음 쪽 실패는 목록 안에서. */}
+        {loading && rideStats.rides.length === 0 ? <LoadingSkeleton kind="list" count={3} />
+          : error ? <ErrorState title={t(error === "unavailable" ? "error.rideStatsUnavailable" : "error.rideStatsLoadFailed")} description={t("error.rideStatsRetry")} onRetry={retry} compact />
+          : <GroupRideList stats={rideStats} showScope={false} />}
+      </section>}
+    </div>;
+  }
+
+  return <div className="space-y-4">
+    <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, role)} />
+    {loading ? <LoadingSkeleton kind="list" count={5} /> : error ? <ErrorState title={t("week.loadFailed")} onRetry={retry} /> : <>
+    {header}
+    <section data-testid="C5-1">{weeklyStats ? <div data-testid="C5-1-1" className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      {tiles.map(([label, value]) => <Card key={label}><p className="text-[length:var(--ft-body-medium-size)]">{label}</p><strong className="font-mono text-[length:var(--ft-title-size)]">{value}</strong></Card>)}
+    </div> : <p role="status">{t("week.unavailable")}</p>}</section>
+    {rankingSection}
     </>}
   </div>;
 }
