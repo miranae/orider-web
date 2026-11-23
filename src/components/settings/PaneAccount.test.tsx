@@ -216,7 +216,7 @@ describe("PaneAccount nickname save", () => {
     expect(mocks.uploadBytes).not.toHaveBeenCalled();
     expect(mocks.updateDoc).not.toHaveBeenCalled();
     expect(mocks.showToast).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "profile.photoChange" })).not.toBeDisabled();
+    for (const change of screen.getAllByRole("button", { name: "profile.photoChange" })) expect(change).not.toBeDisabled();
   });
 
   it("계정이 바뀌면 이전 계정이 고른 사진을 영역 선택 창에 보이지 않고 버린다", async () => {
@@ -487,17 +487,19 @@ describe("PaneAccount nickname save", () => {
     const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     const copy = await screen.findByRole("button", { name: "profile.copyCode" });
     const avatar = container.querySelector(".settings-profile-avatar");
-    for (const name of ["profile.photoChange", "profile.photoDelete"]) {
-      const button = screen.getByRole("button", { name });
+    const badge = avatar!.querySelector<HTMLElement>(".settings-profile-avatar__badge button")!;
+    for (const button of [badge, screen.getByRole("button", { name: "profile.photoDelete" })]) {
+      const name = button.getAttribute("aria-label")!;
       expect(button).toHaveClass("ds-btn--icon-only");
       expect(button).toHaveAttribute("title", name);
       expect(button.textContent).toBe("");
     }
-    // 아바타 위에는 카메라 배지 하나만 걸친다 — 삭제 아이콘은 사진을 가리지 않도록 아바타 바깥 옆자리
-    const change = screen.getByRole("button", { name: "profile.photoChange" });
+    // 아바타 위에는 카메라 배지 하나만 걸친다 — 삭제 아이콘은 사진을 가리지 않도록 아바타 바깥 옆자리.
+    // 사진 자체도 같은 이름의 사진 변경이며, 배지를 품지 않아 버튼이 겹치지 않는다.
     const remove = screen.getByRole("button", { name: "profile.photoDelete" });
-    expect(avatar?.querySelector(".settings-profile-avatar__badge")).toContainElement(change);
-    expect(avatar?.querySelectorAll("button")).toHaveLength(1);
+    expect(badge).toHaveAttribute("aria-label", "profile.photoChange");
+    expect(screen.getAllByRole("button", { name: "profile.photoChange" })).toHaveLength(2);
+    expect(avatar!.querySelector("button button")).toBeNull();
     expect(avatar).not.toContainElement(remove);
     expect(container.querySelector(".settings-profile-avatar-group")).toContainElement(remove);
     expect(copy).toHaveClass("ds-btn--icon-only");
@@ -521,10 +523,70 @@ describe("PaneAccount nickname save", () => {
     mocks.confirm.mockResolvedValueOnce(false);
     render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
-    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("profile.photoDeleteConfirm", { destructive: true }));
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("profile.photoDeleteConfirm", { destructive: true, confirmLabel: "profile.photoDeleteConfirmAction" }));
     expect(mocks.updateDoc).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
     await waitFor(() => expect(mocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { photoURL: null, profileAvatarGeneration: null }));
+  });
+
+  it("사진을 눌러도 배지처럼 사진 선택기를 열고, 올리는 동안에는 둘 다 누를 수 없다", async () => {
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(canvasContext());
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
+    mocks.avatarRead.mockResolvedValueOnce({ data: () => ({}) });
+    let finishUpload: (value: unknown) => void = () => {};
+    mocks.uploadBytes.mockReturnValueOnce(new Promise(resolve => { finishUpload = resolve; }));
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const input = container.querySelector<HTMLInputElement>("input[type=file]")!;
+    const pick = vi.spyOn(input, "click").mockImplementation(() => {});
+    const photo = container.querySelector<HTMLButtonElement>(".settings-profile-avatar__photo")!;
+    expect(photo).toHaveAccessibleName("profile.photoChange");
+    // 키보드 탐색은 배지 하나로 — 사진 버튼은 탭 순서에 넣지 않는다
+    expect(photo).toHaveAttribute("tabindex", "-1");
+    fireEvent.click(photo);
+    expect(pick).toHaveBeenCalledTimes(1);
+
+    await pickAndConfirm(input);
+    await waitFor(() => expect(mocks.uploadBytes).toHaveBeenCalled());
+    for (const change of screen.getAllByRole("button", { name: "profile.photoUploading" })) expect(change).toBeDisabled();
+    fireEvent.click(photo);
+    expect(pick).toHaveBeenCalledTimes(1);
+    await act(async () => { finishUpload({ metadata: { generation: "1" } }); });
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("profile.photoUpdated"));
+    expect(photo).not.toBeDisabled();
+  });
+
+  it("익명 사용자는 사진을 눌러도 아무것도 열리지 않는다", () => {
+    mocks.user = { uid: "u1", isAnonymous: true } as never;
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    expect(container.querySelector(".settings-profile-avatar button")).toBeNull();
+  });
+
+  it("이미지가 아니거나 읽을 수 없는 사진은 다른 사진을 고르라고, 올리기 실패는 다시 시도하라고 알린다", async () => {
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const input = container.querySelector<HTMLInputElement>("input[type=file]")!;
+    fireEvent.change(input, { target: { files: [new File(["x"], "note.txt", { type: "text/plain" })] } });
+    expect(mocks.showToast).toHaveBeenLastCalledWith("profile.photoInvalid", "error");
+
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => { throw new Error("decode failed"); }));
+    fireEvent.change(input, { target: { files: [photoFile()] } });
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledTimes(2));
+    expect(mocks.showToast).toHaveBeenLastCalledWith("profile.photoInvalid", "error");
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(canvasContext());
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob([new Uint8Array(2 * 1024 * 1024)], { type: "image/webp" })));
+    await pickAndConfirm(input);
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledTimes(3));
+    expect(mocks.showToast).toHaveBeenLastCalledWith("profile.photoInvalid", "error");
+
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
+    mocks.uploadBytes.mockRejectedValueOnce(new Error("network"));
+    await pickAndConfirm(input);
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledTimes(4));
+    expect(mocks.showToast).toHaveBeenLastCalledWith("profile.photoUploadFailed", "error");
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
   });
 
 });

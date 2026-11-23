@@ -14,6 +14,9 @@ interface ProfileHeroProps {
   onEditNickname?: () => void;
   /** 아바타 오른쪽 아래 모서리에 작은 원형 배지로 걸치는 아이콘 버튼 하나(사진 변경) */
   avatarBadge?: ReactNode;
+  /** 아바타 사진 자체를 눌러도 실행하는 동작(사진 변경). 배지와 같은 이름·비활성 상태를 넘긴다.
+   * 키보드 탐색은 배지 하나로 충분해 사진 버튼은 탭 순서에서 뺀다. */
+  avatarAction?: { label: string; disabled?: boolean; onClick: () => void };
   /** 아바타를 가리지 않도록 아바타 옆에 두는 아이콘 버튼(사진 삭제) */
   avatarAside?: ReactNode;
   /** 친구 코드 바로 옆에 붙는 아이콘 버튼(코드 복사) */
@@ -28,6 +31,7 @@ export function ProfileHero({
   stravaConnected,
   onEditNickname,
   avatarBadge,
+  avatarAction,
   avatarAside,
   friendCodeAction,
 }: ProfileHeroProps) {
@@ -37,6 +41,40 @@ export function ProfileHero({
   const [failedPhoto, setFailedPhoto] = useState<string>();
   const initial = (nickname || "?").slice(0, 1).toUpperCase();
   const size = 72;
+  const avatar = photoSrc && photoSrc !== failedPhoto ? (
+    <img
+      src={photoSrc}
+      onError={() => {
+        reportProfileAvatarLoadError(photoURL);
+        setFailedPhoto(photoSrc);
+      }}
+      alt={nickname}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        objectFit: "cover",
+        border: "1px solid var(--line-soft)",
+      }}
+    />
+  ) : (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        display: "grid",
+        placeItems: "center",
+        background: "color-mix(in oklch, var(--lime) 18%, var(--bg-2))",
+        color: "var(--ink-0)",
+        fontSize: size * 0.42,
+        fontWeight: 600,
+        border: "1px solid var(--line-soft)",
+      }}
+    >
+      {initial}
+    </div>
+  );
   return (
     <Card padding="none" className="settings-profile-hero"
       style={{
@@ -50,40 +88,19 @@ export function ProfileHero({
     >
       <div className="settings-profile-avatar-group">
       <div className="settings-profile-avatar">
-        {photoSrc && photoSrc !== failedPhoto ? (
-          <img
-            src={photoSrc}
-            onError={() => {
-              reportProfileAvatarLoadError(photoURL);
-              setFailedPhoto(photoSrc);
-            }}
-            alt={nickname}
-            style={{
-              width: size,
-              height: size,
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: "1px solid var(--line-soft)",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: size,
-              height: size,
-              borderRadius: "50%",
-              display: "grid",
-              placeItems: "center",
-              background: "color-mix(in oklch, var(--lime) 18%, var(--bg-2))",
-              color: "var(--ink-0)",
-              fontSize: size * 0.42,
-              fontWeight: 600,
-              border: "1px solid var(--line-soft)",
-            }}
+        {avatarAction ? (
+          <button
+            type="button"
+            className="settings-profile-avatar__photo"
+            onClick={avatarAction.onClick}
+            disabled={avatarAction.disabled}
+            aria-label={avatarAction.label}
+            title={avatarAction.label}
+            tabIndex={-1}
           >
-            {initial}
-          </div>
-        )}
+            {avatar}
+          </button>
+        ) : avatar}
         {avatarBadge && <div className="settings-profile-avatar__badge">{avatarBadge}</div>}
       </div>
       {avatarAside}

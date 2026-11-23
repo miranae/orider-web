@@ -183,7 +183,7 @@ export function PaneAccount() {
     const viewer = auth.currentUser;
     if (viewer?.uid !== user.uid) return;
     if (!file.type.startsWith("image/")) {
-      showToast(t("profile.imageOnly"));
+      showToast(t("profile.photoInvalid"), "error");
       return;
     }
     setPhotoUploading(true);
@@ -198,8 +198,9 @@ export function PaneAccount() {
       }
       setPhotoCrop({ bitmap, viewer });
     } catch (error) {
+      // 디코딩하지 못한 사진(손상·지원하지 않는 형식)은 다시 시도해도 같으므로 다른 사진을 고르게 한다.
       logClientError("PaneAccount.changeAvatar", error, { stage: "encode" });
-      showToast(t("profile.photoUploadFailed"));
+      showToast(t("profile.photoInvalid"), "error");
     } finally {
       setPhotoUploading(false);
     }
@@ -220,6 +221,7 @@ export function PaneAccount() {
     }
     setPhotoUploading(true);
     let stage = "encode";
+    let unusable = false;
     try {
       const canvas = document.createElement("canvas");
       canvas.width = 512;
@@ -234,7 +236,10 @@ export function PaneAccount() {
       const blob = await new Promise<Blob>((resolve, reject) =>
         canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/webp", 0.8),
       );
-      if (!blob.type.startsWith("image/") || blob.size >= 2 * 1024 * 1024) throw new Error("Invalid avatar encoding");
+      if (!blob.type.startsWith("image/") || blob.size >= 2 * 1024 * 1024) {
+        unusable = true;
+        throw new Error("Invalid avatar encoding");
+      }
       await withPhotoLock(user.uid, async () => {
         if (auth.currentUser !== viewer) return;
         const storageRef = ref(storage, profileAvatarPath(user.uid));
@@ -265,7 +270,7 @@ export function PaneAccount() {
       });
     } catch (error) {
       logClientError("PaneAccount.changeAvatar", error, { stage });
-      showToast(t("profile.photoUploadFailed"));
+      showToast(t(unusable ? "profile.photoInvalid" : "profile.photoUploadFailed"), "error");
     } finally {
       setPhotoUploading(false);
     }
@@ -274,7 +279,7 @@ export function PaneAccount() {
   async function handleRemovePhoto() {
     if (!user || user.isAnonymous || photoUploading) return;
     // 아바타 위 작은 아이콘이라 잘못 누르기 쉬워 한 번 더 묻는다
-    if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { destructive: true }))) return;
+    if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { destructive: true, confirmLabel: t("profile.photoDeleteConfirmAction") }))) return;
     if (auth.currentUser?.uid !== user.uid) return;
     setPhotoUploading(true);
     try {
@@ -288,7 +293,7 @@ export function PaneAccount() {
       });
     } catch (error) {
       logClientError("PaneAccount.removeAvatar", error, { stage: "clear_profile" });
-      showToast(t("profile.photoRemoveFailed"));
+      showToast(t("profile.photoRemoveFailed"), "error");
     } finally {
       setPhotoUploading(false);
     }
@@ -368,6 +373,11 @@ export function PaneAccount() {
         friendCode={friendCode}
         stravaConnected={profile?.stravaConnected}
         onEditNickname={nicknameSaving ? undefined : handleSaveNickname}
+        avatarAction={user.isAnonymous ? undefined : {
+          label: photoUploading ? t("profile.photoUploading") : t("profile.photoChange"),
+          disabled: photoUploading,
+          onClick: () => fileInputRef.current?.click(),
+        }}
         friendCodeAction={
           <IconButton
             variant="ghost"
@@ -398,7 +408,7 @@ export function PaneAccount() {
         avatarBadge={user.isAnonymous ? undefined :
           <>
             <IconButton
-              variant="ghost"
+              variant="primary"
               size="compact"
               className="settings-profile-avatar__action settings-profile-avatar__camera"
               icon={<Camera size={ICON_SIZE.xs} />}
