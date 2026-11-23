@@ -55,19 +55,28 @@ export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: b
   return !publicOnly || (info.deletedAt == null && info.kind !== "CLUB_MEETING" && (info.visibility === "PUBLIC" || (serverAuthorized && (info.visibility == null || info.visibility === "GROUP"))));
 }
 
+const EMPTY_LABELS: Map<string, string> = new Map();
+const EMPTY_EVENTS: Map<string, NextEventInfo> = new Map();
+const EMPTY_GROUPS: Set<string> = new Set();
+
 /**
  * 그룹별 가장 가까운 OPEN/LIVE 이벤트 1건씩 묶어 반환.
  * 클럽마다 서버 목록 조회 한 번(최대 250건). 끝까지 못 읽은 클럽은 전체 목록으로 이어 보게 한다.
  */
-export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, publicOnly = false) {
+export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, publicOnly = false, viewerUid?: string | null) {
   const services = useFirebaseServices();
   const { t, i18n } = useTranslation("group");
   const [byGroup, setByGroup] = useState<Map<string, string>>(new Map());
   const [eventByGroup, setEventByGroup] = useState<Map<string, NextEventInfo>>(new Map());
   const [loading, setLoading] = useState(false);
   const [incompleteGroups, setIncompleteGroups] = useState<Set<string>>(new Set());
+  // 결과를 읽은 조회(계정·클럽·조건). 계정이나 클럽 목록이 바뀐 뒤 effect 가 지우기 전 첫 렌더에도
+  // 이전 조회의 모임(회원만 보는 제목·참가 인원)을 내보내지 않는다(#1842).
+  const queryKey = [viewerUid ?? "", excludeEventId ?? "", publicOnly ? "public" : "all", ...groupIds].join("|");
+  const [resultKey, setResultKey] = useState(queryKey);
 
   useEffect(() => {
+    setResultKey(queryKey);
     setIncompleteGroups(new Set());
     if (groupIds.length === 0) {
       setByGroup(new Map());
@@ -140,7 +149,8 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
     return () => {
       cancelled = true;
     };
-  }, [excludeEventId, groupIds.join("|"), i18n.language, publicOnly, t, services]);
+  }, [excludeEventId, groupIds.join("|"), i18n.language, publicOnly, t, services, viewerUid, queryKey]);
 
+  if (resultKey !== queryKey) return { byGroup: EMPTY_LABELS, eventByGroup: EMPTY_EVENTS, incompleteGroups: EMPTY_GROUPS, loading: groupIds.length > 0 };
   return { byGroup, eventByGroup, incompleteGroups, loading };
 }

@@ -223,9 +223,12 @@ export function useMyGroups(userId: string | undefined) {
   const [incomplete, setIncomplete] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const ownerRef = useRef(userId);
+  // 목록·상태를 읽은 계정. 계정이 바뀐 뒤 effect 가 지우기 전 첫 렌더에도 이전 계정의 목록(비공개 클럽 포함)을 내보내지 않는다(#1842).
+  const [dataOwner, setDataOwner] = useState(userId);
 
   useEffect(() => {
     if (ownerRef.current !== userId) { setGroups([]); ownerRef.current = userId; }
+    setDataOwner(userId);
     if (!userId) {
       setGroups([]);
       setError(null);
@@ -385,7 +388,14 @@ export function useMyGroups(userId: string | undefined) {
     return unsubscribe;
   }, [firestore, services, userId]);
 
-  return { groups, loading, error, incomplete, retry: () => setReloadKey((key) => key + 1) };
+  const own = dataOwner === userId;
+  return {
+    groups: own ? groups : [],
+    loading: own ? loading : Boolean(userId),
+    error: own ? error : null,
+    incomplete: own ? incomplete : false,
+    retry: () => setReloadKey((key) => key + 1),
+  };
 }
 
 /** 내가 보낸 클럽 가입 요청 중 승인 대기인 클럽 ID(users/{uid}/group_requests, 실시간). '승인 대기' 표시에 쓴다(#1558). */
