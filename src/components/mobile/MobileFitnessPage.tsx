@@ -1034,9 +1034,16 @@ export default function MobileFitnessPage({
         ...(isBike && embedded ? [{ id: "condition-ftp", label: t("fitness:condition.basis.title") }] : []),
         ...(!embedded && !mobileCondition && hasThresholdSettings ? [{ id: "thresholds", label: t("fitness:condition.settings.title") }] : []),
       ]} />) : null;
-  // 휴대폰 컨디션 주간 부하 — 접힌 줄에는 숫자를 두지 않는다(브라우저 합계 미표시, P6). 펼치면 기존 주별 막대를 그대로 보인다.
-  const phoneWeeklyLoad = mobileCondition && sectionState.trend === "ready" && !data.weeklyLoadStoredSummary && data.weeklyTSS.length > 0
-    ? <ConditionWeeklyLoadRow><WeeklyTssBars compact values={data.weeklyTSS} color={weeklyLoadColor} t={t} /></ConditionWeeklyLoadRow> : null;
+  // 휴대폰 컨디션 주간 부하 — 접힌 줄에는 숫자를 두지 않는다(브라우저 합계 미표시, P6).
+  // 펼치면 예전 주간 카드가 보이던 내용을 기존 문구·컴포넌트 그대로 보인다: 서버 주간 요약, 주별 막대, 근거 부족·미확인 안내.
+  const phoneWeeklyLoad = mobileCondition && sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial)
+    ? <ConditionWeeklyLoadRow>
+      {data.weeklyLoadStoredSummary
+        ? <Text as="p" variant="bodyMedium">{t("fitness:weekly.storedSummary", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–" })}</Text>
+        : data.weeklyTSS.length > 0 ? <WeeklyTssBars compact values={data.weeklyTSS} color={weeklyLoadColor} t={t} />
+          : <Text as="p" variant="bodySmall" tone="secondary">{t("mobileFitness.weeklyUnknown")}</Text>}
+      {!!data.loadUnknownCount && <Text as="p" variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
+    </ConditionWeeklyLoadRow> : null;
   const conditionTrend = (          <section id={part === "condition" ? "condition-trend" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "condition-section-target" : undefined}>
           <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
             {sectionState.trend === "loading" ? (

@@ -10,9 +10,9 @@ vi.mock("../../embedded/planSnapshotCache", async (importOriginal) => {
     return actual.readPlanSnapshot(...args);
   } };
 });
-import { planSnapshotKey, writePlanSnapshot } from "../../embedded/planSnapshotCache";
-import { clearTrainingSurfaceCache } from "../../embedded/trainingSurfaceCache";
-import { readCachedTodayPlan } from "./cachedTodayPlan";
+import { invalidatePlanSnapshot, planSnapshotKey, writePlanSnapshot } from "../../embedded/planSnapshotCache";
+import { clearTrainingSurfaceCache, prepareTrainingSurfaceCacheOwner } from "../../embedded/trainingSurfaceCache";
+import { readCachedTodayPlan, todayPlanLabel } from "./cachedTodayPlan";
 
 const scoped = window as unknown as { __ORIDER_TRAINING_CACHE_SCOPE__?: string };
 const now = Date.parse("2026-11-22T03:00:00Z");
@@ -39,5 +39,35 @@ describe("readCachedTodayPlan", () => {
     failRead.on = true;
     expect(readCachedTodayPlan("u1", false, "bike", "ko", now)).toBeNull();
     expect(logClientError).toHaveBeenCalledWith("cachedTodayPlan.read", expect.any(Error), { sport: "bike" });
+  });
+  it("ignores a snapshot that is no longer fresh or was invalidated", () => {
+    scoped.__ORIDER_TRAINING_CACHE_SCOPE__ = "a".repeat(64);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(Date.parse("2026-11-22T03:00:00Z"));
+      const key = planSnapshotKey("u1", "bike", "ko");
+      prepareTrainingSurfaceCacheOwner("u1");
+      writePlanSnapshot(key, { goal: { id: "g", userId: "u1" } as never, weeks: [{ id: "w", days: [day(0)] } as never] });
+      expect(readCachedTodayPlan("u1", false, "bike", "ko", now)).not.toBeNull();
+      invalidatePlanSnapshot(key);
+      expect(readCachedTodayPlan("u1", false, "bike", "ko", now)).toBeNull();
+      writePlanSnapshot(key, { goal: { id: "g", userId: "u1" } as never, weeks: [{ id: "w", days: [day(0)] } as never] });
+      vi.setSystemTime(Date.parse("2026-11-22T03:04:00Z"));
+      expect(readCachedTodayPlan("u1", false, "bike", "ko", now)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("todayPlanLabel", () => {
+  const t = (key: string, options?: Record<string, unknown>) => key === "decision.duration" ? `${options?.value}분` : key === "workouts.z2" ? "Z2 지구력" : key;
+  const known = (key: string) => key === "workouts.z2";
+  it("labels known workouts and keeps imported names", () => {
+    expect(todayPlanLabel({ workout: "z2", workoutName: null, durationMin: 75 }, t, known)).toBe("Z2 지구력 75분");
+    expect(todayPlanLabel({ workout: "tempo", workoutName: "스윗스팟", durationMin: null }, t, known)).toBe("스윗스팟");
+  });
+  it("never shows a raw translation key for an unknown workout", () => {
+    expect(todayPlanLabel({ workout: "mystery" as never, workoutName: null, durationMin: 60 }, t, known)).toBeNull();
   });
 });

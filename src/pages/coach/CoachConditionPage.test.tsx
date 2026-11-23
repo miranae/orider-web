@@ -9,8 +9,11 @@ vi.mock("./CoachFitnessModelContext", () => ({ useCoachFitnessModel: () => ({
   isMobile: state.mobile, discipline: state.discipline, loading: state.loading,
   activities: [], fitnessData: [], currentPoint: null,
 }) }));
-vi.mock("../FitnessPage", () => ({ FitnessView: ({ hasThresholdSettings }: { hasThresholdSettings: boolean }) =>
-  <section aria-label="Current condition">Condition content{hasThresholdSettings && <button>Edit thresholds inline</button>}</section> }));
+const viewProps = vi.hoisted(() => ({ last: null as Record<string, unknown> | null }));
+vi.mock("../FitnessPage", () => ({ FitnessView: (props: { hasThresholdSettings: boolean }) => {
+  viewProps.last = props;
+  return <section aria-label="Current condition">Condition content{props.hasThresholdSettings && <button>Edit thresholds inline</button>}</section>;
+} }));
 
 function CurrentLocation() {
   const location = useLocation();
@@ -76,5 +79,14 @@ describe("condition legacy destinations", () => {
     render(<Fixture entry="/ko/coach/condition?sport=tri#condition-metrics" />);
     expect(screen.getByRole("region", { name: "Current condition" })).toBeVisible();
     expect(screen.getByTestId("location")).toHaveTextContent("/ko/coach/condition?sport=tri#condition-metrics");
+  });
+
+  // 앱 임베드(/embed/fitness?page=condition)도 이 화면을 embedded 없이 그려 휴대폰 웹과 같은 컨디션 분기를 탄다.
+  it("renders the condition view without the embedded flag so the app uses the phone layout", () => {
+    render(<Fixture entry="/ko/coach/condition?sport=run" />);
+    expect(screen.getByRole("region", { name: "Current condition" })).toBeVisible();
+    expect(viewProps.last).toMatchObject({ part: "condition", hasThresholdSettings: false });
+    expect(viewProps.last).not.toHaveProperty("embedded");
+    expect(viewProps.last).not.toHaveProperty("conditionSupplementSlot");
   });
 });
