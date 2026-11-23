@@ -105,6 +105,20 @@ vi.mock("../../hooks/useLocalizedNavigate", () => ({
   useLocalizedPath: (path: string) => `/ko${path}`,
 }));
 
+const canvasContext = () => ({
+  drawImage: vi.fn(), setTransform: vi.fn(), clearRect: vi.fn(), beginPath: vi.fn(),
+  rect: vi.fn(), arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
+}) as unknown as CanvasRenderingContext2D;
+
+const photoFile = () => new File(["fixture"], "photo.png", { type: "image/png" });
+
+/** 사진을 고르면 영역 선택 창이 뜨고, 완료를 눌러야 올라간다(#1827). */
+async function pickAndConfirm(input: Element) {
+  fireEvent.change(input, { target: { files: [photoFile()] } });
+  await screen.findByRole("dialog", { name: "profile.cropTitle" });
+  fireEvent.click(screen.getByRole("button", { name: "profile.cropConfirm" }));
+}
+
 describe("PaneAccount nickname save", () => {
   beforeEach(() => {
     mocks.user = { uid: "u1" };
@@ -130,7 +144,7 @@ describe("PaneAccount nickname save", () => {
 
   it("replaces the same object twice and only varies the settings preview URL", async () => {
     vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(canvasContext());
     vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
     mocks.uploadBytes.mockResolvedValueOnce({ metadata: { generation: "1" } })
       .mockResolvedValueOnce({ metadata: { generation: "2" } });
@@ -139,7 +153,7 @@ describe("PaneAccount nickname save", () => {
     const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fu1%2Favatar?alt=media";
     for (const generation of [1, 2]) {
       mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: generation === 1 ? null : url }) });
-      fireEvent.change(input, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
+      await pickAndConfirm(input);
       await waitFor(() => expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", `${url}&v=${generation}`));
     }
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
@@ -152,6 +166,57 @@ describe("PaneAccount nickname save", () => {
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
     await waitFor(() => expect(mocks.updateDoc).toHaveBeenLastCalledWith(expect.anything(), { photoURL: null, profileAvatarGeneration: null }));
     expect(mocks.uploadBytes).toHaveBeenCalledTimes(2);
+  });
+
+  it("고른 사진은 영역 선택 창의 기본 영역(예전 가운데 자르기)으로 잘라 올린다", async () => {
+    const bitmap = { width: 800, height: 600, close: vi.fn() };
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => bitmap));
+    const context = canvasContext();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(context);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
+    mocks.uploadBytes.mockResolvedValueOnce({ metadata: { generation: "1" } });
+    mocks.avatarRead.mockResolvedValueOnce({ data: () => ({ photoURL: null }) });
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    fireEvent.change(container.querySelector("input[type=file]")!, { target: { files: [photoFile()] } });
+    await screen.findByRole("dialog", { name: "profile.cropTitle" });
+    expect(mocks.uploadBytes).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "profile.cropConfirm" }));
+    await waitFor(() => expect(mocks.uploadBytes).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(context.drawImage).toHaveBeenCalledWith(bitmap, 100, 0, 600, 600, 0, 0, 512, 512);
+    expect(bitmap.close).toHaveBeenCalled();
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("profile.photoUpdated"));
+  });
+
+  it("영역 선택을 취소·Esc 로 닫으면 올리지도 알리지도 않고, 같은 사진을 다시 고를 수 있다", async () => {
+    const bitmaps: { width: number; height: number; close: ReturnType<typeof vi.fn> }[] = [];
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => {
+      const bitmap = { width: 640, height: 480, close: vi.fn() };
+      bitmaps.push(bitmap);
+      return bitmap;
+    }));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(canvasContext());
+    const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const input = container.querySelector<HTMLInputElement>("input[type=file]")!;
+    const file = photoFile();
+
+    fireEvent.change(input, { target: { files: [file] } });
+    await screen.findByRole("dialog", { name: "profile.cropTitle" });
+    expect(input.value).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "profile.cropCancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.change(input, { target: { files: [file] } });
+    await screen.findByRole("dialog", { name: "profile.cropTitle" });
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    expect(bitmaps).toHaveLength(2);
+    for (const bitmap of bitmaps) expect(bitmap.close).toHaveBeenCalled();
+    expect(mocks.uploadBytes).not.toHaveBeenCalled();
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    expect(mocks.showToast).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "profile.photoChange" })).not.toBeDisabled();
   });
 
   it("uses public profile signals to update the open photo and re-read a different selection", async () => {
@@ -245,14 +310,14 @@ describe("PaneAccount nickname save", () => {
   it("records an upload interrupted by an account change before writing the profile", async () => {
     const viewer = mocks.currentUser;
     vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(canvasContext());
     vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
     mocks.uploadBytes.mockImplementationOnce(async () => {
       mocks.currentUser = { uid: "new-viewer" };
       return { metadata: { generation: "123" } };
     });
     const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
-    fireEvent.change(container.querySelector("input[type=file]")!, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
+    await pickAndConfirm(container.querySelector("input[type=file]")!);
     await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith(
       "PaneAccount.changeAvatar", expect.any(Error), { stage: "save_profile" }, expect.anything(), viewer,
     ));
@@ -263,12 +328,12 @@ describe("PaneAccount nickname save", () => {
     const oldPhoto = "https://example.test/old-photo.png";
     mocks.profile = { ...mocks.profile, photoURL: oldPhoto };
     vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: 512, height: 512, close: vi.fn() })));
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(canvasContext());
     vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["test"], { type: "image/webp" })));
     const failure = new Error("upload failed");
     mocks.uploadBytes.mockRejectedValueOnce(failure);
     const { container } = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
-    fireEvent.change(container.querySelector("input[type=file]")!, { target: { files: [new File(["fixture"], "photo.png", { type: "image/png" })] } });
+    await pickAndConfirm(container.querySelector("input[type=file]")!);
     await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith("PaneAccount.changeAvatar", failure, { stage: "upload" }));
     expect(mocks.updateDoc).not.toHaveBeenCalled();
     expect(screen.getByRole("img", { name: "Old Name" })).toHaveAttribute("src", oldPhoto);

@@ -15,10 +15,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
-import { updateProfile } from "firebase/auth";
+import { updateProfile, type User as AuthUser } from "firebase/auth";
 
 import type { Visibility } from "@shared/types";
 import { profileAvatarPath, profileAvatarUrl, resolveProfilePhotoUrl } from "@shared/profileAvatar";
+import type { ProfileAvatarCrop } from "@shared/profileAvatarCrop";
 import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -32,6 +33,7 @@ import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } fr
 import { ProfileBodyEditor } from "./ProfileBodyEditor";
 import { PaneMedical } from "./PaneMedical";
 import { ProfileHero } from "./ProfileHero";
+import { ProfileAvatarCropDialog } from "./ProfileAvatarCropDialog";
 import { LocalizedLink } from "../LocalizedLink";
 import { PaneAiCoach } from "./PaneAiCoach";
 import { SocialLinksCard } from "./SocialLinksCard";
@@ -71,6 +73,7 @@ export function PaneAccount() {
   const [existingActivityCount, setExistingActivityCount] = useState<number | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoCrop, setPhotoCrop] = useState<{ bitmap: ImageBitmap; viewer: AuthUser }>();
   const [photoOverride, setPhotoOverride] = useState<{ uid: string; url: string | null }>();
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -176,17 +179,42 @@ export function PaneAccount() {
       return;
     }
     setPhotoUploading(true);
+    try {
+      // 기본 디코딩은 EXIF 방향을 반영한다(옵션 값 'from-image' 는 구형 엔진이 거부해 넘기지 않는다).
+      // 영역 선택 화면과 잘라 올리기가 이 한 장을 함께 써서 같은 좌표계가 된다.
+      const bitmap = await createImageBitmap(file);
+      setPhotoCrop({ bitmap, viewer });
+    } catch (error) {
+      logClientError("PaneAccount.changeAvatar", error, { stage: "encode" });
+      showToast(t("profile.photoUploadFailed"));
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  function handlePhotoCropCancel() {
+    photoCrop?.bitmap.close();
+    setPhotoCrop(undefined);
+  }
+
+  async function handlePhotoCropConfirm(region: ProfileAvatarCrop) {
+    if (!photoCrop) return;
+    const { bitmap, viewer } = photoCrop;
+    setPhotoCrop(undefined);
+    if (!user || user.isAnonymous || photoUploading || auth.currentUser !== viewer || viewer.uid !== user.uid) {
+      bitmap.close();
+      return;
+    }
+    setPhotoUploading(true);
     let stage = "encode";
     try {
-      const bitmap = await createImageBitmap(file);
       const canvas = document.createElement("canvas");
       canvas.width = 512;
       canvas.height = 512;
       try {
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas context unavailable");
-        const min = Math.min(bitmap.width, bitmap.height);
-        ctx.drawImage(bitmap, (bitmap.width - min) / 2, (bitmap.height - min) / 2, min, min, 0, 0, 512, 512);
+        ctx.drawImage(bitmap, region.x, region.y, region.side, region.side, 0, 0, 512, 512);
       } finally {
         bitmap.close();
       }
@@ -373,6 +401,13 @@ export function PaneAccount() {
               style={{ display: "none" }}
               onChange={handlePhotoChange}
             />
+            {photoCrop && (
+              <ProfileAvatarCropDialog
+                image={photoCrop.bitmap}
+                onCancel={handlePhotoCropCancel}
+                onConfirm={region => void handlePhotoCropConfirm(region)}
+              />
+            )}
           </>
         }
       /></div>
