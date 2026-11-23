@@ -23,10 +23,10 @@ export function subscribeDeviceDeliverySignal<T>(
   let stopFallback: (() => void) | undefined;
   const active = () => !closed && auth.currentUser === user;
   const stopCanonical = () => { stopFallback?.(); stopFallback = undefined; };
-  const restore = () => {
+  const restore = (serverOnly = true) => {
     if (!active()) return;
     revision++;
-    stopFallback ??= fallback(true, active);
+    stopFallback ??= fallback(serverOnly, active);
   };
   const denied = () => {
     if (!active()) return;
@@ -38,7 +38,7 @@ export function subscribeDeviceDeliverySignal<T>(
     denied();
     return () => {};
   }
-  restore();
+  restore(!hosted);
   const stopWorld = followWorldSignal(
     endpoint,
     () => accountWorldSubscription(endpoint, "device", user, getAppCheckToken, resource),

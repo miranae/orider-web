@@ -181,10 +181,10 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
         const serverOptions = { includeMetadataChanges: true };
         const stopReceipt = serverOnly
           ? onSnapshot(receiptRef, serverOptions, snap => { if (isCurrent() && !snap.metadata.fromCache) receiveReceipt(snap); }, error => { if (isCurrent()) failReceipt(error); })
-          : onSnapshot(receiptRef, receiveReceipt, failReceipt);
+          : onSnapshot(receiptRef, snap => { if (isCurrent()) receiveReceipt(snap); }, error => { if (isCurrent()) failReceipt(error); });
         const stopDevices = serverOnly
           ? onSnapshot(deviceQuery, serverOptions, snap => { if (isCurrent() && !snap.metadata.fromCache) receiveDevices(snap); }, error => { if (isCurrent()) failDevices(error); })
-          : onSnapshot(deviceQuery, receiveDevices, failDevices);
+          : onSnapshot(deviceQuery, snap => { if (isCurrent()) receiveDevices(snap); }, error => { if (isCurrent()) failDevices(error); });
         return () => { stopReceipt(); stopDevices(); };
       }, (source, error, context) => logClientError(source, error, context, services, viewer), services.getAppCheckToken);
 

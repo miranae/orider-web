@@ -4,7 +4,7 @@ import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 const endpoint = "wss://world.orider.co.kr/device-signals";
 const token = (exp: number) => `header.${btoa(JSON.stringify({ exp }))}.signature`;
 
-afterEach(() => resetRuntimeConfigForTests());
+afterEach(() => { vi.unstubAllEnvs(); resetRuntimeConfigForTests(); });
 
 it("limits hosted tokens to the production Firebase project and the fixed TLS endpoint", () => {
   expect(accountWorldEndpoint("notification", "miranae-orider-g1")).toBeUndefined();
@@ -34,4 +34,13 @@ it("refreshes expiring credentials once and keeps Firestore available if App Che
   await expect(accountWorldSubscription(endpoint, "device", user, appCheck)).resolves.toMatchObject({ appCheck: fresh });
   expect(appCheck.mock.calls).toEqual([[undefined], [true]]);
   await expect(accountWorldSubscription(endpoint, "device", user, async () => null)).rejects.toThrow("credentials unavailable");
+});
+
+it("does not send real sign-in credentials to a loopback socket without emulator mode", () => {
+  vi.stubEnv("VITE_ORIDER_LOCAL_WORLD", "1");
+  vi.stubEnv("VITE_ORIDER_LOCAL_NOTIFICATION_REDIS", "1");
+  resetRuntimeConfigForTests({ firebaseProjectId: "demo-orider-lab" });
+  expect(accountWorldEndpoint("notification", "demo-orider-lab")).toBeUndefined();
+  resetRuntimeConfigForTests({ firebaseProjectId: "demo-orider-lab", useEmulators: true });
+  expect(accountWorldEndpoint("notification", "demo-orider-lab")).toBe("ws://127.0.0.1:19487/notification-signals");
 });

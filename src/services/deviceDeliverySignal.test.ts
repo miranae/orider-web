@@ -19,6 +19,7 @@ it("keeps the canonical device watch until a Redis revision and discards a late 
   const read = vi.fn(() => new Promise<string>(resolve => { finish = resolve; }));
   const stop = subscribeDeviceDeliverySignal(firestore, "owner", "workout-device:device", read, receive, vi.fn(), fallback, vi.fn(), async () => "app-check");
   const [url, , signal, disconnected] = vi.mocked(followWorldSignal).mock.calls[0]!;
+  expect(fallback).toHaveBeenNthCalledWith(1, false, expect.any(Function));
   expect(url).toBe("wss://world.orider.co.kr/device-signals");
   const frame = { v: 1, type: "device_signal" };
   expect(signal({ ...frame, revision: null })).toBe(true);
@@ -26,7 +27,7 @@ it("keeps the canonical device watch until a Redis revision and discards a late 
   expect(signal({ ...frame, revision: "1790000000:012345678" })).toBe(true);
   expect(stopInitial).toHaveBeenCalledOnce();
   disconnected(1013);
-  expect(fallback).toHaveBeenCalledTimes(2);
+  expect(fallback).toHaveBeenNthCalledWith(2, true, expect.any(Function));
   finish("old result");
   await Promise.resolve();
   expect(receive).not.toHaveBeenCalled();

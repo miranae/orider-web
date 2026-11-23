@@ -247,7 +247,7 @@ it("uses an owned Redis signal and keeps pagination on a reconnect with the same
   }
 });
 
-it.each(["timer", "suspended tab"])("authenticates a hosted subscription and restores Firestore on token renewal (%s)", async renewal => {
+it.each(["timer", "suspended tab", "server expiration before browser clock"])("authenticates a hosted subscription and restores Firestore on token renewal (%s)", async renewal => {
   const { onSnapshot } = await import("firebase/firestore");
   const { getAppCheckToken } = await import("../services/firebase");
   const stopFirestore = vi.fn();
@@ -284,8 +284,9 @@ it.each(["timer", "suspended tab"])("authenticates a hosted subscription and res
     if (renewal === "timer") {
       await act(async () => vi.advanceTimersByTimeAsync(expiresAt * 1000 - 20_000 - Date.now()));
     } else {
-      vi.setSystemTime(expiresAt * 1000);
-      act(() => { sockets[0]?.dispatchEvent(new CloseEvent("close", { code: 4003 })); });
+      const oldServer = renewal === "suspended tab";
+      vi.setSystemTime((expiresAt - (oldServer ? 0 : 4)) * 1000);
+      act(() => { sockets[0]?.dispatchEvent(new CloseEvent("close", { code: oldServer ? 4003 : 4001 })); });
     }
     expect(sockets[0]?.close).toHaveBeenCalledOnce();
     expect(onSnapshot).toHaveBeenCalledTimes(2);
