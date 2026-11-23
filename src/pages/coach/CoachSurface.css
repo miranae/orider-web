@@ -106,3 +106,15 @@
 .coach-question-launcher--condition { display: flex; justify-content: flex-end; padding-block: var(--space-5); }
 /* 코치 컨디션: 마지막 블록과 "코치에게 묻기" 사이를 카드 사이 간격(16)과 같게 — 위 여백·패딩이 겹쳐 40~68 이었다. */
 .coach-surface .coach-question-launcher--condition { margin-top: var(--space-4); padding-top: 0; }
+/* 코치 화면의 종목 전환·기간 선택이 정보보다 커 보였다(터치 공통 규칙: 줄 48·버튼 44·위아래 16).
+   낮고 촘촘한 축 전환은 공용 조밀한 터치 표면(.ds-touch-compact, Layout 이 코치 셸에 붙인다)이 맡고,
+   분석 기간 줄은 ToggleControls flushTouch 로 위아래 여백을 없앤다. 여기에는 종목 탭 줄의 여백만 둔다. */
+@media (hover: none) and (pointer: coarse), (max-width: 767px) {
+  .coach-surface .discipline-tabs { margin-block: 0; }
+}
+/* 계획·기록의 종목 전환 아래 하위 탭(계획 | 기록)이 멀어 보였다: 머리 아래 12 + 탭 44 안의 위쪽 빈칸.
+   휴대폰에서 머리 아래 여백을 4 로, 하위 탭을 36 으로 낮춘다. */
+@media (hover: none) and (pointer: coarse), (max-width: 767px) {
+  .coach-surface .coach-page-header:has(+ .plan-record-nav) { margin-bottom: var(--space-1); }
+  .coach-surface .plan-record-nav .route-tab-nav a { min-height: 36px; padding-block: var(--space-1); }
+}

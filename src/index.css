@@ -114,37 +114,6 @@ a:active,
   animation: fadeInUp 0.3s ease-out;
 }
 
-/* Toast animation */
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes toast-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-}
-
-.animate-toast-in {
-  animation: toast-in 0.25s ease-out;
-}
-
-.animate-toast-out {
-  animation: toast-out 0.2s ease-in forwards;
-}
-
 /* 레거시 타이포 유틸 (.mono / .eyebrow / .num / .num-md / .num-lg / .num-xl / .unit) —
  * 폐기됨 (2026-05-25). 모든 사용처가 <Text variant="..."> 로 마이그레이션 완료.
  * 정의는 src/theme/components/components.css 의 .ds-text--* 에서 관리. */

@@ -1,3 +1,4 @@
+import { capDecimals } from "../../../utils/numberDisplay";
 import "./fitness-analysis-controls.css";
 import "./PowerCurveChart.css";
 import { useEffect, useId, useState } from "react";
@@ -105,7 +106,7 @@ export default function PowerCurveChart({
         </>
       )}
     </svg>
-    <div className="power-curve-evidence__axis" aria-hidden="true">{xTicks.map(tick => <span key={tick} style={{ left: `${sx(tick) / w * 100}%` }}>{tick < 60 ? `${tick}s` : tick < 3600 ? `${tick / 60}m` : `${tick / 3600}h`}</span>)}</div>
+    <div className="power-curve-evidence__axis" aria-hidden="true">{xTicks.map(tick => <span key={tick} style={{ left: `${sx(tick) / w * 100}%` }}>{tick < 60 ? `${tick}s` : tick < 3600 ? `${capDecimals(tick / 60)}m` : `${capDecimals(tick / 3600)}h`}</span>)}</div>
     </div>
     {hover && createPortal(<TooltipContent title={durationLabel(hover.durationSeconds)} role="tooltip"
       style={{ position: "fixed", ...anchor, width: "min(320px, calc(100vw - 16px))", zIndex: 100, pointerEvents: "none" }}>

@@ -1,3 +1,4 @@
+import { capDecimals } from "../../utils/numberDisplay";
 import { useCoachApi } from "../../hooks/useCoachApi";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -44,15 +45,15 @@ function date(value: string, locale: string, withTime = false): string {
 }
 
 function displayEvidence(item: CoachPrescriptionEvidence, locale: string): string {
-  const value = typeof item.value === "string" || typeof item.value === "number" || typeof item.value === "boolean"
-    ? String(item.value) : JSON.stringify(item.value);
+  const value = typeof item.value === "number" ? String(capDecimals(item.value))
+    : typeof item.value === "string" || typeof item.value === "boolean" ? String(item.value) : JSON.stringify(item.value);
   return `${item.field}: ${value} · ${date(item.asOf, locale, true)}`;
 }
 
 function Condition({ condition, evidenceById, locale }: { condition: CoachReassessmentCondition;
   evidenceById: Map<string, CoachPrescriptionEvidence>; locale: string }) {
   const { t } = useTranslation("coach");
-  return <li><p>{t(`prescription.metric.${condition.metric}`)} {t(`prescription.operator.${condition.operator}`)} {condition.threshold.value}
+  return <li><p>{t(`prescription.metric.${condition.metric}`)} {t(`prescription.operator.${condition.operator}`)} {typeof condition.threshold.value === "number" ? capDecimals(condition.threshold.value) : condition.threshold.value}
     {condition.maxAgeHours ? ` · ${t("prescription.maxAge", { hours: condition.maxAgeHours })}` : ""}
     </p>
   <details><summary>{t("prescription.evidence", { count: condition.evidenceIds.length })}</summary><ul>

@@ -1,3 +1,4 @@
+import { capDecimals } from "../../../utils/numberDisplay";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
@@ -88,7 +89,7 @@ export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fal
   const fixedPace = !periodPace && !!runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0) ? runPaceCurve : null;
 
   return <div className="coach-analysis" data-testid="coach-analysis">
-    <ToggleControls variant="axis" density="compact" className="coach-analysis__period" aria-label={t("analysis.concise.period")} data-testid="K5-0-3">
+    <ToggleControls variant="axis" flushTouch className="coach-analysis__period" aria-label={t("analysis.concise.period")} data-testid="K5-0-3">
       {ANALYSIS_WINDOW_CHOICES.map(choice => <ToggleButton key={choice} selected={windowDays === choice} onClick={() => setWindowDays(choice)}>{t(`range.${choice}`)}</ToggleButton>)}
     </ToggleControls>
     {loading && <Text as="p" variant="bodySmall" tone="secondary" role="status">{t("analysis.concise.loading")}</Text>}
@@ -146,7 +147,7 @@ function FtpReviewLink({ label }: { label: string }) {
 
 function PowerCurveCard({ response, rows, unit, onUnitChange, weightNormalizedAvailable, days, format: formatValue }: { response: PowerCurvePeriodsResponse; rows: CurveRow[]; unit: PowerUnit; onUnitChange: (unit: PowerUnit) => void; weightNormalizedAvailable: boolean; days: number; format: (value: number | null) => string }) {
   const { t } = useTranslation("fitness");
-  const durationLabel = (seconds: number) => seconds < 60 ? t("duration.sec", { n: seconds }) : t("duration.min", { n: seconds / 60 });
+  const durationLabel = (seconds: number) => seconds < 60 ? t("duration.sec", { n: seconds }) : t("duration.min", { n: capDecimals(seconds / 60) });
   const format = (value: number | null) => value == null ? "—" : unit === "W/kg" ? value.toFixed(2) : String(Math.round(value));
   const [recent, previous] = response.periods;
   const curves = [recent, previous].map(period => CURVE_DURATIONS

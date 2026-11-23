@@ -10,16 +10,15 @@ This file lists product decisions that a single PR can silently break. The merge
 
 ## 개인정보·권한 (Privacy & authority)
 
-### P1. 활동 공개 범위와 공개 데이터 설정을 분리한다 **[검사]**
-활동을 볼 수 있는 사람은 `visibility`로 정합니다. 허용된 타인에게 보여줄 운동 데이터는 계정의 공개 데이터 설정으로 정하며, 설정이 공개 동의입니다(2026-11-13 사용자 결정, miranae/orider-g1-app#3348).
+### P1. 활동 공개 범위가 분석 공개 범위도 정한다 **[검사]**
+활동을 볼 수 있는 사람은 `visibility`로 정하며, 활동을 볼 수 있는 사람에게는 그 활동의 분석 전체를 함께 공개합니다 — 심박·파워·훈련 지표(TSS·IF)·케이던스·칼로리와 분석에 쓰인 개인 기준값(FTP·최대 심박 설정·LTHR), 이를 포함한 생성 문장·저장 분석 이력까지입니다. 항목별 공개 데이터 설정은 두지 않습니다 — 정책 수정으로 활동 공개 범위를 분석까지 확대했습니다(2026-11-23 사용자 결정, miranae/orider-web#1821·miranae/orider-g1-web#3967. 이전 결정 2026-11-13 miranae/orider-g1-app#3348 을 대체).
 
-- 심박·파워·훈련 지표(TSS·IF)·케이던스·칼로리는 기본 공개입니다.
-- 내 기준값(FTP·최대 심박 설정·LTHR)은 기본 비공개이며 명시적으로 켰을 때만 공개합니다. 운동에서 측정한 최대 심박·최대 파워와 개인 설정 기준값을 구분합니다.
-- 서버는 비소유자 상세·스트림·피드·탐색·개요 응답에서 숨긴 항목과 이를 포함한 생성 문장을 제거합니다. 소유자 본인 응답과 저장된 분석 원본·이력은 유지합니다. GPS 원좌표와 개인정보 처리 지도 경로선의 기존 경계는 유지합니다.
-- 웹·iOS·Android는 동일 항목·기본값·계정 저장 계약을 사용합니다. 화면 숨김만으로 대신하지 않습니다.
-- 폐지한 `hideHr`·`hidePower` 필드는 다시 읽거나 쓰지 않습니다. 새 계정 공개 데이터 계약을 사용합니다.
+- 분석이나 기준값을 숨기고 싶은 사용자는 활동 공개 범위를 좁힙니다(비공개·친구 공개).
+- 서버는 비소유자 상세·스트림·피드·탐색·개요·분석 이력 응답을 활동 접근 권한으로만 거릅니다. 접근이 허용된 뷰어(공개 활동이면 비로그인 포함)에게는 분석 전체를 반환합니다. 소유자 본인 응답과 저장된 분석 원본·이력은 유지합니다. GPS 원좌표와 개인정보 처리 지도 경로선의 기존 경계는 유지합니다.
+- 웹·iOS·Android는 같은 규칙을 따릅니다. 남은 항목별 공개 설정 화면은 제거 대상입니다.
+- 폐지한 `hideHr`·`hidePower` 필드는 다시 읽거나 쓰지 않습니다.
 
-*Visibility selects the audience. Account public-data settings select which fields authorized non-owners receive. Thresholds require explicit opt-in; owner responses and saved originals remain intact.*
+*Visibility selects the audience, and anyone allowed to see an activity also sees its full analysis, including personal thresholds (policy change 2026-11-23); there are no per-field public-data settings. Owner responses, saved originals and GPS/route privacy boundaries remain intact.*
 
 전체 누적 요약은 별도 공개 계약입니다(2026-11-18 사용자 확정, miranae/orider-web#1725). 비로그인·타인·친구·본인에게 비공개 활동까지 포함한 전체 활동 수·누적 거리·누적 운동시간·누적 상승고도를 동일하게 제공합니다. 이 네 항목과 준비 상태·버전·항목별 결측 정보만 공개하며, 활동이 한 건뿐인 경우에도 같은 정책을 적용합니다. 활동 목록·개별 상세·시간·위치·경로·사진·메모·민감 지표의 기존 권한은 유지합니다. 계정 삭제·차단 제한을 우회하지 않습니다. 상세 공개 범위를 누적 요약의 집계 조건으로 사용하거나 활동 공개 설정을 바꾸도록 요구하지 않습니다.
 
@@ -54,7 +53,7 @@ This file lists product decisions that a single PR can silently break. The merge
 
 ### P7. 분석 결과는 스냅샷이다
 AI 분석 등 저장된 분석 결과는 데이터나 분석기 판이 바뀌어도 가리거나 지우지 않습니다. 「다시 분석할 수 있음」 안내만 붙입니다. 다시 분석해도 이전 결과의 이력은 남깁니다.
-타인에게 반환하는 공개 응답은 P1의 최신 공개 데이터 설정을 적용하며 저장된 원본·이력은 변경하지 않습니다.
+타인에게 반환하는 공개 응답은 P1의 활동 공개 범위를 적용하며 저장된 원본·이력은 변경하지 않습니다.
 
 *Stored analyses are snapshots: never hide or delete them when inputs change; offer re-analysis and keep history.*
 

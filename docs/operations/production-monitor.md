@@ -24,8 +24,7 @@ but do not by themselves prove a feed API failure; actual App Check HTTP failure
 are retained in `dependencyErrors` and `dependencyStatus=degraded`. They do not
 replace the observed feed state: a cloud bot can receive an App Check 403 while
 the anonymous public feed renders real cards. A blocked feed still fails via its
-request, error UI, invalid contract or timeout. No token, policy or request is
-overridden. `runnerError` identifies monitor infrastructure
+request, error UI, invalid contract or timeout. `runnerError` identifies monitor infrastructure
 failure rather than asserting a site outage. `MONITOR_RESOLVE_HOSTING=true` optionally reads the
 Hosting release/version using the operator's existing gcloud identity; it creates
 no credential and persists no token. CI has no new cloud permission and identifies
@@ -49,8 +48,7 @@ node /Users/kyoungnam/work/moon/_worktrees/orider-production-monitor-20261027/sc
 The existing parent hourly automation owns user delivery and suppresses repeated
 healthy notices. Compare `completedAt`, `simulation`, `status` and live digest;
 a stale/missing result is not evidence of current health. Do not start another
-check if a fresh result exists for the period. No new recipient, webhook, secret,
-subscription or IAM grant is introduced. GitHub workflow failure supplies the
+check if a fresh result exists for the period. GitHub workflow failure supplies the
 existing Actions failure signal, not a newly configured external notification.
 A parent must read results and deduplicate incident/recovery transitions.
 
@@ -180,13 +178,20 @@ checker observed App Check rejection without an independent feed API error.
 It is a failed observation, not a healthy feed or proof that normal user access
 is broken. Keep the failed result and its dependency diagnostics. Compare the
 same live bundle in an ordinary anonymous browser in both locales; record only
-card counts, alert/error presence and bundle hash. Do not inject debug tokens,
-relax App Check, export account sessions or automatically roll back Hosting on
-this signal alone. Real API errors retain `api_error` precedence.
+card counts, alert/error presence and bundle hash. Real API errors retain
+`api_error` precedence.
+
+The GitHub workflow passes the registered web monitor debug token from
+`PRODUCTION_MONITOR_APP_CHECK_DEBUG_TOKEN` only to the feed checker. The checker
+exchanges it with Firebase App Check for the production web app, with the raw
+token held in the Node process. The browser receives a placeholder and Firebase's
+short-lived exchange response. Feed rendering and API responses are evaluated
+normally. The optional `MONITOR_APP_CHECK_DEBUG_TOKEN` is accepted for live
+production checks only. Without it, a manual local run uses normal browser
+attestation.
 
 The viewport check still runs after a failed feed check (unless cancelled or the
 source was rejected before apply), preserving an independent diagnostic. The
-job remains failed. Checker source is deliberately pinned: after this patch is
-reviewed and committed, the reviewed checker SHA and backend workflow reference
-must be advanced through their normal PR process before CI can use the new
-classification. No workflow or scheduled monitor is enabled by this patch.
+job remains failed. Changes to the checker require updating the pinned checker
+SHA. Changes to the backend caller require updating its independently pinned
+reusable workflow reference.

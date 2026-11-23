@@ -1,3 +1,4 @@
+import { capDecimals } from "../../../utils/numberDisplay";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChartFrame, Select, Stat, Text } from "../../../theme";
@@ -9,7 +10,7 @@ function pace(value: number) {
   const seconds = Math.round(value);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
-function duration(seconds: number) { return seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${seconds / 60}m` : `${seconds / 3600}h`; }
+function duration(seconds: number) { return seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${capDecimals(seconds / 60)}m` : `${capDecimals(seconds / 3600)}h`; }
 function recordedTime(seconds: number) {
   const rounded = Math.round(seconds);
   return rounded < 60 ? `${rounded}s` : `${Math.floor(rounded / 60)}m ${String(rounded % 60).padStart(2, "0")}s`;
