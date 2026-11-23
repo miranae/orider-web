@@ -41,6 +41,7 @@ export { Stat, type StatProps, type StatDelta } from './Stat';
 export { Alert, type AlertProps, type AlertVariant } from './Alert';
 export { Progress, type ProgressProps } from './Progress';
 export { Spinner, type SpinnerProps } from './Spinner';
+export { Toast, ToastViewport, type ToastProps, type ToastTone } from './Toast';
 export {
   ChartFrame,
   ChartHeader,

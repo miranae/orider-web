@@ -892,6 +892,7 @@
   "src/theme/components/Stat.tsx",
   "src/theme/components/Switch.tsx",
   "src/theme/components/Text.tsx",
+  "src/theme/components/Toast.tsx",
   "src/theme/components/ToggleControls.tsx",
   "src/theme/components/TooltipContent.tsx",
   "src/theme/components/cn.ts",

@@ -508,6 +508,97 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
   gap: var(--space-2, 8px);
 }
 
+/* ===== Toast (결과 알림) =====
+ * 화면 아래 가운데, 의미 색으로 채운 띠. 라이트는 짙은 의미 색 + 흰 글자, 다크는 라이트보다 어두운 컨테이너 + 밝은 글자
+ * (둘 다 글자 대비 4.5:1 이상). 최대 2줄, 한국어 어절 단위 줄바꿈. 폭 = 화면 폭 − 좌우 여백, 넓은 화면 상한 480px.
+ * 하단 탭 막대(49)·고정 작업 막대가 있으면 그 위로 올린다. z-index 는 모달(90) 위, 앱 대화상자(11000) 아래. */
+.ds-toast-viewport {
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(calc(100% - var(--space-4) * 2), calc(var(--space-8) * 10));
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+@media (max-width: 63.999rem) {
+  :root:has(.mobile-tab-bar) .ds-toast-viewport {
+    bottom: calc(var(--space-8) + var(--dim-divider-thickness) + var(--space-4) + env(safe-area-inset-bottom, 0px));
+  }
+  :root:has(.mobile-tab-bar):has(.mobile-form-actions--fixed) .ds-toast-viewport {
+    bottom: calc(var(--space-8) + var(--dim-divider-thickness) + var(--dim-button-height) + var(--space-4) * 2 + var(--dim-divider-thickness) + var(--space-4) + env(safe-area-inset-bottom, 0px));
+  }
+}
+.ds-toast {
+  --ds-toast-success-bg: color-mix(in oklch, var(--color-success) 66%, black);
+  --ds-toast-error-bg: color-mix(in oklch, var(--color-error) 72%, black);
+  --ds-toast-info-bg: color-mix(in oklch, var(--color-info) 66%, black);
+  --ds-toast-fg: oklch(0.99 0 0);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+  border-radius: var(--r-md);
+  color: var(--ds-toast-fg);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--ft-body-medium-size);
+  line-height: var(--ft-body-medium-line-height);
+  font-weight: var(--ft-body-medium-weight);
+  animation: ds-toast-in .25s ease-out;
+}
+:root[data-theme="dark"] .ds-toast {
+  --ds-toast-success-bg: color-mix(in oklch, var(--color-success) 38%, black);
+  --ds-toast-error-bg: color-mix(in oklch, var(--color-error) 38%, black);
+  --ds-toast-info-bg: color-mix(in oklch, var(--color-info) 34%, black);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .ds-toast {
+    --ds-toast-success-bg: color-mix(in oklch, var(--color-success) 38%, black);
+    --ds-toast-error-bg: color-mix(in oklch, var(--color-error) 38%, black);
+    --ds-toast-info-bg: color-mix(in oklch, var(--color-info) 34%, black);
+  }
+}
+.ds-toast--success { background: var(--ds-toast-success-bg); }
+.ds-toast--error { background: var(--ds-toast-error-bg); }
+.ds-toast--info { background: var(--ds-toast-info-bg); }
+.ds-toast--leaving { animation: ds-toast-out .2s ease-in forwards; }
+.ds-toast__icon { flex-shrink: 0; width: var(--space-5); height: var(--space-5); }
+.ds-toast__message {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.ds-toast__close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--ft-subtitle-size);
+  cursor: pointer;
+  opacity: .85;
+}
+.ds-toast__close:hover { opacity: 1; background: color-mix(in oklch, currentColor 14%, transparent); }
+.ds-toast__close:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+@keyframes ds-toast-in { from { opacity: 0; transform: translateY(var(--space-2)); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ds-toast-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(var(--space-2)); } }
+@media (prefers-reduced-motion: reduce) { .ds-toast, .ds-toast--leaving { animation: none; } }
+
 /* ===== Progress ===== */
 .ds-progress {
   width: 100%;

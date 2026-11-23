@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import {
   Button, IconButton, ControlToolbar, ToolbarButton, DropdownSelect, MediaViewer, Checkbox, Card, Section, Disclosure, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
-  Stat, Chip, Spinner, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
+  Stat, Chip, Spinner, Toast, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
   MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue, ChartTooltip,
   ComparisonChart, CHART_PRESENTATION, DEFAULT_THEME,
@@ -468,6 +468,7 @@ function ControlsCatalog() {
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">켜짐 · 꺼짐 · 선택 불가</Text><ToggleControls aria-label="토글 상태 예시"><ToggleButton selected={stateSelected} showCheck onClick={() => setStateSelected(!stateSelected)}>실시간 위치</ToggleButton><ToggleButton selected={notifications} showCheck onClick={() => setNotifications(!notifications)}>구간 알림</ToggleButton><ToggleButton selected={false} showCheck disabled>공유 불가</ToggleButton></ToggleControls><Text as="p" variant="bodySmall" tone="tertiary">색 외에 체크와 눌림 상태로 선택을 구분합니다.</Text></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">긴 문구</Text><Button block align="start" leadingIcon={<Check />} onClick={() => setMessage('긴 문구 버튼을 실행했습니다.')}>선택한 활동의 변경 사항을 저장하고 돌아가기</Button><Text as="p" variant="bodySmall" tone="tertiary">좁은 폭과 큰 글자에서도 의미를 생략하지 않습니다.</Text></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">확인 대화상자</Text><DialogProvider><ConfirmDialogPreview /></DialogProvider><Text as="p" variant="bodySmall" tone="tertiary">한 문장으로 충분한 확인은 plain으로 제목·아이콘·배너 없이 본문과 버튼만 둡니다. 빨강은 파괴적 버튼에만 씁니다.</Text></div>
+            <div className="catalog-state-example"><Text as="h3" variant="subtitle">결과 알림</Text><div className="catalog-inline-controls" style={{ flexDirection: 'column', alignItems: 'stretch' }}><Toast tone="success" dismissLabel="닫기" onDismiss={() => setMessage('알림을 닫았습니다.')}>프로필 사진을 바꿨습니다</Toast><Toast tone="error" dismissLabel="닫기" onDismiss={() => setMessage('알림을 닫았습니다.')}>프로필 사진을 바꾸지 못했습니다. 다시 시도해 주세요.</Toast><Toast tone="info" dismissLabel="닫기" onDismiss={() => setMessage('알림을 닫았습니다.')}>새 기록을 불러오는 중입니다</Toast></div><Text as="p" variant="bodySmall" tone="tertiary">실제 알림은 화면 아래 가운데에 뜹니다. 실패는 경고 삼각형, 닫기는 오른쪽 ×.</Text></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">키보드 포커스</Text><Text as="p" variant="bodySmall">Tab으로 이동하고 Enter·Space로 실행합니다. 차트 탐색 영역에서는 ←·→, Home·End로 선택 지점을 이동합니다. 포커스 테두리는 색 테마와 무관하게 유지됩니다.</Text></div>
           </div>
         </section>
