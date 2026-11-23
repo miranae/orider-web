@@ -14,6 +14,8 @@ jobs:
   smoke:
     if: github.event_name != 'workflow_run' || contains(fromJSON('["success","failure","cancelled","timed_out"]'), github.event.workflow_run.conclusion)
     uses: ./.github/workflows/production-monitor-run.yml
+    secrets:
+      PRODUCTION_MONITOR_APP_CHECK_DEBUG_TOKEN: ${{ secrets.PRODUCTION_MONITOR_APP_CHECK_DEBUG_TOKEN }}
     with:
       source_repo: ${{ github.event_name == 'workflow_run' && github.repository || '' }}
       source_run: ${{ github.event.workflow_run.id && format('{0}', github.event.workflow_run.id) || '' }}
