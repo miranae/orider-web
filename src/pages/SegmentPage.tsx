@@ -1,3 +1,4 @@
+import { capDecimals } from "../utils/numberDisplay";
 import SegmentLocalLegend from "../features/segments/SegmentLocalLegend";
 import SegmentLeaderboard from "../features/segments/SegmentLeaderboard";
 import { loadMySegmentAttempts } from "../services/segmentLeaderboard";
@@ -653,7 +654,7 @@ function SegmentDetailContent() {
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
                 <span><GlossaryText>{t("kom.avgSpeed")}</GlossaryText> {formatEffortSpeed(myBestEffort.averageSpeed)}</span>
-                {myBestEffort.averageWatts != null && <span><GlossaryText>{t("kom.power")}</GlossaryText> {myBestEffort.averageWatts} W</span>}
+                {myBestEffort.averageWatts != null && <span><GlossaryText>{t("kom.power")}</GlossaryText> {capDecimals(myBestEffort.averageWatts)} W</span>}
                 {myBestEffort.averageHeartrate != null && <span><GlossaryText>{t("kom.heartrate")}</GlossaryText> {Math.round(myBestEffort.averageHeartrate)} bpm</span>}
               </div>
               <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-4)", marginTop: "var(--space-1)" }}>

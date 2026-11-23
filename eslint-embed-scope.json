@@ -948,6 +948,7 @@
   "src/utils/localeDate.ts",
   "src/utils/mapbox.ts",
   "src/utils/metricInterpretation.ts",
+  "src/utils/numberDisplay.ts",
   "src/utils/openOriderApp.ts",
   "src/utils/planTss.ts",
   "src/utils/polyline.ts",

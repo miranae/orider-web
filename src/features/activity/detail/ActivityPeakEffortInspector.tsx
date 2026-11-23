@@ -1,3 +1,4 @@
+import { capDecimals } from "../../../utils/numberDisplay";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityMetrics, RidePeakEffort } from "@shared/types/activity-metrics";
@@ -62,7 +63,7 @@ function PeakEffortContent({ defaultExpanded = false, metrics, peaks, onLocate, 
         {peaks.map(value => <Button key={value.durationSec} variant={peak.durationSec === value.durationSec ? "primary" : "outline"}
           size="sm" aria-pressed={peak.durationSec === value.durationSec} onClick={() => {
             setDuration(value.durationSec); onLocate?.(null);
-          }}>{t("peakInspector.minutes", { count: value.durationSec / 60 })}</Button>)}
+          }}>{t("peakInspector.minutes", { count: capDecimals(value.durationSec / 60) })}</Button>)}
       </div>
       <p className="text-[length:var(--fs-sm)] tabular-nums" style={{ color: "var(--ink-1)" }}>
         {t("peakInspector.window", { start: time(peak.startOffsetSec), end: time(peak.startOffsetSec + peak.durationSec) })}

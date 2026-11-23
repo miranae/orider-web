@@ -1,3 +1,4 @@
+import { capDecimals } from "../utils/numberDisplay";
 import { resolveProfilePhotoUrl } from "@shared/profileAvatar";
 import { useActivityPhotoLocation } from "../hooks/useActivityPhotoLocation";
 import { usePageDataTiming } from "../hooks/usePageDataTiming";
@@ -1778,7 +1779,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
                   <div className="text-[length:var(--fs-xs)] flex items-center gap-2" style={{ color: 'var(--ink-2)' }}>
                     <span>{formatDistance(r.summary.distance, units)}</span>
                     <span>{formatSpeed(r.summary.averageSpeed / 3.6, units, 'bike')}</span>
-                    {r.summary.averageHeartRate != null && <span>{r.summary.averageHeartRate} bpm</span>}
+                    {r.summary.averageHeartRate != null && <span>{capDecimals(r.summary.averageHeartRate)} bpm</span>}
                     {(r.summary.averagePower ?? r.avgPower) != null && <span>{Math.round((r.summary.averagePower ?? r.avgPower)!)} W</span>}
                   </div>
                 </div>
