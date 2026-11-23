@@ -18,6 +18,7 @@ function LocationReceipt() {
 }
 
 describe("actual onboarding goal handoff", () => {
+  // 앱 전체를 띄우는 통합 테스트라 단독으로도 3초 안팎 걸린다 — 게이트처럼 부하가 높을 때 기본 5초에 걸리지 않게 여유를 준다.
   it("creates a running goal through the real wizard and renders its plan instead of landing at home", async () => {
     const before = mockCallableInvocations.length;
     setCallableImplementation("createGoal", data => {
@@ -49,5 +50,5 @@ describe("actual onboarding goal handoff", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/ko/coach/plan?sport=run&goalId=created-run-goal");
     expect(screen.queryByText("Home landing")).not.toBeInTheDocument();
     expect(mockCallableInvocations.slice(before).filter(call => call.name === "createGoal")).toHaveLength(1);
-  });
+  }, 15000);
 });

@@ -28,6 +28,7 @@ vi.mock("./embeddedFirebase", () => ({
 }));
 vi.mock("../services/appHandoff", () => ({ consumeAppHandoffCode: vi.fn().mockResolvedValue(undefined) }));
 
+// 앱 전체를 띄우는 통합 테스트라 단독으로도 3초 안팎 걸린다 — 게이트처럼 부하가 높을 때 기본 5초에 걸리지 않게 여유를 준다.
 it("opens the real athlete surface and paginates with only the isolated Firebase app", async () => {
   simulateLogout();
   setDocData("users_public/rider-1", { ...createMockProfile(), nickname: "Isolated rider", profilePublic: true });
@@ -125,4 +126,4 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   for (const [instance, ...segments] of reads) expect(instance, segments.join("/")).toBe(isolated.firestore);
   expect(send.mock.calls.some(([type]) => type === "surface.error")).toBe(false);
   requestRead.mockRestore();
-});
+}, 15000);
