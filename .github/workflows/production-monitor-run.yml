@@ -1,6 +1,9 @@
 name: Run production monitor
 on:
   workflow_call:
+    secrets:
+      PRODUCTION_MONITOR_APP_CHECK_DEBUG_TOKEN:
+        required: true
     inputs:
       runner_labels:
         type: string
@@ -36,7 +39,7 @@ jobs:
         with:
           repository: miranae/orider-web
           path: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
-          ref: 945e2bfdb9bec744930a9e1f31eab63911f485be # reviewed checker code; caller cannot select executable code
+          ref: c55118c160a96dc949d8cb36f106b03c1456c79e # reviewed checker code; caller cannot select executable code
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
@@ -61,9 +64,16 @@ jobs:
       - name: Read anonymous Korean and English live feeds
         if: inputs.source_run == '' || steps.source.outputs.should_check == 'true'
         env:
+          MONITOR_APP_CHECK_DEBUG_TOKEN: ${{ secrets.PRODUCTION_MONITOR_APP_CHECK_DEBUG_TOKEN }}
           MONITOR_SOURCE_EVIDENCE: ${{ inputs.source_run != '' && 'source-deployment.json' || '' }}
           MONITOR_TRIGGER: ${{ inputs.source_run != '' && format('production-deploy-{0}-plus-five-minutes', steps.source.outputs.outcome) || github.event_name }}
-        run: node scripts/production-monitor.mjs
+        shell: bash
+        run: |
+          if [ -z "$MONITOR_APP_CHECK_DEBUG_TOKEN" ]; then
+            echo '::error::Production monitor App Check secret is missing'
+            exit 1
+          fi
+          node scripts/production-monitor.mjs
       - name: Existing mobile viewport smoke
         if: ${{ !cancelled() && (inputs.source_run == '' || steps.source.outputs.should_check == 'true') }}
         run: npx playwright test --config playwright.prod.config.ts
