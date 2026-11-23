@@ -172,7 +172,6 @@
 .club-list-compact { display: flex; flex-direction: column; gap: var(--space-4); }
 .club-list-compact > .club-page-header { margin-bottom: 0; }
 .club-page-actions--compact { width: auto !important; flex-wrap: nowrap; }
-.club-page-actions--compact > .ds-btn { min-height: 44px; }
 .club-m-section,
 .club-list-compact .club-my-section {
   display: flex; flex-direction: column; margin: 0;
@@ -201,7 +200,7 @@
 .club-m-row__meta { font-size: var(--fs-sm); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .club-m-row__chevron,
 .club-m-row__count { color: var(--ink-2); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-.club-m-row > .ds-btn { min-height: 44px; flex-shrink: 0; }
+.club-m-row__action { flex-shrink: 0; }
 .club-m-badge {
   width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--r-md); background: var(--bg-2);
   display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 800; color: var(--ink-1); overflow: hidden; white-space: nowrap;

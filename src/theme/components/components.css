@@ -113,6 +113,8 @@
   animation: ds-spin .7s linear infinite;
 }
 @keyframes ds-spin { to { transform: rotate(360deg); } }
+/* 작은 버튼의 모양은 두고 조작 높이만 44 — 휴대폰 목록 머리·행의 주 동작(touchHeight). */
+.ds-btn--touch-height { min-height: var(--dim-button-height); }
 /* 단독 진행 표시(Spinner) — 버튼 스피너와 같은 모양, 색은 currentColor */
 .ds-spinner {
   display: inline-block; flex-shrink: 0;
@@ -945,6 +947,13 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
   input.ds-input, select.ds-input { min-height: var(--space-8); }
   .ds-toggle-controls--axis { min-height: var(--space-8); }
   .ds-toggle-controls--axis .ds-btn.ds-toggle-button { height: auto; min-height: calc(var(--space-7) + var(--space-3)); }
+}
+/* 조밀한 터치 표면(.ds-touch-compact) — 정보가 주인공인 화면(코치)에서 축 전환(종목·기간)이 정보보다 커 보이지 않게
+   휴대폰에서만 낮고 촘촘하게 둔다(줄 높이 자동·위아래 8, 버튼 30). 다른 화면의 터치 조작 높이는 그대로. */
+@media (hover: none) and (pointer: coarse), (max-width: 767px) {
+  .ds-touch-compact .ds-toggle-controls--axis { min-height: 0; margin-block: var(--space-2); }
+  .ds-touch-compact .ds-toggle-controls--axis .ds-btn.ds-toggle-button { height: 30px; min-height: 30px; padding-inline: var(--space-3); font-size: var(--fs-xs); }
+  .ds-touch-compact .ds-toggle-controls--axis.ds-toggle-controls--flush-touch { margin-block: 0; }
 }
 
 @media (hover: none) and (pointer: coarse), (max-width: 767px) {

@@ -3,9 +3,9 @@ import { Check } from 'lucide-react';
 import { Button, type ButtonProps } from './Button';
 import { cn } from './cn';
 
-export interface ToggleControlsProps extends HTMLAttributes<HTMLDivElement> { variant?: 'metric' | 'axis'; density?: 'default' | 'compact'; layout?: 'flow' | 'field'; /** 부모 폭을 균등 칸으로 채운다(화면 전환 줄). */ stretch?: boolean }
-export function ToggleControls({ variant = 'metric', density = 'default', layout = 'flow', stretch = false, className, role = 'group', ...props }: ToggleControlsProps) {
-  return <div role={role} className={cn('ds-toggle-controls', `ds-toggle-controls--${variant}`, density === 'compact' && 'ds-toggle-controls--compact', layout === 'field' && 'ds-toggle-controls--field', stretch && 'ds-toggle-controls--stretch', className)} {...props} />;
+export interface ToggleControlsProps extends HTMLAttributes<HTMLDivElement> { variant?: 'metric' | 'axis'; density?: 'default' | 'compact'; layout?: 'flow' | 'field'; /** 부모 폭을 균등 칸으로 채운다(화면 전환 줄). */ stretch?: boolean; /** 조밀한 터치 표면(.ds-touch-compact)의 휴대폰 화면에서 위아래 여백을 없앤다 — 머리·묶음 바로 아래 첫 줄. */ flushTouch?: boolean }
+export function ToggleControls({ variant = 'metric', density = 'default', layout = 'flow', stretch = false, flushTouch = false, className, role = 'group', ...props }: ToggleControlsProps) {
+  return <div role={role} className={cn('ds-toggle-controls', `ds-toggle-controls--${variant}`, density === 'compact' && 'ds-toggle-controls--compact', layout === 'field' && 'ds-toggle-controls--field', stretch && 'ds-toggle-controls--stretch', flushTouch && 'ds-toggle-controls--flush-touch', className)} {...props} />;
 }
 
 export interface ToggleButtonProps extends Omit<ButtonProps, 'variant' | 'size' | 'dense' | 'className' | 'style' | 'aria-pressed' | 'aria-selected'> {

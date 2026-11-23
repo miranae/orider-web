@@ -88,7 +88,7 @@ export default function CoachAnalysisView({ discipline, powerPeriodsEnabled, fal
   const fixedPace = !periodPace && !!runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0) ? runPaceCurve : null;
 
   return <div className="coach-analysis" data-testid="coach-analysis">
-    <ToggleControls variant="axis" aria-label={t("analysis.concise.period")} data-testid="K5-0-3">
+    <ToggleControls variant="axis" flushTouch aria-label={t("analysis.concise.period")} data-testid="K5-0-3">
       {ANALYSIS_WINDOW_CHOICES.map(choice => <ToggleButton key={choice} selected={windowDays === choice} onClick={() => setWindowDays(choice)}>{t(`range.${choice}`)}</ToggleButton>)}
     </ToggleControls>
     {loading && <Text as="p" variant="bodySmall" tone="secondary" role="status">{t("analysis.concise.loading")}</Text>}

@@ -41,7 +41,7 @@ export function UpcomingClubMeetings({ events, groups }: { events: NextEventInfo
                   {event.registered != null ? ` · ${t("list.upcomingParticipants", { count: event.registered })}` : ""}
                 </span>
               </Link>
-              <Link data-testid="C0-5-2" to={to} className={buttonClass({ variant: "primary", size: "sm" })}>{t("list.upcomingJoin")}</Link>
+              <Link data-testid="C0-5-2" to={to} className={buttonClass({ variant: "primary", size: "sm", touchHeight: true, className: "club-m-row__action" })}>{t("list.upcomingJoin")}</Link>
             </li>
           );
         })}

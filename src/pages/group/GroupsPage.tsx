@@ -420,8 +420,8 @@ export default function GroupsPage() {
         <div><Text as="h1" variant="pageTitle">{t("clubsTitle")}</Text>
         {!compactList && user && myGroups.length > 0 && <Text as="p" variant="bodySmall" tone="tertiary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
         <div className={compactList ? "club-page-actions club-page-actions--compact" : "club-page-actions"}>
-          {user && myGroups.length > 0 && <Button size="sm" data-testid="C0-0-2" variant="secondary" aria-expanded={compactList ? findOpen : undefined} aria-controls={compactList && findOpen ? "club-find" : undefined} onClick={openFind}>{t(compactList ? "list.findShort" : "list.findClubs")}</Button>}
-          {user && <Button size="sm" data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t(compactList ? "list.createShort" : "button.create")}</Button>}
+          {user && myGroups.length > 0 && <Button size="sm" touchHeight={compactList} data-testid="C0-0-2" variant="secondary" aria-expanded={compactList ? findOpen : undefined} aria-controls={compactList && findOpen ? "club-find" : undefined} onClick={openFind}>{t(compactList ? "list.findShort" : "list.findClubs")}</Button>}
+          {user && <Button size="sm" touchHeight={compactList} data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t(compactList ? "list.createShort" : "button.create")}</Button>}
         </div>
       </header>;
   const errorLine = error && <p role="alert" className="text-[length:var(--ft-body-size)] text-red-500 mb-4">{error}</p>;
