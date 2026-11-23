@@ -219,6 +219,37 @@ describe("PaneAccount nickname save", () => {
     expect(screen.getByRole("button", { name: "profile.photoChange" })).not.toBeDisabled();
   });
 
+  it("계정이 바뀌면 이전 계정이 고른 사진을 영역 선택 창에 보이지 않고 버린다", async () => {
+    const opened = { width: 640, height: 480, close: vi.fn() };
+    const late = { width: 640, height: 480, close: vi.fn() };
+    let resolveLate: (value: typeof late) => void = () => {};
+    vi.stubGlobal("createImageBitmap", vi.fn()
+      .mockResolvedValueOnce(opened)
+      .mockImplementationOnce(() => new Promise(resolve => { resolveLate = resolve; })));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(canvasContext());
+    const view = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const input = view.container.querySelector("input[type=file]")!;
+
+    // 창이 열린 사이 전환 → 창을 닫고 사진을 버린다.
+    fireEvent.change(input, { target: { files: [photoFile()] } });
+    await screen.findByRole("dialog", { name: "profile.cropTitle" });
+    mocks.user = { uid: "u2" };
+    mocks.currentUser = { uid: "u2" };
+    view.rerender(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opened.close).toHaveBeenCalled();
+
+    // 디코딩 중 전환 → 늦게 끝난 사진으로 창을 열지 않는다.
+    fireEvent.change(input, { target: { files: [photoFile()] } });
+    mocks.user = { uid: "u3" };
+    mocks.currentUser = { uid: "u3" };
+    view.rerender(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    await act(async () => { resolveLate(late); });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(late.close).toHaveBeenCalled();
+    expect(mocks.uploadBytes).not.toHaveBeenCalled();
+  });
+
   it("uses public profile signals to update the open photo and re-read a different selection", async () => {
     const url = "https://firebasestorage.googleapis.com/v0/b/test.firebasestorage.app/o/profiles%2Fother%2Favatar?alt=media";
     const view = renderHook(() => useProfileAvatarDisplayUrl(url));

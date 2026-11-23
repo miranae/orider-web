@@ -106,7 +106,15 @@ export function PaneAccount() {
   useEffect(() => {
     if (photoOverride && (photoOverride.uid !== user?.uid || photoOverride.url === profile?.photoURL)) setPhotoOverride(undefined);
   }, [photoOverride, profile?.photoURL, user?.uid]);
+  // 편집창이 열린 사이 계정이 바뀌면 고른 사진(자르기 영역 밖 포함)을 새 계정에 보이지 않게 닫고 버린다.
+  useEffect(() => {
+    if (photoCrop && photoCrop.viewer.uid !== user?.uid) {
+      photoCrop.bitmap.close();
+      setPhotoCrop(undefined);
+    }
+  }, [photoCrop, user?.uid]);
   const ownPhotoOverride = photoOverride?.uid === user?.uid ? photoOverride : undefined;
+  const ownPhotoCrop = photoCrop?.viewer.uid === user?.uid ? photoCrop : undefined;
   const savedPhotoURL = resolveProfilePhotoUrl(profile?.photoURL, user?.photoURL);
   const photoURL = ownPhotoOverride ? ownPhotoOverride.url : savedPhotoURL;
   if (!user) return null;
@@ -183,6 +191,11 @@ export function PaneAccount() {
       // 기본 디코딩은 EXIF 방향을 반영한다(옵션 값 'from-image' 는 구형 엔진이 거부해 넘기지 않는다).
       // 영역 선택 화면과 잘라 올리기가 이 한 장을 함께 써서 같은 좌표계가 된다.
       const bitmap = await createImageBitmap(file);
+      // 디코딩 사이 계정이 바뀌었으면 이전 계정의 사진으로 편집창을 열지 않는다.
+      if (auth.currentUser !== viewer) {
+        bitmap.close();
+        return;
+      }
       setPhotoCrop({ bitmap, viewer });
     } catch (error) {
       logClientError("PaneAccount.changeAvatar", error, { stage: "encode" });
@@ -401,9 +414,9 @@ export function PaneAccount() {
               style={{ display: "none" }}
               onChange={handlePhotoChange}
             />
-            {photoCrop && (
+            {ownPhotoCrop && (
               <ProfileAvatarCropDialog
-                image={photoCrop.bitmap}
+                image={ownPhotoCrop.bitmap}
                 onCancel={handlePhotoCropCancel}
                 onConfirm={region => void handlePhotoCropConfirm(region)}
               />
