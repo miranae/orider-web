@@ -520,6 +520,7 @@
   "src/features/group/groupPermissions.ts",
   "src/features/home/canonicalKpiSource.ts",
   "src/features/leaderboard/leaderboardFormat.ts",
+  "src/features/ride-world/accountWorldSignal.ts",
   "src/features/ride-world/activityMapSignalPool.ts",
   "src/features/ride-world/followWorldSignal.ts",
   "src/features/ride-world/useWorldEvent.ts",

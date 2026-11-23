@@ -2,15 +2,19 @@ import { getAuth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import type { WorldErrorReporter } from "../features/ride-world/worldReadiness";
 import { followWorldSignal } from "../features/ride-world/followWorldSignal";
+import { accountWorldEndpoint, accountWorldExpiresAt, accountWorldSubscription } from "../features/ride-world/accountWorldSignal";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 
 export function subscribeDeviceDeliverySignal<T>(
   firestore: Firestore, uid: string, resource: string,
   read: () => Promise<T>, receive: (snapshot: T) => void, onError: (error: Error) => void,
   fallback: (serverOnly: boolean, isCurrent: () => boolean) => () => void,
   report: WorldErrorReporter,
+  getAppCheckToken?: FirebaseServices["getAppCheckToken"],
 ): () => void {
-  if (!import.meta.env.DEV || import.meta.env.VITE_ORIDER_LOCAL_WORLD !== "1" ||
-      import.meta.env.VITE_ORIDER_LOCAL_DEVICE_REDIS !== "1" || firestore.app.options.projectId !== "demo-orider-lab") {
+  const endpoint = accountWorldEndpoint("device", firestore.app?.options?.projectId);
+  const hosted = endpoint?.startsWith("wss:");
+  if (!endpoint || (hosted && !getAppCheckToken)) {
     return fallback(false, () => true);
   }
   const auth = getAuth(firestore.app);
@@ -19,10 +23,10 @@ export function subscribeDeviceDeliverySignal<T>(
   let stopFallback: (() => void) | undefined;
   const active = () => !closed && auth.currentUser === user;
   const stopCanonical = () => { stopFallback?.(); stopFallback = undefined; };
-  const restore = () => {
+  const restore = (serverOnly = true) => {
     if (!active()) return;
     revision++;
-    stopFallback ??= fallback(true, active);
+    stopFallback ??= fallback(serverOnly, active);
   };
   const denied = () => {
     if (!active()) return;
@@ -34,15 +38,16 @@ export function subscribeDeviceDeliverySignal<T>(
     denied();
     return () => {};
   }
-  restore();
+  restore(!hosted);
   const stopWorld = followWorldSignal(
-    "ws://127.0.0.1:19487/device-signals",
-    async () => ({ v: 1, type: "device_subscribe", token: await user.getIdToken(), resource }),
+    endpoint,
+    () => accountWorldSubscription(endpoint, "device", user, getAppCheckToken, resource),
     data => {
       if (!active()) return false;
       const frame = data as { v?: number; type?: string; revision?: string | null } | null;
       if (frame?.v !== 1 || frame.type !== "device_signal" ||
           (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
+      if (hosted && frame.revision === null) return true;
       const expected = ++revision;
       stopCanonical();
       void read().then(snapshot => {
@@ -61,6 +66,7 @@ export function subscribeDeviceDeliverySignal<T>(
     },
     code => { if (code === 4003 || code === 4004) denied(); else restore(); },
     report,
+    hosted ? accountWorldExpiresAt : undefined,
   );
   return () => { closed = true; revision++; stopWorld(); stopCanonical(); };
 }
