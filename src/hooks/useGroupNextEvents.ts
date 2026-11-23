@@ -1,6 +1,6 @@
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useEffect, useState } from "react";
-import { getVisibleEventPage, getGroupNextEventPage } from "../services/eventDiscovery";
+import { getVisibleEventPage } from "../services/eventDiscovery";
 import { logClientError } from "../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
@@ -45,7 +45,7 @@ export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: b
 
 /**
  * 그룹별 가장 가까운 OPEN/LIVE 이벤트 1건씩 묶어 반환.
- * One bounded discovery request per group; unfinished groups offer the full paginated list.
+ * 클럽마다 서버 목록 조회 한 번(최대 250건). 끝까지 못 읽은 클럽은 전체 목록으로 이어 보게 한다.
  */
 export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, publicOnly = false) {
   const services = useFirebaseServices();
@@ -70,21 +70,14 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
       try {
         const map = new Map<string, NextEventInfo>();
         const uniqueGroupIds = [...new Set(groupIds)];
-        const snapshots = [];
         const incomplete = new Set<string>();
-        for (let offset = 0; offset < uniqueGroupIds.length; offset += 20) {
-          const chunk = uniqueGroupIds.slice(offset, offset + 20);
-          const batch = await getGroupNextEventPage(chunk, publicOnly, excludeEventId, services);
-          if (batch) { snapshots.push({ docs: batch.docs }); batch.incompleteGroupIds.forEach(id => incomplete.add(id)); }
-          else {
-            const legacy = await Promise.all(chunk.map(async groupId => {
-              const page = await getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 }, services);
-              if (page.nextCursor) incomplete.add(groupId);
-              return page;
-            }));
-            snapshots.push(...legacy);
-          }
-        }
+        // 클럽별 다음 모임은 서버가 지원하는 목록 조회(listVisibleEventEnvelopes)로 읽는다. 시작 시각 오름차순이라
+        // 첫 읽을 수 있는 행이 다음 모임이다. 묶음 조회(getGroupNextEvents)는 서버에서 지웠다(orider-g1-web #3835).
+        const snapshots = await Promise.all(uniqueGroupIds.map(async groupId => {
+          const page = await getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 }, services);
+          if (page.nextCursor) incomplete.add(groupId);
+          return page;
+        }));
 
         snapshots.forEach((snap) => {
           snap.docs.forEach((doc) => {
