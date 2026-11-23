@@ -252,7 +252,23 @@
     },
     "goalDayEstimate": "Goal-day estimate",
     "planProgress": "Plan progress",
-    "readError": "Could not check existing goals. Reload before creating or changing a goal."
+    "readError": "Could not check existing goals. Reload before creating or changing a goal.",
+    "planShort": "View plan",
+    "cachedChip": "Saved info",
+    "planWeeks": "Plan",
+    "planWeeksValue": "Week {{current}} / {{total}}",
+    "replacesShort": "Starting replaces '{{name}}'.",
+    "tiles": {
+      "distance": "Distance",
+      "elevation": "Climbing",
+      "targetTime": "Target time",
+      "targetWkg": "Target W/kg"
+    },
+    "typeHints": {
+      "event": "Date and distance",
+      "climb": "Course and time",
+      "program": "Beginner program"
+    }
   },
   "goals": {
     "wizardTitle": {

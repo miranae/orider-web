@@ -1,0 +1,24 @@
+/* 휴대폰 목표 탭: 카드(날짜·이름·목표 값·계획 진행·계획 보기) + 줄 목록(목표 변경·포기 / 목표 유형). */
+.goal-mobile-card { display: grid; gap: var(--space-4); }
+.goal-mobile-card__head { display: grid; gap: var(--space-1); }
+.goal-mobile-card__date { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); font-variant-numeric: tabular-nums; }
+.goal-mobile-card__tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-2); margin: 0; }
+.goal-mobile-card__tile { min-width: 0; padding: var(--space-2) var(--space-3); border-radius: var(--r-md); background: var(--bg-2); }
+.goal-mobile-card__tile dt { font-size: var(--fs-xs); color: var(--ink-2); }
+.goal-mobile-card__tile dd { margin: 0; font-size: var(--fs-lg); font-weight: 700; color: var(--ink-0); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.goal-mobile-card__progress { display: grid; gap: var(--space-2); }
+.goal-mobile-card__progress-row { display: flex; justify-content: space-between; font-size: var(--fs-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* CoachSurface 의 데스크톱 K3-2(버튼 줄바꿈 배치)보다 우선한다. */
+.goal-mobile-rows,
+.coach-surface [data-testid="K3-2"].goal-mobile-rows { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0; margin-top: var(--coach-block-gap, var(--space-4)); padding: 0 var(--space-4); border-radius: var(--r-lg); background: var(--bg-1); }
+.goal-mobile-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 48px; padding: 0; border: 0; border-bottom: var(--dim-divider-thickness, 1px) solid var(--line-soft); background: none; color: var(--ink-0); font: inherit; font-size: var(--fs-md); text-align: start; text-decoration: none; cursor: pointer; }
+.goal-mobile-row:last-child { border-bottom: 0; }
+.goal-mobile-row--tall { min-height: 56px; }
+.goal-mobile-row:disabled { cursor: default; opacity: 0.5; }
+.goal-mobile-row--danger { color: var(--color-error); }
+.goal-mobile-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.goal-mobile-row--tall .goal-mobile-row__label { font-weight: 600; }
+.goal-mobile-row__hint { font-size: var(--fs-xs); color: var(--ink-2); }
+.goal-mobile-row__chevron { flex: none; color: var(--ink-2); }
+.goal-mobile-row[aria-expanded="true"] .goal-mobile-row__chevron { transform: rotate(90deg); }

@@ -127,7 +127,7 @@ it("shows elapsed goal days without changing a saved goal", () => {
   } finally { vi.useRealTimers(); }
 });
 
-it("separates a generated mobile goal name and metadata while retaining the original", () => {
+it("separates a generated mobile goal name and metadata without changing the saved title", () => {
   const media = vi.spyOn(window, "matchMedia").mockImplementation(query => ({
     matches: query.includes("max-width"), media: query, onchange: null,
     addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
@@ -138,8 +138,8 @@ it("separates a generated mobile goal name and metadata while retaining the orig
     renderWithProviders(<GoalHub wizard={<div />} />);
     expect(screen.getByRole("heading", { name: "비앙키그란폰도춘천" })).toBeVisible();
     expect(screen.getByText("2026 · 그란폰도 · 122.91 km")).toBeVisible();
-    fireEvent.click(screen.getByText("목표 이름 원문"));
-    expect(screen.getByText(raw)).toBeVisible();
+    // 휴대폰 카드는 이름·메타만 둔다(원문 펼침 안내 없음).
+    expect(screen.queryByText("목표 이름 원문")).not.toBeInTheDocument();
     expect(state.goal.title).toBe(raw);
   } finally { media.mockRestore(); }
 });
