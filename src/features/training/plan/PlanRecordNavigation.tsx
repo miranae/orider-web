@@ -23,7 +23,7 @@ export default function PlanRecordNavigation({ date, compact = false }: { date?:
     if (includeDate && date) next.set("date", date);
     return `?${next}`;
   };
-  return <nav aria-label={t("planRecords.title")} style={{ marginBottom: "var(--space-4)" }}><RouteTabNav state={PLAN_RECORD_TAB_STATE} tabs={[
+  return <nav aria-label={t("planRecords.title")} className="plan-record-nav" style={{ marginBottom: "var(--space-4)" }}><RouteTabNav state={PLAN_RECORD_TAB_STATE} tabs={[
     { to: `/coach/plan${query(true)}`, label: t(compact ? "planRecords.planShort" : "planRecords.plan"), end: true },
     { to: `/athlete/me/activities${query(false)}`, label: t(compact ? "planRecords.recordsShort" : "planRecords.records"), end: true },
   ]} /></nav>;
