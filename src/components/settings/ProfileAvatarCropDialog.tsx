@@ -12,7 +12,7 @@ import {
   type ProfileAvatarCropState,
 } from "@shared/profileAvatarCrop";
 import Modal from "../Modal";
-import { Button, Text } from "../../theme/components";
+import { Button, Field, Text } from "../../theme/components";
 
 /** 방향을 반영해 디코딩한 사진. 화면에 그린 픽셀과 잘라 올릴 픽셀이 같은 좌표계가 되도록 하나를 함께 쓴다. */
 export type CropImage = CanvasImageSource & { width: number; height: number };
@@ -40,6 +40,7 @@ export function ProfileAvatarCropDialog({ image, onCancel, onConfirm }: ProfileA
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const hintId = useId();
+  const zoomId = useId();
   const maxZoom = cropMaxZoom(width, height);
 
   const viewSide = () => stageRef.current?.clientWidth ?? 0;
@@ -161,18 +162,20 @@ export function ProfileAvatarCropDialog({ image, onCancel, onConfirm }: ProfileA
       >
         <canvas ref={canvasRef} aria-hidden="true" className="block w-full h-full" />
       </div>
-      <input
-        type="range"
-        className="mt-4 w-full"
-        style={{ accentColor: "var(--accent)" }}
-        aria-label={t("profile.cropZoom")}
-        min={1}
-        max={maxZoom}
-        step={0.01}
-        value={state.zoom}
-        disabled={maxZoom <= 1}
-        onChange={event => zoom(Number(event.target.value) / state.zoom)}
-      />
+      <Field label={t("profile.cropZoom")} htmlFor={zoomId} className="mt-4">
+        <input
+          id={zoomId}
+          type="range"
+          className="w-full"
+          style={{ accentColor: "var(--accent)" }}
+          min={1}
+          max={maxZoom}
+          step={0.01}
+          value={state.zoom}
+          disabled={maxZoom <= 1}
+          onChange={event => zoom(Number(event.target.value) / state.zoom)}
+        />
+      </Field>
       <div className="mt-4 flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onCancel}>{t("profile.cropCancel")}</Button>
         <Button type="button" variant="primary" onClick={confirm}>{t("profile.cropConfirm")}</Button>

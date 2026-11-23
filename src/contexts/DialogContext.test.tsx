@@ -150,6 +150,27 @@ describe("DialogProvider", () => {
   });
 
 
+  it("plain confirm shows only the message and actions, and names the dialog by its message", async () => {
+    function Plain() {
+      const dialog = useDialog();
+      const [result, setResult] = useState("none");
+      return (
+        <>
+          <button type="button" onClick={async () => setResult(String(await dialog.confirm("Delete your profile photo?", { plain: true, destructive: true, confirmLabel: "Delete" })))}>open</button>
+          <output>{result}</output>
+        </>
+      );
+    }
+    render(<DialogProvider><Plain /></DialogProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    const dialog = screen.getByRole("dialog", { name: "Delete your profile photo?" });
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+    expect(dialog.querySelector(".ds-alert")).toBeNull();
+    expect(within(dialog).queryByText(/확인|Confirm/)).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.getByText("true")).toBeTruthy());
+  });
+
   it("confirm resolves false when cancelled", async () => {
     render(
       <DialogProvider>

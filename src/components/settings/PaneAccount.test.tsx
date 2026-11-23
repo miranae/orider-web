@@ -523,7 +523,7 @@ describe("PaneAccount nickname save", () => {
     mocks.confirm.mockResolvedValueOnce(false);
     render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
-    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("profile.photoDeleteConfirm", { destructive: true, confirmLabel: "profile.photoDeleteConfirmAction" }));
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("profile.photoDeleteConfirm", { plain: true, destructive: true, confirmLabel: "profile.photoDeleteConfirmAction" }));
     expect(mocks.updateDoc).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "profile.photoDelete" }));
     await waitFor(() => expect(mocks.updateDoc).toHaveBeenCalledWith(expect.anything(), { photoURL: null, profileAvatarGeneration: null }));

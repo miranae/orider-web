@@ -95,6 +95,8 @@
 }
 .ds-btn--compact.ds-btn--ghost { background: var(--bg-2); }
 .ds-btn--compact.ds-btn--ghost:hover:not(:disabled) { background: var(--bg-3); }
+/* 큰 그림(22px, ICON_SIZE.lg) — 버튼 크기·터치 영역은 size 를 따른다 */
+.ds-btn--icon-large .ds-btn__icon svg { width: calc(var(--space-5) + var(--space-0-5)); height: calc(var(--space-5) + var(--space-0-5)); }
 .ds-btn--compact .ds-btn__icon { font-size: calc(var(--space-4) + var(--space-0-5)); }
 .ds-btn__indicator {
   position: absolute; top: var(--space-1); right: var(--space-1);
@@ -479,6 +481,15 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
   border-radius: var(--r-lg, 10px);
   background: var(--bg-0);
   box-shadow: var(--shadow-2);
+}
+/* plain 확인: 제목·아이콘·배너 없이 본문 한 문장 */
+.app-dialog__message {
+  margin: 0;
+  color: var(--ink-0);
+  font-size: var(--ft-body-medium-size);
+  line-height: var(--ft-body-medium-line-height);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .app-dialog__actions {
   display: flex;

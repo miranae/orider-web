@@ -107,7 +107,7 @@ export function ProfileHero({
       </div>
 
       <div style={{ minWidth: 0 }}>
-        <div className="settings-profile-name" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
+        <div className="settings-profile-name" style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
           <h2
             style={{
               margin: 0,
@@ -129,60 +129,40 @@ export function ProfileHero({
             />
           )}
         </div>
-        <div
-          style={{
-            fontSize: "var(--fs-xs)",
-            color: "var(--ink-3)",
-            display: "flex",
-            gap: "var(--space-3)",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          {friendCode && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-              <Text variant="mono"
-                style={{
-                  fontWeight: 600,
-                  fontSize: "var(--fs-sm)",
-                  padding: "2px 8px",
-                  background: "color-mix(in oklch, var(--aqua) 12%, var(--bg-1))",
-                  border: "1px solid color-mix(in oklch, var(--aqua) 30%, transparent)",
-                  borderRadius: "var(--r-sm)",
-                  color: "var(--aqua)",
-                  fontFamily: "var(--font-code)",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                {friendCode}
-              </Text>
-              {friendCodeAction}
-              {t("profile.friendCodeLabel")}
-            </span>
-          )}
-          {email && (
-            <>
-              {friendCode && <span>·</span>}
-              <span style={{ overflowWrap: "anywhere" }}>{email}</span>
-            </>
-          )}
-          {stravaConnected && (
-            <>
-              <span>·</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: "var(--lime)",
-                  }}
-                />
+        {friendCode && (
+          <div className="settings-profile-code">
+            <Text variant="mono"
+              style={{
+                fontWeight: 600,
+                fontSize: "var(--fs-sm)",
+                padding: "2px 8px",
+                background: "color-mix(in oklch, var(--aqua) 12%, var(--bg-1))",
+                border: "1px solid color-mix(in oklch, var(--aqua) 30%, transparent)",
+                borderRadius: "var(--r-sm)",
+                color: "var(--aqua)",
+                fontFamily: "var(--font-code)",
+                letterSpacing: "0.08em",
+              }}
+            >
+              {friendCode}
+            </Text>
+            {friendCodeAction}
+            <span className="settings-profile-code__label">{t("profile.friendCodeLabel")}</span>
+          </div>
+        )}
+        {(email || stravaConnected) && (
+          // 부제는 한 줄 — 넘치면 말줄임(단어 중간 줄바꿈 없음)
+          <div className="settings-profile-sub" title={email ?? undefined}>
+            {email}
+            {stravaConnected && (
+              <>
+                {email && " · "}
+                <span className="settings-profile-sub__strava" aria-hidden />
                 {t("profile.stravaConnected")}
-              </span>
-            </>
-          )}
-        </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );

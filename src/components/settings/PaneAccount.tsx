@@ -279,7 +279,7 @@ export function PaneAccount() {
   async function handleRemovePhoto() {
     if (!user || user.isAnonymous || photoUploading) return;
     // 아바타 위 작은 아이콘이라 잘못 누르기 쉬워 한 번 더 묻는다
-    if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { destructive: true, confirmLabel: t("profile.photoDeleteConfirmAction") }))) return;
+    if (!(await dialog.confirm(t("profile.photoDeleteConfirm"), { plain: true, destructive: true, confirmLabel: t("profile.photoDeleteConfirmAction") }))) return;
     if (auth.currentUser?.uid !== user.uid) return;
     setPhotoUploading(true);
     try {
@@ -395,14 +395,12 @@ export function PaneAccount() {
         avatarAside={photoURL && !user.isAnonymous ? (
           <IconButton
             variant="ghost"
-            size="compact"
-            className="settings-profile-avatar__action"
-            icon={<Trash2 size={ICON_SIZE.xs} />}
+            iconSize="large"
+            icon={<Trash2 size={ICON_SIZE.lg} />}
             onClick={handleRemovePhoto}
             disabled={photoUploading}
             aria-label={t("profile.photoDelete")}
             title={t("profile.photoDelete")}
-            style={{ color: "var(--rose)" }}
           />
         ) : undefined}
         avatarBadge={user.isAnonymous ? undefined :

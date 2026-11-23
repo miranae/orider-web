@@ -62,6 +62,8 @@ describe("ProfileAvatarCropDialog", () => {
   it("휠·확대 막대·키보드로 확대하고 옮길 수 있다", () => {
     const { onConfirm, stage } = renderDialog(4000, 3000);
     const slider = screen.getByRole("slider", { name: "확대" });
+    // 슬라이더 이름은 화면에 보이는 라벨이다
+    expect(screen.getByText("확대").tagName).toBe("LABEL");
     expect(slider).toHaveAttribute("max", "4");
     fireEvent.change(slider, { target: { value: "4" } });
     confirm();
