@@ -39,7 +39,7 @@ jobs:
         with:
           repository: miranae/orider-web
           path: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
-          ref: c55118c160a96dc949d8cb36f106b03c1456c79e # reviewed checker code; caller cannot select executable code
+          ref: 428f835e76f7bd16381b1bac1f557f319a1eafd5 # reviewed checker code; caller cannot select executable code
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
