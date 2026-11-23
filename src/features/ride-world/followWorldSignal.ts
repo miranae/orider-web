@@ -8,15 +8,17 @@ export function followWorldSignal(
   receive: (data: unknown) => boolean,
   disconnected: (code: number) => void,
   report: WorldErrorReporter = logClientError,
+  renewAt?: (request: unknown) => number,
 ): () => void {
   let active = true, ready = false, denied = false, generation = 0, backoff = 500;
   let socket: WebSocket | undefined;
   let accepted = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let initial: ReturnType<typeof setTimeout> | undefined;
+  let renewal: ReturnType<typeof setTimeout> | undefined;
   function close() {
     generation++;
-    clearTimeout(timer); clearTimeout(initial);
+    clearTimeout(timer); clearTimeout(initial); clearTimeout(renewal);
     const previous = socket;
     socket = undefined;
     previous?.close();
@@ -39,6 +41,7 @@ export function followWorldSignal(
       if (!active || ticket !== generation || !ready) return;
       const connection = new WebSocket(url);
       socket = connection;
+      if (renewAt) renewal = setTimeout(() => lost(1013), Math.max(0, renewAt(request) - Date.now()));
       const failed = (phase: string, error: unknown) => {
         if (socket !== connection) return;
         report("RideWorld.signal", error, { endpoint: url, phase });

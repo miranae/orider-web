@@ -82,6 +82,7 @@ jobs:
         if: inputs.transport == 'bundled-development'
         env:
           BACKEND_SOURCE: ${{ inputs.backend_source_sha }}
+          VITE_WORLD_ACCOUNT_SIGNALS_ENABLED: ${{ vars.VITE_WORLD_ACCOUNT_SIGNALS_ENABLED }}
         run: node scripts/prepare-bundled-stage.mjs --phase prepare --directory "$RUNNER_TEMP/bundled-stage" --backend-source "$BACKEND_SOURCE"
       - name: Set legacy production runtime snapshot path
         if: inputs.transport == 'legacy'

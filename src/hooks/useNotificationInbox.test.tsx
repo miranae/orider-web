@@ -246,3 +246,49 @@ it("uses an owned Redis signal and keeps pagination on a reconnect with the same
     vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); resetRuntimeConfigForTests();
   }
 });
+
+it("authenticates a hosted subscription and restores Firestore before credentials expire", async () => {
+  const { onSnapshot } = await import("firebase/firestore");
+  const { getAppCheckToken } = await import("../services/firebase");
+  const stopFirestore = vi.fn();
+  const originalSnapshot = vi.mocked(onSnapshot).getMockImplementation();
+  vi.mocked(onSnapshot).mockReturnValue(stopFirestore);
+  vi.useFakeTimers();
+  const expiresAt = Math.floor(Date.now() / 1000) + 23;
+  const authToken = `header.${btoa(JSON.stringify({ exp: expiresAt + 120 }))}.signature`;
+  const appCheck = `header.${btoa(JSON.stringify({ exp: expiresAt }))}.signature`;
+  vi.mocked(getAppCheckToken).mockResolvedValueOnce(appCheck);
+  const sockets: HostedSocket[] = [];
+  class HostedSocket extends EventTarget {
+    send = vi.fn();
+    close = vi.fn();
+    constructor(public url: string) { super(); sockets.push(this); }
+    signal(revision: string | null) {
+      this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "notification_signal", revision }) }));
+    }
+  }
+  vi.stubGlobal("WebSocket", HostedSocket);
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldAccountSignalsEnabled: true });
+  Object.assign(state.user, { getIdToken: async () => authToken });
+  try {
+    const { unmount } = renderHook(() => useNotificationInbox());
+    await act(async () => {});
+    expect(sockets[0]?.url).toBe("wss://world.orider.co.kr/notification-signals");
+    sockets[0]?.dispatchEvent(new Event("open"));
+    expect(sockets[0]?.send).toHaveBeenCalledWith(JSON.stringify({ v: 1, type: "notification_subscribe", token: authToken, appCheck }));
+    await act(async () => sockets[0]?.signal(null));
+    expect(stopFirestore).not.toHaveBeenCalled();
+    await act(async () => sockets[0]?.signal("1790000000:012345678"));
+    expect(stopFirestore).toHaveBeenCalledOnce();
+    await act(async () => vi.advanceTimersByTimeAsync(expiresAt * 1000 - 20_000 - Date.now()));
+    expect(sockets[0]?.close).toHaveBeenCalledOnce();
+    expect(onSnapshot).toHaveBeenCalledTimes(2);
+    unmount();
+  } finally {
+    vi.mocked(onSnapshot).mockImplementation(originalSnapshot!);
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    resetRuntimeConfigForTests();
+  }
+});

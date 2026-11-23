@@ -110,7 +110,7 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
     return subscribeDeviceDeliverySignal(firestore, uid, `workout-receipt:${deliveryId}`,
       () => getDocFromServer(ref), receive, onError, (serverOnly, isCurrent) => serverOnly
         ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (isCurrent() && !snap.metadata.fromCache) receive(snap); }, error => { if (isCurrent()) onError(error); })
-        : onSnapshot(ref, receive, onError), deviceReporter());
+        : onSnapshot(ref, receive, onError), deviceReporter(), services.getAppCheckToken);
   }
 
   function subscribeRiderWorkoutDeviceState(
@@ -135,7 +135,7 @@ export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices
     return subscribeDeviceDeliverySignal(firestore, uid, `workout-device:${deviceId}`,
       () => getDocFromServer(ref), receive, onError, (serverOnly, isCurrent) => serverOnly
         ? onSnapshot(ref, { includeMetadataChanges: true }, snap => { if (isCurrent() && !snap.metadata.fromCache) receive(snap); }, error => { if (isCurrent()) onError(error); })
-        : onSnapshot(ref, receive, onError), deviceReporter());
+        : onSnapshot(ref, receive, onError), deviceReporter(), services.getAppCheckToken);
   }
 
   return { subscribeRiderWorkoutDevices, createRiderWorkoutDelivery, subscribeRiderWorkoutDelivery, subscribeRiderWorkoutDeviceState };
