@@ -36,6 +36,7 @@ export interface RuntimeConfig {
   trainingDecisionCanonicalEnabled?: boolean;
   trainingExecutionEnabled?: boolean;
   riderWorkoutDeliveryEnabled?: boolean;
+  worldAccountSignalsEnabled?: boolean;
   coachRidePlanTokenEnabled?: boolean;
   coachRidePlanSnapshotEnabled?: boolean;
   coachRidePlanAiEnabled?: boolean;
@@ -109,6 +110,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     trainingDecisionCanonicalEnabled: import.meta.env.VITE_TRAINING_DECISION_CANONICAL_ENABLED === "true",
     trainingExecutionEnabled: import.meta.env.VITE_TRAINING_EXECUTION_ENABLED === "true",
     riderWorkoutDeliveryEnabled: import.meta.env.VITE_RIDER_WORKOUT_DELIVERY_ENABLED === "true",
+    worldAccountSignalsEnabled: import.meta.env.VITE_WORLD_ACCOUNT_SIGNALS_ENABLED === "true",
     coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",
