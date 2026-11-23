@@ -22,6 +22,7 @@ src/theme/
     ├── Stat.tsx               라벨 + 큰 수치 + 단위 + 변화량
     ├── Alert.tsx              info/success/warning/danger + 기본 아이콘
     ├── Progress.tsx           0..1 / 0..100 자동 + variant
+    ├── Spinner.tsx            끝을 모르는 진행 표시 sm 12 / lg 36 (장식, 이름은 호출자)
     ├── Chart.tsx              ChartFrame / Header / Legend / Tooltip / Grid·Axis
     └── components.css         모든 ds-* 스타일 (외부 import 금지)
 ```
@@ -87,6 +88,7 @@ import { buttonClass } from '@/theme';
 
 - 폼 검증 실패는 `Input`, `Textarea`, `Select`의 `invalid` prop을 사용한다. 컴포넌트가 `aria-invalid=true`를 함께 연결한다.
 - 제출·저장처럼 중복 실행되면 안 되는 액션은 `disabled`만 두지 말고 `Button loading` 또는 `IconButton loading`을 사용한다.
+- 버튼 밖의 진행 표시는 `Spinner`를 쓴다. `size="lg"`(36px)는 아바타처럼 대상 위를 덮는 진행 표시(아바타 지름의 약 50%)에 쓰고, 색은 currentColor라 덮개 위에서는 호출자가 글자색을 정한다. 스피너는 장식이므로 "업로드 중…" 같은 상태 이름은 감싼 컨트롤의 `aria-label`이나 `role="status"`로 전달한다.
 - 로딩 피드백은 레이아웃을 유지해야 하면 `LoadingSkeleton`, 짧은 인라인 대기는 버튼 스피너를 쓴다.
 - 스켈레톤 높이가 실제 콘텐츠와 다르면 `minHeight`를 넘겨 로드 완료 시 레이아웃 이동을 줄인다.
 - 에러 토스트는 성공/정보보다 길게 유지되며 닫기 버튼을 제공한다. 사용자가 반드시 읽어야 하는 오류는 토스트만 쓰지 말고 화면 내 `ErrorState`도 함께 둔다.

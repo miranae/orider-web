@@ -113,6 +113,16 @@
   animation: ds-spin .7s linear infinite;
 }
 @keyframes ds-spin { to { transform: rotate(360deg); } }
+/* 단독 진행 표시(Spinner) — 버튼 스피너와 같은 모양, 색은 currentColor */
+.ds-spinner {
+  display: inline-block; flex-shrink: 0;
+  width: var(--space-3); height: var(--space-3);
+  border: var(--space-0-5) solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ds-spin .7s linear infinite;
+}
+.ds-spinner--lg { width: calc(var(--space-7) + var(--space-1)); height: calc(var(--space-7) + var(--space-1)); border-width: calc(var(--space-0-5) + var(--space-0-5) / 2); }
 
 /* ===== Card ===== */
 .ds-card {
@@ -355,7 +365,8 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
   .ds-switch__slider,
   .ds-switch__slider::before,
   .ds-progress__bar,
-  .ds-btn__spinner {
+  .ds-btn__spinner,
+  .ds-spinner {
     animation: none !important;
     transition: none !important;
   }

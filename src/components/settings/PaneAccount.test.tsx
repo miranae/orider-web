@@ -548,12 +548,18 @@ describe("PaneAccount nickname save", () => {
 
     await pickAndConfirm(input);
     await waitFor(() => expect(mocks.uploadBytes).toHaveBeenCalled());
-    for (const change of screen.getAllByRole("button", { name: "profile.photoUploading" })) expect(change).toBeDisabled();
+    // 업로드 중: 배지는 숨고, 사진 버튼이 "업로드 중…" 으로 비활성·바쁨, 상태는 role=status 로 알린다
+    expect(screen.queryByRole("button", { name: "profile.photoChange" })).toBeNull();
+    expect(photo).toHaveAccessibleName("profile.photoUploading");
+    expect(photo).toBeDisabled();
+    expect(photo).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("profile.photoUploading");
     fireEvent.click(photo);
     expect(pick).toHaveBeenCalledTimes(1);
     await act(async () => { finishUpload({ metadata: { generation: "1" } }); });
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("profile.photoUpdated"));
     expect(photo).not.toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "profile.photoChange" })).toHaveLength(2);
   });
 
   it("익명 사용자는 사진을 눌러도 아무것도 열리지 않는다", () => {

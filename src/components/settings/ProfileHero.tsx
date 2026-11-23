@@ -2,7 +2,7 @@ import { Pencil } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
 import { useTranslation } from "react-i18next";
-import { Card, IconButton, Text } from "../../theme/components";
+import { Card, IconButton, Spinner, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface ProfileHeroProps {
@@ -15,8 +15,9 @@ interface ProfileHeroProps {
   /** 아바타 오른쪽 아래 모서리에 작은 원형 배지로 걸치는 아이콘 버튼 하나(사진 변경) */
   avatarBadge?: ReactNode;
   /** 아바타 사진 자체를 눌러도 실행하는 동작(사진 변경). 배지와 같은 이름·비활성 상태를 넘긴다.
-   * 키보드 탐색은 배지 하나로 충분해 사진 버튼은 탭 순서에서 뺀다. */
-  avatarAction?: { label: string; disabled?: boolean; onClick: () => void };
+   * 키보드 탐색은 배지 하나로 충분해 사진 버튼은 탭 순서에서 뺀다.
+   * busy 면 사진 전체를 어두운 덮개와 가운데 큰 진행 표시로 덮고 누를 수 없다. */
+  avatarAction?: { label: string; disabled?: boolean; busy?: boolean; onClick: () => void };
   /** 아바타를 가리지 않도록 아바타 옆에 두는 아이콘 버튼(사진 삭제) */
   avatarAside?: ReactNode;
   /** 친구 코드 바로 옆에 붙는 아이콘 버튼(코드 복사) */
@@ -93,12 +94,14 @@ export function ProfileHero({
             type="button"
             className="settings-profile-avatar__photo"
             onClick={avatarAction.onClick}
-            disabled={avatarAction.disabled}
+            disabled={avatarAction.disabled || avatarAction.busy}
+            aria-busy={avatarAction.busy || undefined}
             aria-label={avatarAction.label}
             title={avatarAction.label}
             tabIndex={-1}
           >
             {avatar}
+            {avatarAction.busy && <span className="settings-profile-avatar__busy"><Spinner size="lg" /></span>}
           </button>
         ) : avatar}
         {avatarBadge && <div className="settings-profile-avatar__badge">{avatarBadge}</div>}

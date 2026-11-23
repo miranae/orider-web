@@ -245,7 +245,10 @@
 /* 사진 자체도 사진 변경을 연다 — 배지와 같은 동작, 버튼 모양 없이 사진만 보인다 */
 .settings-profile-avatar__photo { display: block; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; font: inherit; cursor: pointer; }
 .settings-profile-avatar__photo:disabled { cursor: progress; }
+.settings-profile-avatar__photo { position: relative; }
 .settings-profile-avatar__photo > img { display: block; }
+/* 업로드 중: 사진 전체 반투명 어두운 덮개 + 가운데 큰 진행 표시(지름 약 50%). 덮개는 테마와 무관하게 어둡다(공용 대화상자 뒤 덮개와 같은 방식). */
+.settings-profile-avatar__busy { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; background: rgb(0 0 0 / 0.5); color: rgb(255 255 255); }
 .settings-profile-avatar__badge { position: absolute; right: calc(-1 * var(--space-1)); bottom: calc(-1 * var(--space-1)); display: flex; }
 /* 배지는 28 원형 + 카드 배경색 테두리로 사진과 분리 — 히트 영역은 버튼 ::after 가 44 로 보장 */
 .settings-profile-avatar__badge .settings-profile-avatar__camera {

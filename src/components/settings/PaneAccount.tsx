@@ -375,7 +375,7 @@ export function PaneAccount() {
         onEditNickname={nicknameSaving ? undefined : handleSaveNickname}
         avatarAction={user.isAnonymous ? undefined : {
           label: photoUploading ? t("profile.photoUploading") : t("profile.photoChange"),
-          disabled: photoUploading,
+          busy: photoUploading,
           onClick: () => fileInputRef.current?.click(),
         }}
         friendCodeAction={
@@ -405,16 +405,20 @@ export function PaneAccount() {
         ) : undefined}
         avatarBadge={user.isAnonymous ? undefined :
           <>
-            <IconButton
-              variant="primary"
-              size="compact"
-              className="settings-profile-avatar__action settings-profile-avatar__camera"
-              icon={<Camera size={ICON_SIZE.xs} />}
-              onClick={() => fileInputRef.current?.click()}
-              loading={photoUploading}
-              aria-label={photoUploading ? t("profile.photoUploading") : t("profile.photoChange")}
-              title={photoUploading ? t("profile.photoUploading") : t("profile.photoChange")}
-            />
+            {/* 업로드 중에는 배지를 숨기고 사진 위 덮개가 진행을 보인다(앱과 같은 모양) */}
+            {photoUploading ? (
+              <span role="status" className="sr-only">{t("profile.photoUploading")}</span>
+            ) : (
+              <IconButton
+                variant="primary"
+                size="compact"
+                className="settings-profile-avatar__action settings-profile-avatar__camera"
+                icon={<Camera size={ICON_SIZE.xs} />}
+                onClick={() => fileInputRef.current?.click()}
+                aria-label={t("profile.photoChange")}
+                title={t("profile.photoChange")}
+              />
+            )}
             <input
               type="file"
               accept="image/*"
