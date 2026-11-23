@@ -7,7 +7,8 @@ for(const phase of ['loading','error'])test(`week ${phase} preserves club naviga
   // 휴대폰은 멤버·운영을 머리글 ⋯ 메뉴로 옮겼다.
   if(info.project.name==='mobile')await expect(page.getByRole('button',{name:'클럽 메뉴',exact:true})).toBeVisible();
   else await expect(page.getByRole('link',{name:'멤버',exact:true})).toBeVisible();
-  if(phase==='error')await expect(page.getByRole('button',{name:/다시/})).toBeVisible();
+  // 휴대폰 활동은 이번 주 요약과 공동 기록이 각자 다시 시도한다(한쪽 실패가 화면 전체를 덮지 않는다).
+  if(phase==='error')await expect(page.getByRole('button',{name:/다시/})).toHaveCount(info.project.name==='mobile'?2:1);
   await mkdir('docs/reviews/2026-11-05-club-followups',{recursive:true});
   await page.screenshot({path:`docs/reviews/2026-11-05-club-followups/${info.project.name}-${phase}.png`,fullPage:true,animations:'disabled'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

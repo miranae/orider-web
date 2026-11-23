@@ -6,15 +6,24 @@ import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
 import { canManageGroup } from "../../features/group/groupPermissions";
 import GroupSubNav from "../../components/group/GroupSubNav";
-import { EmptyState, ErrorState } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 import { useMobile } from "../../hooks/useMobile";
 import GroupWeekPage from "./GroupWeekPage";
 import GroupRideList from "../../components/group/GroupRideList";
 
-/** 휴대폰은 공동 기록 주소(/rides)도 활동 화면(이번 주 + 공동 기록)으로 연다 — 기존 링크·앱 경로가 그대로 활동 탭에 닿는다. */
+/**
+ * 휴대폰 회원은 공동 기록 주소(/rides)도 활동 화면(이번 주 + 공동 기록)으로 연다 — 기존 링크·앱 경로가 그대로 활동 탭에 닿는다.
+ * 방문자(비회원·로그아웃)는 이번 주 집계가 회원 전용이라 #1811 이전처럼 공동 기록 화면을 그대로 본다.
+ */
 export default function GroupRidesPage() {
-  return useMobile() ? <GroupWeekPage /> : <GroupRidesContent />;
+  const mobile = useMobile();
+  const { groupId } = useParams();
+  const { user } = useAuth();
+  const { role, loading } = useGroupMemberRole(mobile ? groupId : undefined, mobile ? user?.uid : undefined);
+  if (!mobile) return <GroupRidesContent />;
+  if (user && loading) return <LoadingSkeleton kind="list" count={5} />;
+  return role ? <GroupWeekPage /> : <GroupRidesContent />;
 }
 
 function GroupRidesContent() {
