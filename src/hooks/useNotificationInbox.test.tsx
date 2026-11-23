@@ -247,14 +247,14 @@ it("uses an owned Redis signal and keeps pagination on a reconnect with the same
   }
 });
 
-it("authenticates a hosted subscription and restores Firestore before credentials expire", async () => {
+it.each(["timer", "suspended tab"])("authenticates a hosted subscription and restores Firestore on token renewal (%s)", async renewal => {
   const { onSnapshot } = await import("firebase/firestore");
   const { getAppCheckToken } = await import("../services/firebase");
   const stopFirestore = vi.fn();
   const originalSnapshot = vi.mocked(onSnapshot).getMockImplementation();
   vi.mocked(onSnapshot).mockReturnValue(stopFirestore);
   vi.useFakeTimers();
-  const expiresAt = Math.floor(Date.now() / 1000) + 23;
+  const expiresAt = Math.floor(Date.now() / 1000) + 33;
   const authToken = `header.${btoa(JSON.stringify({ exp: expiresAt + 120 }))}.signature`;
   const appCheck = `header.${btoa(JSON.stringify({ exp: expiresAt }))}.signature`;
   vi.mocked(getAppCheckToken).mockResolvedValueOnce(appCheck);
@@ -281,7 +281,12 @@ it("authenticates a hosted subscription and restores Firestore before credential
     expect(stopFirestore).not.toHaveBeenCalled();
     await act(async () => sockets[0]?.signal("1790000000:012345678"));
     expect(stopFirestore).toHaveBeenCalledOnce();
-    await act(async () => vi.advanceTimersByTimeAsync(expiresAt * 1000 - 20_000 - Date.now()));
+    if (renewal === "timer") {
+      await act(async () => vi.advanceTimersByTimeAsync(expiresAt * 1000 - 20_000 - Date.now()));
+    } else {
+      vi.setSystemTime(expiresAt * 1000);
+      act(() => { sockets[0]?.dispatchEvent(new CloseEvent("close", { code: 4003 })); });
+    }
     expect(sockets[0]?.close).toHaveBeenCalledOnce();
     expect(onSnapshot).toHaveBeenCalledTimes(2);
     unmount();

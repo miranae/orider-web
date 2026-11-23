@@ -2,7 +2,7 @@ import { getAuth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import type { WorldErrorReporter } from "../features/ride-world/worldReadiness";
 import { followWorldSignal } from "../features/ride-world/followWorldSignal";
-import { accountWorldEndpoint, accountWorldRenewAt, accountWorldSubscription } from "../features/ride-world/accountWorldSignal";
+import { accountWorldEndpoint, accountWorldExpiresAt, accountWorldSubscription } from "../features/ride-world/accountWorldSignal";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 
 export function subscribeDeviceDeliverySignal<T>(
@@ -66,7 +66,7 @@ export function subscribeDeviceDeliverySignal<T>(
     },
     code => { if (code === 4003 || code === 4004) denied(); else restore(); },
     report,
-    hosted ? accountWorldRenewAt : undefined,
+    hosted ? accountWorldExpiresAt : undefined,
   );
   return () => { closed = true; revision++; stopWorld(); stopCanonical(); };
 }

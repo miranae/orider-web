@@ -5,7 +5,7 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { doc, onSnapshot, type DocumentSnapshot } from "firebase/firestore";
 import { createWebNotificationClient } from "../services/webNotifications";
 import { getRuntimeConfig } from "../services/runtimeConfig";
-import { accountWorldEndpoint, accountWorldRenewAt, accountWorldSubscription } from "../features/ride-world/accountWorldSignal";
+import { accountWorldEndpoint, accountWorldExpiresAt, accountWorldSubscription } from "../features/ride-world/accountWorldSignal";
 import { logClientError } from "../services/errorLogger";
 import { followWorldSignal } from "../features/ride-world/followWorldSignal";
 /**
@@ -169,7 +169,7 @@ export function useNotificationInbox() {
           }
         },
         (source, error, context) => logClientError(source, error, context, services, user),
-        hostedWorld ? accountWorldRenewAt : undefined,
+        hostedWorld ? accountWorldExpiresAt : undefined,
       ) : undefined;
       startSource();
       unsubscribe = () => { stopWorld?.(); stopCanonical(); };

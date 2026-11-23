@@ -1,4 +1,4 @@
-import { accountWorldEndpoint, accountWorldRenewAt, accountWorldSubscription } from "./accountWorldSignal";
+import { accountWorldEndpoint, accountWorldExpiresAt, accountWorldSubscription } from "./accountWorldSignal";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 
 const endpoint = "wss://world.orider.co.kr/device-signals";
@@ -15,7 +15,7 @@ it("limits hosted tokens to the production Firebase project and the fixed TLS en
   expect(accountWorldEndpoint("device", "miranae-orider-g1")).toBeUndefined();
 });
 
-it("sends both tokens and renews using the earlier expiry", async () => {
+it("sends both tokens and uses the earlier expiry", async () => {
   const now = Math.floor(Date.now() / 1000);
   const id = token(now + 600);
   const appCheck = token(now + 300);
@@ -23,7 +23,7 @@ it("sends both tokens and renews using the earlier expiry", async () => {
   const getAppCheckToken = vi.fn(async () => appCheck);
   const request = await accountWorldSubscription(endpoint, "device", user, getAppCheckToken, "workout-device:device");
   expect(request).toEqual({ v: 1, type: "device_subscribe", token: id, appCheck, resource: "workout-device:device" });
-  expect(accountWorldRenewAt(request)).toBe((now + 280) * 1000);
+  expect(accountWorldExpiresAt(request)).toBe((now + 300) * 1000);
 });
 
 it("refreshes expiring credentials once and keeps Firestore available if App Check is missing", async () => {

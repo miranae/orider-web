@@ -28,9 +28,9 @@ function tokenExpiry(token: string | undefined): number {
   }
 }
 
-export function accountWorldRenewAt(request: unknown): number {
+export function accountWorldExpiresAt(request: unknown): number {
   const credentials = request as { token: string; appCheck: string };
-  return Math.min(tokenExpiry(credentials.token), tokenExpiry(credentials.appCheck)) - 20_000;
+  return Math.min(tokenExpiry(credentials.token), tokenExpiry(credentials.appCheck));
 }
 
 export async function accountWorldSubscription(
@@ -44,7 +44,7 @@ export async function accountWorldSubscription(
     return { ...fields, token, appCheck };
   }
   let request = await credentials();
-  if (accountWorldRenewAt(request) <= Date.now()) request = await credentials(true);
-  if (accountWorldRenewAt(request) <= Date.now()) throw new Error("World subscription credentials unavailable");
+  if (accountWorldExpiresAt(request) <= Date.now() + 30_000) request = await credentials(true);
+  if (accountWorldExpiresAt(request) <= Date.now() + 30_000) throw new Error("World subscription credentials unavailable");
   return request;
 }
