@@ -7,7 +7,7 @@ type AppCheck = (forceRefresh?: boolean) => Promise<string | null>;
 export function accountWorldEndpoint(topic: Topic, projectId?: string): string | undefined {
   const localSignal = topic === "notification" ? import.meta.env.VITE_ORIDER_LOCAL_NOTIFICATION_REDIS
     : import.meta.env.VITE_ORIDER_LOCAL_DEVICE_REDIS;
-  if (projectId === "demo-orider-lab" && import.meta.env.DEV &&
+  if (projectId === "demo-orider-lab" && isEmulatorRuntime() && import.meta.env.DEV &&
       import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" && localSignal === "1") {
     return `ws://127.0.0.1:19487/${topic}-signals`;
   }
