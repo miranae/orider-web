@@ -7,16 +7,17 @@ import { useMeetingSpectator } from "./useMeetingSpectator";
 import { spectatorFixture } from "./fixtures";
 const control = vi.hoisted(() => ({request: vi.fn(), signals: [] as {path: string; next: () => void; error: (error: unknown) => void; stop: ReturnType<typeof vi.fn>}[], services: {auth: {currentUser: {uid: "member"} as {uid: string} | null}, functions: {}, firestore: {}, ensureAppCheckReady: vi.fn(async () => {})}}));
 import type { useWorldEvent } from "../ride-world/useWorldEvent";
-const world = vi.hoisted(() => ({ subscribe: vi.fn<typeof useWorldEvent>() }));
+const world = vi.hoisted(() => ({ subscribe: vi.fn<typeof useWorldEvent>(), production: false }));
 vi.mock("../ride-world/useWorldEvent", () => ({
   isLocalWorldEventEnabled: () => true,
+  isProductionWorldEventEnabled: () => world.production,
   useWorldEvent: world.subscribe,
 }));
 vi.mock("firebase/firestore", () => ({doc: (_db: unknown, path: string) => path, onSnapshot: vi.fn((path: string, next: () => void, error: (error: unknown) => void) => {const stop = vi.fn(); control.signals.push({path, next, error, stop}); return stop;})}));
 vi.mock("firebase/functions", () => ({httpsCallable: vi.fn(() => control.request)}));
 vi.mock("../../contexts/FirebaseServicesContext", () => ({useFirebaseServices: () => control.services}));
 vi.mock("../../services/errorLogger", () => ({logClientError: vi.fn()}));
-beforeEach(() => { vi.clearAllMocks(); world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
+beforeEach(() => { vi.clearAllMocks(); world.production = false; world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 const data = () => ({...spectatorFixture(Date.now()), groupId: "club", eventId: "meeting"});
 describe("회원 관전 조회 경계", () => {
@@ -180,4 +181,73 @@ it("관전 신호가 준비되면 기본 구독을 중지하고 권한 철회에
   expect(result.current.data).toBeNull();
   await act(async () => vi.advanceTimersByTimeAsync(5001));
   expect(result.current.error).toEqual({code: "permission-denied"});
+});
+
+const worldFrame = (riding = 1, capturedAt = Date.now()) => ({v: 1 as const, type: "event_snapshot" as const, eventId: "meeting", revision: 1, updatedAt: capturedAt, viewers: 1,
+  counts: {riding, total: riding}, roster: [], markers: [{id: "m1", uid: "rider-two", kind: "virtual" as const, lat: 37.525, lon: 126.98, status: "riding" as const, capturedAt}]});
+const fullWorld = (calls: Parameters<typeof useWorldEvent>[]) => calls.filter(call => call[4] === undefined);
+const locationSignals = () => control.signals.filter(s => s.path.endsWith("spectator_signals/latest"));
+
+it("운영 월드 플래그가 꺼져 있으면 월드 위치를 적용하지 않고 기존 신호 조회를 유지한다", async () => {
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  expect(fullWorld(world.subscribe.mock.calls).every(call => call[7] === false)).toBe(true);
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : worldFrame());
+  rerender();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.lng).toBe(126.967);
+  expect(locationSignals()).toHaveLength(1);
+  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+});
+
+it("운영 월드 플래그가 켜지면 위치를 바로 반영하고 끊기면 신호 조회로 복귀했다가 복구 후 재전환한다", async () => {
+  world.production = true;
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  expect(fullWorld(world.subscribe.mock.calls).at(-1)?.[7]).toBe(true);
+  vi.useFakeTimers();
+  let frame: ReturnType<typeof worldFrame> | null = worldFrame();
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: null});
+  expect(locationSignals()[0].stop).toHaveBeenCalledOnce();
+  await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+  expect(control.request).toHaveBeenCalledTimes(1);
+  frame = null;
+  control.request.mockResolvedValue({data: data()});
+  rerender();
+  expect(locationSignals()).toHaveLength(2);
+  act(() => locationSignals()[1].next());
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+  frame = worldFrame(1, Date.now() + 1);
+  rerender();
+  expect(locationSignals()[1].stop).toHaveBeenCalledOnce();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.sampledAtMs).toBe(frame.markers[0].capturedAt);
+});
+
+it("월드 프레임이 표시 제한에 걸리면 위치는 반영하되 신호 조회를 유지한다", async () => {
+  world.production = true;
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : worldFrame(11));
+  rerender();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.lng).toBe(126.98);
+  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["주행자 0명", {...worldFrame(0), markers: []}],
+  ["버린 미래 시각 표본", worldFrame(1, Date.now() + 60000)],
+])("월드 프레임의 %s은 완전하지 않아 위치 신호를 유지한다", async (_label, frame) => {
+  world.production = true;
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.lng).toBe(126.967);
 });

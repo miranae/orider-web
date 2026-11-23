@@ -37,6 +37,8 @@ export interface RuntimeConfig {
   trainingExecutionEnabled?: boolean;
   riderWorkoutDeliveryEnabled?: boolean;
   worldAccountSignalsEnabled?: boolean;
+  /** 회원 관전의 운영 월드 `/events` 구독(#1855). 기본 꺼짐 — 끄면 콜러블·Firestore 신호 경로만 쓴다. */
+  worldEventViewsEnabled?: boolean;
   coachRidePlanTokenEnabled?: boolean;
   coachRidePlanSnapshotEnabled?: boolean;
   coachRidePlanAiEnabled?: boolean;
@@ -111,6 +113,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     trainingExecutionEnabled: import.meta.env.VITE_TRAINING_EXECUTION_ENABLED === "true",
     riderWorkoutDeliveryEnabled: import.meta.env.VITE_RIDER_WORKOUT_DELIVERY_ENABLED === "true",
     worldAccountSignalsEnabled: import.meta.env.VITE_WORLD_ACCOUNT_SIGNALS_ENABLED === "true",
+    worldEventViewsEnabled: import.meta.env.VITE_WORLD_EVENT_VIEWS_ENABLED === "true",
     coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",

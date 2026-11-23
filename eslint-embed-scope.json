@@ -398,6 +398,7 @@
   "src/features/club-spectator/preferences.ts",
   "src/features/club-spectator/presentation.ts",
   "src/features/club-spectator/useMeetingSpectator.ts",
+  "src/features/club-spectator/worldFrame.ts",
   "src/features/coach/CoachAnswerDocument.tsx",
   "src/features/coach/CoachConsentSheet.tsx",
   "src/features/coach/CoachPmcInsightCard.tsx",

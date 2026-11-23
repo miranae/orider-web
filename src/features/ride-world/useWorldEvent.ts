@@ -53,6 +53,16 @@ const endpoint = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD 
 export function isLocalWorldEventEnabled(): boolean {
   return endpoint !== null && isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true;
 }
+const productionEndpoint = "wss://world.orider.co.kr/events";
+/**
+ * 운영 월드 `/events` 관전 구독(#1855). 꺼져 있으면 호출부는 기존 콜러블·Firestore 경로만 쓴다.
+ * 운영 설정을 복사하는 스테이지(production-parity-stage·bundled-development)는 운영 월드에 구독을 만들지 않는다.
+ */
+export function isProductionWorldEventEnabled(): boolean {
+  const config = getRuntimeConfig();
+  return config.firebaseProjectId === "miranae-orider-g1" && !isEmulatorRuntime() && config.worldEventViewsEnabled === true &&
+    config.deploymentProfile !== "production-parity-stage" && config.deploymentProfile !== "bundled-development";
+}
 
 interface EventState { scope: string; services: FirebaseServices; viewer: User | null; frame: WorldEventFrame }
 
@@ -77,6 +87,7 @@ interface SignalSubscription {
 
 export function useWorldEvent(
   eventId: string | undefined, user: User | null | undefined, track?: string | null, viewport?: WorldViewport, signal?: SignalSubscription, trackBib?: number, allowGuest = false,
+  production = false,
 ) {
   const services = useFirebaseServices();
   const signalOnly = signal !== undefined;
@@ -91,9 +102,9 @@ export function useWorldEvent(
   const subscribeCurrent = useRef<(() => void) | null>(null);
   const [state, setState] = useState<EventState | null>(null);
   useEffect(() => {
-    if (!endpoint || !eventId || (!user && !allowGuest) || !isEmulatorRuntime() ||
-        !getRuntimeConfig().firebaseProjectId?.startsWith("demo-")) return;
-    const url = endpoint;
+    const url = production && !signalOnly && user && isProductionWorldEventEnabled() ? productionEndpoint
+      : isLocalWorldEventEnabled() ? endpoint : null;
+    if (!url || !eventId || (!user && !allowGuest)) return;
     const event = eventId;
     const identity = user ?? null;
     const report: WorldErrorReporter = (source, error, context) =>
@@ -108,13 +119,19 @@ export function useWorldEvent(
     let denied = false;
     let signalAccepted = false;
     let hasFrame = false;
+    let refreshCredentials = false;
     let generation = 0;
     let initial: ReturnType<typeof setTimeout> | undefined;
     const open = async () => {
       if (!ready || denied || disposed) return;
       const attempt = ++generation;
       try {
-        const token = await identity?.getIdToken();
+        // 운영 월드는 ID 토큰과 App Check 토큰을 함께 확인하고, 만료 시 4001로 닫으면 새 토큰으로 다시 연결한다.
+        const refresh = refreshCredentials;
+        refreshCredentials = false;
+        const token = await identity?.getIdToken(refresh || undefined);
+        const appCheck = url === productionEndpoint ? await services.getAppCheckToken(refresh || undefined) : undefined;
+        if (url === productionEndpoint && !appCheck) throw new Error("World event App Check token unavailable");
         if (disposed || !ready || attempt !== generation) return;
         const connection = new WebSocket(url);
         socket = connection;
@@ -127,7 +144,7 @@ export function useWorldEvent(
         const subscribe = () => {
           if (disposed || socket !== connection || connection.readyState !== WebSocket.OPEN) return;
           try {
-            connection.send(JSON.stringify({ v: 1, type: "event_subscribe", eventId: event, token, guest: !identity && allowGuest, viewerSessionId, signalOnly, signalTopic, ...options.current }));
+            connection.send(JSON.stringify({ v: 1, type: "event_subscribe", eventId: event, token, ...(appCheck ? { appCheck } : {}), guest: !identity && allowGuest, viewerSessionId, signalOnly, signalTopic, ...options.current }));
           } catch (error) {
             report("RideWorld.subscribeEvent", error, { eventId: event });
             connection.close();
@@ -215,6 +232,7 @@ export function useWorldEvent(
           if (subscribeCurrent.current === subscribe) subscribeCurrent.current = null;
           setState(null);
           denied = code === 4003 || code === 4004;
+          if (code === 4001) refreshCredentials = true;
           if (signalAccepted || denied) (liveScope.current === scope ? signalCurrent.current : undefined)?.disconnected(code);
           signalAccepted = false;
           if (!denied && ready) {
@@ -228,6 +246,7 @@ export function useWorldEvent(
           signalAccepted = false;
           report("RideWorld.connectEvent", error, { eventId: event });
           if (ready) retry = setTimeout(() => void open(), delayMs);
+          if (url === productionEndpoint) delayMs = Math.min(10000, delayMs * 2);
         }
       }
     };
@@ -264,7 +283,7 @@ export function useWorldEvent(
       clearTimeout(initial);
       if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
     };
-  }, [eventId, scope, signalOnly, signalTopic, user, allowGuest, services]);
+  }, [eventId, scope, signalOnly, signalTopic, user, allowGuest, services, production]);
   useEffect(() => { subscribeCurrent.current?.(); }, [track, viewport?.lat, viewport?.lon, trackBib]);
   return state?.scope === scope && state.services === services && state.viewer === (user ?? null) ? state.frame : null;
 }
