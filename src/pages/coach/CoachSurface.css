@@ -114,3 +114,9 @@
   .coach-surface .discipline-tabs { margin-block: 0; }
   .coach-surface .coach-analysis > .ds-toggle-controls--axis { margin-block: 0; }
 }
+/* 계획·기록의 종목 전환 아래 하위 탭(계획 | 기록)이 멀어 보였다: 머리 아래 12 + 탭 44 안의 위쪽 빈칸.
+   휴대폰에서 머리 아래 여백을 4 로, 하위 탭을 36 으로 낮춘다. */
+@media (hover: none) and (pointer: coarse), (max-width: 767px) {
+  .coach-surface .coach-page-header:has(+ .plan-record-nav) { margin-bottom: var(--space-1); }
+  .coach-surface .plan-record-nav .route-tab-nav a { min-height: 36px; padding-block: var(--space-1); }
+}
