@@ -40,6 +40,9 @@ it("운영 관전 월드는 플래그를 켠 운영 Firebase 프로젝트에서�
     resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true, deploymentProfile });
     expect(isProductionWorldEventEnabled()).toBe(false);
   }
+  // 운영 Firebase 프로젝트를 공유하는 기존 stage 구성은 deploymentProfile이 없어도 운영 월드에 구독하지 않는다.
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true, appEnvironment: "stage" });
+  expect(isProductionWorldEventEnabled()).toBe(false);
   resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true, deploymentProfile: "bundled-production" });
   expect(isProductionWorldEventEnabled()).toBe(true);
 });

@@ -200,7 +200,7 @@ it("운영 월드 플래그가 꺼져 있으면 월드 위치를 적용하지 �
   expect(locationSignals()[0].stop).not.toHaveBeenCalled();
 });
 
-it("운영 월드 플래그가 켜지면 위치를 바로 반영하고 끊기면 신호 조회로 복귀했다가 복구 후 재전환한다", async () => {
+it("운영 월드 프레임은 위치만 덮어쓰고 위치 신호 구독을 유지하며, 프레임이 멈추거나 끊겨도 콜러블로 지도와 격차를 갱신한다", async () => {
   world.production = true;
   control.request.mockResolvedValue({data: data()});
   const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
@@ -210,44 +210,30 @@ it("운영 월드 플래그가 켜지면 위치를 바로 반영하고 끊기면
   let frame: ReturnType<typeof worldFrame> | null = worldFrame();
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
   rerender();
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: null});
-  expect(locationSignals()[0].stop).toHaveBeenCalledOnce();
-  await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
-  expect(control.request).toHaveBeenCalledTimes(1);
-  frame = null;
-  control.request.mockResolvedValue({data: data()});
-  rerender();
-  expect(locationSignals()).toHaveLength(2);
-  act(() => locationSignals()[1].next());
+  // 위치는 바로 반영하고 서버 진행·격차는 지우지 않는다. 완전한 프레임이어도 위치 신호를 해제하지 않는다.
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2280, gapToLeaderM: 120});
+  expect(result.current.data?.locations.find(r => r.uid === "rider-one")?.gapToLeaderM).toBe(0);
+  expect(locationSignals()).toHaveLength(1);
+  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+  // 프레임이 멈춘 채로 서버가 격차만 갱신하면(위치는 월드가 더 최신) 월드 위치를 두고 서버 격차를 반영한다.
+  const older = data();
+  older.locations = older.locations.map(r => r.uid === "rider-two" ? {...r, gapToLeaderM: 80} : r);
+  control.request.mockResolvedValue({data: older});
+  act(() => locationSignals()[0].next());
   await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
   expect(control.request).toHaveBeenCalledTimes(2);
-  frame = worldFrame(1, Date.now() + 1);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, gapToLeaderM: 80});
+  // 서버가 더 최신 위치·진행을 주면 멈춘 프레임 대신 그 값으로 지도를 갱신한다.
+  const fresh = data();
+  fresh.locations = fresh.locations.map(r => r.uid === "rider-two" ? {...r, lng: 126.99, sampledAtMs: Date.now(), progressM: 2500, gapToLeaderM: 50} : r);
+  control.request.mockResolvedValue({data: fresh});
+  act(() => locationSignals()[0].next());
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(3);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.99, progressM: 2500, gapToLeaderM: 50});
+  // 연결이 끊겨도 같은 위치 신호 구독을 그대로 쓴다.
+  frame = null;
   rerender();
-  expect(locationSignals()[1].stop).toHaveBeenCalledOnce();
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.sampledAtMs).toBe(frame.markers[0].capturedAt);
-});
-
-it("월드 프레임이 표시 제한에 걸리면 위치는 반영하되 신호 조회를 유지한다", async () => {
-  world.production = true;
-  control.request.mockResolvedValue({data: data()});
-  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
-  await waitFor(() => expect(result.current.data).toBeTruthy());
-  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : worldFrame(11));
-  rerender();
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.lng).toBe(126.98);
+  expect(locationSignals()).toHaveLength(1);
   expect(locationSignals()[0].stop).not.toHaveBeenCalled();
-});
-
-it.each([
-  ["주행자 0명", {...worldFrame(0), markers: []}],
-  ["버린 미래 시각 표본", worldFrame(1, Date.now() + 60000)],
-])("월드 프레임의 %s은 완전하지 않아 위치 신호를 유지한다", async (_label, frame) => {
-  world.production = true;
-  control.request.mockResolvedValue({data: data()});
-  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
-  await waitFor(() => expect(result.current.data).toBeTruthy());
-  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
-  rerender();
-  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.lng).toBe(126.967);
 });

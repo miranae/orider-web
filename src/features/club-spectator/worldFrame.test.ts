@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorldEventFrame, WorldEventMarker } from "../ride-world/useWorldEvent";
 import { spectatorFixture } from "./fixtures";
-import { applyWorldFrame, worldFrameComplete } from "./worldFrame";
+import { applyWorldFrame, retainWorldPositions } from "./worldFrame";
 
 const now = 1_800_000_000_000;
 const frame = (markers: Partial<WorldEventMarker>[], riding = markers.length): WorldEventFrame => ({
@@ -11,18 +11,13 @@ const frame = (markers: Partial<WorldEventMarker>[], riding = markers.length): W
 });
 
 describe("월드 관전 프레임 반영", () => {
-  it("새 위치를 바로 반영하되 진행·순위·격차를 화면에서 다시 계산하지 않는다(P6)", () => {
+  it("위치·속도·파워·상태만 덮어쓰고 서버 진행·순위·격차는 지우거나 다시 계산하지 않는다(P6)", () => {
     const base = spectatorFixture(now);
     const next = applyWorldFrame(base, frame([{uid: "rider-two", lat: 37.525, lon: 126.98, speedMps: 9, power: 250, powerExpiresAtMs: now + 5000}]), now);
     expect(next.locations.map(r => r.uid)).toEqual(base.locations.map(r => r.uid));
-    expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({displayName: "나래", sampledAtMs: now, speedMps: 9, powerWatts: 250, progressM: null, status: "RIDING"});
-    expect(next.locations.find(r => r.uid === "rider-one")?.progressM).toBe(2400);
-    expect(next.locations.every(r => r.gapToLeaderM === null && r.gapToSelectedM === null)).toBe(true);
-  });
-  it("멈춘 선두가 화면 계산으로 선두에 남지 않는다", () => {
-    const base = spectatorFixture(now);
-    const next = applyWorldFrame(base, frame([{uid: "rider-two", lat: 37.525, lon: 126.98}]), now + 60000);
-    expect(next.locations.find(r => r.uid === "rider-one")).toMatchObject({gapToLeaderM: null, leaderGapExpiresAtMs: null});
+    expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({displayName: "나래", sampledAtMs: now, speedMps: 9, powerWatts: 250,
+      progressM: 2280, gapToLeaderM: 120, leaderGapExpiresAtMs: now + 27000, status: "RIDING"});
+    expect(next.locations.find(r => r.uid === "rider-one")).toMatchObject({progressM: 2400, gapToLeaderM: 0});
   });
   it("오래된 표본·명단 밖 계정·다른 이벤트·미래 시각은 무시한다", () => {
     const base = spectatorFixture(now);
@@ -34,12 +29,14 @@ describe("월드 관전 프레임 반영", () => {
     expect(next.locations.find(r => r.uid === "rider-four")).toMatchObject({displayName: "새벽", status: "STOPPED", courseId: "fixture-course"});
     expect(next.locations.find(r => r.uid === "rider-one")?.status).toBe("LOST_SIGNAL");
   });
-  it("반영 가능한 마커가 주행자 수 이상이고 주행자가 있을 때만 완전하다", () => {
-    const base = spectatorFixture(now);
-    expect(worldFrameComplete(base, frame([{uid: "rider-one"}]), now)).toBe(true);
-    expect(worldFrameComplete(base, frame([{uid: "rider-one"}], 11), now)).toBe(false);
-    expect(worldFrameComplete(base, frame([], 0), now)).toBe(false);
-    expect(worldFrameComplete(base, frame([{uid: "rider-one", capturedAt: now + 5000}]), now)).toBe(false);
-    expect(worldFrameComplete(base, frame([{uid: "stranger"}]), now)).toBe(false);
+  it("콜러블 결과를 합칠 때 월드의 더 최신 위치만 남기고 서버 진행·격차는 새 결과로 갱신한다", () => {
+    const shown = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", lat: 37.525, lon: 126.98, status: "paused"}]), now);
+    const server = spectatorFixture(now);
+    server.locations = server.locations.map(r => r.uid === "rider-two" ? {...r, progressM: 2350, gapToLeaderM: 60} : r.uid === "rider-one" ? {...r, lng: 126.975, sampledAtMs: now + 1} : r);
+    const merged = retainWorldPositions(shown, server);
+    expect(merged.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, sampledAtMs: now, status: "STOPPED", progressM: 2350, gapToLeaderM: 60});
+    expect(merged.locations.find(r => r.uid === "rider-one")?.lng).toBe(126.975);
+    const finished = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, status: "FINISHED" as const} : r)};
+    expect(retainWorldPositions(shown, finished).locations.find(r => r.uid === "rider-two")?.status).toBe("FINISHED");
   });
 });
