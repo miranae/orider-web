@@ -73,7 +73,9 @@ AI 분석 등 저장된 분석 결과는 데이터나 분석기 판이 바뀌어
 
 ### P11. 변경은 신호로 알리고, 값은 기존 조회로 다시 받는다
 다른 화면·사용자의 변경은 신호(시퀀스 번호 등)로 알리고, 값은 기존 조회로 다시 읽습니다. 모든 경우를 이벤트 내용으로 덮어쓰거나 주기적 폴링으로 대신하지 않습니다.
-*Use change signals as triggers, then re-read through the normal query; don't push full state or poll.*
+
+**예외 — Redis 실시간 경로:** Redis와 이를 쓰는 월드 서버(WebSocket·SSE) 경로에서는 신호와 데이터를 구분하지 않습니다. 이 경로로 받은 변경 값(위치·프레임·상태·알림 내용 등)은 다시 조회하지 않고 바로 반영해도 됩니다. 서버는 구독자마다 권한을 확인한 값만 보내고, 순번이 건너뛰거나 다시 연결하면 최신 snapshot으로 맞춥니다. 이 경로가 실패하면 기존 Firestore·API 경로로 자동 복귀합니다(짧은 순단 허용). 주기적 폴링 금지는 이 경로에도 그대로 적용합니다.
+*Use change signals as triggers, then re-read through the normal query; don't push full state or poll. Exception: on Redis-backed realtime paths (the world server's WebSocket/SSE) signals and data are not distinguished — values received there may be applied directly, provided the server sends only per-subscriber authorized values and resyncs on sequence gaps or reconnects, with automatic fallback to the normal Firestore/API path. No polling in either case.*
 
 ### P12. 부작용이 있는 새 코드는 실패를 남긴다
 외부 호출·Firebase IO·캐시 갱신처럼 부작용이 있는 새 코드는 실패를 `logClientError` 등으로 기록합니다. 빈 `catch {}` 로 삼키지 않습니다.
