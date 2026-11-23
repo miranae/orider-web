@@ -106,3 +106,11 @@
 .coach-question-launcher--condition { display: flex; justify-content: flex-end; padding-block: var(--space-5); }
 /* 코치 컨디션: 마지막 블록과 "코치에게 묻기" 사이를 카드 사이 간격(16)과 같게 — 위 여백·패딩이 겹쳐 40~68 이었다. */
 .coach-surface .coach-question-launcher--condition { margin-top: var(--space-4); padding-top: 0; }
+/* 코치 화면의 종목 전환·기간 선택이 정보보다 커 보였다(터치 공통 규칙: 줄 48·버튼 44·위아래 16).
+   코치 안에서만 낮고 촘촘하게 둔다 — 다른 화면의 터치 조작 높이는 그대로. */
+@media (hover: none) and (pointer: coarse), (max-width: 767px) {
+  .coach-surface .ds-toggle-controls--axis { min-height: 0; margin-block: var(--space-2); }
+  .coach-surface .ds-toggle-controls--axis .ds-btn.ds-toggle-button { height: 30px; min-height: 30px; padding-inline: var(--space-3); font-size: var(--fs-xs); }
+  .coach-surface .discipline-tabs { margin-block: 0; }
+  .coach-surface .coach-analysis > .ds-toggle-controls--axis { margin-block: 0; }
+}
