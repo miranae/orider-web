@@ -65,6 +65,8 @@ import { Button, Card, Stat, Stack, Chip, Text } from '@/theme';
 
 `wrap`은 내용 너비를 유지하는 동작 버튼이 좁은 영역에서 여러 줄로 늘어나게 합니다. `sm`·`md`·`lg`의 최소 높이와 공통 터치 영역을 유지하며, `<Button wrap>`과 링크의 `buttonClass({ wrap: true })`에서 함께 사용합니다. 전체 폭이 필요한 목록 항목은 `block`을 사용합니다.
 
+`touchHeight`는 `sm` 버튼의 모양(글자·안쪽 여백)은 두고 조작 높이만 44px(`--dim-button-height`)로 올립니다. 휴대폰 목록 머리(찾기·만들기)나 목록 행의 주 동작처럼 작게 보여야 하지만 손가락으로 누르는 버튼에 쓰고, 링크는 `buttonClass({ touchHeight: true })`를 씁니다. 페이지 CSS로 `.ds-btn` 높이를 덮어쓰지 않습니다.
+
 `discord`는 디스코드 로그인용 Blurple 버튼입니다. `leadingIcon={<DiscordLogo />}`와 함께 사용하며, `loading`·`disabled`·포커스는 공통 버튼 상태를 따릅니다.
 
 선택된 지표·축 상태는 `ToggleButton selected`로 표현한다. 연속된 도구 묶음은
@@ -239,6 +241,10 @@ import {
 - `ToggleControls variant="metric"`은 44px 체크 토글, `variant="axis"`는 하나의 중립 배경 위에 선택된 면을 올려 보이며
   모든 항목에 실제 44px 이상 타깃을 제공한다. `ToggleButton`은 `selected`를 자동 변경하지 않는다.
   단일 선택/복수 선택 여부와 상태 전이는 호출자가 결정한다. `ToggleNote`는 선택 행의 보조 설명이다.
+- 조밀한 터치 표면: 정보가 주인공인 화면(코치)의 셸에 `ds-touch-compact` 클래스를 붙이면 그 안의 `variant="axis"`
+  전환이 휴대폰(터치·767px 이하)에서 줄 높이 자동·위아래 8px·버튼 30px로 낮아진다. 머리·묶음 바로 아래 첫 줄은
+  `ToggleControls flushTouch`로 그 표면의 휴대폰 위아래 여백을 없앤다. 데스크톱과 다른 화면의 터치 높이는 그대로이며,
+  페이지 CSS로 `.ds-toggle-controls--axis`·`.ds-toggle-button`을 덮어쓰지 않는다.
 - `ToolbarButton`·`ToggleButton`·`MapControlButton`은 `className`, `style`, `variant`, `size`, `dense`를
   외부 API에서 제외한다. 레이아웃이 필요한 경우 부모 wrapper를 사용한다.
 - `MapResizeControls`는 좌상단·우하단의 같은 `//` 액션을 제공한다. 지도 영역 높이와 카메라 상태는

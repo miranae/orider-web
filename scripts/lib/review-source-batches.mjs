@@ -1,4 +1,5 @@
-export const MAX_REVIEW_BATCHES = 64;
+// 승격 전체 리뷰의 배치 상한. 414368c4..dev 승격 리뷰가 70배치라 64 에서 96 으로 올렸다(#1836, 앞선 상향 #1814).
+export const MAX_REVIEW_BATCHES = 96;
 
 /** Keep complete dependency groups together without repeatedly copying shared sources. */
 export function packReviewSourceGroups({ groups, core, cost, bytes, maxBytes }) {

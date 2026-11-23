@@ -238,7 +238,7 @@ test("shared dependency graph fits the existing limit with complete pair and sou
   assert.deepEqual(normalized(packReviewSourceGroups({ ...request, groups: [...groups].reverse() })), normalized(chunks));
 });
 
-test("promotion review covers more than 24 batches while oversized pairs and the shared cap fail closed", () => {
+test("promotion review covers more than 64 batches while oversized pairs and the shared cap fail closed", () => {
   const core = new Set(["bootstrap"]);
   const cost = file => file === "bootstrap" ? 100 : 700;
   const bytes = files => [...files].reduce((sum, file) => sum + cost(file), 0);
@@ -250,5 +250,6 @@ test("promotion review covers more than 24 batches while oversized pairs and the
   for (const group of groups.slice(0, MAX_REVIEW_BATCHES)) {
     assert.ok(accepted.some(chunk => [...group].every(file => chunk.has(file))));
   }
-  assert.throws(() => packReviewSourceGroups({ ...request, groups }), /more than 64 batches/);
+  assert.ok(MAX_REVIEW_BATCHES >= 70, "a 70-batch promotion review (414368c4..dev) fits under the cap");
+  assert.throws(() => packReviewSourceGroups({ ...request, groups }), new RegExp(`more than ${MAX_REVIEW_BATCHES} batches`));
 });
