@@ -11,14 +11,14 @@ This file lists product decisions that a single PR can silently break. The merge
 ## 개인정보·권한 (Privacy & authority)
 
 ### P1. 활동 공개 범위가 분석 공개 범위도 정한다 **[검사]**
-활동을 볼 수 있는 사람은 `visibility`로 정하며, 활동을 볼 수 있는 사람에게는 그 활동의 분석(심박·파워·훈련 지표·케이던스·칼로리 등)도 함께 공개합니다. 항목별 공개 데이터 설정은 두지 않습니다 — 정책 수정으로 활동 공개 범위를 분석까지 확대했습니다(2026-11-23 사용자 결정, miranae/orider-web#1821. 이전 결정 2026-11-13 miranae/orider-g1-app#3348 을 대체).
+활동을 볼 수 있는 사람은 `visibility`로 정하며, 활동을 볼 수 있는 사람에게는 그 활동의 분석 전체를 함께 공개합니다 — 심박·파워·훈련 지표(TSS·IF)·케이던스·칼로리와 분석에 쓰인 개인 기준값(FTP·최대 심박 설정·LTHR), 이를 포함한 생성 문장·저장 분석 이력까지입니다. 항목별 공개 데이터 설정은 두지 않습니다 — 정책 수정으로 활동 공개 범위를 분석까지 확대했습니다(2026-11-23 사용자 결정, miranae/orider-web#1821·miranae/orider-g1-web#3967. 이전 결정 2026-11-13 miranae/orider-g1-app#3348 을 대체).
 
-- 분석을 숨기고 싶은 사용자는 활동 공개 범위를 좁힙니다(비공개·친구 공개).
-- 서버는 비소유자 응답을 활동 접근 권한으로만 거릅니다. 접근이 허용된 뷰어에게는 분석 전체를 반환합니다. 소유자 본인 응답과 저장된 분석 원본·이력은 유지합니다. GPS 원좌표와 개인정보 처리 지도 경로선의 기존 경계는 유지합니다.
+- 분석이나 기준값을 숨기고 싶은 사용자는 활동 공개 범위를 좁힙니다(비공개·친구 공개).
+- 서버는 비소유자 상세·스트림·피드·탐색·개요·분석 이력 응답을 활동 접근 권한으로만 거릅니다. 접근이 허용된 뷰어(공개 활동이면 비로그인 포함)에게는 분석 전체를 반환합니다. 소유자 본인 응답과 저장된 분석 원본·이력은 유지합니다. GPS 원좌표와 개인정보 처리 지도 경로선의 기존 경계는 유지합니다.
 - 웹·iOS·Android는 같은 규칙을 따릅니다. 남은 항목별 공개 설정 화면은 제거 대상입니다.
 - 폐지한 `hideHr`·`hidePower` 필드는 다시 읽거나 쓰지 않습니다.
 
-*Visibility selects the audience, and anyone allowed to see an activity also sees its analysis (policy change 2026-11-23); there are no per-field public-data settings. Owner responses, saved originals and GPS/route privacy boundaries remain intact.*
+*Visibility selects the audience, and anyone allowed to see an activity also sees its full analysis, including personal thresholds (policy change 2026-11-23); there are no per-field public-data settings. Owner responses, saved originals and GPS/route privacy boundaries remain intact.*
 
 전체 누적 요약은 별도 공개 계약입니다(2026-11-18 사용자 확정, miranae/orider-web#1725). 비로그인·타인·친구·본인에게 비공개 활동까지 포함한 전체 활동 수·누적 거리·누적 운동시간·누적 상승고도를 동일하게 제공합니다. 이 네 항목과 준비 상태·버전·항목별 결측 정보만 공개하며, 활동이 한 건뿐인 경우에도 같은 정책을 적용합니다. 활동 목록·개별 상세·시간·위치·경로·사진·메모·민감 지표의 기존 권한은 유지합니다. 계정 삭제·차단 제한을 우회하지 않습니다. 상세 공개 범위를 누적 요약의 집계 조건으로 사용하거나 활동 공개 설정을 바꾸도록 요구하지 않습니다.
 
