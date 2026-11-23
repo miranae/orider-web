@@ -66,11 +66,11 @@ export function ProfileHero({
         borderRadius: "50%",
         display: "grid",
         placeItems: "center",
-        background: "color-mix(in oklch, var(--lime) 18%, var(--bg-2))",
-        color: "var(--ink-0)",
+        // 앱과 같은 이니셜 — accent 로 채운 원 + onAccent 글자(주 버튼·카메라 배지와 같은 토큰)
+        background: "var(--control-primary-fill)",
+        color: "var(--primary-fg)",
         fontSize: size * 0.42,
         fontWeight: 600,
-        border: "1px solid var(--line-soft)",
       }}
     >
       {initial}
