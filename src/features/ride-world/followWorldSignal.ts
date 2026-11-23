@@ -8,15 +8,17 @@ export function followWorldSignal(
   receive: (data: unknown) => boolean,
   disconnected: (code: number) => void,
   report: WorldErrorReporter = logClientError,
+  expiresAt?: (request: unknown) => number,
 ): () => void {
   let active = true, ready = false, denied = false, generation = 0, backoff = 500;
   let socket: WebSocket | undefined;
   let accepted = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let initial: ReturnType<typeof setTimeout> | undefined;
+  let renewal: ReturnType<typeof setTimeout> | undefined;
   function close() {
     generation++;
-    clearTimeout(timer); clearTimeout(initial);
+    clearTimeout(timer); clearTimeout(initial); clearTimeout(renewal);
     const previous = socket;
     socket = undefined;
     previous?.close();
@@ -39,6 +41,10 @@ export function followWorldSignal(
       if (!active || ticket !== generation || !ready) return;
       const connection = new WebSocket(url);
       socket = connection;
+      const expiration = expiresAt?.(request);
+      if (expiration !== undefined) {
+        renewal = setTimeout(() => lost(1013), Math.max(0, expiration - Date.now() - 20_000));
+      }
       const failed = (phase: string, error: unknown) => {
         if (socket !== connection) return;
         report("RideWorld.signal", error, { endpoint: url, phase });
@@ -55,7 +61,9 @@ export function followWorldSignal(
         if (code !== 1000 || !accepted) {
           report("RideWorld.signalClosed", new Error("World signal socket closed"), { endpoint: url, code });
         }
-        lost(code);
+        // Background tabs can miss the renewal timer before the server expires the session.
+        const expired = accepted && code === 4003 && expiration !== undefined && Date.now() >= expiration;
+        lost(expired ? 1013 : code);
       });
       connection.addEventListener("error", () => failed("transport", new Error("World WebSocket error")));
       connection.addEventListener("message", ({ data }) => {

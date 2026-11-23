@@ -4,7 +4,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { doc, onSnapshot, type DocumentSnapshot } from "firebase/firestore";
 import { createWebNotificationClient } from "../services/webNotifications";
-import { getRuntimeConfig, isEmulatorRuntime } from "../services/runtimeConfig";
+import { getRuntimeConfig } from "../services/runtimeConfig";
+import { accountWorldEndpoint, accountWorldExpiresAt, accountWorldSubscription } from "../features/ride-world/accountWorldSignal";
 import { logClientError } from "../services/errorLogger";
 import { followWorldSignal } from "../features/ride-world/followWorldSignal";
 /**
@@ -15,9 +16,9 @@ import { followWorldSignal } from "../features/ride-world/followWorldSignal";
 export function useNotificationInbox() {
   const { user } = useAuth(); const services = useFirebaseServices();
   const uid = user && !user.isAnonymous ? user.uid : null;
-  const redisSignal = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
-    import.meta.env.VITE_ORIDER_LOCAL_NOTIFICATION_REDIS === "1" && isEmulatorRuntime() &&
-    getRuntimeConfig().firebaseProjectId === "demo-orider-lab";
+  const worldEndpoint = accountWorldEndpoint("notification", services.firestore.app?.options?.projectId ?? getRuntimeConfig().firebaseProjectId);
+  const redisSignal = Boolean(worldEndpoint);
+  const hostedWorld = worldEndpoint?.startsWith("wss:");
   const client = useMemo(() => createWebNotificationClient(services), [services, user]);
   const [state, setState] = useState<{ client: typeof client; uid: string; items: Notification[]; cursor: string | null } | null>(null);
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false);
@@ -142,17 +143,18 @@ export function useNotificationInbox() {
           else stopSource = stop;
         } catch (error) { fallback(error); }
       };
-      const stopWorld = redisSignal && user ? followWorldSignal(
-        "ws://127.0.0.1:19487/notification-signals",
-        async () => ({ v: 1, type: "notification_subscribe", token: await user.getIdToken() }),
+      const stopWorld = worldEndpoint && user ? followWorldSignal(
+        worldEndpoint,
+        () => accountWorldSubscription(worldEndpoint, "notification", user, services.getAppCheckToken),
         data => {
           const frame = data as { v?: number; type?: string; revision?: string | null } | null;
           if (frame?.v !== 1 || frame.type !== "notification_signal" ||
               (frame.revision !== null && (typeof frame.revision !== "string" || !/^\d{10}:\d{9}$/.test(frame.revision)))) return false;
+          if (hostedWorld && frame.revision === null) return true;
           worldResumed = true;
           const handoff = stopSource !== undefined;
           if (!awaitingFallback) stopCanonical();
-          if (frame.revision !== worldRevision) {
+          if (frame.revision !== worldRevision || (hostedWorld && handoff)) {
             worldRevision = frame.revision;
             pull(handoff);
           }
@@ -167,12 +169,13 @@ export function useNotificationInbox() {
           }
         },
         (source, error, context) => logClientError(source, error, context, services, user),
+        hostedWorld ? accountWorldExpiresAt : undefined,
       ) : undefined;
       startSource();
       unsubscribe = () => { stopWorld?.(); stopCanonical(); };
     }
     return () => { disposed = true; generation.current += 1; unsubscribe(); document.removeEventListener("visibilitychange", visibility); };
-  }, [refresh, reload, services, uid, client, redisSignal, user]);
+  }, [refresh, reload, services, uid, client, redisSignal, user, worldEndpoint, hostedWorld]);
   const current = state?.uid === uid && state.client === client ? state : null;
   const more = async () => {
     if (!current?.cursor || loading || !uid) return;

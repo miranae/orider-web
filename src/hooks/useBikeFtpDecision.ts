@@ -186,7 +186,7 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
           ? onSnapshot(deviceQuery, serverOptions, snap => { if (isCurrent() && !snap.metadata.fromCache) receiveDevices(snap); }, error => { if (isCurrent()) failDevices(error); })
           : onSnapshot(deviceQuery, receiveDevices, failDevices);
         return () => { stopReceipt(); stopDevices(); };
-      }, (source, error, context) => logClientError(source, error, context, services, viewer));
+      }, (source, error, context) => logClientError(source, error, context, services, viewer), services.getAppCheckToken);
 
     return () => {
       if (receiptGeneration.current === generation) receiptGeneration.current += 1;

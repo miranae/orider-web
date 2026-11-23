@@ -75,6 +75,9 @@ export async function prepareBundledStage({ workspace = process.cwd(), directory
   assertSource(workspace, frontendSourceSha);
   if (directory === workspace || directory.startsWith(`${workspace}/`)) throw new Error("private preparation directory must be outside source");
   const source = await resolveProductionBuildFlags(await requestJson(`${PRODUCTION_ORIGIN}/runtime-config.json`, fetcher), fetcher);
+  const accountSignals = process.env.VITE_WORLD_ACCOUNT_SIGNALS_ENABLED;
+  if (accountSignals === "true" || accountSignals === "false") source.worldAccountSignalsEnabled = accountSignals === "true";
+  else if (accountSignals) throw new Error("invalid VITE_WORLD_ACCOUNT_SIGNALS_ENABLED");
   const runtime = bundledFunctionsConfig(source, "development");
   const topologyHash = await readBackendIdentity(runtime, backendSourceSha, undefined, fetcher);
   const hosting = bundledHostingConfig(json(resolve(workspace, "firebase.json")), "development");
