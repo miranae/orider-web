@@ -5,7 +5,7 @@ import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { retainNewerSamples } from "./presentation";
-import { applyWorldFrame, worldFrameComplete } from "./worldFrame";
+import { applyWorldFrame, retainWorldPositions } from "./worldFrame";
 import type { MeetingSpectatorSnapshot } from "./types";
 
 interface State { scope: string; data: MeetingSpectatorSnapshot | null; receivedAt: number; loading: boolean; error: unknown }
@@ -20,16 +20,14 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const [retry, setRetry] = useState(0);
   const [state, setState] = useState<State>({scope, data: null, receivedAt: 0, loading: true, error: null});
   const activeState = state.scope === scope ? state : {data: null, loading: !!uid, error: null, receivedAt: 0};
-  // 운영 플래그가 켜지면 월드 위치를 바로 반영하고, 프레임이 없거나 끊기면 기존 콜러블·신호 경로로 돌아간다.
+  // 운영 플래그가 켜지면 월드 위치를 바로 반영하는 보조 경로를 더한다. 위치 변경 신호·콜러블 경로는 항상 유지하므로
+  // 프레임이 멈추거나 끊겨도 지도와 서버 진행·격차는 기존 조회로 갱신된다.
   const worldViews = isProductionWorldEventEnabled();
   const world = useWorldEvent(activeState.data?.status === "LIVE" ? eventId : undefined,
     uid === services.auth.currentUser?.uid ? services.auth.currentUser : null, selectedUid, undefined, undefined, undefined, false, worldViews);
   const worldActive = world !== null;
-  // 월드가 이 화면의 주행자를 모두 반영할 수 있을 때만 위치 변경 신호(반복 조회)를 멈춘다.
-  // 주행자 0명, 10명 표시 제한, 버린 표본(미래 시각 등)이 있으면 신호를 유지한다.
-  const worldCovers = useRef(false);
-  worldCovers.current = worldViews && world !== null && activeState.data !== null &&
-    worldFrameComplete(activeState.data, world, activeState.data.serverNowMs + Math.max(0, Date.now() - activeState.receivedAt));
+  const worldViewsRef = useRef(worldViews);
+  worldViewsRef.current = worldViews;
   const syncLocationSignal = useRef<() => void>(() => {});
   const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
@@ -89,8 +87,9 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         if (selectedRef.current !== requestedUid) { queued = true; return; }
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
-        if (readySubscriptions.size === (spectatorActiveScope.current === scope || worldCovers.current ? 3 : 4)) recoveryAttempts = 0;
-        setState(old => ({scope, data: retainNewerSamples(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
+        if (readySubscriptions.size === (spectatorActiveScope.current === scope ? 3 : 4)) recoveryAttempts = 0;
+        const merge = worldViewsRef.current ? retainWorldPositions : retainNewerSamples;
+        setState(old => ({scope, data: merge(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
       } catch (error) {
         if (current() && ticket === generation) fail(error);
       } finally {
@@ -110,7 +109,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     spectatorSignal.current = code => signal(code === 4003 || code === 4004);
     const syncSignal = () => {
       const path = `events/${eventId}/spectator_signals/latest`;
-      if (spectatorActiveScope.current === scope || worldCovers.current) {
+      if (spectatorActiveScope.current === scope) {
         stopLocationSignal?.();
         stopLocationSignal = undefined;
         readySubscriptions.delete(path);

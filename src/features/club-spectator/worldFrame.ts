@@ -10,30 +10,16 @@ function acceptable(snapshot: MeetingSpectatorSnapshot, names: Map<string, strin
     Number.isFinite(marker.lat) && Number.isFinite(marker.lon) && Number.isFinite(marker.capturedAt) && marker.capturedAt <= now + 2000;
 }
 
-const index = (snapshot: MeetingSpectatorSnapshot) => ({
-  names: new Map(snapshot.participants?.map(p => [p.uid, p.displayName]) ?? []),
-  rows: new Map(snapshot.locations.map(r => [r.uid, r])),
-});
-
 /**
- * 월드 프레임이 이 화면의 주행자를 모두 담았는지 확인한다. 실제로 반영할 수 있는 마커만 센다.
- * 주행자가 없거나(이전 위치를 정리할 근거가 없다) 표시 제한(최대 10개)·버린 표본으로 모자라면 완전하지 않다.
- */
-export function worldFrameComplete(snapshot: MeetingSpectatorSnapshot, frame: WorldEventFrame, now: number): boolean {
-  if (frame.eventId !== snapshot.eventId || frame.counts.riding <= 0) return false;
-  const {names, rows} = index(snapshot);
-  return frame.markers.filter(marker => acceptable(snapshot, names, rows, marker, now)).length >= frame.counts.riding;
-}
-
-/**
- * 월드(Redis) 위치를 받은 즉시 반영한다(P11 Redis 실시간 경로 예외).
- * 명단·코스·이름은 회원 전용 API 값을 유지한다. 코스 진행·순위·격차는 서버 정본만 쓰므로(P6) 화면에서 다시
- * 계산하지 않는다. 위치가 바뀐 참가자는 서버 값이 그 위치를 설명하지 않으므로 비워 두고, 다음 서버 조회에서 채운다.
+ * 월드(Redis) 위치를 받은 즉시 반영한다(P11 Redis 실시간 경로 예외). 위치·속도·파워·상태만 덮어쓰는 보조 경로다.
+ * 명단·코스·이름과 코스 진행·순위·격차는 서버 정본(P6)이므로 화면에서 다시 계산하거나 지우지 않고,
+ * 다음 회원 전용 API 결과로 갱신한다(위치 변경 신호 구독은 월드와 무관하게 유지된다).
  */
 export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: WorldEventFrame, now: number): MeetingSpectatorSnapshot {
   const course = snapshot.course;
   if (frame.eventId !== snapshot.eventId || !course) return snapshot;
-  const {names, rows} = index(snapshot);
+  const names = new Map(snapshot.participants?.map(p => [p.uid, p.displayName]) ?? []);
+  const rows = new Map(snapshot.locations.map(r => [r.uid, r]));
   let changed = false;
   for (const marker of frame.markers) {
     if (!acceptable(snapshot, names, rows, marker, now)) continue;
@@ -44,15 +30,29 @@ export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: World
     const ended = prior?.status === "FINISHED" || prior?.status === "DNF";
     rows.set(uid, {
       uid, displayName: prior?.displayName ?? names.get(uid) ?? "회원", courseId: course.courseId,
-      lat: marker.lat, lng: marker.lon, sampledAtMs: marker.capturedAt, progressM: null,
+      lat: marker.lat, lng: marker.lon, sampledAtMs: marker.capturedAt, progressM: prior?.progressM ?? null,
       speedMps: typeof marker.speedMps === "number" && marker.speedMps >= 0 && marker.speedMps <= 100 ? marker.speedMps : null,
       powerWatts: powerLive ? marker.power! : null, powerExpiresAtMs: powerLive ? marker.powerExpiresAtMs! : null,
-      gapToLeaderM: null, leaderGapExpiresAtMs: null, gapToSelectedM: null, selectedGapExpiresAtMs: null,
+      gapToLeaderM: prior?.gapToLeaderM ?? null, leaderGapExpiresAtMs: prior?.leaderGapExpiresAtMs ?? null,
+      gapToSelectedM: prior?.gapToSelectedM ?? null, selectedGapExpiresAtMs: prior?.selectedGapExpiresAtMs ?? null,
       status: ended ? prior.status : marker.eventStatus === "lost_signal" ? "LOST_SIGNAL" : marker.status === "paused" ? "STOPPED" : "RIDING",
     });
     changed = true;
   }
-  if (!changed) return snapshot;
-  // 다른 참가자의 격차는 바뀐 참가자 위치를 기준으로 계산된 값일 수 있으므로 함께 비운다(서버 순서는 유지).
-  return {...snapshot, locations: [...rows.values()].map(r => ({...r, gapToLeaderM: null, leaderGapExpiresAtMs: null, gapToSelectedM: null, selectedGapExpiresAtMs: null}))};
+  return changed ? {...snapshot, locations: [...rows.values()]} : snapshot;
+}
+
+/**
+ * 월드 모드에서 회원 전용 API 결과를 합친다. 월드가 이미 더 최신 위치를 반영한 참가자는 위치·속도·파워·상태만
+ * 남기고, 서버 진행·격차·명단은 새 결과를 그대로 쓴다(지우지 않는다).
+ */
+export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, next: MeetingSpectatorSnapshot): MeetingSpectatorSnapshot {
+  if (!previous || previous.eventId !== next.eventId || previous.course?.courseId !== next.course?.courseId) return next;
+  const old = new Map(previous.locations.map(r => [r.uid, r]));
+  return {...next, locations: next.locations.map(r => {
+    const prior = old.get(r.uid);
+    if (!prior || prior.sampledAtMs <= r.sampledAtMs) return r;
+    return {...r, lat: prior.lat, lng: prior.lng, sampledAtMs: prior.sampledAtMs, speedMps: prior.speedMps, powerWatts: prior.powerWatts,
+      powerExpiresAtMs: prior.powerExpiresAtMs, status: r.status === "FINISHED" || r.status === "DNF" ? r.status : prior.status};
+  })};
 }
