@@ -1,3 +1,4 @@
+import { capDecimals } from "../utils/numberDisplay";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
@@ -988,8 +989,8 @@ export default function AnalysisTab({
                   <tr key={r.duration} className="border-t" style={{ borderColor: 'var(--bg-3)' }}>
                     <td className="px-4 py-2" style={{ color: 'var(--ink-1)' }}>
                       {r.duration < 60 ? t("analysis.bestEfforts.seconds", { count: r.duration })
-                        : r.duration < 3600 ? t("analysis.bestEfforts.minutes", { count: r.duration / 60 })
-                          : t("analysis.bestEfforts.hours", { count: r.duration / 3600 })}
+                        : r.duration < 3600 ? t("analysis.bestEfforts.minutes", { count: capDecimals(r.duration / 60) })
+                          : t("analysis.bestEfforts.hours", { count: capDecimals(r.duration / 3600) })}
                     </td>
                     {!integratedPower?.powerFingerprint?.length && <td className="px-4 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{r.watts}W</td>}
                     {weightKg && (

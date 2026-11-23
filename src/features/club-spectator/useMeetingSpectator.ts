@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { isLocalWorldEventEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
+import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { retainNewerSamples } from "./presentation";
+import { applyWorldFrame, retainWorldPositions } from "./worldFrame";
 import type { MeetingSpectatorSnapshot } from "./types";
 
 interface State { scope: string; data: MeetingSpectatorSnapshot | null; receivedAt: number; loading: boolean; error: unknown }
@@ -19,9 +20,14 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const [retry, setRetry] = useState(0);
   const [state, setState] = useState<State>({scope, data: null, receivedAt: 0, loading: true, error: null});
   const activeState = state.scope === scope ? state : {data: null, loading: !!uid, error: null, receivedAt: 0};
+  // 운영 플래그가 켜지면 월드 위치를 바로 반영하는 보조 경로를 더한다. 위치 변경 신호·콜러블 경로는 항상 유지하므로
+  // 프레임이 멈추거나 끊겨도 지도와 서버 진행·격차는 기존 조회로 갱신된다.
+  const worldViews = isProductionWorldEventEnabled();
   const world = useWorldEvent(activeState.data?.status === "LIVE" ? eventId : undefined,
-    uid === services.auth.currentUser?.uid ? services.auth.currentUser : null, selectedUid);
+    uid === services.auth.currentUser?.uid ? services.auth.currentUser : null, selectedUid, undefined, undefined, undefined, false, worldViews);
   const worldActive = world !== null;
+  const worldViewsRef = useRef(worldViews);
+  worldViewsRef.current = worldViews;
   const syncLocationSignal = useRef<() => void>(() => {});
   const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
@@ -82,7 +88,8 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
         if (readySubscriptions.size === (spectatorActiveScope.current === scope ? 3 : 4)) recoveryAttempts = 0;
-        setState(old => ({scope, data: retainNewerSamples(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
+        const merge = worldViewsRef.current ? retainWorldPositions : retainNewerSamples;
+        setState(old => ({scope, data: merge(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
       } catch (error) {
         if (current() && ticket === generation) fail(error);
       } finally {
@@ -150,7 +157,18 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     window.addEventListener("online", focus);
     return () => { disposed = true; spectatorSignal.current = () => {}; syncLocationSignal.current = () => {}; stop(); document.removeEventListener("visibilitychange", visible); window.removeEventListener("focus", focus); window.removeEventListener("online", focus); };
   }, [services, scope, groupId, eventId, uid, retry, spectatorRedis, viewer]);
-  useEffect(() => { syncLocationSignal.current(); if (world) spectatorSignal.current(); }, [world, worldActive]);
+  useEffect(() => { syncLocationSignal.current(); if (world && !worldViews) spectatorSignal.current(); }, [world, worldActive, worldViews]);
+  useEffect(() => {
+    if (!worldViews || !world) return;
+    const now = Date.now();
+    setState(old => {
+      if (old.scope !== scope || !old.data) return old;
+      // 화면 시각은 serverNowMs + 경과 시간이므로 둘을 함께 옮겨 서버 기준 시각이 되돌아가지 않게 한다.
+      const serverNowMs = old.data.serverNowMs + Math.max(0, now - old.receivedAt);
+      const data = applyWorldFrame(old.data, world, serverNowMs);
+      return data === old.data ? old : {...old, data: {...data, serverNowMs}, receivedAt: now};
+    });
+  }, [world, worldViews, scope]);
   useEffect(() => {
     if (previousSelection.current !== selectedUid) {
       previousSelection.current = selectedUid;

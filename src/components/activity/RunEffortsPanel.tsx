@@ -1,3 +1,4 @@
+import { capDecimals } from "../../utils/numberDisplay";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RUN_DISTANCES, RUN_DISTANCE_M } from "@shared/types/personal-records";
@@ -30,7 +31,7 @@ export default function RunEffortsPanel({ metrics, ready, previousAnalysis = fal
     const hours = Math.floor(rounded / 3600);
     return `${hours ? `${hours}:` : ""}${String(Math.floor(rounded / 60) % 60).padStart(2, "0")}:${String(rounded % 60).padStart(2, "0")}`;
   };
-  const durationLabel = (seconds: number) => seconds < 60 ? t("runEfforts.seconds", { count: seconds }) : t("runEfforts.minutes", { count: seconds / 60 });
+  const durationLabel = (seconds: number) => seconds < 60 ? t("runEfforts.seconds", { count: seconds }) : t("runEfforts.minutes", { count: capDecimals(seconds / 60) });
   const low = Math.min(...points.map(point => point.paceSecPerKm)), high = Math.max(...points.map(point => point.paceSecPerKm));
   const x = (seconds: number) => points.length < 2 ? 180 : 36 + (Math.log(seconds) - Math.log(points[0]!.durationSeconds)) / (Math.log(points[points.length - 1]!.durationSeconds) - Math.log(points[0]!.durationSeconds)) * 288;
   const y = (seconds: number) => 112 - (high - seconds) / (high - low || 1) * 72;

@@ -11,14 +11,14 @@ This file lists product decisions that a single PR can silently break. The merge
 ## 개인정보·권한 (Privacy & authority)
 
 ### P1. 활동 공개 범위가 분석 공개 범위도 정한다 **[검사]**
-활동을 볼 수 있는 사람은 `visibility`로 정하며, 활동을 볼 수 있는 사람에게는 그 활동의 분석(심박·파워·훈련 지표·케이던스·칼로리 등)도 함께 공개합니다. 항목별 공개 데이터 설정은 두지 않습니다 — 정책 수정으로 활동 공개 범위를 분석까지 확대했습니다(2026-11-23 사용자 결정, miranae/orider-web#1821. 이전 결정 2026-11-13 miranae/orider-g1-app#3348 을 대체).
+활동을 볼 수 있는 사람은 `visibility`로 정하며, 활동을 볼 수 있는 사람에게는 그 활동의 분석 전체를 함께 공개합니다 — 심박·파워·훈련 지표(TSS·IF)·케이던스·칼로리와 분석에 쓰인 개인 기준값(FTP·최대 심박 설정·LTHR), 이를 포함한 생성 문장·저장 분석 이력까지입니다. 항목별 공개 데이터 설정은 두지 않습니다 — 정책 수정으로 활동 공개 범위를 분석까지 확대했습니다(2026-11-23 사용자 결정, miranae/orider-web#1821·miranae/orider-g1-web#3967. 이전 결정 2026-11-13 miranae/orider-g1-app#3348 을 대체).
 
-- 분석을 숨기고 싶은 사용자는 활동 공개 범위를 좁힙니다(비공개·친구 공개).
-- 서버는 비소유자 응답을 활동 접근 권한으로만 거릅니다. 접근이 허용된 뷰어에게는 분석 전체를 반환합니다. 소유자 본인 응답과 저장된 분석 원본·이력은 유지합니다. GPS 원좌표와 개인정보 처리 지도 경로선의 기존 경계는 유지합니다.
+- 분석이나 기준값을 숨기고 싶은 사용자는 활동 공개 범위를 좁힙니다(비공개·친구 공개).
+- 서버는 비소유자 상세·스트림·피드·탐색·개요·분석 이력 응답을 활동 접근 권한으로만 거릅니다. 접근이 허용된 뷰어(공개 활동이면 비로그인 포함)에게는 분석 전체를 반환합니다. 소유자 본인 응답과 저장된 분석 원본·이력은 유지합니다. GPS 원좌표와 개인정보 처리 지도 경로선의 기존 경계는 유지합니다.
 - 웹·iOS·Android는 같은 규칙을 따릅니다. 남은 항목별 공개 설정 화면은 제거 대상입니다.
 - 폐지한 `hideHr`·`hidePower` 필드는 다시 읽거나 쓰지 않습니다.
 
-*Visibility selects the audience, and anyone allowed to see an activity also sees its analysis (policy change 2026-11-23); there are no per-field public-data settings. Owner responses, saved originals and GPS/route privacy boundaries remain intact.*
+*Visibility selects the audience, and anyone allowed to see an activity also sees its full analysis, including personal thresholds (policy change 2026-11-23); there are no per-field public-data settings. Owner responses, saved originals and GPS/route privacy boundaries remain intact.*
 
 전체 누적 요약은 별도 공개 계약입니다(2026-11-18 사용자 확정, miranae/orider-web#1725). 비로그인·타인·친구·본인에게 비공개 활동까지 포함한 전체 활동 수·누적 거리·누적 운동시간·누적 상승고도를 동일하게 제공합니다. 이 네 항목과 준비 상태·버전·항목별 결측 정보만 공개하며, 활동이 한 건뿐인 경우에도 같은 정책을 적용합니다. 활동 목록·개별 상세·시간·위치·경로·사진·메모·민감 지표의 기존 권한은 유지합니다. 계정 삭제·차단 제한을 우회하지 않습니다. 상세 공개 범위를 누적 요약의 집계 조건으로 사용하거나 활동 공개 설정을 바꾸도록 요구하지 않습니다.
 
@@ -73,7 +73,9 @@ AI 분석 등 저장된 분석 결과는 데이터나 분석기 판이 바뀌어
 
 ### P11. 변경은 신호로 알리고, 값은 기존 조회로 다시 받는다
 다른 화면·사용자의 변경은 신호(시퀀스 번호 등)로 알리고, 값은 기존 조회로 다시 읽습니다. 모든 경우를 이벤트 내용으로 덮어쓰거나 주기적 폴링으로 대신하지 않습니다.
-*Use change signals as triggers, then re-read through the normal query; don't push full state or poll.*
+
+**예외 — Redis 실시간 경로:** Redis와 이를 쓰는 월드 서버(WebSocket·SSE) 경로에서는 신호와 데이터를 구분하지 않습니다. 이 경로로 받은 변경 값(위치·프레임·상태·알림 내용 등)은 다시 조회하지 않고 바로 반영해도 됩니다. 서버는 구독자마다 권한을 확인한 값만 보내고, 순번이 건너뛰거나 다시 연결하면 최신 snapshot으로 맞춥니다. 이 경로가 실패하면 기존 Firestore·API 경로로 자동 복귀합니다(짧은 순단 허용). 주기적 폴링 금지는 이 경로에도 그대로 적용합니다.
+*Use change signals as triggers, then re-read through the normal query; don't push full state or poll. Exception: on Redis-backed realtime paths (the world server's WebSocket/SSE) signals and data are not distinguished — values received there may be applied directly, provided the server sends only per-subscriber authorized values and resyncs on sequence gaps or reconnects, with automatic fallback to the normal Firestore/API path. No polling in either case.*
 
 ### P12. 부작용이 있는 새 코드는 실패를 남긴다
 외부 호출·Firebase IO·캐시 갱신처럼 부작용이 있는 새 코드는 실패를 `logClientError` 등으로 기록합니다. 빈 `catch {}` 로 삼키지 않습니다.

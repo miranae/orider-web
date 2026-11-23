@@ -2,6 +2,7 @@
  * 바이크 킷 장비 목록 + 추가/수정/삭제 (#286).
  * PaneEquipment 하단에 렌더링됨.
  */
+import { capDecimals } from "../../utils/numberDisplay";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -367,7 +368,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
           }}
         >
           {[gear.brand, gear.model].filter(Boolean).join(" · ")}
-          {gear.weightKg ? ` · ${gear.weightKg}kg` : ""}
+          {gear.weightKg ? ` · ${capDecimals(gear.weightKg)}kg` : ""}
           {gear.type === "bike" && gear.cda ? <> · <GlossaryText>{`CdA ${gear.cda}`}</GlossaryText></> : null}
         </Text>
       </div>

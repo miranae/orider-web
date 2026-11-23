@@ -7,16 +7,17 @@ import { useMeetingSpectator } from "./useMeetingSpectator";
 import { spectatorFixture } from "./fixtures";
 const control = vi.hoisted(() => ({request: vi.fn(), signals: [] as {path: string; next: () => void; error: (error: unknown) => void; stop: ReturnType<typeof vi.fn>}[], services: {auth: {currentUser: {uid: "member"} as {uid: string} | null}, functions: {}, firestore: {}, ensureAppCheckReady: vi.fn(async () => {})}}));
 import type { useWorldEvent } from "../ride-world/useWorldEvent";
-const world = vi.hoisted(() => ({ subscribe: vi.fn<typeof useWorldEvent>() }));
+const world = vi.hoisted(() => ({ subscribe: vi.fn<typeof useWorldEvent>(), production: false }));
 vi.mock("../ride-world/useWorldEvent", () => ({
   isLocalWorldEventEnabled: () => true,
+  isProductionWorldEventEnabled: () => world.production,
   useWorldEvent: world.subscribe,
 }));
 vi.mock("firebase/firestore", () => ({doc: (_db: unknown, path: string) => path, onSnapshot: vi.fn((path: string, next: () => void, error: (error: unknown) => void) => {const stop = vi.fn(); control.signals.push({path, next, error, stop}); return stop;})}));
 vi.mock("firebase/functions", () => ({httpsCallable: vi.fn(() => control.request)}));
 vi.mock("../../contexts/FirebaseServicesContext", () => ({useFirebaseServices: () => control.services}));
 vi.mock("../../services/errorLogger", () => ({logClientError: vi.fn()}));
-beforeEach(() => { vi.clearAllMocks(); world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
+beforeEach(() => { vi.clearAllMocks(); world.production = false; world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 const data = () => ({...spectatorFixture(Date.now()), groupId: "club", eventId: "meeting"});
 describe("회원 관전 조회 경계", () => {
@@ -180,4 +181,59 @@ it("관전 신호가 준비되면 기본 구독을 중지하고 권한 철회에
   expect(result.current.data).toBeNull();
   await act(async () => vi.advanceTimersByTimeAsync(5001));
   expect(result.current.error).toEqual({code: "permission-denied"});
+});
+
+const worldFrame = (riding = 1, capturedAt = Date.now()) => ({v: 1 as const, type: "event_snapshot" as const, eventId: "meeting", revision: 1, updatedAt: capturedAt, viewers: 1,
+  counts: {riding, total: riding}, roster: [], markers: [{id: "m1", uid: "rider-two", kind: "virtual" as const, lat: 37.525, lon: 126.98, status: "riding" as const, capturedAt}]});
+const fullWorld = (calls: Parameters<typeof useWorldEvent>[]) => calls.filter(call => call[4] === undefined);
+const locationSignals = () => control.signals.filter(s => s.path.endsWith("spectator_signals/latest"));
+
+it("운영 월드 플래그가 꺼져 있으면 월드 위치를 적용하지 않고 기존 신호 조회를 유지한다", async () => {
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  expect(fullWorld(world.subscribe.mock.calls).every(call => call[7] === false)).toBe(true);
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : worldFrame());
+  rerender();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.lng).toBe(126.967);
+  expect(locationSignals()).toHaveLength(1);
+  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+});
+
+it("운영 월드 프레임은 위치만 덮어쓰고 위치 신호 구독을 유지하며, 프레임이 멈추거나 끊겨도 콜러블로 지도와 격차를 갱신한다", async () => {
+  world.production = true;
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  expect(fullWorld(world.subscribe.mock.calls).at(-1)?.[7]).toBe(true);
+  vi.useFakeTimers();
+  let frame: ReturnType<typeof worldFrame> | null = worldFrame();
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  // 위치는 바로 반영하고 서버 진행·격차는 지우지 않는다. 완전한 프레임이어도 위치 신호를 해제하지 않는다.
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2280, gapToLeaderM: 120});
+  expect(result.current.data?.locations.find(r => r.uid === "rider-one")?.gapToLeaderM).toBe(0);
+  expect(locationSignals()).toHaveLength(1);
+  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+  // 프레임이 멈춘 채로 서버가 격차만 갱신하면(위치는 월드가 더 최신) 월드 위치를 두고 서버 격차를 반영한다.
+  const older = data();
+  older.locations = older.locations.map(r => r.uid === "rider-two" ? {...r, gapToLeaderM: 80} : r);
+  control.request.mockResolvedValue({data: older});
+  act(() => locationSignals()[0].next());
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, gapToLeaderM: 80});
+  // 서버가 더 최신 위치·진행을 주면 멈춘 프레임 대신 그 값으로 지도를 갱신한다.
+  const fresh = data();
+  fresh.locations = fresh.locations.map(r => r.uid === "rider-two" ? {...r, lng: 126.99, sampledAtMs: Date.now(), progressM: 2500, gapToLeaderM: 50} : r);
+  control.request.mockResolvedValue({data: fresh});
+  act(() => locationSignals()[0].next());
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(3);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.99, progressM: 2500, gapToLeaderM: 50});
+  // 연결이 끊겨도 같은 위치 신호 구독을 그대로 쓴다.
+  frame = null;
+  rerender();
+  expect(locationSignals()).toHaveLength(1);
+  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
 });
