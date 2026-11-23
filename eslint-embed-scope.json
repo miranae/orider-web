@@ -887,6 +887,7 @@
   "src/theme/components/MediaViewer.tsx",
   "src/theme/components/Progress.tsx",
   "src/theme/components/Section.tsx",
+  "src/theme/components/Spinner.tsx",
   "src/theme/components/Stack.tsx",
   "src/theme/components/Stat.tsx",
   "src/theme/components/Switch.tsx",

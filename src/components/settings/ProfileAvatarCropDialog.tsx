@@ -144,7 +144,6 @@ export function ProfileAvatarCropDialog({ image, onCancel, onConfirm }: ProfileA
 
   return (
     <Modal open onClose={onCancel} title={t("profile.cropTitle")} maxWidth="max-w-sm">
-      <Text as="p" id={hintId} variant="bodySmall" tone="secondary" className="mb-3">{t("profile.cropHint")}</Text>
       <div
         ref={stageRef}
         data-testid="profile-avatar-crop-stage"
@@ -162,6 +161,8 @@ export function ProfileAvatarCropDialog({ image, onCancel, onConfirm }: ProfileA
       >
         <canvas ref={canvasRef} aria-hidden="true" className="block w-full h-full" />
       </div>
+      {/* 안내는 영역 아래·슬라이더 위 — 앱과 같은 순서(제목 → 영역 → 안내 → 확대 → 버튼) */}
+      <Text as="p" id={hintId} variant="bodySmall" tone="secondary" className="mt-3">{t("profile.cropHint")}</Text>
       <Field label={t("profile.cropZoom")} htmlFor={zoomId} className="mt-4">
         <input
           id={zoomId}
