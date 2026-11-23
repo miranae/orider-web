@@ -54,10 +54,14 @@ export function isLocalWorldEventEnabled(): boolean {
   return endpoint !== null && isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true;
 }
 const productionEndpoint = "wss://world.orider.co.kr/events";
-/** 운영 월드 `/events` 관전 구독(#1855). 꺼져 있으면 호출부는 기존 콜러블·Firestore 경로만 쓴다. */
+/**
+ * 운영 월드 `/events` 관전 구독(#1855). 꺼져 있으면 호출부는 기존 콜러블·Firestore 경로만 쓴다.
+ * 운영 설정을 복사하는 스테이지(production-parity-stage·bundled-development)는 운영 월드에 구독을 만들지 않는다.
+ */
 export function isProductionWorldEventEnabled(): boolean {
   const config = getRuntimeConfig();
-  return config.firebaseProjectId === "miranae-orider-g1" && !isEmulatorRuntime() && config.worldEventViewsEnabled === true;
+  return config.firebaseProjectId === "miranae-orider-g1" && !isEmulatorRuntime() && config.worldEventViewsEnabled === true &&
+    config.deploymentProfile !== "production-parity-stage" && config.deploymentProfile !== "bundled-development";
 }
 
 interface EventState { scope: string; services: FirebaseServices; viewer: User | null; frame: WorldEventFrame }

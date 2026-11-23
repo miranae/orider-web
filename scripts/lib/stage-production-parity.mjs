@@ -19,6 +19,8 @@ export function stageProductionParityConfig(source, metadata = {}) {
     // 등록된 프록시는 state의 허용된 returnOrigin으로 돌려준다. 개발 도메인도 허용돼 있다.
     stravaRedirectUri: source.stravaRedirectUri,
     useEmulators: false,
+    // 운영 월드 관전 구독(#1855)은 운영 사용자만 연다. 스테이지 검증이 운영 월드에 실제 구독을 만들지 않게 끈다.
+    worldEventViewsEnabled: false,
   };
   if (metadata.sourceSha !== undefined || metadata.hostingVersion !== undefined) {
     if (!/^[a-f0-9]{40}$/.test(metadata.sourceSha ?? "") || !/^sites\/miranae-orider-g1\/versions\/[a-f0-9]+$/.test(metadata.hostingVersion ?? "")) throw new Error("stage parity source metadata mismatch");
@@ -43,5 +45,6 @@ export function stageProductionParityBuildEnv(source) {
     ...Object.fromEntries(Object.entries(source).filter(([key, value]) =>
       (key.endsWith("Enabled") || key === "activitySubscriptionsBackendReady") && typeof value === "boolean")
       .map(([key, value]) => [`VITE_${key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toUpperCase()}`, String(value)])),
+    VITE_WORLD_EVENT_VIEWS_ENABLED: "false",
   };
 }

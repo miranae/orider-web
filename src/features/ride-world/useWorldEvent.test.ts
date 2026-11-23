@@ -36,6 +36,12 @@ it("운영 관전 월드는 플래그를 켠 운영 Firebase 프로젝트에서�
   expect(isProductionWorldEventEnabled()).toBe(false);
   resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true, useEmulators: true });
   expect(isProductionWorldEventEnabled()).toBe(false);
+  for (const deploymentProfile of ["production-parity-stage", "bundled-development"] as const) {
+    resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true, deploymentProfile });
+    expect(isProductionWorldEventEnabled()).toBe(false);
+  }
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true, deploymentProfile: "bundled-production" });
+  expect(isProductionWorldEventEnabled()).toBe(true);
 });
 
 it("플래그가 꺼져 있거나 운영 요청이 아니면 연결하지 않는다", async () => {

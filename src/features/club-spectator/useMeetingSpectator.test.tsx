@@ -210,7 +210,7 @@ it("운영 월드 플래그가 켜지면 위치를 바로 반영하고 끊기면
   let frame: ReturnType<typeof worldFrame> | null = worldFrame();
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
   rerender();
-  expect(result.current.data?.locations[0]).toMatchObject({uid: "rider-two", lng: 126.98});
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: null});
   expect(locationSignals()[0].stop).toHaveBeenCalledOnce();
   await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
   expect(control.request).toHaveBeenCalledTimes(1);
@@ -224,7 +224,7 @@ it("운영 월드 플래그가 켜지면 위치를 바로 반영하고 끊기면
   frame = worldFrame(1, Date.now() + 1);
   rerender();
   expect(locationSignals()[1].stop).toHaveBeenCalledOnce();
-  expect(result.current.data?.locations[0].sampledAtMs).toBe(frame.markers[0].capturedAt);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.sampledAtMs).toBe(frame.markers[0].capturedAt);
 });
 
 it("월드 프레임이 표시 제한에 걸리면 위치는 반영하되 신호 조회를 유지한다", async () => {
@@ -234,6 +234,20 @@ it("월드 프레임이 표시 제한에 걸리면 위치는 반영하되 신호
   await waitFor(() => expect(result.current.data).toBeTruthy());
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : worldFrame(11));
   rerender();
-  expect(result.current.data?.locations[0].uid).toBe("rider-two");
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.lng).toBe(126.98);
   expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["주행자 0명", {...worldFrame(0), markers: []}],
+  ["버린 미래 시각 표본", worldFrame(1, Date.now() + 60000)],
+])("월드 프레임의 %s은 완전하지 않아 위치 신호를 유지한다", async (_label, frame) => {
+  world.production = true;
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.lng).toBe(126.967);
 });

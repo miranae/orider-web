@@ -25,9 +25,11 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const world = useWorldEvent(activeState.data?.status === "LIVE" ? eventId : undefined,
     uid === services.auth.currentUser?.uid ? services.auth.currentUser : null, selectedUid, undefined, undefined, undefined, false, worldViews);
   const worldActive = world !== null;
-  // 월드가 보이는 주행자를 모두 보낼 때만 위치 변경 신호(반복 조회)를 멈춘다. 10명 제한에 걸리면 신호를 유지한다.
+  // 월드가 이 화면의 주행자를 모두 반영할 수 있을 때만 위치 변경 신호(반복 조회)를 멈춘다.
+  // 주행자 0명, 10명 표시 제한, 버린 표본(미래 시각 등)이 있으면 신호를 유지한다.
   const worldCovers = useRef(false);
-  worldCovers.current = worldViews && world !== null && worldFrameComplete(world);
+  worldCovers.current = worldViews && world !== null && activeState.data !== null &&
+    worldFrameComplete(activeState.data, world, activeState.data.serverNowMs + Math.max(0, Date.now() - activeState.receivedAt));
   const syncLocationSignal = useRef<() => void>(() => {});
   const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
   const spectatorSignal = useRef<(code?: number) => void>(() => {});

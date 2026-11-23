@@ -146,6 +146,7 @@ test("stage parity preserves production data and every flag while routing execut
   const source = productionFixture();
   const stage = stageProductionParityConfig(source);
   for (const [key, value] of Object.entries(source)) {
+    if (key === "worldEventViewsEnabled") continue;
     if (key.endsWith("Enabled") || key === "activitySubscriptionsBackendReady" || key.startsWith("firebase") && !["firebaseFunctionsBase"].includes(key)) assert.equal(stage[key], value, key);
   }
   assert.equal(stage.appEnvironment, "production");
@@ -163,6 +164,9 @@ test("stage parity preserves production data and every flag while routing execut
   assert.equal(env.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED, "true");
   assert.equal(env.VITE_ACTIVITY_SUBSCRIPTIONS_ENABLED, "true");
   assert.equal(env.VITE_CANONICAL_ROLLOUT_ENABLED, "false");
+  const worldSource = { ...source, worldEventViewsEnabled: true };
+  assert.equal(stageProductionParityConfig(worldSource).worldEventViewsEnabled, false);
+  assert.equal(stageProductionParityBuildEnv(worldSource).VITE_WORLD_EVENT_VIEWS_ENABLED, "false");
   for (const patch of [{ appEnvironment: "stage" }, { firebaseProjectId: "orider-dev" }, { useEmulators: true }]) assert.throws(() => stageProductionParityConfig({ ...source, ...patch }));
 });
 
