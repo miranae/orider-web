@@ -36,8 +36,8 @@ export default function PlanPreviewStep({ goal, loading }: PlanPreviewStepProps)
     <dl className="goal-preview__facts">
       {[
         [t("previewReview.event"), goal.courseName],
-        [t("previewReview.distance"), `${capDecimals(goal.courseDist, 1)} km`],
-        [t("previewReview.elevation"), `${Math.round(goal.courseElev)} m`],
+        [t("previewReview.distance"), `${capDecimals(goal.courseDist)} km`],
+        [t("previewReview.elevation"), `${capDecimals(goal.courseElev)} m`],
         [t("previewReview.date"), goal.eventDate],
         [t("previewReview.frequency"), t("previewReview.sessions", { count: goal.weeklySessions })],
         [t("previewReview.remaining"), Number.isFinite(weeks) ? t("previewReview.weeks", { weeks }) : "—"],

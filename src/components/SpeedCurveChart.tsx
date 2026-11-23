@@ -24,7 +24,7 @@ export default function SpeedCurveChart({ points, emptyTitle, emptyDescription }
       color="var(--chart-speed)"
       datasetLabel={t("dashboard:charts.speedCurve.datasetLabel")}
       peakLabel={points.length > 0
-        ? t("dashboard:charts.speedCurve.peakSpeed", { speed: capDecimals(points[0]!.speedKmh, 1) })
+        ? t("dashboard:charts.speedCurve.peakSpeed", { speed: capDecimals(points[0]!.speedKmh) })
         : undefined}
       emptyTitle={emptyTitle ?? t("activity:analysis.empty.speedCurveTitle")}
       emptyDescription={emptyDescription ?? t("activity:analysis.empty.speedCurveDesc")}

@@ -422,16 +422,16 @@ function WeatherCard({ weather, metricsWeather, metricsStatus }: {
     }
   } else {
     if (!weather) return null;
-    if (weather.temperature != null) rows.push([t("runCards.weatherTemp"), `${capDecimals(weather.temperature, 1)} °C`]);
-    if (weather.feelsLike != null) rows.push([t("runCards.weatherFeelsLike"), `${capDecimals(weather.feelsLike, 1)} °C`]);
+    if (weather.temperature != null) rows.push([t("runCards.weatherTemp"), `${capDecimals(weather.temperature)} °C`]);
+    if (weather.feelsLike != null) rows.push([t("runCards.weatherFeelsLike"), `${capDecimals(weather.feelsLike)} °C`]);
     if (weather.windSpeed != null) {
       const dirText = weather.windDirection != null
         ? ` (${['N','NE','E','SE','S','SW','W','NW'][Math.round(weather.windDirection / 45) % 8]})`
         : '';
-      rows.push([t("runCards.weatherWind"), `${capDecimals(weather.windSpeed, 1)} m/s${dirText}`]);
+      rows.push([t("runCards.weatherWind"), `${capDecimals(weather.windSpeed)} m/s${dirText}`]);
     }
-    if (weather.humidity != null) rows.push([t("runCards.weatherHumidity"), `${Math.round(weather.humidity)}%`]);
-    if (weather.precipitation != null && weather.precipitation > 0) rows.push([t("runCards.weatherPrecip"), `${capDecimals(weather.precipitation, 1)} mm`]);
+    if (weather.humidity != null) rows.push([t("runCards.weatherHumidity"), `${capDecimals(weather.humidity)}%`]);
+    if (weather.precipitation != null && weather.precipitation > 0) rows.push([t("runCards.weatherPrecip"), `${capDecimals(weather.precipitation)} mm`]);
     if (weather.airQuality) rows.push([t("runCards.weatherAirQuality"), weather.airQuality]);
   }
   if (rows.length === 0) return null;
