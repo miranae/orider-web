@@ -245,40 +245,21 @@ function FitToBounds({
   return null;
 }
 
-type FatalMapKind = "auth" | "webgl_context" | "style";
+type FatalMapKind = "auth" | "webgl_context" | "load_timeout";
 
-/** Mapbox 오류가 치명적(대체 필요)이면 종류를 돌려준다. 타일 하나 실패 등 일시 오류는 null이다. */
-function fatalMapboxError(event: { error?: unknown; sourceId?: unknown; tile?: unknown }): { kind: FatalMapKind; status: number | null } | null {
-  // 타일 단위 요청 실패(tile 있음)만 일시 오류다. sourceId만 있는 소스 메타데이터·TileJSON 오류는 치명이다.
-  if (event.tile != null) return null;
-  const e = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
-  const status = typeof e.status === "number" && Number.isInteger(e.status) && e.status >= 100 && e.status <= 599 ? e.status : null;
-  const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
-  // 인증 실패
-  if (status === 401 || status === 403) return { kind: "auth", status };
-  // WebGL 컨텍스트 손실
-  if (/webgl|context lost|gpu/.test(message)) return { kind: "webgl_context", status };
-  // 스타일 로드 실패 (타일 개별 실패와 구분)
-  if (/style/.test(message) && !/tile/.test(message) && (status == null || status >= 400)) return { kind: "style", status };
-  return null;
-}
-
-/** 스타일 문서 자체를 못 가져온 오류인지 판단한다.
- * - TypeError (상태 코드 없음): 스타일·토큰 URL 네트워크 실패
- * - 404 (스프라이트·글리프·이미지·아이콘 메시지 아닌 경우): 스타일 문서 없음
- * 스타일 검증 오류(CSS 변수 색상 등)·스프라이트·글리프 실패는 false를 반환한다.
+/**
+ * 첫 load 이벤트가 이 시간(ms) 안에 오지 않으면 대체 지도로 전환한다.
+ * onFatalMapError가 없는 화면에서는 타이머가 동작하지 않는다.
  */
-function isStyleFetchFailure(error: unknown): boolean {
-  if (!error) return false;
-  if (error instanceof TypeError) return true;
-  const e = error as { status?: unknown; message?: unknown };
-  const status = typeof e.status === "number" ? e.status : null;
-  if (status === 404) {
-    const msg = (typeof e.message === "string" ? e.message : "").toLowerCase();
-    if (msg.includes("sprite") || msg.includes("glyph") || msg.includes("icon") || msg.includes("image")) return false;
-    return true;
-  }
-  return false;
+export const LOAD_TIMEOUT_MS = 10_000;
+
+/** load 이후 Mapbox 오류가 치명적(인증 실패)이면 종류를 돌려준다. 타일 하나 실패 등 일시 오류는 null이다. */
+function fatalMapboxError(event: { error?: unknown; tile?: unknown }): { kind: FatalMapKind; status: number } | null {
+  if (event.tile != null) return null;
+  const e = event.error && typeof event.error === "object" ? event.error as { status?: unknown } : {};
+  const status = typeof e.status === "number" && Number.isInteger(e.status) && e.status >= 100 && e.status <= 599 ? e.status : null;
+  if (status === 401 || status === 403) return { kind: "auth", status };
+  return null;
 }
 
 export default function EventMap({
@@ -304,6 +285,7 @@ export default function EventMap({
   const previousPopupSelection = useRef(selectedUid);
   const fatalErrorLogged = useRef(false);
   const loadedRef = useRef(false);
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapInstance, setMapInstance] = useState<MapRef | null>(null);
   const failFatal = useCallback((kind: FatalMapKind, status: number | null) => {
     if (!fatalErrorLogged.current) {
@@ -315,20 +297,13 @@ export default function EventMap({
     onFatalMapError?.();
   }, [onFatalMapError, onLogError]);
   const handleMapError = useCallback((event: { error?: unknown; sourceId?: unknown; tile?: unknown }) => {
-    const fatal = fatalMapboxError(event);
-    if (!fatal) {
-      // 치명적이지 않더라도 원본 오류는 반드시 먼저 기록한다(onFatalMapError 없는 화면에서도 로그 보존).
-      onLogError("EventMap.render", event.error);
-      // 첫 load 전 타일 외 오류 중 스타일 문서를 못 가져온 경우에만 치명으로 전환한다.
-      // 스타일 검증 오류(CSS 변수 등)·스프라이트·글리프 실패는 비치명(로그만).
-      if (!loadedRef.current && event.tile == null && isStyleFetchFailure(event.error)) {
-        failFatal("style", null);
-      }
-      return;
-    }
-    // 치명 오류도 원본 오류와 실패한 소스를 먼저 기록한다. onFatalMapError가 없는 화면(클럽 모임 관전 등)에서도
-    // 어떤 소스 요청이 실패했는지 확인할 수 있어야 한다(P12).
+    // 원본 오류와 실패한 소스를 항상 먼저 기록한다. onFatalMapError 없는 화면(관전 등)에서도 P12 로그 보존.
     onLogError("EventMap.render", event.error, typeof event.sourceId === "string" ? { sourceId: event.sourceId } : undefined);
+    // load 전 오류는 로그만. N초 타이머가 load 없으면 대체 지도로 전환한다.
+    if (!loadedRef.current) return;
+    // load 이후: 인증 실패(401·403)만 치명으로 본다. 타일 개별 실패·기타 오류는 일시 오류.
+    const fatal = fatalMapboxError(event);
+    if (!fatal) return;
     failFatal(fatal.kind, fatal.status);
   }, [failFatal, onLogError]);
   // WebGL 컨텍스트 손실은 onError가 아니라 캔버스의 webglcontextlost 이벤트로 온다. 제한 시간 안에 복구되지 않으면 대체한다.
@@ -358,6 +333,21 @@ export default function EventMap({
     if (!mapInstance) return;
     watchContextLoss(mapInstance.getCanvas());
   }, [mapInstance]);
+
+  // onFatalMapError가 있을 때만 로드 타임아웃 타이머를 시작한다.
+  // load 이벤트가 LOAD_TIMEOUT_MS 안에 오지 않으면 대체 지도로 전환한다.
+  // 부모가 렌더마다 새 인라인 콜백을 넘겨도 기한이 다시 시작되지 않도록, 콜백 존재 여부에만 의존한다
+  // (최신 콜백은 failFatalRef로 호출한다).
+  const hasFatalHandler = onFatalMapError != null;
+  useEffect(() => {
+    if (!hasFatalHandler) return;
+    loadTimerRef.current = setTimeout(() => {
+      if (!loadedRef.current) failFatalRef.current("load_timeout", null);
+    }, LOAD_TIMEOUT_MS);
+    return () => {
+      if (loadTimerRef.current != null) { clearTimeout(loadTimerRef.current); loadTimerRef.current = null; }
+    };
+  }, [hasFatalHandler]);
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
@@ -405,6 +395,7 @@ export default function EventMap({
       initialViewState={DEFAULT_VIEW}
       onLoad={(e) => {
         loadedRef.current = true;
+        if (loadTimerRef.current != null) { clearTimeout(loadTimerRef.current); loadTimerRef.current = null; }
         try { applyKoreaCyclingStyle(e.target, onLogError); }
         catch (error) { onLogError("EventMap.style", error); }
       }}
