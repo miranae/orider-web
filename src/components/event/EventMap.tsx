@@ -336,15 +336,18 @@ export default function EventMap({
 
   // onFatalMapError가 있을 때만 로드 타임아웃 타이머를 시작한다.
   // load 이벤트가 LOAD_TIMEOUT_MS 안에 오지 않으면 대체 지도로 전환한다.
+  // 부모가 렌더마다 새 인라인 콜백을 넘겨도 기한이 다시 시작되지 않도록, 콜백 존재 여부에만 의존한다
+  // (최신 콜백은 failFatalRef로 호출한다).
+  const hasFatalHandler = onFatalMapError != null;
   useEffect(() => {
-    if (!onFatalMapError) return;
+    if (!hasFatalHandler) return;
     loadTimerRef.current = setTimeout(() => {
       if (!loadedRef.current) failFatalRef.current("load_timeout", null);
     }, LOAD_TIMEOUT_MS);
     return () => {
       if (loadTimerRef.current != null) { clearTimeout(loadTimerRef.current); loadTimerRef.current = null; }
     };
-  }, [onFatalMapError]);
+  }, [hasFatalHandler]);
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);

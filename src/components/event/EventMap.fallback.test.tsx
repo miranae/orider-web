@@ -64,6 +64,20 @@ describe("EventMap 로드 타임아웃 대체 (#4078 재설계)", () => {
     expect(onLogError).toHaveBeenCalledWith("EventMap.mapbox", expect.any(Error), { stage: "mapbox_runtime", kind: "load_timeout" });
   });
 
+  it("부모가 렌더마다 새 콜백을 넘겨도 로드 기한은 다시 시작되지 않는다", () => {
+    const calls: number[] = [];
+    const props = { locations: [], selectedUid: null, onSelectParticipant: vi.fn(), onLogError: vi.fn() };
+    const view = render(<EventMap {...props} onFatalMapError={() => calls.push(0)} />);
+    // 스냅샷 갱신처럼 기한 직전까지 여러 번 다시 렌더한다(매번 새 인라인 콜백).
+    for (let i = 1; i <= 4; i += 1) {
+      act(() => { vi.advanceTimersByTime(LOAD_TIMEOUT_MS / 5); });
+      view.rerender(<EventMap {...props} onFatalMapError={() => calls.push(i)} />);
+    }
+    act(() => { vi.advanceTimersByTime(LOAD_TIMEOUT_MS / 5); });
+    // 처음 마운트 기준 10초에 대체되고, 최신 콜백이 호출된다.
+    expect(calls).toEqual([4]);
+  });
+
   it("load 이벤트가 타임아웃 전에 도착하면 → onFatalMapError 호출하지 않음", () => {
     const { onFatalMapError } = renderMap();
     act(() => { vi.advanceTimersByTime(LOAD_TIMEOUT_MS - 1); });
