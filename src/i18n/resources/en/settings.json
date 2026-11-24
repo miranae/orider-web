@@ -528,7 +528,9 @@
       "copyFailed": "Failed to copy",
       "copied": "Copied",
       "docsTitle": "Developer documentation",
+      "deployLink": "Connection guide →",
       "examplesLink": "Examples →",
+      "githubLink": "Public repository (GitHub)",
       "apiDocsLink": "API documentation"
     }
   },

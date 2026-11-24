@@ -154,7 +154,8 @@ describe("Creator Hub API documentation destinations", () => {
   it.each(["ko", "en"])("renders the same source-bound docs destinations in %s", async lang => {
     resetRuntimeConfigForTests(stage);
     await act(async () => { await i18n.changeLanguage(lang); });
-    renderWithProviders(<Routes><Route path="/:lang/creator/:section" element={<CreatorHubPage />} /></Routes>, { route: `/${lang}/creator/recipes` });
+    // API 문서 링크는 라이더 화면이 아니라 개발자 연결 가이드에 있다(#3956).
+    renderWithProviders(<Routes><Route path="/:lang/settings/developer/:section" element={<CreatorHubPage mode="developer" />} /></Routes>, { route: `/${lang}/settings/developer/deploy` });
     const links = creatorApiDocsLinks(stage);
     expect(screen.getByRole("link", { name: lang === "ko" ? "Swagger UI 열기" : "Open Swagger UI" })).toHaveAttribute("href", links.docs);
     expect(screen.getByRole("link", { name: lang === "ko" ? "OpenAPI YAML 보기" : "View OpenAPI YAML" })).toHaveAttribute("href", links.openapi);

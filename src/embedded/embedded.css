@@ -174,8 +174,7 @@
 /*
  * 앱 탐색 화면도 상단 탭이 지금 화면을 알려 준다 — 코치(#1460)와 같은 이유로, 탭과 같은 이름의 큰 페이지 제목
  * ("이벤트" 등)은 화면에서 뺀다(2026-11-04). 제목은 접근성 트리에 남기고, 부제·만들기 버튼 등 머리의 다른 요소는 그대로 보인다.
- * 검색 임베드는 탐색 탭이 없으므로 제목을 그대로 보인다(.orider-embedded-explore 범위). 기록 활용은 제목이 탭 이름이 아닌
- * 소개 문구라 대상에서 뺀다.
+ * 검색 임베드는 탐색 탭이 없으므로 제목을 그대로 보인다(.orider-embedded-explore 범위).
  */
 .orider-embedded-explore :is(.explore-page-title, [data-testid="E3-0"] h1) {
   position: absolute;

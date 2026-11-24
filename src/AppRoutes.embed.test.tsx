@@ -34,6 +34,8 @@ describe("embedded routes", () => {
     ["/ko/embed/segments/seg-1", "segment-detail"],
     ["/en/embed/segments/seg-1/", "segment-detail"],
     ["/ko/embed/athlete/rider-1", "athlete-profile"],
+    ["/ko/embed/records-studio", "records-studio"],
+    ["/en/embed/records-studio?section=share&activity=a1", "records-studio"],
   ])("renders %s outside the general Layout", async (path, surfaceKind) => {
     render(
       <MemoryRouter initialEntries={[path]}>
@@ -58,6 +60,8 @@ describe("embedded routes", () => {
     "/ko/embed/courses/course-1",
     "/en/embed/segments/seg-1",
     "/ko/embed/athlete/rider-1",
+    "/ko/embed/records-studio",
+    "/en/embed/records-studio/",
   ])("recognizes embedded path %s", (path) => {
     expect(isEmbeddedRoutePath(path)).toBe(true);
   });

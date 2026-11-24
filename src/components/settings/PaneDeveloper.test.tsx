@@ -31,7 +31,10 @@ describe("PaneDeveloper locale", () => {
     render(<MemoryRouter><PaneDeveloper /></MemoryRouter>);
     expect(await screen.findByText("개인 데이터 API 키 만들기")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /키 이름/ })).toHaveValue("개인 대시보드");
-    expect(screen.getByRole("link", { name: "활용 예시 →" })).toHaveAttribute("href", "/ko/explore/recipes/examples");
+    // 개발자 연결 가이드는 탐색이 아니라 개발자 설정 아래에 있다(#3956).
+    expect(screen.getByRole("link", { name: "연결 가이드 →" })).toHaveAttribute("href", "/ko/settings/developer/deploy");
+    expect(screen.getByRole("link", { name: "활용 예시 →" })).toHaveAttribute("href", "/ko/settings/developer/examples");
+    expect(screen.getByRole("link", { name: "공개 저장소(GitHub)" })).toHaveAttribute("href", "https://github.com/miranae/orider-web");
     expect(screen.getByRole("link", { name: "API 문서" }).getAttribute("href")).toMatch(/\/api\/v1\/docs$/);
     expect(screen.getByRole("button", { name: "키 생성" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "profile:read" })).toBeInTheDocument();

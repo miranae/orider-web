@@ -65,12 +65,11 @@ export const HUBS: Hub[] = [
       { labelKey: "nav.events", to: "/explore/events" },
       { labelKey: "nav.challenges", to: "/explore/challenges" },
       { labelKey: "nav.people", to: "/explore/athletes" },
-      { labelKey: "nav.creator", to: "/explore/recipes" }, // 기록 활용: 기존 링크 유지
+      // 「기록 활용」은 탐색(어디를 탈지 찾기)이 아니라 내 기록 쪽이라 /records/studio 로 옮겼다(#3956).
     ],
     match: (p) =>
       p.startsWith("/explore/") || p.startsWith("/course/") ||
-      p.startsWith("/segment/") || p.startsWith("/event/") || p.startsWith("/live/") ||
-      p.startsWith("/explore/recipes"),
+      p.startsWith("/segment/") || p.startsWith("/event/") || p.startsWith("/live/"),
   },
   {
     key: "community",
@@ -91,7 +90,8 @@ export const HUBS: Hub[] = [
     ],
     match: (p) =>
       p === "/settings" || p.startsWith("/settings/") ||
-      p.startsWith("/athlete/") || p.startsWith("/friend/") || p === "/about",
+      p.startsWith("/athlete/") || p.startsWith("/friend/") || p === "/about" ||
+      p === "/records/studio" || p.startsWith("/records/studio/"),
   },
 ];
 

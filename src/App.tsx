@@ -28,7 +28,7 @@ import { didHandoffFail } from "./services/appHandoff";
 import { takeImpersonationFailure } from "./services/impersonation";
 import { LocaleRoot } from "./components/i18n/LocaleRoot";
 import { LocaleRedirect } from "./components/i18n/LocaleRedirect";
-import { LegacyRedirect } from "./components/routing/LegacyRedirect";
+import { LegacyCreatorRedirect, LegacyRedirect } from "./components/routing/LegacyRedirect";
 import { firestore } from "./services/firebase";
 
 const ActivityPage = lazyTimed("ActivityPage", () => import("./pages/ActivityDetailRoute"));
@@ -131,6 +131,8 @@ export function AppRoutes() {
         <Route path="embed/explore" element={<EmbeddedBootstrapRoot surfaceKind="explore" />} />
         <Route path="embed/event/:eventId/*" element={<EmbeddedBootstrapRoot surfaceKind="event-detail" />} />
         <Route path="embed/search" element={<EmbeddedBootstrapRoot surfaceKind="search" />} />
+        {/* 이 기록으로 만들기(#3956) — 탐색에서 뺀 라이더 화면. `?section=overview|recipes|share&activity=<id>` */}
+        <Route path="embed/records-studio" element={<EmbeddedBootstrapRoot surfaceKind="records-studio" />} />
         <Route path="embed/about" element={<EmbeddedBootstrapRoot surfaceKind="about" />} />
         <Route path="embed/policies/community" element={<EmbeddedBootstrapRoot surfaceKind="community-guidelines" />} />
         <Route path="embed/feedback" element={<EmbeddedBootstrapRoot surfaceKind="feedback" />} />
@@ -167,6 +169,8 @@ export function AppRoutes() {
           <Route path="settings/data" element={<SettingsPage tab="data" />} />
           <Route path="settings/display" element={<SettingsPage tab="display" />} />
           <Route path="settings/developer" element={<SettingsPage tab="developer" />} />
+          {/* 개발자 연결 가이드(옛 기록 활용의 deploy·examples) — 모르는 섹션은 deploy 로 그린다. */}
+          <Route path="settings/developer/:section" element={<CreatorHubPage mode="developer" />} />
           <Route path="settings/device" element={<SettingsPage tab="device" />} />
           <Route path="settings/training" element={<SettingsPage tab="training" />} />
           <Route path="settings/*" element={<LegacyRedirect to="/settings/account" />} />
@@ -210,10 +214,13 @@ export function AppRoutes() {
           <Route path="community/board" element={<BoardPage />} />
           <Route path="community/board/write" element={<CreatePostPage />} />
           <Route path="community/board/:postId" element={<PostDetailPage />} />
-          <Route path="explore/recipes" element={<CreatorHubPage />} />
-          <Route path="explore/recipes/:section" element={<CreatorHubPage />} />
-          <Route path="community/recipes" element={<LegacyRedirect to="/explore/recipes" />} />
-          <Route path="community/recipes/:section" element={<LegacyRedirect to="/explore/recipes/:section" />} />
+          {/* 이 기록으로 만들기 — 라이더용(AI 일기·리포트 이메일·자랑 카드). 탐색 「기록 활용」에서 옮겼다(#3956). */}
+          <Route path="records/studio" element={<CreatorHubPage mode="rider" />} />
+          <Route path="records/studio/:section" element={<CreatorHubPage mode="rider" />} />
+          <Route path="explore/recipes" element={<LegacyCreatorRedirect />} />
+          <Route path="explore/recipes/:section" element={<LegacyCreatorRedirect />} />
+          <Route path="community/recipes" element={<LegacyCreatorRedirect />} />
+          <Route path="community/recipes/:section" element={<LegacyCreatorRedirect />} />
           <Route path="tools/virtual-power" element={<VirtualPowerToolPage />} />
           {/* 상대 경로 — /:lang 프리픽스 보존 */}
           <Route path="feedback" element={<Navigate to="../community/board?type=inquiry" replace />} />
@@ -266,8 +273,8 @@ export function AppRoutes() {
           <Route path="board" element={<LegacyRedirect to="/community/board" />} />
           <Route path="board/write" element={<LegacyRedirect to="/community/board/write" />} />
           <Route path="board/:postId" element={<LegacyRedirect to="/community/board/:postId" />} />
-          <Route path="creator" element={<LegacyRedirect to="/explore/recipes" />} />
-          <Route path="creator/:section" element={<LegacyRedirect to="/explore/recipes/:section" />} />
+          <Route path="creator" element={<LegacyCreatorRedirect />} />
+          <Route path="creator/:section" element={<LegacyCreatorRedirect />} />
           <Route path="community" element={<LegacyRedirect to="/policies/community" />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
@@ -406,7 +413,7 @@ function StandardApp() {
 }
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
-  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public|edit)|fitness|plan|clubs|explore|search|about|policies\/community|feedback)\/?$/.test(pathname)
+  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public|edit)|fitness|plan|clubs|explore|search|records-studio|about|policies\/community|feedback)\/?$/.test(pathname)
     || /^\/[^/]+\/embed\/(?:clubs|courses|segments|athlete|event)\/[^/]+(?:\/.*)?$/.test(pathname);
 }
 

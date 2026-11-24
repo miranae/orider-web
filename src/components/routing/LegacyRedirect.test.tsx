@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
-import { LegacyRedirect, LegacySettingsRedirect, fillPathParams, resolveLegacySettingsTarget } from "./LegacyRedirect";
+import { LegacyCreatorRedirect, LegacyRedirect, LegacySettingsRedirect, fillPathParams, resolveLegacySettingsTarget } from "./LegacyRedirect";
 
 function LocationProbe() {
   const location = useLocation();
@@ -73,5 +73,24 @@ describe("LegacySettingsRedirect", () => {
   it("section 이 없거나 알 수 없으면 account", () => {
     expect(renderAt("/en/settings", "settings", <LegacySettingsRedirect />)).toBe("/en/settings/account");
     expect(resolveLegacySettingsTarget("?section=unknown&x=1")).toEqual({ pathname: "/settings/account", search: "?x=1" });
+  });
+});
+
+describe("LegacyCreatorRedirect", () => {
+  // 탐색 「기록 활용」을 라이더 화면과 개발자 안내로 나눴다(#3956).
+  it.each([
+    ["/ko/explore/recipes", "explore/recipes", "/ko/records/studio"],
+    ["/en/explore/recipes/overview", "explore/recipes/:section", "/en/records/studio"],
+    ["/ko/explore/recipes/recipes?tab=share", "explore/recipes/:section", "/ko/records/studio/recipes?tab=share"],
+    ["/ko/explore/recipes/share#card", "explore/recipes/:section", "/ko/records/studio/share#card"],
+    ["/ko/explore/recipes/deploy", "explore/recipes/:section", "/ko/settings/developer/deploy"],
+    ["/en/explore/recipes/examples", "explore/recipes/:section", "/en/settings/developer/examples"],
+    ["/ko/explore/recipes/unknown", "explore/recipes/:section", "/ko/records/studio"],
+    ["/ko/creator", "creator", "/ko/records/studio"],
+    ["/ko/creator/share", "creator/:section", "/ko/records/studio/share"],
+    ["/ko/creator/examples", "creator/:section", "/ko/settings/developer/examples"],
+    ["/ko/community/recipes/deploy", "community/recipes/:section", "/ko/settings/developer/deploy"],
+  ])("%s → %s", (entry, from, expected) => {
+    expect(renderAt(entry, from, <LegacyCreatorRedirect />)).toBe(expected);
   });
 });

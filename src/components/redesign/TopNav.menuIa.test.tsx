@@ -20,6 +20,7 @@ const accountLinks = [
   ["내 프로필", "/ko/athlete/me"],
   ["운동일지", "/ko/athlete/me/activities"],
   ["기록", "/ko/athlete/me/records"],
+  ["이 기록으로 만들기", "/ko/records/studio"],
   ["친구", "/ko/athlete/me/friends"],
   ["장비", "/ko/athlete/me/gear"],
   ["설정", "/ko/settings/account"],
@@ -68,7 +69,7 @@ describe("menu IA v2", () => {
     expect(screen.queryByRole("link", { name: "내 프로필" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "프로필" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "오라이더 소개" })).toHaveAttribute("href", "/ko/about");
-    expect(screen.getByRole("link", { name: "개발자 문서" })).toHaveAttribute("href", "/ko/explore/recipes");
+    expect(screen.getByRole("link", { name: "개발자 문서" })).toHaveAttribute("href", "/ko/settings/developer/deploy");
     expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute("href", "/ko/terms");
     expect(screen.getByRole("radio", { name: "한국어" })).toBeInTheDocument();
     await user.click(screen.getByRole("link", { name: "이용약관" }));

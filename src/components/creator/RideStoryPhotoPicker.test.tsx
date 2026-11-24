@@ -60,6 +60,27 @@ describe("RideStoryPhotoPicker", () => {
     await waitFor(() => expect(photoButton).toHaveAttribute("aria-pressed", "true"));
   });
 
+  // 앱이 특정 활동에서 「이 기록으로 만들기」를 열면(?activity=) 그 활동을 먼저 고른다(#3956).
+  it("preselects the activity the app opened the studio from", async () => {
+    const ride = (id: string, name: string, daysAgo: number) => ({
+      id, userId: "test-uid", name, type: "Ride", startTime: Date.now() - daysAgo * 86_400_000,
+      summary: { distance: 20000, elevationGain: 100, ridingTimeMillis: 3_600_000 },
+      thumbnailTrack: "37.51,127.01;37.52,127.04",
+    });
+    setCollectionDocs("activities", [ride("ride-new", "최근 라이딩", 1), ride("ride-old", "지난주 라이딩", 6)]);
+    setCollectionDocs("activity_photos/ride-new/photos", [{ id: "p1", url: "https://example.com/p.jpg", deletedAt: null, createdAt: 1 }]);
+    setCollectionDocs("activity_photos/ride-old/photos", []);
+
+    renderWithProviders(
+      <RideStoryPhotoPicker open userId="test-uid" preferredActivityId="ride-old" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />,
+      { authenticated: true },
+    );
+    expect(await screen.findByText("지난주 라이딩")).toBeInTheDocument();
+    const buttons = screen.getAllByRole("button", { name: /경로 포스터 선택/ });
+    await waitFor(() => expect(buttons.filter(button => button.getAttribute("aria-pressed") === "true")).toHaveLength(1));
+    expect(screen.getByRole("button", { name: /최근 라이딩 사진 1/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("uploads a new photo from the picker and selects it for the story", async () => {
     setCollectionDocs("activities", [
       {

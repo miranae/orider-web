@@ -251,6 +251,7 @@
   "src/embedded/surfaces/PublicActivityBrowser.tsx",
   "src/embedded/surfaces/PublicActivitySafety.tsx",
   "src/embedded/surfaces/PublicActivitySurface.tsx",
+  "src/embedded/surfaces/RecordsStudioSurface.tsx",
   "src/embedded/surfaces/SearchSurface.tsx",
   "src/embedded/surfaces/SegmentDetailSurface.tsx",
   "src/embedded/trainingSurfaceCache.ts",

@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 it("shows the current processor policy and requires explicit consent before generation; posts only the public highlight", async () => {
-  renderWithProviders(<Routes><Route path="/explore/recipes/:section" element={<CreatorHubPage />} /><Route path="/ko/explore/recipes/:section" element={<CreatorHubPage />} /><Route path="/ko/community/board/write" element={<Destination />} /></Routes>, { authenticated: true, route: "/explore/recipes/share" });
+  renderWithProviders(<Routes><Route path="/records/studio/:section" element={<CreatorHubPage />} /><Route path="/ko/records/studio/:section" element={<CreatorHubPage />} /><Route path="/ko/community/board/write" element={<Destination />} /></Routes>, { authenticated: true, route: "/records/studio/share" });
   fireEvent.click(screen.getByTestId("E6-1-3"));
   const dialog = await screen.findByRole("dialog");
   expect(dialog).toHaveTextContent("Fixture AI");
@@ -40,7 +40,7 @@ it("shows the current processor policy and requires explicit consent before gene
 }, 15_000);
 
 it("cancelling external AI consent performs no generation", async () => {
-  renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  renderWithProviders(<Routes><Route path="/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/records/studio/share" });
   fireEvent.click(screen.getByTestId("E6-1-3"));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "취소" }));
@@ -51,7 +51,7 @@ it("cancelling external AI consent performs no generation", async () => {
 
 it("guides a rider with no eligible activity to record or import instead of waiting for quota reset", async () => {
   setCallableImplementation("generateAiDiary", () => { throw Object.assign(new Error("No rides"), { details: { reason: "no-activities" } }); });
-  renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  renderWithProviders(<Routes><Route path="/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/records/studio/share" });
   fireEvent.click(screen.getByTestId("E6-1-3"));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "동의하고 생성" }));
@@ -62,7 +62,7 @@ it("guides a rider with no eligible activity to record or import instead of wait
 
 it("explains a capped activity query during AI generation without inventing an AI credit failure", async () => {
   setCallableImplementation("generateAiDiary", () => { throw Object.assign(new Error("PRIVATE_TOKEN"), { details: { reason: "recipe-activity-limit", retryable: false, retryAt: null } }); });
-  renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  renderWithProviders(<Routes><Route path="/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/records/studio/share" });
   fireEvent.click(screen.getByTestId("E6-1-3"));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "동의하고 생성" }));
@@ -78,7 +78,7 @@ it.each([
   ["recipe-activity-limit", /지원팀에 문의해 주세요/, "/ko/community/board?type=inquiry"],
 ] as const)("links the %s diary failure text to where it is resolved", async (reason, text, href) => {
   setCallableImplementation("generateAiDiary", () => { throw Object.assign(new Error("PRIVATE"), { details: { reason } }); });
-  renderWithProviders(<Routes><Route path="/ko/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/ko/creator/share" });
+  renderWithProviders(<Routes><Route path="/ko/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/ko/records/studio/share" });
   fireEvent.click(screen.getByTestId("E6-1-3"));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "동의하고 생성" }));

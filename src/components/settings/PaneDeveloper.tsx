@@ -27,6 +27,8 @@ const AVAILABLE_SCOPES: PersonalApiScope[] = [
   "exports:read",
 ];
 
+const PUBLIC_REPOSITORY_URL = "https://github.com/miranae/orider-web";
+
 function formatDate(value?: number) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString();
@@ -254,8 +256,11 @@ export function PaneDeveloper() {
       </SettingsCard>
       <SettingsCard data-testid="S5-2-1" title={t("pane.developer.docsTitle")}>
         <div className="flex flex-wrap gap-3">
-          <LocalizedLink to="/explore/recipes/examples" className="ds-tap-target">{t("pane.developer.examplesLink")}</LocalizedLink>
+          {/* 옛 탐색 「기록 활용」의 개발자 안내(deploy·examples)는 여기서만 들어간다(#3956). */}
+          <LocalizedLink to="/settings/developer/deploy" className="ds-tap-target">{t("pane.developer.deployLink")}</LocalizedLink>
+          <LocalizedLink to="/settings/developer/examples" className="ds-tap-target">{t("pane.developer.examplesLink")}</LocalizedLink>
           <a className="ds-tap-target" href={`${(getRuntimeConfig().personalApiBase || "").replace(/\/+$/, "")}/api/v1/docs`}>{t("pane.developer.apiDocsLink")}</a>
+          <a className="ds-tap-target" href={PUBLIC_REPOSITORY_URL}>{t("pane.developer.githubLink")}</a>
         </div>
       </SettingsCard>
     </>
