@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OPERATOR_SNAPSHOT_FIRST_FRAME_MS, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
+import { OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_RECONNECT_LIMIT, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
 
 class FakeSocket extends EventTarget {
   static CLOSING = 2;
@@ -103,5 +103,36 @@ describe("operator snapshot stream", () => {
     await flush();
     expect(FakeSocket.all).toHaveLength(0);
     expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconnects after a personal connection drop and keeps the current view, then falls back after the limit", async () => {
+    const receive = vi.fn();
+    const fallback = vi.fn(() => () => {});
+    subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback);
+    await flush();
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    FakeSocket.latest.page("official", "001", 0, 1, { timestamp: 1, counts: {}, checkpoints: [], locations: [{ uid: "a" }] });
+    const shown = receive.mock.calls.length;
+    for (let attempt = 0; attempt < OPERATOR_SNAPSHOT_RECONNECT_LIMIT; attempt++) {
+      FakeSocket.latest.end(1006);
+      expect(fallback).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** attempt);
+      await flush();
+    }
+    expect(FakeSocket.all).toHaveLength(OPERATOR_SNAPSHOT_RECONNECT_LIMIT + 1);
+    expect(receive).toHaveBeenCalledTimes(shown);
+    FakeSocket.latest.end(1006);
+    expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects pages of one generation that disagree on the page count", async () => {
+    const receive = vi.fn();
+    const fallback = vi.fn(() => () => {});
+    subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback, undefined, vi.fn());
+    await flush();
+    FakeSocket.latest.page("official", "001", 0, 3, { timestamp: 1, counts: {}, checkpoints: [], locations: [{ uid: "a" }] });
+    FakeSocket.latest.page("official", "001", 1, 2, { locations: [{ uid: "b" }] });
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(receive).toHaveBeenLastCalledWith(null);
   });
 });

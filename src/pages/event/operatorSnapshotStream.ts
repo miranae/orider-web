@@ -22,10 +22,15 @@ export interface OperatorSnapshotOptions {
   appCheck?: (forceRefresh?: boolean) => Promise<string | null | undefined>;
 }
 
+/** 개별 연결 끊김(1006 등) 재연결 횟수 상한. 넘으면 Firestore로 넘어간다. */
+export const OPERATOR_SNAPSHOT_RECONNECT_LIMIT = 3;
+
 /**
- * 월드가 전달하는 Functions 정본 스냅샷을 받는다(#4049). 월드가 정상인 동안 화면 전체를 이 값으로만 그리고,
- * 끊기거나 첫 세대가 늦으면 `fallback`(Firestore onSnapshot)으로 넘어가 이 구독이 끝날 때까지 그쪽만 쓴다(섞지 않음).
- * 토큰 만료(4001)는 새 토큰으로 한 번 다시 연결한다. 권한 철회(4003)는 `denied`.
+ * 월드가 전달하는 Functions 정본 스냅샷을 받는다(#4049). 월드가 정상인 동안 화면 전체를 이 값으로만 그린다(섞지 않음).
+ * - 서버 쪽 사용 불가(1013)·Firestore 전용 행사(4004)·첫 세대 지연·디코딩 오류: `fallback`(Firestore onSnapshot)으로 넘어가
+ *   이 구독이 끝날 때까지 그쪽만 쓴다(P11 서버 장애 자동 복귀).
+ * - 개별 연결 끊김(1006 등): 마지막 화면을 유지한 채 다시 연결하고, 재연결 때 최신 세대를 다시 받는다(P11, 공백 허용).
+ * - 토큰 만료(4001)는 새 토큰으로 다시 연결한다. 권한 철회(4003)는 `denied`.
  */
 export function subscribeOperatorSnapshot<T>(
   eventId: string,
@@ -41,9 +46,12 @@ export function subscribeOperatorSnapshot<T>(
   let stopFallback: (() => void) | undefined;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let refreshed = false;
+  let reconnects = 0;
+  let retry: ReturnType<typeof setTimeout> | undefined;
   const useFallback = () => {
     if (!active || stopFallback) return;
     clearTimeout(timeout);
+    clearTimeout(retry);
     const current = socket;
     socket = undefined;
     current?.close();
@@ -67,7 +75,7 @@ export function subscribeOperatorSnapshot<T>(
     if (!active || stopFallback) return;
     const connection = new WebSocket(options.endpoint);
     socket = connection;
-    let assembling: { version: string; pages: Frame[] } | undefined;
+    let assembling: { version: string; total: number; pages: Frame[] } | undefined;
     connection.addEventListener("open", () => {
       if (!active || stopFallback || socket !== connection) return;
       try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token, ...(appCheck ? { appCheck } : {}) })); }
@@ -83,6 +91,8 @@ export function subscribeOperatorSnapshot<T>(
           // 위치 공개 철회: 새 revision 세대가 올 때까지 비운다.
           assembling = undefined;
           clearTimeout(timeout);
+          refreshed = false;
+          reconnects = 0;
           receive(null);
           return;
         }
@@ -91,13 +101,15 @@ export function subscribeOperatorSnapshot<T>(
             pages! < 1 || page! < 0 || page! >= pages! || !frame.snapshot || !Array.isArray(frame.snapshot.locations)) {
           throw new Error("Invalid operator snapshot page");
         }
-        if (assembling?.version !== version) assembling = { version, pages: [] };
+        if (assembling?.version !== version) assembling = { version, total: pages!, pages: [] };
+        if (assembling.total !== pages) throw new Error("Inconsistent operator snapshot page count");
         assembling.pages[page!] = frame;
         if (assembling.pages.filter(Boolean).length !== pages) return;
         const [head, ...rest] = assembling.pages;
         assembling = undefined;
         clearTimeout(timeout);
         refreshed = false;
+        reconnects = 0;
         receive({ ...head!.snapshot, locations: [head!, ...rest].flatMap(part => part.snapshot!.locations!) } as T);
       } catch (error) {
         report("operatorSnapshotStream.decode", error, { eventId });
@@ -114,6 +126,15 @@ export function subscribeOperatorSnapshot<T>(
       } else if (code === 4001 && !refreshed) {
         refreshed = true;
         void connect(true).catch(error => { report("operatorSnapshotStream.connect", error, { eventId }); useFallback(); });
+      } else if (code !== 1013 && code !== 4004 && code !== 4001 && reconnects < OPERATOR_SNAPSHOT_RECONNECT_LIMIT) {
+        // 개별 연결 끊김: 화면은 그대로 두고 다시 연결한다. 재연결하면 월드가 최신 세대를 다시 보낸다.
+        report("operatorSnapshotStream.reconnect", new Error("Operator snapshot stream dropped"), { eventId, code, attempt: reconnects + 1 });
+        clearTimeout(timeout);
+        retry = setTimeout(() => {
+          retry = undefined;
+          if (!active || stopFallback) return;
+          void connect(false).catch(error => { report("operatorSnapshotStream.connect", error, { eventId }); useFallback(); });
+        }, 1000 * 2 ** reconnects++);
       } else {
         report("operatorSnapshotStream.close", new Error("Operator snapshot stream closed"), { eventId, code });
         useFallback();
@@ -124,6 +145,7 @@ export function subscribeOperatorSnapshot<T>(
   return () => {
     active = false;
     clearTimeout(timeout);
+    clearTimeout(retry);
     stopFallback?.();
     if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
   };
