@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { User } from "firebase/auth";
-import { isProductionWorldEventEnabled, useWorldEvent } from "./useWorldEvent";
+import { isProductionWorldEventEnabled, TRACK_RETRY_LIMIT, TRACK_RETRY_MS, useWorldEvent } from "./useWorldEvent";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 
 const control = vi.hoisted(() => ({
@@ -108,7 +108,7 @@ it("선택 대상이 바뀌면 같은 소켓에 track만 바꿔 다시 구독하
   expect(result.current).toMatchObject({ revision: 4, track: "rider-two" });
 });
 
-it("빠른 연속 선택 변경으로 응답 대기 구독이 둘 이상이면 snapshot의 선택 기준을 모른다고 표시하고 현재 선택으로 다시 구독한다", async () => {
+it("빠른 연속 선택 변경으로 응답 대기 구독이 둘 이상이면 snapshot의 선택 기준을 모른다고 표시하고, 현재 선택이 이미 큐 맨 뒤면 중복 전송하지 않는다", async () => {
   resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
   control.services.getAppCheckToken.mockResolvedValue("app-check");
   const { result, rerender } = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
@@ -121,36 +121,73 @@ it("빠른 연속 선택 변경으로 응답 대기 구독이 둘 이상이면 s
   rerender({ track: "rider-b" });
   rerender({ track: "rider-c" });
   expect(socket.sent.map((message) => message.track)).toEqual(["rider-a", "rider-b", "rider-c"]);
-  // B의 늦은 snapshot인지 C의 것인지 모른다.
+  // B의 늦은 snapshot인지 C의 것인지 모른다. C 구독이 이미 큐 맨 뒤에서 응답을 기다리므로 다시 보내지 않는다.
   act(() => socket.receive({ ...snapshot, revision: 2 }));
   expect(result.current).toMatchObject({ revision: 2, track: null, trackUnknown: true });
-  expect(socket.sent.at(-1)).toMatchObject({ type: "event_subscribe", track: "rider-c" });
+  expect(socket.sent).toHaveLength(3);
   act(() => socket.receive({ ...snapshot, revision: 3 }));
   expect(result.current?.track).toBe("rider-c");
   expect(result.current?.trackUnknown).toBeUndefined();
+  // 응답할 구독이 없는데 온 snapshot은 기준을 모른다고 보고 현재 선택으로 다시 구독한다.
   act(() => socket.receive({ ...snapshot, revision: 4 }));
+  expect(result.current?.trackUnknown).toBe(true);
+  expect(socket.sent[socket.sent.length - 1]).toMatchObject({ track: "rider-c" });
+  act(() => socket.receive({ ...snapshot, revision: 5 }));
   expect(result.current?.track).toBe("rider-c");
 });
 
-it("A 관전 중 B·C를 고르고 C 응답 뒤 D를 고르면 늦게 온 C의 재구독 응답을 D 기준으로 표시하지 않는다", async () => {
+it("B·C·D 구독이 D snapshot 하나로 합쳐지고 서버가 재구독을 버려도 주기적으로 다시 보내 D 기준을 확인한다(#1865)", async () => {
   resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
   control.services.getAppCheckToken.mockResolvedValue("app-check");
   const { result, rerender } = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
     { initialProps: { track: "rider-a" as string | null } });
   await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+  vi.useFakeTimers();
   const socket = FakeSocket.instances[0]!;
   act(() => socket.open());
   act(() => socket.receive(snapshot));
   rerender({ track: "rider-b" });
   rerender({ track: "rider-c" });
-  act(() => socket.receive({ ...snapshot, revision: 2 })); // B 응답 → 기준 모름, C 재구독
-  act(() => socket.receive({ ...snapshot, revision: 3 })); // 원래 C 응답
-  expect(result.current).toMatchObject({ revision: 3, track: "rider-c" });
   rerender({ track: "rider-d" });
-  act(() => socket.receive({ ...snapshot, revision: 4 })); // C 재구독 응답(늦게 도착)
-  expect(result.current?.track).not.toBe("rider-d");
-  expect(result.current?.trackUnknown).toBe(true);
-  expect(socket.sent.at(-1)).toMatchObject({ track: "rider-d" });
+  act(() => socket.receive({ ...snapshot, revision: 2 })); // B·C·D를 합친 D snapshot
+  expect(result.current).toMatchObject({ revision: 2, trackUnknown: true });
+  expect(socket.sent).toHaveLength(4);
+  // 응답이 없으면 간격마다 현재 선택으로 다시 보낸다(서버가 처리 중이라 버림).
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS); });
+  expect(socket.sent).toHaveLength(5);
+  expect(socket.sent[socket.sent.length - 1]).toMatchObject({ type: "event_subscribe", track: "rider-d" });
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS); });
+  expect(socket.sent).toHaveLength(6);
+  // 서버가 응답하면 큐에 남은 항목이 줄며 결국 D 기준을 확인하고 재전송을 멈춘다.
+  for (let revision = 3; revision < 10 && result.current?.track !== "rider-d"; revision++) {
+    act(() => socket.receive({ ...snapshot, revision }));
+    if (result.current?.track !== "rider-d") act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS); });
+  }
+  expect(result.current).toMatchObject({ track: "rider-d" });
+  expect(result.current?.trackUnknown).toBeUndefined();
+  const sent = socket.sent.length;
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS * 10); });
+  expect(socket.sent).toHaveLength(sent);
+});
+
+it("선택 변경 응답이 오지 않으면 재전송은 상한에서 멈춘다", async () => {
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
+  control.services.getAppCheckToken.mockResolvedValue("app-check");
+  const { result, rerender } = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
+    { initialProps: { track: "rider-a" as string | null } });
+  await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+  vi.useFakeTimers();
+  const socket = FakeSocket.instances[0]!;
+  act(() => socket.open());
+  act(() => socket.receive(snapshot));
+  rerender({ track: "rider-b" });
+  expect(socket.sent).toHaveLength(2);
+  // 새 snapshot 전 delta는 이전 선택(A) 기준이라 선택 격차 기준은 B가 아니다.
+  act(() => socket.receive({ v: 1, type: "event_delta", eventId: "meeting", revision: 2, updatedAt: 2, viewers: 2 }));
+  expect(result.current?.track).toBe("rider-a");
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS * 20); });
+  expect(socket.sent).toHaveLength(2 + TRACK_RETRY_LIMIT);
+  expect(socket.sent.slice(2).every((message) => message.track === "rider-b")).toBe(true);
 });
 
 /** 재현 가능한 의사 난수(mulberry32). */
@@ -165,7 +202,7 @@ function seeded(seed: number) {
   };
 }
 
-it("무작위 선택 변경·서버 처리 지연·snapshot 합치기에서도 선택 격차 기준은 항상 실제 서버 기준과 같다(속성)", async () => {
+it("무작위 선택 변경·서버 처리 지연·구독 버림·snapshot 합치기·재전송에서도 선택 격차 기준은 항상 실제 서버 기준과 같고 현재 선택으로 수렴한다(속성)", async () => {
   resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
   control.services.getAppCheckToken.mockResolvedValue("app-check");
   const tracks = [null, "rider-a", "rider-b", "rider-c", "rider-d"];
@@ -177,6 +214,7 @@ it("무작위 선택 변경·서버 처리 지연·snapshot 합치기에서도 �
     const hook = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
       { initialProps: { track: selected } });
     await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    vi.useFakeTimers();
     const socket = FakeSocket.instances[0]!;
     act(() => socket.open());
     // 서버 모형: 받은 구독을 순서대로 처리(일부는 처리 중이라 버림)하고, flush 때 마지막 처리 이후 첫 프레임은 그 기준의
@@ -186,11 +224,10 @@ it("무작위 선택 변경·서버 처리 지연·snapshot 합치기에서도 �
     let needSnapshot = false;
     let basis: string | null | undefined;
     let revision = 0;
-    let dropped = false;
     const processOne = (allowDrop: boolean) => {
       if (received >= socket.sent.length) return false;
       const message = socket.sent[received++]!;
-      if (allowDrop && received > 1 && random() < 0.05) { dropped = true; return true; }
+      if (allowDrop && received > 1 && random() < 0.05) return true;
       serverTrack = (message.track as string | null | undefined) ?? null;
       needSnapshot = true;
       return true;
@@ -216,20 +253,21 @@ it("무작위 선택 변경·서버 처리 지연·snapshot 합치기에서도 �
       if (roll < 0.3) {
         selected = pick();
         hook.rerender({ track: selected });
-      } else if (roll < 0.55) processOne(true);
-      else if (roll < 0.65) while (processOne(true));
-      else flush();
+      } else if (roll < 0.5) processOne(true);
+      else if (roll < 0.6) while (processOne(true));
+      else if (roll < 0.9) flush();
+      else act(() => { vi.advanceTimersByTime(Math.floor(random() * 4000)); }); // 시간 경과(재전송 타이머)
     }
-    if (!dropped) {
-      // 끝까지 처리하면 현재 선택 기준으로 수렴한다.
-      for (let round = 0; round < 100 && (received < socket.sent.length || needSnapshot); round++) {
-        while (processOne(false));
-        flush();
-      }
+    // 버려진 구독이 있어도 서버가 끝까지 처리하고 시간이 흐르면 재전송으로 현재 선택 기준에 수렴한다.
+    const converged = () => hook.result.current?.track === selected && hook.result.current.trackUnknown === undefined;
+    for (let round = 0; round < 50 && !converged(); round++) {
+      while (processOne(false));
       flush();
-      expect({ seed, frame: hook.result.current }).toMatchObject({ seed, frame: { track: selected } });
-      expect(hook.result.current?.trackUnknown).toBeUndefined();
+      if (!converged()) act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS); });
     }
+    expect({ seed, frame: hook.result.current }).toMatchObject({ seed, frame: { track: selected } });
+    expect(hook.result.current?.trackUnknown).toBeUndefined();
     hook.unmount();
+    vi.useRealTimers();
   }
 }, 60000);

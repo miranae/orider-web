@@ -39,8 +39,10 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     const timer = setTimeout(() => setStalledSamples(sampleKey), WORLD_FRAME_STALL_MS);
     return () => clearTimeout(timer);
   }, [sampleKey]);
+  // 커버 = 최근 5초 안에 새 표본이 온 프레임이 주행 참가자 전원의 서버 진행을 담고, 선택 대상이 있으면 그 선택 기준이
+  // 확인된 프레임일 때. 아니면 위치 신호·콜러블 경로를 유지한다.
   const worldCovers = worldViews && world !== null && stalledSamples !== sampleKey && activeState.data !== null &&
-    worldFrameCoversRiders(activeState.data, world, activeState.data.serverNowMs + Math.max(0, Date.now() - activeState.receivedAt));
+    worldFrameCoversRiders(activeState.data, world, activeState.data.serverNowMs + Math.max(0, Date.now() - activeState.receivedAt), selectedUid);
   const worldCoversRef = useRef(worldCovers);
   worldCoversRef.current = worldCovers;
   const syncLocationSignal = useRef<() => void>(() => {});
@@ -103,10 +105,10 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
         if (readySubscriptions.size === (locationSignalOff() ? 3 : 4)) recoveryAttempts = 0;
-        // 월드가 보이는 주행자를 모두 담는 동안만 월드 진행·격차를 남기고, 폴백 중에는 콜러블 값을 우선한다.
-        const keepWorldProgress = worldCoversRef.current;
+        // 커버 중에는 주행 참가자의 월드 진행·격차를 남기고, 폴백 중에는 콜러블 값을 쓴다.
+        const covered = worldCoversRef.current;
         const merge = worldViewsRef.current
-          ? (old: MeetingSpectatorSnapshot | null, next: MeetingSpectatorSnapshot) => retainWorldPositions(old, next, keepWorldProgress)
+          ? (old: MeetingSpectatorSnapshot | null, next: MeetingSpectatorSnapshot) => retainWorldPositions(old, next, covered)
           : retainNewerSamples;
         // 수신 시각은 응답 시점에 고정한다(serverNowMs와 함께 화면 시각의 기준이 된다).
         const receivedAt = Date.now();
@@ -205,11 +207,12 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
       if (old.scope !== scope || !old.data) return old;
       // 화면 시각은 serverNowMs + 경과 시간이므로 둘을 함께 옮겨 서버 기준 시각이 되돌아가지 않게 한다.
       const serverNowMs = old.data.serverNowMs + Math.max(0, now - old.receivedAt);
-      // 폴백(월드 미커버) 중에는 월드 delta가 콜러블이 갱신한 진행·격차를 덮지 않는다(P11).
-      const data = applyWorldFrame(old.data, world, serverNowMs, worldCoversRef.current);
+      // 폴백(월드 미커버) 중에는 월드가 위치만 옮기고 진행·격차는 콜러블 값을 둔다. 커버로 바뀌면 이 효과가 다시 돌아
+      // 최신 프레임의 진행·격차로 즉시 덮는다(P11).
+      const data = applyWorldFrame(old.data, world, serverNowMs, worldCovers);
       return data === old.data ? old : {...old, data: {...data, serverNowMs}, receivedAt: now};
     });
-  }, [world, worldViews, scope]);
+  }, [world, worldViews, worldCovers, scope]);
   useEffect(() => {
     if (previousSelection.current !== selectedUid) {
       previousSelection.current = selectedUid;
