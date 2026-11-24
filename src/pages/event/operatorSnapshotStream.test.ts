@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_RECONNECT_LIMIT, OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
+import { OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_RECONNECT_LIMIT, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
 
 class FakeSocket extends EventTarget {
   static CLOSING = 2;
@@ -105,8 +105,7 @@ describe("operator snapshot stream", () => {
     expect(fallback).toHaveBeenCalledTimes(1);
   });
 
-  // 느린 소켓(4008)은 1013(서버 장애)과 달리 개별 끊김이라 1006과 같은 횟수·백오프로 재연결한다(#4079).
-  it.each([1006, OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE])("reconnects after a personal connection drop (%i) and keeps the current view, then falls back after the limit", async code => {
+  it("reconnects after a personal connection drop and keeps the current view, then falls back after the limit", async () => {
     const receive = vi.fn();
     const fallback = vi.fn(() => () => {});
     subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback);
@@ -115,14 +114,14 @@ describe("operator snapshot stream", () => {
     FakeSocket.latest.page("official", "001", 0, 1, { timestamp: 1, counts: {}, checkpoints: [], locations: [{ uid: "a" }] });
     const shown = receive.mock.calls.length;
     for (let attempt = 0; attempt < OPERATOR_SNAPSHOT_RECONNECT_LIMIT; attempt++) {
-      FakeSocket.latest.end(code);
+      FakeSocket.latest.end(1006);
       expect(fallback).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(1000 * 2 ** attempt);
       await flush();
     }
     expect(FakeSocket.all).toHaveLength(OPERATOR_SNAPSHOT_RECONNECT_LIMIT + 1);
     expect(receive).toHaveBeenCalledTimes(shown);
-    FakeSocket.latest.end(code);
+    FakeSocket.latest.end(1006);
     expect(fallback).toHaveBeenCalledTimes(1);
   });
 

@@ -24,15 +24,12 @@ export interface OperatorSnapshotOptions {
 
 /** 개별 연결 끊김(1006 등) 재연결 횟수 상한. 넘으면 Firestore로 넘어간다. */
 export const OPERATOR_SNAPSHOT_RECONNECT_LIMIT = 3;
-/** 월드가 느린 운영자 소켓을 닫는 코드(#4079). 서버 장애(1013)가 아니라 개별 끊김이므로 재연결한다. */
-export const OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE = 4008;
 
 /**
  * 월드가 전달하는 Functions 정본 스냅샷을 받는다(#4049). 월드가 정상인 동안 화면 전체를 이 값으로만 그린다(섞지 않음).
  * - 서버 쪽 사용 불가(1013)·Firestore 전용 행사(4004)·첫 세대 지연·디코딩 오류: `fallback`(Firestore onSnapshot)으로 넘어가
  *   이 구독이 끝날 때까지 그쪽만 쓴다(P11 서버 장애 자동 복귀).
- * - 개별 연결 끊김(1006 등)·느린 소켓(4008 slow_consumer): 마지막 화면을 유지한 채 같은 횟수·백오프로 다시 연결하고,
- *   재연결 때 최신 세대를 다시 받는다(P11, 공백 허용). 상한을 넘으면 `fallback`.
+ * - 개별 연결 끊김(1006 등): 마지막 화면을 유지한 채 다시 연결하고, 재연결 때 최신 세대를 다시 받는다(P11, 공백 허용).
  * - 토큰 만료(4001)는 새 토큰으로 다시 연결한다. 권한 철회(4003)는 `denied`.
  */
 export function subscribeOperatorSnapshot<T>(
@@ -137,7 +134,7 @@ export function subscribeOperatorSnapshot<T>(
         refreshed = true;
         void connect(true).catch(error => { report("operatorSnapshotStream.connect", error, { eventId }); useFallback(); });
       } else if (code !== 1013 && code !== 4004 && code !== 4001 && reconnects < OPERATOR_SNAPSHOT_RECONNECT_LIMIT) {
-        // 개별 연결 끊김(1006·4008 등): 화면은 그대로 두고 다시 연결한다. 재연결하면 월드가 최신 세대를 다시 보낸다.
+        // 개별 연결 끊김: 화면은 그대로 두고 다시 연결한다. 재연결하면 월드가 최신 세대를 다시 보낸다.
         report("operatorSnapshotStream.reconnect", new Error("Operator snapshot stream dropped"), { eventId, code, attempt: reconnects + 1 });
         clearTimeout(timeout);
         retry = setTimeout(() => {
