@@ -111,8 +111,6 @@ export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, 
     if (!prior) return r;
     // 완주·DNF는 콜러블이 최종 권한이다.
     if (r.status === "FINISHED" || r.status === "DNF") return r;
-    // 콜러블이 더 최신 표본이면(예: 월드 마커가 빠진 기간 대응) 콜러블 값을 쓴다.
-    if (r.sampledAtMs > prior.sampledAtMs) return r;
     // 나머지는 월드의 위치·진행·격차를 유지하고 명단(displayName)만 콜러블에서 가져온다.
     return {...r, lat: prior.lat, lng: prior.lng, sampledAtMs: prior.sampledAtMs, speedMps: prior.speedMps,
       powerWatts: prior.powerWatts, powerExpiresAtMs: prior.powerExpiresAtMs, status: prior.status,

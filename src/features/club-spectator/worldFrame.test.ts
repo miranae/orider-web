@@ -119,6 +119,9 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     // worldHealthy=true여도 완주·DNF는 콜러블이 최종 권한.
     const done = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, status: "FINISHED" as const, progressM: 2400, gapToLeaderM: 70} : r)};
     expect(retainWorldPositions(fromWorld, done, true).locations.find(r => r.uid === "rider-two")).toMatchObject({status: "FINISHED", progressM: 2400, gapToLeaderM: 70});
+    // 콜러블 표본이 더 최신이어도 정상 중에는 섞지 않는다(출처 단일화 결정).
+    const newer = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now + 5000, progressM: 2600, gapToLeaderM: 10} : r)};
+    expect(retainWorldPositions(fromWorld, newer, true).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 40});
     // 명단에서 빠진 참가자는 월드 값으로 되살리지 않는다.
     const removed = {...server, locations: server.locations.filter(r => r.uid !== "rider-two")};
     expect(retainWorldPositions(fromWorld, removed, true).locations.some(r => r.uid === "rider-two")).toBe(false);
