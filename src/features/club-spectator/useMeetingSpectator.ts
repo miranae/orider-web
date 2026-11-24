@@ -201,15 +201,14 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     if (changed && worldCoversRef.current) spectatorSignal.current();
   }, [rosterKey]);
   useEffect(() => {
-    if (!worldViews || !world) return;
+    if (!worldViews || !world || !worldCovers) return;
     const now = Date.now();
     setState(old => {
       if (old.scope !== scope || !old.data) return old;
       // 화면 시각은 serverNowMs + 경과 시간이므로 둘을 함께 옮겨 서버 기준 시각이 되돌아가지 않게 한다.
       const serverNowMs = old.data.serverNowMs + Math.max(0, now - old.receivedAt);
-      // 폴백(월드 미커버) 중에는 월드가 위치만 옮기고 진행·격차는 콜러블 값을 둔다. 커버로 바뀌면 이 효과가 다시 돌아
-      // 최신 프레임의 진행·격차로 즉시 덮는다(P11).
-      const data = applyWorldFrame(old.data, world, serverNowMs, worldCovers);
+      // 월드가 정상일 때만 반영한다. 커버로 바뀌면 최신 프레임으로 즉시 덮는다(P11).
+      const data = applyWorldFrame(old.data, world, serverNowMs);
       return data === old.data ? old : {...old, data: {...data, serverNowMs}, receivedAt: now};
     });
   }, [world, worldViews, worldCovers, scope]);

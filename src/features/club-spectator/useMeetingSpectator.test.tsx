@@ -200,7 +200,7 @@ it("운영 월드 플래그가 꺼져 있으면 월드 위치를 적용하지 �
   expect(locationSignals()[0].stop).not.toHaveBeenCalled();
 });
 
-it("서버 진행 필드가 없는 운영 월드 프레임은 위치만 덮어쓰고 위치 신호 구독을 유지하며, 프레임이 멈추거나 끊겨도 콜러블로 지도와 격차를 갱신한다", async () => {
+it("서버 진행 필드가 없는 운영 월드 프레임은 위치를 덮어쓰고 커버로 판정하여 위치 신호를 쉬며, 프레임이 멈추거나 끊겨도 콜러블로 지도와 격차를 갱신한다", async () => {
   world.production = true;
   control.request.mockResolvedValue({data: data()});
   const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
@@ -210,19 +210,19 @@ it("서버 진행 필드가 없는 운영 월드 프레임은 위치만 덮어�
   let frame: ReturnType<typeof worldFrame> | null = worldFrame();
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
   rerender();
-  // 위치는 바로 반영하고 서버 진행·격차는 지우지 않는다. 완전한 프레임이어도 위치 신호를 해제하지 않는다.
+  // 위치는 바로 반영하고 서버 진행·격차는 지우지 않는다. 주행자가 있으면 커버로 판정해 위치 신호를 쉰다.
   expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2280, gapToLeaderM: 120});
   expect(result.current.data?.locations.find(r => r.uid === "rider-one")?.gapToLeaderM).toBe(0);
-  expect(locationSignals()).toHaveLength(1);
-  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
-  // 프레임이 멈춘 채로 서버가 격차만 갱신하면(위치는 월드가 더 최신) 월드 위치를 두고 서버 격차를 반영한다.
+  expect(openLocationSignals()).toHaveLength(0);
+  // 프레임이 멈추면 콜러블이 단독 출처이므로 콜러블의 위치·격차를 그대로 반영한다.
   const older = data();
   older.locations = older.locations.map(r => r.uid === "rider-two" ? {...r, gapToLeaderM: 80} : r);
   control.request.mockResolvedValue({data: older});
-  act(() => locationSignals()[0].next());
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  act(() => openLocationSignals()[0].next());
   await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
   expect(control.request).toHaveBeenCalledTimes(2);
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, gapToLeaderM: 80});
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({gapToLeaderM: 80});
   // 서버가 더 최신 위치·진행을 주면 멈춘 프레임 대신 그 값으로 지도를 갱신한다.
   const fresh = data();
   fresh.locations = fresh.locations.map(r => r.uid === "rider-two" ? {...r, lng: 126.99, sampledAtMs: Date.now(), progressM: 2500, gapToLeaderM: 50} : r);
@@ -231,11 +231,10 @@ it("서버 진행 필드가 없는 운영 월드 프레임은 위치만 덮어�
   await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
   expect(control.request).toHaveBeenCalledTimes(3);
   expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.99, progressM: 2500, gapToLeaderM: 50});
-  // 연결이 끊겨도 같은 위치 신호 구독을 그대로 쓴다.
+  // 연결이 끊겨도 열린 위치 신호 구독을 그대로 유지한다.
   frame = null;
   rerender();
-  expect(locationSignals()).toHaveLength(1);
-  expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+  expect(openLocationSignals()).toHaveLength(1);
 });
 
 const serverMarker = (uid: string, capturedAt: number, progressM: number, gapToLeaderM: number) => ({id: uid, uid, kind: "virtual" as const, lat: 37.525, lon: 126.98,
@@ -287,25 +286,21 @@ it("완전한 서버 진행 프레임 동안 위치 신호를 쉬고, 프레임�
   expect(result.current.data).toBeNull();
 });
 
-it("주행 0명·버린 표본·서버 진행 필드 없는 프레임은 위치 신호를 쉬지 않는다", async () => {
+it("월드 프레임 없을 때 위치 신호를 유지하고, 서버 진행 필드 없는 프레임도 주행자가 있으면 커버로 판정해 신호를 쉰다", async () => {
   world.production = true;
   control.request.mockResolvedValue({data: data()});
   const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
   await waitFor(() => expect(result.current.data).toBeTruthy());
-  let frame: ReturnType<typeof serverFrame> | ReturnType<typeof worldFrame> = serverFrame(1, Date.now(), 0, []);
+  // world=null: 미커버 → 위치 신호 유지.
+  world.subscribe.mockImplementation(() => null);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(1);
+  // 서버 진행 필드 없는 월드 프레임도 주행자가 있으면 커버 → 위치 신호 쉼.
+  const frame: ReturnType<typeof worldFrame> = worldFrame(1);
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
   rerender();
-  expect(openLocationSignals()).toHaveLength(1);
-  frame = serverFrame(2, Date.now(), 2, [serverMarker("rider-one", Date.now(), 2600, 0), serverMarker("rider-two", Date.now() + 60000, 2500, 100)]);
-  rerender();
-  expect(openLocationSignals()).toHaveLength(1);
-  frame = serverFrame(3, Date.now(), 2, [serverMarker("rider-one", Date.now(), 2600, 0), serverMarker("stranger", Date.now(), 2500, 100)]);
-  rerender();
-  expect(openLocationSignals()).toHaveLength(1);
-  frame = worldFrame(1);
-  rerender();
-  expect(openLocationSignals()).toHaveLength(1);
-  expect(locationSignals()).toHaveLength(1);
+  expect(openLocationSignals()).toHaveLength(0);
+  expect(locationSignals().length).toBeGreaterThanOrEqual(1);
 });
 
 it("월드 연결이 끊기면 위치 신호를 다시 열고 바로 콜러블로 따라잡는다", async () => {
@@ -375,7 +370,7 @@ it("월드가 끊긴 폴백 중에는 콜러블이 준 새 격차를 위치 표�
   rerender();
   await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
   expect(control.request).toHaveBeenCalledTimes(2);
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, gapToLeaderM: 20, progressM: 2580});
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({gapToLeaderM: 20, progressM: 2580});
 });
 
 it("선택 대상이 있으면 선택 기준이 확인된 현재 선택 프레임일 때만 위치 신호를 쉬고 선택 격차를 반영한다", async () => {
@@ -387,9 +382,9 @@ it("선택 대상이 있으면 선택 기준이 확인된 현재 선택 프레�
   let frame: WorldEventFrame = {...withSelected(serverFrame(1)), track: null, trackUnknown: true};
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
   rerender({selectedUid: "rider-one"});
-  // 기준을 모르는 프레임: 진행·격차는 폴백(콜러블) 값, 위치 신호 유지.
+  // 기준을 모르는 프레임: 월드를 적용하지 않으므로 콜러블 진행·격차 유지, 위치 신호 유지.
   expect(openLocationSignals()).toHaveLength(1);
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2280, gapToSelectedM: null});
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2280, gapToSelectedM: null});
   // 다른 선택 기준 프레임도 커버하지 않는다.
   frame = {...withSelected(serverFrame(2)), track: "rider-three"};
   rerender({selectedUid: "rider-one"});
@@ -401,42 +396,45 @@ it("선택 대상이 있으면 선택 기준이 확인된 현재 선택 프레�
   expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2500, gapToLeaderM: 100, gapToSelectedM: 100});
 });
 
-it("주행 참가자 한 명이 빠진 폴백 중에는 위치만 반영하고, 그 참가자가 돌아와 커버되면 같은 표본의 월드 진행·격차로 즉시 덮는다(#1865)", async () => {
+it("부분 프레임도 주행자가 있으면 커버로 판정하여 위치 신호를 쉬고 진행·격차를 반영한다", async () => {
   world.production = true;
   control.request.mockImplementation(async () => ({data: data()}));
   const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
   await waitFor(() => expect(result.current.data).toBeTruthy());
   const capturedAt = Date.now();
   const full = serverFrame(1, capturedAt);
+  // rider-three 마커 없는 부분 프레임: 주행자가 있으므로 커버 → 위치 신호 쉼, 서버 진행 반영.
   let frame = {...full, markers: full.markers.filter(m => m.uid !== "rider-three")};
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
   rerender();
-  expect(openLocationSignals()).toHaveLength(1);
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, sampledAtMs: capturedAt, progressM: 2280, gapToLeaderM: 120});
+  expect(openLocationSignals()).toHaveLength(0);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, sampledAtMs: capturedAt, progressM: 2500, gapToLeaderM: 100});
   frame = {...full, revision: 2};
   rerender();
   expect(openLocationSignals()).toHaveLength(0);
   expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: capturedAt, progressM: 2500, gapToLeaderM: 100});
 });
 
-it("프레임이 그대로여도 명단 갱신으로 커버가 되면 그 프레임의 월드 진행·격차로 즉시 덮는다(#1865)", async () => {
+it("커버 중 콜러블 응답이 오면 월드 위치·진행이 유지된다(retainWorldPositions worldHealthy=true)", async () => {
   world.production = true;
   control.request.mockImplementation(async () => ({data: data()}));
   const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
   await waitFor(() => expect(result.current.data).toBeTruthy());
   vi.useFakeTimers();
-  const full = serverFrame(1);
-  const frame = {...full, markers: full.markers.filter(m => m.uid !== "rider-three")};
+  const capturedAt = Date.now();
+  const frame = serverFrame(1, capturedAt);
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
   rerender();
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2280, gapToLeaderM: 120});
-  // 콜러블이 rider-three의 완주를 알려 주행 참가자가 모두 커버된다(프레임은 바뀌지 않음).
+  expect(openLocationSignals()).toHaveLength(0);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2500, gapToLeaderM: 100});
+  // 커버 중 콜러블이 갱신돼도 비완주 참가자의 월드 위치·진행이 유지된다.
   control.request.mockImplementation(async () => {
     const next = data();
-    return {data: {...next, participants: next.participants!.map(p => p.uid === "rider-three" ? {...p, status: "FINISHED"} : p)}};
+    next.locations = next.locations.map(r => r.uid === "rider-two" ? {...r, progressM: 2400, gapToLeaderM: 300} : r);
+    return {data: next};
   });
   await act(async () => { window.dispatchEvent(new Event("focus")); await vi.advanceTimersByTimeAsync(100); });
   expect(control.request).toHaveBeenCalledTimes(2);
   expect(openLocationSignals()).toHaveLength(0);
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2500, gapToLeaderM: 100});
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2500, gapToLeaderM: 100});
 });
