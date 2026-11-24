@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import EventMap, { type LocationData } from "../../components/event/EventMap";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { logClientError } from "../../services/errorLogger";
 import { LocateFixed } from "lucide-react";
 import { Button, Card, IconButton, Input } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -11,6 +13,8 @@ import type { MeetingSpectatorSnapshot } from "./types";
 import "./spectator.css";
 
 export default function MeetingSpectatorView({snapshot, now, receivedAt, en, preferences, onPreferencesChange}: {preferences?: SpectatorPreferences; onPreferencesChange?: (patch: Partial<SpectatorPreferences>) => void; snapshot: MeetingSpectatorSnapshot; now: number; receivedAt: number; en: boolean}) {
+  const services = useFirebaseServices();
+  const user = services.auth.currentUser;
   const text = (ko: string, english: string) => en ? english : ko;
   const [local, setLocal] = useState(emptySpectatorPreferences);
   const prefs = preferences ?? local;
@@ -42,7 +46,7 @@ export default function MeetingSpectatorView({snapshot, now, receivedAt, en, pre
           {/* 코스 전체 보기는 글자 버튼 대신 코스 이름 옆 작은 맞춤 아이콘으로 둔다(코스맵의 전체 경로 보기와 같은 모양). */}
           <IconButton size="sm" variant="ghost" aria-label={text("코스 전체 보기", "Show entire course")} title={text("코스 전체 보기", "Show entire course")} icon={<LocateFixed size={ICON_SIZE.sm} />} onClick={() => { update({mapMode: "course"}); setMapRevision(v => v + 1); }} /></div>
           <p>{(snapshot.course.distanceM / 1000).toFixed(1)} km</p></div></div>
-        <div className="club-live-map"><EventMap key={`${snapshot.course.courseId}/${mapRevision}`} locations={locations} selectedUid={prefs.mapMode === "rider" && reference && !staleRider(reference, now) ? selected : null} onSelectParticipant={uid => { if (uid) setSelected(uid); }} courseLatlngs={courseLatlngs} preserveSelectionOnPopupClose followSelected /></div>
+        <div className="club-live-map"><EventMap key={`${snapshot.course.courseId}/${mapRevision}`} locations={locations} selectedUid={prefs.mapMode === "rider" && reference && !staleRider(reference, now) ? selected : null} onSelectParticipant={uid => { if (uid) setSelected(uid); }} courseLatlngs={courseLatlngs} preserveSelectionOnPopupClose followSelected onLogError={(source, error, context) => logClientError(source, error, context, services, user)} /></div>
       </Card>}
       <Card aria-label={text("보고 있는 선수", "Selected rider")}>
         <div className="club-live-heading"><h2>{selectedPerson?.displayName ?? text("함께 볼 친구를 선택하세요", "Choose a friend to watch")}</h2>
