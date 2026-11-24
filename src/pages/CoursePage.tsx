@@ -13,6 +13,8 @@ import TabNav from "../components/TabNav";
 const LabPage = lazy(() => import("./LabPage"));
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
+import { useEmbeddedHostCapabilities, useEmbeddedNavigation } from "../embedded/EmbeddedNavigationContext";
+import { COURSE_RIDE_CAPABILITY, courseImportPath, courseRidePath } from "../embedded/courseRideBridge";
 import {
   getIdTokenResult,
 } from "firebase/auth";
@@ -374,6 +376,11 @@ function CoursePageContent() {
   const setDetailTab = (tab: string) => { const next = new URLSearchParams(detailParams); if (tab === "overview") next.delete("tab"); else next.set("tab", tab); setDetailParams(next, { replace: true, state: detailLocation.state }); };
   const { courseId } = useParams<{ courseId: string }>();
   const { user, profile, profileLoading, loading: authLoading, signIn } = useAuth();
+  // 앱 임베드에서 호스트가 코스 주행·저장을 받으면 「앱으로 보내기」 대신 앱 안 주행·저장을 연다(#3959).
+  // 구버전 앱(기능 미통보)과 일반 웹은 종전 「앱으로 보내기」를 그대로 둔다.
+  const hostNavigate = useEmbeddedNavigation();
+  const hostCapabilities = useEmbeddedHostCapabilities();
+  const rideInApp = hostNavigate !== null && hostCapabilities.includes(COURSE_RIDE_CAPABILITY);
   // 코스 상세 임베드(#3235)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
   const firebaseServices = useFirebaseServices();
   const { firestore, functions } = firebaseServices;
@@ -1439,14 +1446,26 @@ function CoursePageContent() {
             2줄 좋아요·시뮬레이터·GPX·공유·신고 아이콘, 3줄 조회수와 관리(삭제·숨기기) 아이콘을 한 줄 양끝에 둔다.
             관리 아이콘이 혼자 한 줄을 차지하지 않도록 조회수 줄 끝에 붙인다. */}
         <div data-testid="course-actions" style={{ ...COURSE_ACTION_STACK_STYLE, marginTop: "var(--space-4)" }}>
-          {/* 앱으로 보내기 */}
-          <Button onClick={handleSendToApp} variant="primary" block>
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 18V6M12 6l-5 5M12 6l5 5"/>
-              <rect x="3" y="14" width="18" height="7" rx="2"/>
-            </svg>
-            {t("button.sendToApp")}
-          </Button>
+          {rideInApp && courseId ? (
+            <>
+              {/* 앱 안: 이 코스로 바로 주행(주 동작), 내 코스에 저장(보조) */}
+              <Button onClick={() => hostNavigate(courseRidePath(courseId))} variant="primary" block>
+                {t("button.rideCourse")}
+              </Button>
+              <Button onClick={() => hostNavigate(courseImportPath(courseId))} variant="secondary" block>
+                {t("button.saveToMyCourses")}
+              </Button>
+            </>
+          ) : (
+            /* 앱으로 보내기 */
+            <Button onClick={handleSendToApp} variant="primary" block>
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 18V6M12 6l-5 5M12 6l5 5"/>
+                <rect x="3" y="14" width="18" height="7" rx="2"/>
+              </svg>
+              {t("button.sendToApp")}
+            </Button>
+          )}
 
           <div data-testid="course-action-icons" style={COURSE_INLINE_WRAP_STYLE}>
             {/* Like */}

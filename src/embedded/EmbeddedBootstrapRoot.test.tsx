@@ -451,6 +451,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
           "host.surfaceSelected",
           "surface-selection-request-id-v1",
           "run-start-scheduled-v1",
+          "host.courseRide.v1",
           "club-detail-embed-v1",
           "course-detail-embed-v1",
           "segment-detail-embed-v1",

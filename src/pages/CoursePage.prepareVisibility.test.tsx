@@ -40,6 +40,8 @@ vi.mock("../features/courses/CourseStageProfile", () => ({
     <button onMouseEnter={() => onHoverIndex(1)}>Hover midpoint</button>,
 }));
 import CoursePage from "./CoursePage";
+import { EmbeddedHostCapabilitiesContext, EmbeddedNavigationContext } from "../embedded/EmbeddedNavigationContext";
+import { COURSE_RIDE_CAPABILITY } from "../embedded/courseRideBridge";
 import { ToastProvider } from "../contexts/ToastContext";
 import { DialogProvider } from "../contexts/DialogContext";
 import i18n from "i18next";
@@ -306,4 +308,38 @@ describe("course preparation climb predictions", () => {
     expect(screen.queryByText("전송에 실패했습니다")).toBeNull();
   });
 
+  describe("in the app embed (#3959)", () => {
+    const renderEmbedded = (capabilities: string[]) => {
+      const hostNavigate = vi.fn();
+      render(
+        <EmbeddedNavigationContext.Provider value={hostNavigate}>
+          <EmbeddedHostCapabilitiesContext.Provider value={capabilities}>
+            <MemoryRouter initialEntries={["/ko/embed/courses/course-climb"]}><CoursePage /></MemoryRouter>
+          </EmbeddedHostCapabilitiesContext.Provider>
+        </EmbeddedNavigationContext.Provider>,
+      );
+      return hostNavigate;
+    };
+
+    it("rides or saves the course in the app instead of sending it to the app when the host supports it", async () => {
+      const hostNavigate = renderEmbedded([COURSE_RIDE_CAPABILITY]);
+      await screen.findByText("Climbing course");
+      expect(screen.queryByRole("button", { name: /앱으로 보내기/ })).toBeNull();
+      const ride = screen.getByRole("button", { name: "이 코스로 주행하기" });
+      expect(ride).toHaveClass("ds-btn--primary");
+      fireEvent.click(ride);
+      expect(hostNavigate).toHaveBeenLastCalledWith("/course/course-climb/ride");
+      fireEvent.click(screen.getByRole("button", { name: "내 코스에 저장" }));
+      expect(hostNavigate).toHaveBeenLastCalledWith("/course/course-climb/import");
+    });
+
+    it("keeps send-to-app for an older app that does not announce course ride", async () => {
+      const hostNavigate = renderEmbedded([]);
+      await screen.findByText("Climbing course");
+      expect(screen.getByRole("button", { name: /앱으로 보내기/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "이 코스로 주행하기" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "내 코스에 저장" })).toBeNull();
+      expect(hostNavigate).not.toHaveBeenCalled();
+    });
+  });
 });
