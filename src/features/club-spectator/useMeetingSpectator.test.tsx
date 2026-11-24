@@ -6,7 +6,7 @@ import { useSpectatorPreferences } from "./preferences";
 import { useMeetingSpectator } from "./useMeetingSpectator";
 import { spectatorFixture } from "./fixtures";
 const control = vi.hoisted(() => ({request: vi.fn(), signals: [] as {path: string; next: () => void; error: (error: unknown) => void; stop: ReturnType<typeof vi.fn>}[], services: {auth: {currentUser: {uid: "member"} as {uid: string} | null}, functions: {}, firestore: {}, ensureAppCheckReady: vi.fn(async () => {})}}));
-import type { useWorldEvent } from "../ride-world/useWorldEvent";
+import type { useWorldEvent, WorldEventFrame } from "../ride-world/useWorldEvent";
 const world = vi.hoisted(() => ({ subscribe: vi.fn<typeof useWorldEvent>(), production: false }));
 vi.mock("../ride-world/useWorldEvent", () => ({
   isLocalWorldEventEnabled: () => true,
@@ -240,7 +240,7 @@ it("서버 진행 필드가 없는 운영 월드 프레임은 위치만 덮어�
 
 const serverMarker = (uid: string, capturedAt: number, progressM: number, gapToLeaderM: number) => ({id: uid, uid, kind: "virtual" as const, lat: 37.525, lon: 126.98,
   status: "riding" as const, capturedAt, progressM, gapToLeaderM, leaderGapExpiresAtMs: capturedAt + 30000, gapToSelectedM: null, selectedGapExpiresAtMs: null});
-const serverFrame = (revision: number, capturedAt = Date.now(), riding = 2, markers = [serverMarker("rider-one", capturedAt, 2600, 0), serverMarker("rider-two", capturedAt, 2500, 100)]) =>
+const serverFrame = (revision: number, capturedAt = Date.now(), riding = 3, markers = [serverMarker("rider-one", capturedAt, 2600, 0), serverMarker("rider-two", capturedAt, 2500, 100), serverMarker("rider-three", capturedAt, 2000, 600)]) =>
   ({v: 1 as const, type: "event_snapshot" as const, eventId: "meeting", revision, updatedAt: capturedAt, viewers: 1, counts: {riding, total: riding}, roster: [], markers});
 const openLocationSignals = () => locationSignals().filter(s => s.stop.mock.calls.length === 0);
 
@@ -257,7 +257,7 @@ it("완전한 서버 진행 프레임 동안 위치 신호를 쉬고, 프레임�
   expect(openLocationSignals()).toHaveLength(0);
   await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
   // 새 프레임이 계속 오면 신호·콜러블 없이 서버 격차만 갱신한다.
-  frame = serverFrame(2, Date.now(), 2, [serverMarker("rider-one", Date.now(), 2700, 0), serverMarker("rider-two", Date.now(), 2550, 150)]);
+  frame = serverFrame(2, Date.now(), 3, [serverMarker("rider-one", Date.now(), 2700, 0), serverMarker("rider-two", Date.now(), 2550, 150), serverMarker("rider-three", Date.now(), 2100, 600)]);
   rerender();
   await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
   expect(control.request).toHaveBeenCalledTimes(1);
@@ -376,4 +376,67 @@ it("월드가 끊긴 폴백 중에는 콜러블이 준 새 격차를 위치 표�
   await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
   expect(control.request).toHaveBeenCalledTimes(2);
   expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, gapToLeaderM: 20, progressM: 2580});
+});
+
+it("선택 대상이 있으면 선택 기준이 확인된 현재 선택 프레임일 때만 위치 신호를 쉬고 선택 격차를 반영한다", async () => {
+  world.production = true;
+  control.request.mockImplementation(async ({selectedUid}: {selectedUid: string | null}) => ({data: {...data(), selectedUid}}));
+  const {result, rerender} = renderHook(({selectedUid}) => useMeetingSpectator("club", "meeting", "member", selectedUid), {initialProps: {selectedUid: "rider-one" as string | null}});
+  await waitFor(() => expect(result.current.data?.selectedUid).toBe("rider-one"));
+  const withSelected = (frame: ReturnType<typeof serverFrame>): WorldEventFrame => ({...frame, markers: frame.markers.map(m => m.uid === "rider-two" ? {...m, gapToSelectedM: 100, selectedGapExpiresAtMs: m.capturedAt + 20000} : m)});
+  let frame: WorldEventFrame = {...withSelected(serverFrame(1)), track: null, trackUnknown: true};
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender({selectedUid: "rider-one"});
+  // 기준을 모르는 프레임: 진행·격차는 폴백(콜러블) 값, 위치 신호 유지.
+  expect(openLocationSignals()).toHaveLength(1);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2280, gapToSelectedM: null});
+  // 다른 선택 기준 프레임도 커버하지 않는다.
+  frame = {...withSelected(serverFrame(2)), track: "rider-three"};
+  rerender({selectedUid: "rider-one"});
+  expect(openLocationSignals()).toHaveLength(1);
+  // 현재 선택 기준이 확인되면 커버로 바뀌며 같은 표본의 월드 진행·격차로 즉시 덮는다.
+  frame = {...withSelected(serverFrame(3, frame.markers[0]!.capturedAt)), track: "rider-one"};
+  rerender({selectedUid: "rider-one"});
+  expect(openLocationSignals()).toHaveLength(0);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2500, gapToLeaderM: 100, gapToSelectedM: 100});
+});
+
+it("주행 참가자 한 명이 빠진 폴백 중에는 위치만 반영하고, 그 참가자가 돌아와 커버되면 같은 표본의 월드 진행·격차로 즉시 덮는다(#1865)", async () => {
+  world.production = true;
+  control.request.mockImplementation(async () => ({data: data()}));
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  const capturedAt = Date.now();
+  const full = serverFrame(1, capturedAt);
+  let frame = {...full, markers: full.markers.filter(m => m.uid !== "rider-three")};
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(1);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, sampledAtMs: capturedAt, progressM: 2280, gapToLeaderM: 120});
+  frame = {...full, revision: 2};
+  rerender();
+  expect(openLocationSignals()).toHaveLength(0);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: capturedAt, progressM: 2500, gapToLeaderM: 100});
+});
+
+it("프레임이 그대로여도 명단 갱신으로 커버가 되면 그 프레임의 월드 진행·격차로 즉시 덮는다(#1865)", async () => {
+  world.production = true;
+  control.request.mockImplementation(async () => ({data: data()}));
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  const full = serverFrame(1);
+  const frame = {...full, markers: full.markers.filter(m => m.uid !== "rider-three")};
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2280, gapToLeaderM: 120});
+  // 콜러블이 rider-three의 완주를 알려 주행 참가자가 모두 커버된다(프레임은 바뀌지 않음).
+  control.request.mockImplementation(async () => {
+    const next = data();
+    return {data: {...next, participants: next.participants!.map(p => p.uid === "rider-three" ? {...p, status: "FINISHED"} : p)}};
+  });
+  await act(async () => { window.dispatchEvent(new Event("focus")); await vi.advanceTimersByTimeAsync(100); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+  expect(openLocationSignals()).toHaveLength(0);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2500, gapToLeaderM: 100});
 });

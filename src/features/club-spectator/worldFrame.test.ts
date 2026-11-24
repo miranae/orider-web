@@ -49,11 +49,13 @@ const progress = (progressM: number | null, gapToLeaderM: number | null, gapToSe
 });
 
 describe("월드 서버 진행·격차 (g1-web#4005)", () => {
+  // 명단의 주행(RIDING) 참가자 전원(rider-one·two·three)에게 신선한 서버 진행 마커가 있는 프레임.
+  const riders = (overrides: Record<string, Partial<WorldEventMarker>> = {}) => ["rider-one", "rider-two", "rider-three"]
+    .map(uid => ({uid, ...progress(1, 0), ...overrides[uid]}));
   it("마커의 서버 진행·격차·만료를 다시 계산하지 않고 그대로 반영하며 null도 그대로 옮긴다", () => {
     const next = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", ...progress(2500, 40)}, {uid: "rider-one", ...progress(null, null)}]), now);
     expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 40, leaderGapExpiresAtMs: now + 25000});
     expect(next.locations.find(r => r.uid === "rider-one")).toMatchObject({progressM: null, gapToLeaderM: null, leaderGapExpiresAtMs: null});
-    expect(next.locations.find(r => r.uid === "rider-two")?.progressSampledAtMs).toBeUndefined();
   });
   it("만료 시각이 지난 격차는 화면에서 숨긴다", () => {
     const next = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", ...progress(2500, 40)}]), now);
@@ -67,91 +69,125 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     const stale = applyWorldFrame(base, {...frame([{uid: "rider-two", ...progress(2500, 40, 30)}]), track: "rider-three"}, now);
     expect(stale.locations.find(r => r.uid === "rider-two")).toMatchObject({gapToLeaderM: 40, gapToSelectedM: null, selectedGapExpiresAtMs: null});
   });
-  it("표본 시각이 같은 마커가 다시 오면(선두 이동) 격차만 갱신하고 바뀐 것이 없으면 그대로 둔다", () => {
+  it("커버 중 표본 시각이 같은 마커가 다시 오면(선두 이동) 위치는 두고 서버의 최신 격차를 그대로 쓴다", () => {
     const first = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", lat: 37.525, lon: 126.98, ...progress(2500, 40)}]), now);
     const moved = applyWorldFrame(first, frame([{uid: "rider-two", lat: 1, lon: 1, ...progress(2500, 90)}]), now);
     expect(moved.locations.find(r => r.uid === "rider-two")).toMatchObject({lat: 37.525, gapToLeaderM: 90});
     expect(applyWorldFrame(moved, frame([{uid: "rider-two", ...progress(2500, 90)}]), now)).toBe(moved);
+    // 화면 위치보다 오래된 표본은 위치도 진행도 되돌리지 않는다.
     expect(applyWorldFrame(moved, frame([{uid: "rider-two", capturedAt: now - 1, ...progress(1, 1)}]), now)).toBe(moved);
   });
-  it("보이는 주행자를 모두 반영할 수 있는 서버 진행 마커가 있을 때만 완전한 프레임으로 본다", () => {
+  it("커버는 명단의 주행 참가자 전원이 신선한 서버 진행 마커를 가질 때만이고 마커 개수는 보지 않는다", () => {
     const base = spectatorFixture(now);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}, {uid: "rider-two", ...progress(null, null)}]), now)).toBe(true);
-    // 주행 0명, 서버 필드 없음, 명단 밖·미래 표본·잘못된 값으로 버린 마커는 세지 않는다.
-    expect(worldFrameCoversRiders(base, frame([], 0), now)).toBe(false);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}], 0), now)).toBe(false);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}, {uid: "rider-two"}]), now)).toBe(false);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}, {uid: "stranger", ...progress(1, 0)}]), now)).toBe(false);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}, {uid: "rider-two", capturedAt: now + 5000, ...progress(1, 0)}]), now)).toBe(false);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}, {uid: "rider-two", ...progress(1, -5)}]), now)).toBe(false);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}, {uid: "rider-one", ...progress(1, 0)}], 2), now)).toBe(false);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}], 2), now)).toBe(false);
-    expect(worldFrameCoversRiders(null, frame([{uid: "rider-one", ...progress(1, 0)}]), now)).toBe(false);
+    expect(worldFrameCoversRiders(base, frame(riders()), now)).toBe(true);
+    // counts.riding은 보지 않는다(서버 집계와 명단이 달라도 uid 집합으로 판정).
+    expect(worldFrameCoversRiders(base, frame(riders(), 0), now)).toBe(true);
+    expect(worldFrameCoversRiders(base, frame(riders(), 9), now)).toBe(true);
+    // 주행 참가자 한 명(rider-three)이 빠지면 다른 계정 마커 수가 많아도 미커버.
+    const withoutThree = riders().filter(m => m.uid !== "rider-three");
+    expect(worldFrameCoversRiders(base, frame(withoutThree), now)).toBe(false);
+    expect(worldFrameCoversRiders(base, frame([...withoutThree, {uid: "rider-four", ...progress(1, 0)}]), now)).toBe(false);
+    expect(worldFrameCoversRiders(base, frame([...withoutThree, {uid: "rider-one", ...progress(1, 0)}]), now)).toBe(false);
+    expect(worldFrameCoversRiders(base, frame([...withoutThree, {uid: "stranger", ...progress(1, 0)}]), now)).toBe(false);
+    // 서버 필드 없음·미래 표본·잘못된 값·오래된 표본인 주행 참가자 마커는 커버하지 못한다.
+    for (const bad of [{gapToLeaderM: undefined}, {capturedAt: now + 5000}, {...progress(1, -5)}, {capturedAt: now - WORLD_MARKER_FRESH_MS - 1}]) {
+      expect(worldFrameCoversRiders(base, frame(riders({"rider-three": bad})), now)).toBe(false);
+    }
+    expect(worldFrameCoversRiders(base, frame(riders({"rider-three": {capturedAt: now - WORLD_MARKER_FRESH_MS}})), now)).toBe(true);
+    // 주행이 아닌 참가자(rider-four: REGISTERED, 완주·DNF 등)는 기여하지도 막지도 않는다.
+    const finished = {...base, participants: base.participants!.map(p => p.uid === "rider-three" ? {...p, status: "FINISHED"} : p)};
+    expect(worldFrameCoversRiders(finished, frame(withoutThree), now)).toBe(true);
+    // 주행 0명·명단 없음·스냅숏 없음은 미커버.
+    const nobody = {...base, participants: base.participants!.map(p => ({...p, status: "FINISHED"}))};
+    expect(worldFrameCoversRiders(nobody, frame(riders()), now)).toBe(false);
+    expect(worldFrameCoversRiders({...base, participants: undefined}, frame(riders()), now)).toBe(false);
+    expect(worldFrameCoversRiders(null, frame(riders()), now)).toBe(false);
   });
-  it("콜러블 병합은 더 최신 표본의 월드 진행·격차를 남기고, 서버 필드 없이 끌고 온 오래된 진행은 되살리지 않는다", () => {
+  it("월드 명단에 콜러블이 모르는 참가자나 아직 주행으로 보지 않는 주행자가 있으면 미커버로 두어 명단을 따라잡는다", () => {
+    const base = spectatorFixture(now);
+    const ridingRoster = ["rider-one", "rider-two", "rider-three"].map(uid => ({uid, state: "RIDING"}));
+    expect(worldFrameCoversRiders(base, {...frame(riders()), roster: ridingRoster}, now)).toBe(true);
+    // 콜러블 조회 직후 합류한 참가자: 월드 명단에만 있다.
+    expect(worldFrameCoversRiders(base, {...frame(riders()), roster: [...ridingRoster, {uid: "joined", state: "RIDING"}]}, now)).toBe(false);
+    // 콜러블 명단에서 아직 REGISTERED인 rider-four가 월드에서는 주행 중이다.
+    expect(worldFrameCoversRiders(base, {...frame(riders()), roster: [...ridingRoster, {uid: "rider-four", state: "RIDING"}]}, now)).toBe(false);
+    // 비주행 상태(lost_signal 등)인 알려진 참가자는 막지 않는다.
+    expect(worldFrameCoversRiders(base, {...frame(riders()), roster: [...ridingRoster, {uid: "rider-four", state: "lost_signal"}]}, now)).toBe(true);
+  });
+  it("선택 대상이 있으면 선택 기준이 확인된 현재 선택 프레임일 때만 커버한다", () => {
+    const base = {...spectatorFixture(now), selectedUid: "rider-one"};
+    expect(worldFrameCoversRiders(base, {...frame(riders()), track: "rider-one"}, now, "rider-one")).toBe(true);
+    expect(worldFrameCoversRiders(base, {...frame(riders()), track: null, trackUnknown: true}, now, "rider-one")).toBe(false);
+    expect(worldFrameCoversRiders(base, {...frame(riders()), track: "rider-two"}, now, "rider-one")).toBe(false);
+    expect(worldFrameCoversRiders(base, frame(riders()), now, "rider-one")).toBe(false);
+    // 화면 데이터가 아직 이전 선택이면(콜러블 대기) 미커버.
+    expect(worldFrameCoversRiders(base, {...frame(riders()), track: "rider-two"}, now, "rider-two")).toBe(false);
+    // 선택이 없으면 선택 기준을 요구하지 않는다.
+    expect(worldFrameCoversRiders(spectatorFixture(now), {...frame(riders()), track: null, trackUnknown: true}, now, null)).toBe(true);
+  });
+  it("콜러블 병합: 커버 중에는 주행 참가자의 월드 진행·격차를 남기고, 위치가 더 최신인 콜러블은 그 값을 모두 쓴다", () => {
     const server = spectatorFixture(now);
     server.locations = server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now - 1000, progressM: 2400, gapToLeaderM: 70} : r);
     const fromWorld = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", ...progress(2500, 40)}]), now);
-    expect(retainWorldPositions(fromWorld, server).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 40});
-    const carried = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two"}]), now);
-    expect(carried.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2280, progressSampledAtMs: now - 3000});
-    expect(retainWorldPositions(carried, server).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2400, gapToLeaderM: 70, progressSampledAtMs: now - 1000});
-    // 콜러블이 더 최신이면 콜러블 값 전부를 쓴다.
+    expect(retainWorldPositions(fromWorld, server, true).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 40});
+    // 같은 표본이어도 커버 중에는 월드 값을 쓴다.
+    const same = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now} : r)};
+    expect(retainWorldPositions(fromWorld, same, true).locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2500, gapToLeaderM: 40});
     const newer = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now + 1, progressM: 2600, gapToLeaderM: 10} : r)};
-    expect(retainWorldPositions(fromWorld, newer).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now + 1, progressM: 2600, gapToLeaderM: 10});
+    expect(retainWorldPositions(fromWorld, newer, true).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now + 1, progressM: 2600, gapToLeaderM: 10});
+    // 새 명단에서 주행이 아니게 된(완주) 참가자는 콜러블 진행·격차를 쓴다.
+    const done = {...server, participants: server.participants!.map(p => p.uid === "rider-two" ? {...p, status: "FINISHED"} : p),
+      locations: server.locations.map(r => r.uid === "rider-two" ? {...r, status: "FINISHED" as const} : r)};
+    expect(retainWorldPositions(fromWorld, done, true).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, status: "FINISHED", progressM: 2400, gapToLeaderM: 70});
     // 명단에서 빠진 참가자는 월드 값으로 되살리지 않는다.
     const removed = {...server, locations: server.locations.filter(r => r.uid !== "rider-two")};
-    expect(retainWorldPositions(fromWorld, removed).locations.some(r => r.uid === "rider-two")).toBe(false);
+    expect(retainWorldPositions(fromWorld, removed, true).locations.some(r => r.uid === "rider-two")).toBe(false);
   });
   it("어느 구독의 응답인지 모르는 프레임의 선택 격차는 쓰지 않는다", () => {
     const base = {...spectatorFixture(now), selectedUid: null};
     const next = applyWorldFrame(base, {...frame([{uid: "rider-two", ...progress(2500, 40, 30)}]), track: null, trackUnknown: true}, now);
     expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({gapToLeaderM: 40, gapToSelectedM: null});
   });
-  it("이전 delta에서 남은 오래된 마커는 커버리지에 세지 않는다", () => {
-    const base = spectatorFixture(now);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}, {uid: "rider-two", capturedAt: now - WORLD_MARKER_FRESH_MS - 1, ...progress(1, 0)}]), now)).toBe(false);
-    expect(worldFrameCoversRiders(base, frame([{uid: "rider-one", ...progress(1, 0)}, {uid: "rider-two", capturedAt: now - WORLD_MARKER_FRESH_MS, ...progress(1, 0)}]), now)).toBe(true);
-  });
   it("폴백 중 콜러블 병합은 위치만 더 최신 월드 값을 두고 진행·격차는 콜러블 정본을 쓴다", () => {
     const server = spectatorFixture(now);
     server.locations = server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now - 1000, progressM: 2400, gapToLeaderM: 300} : r);
-    const fromWorld = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", lng: 0, lon: 126.99, ...progress(2500, 40)}]), now);
+    const fromWorld = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", lon: 126.99, ...progress(2500, 40)}]), now);
     expect(retainWorldPositions(fromWorld, server, false).locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.99, sampledAtMs: now, progressM: 2400, gapToLeaderM: 300});
   });
-  it("위치 표본이 멈춘 뒤 폴백 콜러블이 갱신한 진행·격차를 delta에 남은 같은 마커가 되돌리지 않는다(P11)", () => {
+  it("폴백 중에는 같은 마커가 다시 와도 콜러블 진행·격차를 두고, 커버로 바뀌면 같은 표본의 월드 값으로 즉시 덮는다(#1865)", () => {
     const stale = frame([{uid: "rider-two", lat: 37.525, lon: 126.98, ...progress(2500, 40)}]);
-    const fromWorld = applyWorldFrame(spectatorFixture(now), stale, now);
-    // 콜러블은 Firestore 표본(월드보다 이름)으로 선두 변경을 반영한 최신 격차를 준다.
+    const fromWorld = applyWorldFrame(spectatorFixture(now), stale, now, false);
     const server = spectatorFixture(now);
     server.locations = server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now - 1000, progressM: 2400, gapToLeaderM: 300} : r);
     const merged = retainWorldPositions(fromWorld, server, false);
     expect(merged.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2400, gapToLeaderM: 300});
-    // 시청자 수만 바뀐 delta도 같은 마커를 담아 다시 온다. 커버 여부와 관계없이 같은 표본은 다시 적용하지 않는다.
-    const viewersOnly = {...stale, type: "event_delta" as const, revision: 2, viewers: 3};
-    expect(applyWorldFrame(merged, viewersOnly, now + 5000)).toBe(merged);
+    // 호출부처럼 delta를 병합한 snapshot 프레임(시청자 수만 바뀜)이 다시 와도 폴백 중에는 진행·격차를 바꾸지 않는다.
+    const viewersOnly: WorldEventFrame = {...stale, revision: 2, viewers: 3};
     expect(applyWorldFrame(merged, viewersOnly, now + 5000, false)).toBe(merged);
-    // 콜러블 표본이 월드 표본과 같아도 콜러블 값을 같은 표본의 월드 마커로 되돌리지 않는다.
-    const sameSample = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now} : r)};
-    const mergedSame = retainWorldPositions(fromWorld, sameSample);
-    expect(mergedSame.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2400, gapToLeaderM: 300});
-    expect(applyWorldFrame(mergedSame, viewersOnly, now + 5000)).toBe(mergedSame);
-    // 엄격히 더 최신인 표본이 오면 다시 월드 진행·격차를 쓴다.
-    const fresh = applyWorldFrame(merged, frame([{uid: "rider-two", capturedAt: now + 1000, ...progress(2550, 20)}]), now + 5000);
-    expect(fresh.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now + 1000, progressM: 2550, gapToLeaderM: 20});
+    // 커버로 바뀌면 같은 표본이어도 서버의 진행·격차를 바로 쓴다(다음 표본을 기다리지 않음).
+    expect(applyWorldFrame(merged, viewersOnly, now + 5000, true).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 40});
+    // 더 최신 표본은 폴백 중에도 위치만 옮긴다.
+    const fresh = applyWorldFrame(merged, frame([{uid: "rider-two", capturedAt: now + 1000, lon: 127, ...progress(2550, 20)}]), now + 5000, false);
+    expect(fresh.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now + 1000, lng: 127, progressM: 2400, gapToLeaderM: 300});
+  });
+  it("커버 중이어도 주행 중이 아닌 참가자의 마커는 위치만 옮기고 진행·격차는 콜러블 값을 둔다", () => {
+    const base = spectatorFixture(now);
+    const ended = {...base, participants: base.participants!.map(p => p.uid === "rider-two" ? {...p, status: "FINISHED"} : p)};
+    const next = applyWorldFrame(ended, frame([{uid: "rider-two", lon: 126.98, ...progress(2500, 40)}]), now, true);
+    expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2280, gapToLeaderM: 120});
   });
   it("폴백(월드 미커버) 중에는 월드 마커가 위치만 옮기고 진행·격차는 덮지 않는다", () => {
     const base = spectatorFixture(now);
     const next = applyWorldFrame(base, frame([{uid: "rider-two", lat: 37.525, lon: 126.98, ...progress(2500, 40, 30)}]), now, false);
-    expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, sampledAtMs: now, progressM: 2280, gapToLeaderM: 120, progressSampledAtMs: now - 3000});
+    expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, sampledAtMs: now, progressM: 2280, gapToLeaderM: 120});
     // 같은 표본이 선두 이동으로 다시 와도 폴백 중에는 격차를 바꾸지 않는다.
     const first = applyWorldFrame(base, frame([{uid: "rider-two", ...progress(2500, 40)}]), now);
     expect(applyWorldFrame(first, frame([{uid: "rider-two", ...progress(2500, 90)}]), now, false)).toBe(first);
   });
   it("위치가 없던 참가자를 서버 필드 없는 마커로 추가해도 콜러블의 진행·격차를 덮지 않는다", () => {
     const added = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-four"}]), now);
-    expect(added.locations.find(r => r.uid === "rider-four")).toMatchObject({progressM: null, progressSampledAtMs: 0});
-    const server = {...spectatorFixture(now), locations: [...spectatorFixture(now).locations, {...spectatorFixture(now).locations[1], uid: "rider-four", displayName: "새벽", sampledAtMs: now - 5000, progressM: 1800, gapToLeaderM: 600}]};
+    expect(added.locations.find(r => r.uid === "rider-four")).toMatchObject({progressM: null});
+    const server = {...spectatorFixture(now), locations: [...spectatorFixture(now).locations, {...spectatorFixture(now).locations[1]!, uid: "rider-four", displayName: "새벽", sampledAtMs: now - 5000, progressM: 1800, gapToLeaderM: 600}]};
     expect(retainWorldPositions(added, server).locations.find(r => r.uid === "rider-four")).toMatchObject({sampledAtMs: now, progressM: 1800, gapToLeaderM: 600});
   });
 });
