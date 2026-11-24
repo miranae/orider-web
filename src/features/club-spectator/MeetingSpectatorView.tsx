@@ -14,7 +14,7 @@ import "./spectator.css";
 
 export default function MeetingSpectatorView({snapshot, now, receivedAt, en, preferences, onPreferencesChange}: {preferences?: SpectatorPreferences; onPreferencesChange?: (patch: Partial<SpectatorPreferences>) => void; snapshot: MeetingSpectatorSnapshot; now: number; receivedAt: number; en: boolean}) {
   const services = useFirebaseServices();
-  const user = services.auth.currentUser;
+  const user = services.auth?.currentUser ?? null;
   const text = (ko: string, english: string) => en ? english : ko;
   const [local, setLocal] = useState(emptySpectatorPreferences);
   const prefs = preferences ?? local;
