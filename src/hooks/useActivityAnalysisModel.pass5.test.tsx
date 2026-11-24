@@ -131,5 +131,5 @@ it("actual public model supplies canonical presentation and non-owner voice", as
   const {result}=renderHook(()=>useActivityAnalysisModel(activity.id));
   await waitFor(()=>expect(result.current.analysisTabProps).not.toBeNull());
   expect(result.current.isActivityOwner).toBe(false);
-  expect(result.current.analysisTabProps).toMatchObject({isOwner:false,canonicalPresentationAvailable:true});
+  expect(result.current.analysisTabProps).toMatchObject({isOwner:false});
 });

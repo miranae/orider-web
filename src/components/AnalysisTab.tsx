@@ -160,13 +160,10 @@ interface AnalysisTabProps {
   onViewRunSplitLocation?: () => void;
   canViewRunSplitLocation?: boolean;
   activityId?: string | null;
-  /** 소유자 여부 — CTL 기반 회복 시간 등 개인 컨텍스트에만 쓴다. 지표 읽기 권한은 활동 가시성이 정한다. */
+  /** 소유자 여부 — 설정 이동·클라임 세그먼트 생성 같은 소유자 동작에만 쓴다. 활동 단위 분석은 활동을 볼 수 있는 누구에게나 같다 (P1). */
   isOwner?: boolean;
-  completeActivityAccess?: boolean;
   /** 모델과 함께 렌더할 때 같은 metrics 문서를 다시 구독하지 않는다. */
   serverMetrics?: UseActivityMetricsState;
-  /** 공개 분석의 지표는 overview presentation이 제공하고 허용된 그래프·랩만 유지한다. */
-  canonicalPresentationAvailable?: boolean;
   integratedPresentation?: ActivityOverviewPresentation;
   renderSections?: (sections: ActivityAnalysisSections) => ReactNode;
   overviewRecovery?: ActivityOverviewPresentation["recovery"] | null;
@@ -334,7 +331,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 }
 
 export default function AnalysisTab({
-  activityId, isOwner = false, completeActivityAccess = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, integratedPresentation, renderSections, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
+  activityId, isOwner = false, serverMetrics: suppliedServerMetrics, integratedPresentation, renderSections, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
   onSelectLap, canSelectLap, onSelectRunEffort, onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
   streamsSignInRequired = false, showStreamSignInPrompt = true, onSignIn,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
@@ -395,7 +392,7 @@ export default function AnalysisTab({
   const ef = sm?.decoupling?.ef ?? null;
   const decoupling = sm?.decoupling?.decouplingPct ?? null;
   const trimp = sm?.trimp ?? null;
-  const recovery = isOwner ? overviewRecovery : null;
+  const recovery = overviewRecovery;
   const cadenceStats = { avg: sm?.avgCadence ?? null, max: sm?.maxCadence ?? null };
   // 상세 분석은 제공자 summary 사본이 아니라 ETL 정본을 표시한다.
   const speed = {
@@ -535,7 +532,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="activity-analysis-content space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={streams.runningBestEffortsFacts} onSelectEffort={onSelectRunEffort} effortsReady={visibleServerMetrics.status === "ready"} previousAnalysis={visibleServerMetrics.status === "stale"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={onSelectLap} canSelectLap={canSelectLap} />}</div>;
+    return <div className="activity-analysis-content space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={streams.runningBestEffortsFacts} onSelectEffort={onSelectRunEffort} effortsReady={visibleServerMetrics.status === "ready"} previousAnalysis={visibleServerMetrics.status === "stale"} metrics={sm as ActivityMetricsDoc} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={onSelectLap} canSelectLap={canSelectLap} />}</div>;
   }
 
   const integratedPower = integratedPresentation?.session.discipline === "bike" && !suppressServerPowerMetrics ? integratedPresentation : undefined;
@@ -562,21 +559,6 @@ export default function AnalysisTab({
     const match = /^(\d+)([smh])$/.exec(row.duration);
     return match && Number(match[1]) * (match[2] === "h" ? 3600 : match[2] === "m" ? 60 : 1) === point.durationSeconds;
   }));
-
-  // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
-  if (!isOwner && !completeActivityAccess && canonicalPresentationAvailable) {
-    const publicSections: ActivityAnalysisSections = {
-      dynamics: cyclingDynamicsSection,
-      speedCurve: speedCurve.length > 0 ? <SpeedCurveChart points={speedCurve} /> : null,
-      laps: laps && laps.length > 0 ? <AnalysisLapTable laps={laps} ftp={null} sport={sport} /> : null,
-    };
-    if (renderSections) return renderSections(publicSections);
-    return <div className="space-y-6" data-testid="public-analysis-charts">
-      {cyclingDynamicsSection}
-      {speedCurve.length > 0 && <div><h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.speedCurve")}</h3><SpeedCurveChart points={speedCurve} /></div>}
-      {laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={null} sport={sport} />}
-    </div>;
-  }
 
   const hasIndependentPedaling = [sm?.cyclingMetrics?.cadenceStdDev, sm?.cyclingMetrics?.coastingSec, sm?.cyclingMetrics?.longestCoastSec].some(value => typeof value === "number" && Number.isFinite(value));
   if (!renderSections && !hasPower && !hasHr && !hasIndependentPedaling && cyclingDynamicsCards.length === 0 && !hasRunAnalysis

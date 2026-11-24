@@ -267,5 +267,5 @@ export default function ActivityAnalysisBody(props: Props) {
       {p?.qualityNote && note(label("qualityNote"))}
     </div></GlossaryProvider>;
   };
-  return <AnalysisTab {...(analysisProps ?? { activityId: null, isOwner, streams: { userId: "", time: [], distance: [] }, serverMetrics: { status: "loading", metrics: null } })} canonicalPresentationAvailable={overview.enabled && overview.response?.status === "available"} integratedPresentation={p} renderSections={render} />;
+  return <AnalysisTab {...(analysisProps ?? { activityId: null, isOwner, streams: { userId: "", time: [], distance: [] }, serverMetrics: { status: "loading", metrics: null } })} integratedPresentation={p} renderSections={render} />;
 }

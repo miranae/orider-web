@@ -45,7 +45,7 @@ export default function ActivityAnalysisSurface({
   const formatFullDate = useFormatFullDate();
   useEffect(() => { setPeakSelection({ activityId, peak: null }); }, [activityId, user?.uid, model.isActivityOwner, model.serverMetrics?.metrics?.computedAt, model.activePowerOverride]);
   const selectedPeak = !showingSaved && peakSelection.activityId === activityId
-    && visiblePeakEfforts(model.serverMetrics?.metrics ?? null, model.isActivityOwner, model.activePowerOverride != null || model.analysisTabProps?.suppressServerPowerMetrics === true)
+    && visiblePeakEfforts(model.serverMetrics?.metrics ?? null, model.activePowerOverride != null || model.analysisTabProps?.suppressServerPowerMetrics === true)
       .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
     ? peakSelection.peak : null;
   const peakLocation = useMemo(() => selectedPeak ? resolvePeakEffortLocation(selectedPeak, model.serverMetrics?.metrics?.peakEfforts?.indexAxis, model.streams,
@@ -154,7 +154,7 @@ export default function ActivityAnalysisSurface({
       {!showingSaved && <ActivityPersonalBenchmark activityId={activityId} ownerUid={model.isActivityOwner ? user?.uid : null}
         sport={model.sport === "ride" ? "bike" : model.sport}
         metrics={model.activePowerOverride || model.analysisTabProps?.suppressServerPowerMetrics ? null : model.serverMetrics?.metrics ?? null} />}
-      <ActivityPeakEffortInspector chartOnly activityId={activityId} metrics={model.serverMetrics?.metrics ?? null} isOwner={model.isActivityOwner}
+      <ActivityPeakEffortInspector chartOnly activityId={activityId} metrics={model.serverMetrics?.metrics ?? null}
         invalidated={model.activePowerOverride != null || model.analysisTabProps?.suppressServerPowerMetrics === true}
         suppressHeartRate={model.analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={model.analysisTabProps?.suppressServerCadenceMetrics}
         locationUnavailable={!!model.streams && selectedPeak != null && !peakLocation}

@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActivityAnalysisModel } from "./useActivityAnalysisModel";
 import type { SampledPoint } from "../features/activity/detail/activityDetailUtils";
 import { useActivityRangeSelection } from "./useActivityRangeSelection";
-const auth = vi.hoisted(() => ({ uid: "owner" }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: auth.uid } }) }));
+const auth = vi.hoisted(() => ({ uid: "owner" as string | null, anonymous: false }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: auth.uid ? { uid: auth.uid, isAnonymous: auth.anonymous } : null }) }));
 const epoch = 1791504000000;
 const model = { activity: { id: "a", userId: "owner", startTime: epoch, summary: { elapsedTimeMillis: 10000 } },
   isActivityOwner: true, serverMetrics: { metrics: { durationSec: 10, movingTimeSec: 6, computedAt: 1 } },
@@ -12,6 +12,20 @@ const model = { activity: { id: "a", userId: "owner", startTime: epoch, summary:
     latlng: Array.from({ length: 10 }, () => [37, 127]) } } as unknown as ActivityAnalysisModel;
 const sampled = [0, 2, 4, 6, 8, 9].map(sourceIndex => ({ sourceIndex, distance: 100 })) as SampledPoint[];
 describe("single elapsed range selection", () => {
+  it("lets a signed-in viewer who can read the activity analyse a range, but not anonymous or signed-out visitors", () => {
+    const viewerModel = { ...model, isActivityOwner: false } as ActivityAnalysisModel;
+    auth.uid = "viewer"; auth.anonymous = false;
+    const { result, rerender } = renderHook(props => useActivityRangeSelection(props, sampled), { initialProps: viewerModel });
+    expect(result.current.ownerUid).toBe("owner");
+    expect(result.current.authorizedActivityAccess).toBe(true);
+    act(() => result.current.selectAndEnable({ startOffsetSec: 2.2, endOffsetSec: 6.2 }));
+    expect(result.current.selection).toMatchObject({ startOffsetSec: 2.2, endOffsetSec: 6.2 });
+    auth.anonymous = true; rerender({ ...viewerModel });
+    expect(result.current.ownerUid).toBeNull();
+    auth.uid = null; auth.anonymous = false; rerender({ ...viewerModel });
+    expect(result.current.ownerUid).toBeNull();
+    auth.uid = "owner";
+  });
   it("atomically opens an explicit lap range and clears it on auth/context ABA", () => {
     auth.uid = "owner";
     const { result, rerender } = renderHook(props => useActivityRangeSelection(props, sampled), { initialProps: model });
@@ -80,7 +94,8 @@ describe("single elapsed range selection", () => {
     act(() => result.current.toggle()); act(() => result.current.select({ startOffsetSec: 1, endOffsetSec: 4 }));
     expect(result.current.selection!.requestId).not.toBe(oldId);
     auth.uid = "other"; rerender(model);
-    expect(result.current.ownerUid).toBeNull();
+    // 다른 계정도 활동을 읽을 수 있으면 같은 구간 분석을 쓴다(P1) — 다만 이전 계정의 선택은 남지 않는다.
+    expect(result.current.selection).toBeNull();
     auth.uid = "owner"; rerender(model);
     expect(result.current.selection).toBeNull(); expect(result.current.enabled).toBe(false);
   });

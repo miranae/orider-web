@@ -21,7 +21,7 @@ import {
   resetCanonicalRolloutCacheForTests,
 } from "../services/canonicalRollout";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
-import { fromPublicActivityMetrics, useActivityMetrics } from "./useActivityMetrics";
+import { useActivityMetrics } from "./useActivityMetrics";
 
 function signedIn({ children }: { children: React.ReactNode }) {
   const value = {
@@ -84,50 +84,26 @@ describe("useActivityMetrics", () => {
     expect(result.current.metrics).toBeNull();
   });
 
-  it("공개 문서의 민감 필드는 화이트리스트에서 걸러진다", async () => {
+  it("공개 문서는 걸러 내지 않는다 — 활동 단위 분석은 뷰어에게도 전부 보인다 (P1)", async () => {
     setDocData("activity_metrics_public/act-3", {
       version: ACTIVITY_METRICS_VERSION,
       distanceKm: 12,
       contextSnapshot: { ftp: 250, weightKg: 70 },
       ftp: 250,
       climbs: [{ avgPower: 260 }],
+      powerCurve: { "5s": 900 },
+      cyclingDynamics: { source: "records", sampleCount: 10 },
     });
     const { result } = renderHook(() => useActivityMetrics("act-3", false));
     await waitFor(() => expect(result.current.status).toBe("ready"));
-    expect(result.current.metrics?.distanceKm).toBe(12);
-    expect(result.current.metrics?.contextSnapshot).toBeUndefined();
-    expect(result.current.metrics?.ftp).toBeUndefined();
-    expect(result.current.metrics?.climbs).toBeUndefined();
-  });
-
-  it("공개 projection 은 허용된 파워·심박·사이클링 다이내믹스만 보존한다", () => {
-    const cyclingDynamics = {
-      source: "records",
-      sampleCount: 10,
-      validSampleCount: 9,
-      coverage: 0.9,
-      balance: { leftAvgPct: 49, rightAvgPct: 51, asymmetryPct: 2 },
-    };
-    const publicMetrics = fromPublicActivityMetrics({
-      version: ACTIVITY_METRICS_VERSION,
-      np: 240,
-      avgPower: 220,
-      avgHr: 148,
-      cyclingDynamics,
-      lrBalance: { avg: 51, asymmetryPct: 2 },
+    expect(result.current.metrics).toMatchObject({
+      distanceKm: 12,
       contextSnapshot: { ftp: 250, weightKg: 70 },
+      ftp: 250,
+      climbs: [{ avgPower: 260 }],
       powerCurve: { "5s": 900 },
+      cyclingDynamics: { source: "records", sampleCount: 10 },
     });
-
-    expect(publicMetrics).toMatchObject({
-      np: 240,
-      avgPower: 220,
-      avgHr: 148,
-      cyclingDynamics,
-      lrBalance: { avg: 51, asymmetryPct: 2 },
-    });
-    expect(publicMetrics.contextSnapshot).toBeUndefined();
-    expect(publicMetrics.powerCurve).toBeUndefined();
   });
 
   it("현재 버전이면 ready", async () => {
@@ -335,14 +311,6 @@ describe("useActivityMetrics — 꺼짐은 실패로 풀리지 않는다(sticky)
   });
 });
 
-it.each(["complete", "partial_terminal", "pending"] as const)("preserves public inputCoverage=%s without private context", (inputCoverage) => {
- const publicMetrics = fromPublicActivityMetrics({ inputCoverage, sourceLayer: "inline_streams", contextSnapshot: { ftp: 175 }, ftp: 175 });
- expect(publicMetrics.inputCoverage).toBe(inputCoverage);
- expect(publicMetrics.contextSnapshot).toBeUndefined();
- expect(publicMetrics.ftp).toBeUndefined();
-});
-
-
 describe("useActivityMetrics 구독 범위의 첫 커밋", () => {
   beforeEach(() => {
     mockDocData.clear();
@@ -501,12 +469,3 @@ it.each([true, false])("dev32 실제 producer 거리의 owner/public hook 호환
   expect(resolveObservedDistanceKm(hook.result.current.metrics!)).toBe(1);
 });
 
-
-it("preserves public running metrics without exposing athlete context", () => {
-  const runMetrics = { gapAvgSec: 337.29, minPaceSecPerKm: 330, paceStdDevSec: 12 };
-  const splits = [{ km: 1, paceSec: 337, gapSec: 334, avgCadence: 95, avgHr: 150 }];
-  const projected = fromPublicActivityMetrics({ discipline: "run", runMetrics, splits, maxHr: 172, hrZoneSec: [0, 0, 100, 200, 0], cadenceUnit: "strides_per_minute", decoupling: { basis: "speed_hr", decouplingPct: 3 }, contextSnapshot: { ftp: 300 }, hrZoneBoundaries: { referenceBpm: 180 } });
-  expect(projected).toMatchObject({ runMetrics, splits, maxHr: 172, cadenceUnit: "strides_per_minute", decoupling: { basis: "speed_hr" } });
-  expect(projected.contextSnapshot).toBeUndefined();
-  expect(projected.hrZoneBoundaries).toBeUndefined();
-});

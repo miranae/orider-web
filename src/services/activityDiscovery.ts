@@ -19,13 +19,20 @@ function isThresholdBasis(value: unknown): boolean {
 export type { ActivityDiscoveryRequest } from '@shared/activity-discovery';
 export type DiscoveryActivity = Activity & { discoveryFacts: ActivityDiscoveryItem['activity']['effectiveFacts']; activityRevision: string };
 const finite = (value: unknown): number | null => typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;
-/** Public presentation only. Never reconstruct private load, thresholds, original IDs or streams. */
+/**
+ * 서버가 보낸 활동 단위 값만 그린다 — 원본 ID·스트림은 재구성하지 않는다.
+ * 심박·파워·케이던스·칼로리·부하도 활동을 볼 수 있는 누구에게나 보인다(P1). 서버가 안 보낸 값(옛 좁은 응답)은 null 로 둔다.
+ */
 export function mapDiscoveryActivity(item: ActivityDiscoveryItem): DiscoveryActivity {
  const a=item.activity,m=a.effectiveFacts.metrics,s=a.summary;
  const metric=(canonical:string,recorded:string,scale=1)=>{const value=finite(m?m[canonical]:s[recorded]);return value===null?Number.NaN:value*scale;};
+ const optional=(canonical:string,recorded:string)=>finite(m?m[canonical]:s[recorded]);
  const summary: ActivitySummary={distance:metric('distanceKm','distance',m?1000:1),ridingTimeMillis:metric('durationSec','ridingTimeMillis',m?1000:1),
   averageSpeed:metric('avgSpeedKph','averageSpeed'),maxSpeed:metric('maxSpeedKph','maxSpeed'),elevationGain:metric('elevationGainM','elevationGain'),
-  averageCadence:null,maxCadence:null,averageHeartRate:null,maxHeartRate:null,averagePower:null,maxPower:null,normalizedPower:null,calories:null,relativeEffort:null,tss:null,swolf:null};
+  averageCadence:optional('avgCadence','averageCadence'),maxCadence:optional('maxCadence','maxCadence'),
+  averageHeartRate:optional('avgHr','averageHeartRate'),maxHeartRate:optional('maxHr','maxHeartRate'),
+  averagePower:optional('avgPower','averagePower'),maxPower:optional('maxPower','maxPower'),normalizedPower:optional('np','normalizedPower'),
+  calories:optional('caloriesKcal','calories'),relativeEffort:optional('trimp','relativeEffort'),tss:optional('tss','tss'),swolf:null};
  if(m){const moving=finite(m.movingTimeSec),pause=finite(m.pauseTimeSec);if(moving!==null)summary.movingTimeSec=moving;if(pause!==null)summary.pauseTimeSec=pause;}
  else {const elapsed=finite(s.elapsedTimeMillis),moving=finite(s.movingTimeSec),pause=finite(s.pauseTimeSec);if(elapsed!==null)summary.elapsedTimeMillis=elapsed;if(moving!==null)summary.movingTimeSec=moving;if(pause!==null)summary.pauseTimeSec=pause;}
  const activity:DiscoveryActivity={id:a.id,userId:a.userId,nickname:a.nickname,profileImage:a.profileImage,type:a.type,createdAt:a.createdAt,startTime:a.startTime,endTime:a.endTime,
