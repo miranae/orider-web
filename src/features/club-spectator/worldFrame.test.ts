@@ -103,6 +103,17 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     expect(worldFrameCoversRiders({...base, participants: undefined}, frame(riders()), now)).toBe(false);
     expect(worldFrameCoversRiders(null, frame(riders()), now)).toBe(false);
   });
+  it("월드 명단에 콜러블이 모르는 참가자나 아직 주행으로 보지 않는 주행자가 있으면 미커버로 두어 명단을 따라잡는다", () => {
+    const base = spectatorFixture(now);
+    const ridingRoster = ["rider-one", "rider-two", "rider-three"].map(uid => ({uid, state: "RIDING"}));
+    expect(worldFrameCoversRiders(base, {...frame(riders()), roster: ridingRoster}, now)).toBe(true);
+    // 콜러블 조회 직후 합류한 참가자: 월드 명단에만 있다.
+    expect(worldFrameCoversRiders(base, {...frame(riders()), roster: [...ridingRoster, {uid: "joined", state: "RIDING"}]}, now)).toBe(false);
+    // 콜러블 명단에서 아직 REGISTERED인 rider-four가 월드에서는 주행 중이다.
+    expect(worldFrameCoversRiders(base, {...frame(riders()), roster: [...ridingRoster, {uid: "rider-four", state: "RIDING"}]}, now)).toBe(false);
+    // 비주행 상태(lost_signal 등)인 알려진 참가자는 막지 않는다.
+    expect(worldFrameCoversRiders(base, {...frame(riders()), roster: [...ridingRoster, {uid: "rider-four", state: "lost_signal"}]}, now)).toBe(true);
+  });
   it("선택 대상이 있으면 선택 기준이 확인된 현재 선택 프레임일 때만 커버한다", () => {
     const base = {...spectatorFixture(now), selectedUid: "rider-one"};
     expect(worldFrameCoversRiders(base, {...frame(riders()), track: "rider-one"}, now, "rider-one")).toBe(true);
