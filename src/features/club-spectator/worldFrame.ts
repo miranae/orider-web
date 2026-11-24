@@ -20,7 +20,8 @@ const computedAt = (value: unknown) => typeof value === "number" && Number.isFin
  */
 function computedLater(candidate: {progressComputedAtMs?: number | null}, current: {progressComputedAtMs?: number | null}): boolean | null {
   const a = computedAt(candidate.progressComputedAtMs), b = computedAt(current.progressComputedAtMs);
-  return a === null || b === null ? null : a > b;
+  // 기준 시각(입력 표본 시각 최댓값, g1-web#4037)이 같으면 같은 입력이라 판단할 수 없으므로 기존 위치 표본 규칙에 맡긴다.
+  return a === null || b === null || a === b ? null : a > b;
 }
 
 /** 이 화면에 반영할 수 있는 마커인지 확인한다. 명단 밖 계정·다른 코스·잘못된 값·미래 시각은 버린다. */

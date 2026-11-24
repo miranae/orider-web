@@ -246,6 +246,16 @@ describe("진행·격차 계산 시각 (g1-web#4037)", () => {
     expect(two(older)).toMatchObject({sampledAtMs: now, lng: base.locations[1]!.lng, progressM: 2490, gapToLeaderM: 20, progressComputedAtMs: now + 3000});
   });
 
+  it("기준 시각이 같으면 위치 표본 규칙에 맡겨 같거나 더 최신인 표본 쪽 값을 쓴다", () => {
+    const shown = applyWorldFrame(spectatorFixture(now), frame(riders({"rider-two": {...progress(2500, 40), progressComputedAtMs: now}})), now, true);
+    // 같은 기준 시각·같은 표본: 콜러블(새 결과) 값을 쓴다(표본 같거나 최신이면 콜러블).
+    const tie = callable({sampledAtMs: now, progressM: null, gapToLeaderM: null, progressComputedAtMs: now});
+    expect(two(retainWorldPositions(shown, tie, true))).toMatchObject({progressM: null, gapToLeaderM: null});
+    // 같은 기준 시각·같은 표본의 월드 재전송: 월드 값을 쓴다.
+    const base = callable({sampledAtMs: now, progressM: 2500, gapToLeaderM: 70, progressComputedAtMs: now});
+    expect(two(applyWorldFrame(base, frame(riders({"rider-two": {...progress(2500, 40), progressComputedAtMs: now}})), now, true))).toMatchObject({gapToLeaderM: 40});
+  });
+
   it("선두 이동으로 같은 표본의 마커가 새 계산 시각으로 다시 오면 그 격차를 반영한다", () => {
     const first = applyWorldFrame(spectatorFixture(now), frame(riders({"rider-two": {...progress(2500, 40), progressComputedAtMs: now}})), now, true);
     const moved = applyWorldFrame(first, frame(riders({"rider-two": {...progress(2500, 90), progressComputedAtMs: now + 1000}})), now + 1000, true);
