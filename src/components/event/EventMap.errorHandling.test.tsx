@@ -179,17 +179,24 @@ describe("Fix 2: 오류 분류 — tile 있으면 일시, sourceId만이면 치�
     expect(logClientError).toHaveBeenCalled();
   });
 
-  it("load 전 sourceId 401 오류 → 로그만(타이머 대기, onFatalMapError 즉시 호출 없음)", () => {
+  it("load 전 소스(TileJSON) 401 → 즉시 대체, 이후 load가 와도 대체 유지", () => {
     const onFatalMapError = vi.fn();
     renderMap({ onFatalMapError });
 
-    // load 전 소스 오류 — 새 설계: 로그만, N초 타이머로 대체
+    // 토큰 만료·교체로 베이스맵 TileJSON 인증이 실패한 뒤 Mapbox가 load를 보내도 배경은 빈 지도다.
     const sourceError = Object.assign(new Error("TileJSON request failed"), { status: 401 });
     fireMapError({ error: sourceError, sourceId: "mapbox-streets" });
 
-    // 즉각 치명 호출 없음 — 타이머가 N초 후 처리
-    expect(onFatalMapError).not.toHaveBeenCalled();
+    expect(onFatalMapError).toHaveBeenCalledOnce();
     expect(logClientError).toHaveBeenCalledWith("EventMap.render", sourceError, { sourceId: "mapbox-streets" });
+  });
+
+  it("load 전 개별 타일 403은 일시 오류(즉시 대체 없음)", () => {
+    const onFatalMapError = vi.fn();
+    renderMap({ onFatalMapError });
+    const tileError = Object.assign(new Error("tile 403"), { status: 403 });
+    fireMapError({ error: tileError, tile: { tileID: "1/2/3" }, sourceId: "mapbox-streets" });
+    expect(onFatalMapError).not.toHaveBeenCalled();
   });
 
   it("onFatalMapError 없으면 sourceId 오류도 logClientError만 호출(기존 동작 유지)", () => {
