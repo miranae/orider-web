@@ -179,15 +179,17 @@ describe("Fix 2: 오류 분류 — tile 있으면 일시, sourceId만이면 치�
     expect(logClientError).toHaveBeenCalled();
   });
 
-  it("sourceId만 있는 TileJSON 401 오류 → onFatalMapError 호출(치명)", () => {
+  it("load 전 sourceId 401 오류 → 로그만(타이머 대기, onFatalMapError 즉시 호출 없음)", () => {
     const onFatalMapError = vi.fn();
     renderMap({ onFatalMapError });
 
-    // load 없이 소스 오류 발생 — 소스 메타데이터 인증 실패는 치명
+    // load 전 소스 오류 — 새 설계: 로그만, N초 타이머로 대체
     const sourceError = Object.assign(new Error("TileJSON request failed"), { status: 401 });
     fireMapError({ error: sourceError, sourceId: "mapbox-streets" });
 
-    expect(onFatalMapError).toHaveBeenCalledOnce();
+    // 즉각 치명 호출 없음 — 타이머가 N초 후 처리
+    expect(onFatalMapError).not.toHaveBeenCalled();
+    expect(logClientError).toHaveBeenCalledWith("EventMap.render", sourceError, { sourceId: "mapbox-streets" });
   });
 
   it("onFatalMapError 없으면 sourceId 오류도 logClientError만 호출(기존 동작 유지)", () => {
@@ -203,10 +205,10 @@ describe("Fix 2: 오류 분류 — tile 있으면 일시, sourceId만이면 치�
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Fix 3: 첫 load 전 스타일 fetch 실패만 치명 — 검증 오류·스프라이트 실패는 비치명
+// Fix 3: 첫 load 전 오류는 로그만 — 타이머로 대체, load 오면 취소
 // ═══════════════════════════════════════════════════════════════════════════
-describe("Fix 3: 첫 load 전 스타일 오류 — 스타일 fetch 실패만 치명, 원본 오류 항상 기록", () => {
-  it("load 전 TypeError('Failed to fetch') → onFatalMapError 호출, 원본 오류도 기록", () => {
+describe("Fix 3: 첫 load 전 오류 — 로그만 기록, onFatalMapError 즉시 호출 안 함", () => {
+  it("load 전 TypeError('Failed to fetch') → 원본 오류 기록, onFatalMapError 즉시 호출 안 함", () => {
     const onFatalMapError = vi.fn();
     const onLogError = vi.fn();
     renderMap({ onFatalMapError, onLogError });
@@ -214,36 +216,36 @@ describe("Fix 3: 첫 load 전 스타일 오류 — 스타일 fetch 실패만 치
     const originalError = new TypeError("Failed to fetch");
     fireMapError({ error: originalError });
 
-    expect(onFatalMapError).toHaveBeenCalledOnce();
-    // 치명 처리 전에 원본 오류가 "EventMap.render" 경로로 기록돼야 한다
-    expect(onLogError).toHaveBeenCalledWith("EventMap.render", originalError);
+    // 즉각 치명 없음 — 타이머가 처리
+    expect(onFatalMapError).not.toHaveBeenCalled();
+    expect(onLogError).toHaveBeenCalledWith("EventMap.render", originalError, undefined);
   });
 
-  it("load 전 스타일 404(sprite 메시지 없음) → onFatalMapError 호출, 원본 오류도 기록", () => {
+  it("load 전 스타일 503 → 원본 오류 기록, onFatalMapError 즉시 호출 안 함", () => {
     const onFatalMapError = vi.fn();
     const onLogError = vi.fn();
     renderMap({ onFatalMapError, onLogError });
 
-    const styleError = Object.assign(new Error("Not Found"), { status: 404 });
+    const styleError = Object.assign(new Error("Style request failed"), { status: 503 });
     fireMapError({ error: styleError });
 
-    expect(onFatalMapError).toHaveBeenCalledOnce();
-    expect(onLogError).toHaveBeenCalledWith("EventMap.render", styleError);
+    expect(onFatalMapError).not.toHaveBeenCalled();
+    expect(onLogError).toHaveBeenCalledWith("EventMap.render", styleError, undefined);
   });
 
-  it("load 전 CSS 변수 검증 오류 → 치명 아님, logClientError만 호출", () => {
+  it("load 전 CSS 변수 검증 오류 → logClientError만 호출", () => {
     const onFatalMapError = vi.fn();
     renderMap({ onFatalMapError });
 
-    // CSS 변수(var(--primary-fg)) 색상을 Mapbox가 파싱 실패 — TypeError 아님, status 없음
+    // CSS 변수(var(--primary-fg)) 색상을 Mapbox가 파싱 실패
     const validationError = new Error("Invalid color value: var(--primary-fg)");
     fireMapError({ error: validationError });
 
     expect(onFatalMapError).not.toHaveBeenCalled();
-    expect(logClientError).toHaveBeenCalledWith("EventMap.render", validationError);
+    expect(logClientError).toHaveBeenCalledWith("EventMap.render", validationError, undefined);
   });
 
-  it("load 전 스프라이트 404 → 치명 아님, logClientError만 호출", () => {
+  it("load 전 스프라이트 404 → logClientError만 호출", () => {
     const onFatalMapError = vi.fn();
     renderMap({ onFatalMapError });
 
@@ -251,7 +253,7 @@ describe("Fix 3: 첫 load 전 스타일 오류 — 스타일 fetch 실패만 치
     fireMapError({ error: spriteError });
 
     expect(onFatalMapError).not.toHaveBeenCalled();
-    expect(logClientError).toHaveBeenCalledWith("EventMap.render", spriteError);
+    expect(logClientError).toHaveBeenCalledWith("EventMap.render", spriteError, undefined);
   });
 
   it("onFatalMapError 미제공 시 load 전 TypeError → 크래시 없음, logClientError 호출", () => {
@@ -261,18 +263,15 @@ describe("Fix 3: 첫 load 전 스타일 오류 — 스타일 fetch 실패만 치
     const error = new TypeError("Failed to fetch");
     fireMapError({ error });
 
-    // 치명 콜백 없어도 원본 오류는 기록된다
-    expect(logClientError).toHaveBeenCalledWith("EventMap.render", error);
+    expect(logClientError).toHaveBeenCalledWith("EventMap.render", error, undefined);
   });
 
   it("load 이후 TypeError('Failed to fetch') → 치명 아님(일시 오류)", () => {
     const onFatalMapError = vi.fn();
     renderMap({ onFatalMapError });
 
-    // load 먼저 발생
     fireMapLoad();
 
-    // load 이후 일반 네트워크 오류
     fireMapError({ error: new TypeError("Failed to fetch") });
 
     expect(onFatalMapError).not.toHaveBeenCalled();
@@ -283,7 +282,6 @@ describe("Fix 3: 첫 load 전 스타일 오류 — 스타일 fetch 실패만 치
     const onFatalMapError = vi.fn();
     renderMap({ onFatalMapError });
 
-    // tile 속성이 있으면 개별 타일 실패 → 일시 오류
     fireMapError({ error: new Error("tile failed"), tile: { tileID: "0/0/0" } });
 
     expect(onFatalMapError).not.toHaveBeenCalled();
