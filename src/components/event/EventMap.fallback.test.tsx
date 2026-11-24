@@ -15,12 +15,17 @@ vi.mock("../../utils/mapbox", () => ({
   applyKoreaCyclingStyle: vi.fn(),
 }));
 vi.mock("react-map-gl/mapbox", async () => {
-  const { useEffect } = await import("react");
-  function MockMap({ children, onLoad, onError }: { children: ReactNode; onLoad?: (event: { target: { getCanvas: () => HTMLCanvasElement } }) => void; onError?: (event: Record<string, unknown>) => void }) {
+  const { forwardRef, useEffect, useImperativeHandle } = await import("react");
+  const MockMap = forwardRef(function MockMap(
+    { children, onLoad, onError }: { children: ReactNode; onLoad?: (event: { target: { getCanvas: () => HTMLCanvasElement } }) => void; onError?: (event: Record<string, unknown>) => void },
+    ref: React.ForwardedRef<{ getCanvas: () => HTMLCanvasElement }>,
+  ) {
     map.onError = onError ?? null;
+    // ref를 통해 캔버스 접근을 허용한다 — WebGL 감시가 onLoad 전에 등록되도록
+    useImperativeHandle(ref, () => ({ getCanvas: () => map.canvas! }), []);
     useEffect(() => { onLoad?.({ target: { getCanvas: () => map.canvas! } }); }, []);
     return <div>{children}</div>;
-  }
+  });
   return {
     default: MockMap,
     Source: ({ children }: { children: ReactNode }) => <>{children}</>,

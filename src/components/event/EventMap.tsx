@@ -1,7 +1,7 @@
 import { logClientError } from "../../services/errorLogger";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef, useCallback, useMemo } from "react";
-import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
+import Map, { Source, Layer, Marker, Popup, useMap, type MapRef } from "react-map-gl/mapbox";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../../utils/mapbox";
@@ -249,8 +249,8 @@ type FatalMapKind = "auth" | "webgl_context" | "style";
 
 /** Mapbox 오류가 치명적(대체 필요)이면 종류를 돌려준다. 타일 하나 실패 등 일시 오류는 null이다. */
 function fatalMapboxError(event: { error?: unknown; sourceId?: unknown; tile?: unknown }): { kind: FatalMapKind; status: number | null } | null {
-  // 타일 등 개별 소스 요청 실패(sourceId 있음)는 403이어도 일시 오류다. 스타일·토큰 요청 실패만 치명이다.
-  if (typeof event.sourceId === "string" || event.tile != null) return null;
+  // 타일 단위 요청 실패(tile 있음)만 일시 오류다. sourceId만 있는 소스 메타데이터·TileJSON 오류는 치명이다.
+  if (event.tile != null) return null;
   const e = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
   const status = typeof e.status === "number" && Number.isInteger(e.status) && e.status >= 100 && e.status <= 599 ? e.status : null;
   const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
@@ -285,6 +285,8 @@ export default function EventMap({
   const [dismissedUid, setDismissedUid] = useState<string | null>(null);
   const previousPopupSelection = useRef(selectedUid);
   const fatalErrorLogged = useRef(false);
+  const loadedRef = useRef(false);
+  const [mapInstance, setMapInstance] = useState<MapRef | null>(null);
   const failFatal = useCallback((kind: FatalMapKind, status: number | null) => {
     if (!fatalErrorLogged.current) {
       fatalErrorLogged.current = true;
@@ -296,11 +298,14 @@ export default function EventMap({
   }, [onFatalMapError, onLogError]);
   const handleMapError = useCallback((event: { error?: unknown; sourceId?: unknown; tile?: unknown }) => {
     const fatal = fatalMapboxError(event);
-    // 치명적이지 않은 오류(타일 실패·'Failed to fetch' 등)도 기존처럼 기록한다.
+    // 최초 load 전 타일 외 오류는 스타일 로드 실패로 보고 치명이다(TypeError 등 상태 코드 없음 포함).
+    if (!fatal && !loadedRef.current && event.tile == null) { failFatal("style", null); return; }
+    // 치명적이지 않은 오류(타일 실패·load 이후 일시 네트워크 오류 등)는 기록만 한다.
     if (!fatal) { onLogError("EventMap.render", event.error); return; }
     failFatal(fatal.kind, fatal.status);
   }, [failFatal, onLogError]);
   // WebGL 컨텍스트 손실은 onError가 아니라 캔버스의 webglcontextlost 이벤트로 온다. 제한 시간 안에 복구되지 않으면 대체한다.
+  // 캔버스는 onLoad 이전에도 존재하므로 맵 ref가 세팅되는 즉시(onLoad 전) 감시를 시작한다(Fix 1).
   const failFatalRef = useRef(failFatal);
   useEffect(() => { failFatalRef.current = failFatal; }, [failFatal]);
   const stopContextWatch = useRef<(() => void) | null>(null);
@@ -321,6 +326,11 @@ export default function EventMap({
       canvas.removeEventListener("webglcontextrestored", restored);
     };
   };
+  // 맵 ref가 세팅되면 즉시(onLoad 전) 캔버스에 WebGL 감시 등록한다.
+  useEffect(() => {
+    if (!mapInstance) return;
+    watchContextLoss(mapInstance.getCanvas());
+  }, [mapInstance]);
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
@@ -362,13 +372,14 @@ export default function EventMap({
 
   return (
     <Map
+      ref={setMapInstance}
       mapboxAccessToken={mapboxToken}
       mapStyle={MAP_STYLE}
       initialViewState={DEFAULT_VIEW}
       onLoad={(e) => {
-        try { applyKoreaCyclingStyle(e.target); }
+        loadedRef.current = true;
+        try { applyKoreaCyclingStyle(e.target, onLogError); }
         catch (error) { onLogError("EventMap.style", error); }
-        watchContextLoss(e.target.getCanvas());
       }}
       onError={handleMapError}
       onMoveEnd={onWorldViewport ? ({ viewState }) => onWorldViewport({
