@@ -167,6 +167,9 @@ export function subscribeOperatorSnapshot<T>(
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     clearTimeout(retry);
     retry = undefined;
+    // 재연결을 바로 시작하면 unreachableTimer가 연결 중인 소켓을 Firestore로 버릴 수 있다. 함께 취소한다.
+    clearTimeout(unreachableTimer);
+    unreachableTimer = undefined;
     reconnect(false);
   }
   if (typeof window !== "undefined") window.addEventListener("online", retryNow);
@@ -181,11 +184,17 @@ export function subscribeOperatorSnapshot<T>(
       })]).finally(() => clearTimeout(limit));
     };
     // ID 토큰·App Check 발급 대기 시간은 30초 접속 불가 판정에서 제외한다(소켓 생성부터 잰다).
+    // 발급 실패 시에도 보정이 반드시 적용되도록 try/finally로 감싼다.
     const credentialStartedAt = Date.now();
-    const token = await issue(viewer.getIdToken(forceRefresh || undefined), "ID token");
-    const appCheck = options.appCheck ? await issue(options.appCheck(forceRefresh || undefined), "App Check token") : undefined;
-    if (options.appCheck && !appCheck) throw new Error("Operator snapshot App Check token unavailable");
-    if (unreachableSince !== undefined) unreachableSince += (Date.now() - credentialStartedAt);
+    let token: string;
+    let appCheck: string | null | undefined;
+    try {
+      token = await issue(viewer.getIdToken(forceRefresh || undefined), "ID token");
+      appCheck = options.appCheck ? await issue(options.appCheck(forceRefresh || undefined), "App Check token") : undefined;
+      if (options.appCheck && !appCheck) throw new Error("Operator snapshot App Check token unavailable");
+    } finally {
+      if (unreachableSince !== undefined) unreachableSince += (Date.now() - credentialStartedAt);
+    }
     if (!active || permanent) return;
     closeSocket();
     const startedAt = Date.now();

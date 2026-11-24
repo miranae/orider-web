@@ -451,6 +451,60 @@ describe("operator snapshot stream", () => {
     stop();
   });
 
+  // MAJOR 1 fix: retryNow가 unreachableTimer도 취소해 복구 중 소켓이 Firestore로 버려지지 않는다.
+  it("cancels the unreachable timer when retryNow accelerates a reconnect", async () => {
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback,
+      { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested" }, vi.fn());
+    await flush();
+    // 5회 실패: t=0,1,3,7,15. 5번째 실패(t=15)에서 delay=16s, remaining=15s < 16s → unreachableTimer(t=30) 세팅.
+    for (let i = 0; i < 4; i++) {
+      FakeSocket.latest.end(1006);
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** i);
+      await flush();
+    }
+    FakeSocket.latest.end(1006); // t=15: 16초 백오프 + unreachableTimer(15s 뒤=t=30) 세팅
+    // t=28(13s 뒤)에 online 이벤트. retryNow가 retry와 unreachableTimer를 모두 취소.
+    await vi.advanceTimersByTimeAsync(13_000);
+    window.dispatchEvent(new Event("online"));
+    await flush();
+    // 재연결 소켓에서 open 수신 → unreachableSince 초기화.
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    // t=30 지점이 되어도 Firestore로 가지 않는다(타이머가 취소됐으므로).
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(fallback).not.toHaveBeenCalled();
+    stop();
+  });
+
+  // MAJOR 2 fix: 발급 실패 경로에서도 unreachableSince 보정이 적용된다.
+  it("excludes failed credential issuance time from the 30-second unreachable window", async () => {
+    // 첫 소켓(call 0)은 credentials 즉시 성공 → 소켓 생성 → open 없이 실패 → unreachableSince 세팅.
+    // 이후 두 번(call 1, 2)은 13초 대기 후 발급 실패 → 보정 없이는 t=29s에 1s 타이머 발동 → Firestore.
+    // 보정 있으면 unreachableSince가 발급 시간만큼 밀려 타이머가 발동하지 않는다.
+    let call = 0;
+    const getIdToken = vi.fn(() => {
+      const c = call++;
+      if (c === 1 || c === 2) return new Promise<string>((_, reject) => setTimeout(() => reject(new Error("slow fail")), 13_000));
+      return Promise.resolve("tok");
+    });
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken }, vi.fn(), vi.fn(), fallback, undefined, vi.fn());
+    await flush(); // call 0 성공 → socket 1 생성
+    FakeSocket.latest.end(1006); // socket 1: open 없이 닫힘 → unreachableSince=0, delay=1s
+    await flush();
+    // 1초 백오프 뒤 call 1: 13초 대기 후 실패 → t=14s. 보정 후 unreachableSince=13.
+    await vi.advanceTimersByTimeAsync(1_000 + 13_000); // t=14
+    await flush();
+    expect(fallback).not.toHaveBeenCalled();
+    // 2초 백오프 뒤 call 2: 13초 대기 후 실패 → t=29s. 보정 후 unreachableSince=26.
+    // 보정 없으면 remaining=1s < delay=4s → unreachableTimer 발동 → Firestore.
+    await vi.advanceTimersByTimeAsync(2_000 + 13_000); // t=29
+    await flush();
+    await vi.advanceTimersByTimeAsync(2_000); // t=31 (보정 없었다면 t=30에 Firestore 전환)
+    expect(fallback).not.toHaveBeenCalled();
+    stop();
+  });
+
   // Fix 5: null JSON 프레임은 디코딩 오류로 처리해 Firestore로 넘어간다(P12).
   it("treats a null JSON frame as a decode error and falls back to Firestore", async () => {
     const receive = vi.fn();
