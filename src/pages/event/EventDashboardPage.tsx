@@ -1,4 +1,4 @@
-import { useWorldEvent, type WorldViewport } from "../../features/ride-world/useWorldEvent";
+import { isProductionWorldEventEnabled, useWorldEvent, type WorldViewport } from "../../features/ride-world/useWorldEvent";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -10,7 +10,7 @@ import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, getDoc, getDocs, collection, onSnapshot } from "firebase/firestore";
-import { subscribeOperatorSnapshot } from "./operatorSnapshotStream";
+import { LOCAL_OPERATOR_SNAPSHOT_ENDPOINT, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { loadPrivateSnapshotWithRetry } from "./privateSnapshotPages";
 import { httpsCallable } from "firebase/functions";
@@ -610,20 +610,17 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         setLoading(false);
     };
     const fallback = () => onSnapshot(latestRef, snap => receive(snap.exists() ? snap.data() as SnapshotData : null), snapshotFailed);
-    const useRedis = import.meta.env.DEV && import.meta.env.VITE_ORIDER_OPERATOR_SNAPSHOTS === "1" &&
+    // 출처 단일화(#4049): 월드가 정상이면 화면 전체를 월드가 전달한 Functions 정본 스냅샷으로, 장애면 Firestore onSnapshot으로만 그린다.
+    const localWorld = import.meta.env.DEV && import.meta.env.VITE_ORIDER_OPERATOR_SNAPSHOTS === "1" &&
       isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-");
-    const refreshCanonical = (current: () => boolean) => {
-      void getDoc(latestRef).then(snap => {
-        if (current()) receive(snap.exists() ? snap.data() as SnapshotData : null);
-      }).catch(error => {
-        logClientError("EventDashboard.signalRead", error, { eventId }, services, user);
-        if (current()) snapshotFailed(error);
-      });
-    };
-    const unsub = useRedis && user ? subscribeOperatorSnapshot(
+    const productionWorld = isProductionWorldEventEnabled() && getRuntimeConfig().operatorWorldSnapshotsEnabled === true;
+    const worldOptions = productionWorld
+      ? { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: (refresh?: boolean) => getAppCheckToken(refresh) }
+      : localWorld ? { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT } : null;
+    const unsub = worldOptions && user ? subscribeOperatorSnapshot(
       eventId, user, receive,
       () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))),
-      fallback, refreshCanonical,
+      fallback, worldOptions,
       (source, error, context) => logClientError(source, error, context, services, user),
     ) : fallback();
     return () => { active = false; revision++; unsub(); };
