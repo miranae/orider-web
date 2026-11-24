@@ -19,7 +19,7 @@ function fixture() {
   const git = (...args) => execFileSync("git", args, { cwd: workspace, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   git("init", "-b", "fixture"); git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.test"); git("add", "."); git("commit", "-m", "fixture");
   let health = { status: "ok", exposure: "public", sourceSha: "b".repeat(40), topologyHash: "c".repeat(64) };
-  const calls = [], fetcher = async (url, options) => { calls.push(url); return url.endsWith("/api/v1/profile") ? Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 }) : url.endsWith("/api/strava/webhook") ? new Response("Forbidden", { status: 403 }) : url.endsWith("/readyz") ? Response.json(health) : /\/oriderReadinessMissing[a-f0-9]+$/u.test(url) ? Response.json({ error: "unknown-bundle-function" }, { status: 404 }) : options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } }); };
+  const calls = [], fetcher = async (url, options) => { calls.push(url); return url.endsWith("/api/v1/profile") ? Response.json({ error: { code: "UNAUTHENTICATED" } }, { status: 401 }) : url.endsWith("/api/strava/webhook") ? new Response("Forbidden", { status: 403 }) : url.endsWith("/readyz") ? Response.json(health) : /\/oriderReadinessMissing[a-f0-9]+$/u.test(url) ? Response.json({ error: "unknown-bundle-function" }, { status: 404 }) : options.method === "OPTIONS" ? new Response(null, { status: 204, headers: { "access-control-allow-origin": options.headers.Origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "authorization,content-type,x-firebase-appcheck" } }) : Response.json({ error: url.endsWith("/webHandoffRedeem") || url.endsWith("/socialAuthStart") ? { status: "INVALID_ARGUMENT" } : url.endsWith("/v1/activity-narrative") ? { code: "unauthenticated" } : { status: "UNAUTHENTICATED" } }, { status: url.endsWith("/webHandoffRedeem") || url.endsWith("/socialAuthStart") ? 400 : 401, headers: { "access-control-allow-origin": options.headers.Origin } }); };
   const prepare = (patch = {}) => prepareBundledProduction({ source, workspace, directory, fetcher, backendSourceSha: "b".repeat(40), backendTopologyHash: "c".repeat(64), ...patch });
   const build = runtime => { mkdirSync(resolve(workspace, "dist")); writeFileSync(resolve(workspace, "dist/runtime-config.json"), JSON.stringify(runtime)); };
   return { workspace, directory, prepare, fetcher, calls, build, setHealth: next => { health = next; }, cleanup: () => rmSync(root, { recursive: true, force: true }) };
@@ -86,6 +86,16 @@ test("readiness errors preserve the gateway and HTTP status when the response st
   try {
     const interrupted = new ReadableStream({ start(controller) { controller.error(new Error("stream interrupted")); } });
     await assert.rejects(f.prepare({ fetcher: async () => new Response(interrupted, { status: 503 }) }), /gateway is unavailable at https:\/\/[^ ]+\/readyz HTTP 503/u);
+  } finally { f.cleanup(); }
+});
+test("bundled production accepts the unauthenticated social login start contract and rejects a changed one", async () => {
+  const f = fixture();
+  try {
+    await f.prepare(); f.build(bundledFunctionsConfig(source, "production"));
+    await verifyBundledProduction(f.directory, f.fetcher);
+    await assert.rejects(verifyBundledProduction(f.directory, (url, options) => url.endsWith("/socialAuthStart") && options.method === "POST"
+      ? Promise.resolve(Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401, headers: { "access-control-allow-origin": options.headers.Origin } }))
+      : f.fetcher(url, options)), /bundled callable socialAuthStart rejected unauthenticated browser contract/u);
   } finally { f.cleanup(); }
 });
 test("bundled production rejects a missing social callable before Hosting", async () => {
