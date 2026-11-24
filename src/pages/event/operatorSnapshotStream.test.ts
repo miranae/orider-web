@@ -451,27 +451,49 @@ describe("operator snapshot stream", () => {
     stop();
   });
 
-  // MAJOR 1 fix: retryNow가 unreachableTimer도 취소해 복구 중 소켓이 Firestore로 버려지지 않는다.
-  it("cancels the unreachable timer when retryNow accelerates a reconnect", async () => {
+  // MAJOR 1 fix: retryNow는 unreachableTimer를 취소하지 않는다.
+  // 월드가 여전히 다운이면 t=30에 그대로 Firestore로 전환하고(빠른 전환),
+  // 월드가 복귀하면 open 핸들러에서 타이머를 취소한다(경쟁 조건 없음).
+  it("fires the unreachable timer even when retryNow has accelerated a reconnect", async () => {
     const fallback = vi.fn(() => () => {});
     const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback,
       { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested" }, vi.fn());
     await flush();
-    // 5회 실패: t=0,1,3,7,15. 5번째 실패(t=15)에서 delay=16s, remaining=15s < 16s → unreachableTimer(t=30) 세팅.
+    // 5회 실패: t=0,1,3,7,15. 5번째 실패 후 delay=16s, unreachableTimer=15s(t=30) 세팅.
     for (let i = 0; i < 4; i++) {
       FakeSocket.latest.end(1006);
       await vi.advanceTimersByTimeAsync(1000 * 2 ** i);
       await flush();
     }
-    FakeSocket.latest.end(1006); // t=15: 16초 백오프 + unreachableTimer(15s 뒤=t=30) 세팅
-    // t=28(13s 뒤)에 online 이벤트. retryNow가 retry와 unreachableTimer를 모두 취소.
-    await vi.advanceTimersByTimeAsync(13_000);
+    FakeSocket.latest.end(1006); // t=15: 16초 백오프 + unreachableTimer(t=30) 세팅
+    // t=28s — online 이벤트. retryNow가 재시도만 취소, unreachableTimer는 유지.
+    await vi.advanceTimersByTimeAsync(13_000); // t=28
+    window.dispatchEvent(new Event("online"));
+    await flush(); // 새 소켓 생성, open은 오지 않음(월드 여전히 다운)
+    // t=30s — 타이머 발동. 월드 접속 불가로 Firestore 전환. 연결 타임아웃(t=34)보다 4초 빠름.
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(fallback).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  // retryNow 뒤 open이 오면 open 핸들러가 unreachableTimer를 취소한다.
+  it("does not fall back when the reconnect from retryNow opens before the unreachable timer fires", async () => {
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback,
+      { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested" }, vi.fn());
+    await flush();
+    for (let i = 0; i < 4; i++) {
+      FakeSocket.latest.end(1006);
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** i);
+      await flush();
+    }
+    FakeSocket.latest.end(1006); // t=15: unreachableTimer(t=30) 세팅
+    await vi.advanceTimersByTimeAsync(13_000); // t=28
     window.dispatchEvent(new Event("online"));
     await flush();
-    // 재연결 소켓에서 open 수신 → unreachableSince 초기화.
+    // 새 소켓에서 open 수신(t=29) → open 핸들러가 unreachableTimer 취소 + unreachableSince 초기화.
     FakeSocket.latest.dispatchEvent(new Event("open"));
-    // t=30 지점이 되어도 Firestore로 가지 않는다(타이머가 취소됐으므로).
-    await vi.advanceTimersByTimeAsync(2_000);
+    await vi.advanceTimersByTimeAsync(2_000); // t=31
     expect(fallback).not.toHaveBeenCalled();
     stop();
   });

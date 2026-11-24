@@ -162,14 +162,13 @@ export function subscribeOperatorSnapshot<T>(
     } else scheduleRetry(code);
   };
   // 온라인 복귀·탭 복귀 시 기다리던 재연결을 바로 시도한다.
+  // unreachableTimer는 취소하지 않는다: 월드가 여전히 다운이면 t=30에 그대로 Firestore로 전환하고,
+  // 월드가 복귀하면 open 핸들러에서 타이머를 취소한다.
   function retryNow() {
     if (!active || permanent || !retry) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     clearTimeout(retry);
     retry = undefined;
-    // 재연결을 바로 시작하면 unreachableTimer가 연결 중인 소켓을 Firestore로 버릴 수 있다. 함께 취소한다.
-    clearTimeout(unreachableTimer);
-    unreachableTimer = undefined;
     reconnect(false);
   }
   if (typeof window !== "undefined") window.addEventListener("online", retryNow);
