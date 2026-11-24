@@ -263,6 +263,24 @@ function fatalMapboxError(event: { error?: unknown; sourceId?: unknown; tile?: u
   return null;
 }
 
+/** 스타일 문서 자체를 못 가져온 오류인지 판단한다.
+ * - TypeError (상태 코드 없음): 스타일·토큰 URL 네트워크 실패
+ * - 404 (스프라이트·글리프·이미지·아이콘 메시지 아닌 경우): 스타일 문서 없음
+ * 스타일 검증 오류(CSS 변수 색상 등)·스프라이트·글리프 실패는 false를 반환한다.
+ */
+function isStyleFetchFailure(error: unknown): boolean {
+  if (!error) return false;
+  if (error instanceof TypeError) return true;
+  const e = error as { status?: unknown; message?: unknown };
+  const status = typeof e.status === "number" ? e.status : null;
+  if (status === 404) {
+    const msg = (typeof e.message === "string" ? e.message : "").toLowerCase();
+    if (msg.includes("sprite") || msg.includes("glyph") || msg.includes("icon") || msg.includes("image")) return false;
+    return true;
+  }
+  return false;
+}
+
 export default function EventMap({
   locations,
   selectedUid,
@@ -298,10 +316,16 @@ export default function EventMap({
   }, [onFatalMapError, onLogError]);
   const handleMapError = useCallback((event: { error?: unknown; sourceId?: unknown; tile?: unknown }) => {
     const fatal = fatalMapboxError(event);
-    // 최초 load 전 타일 외 오류는 스타일 로드 실패로 보고 치명이다(TypeError 등 상태 코드 없음 포함).
-    if (!fatal && !loadedRef.current && event.tile == null) { failFatal("style", null); return; }
-    // 치명적이지 않은 오류(타일 실패·load 이후 일시 네트워크 오류 등)는 기록만 한다.
-    if (!fatal) { onLogError("EventMap.render", event.error); return; }
+    if (!fatal) {
+      // 치명적이지 않더라도 원본 오류는 반드시 먼저 기록한다(onFatalMapError 없는 화면에서도 로그 보존).
+      onLogError("EventMap.render", event.error);
+      // 첫 load 전 타일 외 오류 중 스타일 문서를 못 가져온 경우에만 치명으로 전환한다.
+      // 스타일 검증 오류(CSS 변수 등)·스프라이트·글리프 실패는 비치명(로그만).
+      if (!loadedRef.current && event.tile == null && isStyleFetchFailure(event.error)) {
+        failFatal("style", null);
+      }
+      return;
+    }
     failFatal(fatal.kind, fatal.status);
   }, [failFatal, onLogError]);
   // WebGL 컨텍스트 손실은 onError가 아니라 캔버스의 webglcontextlost 이벤트로 온다. 제한 시간 안에 복구되지 않으면 대체한다.
