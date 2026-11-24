@@ -131,3 +131,105 @@ it("빠른 연속 선택 변경으로 응답 대기 구독이 둘 이상이면 s
   act(() => socket.receive({ ...snapshot, revision: 4 }));
   expect(result.current?.track).toBe("rider-c");
 });
+
+it("A 관전 중 B·C를 고르고 C 응답 뒤 D를 고르면 늦게 온 C의 재구독 응답을 D 기준으로 표시하지 않는다", async () => {
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
+  control.services.getAppCheckToken.mockResolvedValue("app-check");
+  const { result, rerender } = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
+    { initialProps: { track: "rider-a" as string | null } });
+  await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+  const socket = FakeSocket.instances[0]!;
+  act(() => socket.open());
+  act(() => socket.receive(snapshot));
+  rerender({ track: "rider-b" });
+  rerender({ track: "rider-c" });
+  act(() => socket.receive({ ...snapshot, revision: 2 })); // B 응답 → 기준 모름, C 재구독
+  act(() => socket.receive({ ...snapshot, revision: 3 })); // 원래 C 응답
+  expect(result.current).toMatchObject({ revision: 3, track: "rider-c" });
+  rerender({ track: "rider-d" });
+  act(() => socket.receive({ ...snapshot, revision: 4 })); // C 재구독 응답(늦게 도착)
+  expect(result.current?.track).not.toBe("rider-d");
+  expect(result.current?.trackUnknown).toBe(true);
+  expect(socket.sent.at(-1)).toMatchObject({ track: "rider-d" });
+});
+
+/** 재현 가능한 의사 난수(mulberry32). */
+function seeded(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+it("무작위 선택 변경·서버 처리 지연·snapshot 합치기에서도 선택 격차 기준은 항상 실제 서버 기준과 같다(속성)", async () => {
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
+  control.services.getAppCheckToken.mockResolvedValue("app-check");
+  const tracks = [null, "rider-a", "rider-b", "rider-c", "rider-d"];
+  for (let seed = 1; seed <= 100; seed++) {
+    FakeSocket.instances = [];
+    const random = seeded(seed);
+    const pick = () => tracks[Math.floor(random() * tracks.length)]!;
+    let selected = pick();
+    const hook = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
+      { initialProps: { track: selected } });
+    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+    const socket = FakeSocket.instances[0]!;
+    act(() => socket.open());
+    // 서버 모형: 받은 구독을 순서대로 처리(일부는 처리 중이라 버림)하고, flush 때 마지막 처리 이후 첫 프레임은 그 기준의
+    // snapshot(사이에 처리한 구독은 합침), 그 밖에는 직전 snapshot 기준의 delta를 보낸다.
+    let received = 0;
+    let serverTrack: string | null | undefined;
+    let needSnapshot = false;
+    let basis: string | null | undefined;
+    let revision = 0;
+    let dropped = false;
+    const processOne = (allowDrop: boolean) => {
+      if (received >= socket.sent.length) return false;
+      const message = socket.sent[received++]!;
+      if (allowDrop && received > 1 && random() < 0.05) { dropped = true; return true; }
+      serverTrack = (message.track as string | null | undefined) ?? null;
+      needSnapshot = true;
+      return true;
+    };
+    const flush = () => {
+      if (needSnapshot) {
+        basis = serverTrack;
+        needSnapshot = false;
+        act(() => socket.receive({ ...snapshot, revision: ++revision }));
+      } else if (basis !== undefined) {
+        act(() => socket.receive({ v: 1, type: "event_delta", eventId: "meeting", revision: ++revision, updatedAt: revision, viewers: revision }));
+      } else return;
+      const frame = hook.result.current;
+      if (frame && !frame.trackUnknown) {
+        // 기준을 안다고 표시한 프레임의 track은 실제 서버 기준이다. 따라서 선택 격차를 보이는(track이 현재 선택과 같은) 때는
+        // 항상 현재 선택 기준이다.
+        expect({ seed, track: frame.track }).toEqual({ seed, track: basis });
+        if (frame.track === selected) expect({ seed, basis }).toEqual({ seed, basis: selected });
+      }
+    };
+    for (let step = 0; step < 40; step++) {
+      const roll = random();
+      if (roll < 0.3) {
+        selected = pick();
+        hook.rerender({ track: selected });
+      } else if (roll < 0.55) processOne(true);
+      else if (roll < 0.65) while (processOne(true));
+      else flush();
+    }
+    if (!dropped) {
+      // 끝까지 처리하면 현재 선택 기준으로 수렴한다.
+      for (let round = 0; round < 100 && (received < socket.sent.length || needSnapshot); round++) {
+        while (processOne(false));
+        flush();
+      }
+      flush();
+      expect({ seed, frame: hook.result.current }).toMatchObject({ seed, frame: { track: selected } });
+      expect(hook.result.current?.trackUnknown).toBeUndefined();
+    }
+    hook.unmount();
+  }
+}, 60000);

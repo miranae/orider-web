@@ -152,16 +152,16 @@ export function useWorldEvent(
           connection.close();
         }, 3000);
         let latest: WorldEventFrame | null = null;
-        // track을 바꿔 다시 구독하면 서버가 새 event_snapshot을 보낸다(구독마다 최대 1개, track 에코 없음). 그 전 delta는
-        // 이전 선택 기준이다. 응답을 기다리는 구독이 둘 이상일 때 온 snapshot은 어느 요청의 것인지 모르므로 선택 격차를
-        // 쓰지 않고 현재 선택으로 한 번 더 구독해 짝을 맞춘다.
-        let subscribedTrack: string | null = null;
-        let pendingSubscribes = 0;
+        // track을 바꿔 다시 구독하면 서버가 새 event_snapshot을 보낸다(track 에코 없음). 그 전 delta는 이전 선택 기준이다.
+        // 서버는 구독을 순서대로 처리하되 다음 flush 전에 온 구독들을 snapshot 하나로 합칠 수 있어서, snapshot 하나는 대기 큐
+        // 앞쪽의 하나 이상 구독에 대한 응답이고 그 선택 기준은 큐에 남은 track 중 하나다. 그래서 snapshot마다 큐 앞에서 하나만
+        // 지우고(실제로 답한 수 이하), 큐에 남은 track이 모두 현재 선택과 같을 때만 선택 격차를 믿는다. 그 밖에는 기준을
+        // 모른다고 표시하고 현재 선택으로 다시 구독한다.
+        const pendingTracks: (string | null)[] = [];
         const subscribe = () => {
           if (disposed || socket !== connection || connection.readyState !== WebSocket.OPEN) return;
           try {
-            subscribedTrack = options.current.track ?? null;
-            pendingSubscribes++;
+            pendingTracks.push(options.current.track ?? null);
             connection.send(JSON.stringify({ v: 1, type: "event_subscribe", eventId: event, token, ...(appCheck ? { appCheck } : {}), guest: !identity && allowGuest, viewerSessionId, signalOnly, signalTopic, ...options.current }));
           } catch (error) {
             report("RideWorld.subscribeEvent", error, { eventId: event });
@@ -209,11 +209,13 @@ export function useWorldEvent(
             if (frame.revision <= (latest?.revision ?? 0)) return;
             if (frame.type === "event_snapshot" && Array.isArray(frame.markers) && Array.isArray(frame.roster)) {
               clearTimeout(initial);
-              const ambiguous = pendingSubscribes > 1;
-              pendingSubscribes = 0;
-              latest = ambiguous ? { ...frame, track: null, trackUnknown: true } : { ...frame, track: subscribedTrack };
+              const current = options.current.track ?? null;
+              const known = pendingTracks.length > 0 && pendingTracks.every((pending) => pending === current);
+              pendingTracks.shift();
+              latest = known ? { ...frame, track: current } : { ...frame, track: null, trackUnknown: true };
               hasFrame = true;
-              if (ambiguous) subscribe();
+              // 합쳐진 응답으로 큐에 답 없는 항목이 남아도 멈추지 않도록, 기준을 모르는 snapshot마다 한 번씩 다시 구독한다.
+              if (!known) subscribe();
             } else if (frame.type === "event_delta") {
               if (!latest || frame.revision !== latest.revision + 1) {
                 report("RideWorld.deltaGap", new Error("World delta has no matching snapshot revision"), { eventId: event });
