@@ -11,10 +11,19 @@ import { logClientError } from './errorLogger';
  * 예전에는 null 만 허용해 기준값이 실린 페이지 전체를 거부했고, 홈 활동 목록이 "활동을 불러오지 못했어요"로
  * 막혔다(2026-11-24). 화면은 이 값을 쓰지 않으므로 형태만 확인한다.
  */
+// 기준값은 활동을 볼 수 있는 모든 뷰어에게 같은 모양으로 온다(P1, 2026-11-24): 수치 3종은 숫자/null,
+// ftpRevision 은 문자열/null, ftpSource 는 열거값/null. 모르는 키는 원시값이면 통과시켜 서버 필드 추가에 목록 전체가 깨지지 않게 한다.
+const THRESHOLD_NUMBER_KEYS = new Set(['ftp', 'maxHr', 'lthr']);
+const FTP_SOURCES = new Set(['user', 'pdc_estimate', 'none']);
 function isThresholdBasis(value: unknown): boolean {
   if (value === null) return true;
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Object.values(value).every(v => typeof v === 'number' && Number.isFinite(v));
+  return Object.entries(value).every(([key, v]) => {
+    if (THRESHOLD_NUMBER_KEYS.has(key)) return v === null || typeof v === 'number' && Number.isFinite(v);
+    if (key === 'ftpRevision') return v === null || typeof v === 'string';
+    if (key === 'ftpSource') return v === null || typeof v === 'string' && FTP_SOURCES.has(v);
+    return v === null || ['number', 'string', 'boolean'].includes(typeof v);
+  });
 }
 export type { ActivityDiscoveryRequest } from '@shared/activity-discovery';
 export type DiscoveryActivity = Activity & { discoveryFacts: ActivityDiscoveryItem['activity']['effectiveFacts']; activityRevision: string };
