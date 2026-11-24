@@ -5,6 +5,10 @@ export const LOCAL_OPERATOR_SNAPSHOT_ENDPOINT = "ws://127.0.0.1:19494/operator-s
 export const PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT = "wss://world.orider.co.kr/operator-snapshots";
 /** 첫 세대(모든 페이지)를 기다리는 시간. 월드는 5초 안에 못 보내면 1013으로 닫는다. */
 export const OPERATOR_SNAPSHOT_FIRST_FRAME_MS = 6000;
+/** 연결 시도(핸드셰이크 포함)부터 open까지의 제한 시간. 넘으면 개인 연결 문제로 보고 임시 Firestore 표시 후 재연결한다. */
+export const OPERATOR_SNAPSHOT_CONNECT_MS = 6000;
+/** ID 토큰·App Check 발급 대기 상한. 연결 제한 시간에는 넣지 않지만 발급이 멈추면 발급 실패와 같이 처리한다. */
+export const OPERATOR_SNAPSHOT_CREDENTIAL_MS = 15_000;
 
 interface Frame {
   v: number;
@@ -48,7 +52,8 @@ export function subscribeOperatorSnapshot<T>(
   viewer: Viewer,
   receive: (snapshot: T | null) => void,
   denied: () => void,
-  fallback: () => () => void,
+  /** Firestore 표시를 시작한다. 넘겨받은 `show`로 화면에 그려야 월드 복귀 시 더 오래된 세대로 되돌아가지 않는다. */
+  fallback: (show: (snapshot: T | null) => void) => () => void,
   options: OperatorSnapshotOptions = { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT },
   report: typeof logClientError = logClientError,
 ): () => void {
@@ -65,6 +70,8 @@ export function subscribeOperatorSnapshot<T>(
   // 위치 공개 철회(snapshot: null) 때 넘겼거나 조립 중이던 세대. 이 버전 이하는 다시 그리지 않는다.
   let revokedThrough: string | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
+  // 임시 Firestore 표시 중 화면에 있는 스냅샷의 생성 시각. 월드 세대가 이보다 오래되면 전환하지 않는다.
+  let fallbackTimestamp: number | undefined;
   const detach = () => {
     if (typeof window !== "undefined") window.removeEventListener("online", retryNow);
     if (typeof document !== "undefined") document.removeEventListener("visibilitychange", retryNow);
@@ -77,7 +84,16 @@ export function subscribeOperatorSnapshot<T>(
   const showFallback = () => {
     if (stopFallback) return true;
     receive(null);
-    try { stopFallback = fallback(); return true; }
+    fallbackTimestamp = undefined;
+    try {
+      const stop = fallback(snapshot => {
+        const timestamp = isObject(snapshot) ? snapshot.timestamp : undefined;
+        fallbackTimestamp = Number.isSafeInteger(timestamp) ? timestamp as number : undefined;
+        receive(snapshot);
+      });
+      stopFallback = () => { fallbackTimestamp = undefined; stop(); };
+      return true;
+    }
     catch (error) {
       report("operatorSnapshotStream.fallback", error, { eventId });
       active = false;
@@ -138,14 +154,27 @@ export function subscribeOperatorSnapshot<T>(
 
   const connect = async (forceRefresh: boolean) => {
     clearTimeout(timeout);
-    const token = await viewer.getIdToken(forceRefresh || undefined);
-    const appCheck = options.appCheck ? await options.appCheck(forceRefresh || undefined) : undefined;
+    const issue = <V>(pending: Promise<V>, what: string) => {
+      let limit: ReturnType<typeof setTimeout> | undefined;
+      return Promise.race([pending, new Promise<never>((_, reject) => {
+        limit = setTimeout(() => reject(new Error(`Operator snapshot ${what} timed out`)), OPERATOR_SNAPSHOT_CREDENTIAL_MS);
+      })]).finally(() => clearTimeout(limit));
+    };
+    const token = await issue(viewer.getIdToken(forceRefresh || undefined), "ID token");
+    const appCheck = options.appCheck ? await issue(options.appCheck(forceRefresh || undefined), "App Check token") : undefined;
     if (options.appCheck && !appCheck) throw new Error("Operator snapshot App Check token unavailable");
     if (!active || permanent) return;
     closeSocket();
     const connection = new WebSocket(options.endpoint);
     socket = connection;
     let assembling: { version: string; total: number; pages: Frame[] } | undefined;
+    // 핸드셰이크가 멈추면 open이 오지 않으므로 연결 시도부터 제한 시간을 둔다(토큰 발급 대기는 제외).
+    timeout = setTimeout(() => {
+      if (!active || permanent || socket !== connection) return;
+      report("operatorSnapshotStream.connectTimeout", new Error("Operator snapshot connection timed out"), { eventId });
+      closeSocket();
+      if (showFallback()) scheduleRetry();
+    }, OPERATOR_SNAPSHOT_CONNECT_MS);
     connection.addEventListener("open", () => {
       if (!active || permanent || socket !== connection) return;
       try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token, ...(appCheck ? { appCheck } : {}) })); }
@@ -196,12 +225,16 @@ export function subscribeOperatorSnapshot<T>(
         if (assembling.pages.filter(Boolean).length !== pages) return;
         const [head, ...rest] = assembling.pages;
         assembling = undefined;
-        deliveredVersion = version;
         clearTimeout(timeout);
         refreshed = false;
         reconnects = 0;
-        // 임시 Firestore 표시 중이었다면 첫 완성 세대로 월드로 되돌아간다(전환 순간 덮어쓰기).
-        if (stopFallback) { stopFallback(); stopFallback = undefined; }
+        // 임시 Firestore 표시 중이었다면 화면의 Firestore 스냅샷보다 새롭거나 같은 완성 세대가 왔을 때만 월드로 되돌아간다.
+        if (stopFallback) {
+          if (fallbackTimestamp !== undefined && (head!.snapshot!.timestamp as number) < fallbackTimestamp) return;
+          stopFallback();
+          stopFallback = undefined;
+        }
+        deliveredVersion = version;
         receive({ ...head!.snapshot, locations: [head!, ...rest].flatMap(part => part.snapshot!.locations!) } as T);
       } catch (error) {
         report("operatorSnapshotStream.decode", error, { eventId });

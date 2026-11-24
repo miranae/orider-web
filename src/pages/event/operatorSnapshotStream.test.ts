@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS, OPERATOR_SNAPSHOT_RECONNECT_LIMIT, OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
+import { OPERATOR_SNAPSHOT_CONNECT_MS, OPERATOR_SNAPSHOT_CREDENTIAL_MS, OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS, OPERATOR_SNAPSHOT_RECONNECT_LIMIT, OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
 
 class FakeSocket extends EventTarget {
   static CLOSING = 2;
@@ -22,7 +22,7 @@ class FakeSocket extends EventTarget {
   }
 }
 
-const flush = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
+const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 
 describe("operator snapshot stream", () => {
   beforeEach(() => { FakeSocket.all = []; vi.useFakeTimers(); vi.stubGlobal("WebSocket", FakeSocket); });
@@ -78,7 +78,7 @@ describe("operator snapshot stream", () => {
     expect(fallback).not.toHaveBeenCalled();
     issue("id-token");
     await flush();
-    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS * 2);
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_CONNECT_MS - 1);
     expect(fallback).not.toHaveBeenCalled();
     FakeSocket.latest.dispatchEvent(new Event("open"));
     await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS - 1);
@@ -228,6 +228,7 @@ describe("operator snapshot stream", () => {
     subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback);
     await flush();
     const socket = FakeSocket.latest;
+    socket.dispatchEvent(new Event("open"));
     socket.page("official", "002", 0, 2, { timestamp: 2, counts: {}, checkpoints: [], locations: [{ uid: "old-a" }] });
     socket.page("official", "003", 0, 2, { timestamp: 3, counts: {}, checkpoints: [], locations: [{ uid: "new-a" }] });
     socket.page("official", "002", 1, 2, { locations: [{ uid: "old-b" }] });
@@ -238,5 +239,66 @@ describe("operator snapshot stream", () => {
     expect(receive).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS * 2);
     expect(fallback).not.toHaveBeenCalled();
+  });
+
+  // 핸드셰이크가 멈춰 open이 오지 않아도 연결 제한 시간이 지나면 임시 Firestore로 보이고 백오프로 다시 연결한다.
+  it("shows Firestore temporarily and reconnects when the WebSocket handshake stalls before open", async () => {
+    const report = vi.fn();
+    const stopFallback = vi.fn();
+    const fallback = vi.fn(() => stopFallback);
+    subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback, undefined, report);
+    await flush();
+    const stalled = FakeSocket.latest;
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_CONNECT_MS - 1);
+    expect(fallback).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(stalled.close).toHaveBeenCalled();
+    expect(report).toHaveBeenCalledWith("operatorSnapshotStream.connectTimeout", expect.any(Error), { eventId: "official" });
+    await vi.advanceTimersByTimeAsync(1000);
+    await flush();
+    expect(FakeSocket.all).toHaveLength(2);
+    // 늦게 온 이전 소켓의 close는 무시한다.
+    stalled.end(1006);
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    FakeSocket.latest.page("official", "001", 0, 1, { timestamp: 1, counts: {}, checkpoints: [], locations: [] });
+    expect(stopFallback).toHaveBeenCalledTimes(1);
+    expect(FakeSocket.all).toHaveLength(2);
+  });
+
+  it("caps credential issuance and treats a stalled token as an issuance failure", async () => {
+    const report = vi.fn();
+    const fallback = vi.fn(() => () => {});
+    subscribeOperatorSnapshot("official", { getIdToken: () => new Promise<string>(() => {}) }, vi.fn(), vi.fn(), fallback, undefined, report);
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_CREDENTIAL_MS - 1);
+    expect(fallback).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith("operatorSnapshotStream.connect", expect.any(Error), { eventId: "official" });
+    expect(FakeSocket.all).toHaveLength(0);
+  });
+
+  it("returns to the world only with a generation at least as new as the Firestore snapshot on screen", async () => {
+    const receive = vi.fn();
+    const stopFallback = vi.fn();
+    let show: (snapshot: unknown) => void = () => {};
+    const fallback = vi.fn((display: (snapshot: unknown) => void) => { show = display; return stopFallback; });
+    subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback, undefined, vi.fn());
+    await flush();
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_CONNECT_MS);
+    expect(fallback).toHaveBeenCalledTimes(1);
+    show({ timestamp: 20, counts: {}, checkpoints: [], locations: [{ uid: "firestore" }] });
+    expect(receive).toHaveBeenLastCalledWith({ timestamp: 20, counts: {}, checkpoints: [], locations: [{ uid: "firestore" }] });
+    await vi.advanceTimersByTimeAsync(1000);
+    await flush();
+    const socket = FakeSocket.latest;
+    socket.dispatchEvent(new Event("open"));
+    socket.page("official", "019", 0, 1, { timestamp: 19, counts: {}, checkpoints: [], locations: [{ uid: "old" }] });
+    expect(stopFallback).not.toHaveBeenCalled();
+    expect(receive).toHaveBeenLastCalledWith({ timestamp: 20, counts: {}, checkpoints: [], locations: [{ uid: "firestore" }] });
+    socket.page("official", "020", 0, 1, { timestamp: 20, counts: {}, checkpoints: [], locations: [{ uid: "world" }] });
+    expect(stopFallback).toHaveBeenCalledTimes(1);
+    expect(receive).toHaveBeenLastCalledWith({ timestamp: 20, counts: {}, checkpoints: [], locations: [{ uid: "world" }] });
   });
 });

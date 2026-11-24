@@ -611,7 +611,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         setSnapshotError(err.message ?? t("dashboard.errorLoadSnapshot"));
         setLoading(false);
     };
-    const fallback = () => onSnapshot(latestRef, snap => receive(snap.exists() ? snap.data() as SnapshotData : null), snapshotFailed);
+    const fallback = (show: (data: SnapshotData | null) => void = receive) => onSnapshot(latestRef, snap => show(snap.exists() ? snap.data() as SnapshotData : null), snapshotFailed);
     // 출처 단일화(#4049): 월드가 정상이면 화면 전체를 월드가 전달한 Functions 정본 스냅샷으로, 장애면 Firestore onSnapshot으로만 그린다.
     const localWorld = import.meta.env.DEV && import.meta.env.VITE_ORIDER_OPERATOR_SNAPSHOTS === "1" &&
       isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-");
