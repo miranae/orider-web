@@ -47,6 +47,8 @@ export function subscribeOperatorSnapshot<T>(
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let refreshed = false;
   let reconnects = 0;
+  // 마지막으로 화면에 넘긴 세대. 버전은 0으로 채운 스냅샷 시각이라 문자열 비교가 시간 순서와 같다.
+  let deliveredVersion: string | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
   const useFallback = () => {
     if (!active || stopFallback) return;
@@ -101,12 +103,17 @@ export function subscribeOperatorSnapshot<T>(
             pages! < 1 || page! < 0 || page! >= pages! || !frame.snapshot || !Array.isArray(frame.snapshot.locations)) {
           throw new Error("Invalid operator snapshot page");
         }
+        // 이미 넘긴 세대나 조립 중인 세대보다 오래된 페이지는 버린다. 더 새로운 세대가 오면 그 세대로 바꾼다.
+        // (같은 세대 재전송은 재연결 직후의 최신 세대일 수 있으므로 다시 조립한다.)
+        if (deliveredVersion !== undefined && version < deliveredVersion) return;
+        if (assembling && version < assembling.version) return;
         if (assembling?.version !== version) assembling = { version, total: pages!, pages: [] };
         if (assembling.total !== pages) throw new Error("Inconsistent operator snapshot page count");
         assembling.pages[page!] = frame;
         if (assembling.pages.filter(Boolean).length !== pages) return;
         const [head, ...rest] = assembling.pages;
         assembling = undefined;
+        deliveredVersion = version;
         clearTimeout(timeout);
         refreshed = false;
         reconnects = 0;

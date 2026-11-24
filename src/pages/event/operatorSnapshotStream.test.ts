@@ -135,4 +135,22 @@ describe("operator snapshot stream", () => {
     expect(fallback).toHaveBeenCalledTimes(1);
     expect(receive).toHaveBeenLastCalledWith(null);
   });
+
+  it("ignores pages of an older generation that arrive interleaved with a newer one", async () => {
+    const receive = vi.fn();
+    const fallback = vi.fn(() => () => {});
+    subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback);
+    await flush();
+    const socket = FakeSocket.latest;
+    socket.page("official", "002", 0, 2, { timestamp: 2, counts: {}, checkpoints: [], locations: [{ uid: "old-a" }] });
+    socket.page("official", "003", 0, 2, { timestamp: 3, counts: {}, checkpoints: [], locations: [{ uid: "new-a" }] });
+    socket.page("official", "002", 1, 2, { locations: [{ uid: "old-b" }] });
+    socket.page("official", "003", 1, 2, { locations: [{ uid: "new-b" }] });
+    expect(receive).toHaveBeenCalledTimes(1);
+    expect(receive).toHaveBeenLastCalledWith({ timestamp: 3, counts: {}, checkpoints: [], locations: [{ uid: "new-a" }, { uid: "new-b" }] });
+    socket.page("official", "002", 0, 1, { timestamp: 2, counts: {}, checkpoints: [], locations: [] });
+    expect(receive).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS * 2);
+    expect(fallback).not.toHaveBeenCalled();
+  });
 });
