@@ -326,6 +326,9 @@ export default function EventMap({
       }
       return;
     }
+    // 치명 오류도 원본 오류와 실패한 소스를 먼저 기록한다. onFatalMapError가 없는 화면(클럽 모임 관전 등)에서도
+    // 어떤 소스 요청이 실패했는지 확인할 수 있어야 한다(P12).
+    onLogError("EventMap.render", event.error, typeof event.sourceId === "string" ? { sourceId: event.sourceId } : undefined);
     failFatal(fatal.kind, fatal.status);
   }, [failFatal, onLogError]);
   // WebGL 컨텍스트 손실은 onError가 아니라 캔버스의 webglcontextlost 이벤트로 온다. 제한 시간 안에 복구되지 않으면 대체한다.
