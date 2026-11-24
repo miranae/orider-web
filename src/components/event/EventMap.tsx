@@ -299,12 +299,12 @@ export default function EventMap({
   const handleMapError = useCallback((event: { error?: unknown; sourceId?: unknown; tile?: unknown }) => {
     // 원본 오류와 실패한 소스를 항상 먼저 기록한다. onFatalMapError 없는 화면(관전 등)에서도 P12 로그 보존.
     onLogError("EventMap.render", event.error, typeof event.sourceId === "string" ? { sourceId: event.sourceId } : undefined);
-    // load 전 오류는 로그만. N초 타이머가 load 없으면 대체 지도로 전환한다.
-    if (!loadedRef.current) return;
-    // load 이후: 인증 실패(401·403)만 치명으로 본다. 타일 개별 실패·기타 오류는 일시 오류.
+    // 스타일·소스(TileJSON) 인증 실패(401·403, 개별 타일 제외)는 load 전후와 관계없이 치명이다.
+    // load 전에 실패한 뒤 Mapbox가 load를 보내도 배경이 빈 지도로 남으므로 타이머를 기다리지 않는다(토큰 만료·교체).
     const fatal = fatalMapboxError(event);
-    if (!fatal) return;
-    failFatal(fatal.kind, fatal.status);
+    if (fatal) { failFatal(fatal.kind, fatal.status); return; }
+    // 그 밖의 load 전 오류는 로그만 남기고, load가 N초 안에 오지 않으면 타이머가 대체 지도로 전환한다.
+    // load 이후의 기타 오류는 일시 오류다.
   }, [failFatal, onLogError]);
   // WebGL 컨텍스트 손실은 onError가 아니라 캔버스의 webglcontextlost 이벤트로 온다. 제한 시간 안에 복구되지 않으면 대체한다.
   // 캔버스는 onLoad 이전에도 존재하므로 맵 ref가 세팅되는 즉시(onLoad 전) 감시를 시작한다(Fix 1).
