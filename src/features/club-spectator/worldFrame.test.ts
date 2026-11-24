@@ -119,6 +119,35 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     const fromWorld = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", lng: 0, lon: 126.99, ...progress(2500, 40)}]), now);
     expect(retainWorldPositions(fromWorld, server, false).locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.99, sampledAtMs: now, progressM: 2400, gapToLeaderM: 300});
   });
+  it("위치 표본이 멈춘 뒤 폴백 콜러블이 갱신한 진행·격차를 delta에 남은 같은 마커가 되돌리지 않는다(P11)", () => {
+    const stale = frame([{uid: "rider-two", lat: 37.525, lon: 126.98, ...progress(2500, 40)}]);
+    const fromWorld = applyWorldFrame(spectatorFixture(now), stale, now);
+    // 콜러블은 Firestore 표본(월드보다 이름)으로 선두 변경을 반영한 최신 격차를 준다.
+    const server = spectatorFixture(now);
+    server.locations = server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now - 1000, progressM: 2400, gapToLeaderM: 300} : r);
+    const merged = retainWorldPositions(fromWorld, server, false);
+    expect(merged.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2400, gapToLeaderM: 300});
+    // 시청자 수만 바뀐 delta도 같은 마커를 담아 다시 온다. 커버 여부와 관계없이 같은 표본은 다시 적용하지 않는다.
+    const viewersOnly = {...stale, type: "event_delta" as const, revision: 2, viewers: 3};
+    expect(applyWorldFrame(merged, viewersOnly, now + 5000)).toBe(merged);
+    expect(applyWorldFrame(merged, viewersOnly, now + 5000, false)).toBe(merged);
+    // 콜러블 표본이 월드 표본과 같아도 콜러블 값을 같은 표본의 월드 마커로 되돌리지 않는다.
+    const sameSample = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now} : r)};
+    const mergedSame = retainWorldPositions(fromWorld, sameSample);
+    expect(mergedSame.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2400, gapToLeaderM: 300});
+    expect(applyWorldFrame(mergedSame, viewersOnly, now + 5000)).toBe(mergedSame);
+    // 엄격히 더 최신인 표본이 오면 다시 월드 진행·격차를 쓴다.
+    const fresh = applyWorldFrame(merged, frame([{uid: "rider-two", capturedAt: now + 1000, ...progress(2550, 20)}]), now + 5000);
+    expect(fresh.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now + 1000, progressM: 2550, gapToLeaderM: 20});
+  });
+  it("폴백(월드 미커버) 중에는 월드 마커가 위치만 옮기고 진행·격차는 덮지 않는다", () => {
+    const base = spectatorFixture(now);
+    const next = applyWorldFrame(base, frame([{uid: "rider-two", lat: 37.525, lon: 126.98, ...progress(2500, 40, 30)}]), now, false);
+    expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, sampledAtMs: now, progressM: 2280, gapToLeaderM: 120, progressSampledAtMs: now - 3000});
+    // 같은 표본이 선두 이동으로 다시 와도 폴백 중에는 격차를 바꾸지 않는다.
+    const first = applyWorldFrame(base, frame([{uid: "rider-two", ...progress(2500, 40)}]), now);
+    expect(applyWorldFrame(first, frame([{uid: "rider-two", ...progress(2500, 90)}]), now, false)).toBe(first);
+  });
   it("위치가 없던 참가자를 서버 필드 없는 마커로 추가해도 콜러블의 진행·격차를 덮지 않는다", () => {
     const added = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-four"}]), now);
     expect(added.locations.find(r => r.uid === "rider-four")).toMatchObject({progressM: null, progressSampledAtMs: 0});

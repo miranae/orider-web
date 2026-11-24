@@ -205,7 +205,8 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
       if (old.scope !== scope || !old.data) return old;
       // 화면 시각은 serverNowMs + 경과 시간이므로 둘을 함께 옮겨 서버 기준 시각이 되돌아가지 않게 한다.
       const serverNowMs = old.data.serverNowMs + Math.max(0, now - old.receivedAt);
-      const data = applyWorldFrame(old.data, world, serverNowMs);
+      // 폴백(월드 미커버) 중에는 월드 delta가 콜러블이 갱신한 진행·격차를 덮지 않는다(P11).
+      const data = applyWorldFrame(old.data, world, serverNowMs, worldCoversRef.current);
       return data === old.data ? old : {...old, data: {...data, serverNowMs}, receivedAt: now};
     });
   }, [world, worldViews, scope]);
