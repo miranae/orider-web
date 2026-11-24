@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { User } from "firebase/auth";
 import { isProductionWorldEventEnabled, TRACK_RETRY_LIMIT, TRACK_RETRY_MS, useWorldEvent } from "./useWorldEvent";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
+import { logClientError } from "../../services/errorLogger";
 
 const control = vi.hoisted(() => ({
   services: { getAppCheckToken: vi.fn(async (_force?: boolean) => "app-check" as string | null) },
@@ -190,6 +191,41 @@ it("선택 변경 응답이 오지 않으면 재전송은 상한에서 멈춘다
   expect(socket.sent.slice(2).every((message) => message.track === "rider-b")).toBe(true);
 });
 
+it("재전송 상한 뒤 한 간격을 더 기다려 여전히 미확인일 때만 track-confirm-exhausted를 기록한다(#1865)", async () => {
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
+  control.services.getAppCheckToken.mockResolvedValue("app-check");
+  const exhausted = () => vi.mocked(logClientError).mock.calls.filter(([source]) => source === "ride-world.event.trackConfirm");
+  const { result, rerender } = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
+    { initialProps: { track: "rider-a" as string | null } });
+  await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+  vi.useFakeTimers();
+  const socket = FakeSocket.instances[0]!;
+  act(() => socket.open());
+  act(() => socket.receive(snapshot));
+  // 서버가 B 구독을 버려 응답이 없다. 상한까지 재전송한 직후에는 아직 기록하지 않는다.
+  rerender({ track: "rider-b" });
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS * TRACK_RETRY_LIMIT); });
+  expect(socket.sent).toHaveLength(2 + TRACK_RETRY_LIMIT);
+  expect(exhausted()).toHaveLength(0);
+  // 마지막 재구독의 응답이 한 간격 안에 오면 정상 복구로 보고 기록하지 않는다.
+  act(() => socket.receive({ ...snapshot, revision: 2 }));
+  for (let i = 0; i < TRACK_RETRY_LIMIT; i++) act(() => socket.receive({ ...snapshot, revision: 3 + i }));
+  expect(result.current).toMatchObject({ track: "rider-b" });
+  expect(result.current?.trackUnknown).toBeUndefined();
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS * 5); });
+  expect(exhausted()).toHaveLength(0);
+  // 다시 응답이 끊기면 상한 뒤 한 간격이 지나도 미확인일 때만 한 번 기록하고 더 보내지 않는다.
+  rerender({ track: "rider-c" });
+  const sentBefore = socket.sent.length;
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS * TRACK_RETRY_LIMIT); });
+  expect(exhausted()).toHaveLength(0);
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS); });
+  expect(exhausted()).toHaveLength(1);
+  act(() => { vi.advanceTimersByTime(TRACK_RETRY_MS * 10); });
+  expect(exhausted()).toHaveLength(1);
+  expect(socket.sent).toHaveLength(sentBefore + TRACK_RETRY_LIMIT);
+});
+
 /** 재현 가능한 의사 난수(mulberry32). */
 function seeded(seed: number) {
   let state = seed >>> 0;
@@ -211,10 +247,12 @@ it("무작위 선택 변경·서버 처리 지연·구독 버림·snapshot 합�
     const random = seeded(seed);
     const pick = () => tracks[Math.floor(random() * tracks.length)]!;
     let selected = pick();
+    // 첫 프레임 제한(3초) 타이머까지 가짜 시간으로 만들고, 시간은 첫 snapshot을 받은 뒤에만 흐르게 해 재연결 없이 한 소켓에서 검증한다.
+    vi.useFakeTimers();
     const hook = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
       { initialProps: { track: selected } });
-    await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
-    vi.useFakeTimers();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(FakeSocket.instances).toHaveLength(1);
     const socket = FakeSocket.instances[0]!;
     act(() => socket.open());
     // 서버 모형: 받은 구독을 순서대로 처리(일부는 처리 중이라 버림)하고, flush 때 마지막 처리 이후 첫 프레임은 그 기준의
@@ -256,7 +294,7 @@ it("무작위 선택 변경·서버 처리 지연·구독 버림·snapshot 합�
       } else if (roll < 0.5) processOne(true);
       else if (roll < 0.6) while (processOne(true));
       else if (roll < 0.9) flush();
-      else act(() => { vi.advanceTimersByTime(Math.floor(random() * 4000)); }); // 시간 경과(재전송 타이머)
+      else if (basis !== undefined) act(() => { vi.advanceTimersByTime(Math.floor(random() * 4000)); }); // 시간 경과(재전송 타이머)
     }
     // 버려진 구독이 있어도 서버가 끝까지 처리하고 시간이 흐르면 재전송으로 현재 선택 기준에 수렴한다.
     const converged = () => hook.result.current?.track === selected && hook.result.current.trackUnknown === undefined;
@@ -267,6 +305,8 @@ it("무작위 선택 변경·서버 처리 지연·구독 버림·snapshot 합�
     }
     expect({ seed, frame: hook.result.current }).toMatchObject({ seed, frame: { track: selected } });
     expect(hook.result.current?.trackUnknown).toBeUndefined();
+    // 첫 프레임 제한으로 재연결되지 않았다(재연결되면 이 서버 모형의 응답이 무시된다).
+    expect({ seed, sockets: FakeSocket.instances.length }).toEqual({ seed, sockets: 1 });
     hook.unmount();
     vi.useRealTimers();
   }
