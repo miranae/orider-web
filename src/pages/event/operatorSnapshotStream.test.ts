@@ -319,7 +319,8 @@ describe("operator snapshot stream", () => {
     const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback,
       { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested", reconnecting }, report);
     await flush();
-    // 연결 거부(open 없이 1006)가 1·2·4·8·16초 백오프로 이어진다: 0·1·3·7·15초 실패는 재연결, 31초 실패에서 전환.
+    // 연결 거부(open 없이 1006)가 1·2·4·8·16초 백오프로 이어진다: 0·1·3·7·15초 실패는 재연결,
+    // 16초 백오프 중 t=30s에 타이머로 전환한다(다음 실패까지 기다리지 않음).
     for (let i = 0; i < 5; i++) {
       FakeSocket.latest.end(1006);
       expect(fallback).not.toHaveBeenCalled();
@@ -333,7 +334,7 @@ describe("operator snapshot stream", () => {
     // 그 세션은 Firestore를 유지한다.
     window.dispatchEvent(new Event("online"));
     await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_MAX_BACKOFF_MS * 2);
-    expect(FakeSocket.all).toHaveLength(6);
+    expect(FakeSocket.all).toHaveLength(5);
     stop();
   });
 
@@ -368,5 +369,212 @@ describe("operator snapshot stream", () => {
     expect(FakeSocket.all).toHaveLength(0);
     expect(fallback).not.toHaveBeenCalled();
     stop();
+  });
+
+  // Fix 1: 구세대 첫 페이지(헤더 없음)가 늦게 도착해도 오류가 아닌 무시로 처리한다.
+  it("discards a stale head page missing header fields without triggering a Firestore fallback", async () => {
+    const receive = vi.fn();
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback, undefined, vi.fn());
+    await flush();
+    // gen "002" 완성 후 deliveredVersion = "002".
+    FakeSocket.latest.page("official", "002", 0, 1, { timestamp: 2, counts: {}, checkpoints: [], locations: [] });
+    expect(receive).toHaveBeenCalledTimes(1);
+    // 구세대 "001" 첫 페이지가 헤더(counts·checkpoints) 없이 늦게 온다. 버전 비교 먼저 → 무시.
+    FakeSocket.latest.page("official", "001", 0, 1, { timestamp: 1, locations: [] });
+    expect(receive).toHaveBeenCalledTimes(1);
+    expect(fallback).not.toHaveBeenCalled();
+    stop();
+  });
+
+  // Fix 2: 토큰 발급 대기 시간은 30초 접속 불가 판정에 포함되지 않는다.
+  it("does not count slow credential issuance toward the 30-second unreachable window", async () => {
+    const resolvers: Array<(t: string) => void> = [];
+    const getIdToken = vi.fn(() => new Promise<string>(r => resolvers.push(r)));
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken }, vi.fn(), vi.fn(), fallback, undefined, vi.fn());
+    // 각 시도마다 토큰 발급이 14초 걸린다(CREDENTIAL_MS=15s 미만).
+    // 발급 시간을 소켓 시도로 착각하면 세 번째 시도(첫 소켓부터 31s)에서 Firestore로 넘어간다.
+    // 올바른 구현은 소켓 생성 시각 기준이므로 세 번의 즉시 실패(≈ 0s)는 30초 미달이다.
+    for (let i = 0; i < 3; i++) {
+      // i=0: 14s 발급, i=1: 1s 백오프+14s 발급, i=2: 2s 백오프+14s 발급
+      await vi.advanceTimersByTimeAsync(i === 0 ? 14_000 : 1000 * 2 ** (i - 1) + 14_000);
+      resolvers[i]!("tok");
+      await flush();
+      FakeSocket.latest.end(1006);
+      expect(fallback).not.toHaveBeenCalled();
+    }
+    stop();
+  });
+
+  // Fix 3: 첫 세대 조립 중 끊겼다가 재연결해도 Firestore로 가지 않고 다시 연결한다.
+  it("reconnects instead of falling back when partial assembly is interrupted mid-first-generation", async () => {
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback, undefined, vi.fn());
+    await flush();
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    // 첫 세대 2페이지 중 첫 페이지만 받은 뒤 끊긴다(세대 미완성).
+    FakeSocket.latest.page("official", "001", 0, 2, { timestamp: 1, counts: {}, checkpoints: [], locations: [] });
+    FakeSocket.latest.end(1006);
+    await vi.advanceTimersByTimeAsync(1000);
+    await flush();
+    FakeSocket.latest.dispatchEvent(new Event("open")); // 재연결 성공
+    // 6초 뒤 첫 세대가 완성되지 않아도 Firestore 아닌 재연결한다(페이지를 받기 시작했으므로 개인 끊김 규칙).
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS + 1);
+    expect(fallback).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(2000);
+    await flush();
+    expect(FakeSocket.all).toHaveLength(3);
+    stop();
+  });
+
+  // Fix 4: 백오프 중에 30초 판정 시각이 지나면 다음 실패까지 기다리지 않고 타이머로 즉시 전환한다.
+  it("switches to Firestore at the 30-second mark mid-backoff without waiting for the next failure", async () => {
+    const fallback = vi.fn(() => () => {});
+    const report = vi.fn();
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback,
+      { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested" }, report);
+    await flush();
+    // 0·1·3·7초 실패 → t=15s에 5번째 실패, 16초 백오프 시작. 30초는 15초 뒤인 t=30s.
+    for (let i = 0; i < 4; i++) {
+      FakeSocket.latest.end(1006);
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** i);
+      await flush();
+    }
+    FakeSocket.latest.end(1006); // t=15s: 16초 백오프 시작, 타이머를 15s 후(t=30s)에 세팅
+    expect(fallback).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(14_999); // t=29.999s: 직전
+    expect(fallback).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1); // t=30s: 타이머 발동
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith("operatorSnapshotStream.unreachable", expect.any(Error), expect.objectContaining({ eventId: "official" }));
+    stop();
+  });
+
+  // MAJOR 1 fix: retryNow 뒤 발급이 빠르면 credentialPending=false → 타이머가 t=30에 그대로 발화한다.
+  it("fires the unreachable timer even when retryNow has accelerated a reconnect", async () => {
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback,
+      { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested" }, vi.fn());
+    await flush();
+    // 5회 실패: t=0,1,3,7,15. 5번째 실패 후 delay=16s, unreachableTimer=15s(t=30) 세팅.
+    for (let i = 0; i < 4; i++) {
+      FakeSocket.latest.end(1006);
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** i);
+      await flush();
+    }
+    FakeSocket.latest.end(1006); // t=15: 16초 백오프 + unreachableTimer(t=30) 세팅
+    // t=28s — online 이벤트. retryNow → connect 시작. 발급이 즉시 완료돼 credentialPending=false.
+    await vi.advanceTimersByTimeAsync(13_000); // t=28
+    window.dispatchEvent(new Event("online"));
+    await flush(); // 새 소켓 생성, credentialPending=false, unreachableTimer 유지(t=30)
+    // t=30s — 타이머 발동. credentialPending=false → 월드 접속 불가 → Firestore 전환.
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(fallback).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  // MAJOR 1 보완: 발급 대기 중(credentialPending=true) 타이머가 발화해도 미뤄지고,
+  // 발급 완료 후 월드가 복귀해 open이 오면 Firestore로 고정되지 않는다.
+  it("does not fall back when the unreachable timer fires during credential issuance but world opens before the rescheduled timer", async () => {
+    let call = 0;
+    const getIdToken = vi.fn(() => {
+      if (call++ === 0) return Promise.resolve("tok");
+      // retryNow 이후: 발급에 3초 소요. credentialPending=true 중 t=30 타이머 발화 → 미뤄짐.
+      // 발급 완료(t=31) 후 open 이전에 재예약된 t=33 타이머를 open이 취소한다.
+      return new Promise<string>(r => setTimeout(() => r("fresh"), 3_000));
+    });
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken }, vi.fn(), vi.fn(), fallback,
+      { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested" }, vi.fn());
+    await flush(); // call 0: 즉시 성공 → socket 1 생성
+    // 5회 실패: t=0,1,3,7,15. t=15에 delay=16s, unreachableTimer(15s→t=30) 세팅.
+    for (let i = 0; i < 4; i++) {
+      FakeSocket.latest.end(1006);
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** i);
+      await flush();
+    }
+    FakeSocket.latest.end(1006); // t=15: unreachableTimer(t=30) 세팅
+    // t=28: online → retryNow → connect() 시작. credentialPending=true, 발급 3초 대기.
+    await vi.advanceTimersByTimeAsync(13_000); // t=28
+    window.dispatchEvent(new Event("online"));
+    await flush(); // connect() 시작, credentialPending=true, 소켓 아직 없음
+    // t=30: 타이머 발화. credentialPending=true → 미뤄짐(반환). Firestore 전환 없음.
+    await vi.advanceTimersByTimeAsync(2_000); // t=30
+    expect(fallback).not.toHaveBeenCalled();
+    // t=31: 발급 완료 → credentialPending=false → unreachableSince 보정 → t=33 재예약.
+    await vi.advanceTimersByTimeAsync(1_000); // t=31 (getIdToken setTimeout 발화)
+    await flush();
+    // 월드 복귀 → open 수신. open 핸들러가 t=33 unreachableTimer를 취소.
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    await vi.advanceTimersByTimeAsync(2_100); // t=33.1 (t=33 타이머 취소됐으므로 발동 없음)
+    expect(fallback).not.toHaveBeenCalled();
+    stop();
+  });
+
+  // retryNow 뒤 open이 오면 open 핸들러가 unreachableTimer를 취소한다.
+  it("does not fall back when the reconnect from retryNow opens before the unreachable timer fires", async () => {
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback,
+      { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested" }, vi.fn());
+    await flush();
+    for (let i = 0; i < 4; i++) {
+      FakeSocket.latest.end(1006);
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** i);
+      await flush();
+    }
+    FakeSocket.latest.end(1006); // t=15: unreachableTimer(t=30) 세팅
+    await vi.advanceTimersByTimeAsync(13_000); // t=28
+    window.dispatchEvent(new Event("online"));
+    await flush();
+    // 새 소켓에서 open 수신(t=29) → open 핸들러가 unreachableTimer 취소 + unreachableSince 초기화.
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    await vi.advanceTimersByTimeAsync(2_000); // t=31
+    expect(fallback).not.toHaveBeenCalled();
+    stop();
+  });
+
+  // MAJOR 2 fix: 발급 실패 경로에서도 unreachableSince 보정이 적용된다.
+  it("excludes failed credential issuance time from the 30-second unreachable window", async () => {
+    // 첫 소켓(call 0)은 credentials 즉시 성공 → 소켓 생성 → open 없이 실패 → unreachableSince 세팅.
+    // 이후 두 번(call 1, 2)은 13초 대기 후 발급 실패 → 보정 없이는 t=29s에 1s 타이머 발동 → Firestore.
+    // 보정 있으면 unreachableSince가 발급 시간만큼 밀려 타이머가 발동하지 않는다.
+    let call = 0;
+    const getIdToken = vi.fn(() => {
+      const c = call++;
+      if (c === 1 || c === 2) return new Promise<string>((_, reject) => setTimeout(() => reject(new Error("slow fail")), 13_000));
+      return Promise.resolve("tok");
+    });
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken }, vi.fn(), vi.fn(), fallback, undefined, vi.fn());
+    await flush(); // call 0 성공 → socket 1 생성
+    FakeSocket.latest.end(1006); // socket 1: open 없이 닫힘 → unreachableSince=0, delay=1s
+    await flush();
+    // 1초 백오프 뒤 call 1: 13초 대기 후 실패 → t=14s. 보정 후 unreachableSince=13.
+    await vi.advanceTimersByTimeAsync(1_000 + 13_000); // t=14
+    await flush();
+    expect(fallback).not.toHaveBeenCalled();
+    // 2초 백오프 뒤 call 2: 13초 대기 후 실패 → t=29s. 보정 후 unreachableSince=26.
+    // 보정 없으면 remaining=1s < delay=4s → unreachableTimer 발동 → Firestore.
+    await vi.advanceTimersByTimeAsync(2_000 + 13_000); // t=29
+    await flush();
+    await vi.advanceTimersByTimeAsync(2_000); // t=31 (보정 없었다면 t=30에 Firestore 전환)
+    expect(fallback).not.toHaveBeenCalled();
+    stop();
+  });
+
+  // Fix 5: null JSON 프레임은 디코딩 오류로 처리해 Firestore로 넘어간다(P12).
+  it("treats a null JSON frame as a decode error and falls back to Firestore", async () => {
+    const receive = vi.fn();
+    const fallback = vi.fn(() => () => {});
+    subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback, undefined, vi.fn());
+    await flush();
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    FakeSocket.latest.page("official", "001", 0, 1, { timestamp: 1, counts: {}, checkpoints: [], locations: [] });
+    expect(receive).toHaveBeenCalledTimes(1);
+    // 서버가 "null" 문자열을 보낸다.
+    FakeSocket.latest.dispatchEvent(new MessageEvent("message", { data: "null" }));
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(receive).toHaveBeenLastCalledWith(null);
   });
 });

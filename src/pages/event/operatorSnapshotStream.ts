@@ -75,11 +75,16 @@ export function subscribeOperatorSnapshot<T>(
   // 위치 공개 철회(snapshot: null) 때 넘겼거나 조립 중이던 세대. 이 버전 이하는 다시 그리지 않는다.
   let revokedThrough: string | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
-  // 월드 세대를 한 번이라도 받았는지. 최초 접속의 첫 세대 지연만 서버 쪽 사용 불가로 본다.
+  // 월드 페이지를 한 번이라도 받기 시작했는지. true면 첫 세대 타임아웃을 개인 끊김으로 처리한다.
   let received = false;
   let retrying = false;
   // open 없이 실패한 연결 시도가 이어지기 시작한 시각. open이 한 번이라도 오면 지운다.
+  // 발급 대기 시간은 제외하고 소켓 생성 시각 기준으로 조정된다.
   let unreachableSince: number | undefined;
+  // 백오프 중에 30초 판정 시각이 되면 바로 Firestore로 전환하기 위한 타이머.
+  let unreachableTimer: ReturnType<typeof setTimeout> | undefined;
+  // 토큰·App Check 발급 대기 중이면 true. 발급 중 타이머 발화는 미루고 완료 후 직접 판단한다.
+  let credentialPending = false;
   const setRetrying = (value: boolean) => {
     if (retrying === value) return;
     retrying = value;
@@ -100,6 +105,8 @@ export function subscribeOperatorSnapshot<T>(
     permanent = true;
     clearTimeout(timeout);
     clearTimeout(retry);
+    clearTimeout(unreachableTimer);
+    unreachableTimer = undefined;
     retry = undefined;
     detach();
     closeSocket();
@@ -123,6 +130,8 @@ export function subscribeOperatorSnapshot<T>(
   function scheduleRetry(code?: number) {
     clearTimeout(timeout);
     clearTimeout(retry);
+    clearTimeout(unreachableTimer);
+    unreachableTimer = undefined;
     if (!active || permanent) return;
     // 끊김 한 번(재연결 성공 전까지)에 한 번만 기록한다.
     if (reconnects === 0) report("operatorSnapshotStream.reconnect", new Error("Operator snapshot stream dropped"), { eventId, code });
@@ -133,6 +142,20 @@ export function subscribeOperatorSnapshot<T>(
       retry = undefined;
       if (active && !permanent) reconnect(false);
     }, delay);
+    // 백오프 중에 30초 판정 시각이 지나면 그때 바로 Firestore로 전환한다(다음 실패까지 최대 60초 늦어지는 것을 막음).
+    if (unreachableSince !== undefined) {
+      const remaining = OPERATOR_SNAPSHOT_UNREACHABLE_MS - (Date.now() - unreachableSince);
+      if (remaining > 0 && remaining < delay) {
+        unreachableTimer = setTimeout(() => {
+          unreachableTimer = undefined;
+          if (!active || permanent) return;
+          // 발급 대기 중이면 미루고 발급 완료 후 직접 판단한다(발급 완료 시 재예약 또는 즉시 전환).
+          if (credentialPending) return;
+          report("operatorSnapshotStream.unreachable", new Error("Operator snapshot world unreachable"), { eventId, code });
+          switchToFallback();
+        }, remaining);
+      }
+    }
   }
   // open 없이 실패한 연결 시도: 30초 넘게 이어지면 월드 서버 접속 불가로 보고 Firestore로, 아니면 재연결한다.
   const handshakeFailed = (startedAt: number, code?: number) => {
@@ -161,10 +184,37 @@ export function subscribeOperatorSnapshot<T>(
         limit = setTimeout(() => reject(new Error(`Operator snapshot ${what} timed out`)), OPERATOR_SNAPSHOT_CREDENTIAL_MS);
       })]).finally(() => clearTimeout(limit));
     };
-    const token = await issue(viewer.getIdToken(forceRefresh || undefined), "ID token");
-    const appCheck = options.appCheck ? await issue(options.appCheck(forceRefresh || undefined), "App Check token") : undefined;
-    if (options.appCheck && !appCheck) throw new Error("Operator snapshot App Check token unavailable");
+    // ID 토큰·App Check 발급 대기 시간은 30초 접속 불가 판정에서 제외한다(소켓 생성부터 잰다).
+    // 발급 실패 시에도 보정이 반드시 적용되도록 try/finally로 감싼다.
+    // credentialPending=true 동안 unreachableTimer가 발화해도 미루고 발급 완료 후 재판단한다.
+    credentialPending = true;
+    const credentialStartedAt = Date.now();
+    let token: string;
+    let appCheck: string | null | undefined;
+    try {
+      token = await issue(viewer.getIdToken(forceRefresh || undefined), "ID token");
+      appCheck = options.appCheck ? await issue(options.appCheck(forceRefresh || undefined), "App Check token") : undefined;
+      if (options.appCheck && !appCheck) throw new Error("Operator snapshot App Check token unavailable");
+    } finally {
+      credentialPending = false;
+      if (unreachableSince !== undefined) unreachableSince += (Date.now() - credentialStartedAt);
+    }
     if (!active || permanent) return;
+    // 발급 대기 중 unreachableTimer가 미뤄진 경우(unreachableTimer===undefined로 소비됨) 발급 완료 후 재판단한다.
+    if (unreachableSince !== undefined && unreachableTimer === undefined) {
+      const remaining = OPERATOR_SNAPSHOT_UNREACHABLE_MS - (Date.now() - unreachableSince);
+      if (remaining <= 0) {
+        report("operatorSnapshotStream.unreachable", new Error("Operator snapshot world unreachable"), { eventId });
+        switchToFallback();
+        return;
+      }
+      unreachableTimer = setTimeout(() => {
+        unreachableTimer = undefined;
+        if (!active || permanent) return;
+        report("operatorSnapshotStream.unreachable", new Error("Operator snapshot world unreachable"), { eventId });
+        switchToFallback();
+      }, remaining);
+    }
     closeSocket();
     const startedAt = Date.now();
     let opened = false;
@@ -182,6 +232,8 @@ export function subscribeOperatorSnapshot<T>(
       if (!active || permanent || socket !== connection) return;
       opened = true;
       unreachableSince = undefined;
+      clearTimeout(unreachableTimer);
+      unreachableTimer = undefined;
       try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token, ...(appCheck ? { appCheck } : {}) })); }
       catch (error) { report("operatorSnapshotStream.send", error, { eventId }); switchToFallback(); return; }
       // 첫 세대 대기는 구독을 보낸 뒤부터 잰다(토큰 발급·연결 시간은 넣지 않는다).
@@ -197,7 +249,9 @@ export function subscribeOperatorSnapshot<T>(
       if (!active || permanent || socket !== connection) return;
       try {
         const frame = JSON.parse(String(data)) as Frame;
-        if (!isObject(frame) || frame.eventId !== eventId) return;
+        // null·비객체 프레임은 프로토콜 위반(디코딩 오류)으로 처리한다(P12).
+        if (!isObject(frame)) throw new Error("Non-object operator snapshot frame");
+        if (frame.eventId !== eventId) return;
         if (frame.v !== 1 || frame.type !== "operator_snapshot") throw new Error("Unsupported operator snapshot protocol");
         if (frame.snapshot === null && frame.version === null) {
           // 위치 공개 철회: 새 revision 세대가 올 때까지 비우고, 철회 전 세대는 다시 받지 않는다.
@@ -218,15 +272,18 @@ export function subscribeOperatorSnapshot<T>(
             pages! < 1 || page! < 0 || page! >= pages! || !isObject(snapshot) || !validLocations(snapshot.locations)) {
           throw new Error("Invalid operator snapshot page");
         }
-        // 첫 페이지는 화면 머리(시각·인원·체크포인트)를 반드시 가진다. 빠지면 디코딩 오류로 Firestore로 넘어간다.
-        if (page === 0 && (!Number.isSafeInteger(snapshot.timestamp) || !isObject(snapshot.counts) || !Array.isArray(snapshot.checkpoints))) {
-          throw new Error("Invalid operator snapshot head");
-        }
+        // 구세대 버리기를 먼저 한 뒤 헤더 검증을 적용한다(구세대 첫 페이지가 헤더 없어도 오류로 처리되지 않도록).
         if (revokedThrough !== undefined && version <= revokedThrough) return;
         // 이미 넘긴 세대나 조립 중인 세대보다 오래된 페이지는 버린다. 더 새로운 세대가 오면 그 세대로 바꾼다.
         // (같은 세대 재전송은 재연결 직후의 최신 세대일 수 있으므로 다시 조립한다.)
         if (deliveredVersion !== undefined && version < deliveredVersion) return;
         if (assembling && version < assembling.version) return;
+        // 첫 페이지를 받기 시작하면 개인 끊김 규칙을 적용한다(세대 완성 전에 끊겨도 Firestore로 가지 않음).
+        received = true;
+        // 첫 페이지는 화면 머리(시각·인원·체크포인트)를 반드시 가진다. 빠지면 디코딩 오류로 Firestore로 넘어간다.
+        if (page === 0 && (!Number.isSafeInteger(snapshot.timestamp) || !isObject(snapshot.counts) || !Array.isArray(snapshot.checkpoints))) {
+          throw new Error("Invalid operator snapshot head");
+        }
         if (assembling?.version !== version) assembling = { version, total: pages!, pages: [] };
         if (assembling.total !== pages) throw new Error("Inconsistent operator snapshot page count");
         assembling.pages[page!] = frame;
@@ -236,7 +293,6 @@ export function subscribeOperatorSnapshot<T>(
         clearTimeout(timeout);
         refreshed = false;
         reconnects = 0;
-        received = true;
         deliveredVersion = version;
         setRetrying(false);
         receive({ ...head!.snapshot, locations: [head!, ...rest].flatMap(part => part.snapshot!.locations!) } as T);
@@ -274,6 +330,7 @@ export function subscribeOperatorSnapshot<T>(
     active = false;
     clearTimeout(timeout);
     clearTimeout(retry);
+    clearTimeout(unreachableTimer);
     detach();
     stopFallback?.();
     if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
