@@ -83,6 +83,8 @@ export function subscribeOperatorSnapshot<T>(
   let unreachableSince: number | undefined;
   // 백오프 중에 30초 판정 시각이 되면 바로 Firestore로 전환하기 위한 타이머.
   let unreachableTimer: ReturnType<typeof setTimeout> | undefined;
+  // 토큰·App Check 발급 대기 중이면 true. 발급 중 타이머 발화는 미루고 완료 후 직접 판단한다.
+  let credentialPending = false;
   const setRetrying = (value: boolean) => {
     if (retrying === value) return;
     retrying = value;
@@ -147,6 +149,8 @@ export function subscribeOperatorSnapshot<T>(
         unreachableTimer = setTimeout(() => {
           unreachableTimer = undefined;
           if (!active || permanent) return;
+          // 발급 대기 중이면 미루고 발급 완료 후 직접 판단한다(발급 완료 시 재예약 또는 즉시 전환).
+          if (credentialPending) return;
           report("operatorSnapshotStream.unreachable", new Error("Operator snapshot world unreachable"), { eventId, code });
           switchToFallback();
         }, remaining);
@@ -174,11 +178,6 @@ export function subscribeOperatorSnapshot<T>(
 
   const connect = async (forceRefresh: boolean) => {
     clearTimeout(timeout);
-    // 발급 대기 중에 타이머가 발화하지 않도록 미리 해제한다.
-    // 월드가 여전히 다운이면 handshakeFailed가 경과 시간을 직접 판단하고,
-    // 월드가 복귀하면 open 핸들러가 unreachableSince를 초기화한다.
-    clearTimeout(unreachableTimer);
-    unreachableTimer = undefined;
     const issue = <V>(pending: Promise<V>, what: string) => {
       let limit: ReturnType<typeof setTimeout> | undefined;
       return Promise.race([pending, new Promise<never>((_, reject) => {
@@ -187,6 +186,8 @@ export function subscribeOperatorSnapshot<T>(
     };
     // ID 토큰·App Check 발급 대기 시간은 30초 접속 불가 판정에서 제외한다(소켓 생성부터 잰다).
     // 발급 실패 시에도 보정이 반드시 적용되도록 try/finally로 감싼다.
+    // credentialPending=true 동안 unreachableTimer가 발화해도 미루고 발급 완료 후 재판단한다.
+    credentialPending = true;
     const credentialStartedAt = Date.now();
     let token: string;
     let appCheck: string | null | undefined;
@@ -195,9 +196,25 @@ export function subscribeOperatorSnapshot<T>(
       appCheck = options.appCheck ? await issue(options.appCheck(forceRefresh || undefined), "App Check token") : undefined;
       if (options.appCheck && !appCheck) throw new Error("Operator snapshot App Check token unavailable");
     } finally {
+      credentialPending = false;
       if (unreachableSince !== undefined) unreachableSince += (Date.now() - credentialStartedAt);
     }
     if (!active || permanent) return;
+    // 발급 대기 중 unreachableTimer가 미뤄진 경우(unreachableTimer===undefined로 소비됨) 발급 완료 후 재판단한다.
+    if (unreachableSince !== undefined && unreachableTimer === undefined) {
+      const remaining = OPERATOR_SNAPSHOT_UNREACHABLE_MS - (Date.now() - unreachableSince);
+      if (remaining <= 0) {
+        report("operatorSnapshotStream.unreachable", new Error("Operator snapshot world unreachable"), { eventId });
+        switchToFallback();
+        return;
+      }
+      unreachableTimer = setTimeout(() => {
+        unreachableTimer = undefined;
+        if (!active || permanent) return;
+        report("operatorSnapshotStream.unreachable", new Error("Operator snapshot world unreachable"), { eventId });
+        switchToFallback();
+      }, remaining);
+    }
     closeSocket();
     const startedAt = Date.now();
     let opened = false;
