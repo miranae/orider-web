@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, useWorldEvent, type WorldEventFrame } from "../ride-world/useWorldEvent";
+import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -31,13 +31,15 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const worldActive = world !== null;
   const worldViewsRef = useRef(worldViews);
   worldViewsRef.current = worldViews;
-  const [stalledFrame, setStalledFrame] = useState<WorldEventFrame | null>(null);
+  // 정지 판정은 새 위치 표본(마커 표본 시각·진행·격차 변경)이 온 시각 기준이다. 시청자 수·명단만 바뀐 delta는 세지 않는다.
+  const sampleKey = worldViews && world ? JSON.stringify([world.eventId, world.markers.map(m => [m.id, m.capturedAt, m.progressM, m.gapToLeaderM, m.gapToSelectedM])]) : null;
+  const [stalledSamples, setStalledSamples] = useState<string | null>(null);
   useEffect(() => {
-    if (!worldViews || !world) return;
-    const timer = setTimeout(() => setStalledFrame(world), WORLD_FRAME_STALL_MS);
+    if (sampleKey === null) return;
+    const timer = setTimeout(() => setStalledSamples(sampleKey), WORLD_FRAME_STALL_MS);
     return () => clearTimeout(timer);
-  }, [world, worldViews]);
-  const worldCovers = worldViews && world !== null && stalledFrame !== world && activeState.data !== null &&
+  }, [sampleKey]);
+  const worldCovers = worldViews && world !== null && stalledSamples !== sampleKey && activeState.data !== null &&
     worldFrameCoversRiders(activeState.data, world, activeState.data.serverNowMs + Math.max(0, Date.now() - activeState.receivedAt));
   const worldCoversRef = useRef(worldCovers);
   worldCoversRef.current = worldCovers;
@@ -101,7 +103,11 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
         if (readySubscriptions.size === (locationSignalOff() ? 3 : 4)) recoveryAttempts = 0;
-        const merge = worldViewsRef.current ? retainWorldPositions : retainNewerSamples;
+        // 월드가 보이는 주행자를 모두 담는 동안만 월드 진행·격차를 남기고, 폴백 중에는 콜러블 값을 우선한다.
+        const keepWorldProgress = worldCoversRef.current;
+        const merge = worldViewsRef.current
+          ? (old: MeetingSpectatorSnapshot | null, next: MeetingSpectatorSnapshot) => retainWorldPositions(old, next, keepWorldProgress)
+          : retainNewerSamples;
         // 수신 시각은 응답 시점에 고정한다(serverNowMs와 함께 화면 시각의 기준이 된다).
         const receivedAt = Date.now();
         setState(old => ({scope, data: merge(old.scope === scope ? old.data : null, data), receivedAt, loading: false, error: null}));

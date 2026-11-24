@@ -44,6 +44,8 @@ export interface WorldEventFrame {
   markers: WorldEventMarker[];
   /** 이 프레임을 만든 구독의 선택 대상(`event_subscribe.track`). 클라이언트가 붙이며 선택 격차의 기준을 가린다. */
   track?: string | null;
+  /** 어느 구독의 응답인지 가릴 수 없는 프레임이면 true. 선택 격차를 쓰지 않는다. */
+  trackUnknown?: boolean;
 }
 
 type WorldEventDelta = Partial<Pick<WorldEventFrame, "roster" | "counts" | "viewers">> &
@@ -150,12 +152,16 @@ export function useWorldEvent(
           connection.close();
         }, 3000);
         let latest: WorldEventFrame | null = null;
-        // track을 바꿔 다시 구독하면 서버가 새 event_snapshot을 보낸다. 그 전 delta는 이전 선택 기준이다.
+        // track을 바꿔 다시 구독하면 서버가 새 event_snapshot을 보낸다(구독마다 최대 1개, track 에코 없음). 그 전 delta는
+        // 이전 선택 기준이다. 응답을 기다리는 구독이 둘 이상일 때 온 snapshot은 어느 요청의 것인지 모르므로 선택 격차를
+        // 쓰지 않고 현재 선택으로 한 번 더 구독해 짝을 맞춘다.
         let subscribedTrack: string | null = null;
+        let pendingSubscribes = 0;
         const subscribe = () => {
           if (disposed || socket !== connection || connection.readyState !== WebSocket.OPEN) return;
           try {
             subscribedTrack = options.current.track ?? null;
+            pendingSubscribes++;
             connection.send(JSON.stringify({ v: 1, type: "event_subscribe", eventId: event, token, ...(appCheck ? { appCheck } : {}), guest: !identity && allowGuest, viewerSessionId, signalOnly, signalTopic, ...options.current }));
           } catch (error) {
             report("RideWorld.subscribeEvent", error, { eventId: event });
@@ -203,8 +209,11 @@ export function useWorldEvent(
             if (frame.revision <= (latest?.revision ?? 0)) return;
             if (frame.type === "event_snapshot" && Array.isArray(frame.markers) && Array.isArray(frame.roster)) {
               clearTimeout(initial);
-              latest = { ...frame, track: subscribedTrack };
+              const ambiguous = pendingSubscribes > 1;
+              pendingSubscribes = 0;
+              latest = ambiguous ? { ...frame, track: null, trackUnknown: true } : { ...frame, track: subscribedTrack };
               hasFrame = true;
+              if (ambiguous) subscribe();
             } else if (frame.type === "event_delta") {
               if (!latest || frame.revision !== latest.revision + 1) {
                 report("RideWorld.deltaGap", new Error("World delta has no matching snapshot revision"), { eventId: event });

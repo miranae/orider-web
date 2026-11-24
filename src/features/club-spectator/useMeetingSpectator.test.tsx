@@ -334,3 +334,46 @@ it("선택 참가자를 바꾸면 월드 구독의 track도 바꾼다", async ()
   rerender({selectedUid: "rider-two"});
   expect(fullWorld(world.subscribe.mock.calls).at(-1)?.[2]).toBe("rider-two");
 });
+
+it("시청자 수만 바뀌는 delta가 계속 와도 새 위치 표본이 없으면 제한 시간 뒤 위치 신호로 복귀한다", async () => {
+  world.production = true;
+  control.request.mockImplementation(async () => ({data: data()}));
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  const base = serverFrame(1);
+  let frame = base;
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(0);
+  for (let i = 2; i <= 6; i++) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    frame = {...base, revision: i, viewers: i};
+    rerender();
+  }
+  expect(openLocationSignals()).toHaveLength(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+});
+
+it("월드가 끊긴 폴백 중에는 콜러블이 준 새 격차를 위치 표본이 더 일러도 반영한다", async () => {
+  world.production = true;
+  control.request.mockImplementation(async () => ({data: data()}));
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  let frame: ReturnType<typeof serverFrame> | null = serverFrame(1);
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.gapToLeaderM).toBe(100);
+  control.request.mockImplementation(async () => {
+    const next = data();
+    next.locations = next.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: Date.now() - 10000, gapToLeaderM: 20, progressM: 2580} : r);
+    return {data: next};
+  });
+  frame = null;
+  rerender();
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, gapToLeaderM: 20, progressM: 2580});
+});
