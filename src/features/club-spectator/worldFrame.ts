@@ -105,10 +105,11 @@ export function worldFrameCoversRiders(snapshot: MeetingSpectatorSnapshot | null
 }
 
 /**
- * 월드 모드에서 회원 전용 API 결과를 합친다. 명단은 새 결과를 그대로 쓴다. 새 결과의 위치가 더 최신인 참가자는 새 결과를
- * 모두 쓰고, 월드가 더 최신 표본을 반영한 참가자는 위치·속도·파워·상태를 남긴다(완주·DNF는 새 결과).
- * 진행·격차 출처는 `applyWorldFrame`과 같다: 커버(`covered=true`) 중이고 직전·새 명단 모두에서 주행 중인 참가자는 월드 값을
- * 남기고(선택 격차는 같은 선택 대상일 때만), 그 밖에는 새 결과(콜러블) 값을 쓴다.
+ * 월드 모드에서 회원 전용 API 결과를 합친다. 명단은 새 결과를 그대로 쓴다. 새 결과의 위치가 같거나 더 최신인 참가자는
+ * 새 결과를 모두 쓰고, 월드가 더 최신 표본을 반영한 참가자는 위치·속도·파워·상태를 남긴다(완주·DNF는 새 결과).
+ * 진행·격차는 위치 표본을 따른다: 월드 표본이 더 최신이고 커버(`covered=true`) 중이며 직전·새 명단 모두에서 주행 중인
+ * 참가자만 월드 값을 남기고(선택 격차는 같은 선택 대상일 때만), 같은 표본이면 응답 시점에 계산된 콜러블 값을 쓴다
+ * (월드 마커가 콜러블 위치보다 오래돼 버려진 동안에도 같은 표본의 최신 선두 격차가 반영되게, #1865).
  */
 export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, next: MeetingSpectatorSnapshot, covered = false): MeetingSpectatorSnapshot {
   if (!previous || previous.eventId !== next.eventId || previous.course?.courseId !== next.course?.courseId) return next;
@@ -118,10 +119,10 @@ export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, 
   const riding = covered ? new Set([...ridingUids(next)].filter(uid => before.has(uid))) : new Set<string>();
   return {...next, locations: next.locations.map(r => {
     const prior = old.get(r.uid);
-    // 새 결과의 위치가 더 최신이면 그 표본의 값을 모두 쓴다(진행·격차가 위치보다 오래되지 않게).
-    if (!prior || prior.sampledAtMs < r.sampledAtMs) return r;
-    const position = prior.sampledAtMs > r.sampledAtMs ? {...r, lat: prior.lat, lng: prior.lng, sampledAtMs: prior.sampledAtMs, speedMps: prior.speedMps,
-      powerWatts: prior.powerWatts, powerExpiresAtMs: prior.powerExpiresAtMs, status: r.status === "FINISHED" || r.status === "DNF" ? r.status : prior.status} : r;
+    // 새 결과의 위치가 같거나 더 최신이면 그 표본의 값을 모두 쓴다(진행·격차가 위치보다 오래되지 않게).
+    if (!prior || prior.sampledAtMs <= r.sampledAtMs) return r;
+    const position = {...r, lat: prior.lat, lng: prior.lng, sampledAtMs: prior.sampledAtMs, speedMps: prior.speedMps,
+      powerWatts: prior.powerWatts, powerExpiresAtMs: prior.powerExpiresAtMs, status: r.status === "FINISHED" || r.status === "DNF" ? r.status : prior.status};
     if (!riding.has(r.uid)) return position;
     const selected = previous.selectedUid === next.selectedUid ? prior : r;
     return {...position, progressM: prior.progressM, gapToLeaderM: prior.gapToLeaderM, leaderGapExpiresAtMs: prior.leaderGapExpiresAtMs,

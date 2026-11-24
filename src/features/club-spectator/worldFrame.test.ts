@@ -130,9 +130,9 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     server.locations = server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now - 1000, progressM: 2400, gapToLeaderM: 70} : r);
     const fromWorld = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", ...progress(2500, 40)}]), now);
     expect(retainWorldPositions(fromWorld, server, true).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 40});
-    // 같은 표본이어도 커버 중에는 월드 값을 쓴다.
+    // 같은 표본이면 커버 중에도 응답 시점에 계산된 콜러블 값을 쓴다(#1865).
     const same = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now} : r)};
-    expect(retainWorldPositions(fromWorld, same, true).locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2500, gapToLeaderM: 40});
+    expect(retainWorldPositions(fromWorld, same, true).locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2400, gapToLeaderM: 70});
     const newer = {...server, locations: server.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now + 1, progressM: 2600, gapToLeaderM: 10} : r)};
     expect(retainWorldPositions(fromWorld, newer, true).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now + 1, progressM: 2600, gapToLeaderM: 10});
     // 새 명단에서 주행이 아니게 된(완주) 참가자는 콜러블 진행·격차를 쓴다.
@@ -142,6 +142,23 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     // 명단에서 빠진 참가자는 월드 값으로 되살리지 않는다.
     const removed = {...server, locations: server.locations.filter(r => r.uid !== "rider-two")};
     expect(retainWorldPositions(fromWorld, removed, true).locations.some(r => r.uid === "rider-two")).toBe(false);
+  });
+  it("커버 중 콜러블 위치가 월드 마커보다 앞서면 같은 표본의 최신 선두 격차를 콜러블로 받아 갱신한다(#1865)", () => {
+    // 콜러블이 rider-two의 더 최신 표본(now)을 먼저 반영했고 월드 마커(now - 1000)는 그보다 오래됐다.
+    const callable = spectatorFixture(now);
+    callable.locations = callable.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: now, progressM: 2500, gapToLeaderM: 40} : r);
+    const lagging = frame(riders({"rider-two": {capturedAt: now - 1000, ...progress(2400, 90)}}));
+    expect(worldFrameCoversRiders(callable, lagging, now)).toBe(true);
+    const shown = applyWorldFrame(callable, lagging, now, true);
+    // 화면 위치보다 오래된 마커는 진행·격차를 되돌리지 않는다.
+    expect(shown.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 40});
+    // 선두가 이동해 같은 표본의 새 선두 격차가 콜러블로 오면 커버 중에도 그 값을 쓴다(이전 격차를 남기지 않음).
+    const moved = {...callable, locations: callable.locations.map(r => r.uid === "rider-two" ? {...r, gapToLeaderM: 75} : r)};
+    const merged = retainWorldPositions(shown, moved, true);
+    expect(merged.locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 75});
+    // 월드가 더 최신 표본을 반영한 뒤에는 커버 중 콜러블의 오래된 표본 진행·격차로 되돌리지 않는다.
+    const fresher = applyWorldFrame(merged, frame(riders({"rider-two": {capturedAt: now + 1000, ...progress(2550, 30)}})), now + 1000, true);
+    expect(retainWorldPositions(fresher, moved, true).locations.find(r => r.uid === "rider-two")).toMatchObject({sampledAtMs: now + 1000, progressM: 2550, gapToLeaderM: 30});
   });
   it("어느 구독의 응답인지 모르는 프레임의 선택 격차는 쓰지 않는다", () => {
     const base = {...spectatorFixture(now), selectedUid: null};

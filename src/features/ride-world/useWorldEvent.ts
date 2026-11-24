@@ -178,20 +178,23 @@ export function useWorldEvent(
         };
         // 서버는 처리 중에 온 구독을 버리고, 연속 구독을 snapshot 하나로 합친다. 현재 선택 기준이 확인될 때까지 현재 선택으로
         // 다시 구독한다. 대기 큐 맨 뒤가 이미 현재 선택이고 최근에 보냈으면 응답을 기다리고, 응답이 없으면 간격마다 상한까지
-        // 재전송한다.
+        // 재전송한다. 상한에 닿으면 마지막 재구독의 응답을 한 간격 더 기다린 뒤에도 미확인일 때만 기록한다.
         const confirmTrack = () => {
           clearTimeout(trackRetry);
           if (disposed || signalOnly || socket !== connection) return;
           const current = options.current.track ?? null;
           if (latest && !latest.trackUnknown && latest.track === current) return;
-          if (pendingTracks[pendingTracks.length - 1] !== current || Date.now() - lastSentAt >= TRACK_RETRY_MS) subscribe();
-          if (trackRetries < TRACK_RETRY_LIMIT) trackRetry = setTimeout(() => { trackRetries++; confirmTrack(); }, TRACK_RETRY_MS);
-          else if (trackRetries === TRACK_RETRY_LIMIT) {
+          if (trackRetries > TRACK_RETRY_LIMIT) {
             // 상한 도달은 한 번만 기록한다(선택 변경·기준 모름 snapshot에서 카운터가 다시 0이 된다).
-            trackRetries++;
-            report("ride-world.event.trackConfirm", new Error("track-confirm-exhausted"),
-              { eventId: event, retries: TRACK_RETRY_LIMIT, pending: pendingTracks.length, trackUnknown: latest?.trackUnknown ?? null });
+            if (trackRetries === TRACK_RETRY_LIMIT + 1) {
+              trackRetries++;
+              report("ride-world.event.trackConfirm", new Error("track-confirm-exhausted"),
+                { eventId: event, retries: TRACK_RETRY_LIMIT, pending: pendingTracks.length, trackUnknown: latest?.trackUnknown ?? null });
+            }
+            return;
           }
+          if (pendingTracks[pendingTracks.length - 1] !== current || Date.now() - lastSentAt >= TRACK_RETRY_MS) subscribe();
+          trackRetry = setTimeout(() => { trackRetries++; confirmTrack(); }, TRACK_RETRY_MS);
         };
         const resubscribe = () => { trackRetries = 0; subscribe(); confirmTrack(); };
         subscribeCurrent.current = resubscribe;
