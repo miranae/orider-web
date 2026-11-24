@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type ClubMeetingSnapshot } from "../../services/clubMeetings";
 import { logClientError } from "../../services/errorLogger";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
-import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
 import { useWorldEvent } from "../ride-world/useWorldEvent";
 import { useClubMeetingsApi } from "./useClubMeetingsApi";
 
@@ -24,9 +23,6 @@ export function useClubMeeting(
   }
   const worldChange = useRef<(version: string | null) => void>(() => {});
   const worldDisconnect = useRef<(code: number) => void>(() => {});
-  const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
-    import.meta.env.VITE_ORIDER_LOCAL_MEETING_REDIS === "1" && isEmulatorRuntime() &&
-    getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true;
   const worldPhase = useRef<(phase: string) => void>(() => {});
   const viewer = services.auth?.currentUser;
   useWorldEvent(groupId && uid && uid === viewer?.uid ? eventId : undefined, viewer, undefined, undefined, {
@@ -177,7 +173,7 @@ export function useClubMeeting(
     };
     worldChange.current = version => {
       if (!valid()) return;
-      const reconnected = redisSignals && !worldActive;
+      const reconnected = !worldActive;
       worldActive = true;
       if (reconnected) consumedSignalVersion = undefined;
       signalVersion = version;
@@ -349,7 +345,7 @@ export function useClubMeeting(
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
     };
-  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot, services, redisSignals]);
+  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot, services]);
   return {
     data: state.scope === scope ? state.data : null,
     loading: state.scope !== scope || state.loading,
