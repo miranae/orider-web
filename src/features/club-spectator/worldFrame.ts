@@ -1,7 +1,7 @@
 import type { WorldEventFrame, WorldEventMarker } from "../ride-world/useWorldEvent";
 import type { MeetingSpectatorSnapshot, SpectatorRider } from "./types";
 
-type ServerProgress = Pick<SpectatorRider, "progressM" | "gapToLeaderM" | "leaderGapExpiresAtMs" | "gapToSelectedM" | "selectedGapExpiresAtMs">;
+type ServerProgress = Pick<SpectatorRider, "progressM" | "gapToLeaderM" | "leaderGapExpiresAtMs" | "gapToSelectedM" | "selectedGapExpiresAtMs" | "progressComputedAtMs">;
 const progressKeys = ["progressM", "gapToLeaderM", "leaderGapExpiresAtMs", "gapToSelectedM", "selectedGapExpiresAtMs"] as const;
 
 /** 마커에 서버 계산 진행·격차(g1-web#4005) 5개 필드가 모두 숫자 또는 null로 있으면 그 값을 그대로 돌려준다. */
@@ -9,7 +9,18 @@ function serverProgress(marker: WorldEventMarker): ServerProgress | null {
   if (!progressKeys.every(key => marker[key] === null || typeof marker[key] === "number" && Number.isFinite(marker[key]))) return null;
   if (typeof marker.gapToLeaderM === "number" && marker.gapToLeaderM < 0) return null;
   return {progressM: marker.progressM!, gapToLeaderM: marker.gapToLeaderM!, leaderGapExpiresAtMs: marker.leaderGapExpiresAtMs!,
-    gapToSelectedM: marker.gapToSelectedM!, selectedGapExpiresAtMs: marker.selectedGapExpiresAtMs!};
+    gapToSelectedM: marker.gapToSelectedM!, selectedGapExpiresAtMs: marker.selectedGapExpiresAtMs!, progressComputedAtMs: computedAt(marker.progressComputedAtMs)};
+}
+
+const computedAt = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : null;
+
+/**
+ * 진행·격차 계산 시각 비교(g1-web#4037). 양쪽 모두 시각이 있으면 candidate가 current보다 늦게 계산됐는지 돌려주고,
+ * 한쪽이라도 없으면(배포 전 서버) null을 돌려 호출부가 기존 표본 시각 규칙을 따르게 한다.
+ */
+function computedLater(candidate: {progressComputedAtMs?: number | null}, current: {progressComputedAtMs?: number | null}): boolean | null {
+  const a = computedAt(candidate.progressComputedAtMs), b = computedAt(current.progressComputedAtMs);
+  return a === null || b === null ? null : a > b;
 }
 
 /** 이 화면에 반영할 수 있는 마커인지 확인한다. 명단 밖 계정·다른 코스·잘못된 값·미래 시각은 버린다. */
@@ -27,10 +38,12 @@ const ridingUids = (snapshot: MeetingSpectatorSnapshot) => new Set(snapshot.part
 /** 서버 진행·격차를 반영한다. 선택 격차는 프레임의 track이 화면의 선택 대상과 같을 때만 쓴다. */
 function withProgress(row: SpectatorRider, server: ServerProgress, selectedMatches: boolean): SpectatorRider {
   return {...row, progressM: server.progressM, gapToLeaderM: server.gapToLeaderM, leaderGapExpiresAtMs: server.leaderGapExpiresAtMs,
+    progressComputedAtMs: server.progressComputedAtMs,
     ...(selectedMatches ? {gapToSelectedM: server.gapToSelectedM, selectedGapExpiresAtMs: server.selectedGapExpiresAtMs} : {})};
 }
 
-const sameProgress = (a: SpectatorRider, b: SpectatorRider) => progressKeys.every(key => a[key] === b[key]);
+const sameProgress = (a: SpectatorRider, b: SpectatorRider) =>
+  progressKeys.every(key => a[key] === b[key]) && (a.progressComputedAtMs ?? null) === (b.progressComputedAtMs ?? null);
 
 /**
  * 월드(Redis) 위치를 받은 즉시 반영한다(P11 Redis 실시간 경로 예외). 위치·속도·파워·상태는 표본이 더 최신일 때만 옮긴다.
@@ -38,6 +51,9 @@ const sameProgress = (a: SpectatorRider, b: SpectatorRider) => progressKeys.ever
  * - 커버(`covered=true`): 명단의 주행 참가자는 화면 위치보다 오래되지 않은 마커의 서버 진행·격차를 항상 그대로 쓴다
  *   (같은 표본이어도 서버의 최신 값 — 선두 이동 재전송 포함). 커버로 바뀌는 순간 호출부가 최신 프레임으로 다시 불러 즉시 덮는다.
  * - 미커버(폴백) 또는 주행 중이 아닌 참가자: 월드는 위치만 갱신하고 진행·격차는 회원 전용 API 값을 그대로 둔다.
+ * - 계산 시각(g1-web#4037): 화면 값과 마커 모두 `progressComputedAtMs`가 있으면 위 표본 규칙 대신 더 늦게 계산된 쪽
+ *   진행·격차를 쓴다(늦게 온 프레임이 콜러블의 더 최신 격차를 되돌리지 않고, 화면 위치보다 오래된 표본이어도 더 늦게
+ *   계산된 격차는 반영). 위치는 계속 표본 시각으로 고른다.
  */
 export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: WorldEventFrame, now: number, covered = true): MeetingSpectatorSnapshot {
   const course = snapshot.course;
@@ -52,8 +68,14 @@ export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: World
     const uid = marker.uid!;
     const prior = rows.get(uid);
     const server = riding.has(uid) ? serverProgress(marker) : null;
-    // 화면 위치보다 오래된 표본은 위치도 진행도 되돌리지 않는다.
-    if (prior && prior.sampledAtMs > marker.capturedAt) continue;
+    const later = server && prior ? computedLater(server, prior) : null;
+    // 화면 위치보다 오래된 표본은 위치를 되돌리지 않는다. 진행·격차는 양쪽 계산 시각이 있고 마커가 더 늦게 계산됐을 때만 옮긴다.
+    if (prior && prior.sampledAtMs > marker.capturedAt) {
+      if (later !== true) continue;
+      rows.set(uid, withProgress(prior, server!, selectedMatches));
+      changed = true;
+      continue;
+    }
     const powerLive = typeof marker.power === "number" && typeof marker.powerExpiresAtMs === "number" && marker.powerExpiresAtMs > now;
     const ended = prior?.status === "FINISHED" || prior?.status === "DNF";
     // 같은 표본이면 위치는 그대로 두고, 더 최신 표본이면 위치·속도·파워·상태를 옮기고 진행·격차는 직전 값을 남긴다.
@@ -64,9 +86,11 @@ export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: World
       powerWatts: powerLive ? marker.power! : null, powerExpiresAtMs: powerLive ? marker.powerExpiresAtMs! : null,
       gapToLeaderM: prior?.gapToLeaderM ?? null, leaderGapExpiresAtMs: prior?.leaderGapExpiresAtMs ?? null,
       gapToSelectedM: prior?.gapToSelectedM ?? null, selectedGapExpiresAtMs: prior?.selectedGapExpiresAtMs ?? null,
+      ...(prior?.progressComputedAtMs == null ? {} : {progressComputedAtMs: prior.progressComputedAtMs}),
       status: ended ? prior.status : marker.eventStatus === "lost_signal" ? "LOST_SIGNAL" : marker.status === "paused" ? "STOPPED" : "RIDING",
     };
-    if (server) row = withProgress(row, server, selectedMatches);
+    // 화면 값이 더 늦게 계산됐으면(늦게 온 프레임) 진행·격차는 화면 값을 둔다.
+    if (server && later !== false) row = withProgress(row, server, selectedMatches);
     if (row === prior || prior && row.sampledAtMs === prior.sampledAtMs && sameProgress(prior, row)) continue;
     rows.set(uid, row);
     changed = true;
@@ -110,6 +134,8 @@ export function worldFrameCoversRiders(snapshot: MeetingSpectatorSnapshot | null
  * 진행·격차는 위치 표본을 따른다: 월드 표본이 더 최신이고 커버(`covered=true`) 중이며 직전·새 명단 모두에서 주행 중인
  * 참가자만 월드 값을 남기고(선택 격차는 같은 선택 대상일 때만), 같은 표본이면 응답 시점에 계산된 콜러블 값을 쓴다
  * (월드 마커가 콜러블 위치보다 오래돼 버려진 동안에도 같은 표본의 최신 선두 격차가 반영되게, #1865).
+ * 계산 시각(g1-web#4037): 그 참가자의 화면 값과 새 결과 모두 `progressComputedAtMs`가 있으면 진행·격차는 표본 대신
+ * 더 늦게 계산된 쪽을 쓴다(늦게 도착했지만 더 일찍 계산된 콜러블은 월드 값을 되돌리지 않는다). 위치 규칙은 그대로다.
  */
 export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, next: MeetingSpectatorSnapshot, covered = false): MeetingSpectatorSnapshot {
   if (!previous || previous.eventId !== next.eventId || previous.course?.courseId !== next.course?.courseId) return next;
@@ -119,13 +145,18 @@ export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, 
   const riding = covered ? new Set([...ridingUids(next)].filter(uid => before.has(uid))) : new Set<string>();
   return {...next, locations: next.locations.map(r => {
     const prior = old.get(r.uid);
-    // 새 결과의 위치가 같거나 더 최신이면 그 표본의 값을 모두 쓴다(진행·격차가 위치보다 오래되지 않게).
-    if (!prior || prior.sampledAtMs <= r.sampledAtMs) return r;
+    if (!prior) return r;
+    const later = riding.has(r.uid) ? computedLater(r, prior) : null;
+    const selected = previous.selectedUid === next.selectedUid ? prior : r;
+    const kept = (row: SpectatorRider): SpectatorRider => ({...row, progressM: prior.progressM, gapToLeaderM: prior.gapToLeaderM,
+      leaderGapExpiresAtMs: prior.leaderGapExpiresAtMs, gapToSelectedM: selected.gapToSelectedM, selectedGapExpiresAtMs: selected.selectedGapExpiresAtMs,
+      progressComputedAtMs: prior.progressComputedAtMs});
+    // 새 결과의 위치가 같거나 더 최신이면 그 표본의 값을 모두 쓴다(진행·격차가 위치보다 오래되지 않게). 단 화면 값이 더 늦게 계산됐으면 진행·격차는 남긴다.
+    if (prior.sampledAtMs <= r.sampledAtMs) return later === false ? kept(r) : r;
     const position = {...r, lat: prior.lat, lng: prior.lng, sampledAtMs: prior.sampledAtMs, speedMps: prior.speedMps,
       powerWatts: prior.powerWatts, powerExpiresAtMs: prior.powerExpiresAtMs, status: r.status === "FINISHED" || r.status === "DNF" ? r.status : prior.status};
-    if (!riding.has(r.uid)) return position;
-    const selected = previous.selectedUid === next.selectedUid ? prior : r;
-    return {...position, progressM: prior.progressM, gapToLeaderM: prior.gapToLeaderM, leaderGapExpiresAtMs: prior.leaderGapExpiresAtMs,
-      gapToSelectedM: selected.gapToSelectedM, selectedGapExpiresAtMs: selected.selectedGapExpiresAtMs};
+    // 새 결과가 더 늦게 계산됐으면 진행·격차는 새 결과를 쓴다.
+    if (!riding.has(r.uid) || later === true) return position;
+    return kept(position);
   })};
 }
