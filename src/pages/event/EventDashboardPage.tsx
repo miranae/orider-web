@@ -344,7 +344,6 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const worldFrame = useWorldEvent(!trackingEnded && eventStatus ? eventId : undefined, user, selectedUid, viewport);
   const snapshot = savedSnapshot;
   const mapLocations = savedSnapshot?.locations ?? [];
-  const [operatorWorld, setOperatorWorld] = useState(false);
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
@@ -618,14 +617,13 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     const worldOptions = productionWorld
       ? { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: (refresh?: boolean) => getAppCheckToken(refresh) }
       : localWorld ? { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT } : null;
-    // 월드 스냅샷을 받는 동안에는 참가자 위치를 지도(EventMap)에도 그린다.
     const unsub = worldOptions && user ? subscribeOperatorSnapshot<SnapshotData>(
-      eventId, user, snapshot => { if (snapshot && isCurrentSnapshot()) setOperatorWorld(true); receive(snapshot); },
+      eventId, user, receive,
       () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))),
-      () => { setOperatorWorld(false); return fallback(); }, worldOptions,
+      fallback, worldOptions,
       (source, error, context) => logClientError(source, error, context, services, user),
     ) : fallback();
-    return () => { active = false; revision++; unsub(); setOperatorWorld(false); };
+    return () => { active = false; revision++; unsub(); };
   }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt, db, services]);
 
   const handleFinishEvent = useCallback(async () => {
@@ -936,7 +934,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         {/* Center: map + table */}
         <section style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
           <div style={{ flex: 1, minHeight: 300, position: "relative" }}>
-            {worldFrame || operatorWorld ? (
+            {worldFrame ? (
               <EventMap
                 locations={mapLocations}
                 selectedUid={selectedUid}
