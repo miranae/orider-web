@@ -84,3 +84,50 @@ it("App Check 토큰이 없으면 운영 월드에 연결하지 않는다", asyn
   expect(FakeSocket.instances).toHaveLength(0);
   expect(result.current).toBeNull();
 });
+
+it("선택 대상이 바뀌면 같은 소켓에 track만 바꿔 다시 구독하고 새 snapshot부터 그 선택 기준으로 표시한다", async () => {
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
+  control.services.getAppCheckToken.mockResolvedValue("app-check");
+  const { result, rerender } = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
+    { initialProps: { track: "rider-one" as string | null } });
+  await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+  const socket = FakeSocket.instances[0]!;
+  act(() => socket.open());
+  act(() => socket.receive(snapshot));
+  expect(result.current?.track).toBe("rider-one");
+  rerender({ track: "rider-two" });
+  expect(FakeSocket.instances).toHaveLength(1);
+  expect(socket.sent).toHaveLength(2);
+  expect(socket.sent[1]).toMatchObject({ type: "event_subscribe", eventId: "meeting", track: "rider-two" });
+  // 새 snapshot 전에 온 delta는 이전 선택 기준이다.
+  act(() => socket.receive({ v: 1, type: "event_delta", eventId: "meeting", revision: 2, updatedAt: 2, viewers: 2 }));
+  expect(result.current).toMatchObject({ revision: 2, track: "rider-one" });
+  act(() => socket.receive({ ...snapshot, revision: 3 }));
+  expect(result.current).toMatchObject({ revision: 3, track: "rider-two" });
+  act(() => socket.receive({ v: 1, type: "event_delta", eventId: "meeting", revision: 4, updatedAt: 4, viewers: 1 }));
+  expect(result.current).toMatchObject({ revision: 4, track: "rider-two" });
+});
+
+it("빠른 연속 선택 변경으로 응답 대기 구독이 둘 이상이면 snapshot의 선택 기준을 모른다고 표시하고 현재 선택으로 다시 구독한다", async () => {
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
+  control.services.getAppCheckToken.mockResolvedValue("app-check");
+  const { result, rerender } = renderHook(({ track }) => useWorldEvent("meeting", user, track, undefined, undefined, undefined, false, true),
+    { initialProps: { track: "rider-a" as string | null } });
+  await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+  const socket = FakeSocket.instances[0]!;
+  act(() => socket.open());
+  act(() => socket.receive(snapshot));
+  expect(result.current).toMatchObject({ track: "rider-a" });
+  rerender({ track: "rider-b" });
+  rerender({ track: "rider-c" });
+  expect(socket.sent.map((message) => message.track)).toEqual(["rider-a", "rider-b", "rider-c"]);
+  // B의 늦은 snapshot인지 C의 것인지 모른다.
+  act(() => socket.receive({ ...snapshot, revision: 2 }));
+  expect(result.current).toMatchObject({ revision: 2, track: null, trackUnknown: true });
+  expect(socket.sent.at(-1)).toMatchObject({ type: "event_subscribe", track: "rider-c" });
+  act(() => socket.receive({ ...snapshot, revision: 3 }));
+  expect(result.current?.track).toBe("rider-c");
+  expect(result.current?.trackUnknown).toBeUndefined();
+  act(() => socket.receive({ ...snapshot, revision: 4 }));
+  expect(result.current?.track).toBe("rider-c");
+});
