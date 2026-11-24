@@ -67,7 +67,10 @@ export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: World
       status: ended ? prior.status : marker.eventStatus === "lost_signal" ? "LOST_SIGNAL" : marker.status === "paused" ? "STOPPED" : "RIDING",
     };
     if (server) row = withProgress(row, server, selectedMatches);
-    if (row === prior || prior && row.sampledAtMs === prior.sampledAtMs && sameProgress(prior, row)) continue;
+    if (row === prior) continue;
+    if (prior && row.sampledAtMs === prior.sampledAtMs && sameProgress(prior, row)) continue;
+    // 같은 표본인데 진행이 역행하면(이전 계산 순서 역전) 무시한다.
+    if (prior && row.sampledAtMs === prior.sampledAtMs && typeof row.progressM === "number" && typeof prior.progressM === "number" && row.progressM < prior.progressM) continue;
     rows.set(uid, row);
     changed = true;
   }
@@ -87,7 +90,11 @@ export function worldFrameCoversRiders(snapshot: MeetingSpectatorSnapshot | null
   if (!snapshot || !frame || frame.eventId !== snapshot.eventId || !snapshot.course) return false;
   if (selectedUid !== snapshot.selectedUid) return false;
   if (selectedUid !== null && (frame.trackUnknown || frame.track !== selectedUid)) return false;
-  return ridingUids(snapshot).size > 0;
+  const riding = ridingUids(snapshot);
+  if (riding.size === 0) return false;
+  // 프레임 마커에 주행 중 참가자가 1명 이상 있어야 커버로 판정한다.
+  // 마커가 없는 프레임은 위치 신호를 계속 열어 콜러블로 따라잡는다.
+  return frame.markers.some(m => m.uid != null && riding.has(m.uid));
 }
 
 /**
@@ -104,6 +111,8 @@ export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, 
     if (!prior) return r;
     // 완주·DNF는 콜러블이 최종 권한이다.
     if (r.status === "FINISHED" || r.status === "DNF") return r;
+    // 콜러블이 더 최신 표본이면(예: 월드 마커가 빠진 기간 대응) 콜러블 값을 쓴다.
+    if (r.sampledAtMs > prior.sampledAtMs) return r;
     // 나머지는 월드의 위치·진행·격차를 유지하고 명단(displayName)만 콜러블에서 가져온다.
     return {...r, lat: prior.lat, lng: prior.lng, sampledAtMs: prior.sampledAtMs, speedMps: prior.speedMps,
       powerWatts: prior.powerWatts, powerExpiresAtMs: prior.powerExpiresAtMs, status: prior.status,

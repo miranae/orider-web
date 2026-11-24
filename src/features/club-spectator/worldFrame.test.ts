@@ -80,10 +80,10 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
   it("커버는 명단의 주행 참가자가 1명 이상이고 이벤트 ID가 일치하면 성립한다", () => {
     const base = spectatorFixture(now);
     expect(worldFrameCoversRiders(base, frame([{uid: "rider-one"}]), now)).toBe(true);
-    // counts.riding은 보지 않는다(서버 집계와 명단이 달라도 uid 집합으로 판정).
-    expect(worldFrameCoversRiders(base, frame([], 0), now)).toBe(true);
-    expect(worldFrameCoversRiders(base, frame([], 9), now)).toBe(true);
-    // 마커 개수·신선도·서버 진행 필드 유무는 커버 판정에 영향 없다.
+    // 주행 중 참가자 마커가 프레임에 1개 이상 있어야 커버로 판정한다(마커 없으면 콜러블로 따라잡는다).
+    expect(worldFrameCoversRiders(base, frame([], 0), now)).toBe(false);
+    expect(worldFrameCoversRiders(base, frame([], 9), now)).toBe(false);
+    // 마커 신선도·서버 진행 필드 유무는 커버 판정에 영향 없다.
     expect(worldFrameCoversRiders(base, frame([{uid: "rider-two", capturedAt: now - 10000}]), now)).toBe(true);
     expect(worldFrameCoversRiders(base, frame([{uid: "rider-two"}]), now)).toBe(true);
     // 주행이 아닌 참가자(rider-four: REGISTERED)는 기여하지도 막지도 않는다.
