@@ -6,6 +6,16 @@ import { callApprovedActivityRead, reportApprovedActivityReadFailure } from '../
 import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from './runtimeConfig';
 import { activityFeedSourceRevision } from './activityFeedContent';
 import { logClientError } from './errorLogger';
+/**
+ * 공개 활동의 기준값은 서버가 활동 공개 범위 정책(P1)에 따라 내보낸다. null 또는 숫자 값 객체만 받는다.
+ * 예전에는 null 만 허용해 기준값이 실린 페이지 전체를 거부했고, 홈 활동 목록이 "활동을 불러오지 못했어요"로
+ * 막혔다(2026-11-24). 화면은 이 값을 쓰지 않으므로 형태만 확인한다.
+ */
+function isThresholdBasis(value: unknown): boolean {
+  if (value === null) return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value).every(v => typeof v === 'number' && Number.isFinite(v));
+}
 export type { ActivityDiscoveryRequest } from '@shared/activity-discovery';
 export type DiscoveryActivity = Activity & { discoveryFacts: ActivityDiscoveryItem['activity']['effectiveFacts']; activityRevision: string };
 const finite = (value: unknown): number | null => typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;
@@ -83,7 +93,7 @@ async function readActivityDiscovery(services:FirebaseServices,request:ActivityD
 function validateDiscoveryPage(data: ActivityDiscoveryResponse, request: ActivityDiscoveryRequest): DiscoveryPage {
  if(!data||!Array.isArray(data.items)||data.items.length>Math.min(request.limit??20,20)||!Number.isFinite(data.expiresAt)||data.expiresAt<=Date.now()||data.totalCount!==null||data.consistency!=='current_authorized_seek_pages'||!Number.isInteger(data.scannedCount)||data.scannedCount<0||data.scannedCount>50||typeof data.exhausted!=='boolean'||data.exhausted!==(data.nextCursor===null)||data.nextCursor!==null&&(typeof data.nextCursor!=='string'||!data.nextCursor.startsWith('ad1.'))||data.order!==(request.order??'startTime_desc')||data.includesUndated!==(data.order==='id_asc'&&request.fromInclusive===undefined&&request.toExclusive===undefined))throw Error('invalid_activity_discovery');
  const ids=new Set<string>();
- for(const item of data.items){const a=item?.activity;if(request.anchorActivityId&&item.anchorBoundCoRider!==true)throw Error('invalid_activity_discovery');if(item.viewerHasKudos!==undefined&&typeof item.viewerHasKudos!=='boolean')throw Error('invalid_activity_discovery');if(!a||typeof a.id!=='string'||!a.id||ids.has(a.id)||typeof a.userId!=='string'||!a.userId||a.externalId!==null||!a.effectiveFacts||a.effectiveFacts.thresholdBasis!==null||!item.mapPreview||!item.content||!['ready','pending'].includes(item.content.status)||typeof item.presentationRevision!=='string'||!/^[a-f0-9]{64}$/.test(item.presentationRevision))throw Error('invalid_activity_discovery');if(item.generatedSummary&&(!/^[a-f0-9]{64}$/.test(item.generatedSummary.inputDigest)||!/^[a-z0-9][a-z0-9._-]{0,99}$/i.test(item.generatedSummary.formatterVersion)||!['ko','en'].every(lang=>{const text=item.generatedSummary!.text?.[lang as 'ko'|'en'];return typeof text==='string'&&text.trim().length>0&&text.length<=3500;})))throw Error('invalid_activity_discovery');ids.add(a.id);}
+ for(const item of data.items){const a=item?.activity;if(request.anchorActivityId&&item.anchorBoundCoRider!==true)throw Error('invalid_activity_discovery');if(item.viewerHasKudos!==undefined&&typeof item.viewerHasKudos!=='boolean')throw Error('invalid_activity_discovery');if(!a||typeof a.id!=='string'||!a.id||ids.has(a.id)||typeof a.userId!=='string'||!a.userId||a.externalId!==null||!a.effectiveFacts||!isThresholdBasis(a.effectiveFacts.thresholdBasis)||!item.mapPreview||!item.content||!['ready','pending'].includes(item.content.status)||typeof item.presentationRevision!=='string'||!/^[a-f0-9]{64}$/.test(item.presentationRevision))throw Error('invalid_activity_discovery');if(item.generatedSummary&&(!/^[a-f0-9]{64}$/.test(item.generatedSummary.inputDigest)||!/^[a-z0-9][a-z0-9._-]{0,99}$/i.test(item.generatedSummary.formatterVersion)||!['ko','en'].every(lang=>{const text=item.generatedSummary!.text?.[lang as 'ko'|'en'];return typeof text==='string'&&text.trim().length>0&&text.length<=3500;})))throw Error('invalid_activity_discovery');ids.add(a.id);}
  return {...data,items:data.items.map(mapDiscoveryActivity)};
 }
 
