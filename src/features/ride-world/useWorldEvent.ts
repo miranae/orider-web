@@ -31,7 +31,6 @@ export interface WorldEventMarker {
   gapToSelectedM?: number | null;
   selectedGapExpiresAtMs?: number | null;
   /** 위 진행·격차를 계산한 서버 시각(g1-web#4037). 값이 바뀐 플러시에서만 올라간다. 배포 전 서버는 보내지 않는다. */
-  progressComputedAtMs?: number;
 }
 
 export interface WorldEventFrame {

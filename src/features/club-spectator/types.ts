@@ -19,8 +19,6 @@ export interface SpectatorRider {
   leaderGapExpiresAtMs: number | null;
   gapToSelectedM: number | null;
   selectedGapExpiresAtMs: number | null;
-  /** 진행·격차 5필드를 계산한 서버 시각(epoch ms, g1-web#4037). 배포 전 서버 응답에는 없다. */
-  progressComputedAtMs?: number | null;
   status: "RIDING" | "STOPPED" | "LOST_SIGNAL" | "FINISHED" | "DNF";
 }
 export interface MeetingSpectatorSnapshot {
