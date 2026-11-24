@@ -68,6 +68,13 @@ interface EventMapProps {
   /** 첫 로드시 코스에 맞춰 fitBounds */
   fitToCourse?: boolean;
   onWorldViewport?: (view: { lat: number; lon: number }) => void;
+  /** 운영자 대시보드 표(ParticipantTable pendingFinish)와 같은 규칙: 행사 종료 전 완주자 순위를 숨기고 "결과 대기"로 보인다. */
+  pendingFinish?: boolean;
+}
+
+/** 지도에 보일 종합 순위. 표와 같은 규칙으로 결과 확정 전 완주자 순위는 숨긴다(#4078). */
+export function visibleOverallRank(loc: Pick<LocationData, "status" | "overallRank">, pendingFinish = false): number | null {
+  return pendingFinish && normalizeStatusKey(loc.status) === "FINISHED" ? null : loc.overallRank;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -92,7 +99,7 @@ function normalizeStatusKey(s: string): string {
   return (s || "").toUpperCase();
 }
 
-function toGeoJSONCollection(locations: LocationData[], selectedUid: string | null): GeoJSON.FeatureCollection {
+function toGeoJSONCollection(locations: LocationData[], selectedUid: string | null, pendingFinish: boolean): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: locations.map((loc) => ({
@@ -107,7 +114,7 @@ function toGeoJSONCollection(locations: LocationData[], selectedUid: string | nu
         bib: loc.bib,
         status: loc.status,
         speed: loc.speed,
-        rank: loc.overallRank,
+        rank: visibleOverallRank(loc, pendingFinish),
         color: STATUS_COLORS[normalizeStatusKey(loc.status)] ?? "#4CAF50",
         selected: loc.uid === selectedUid,
       },
@@ -239,6 +246,7 @@ export default function EventMap({
   followSelected = false,
   preserveSelectionOnPopupClose = false,
   onWorldViewport,
+  pendingFinish = false,
 }: EventMapProps) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
@@ -248,13 +256,14 @@ export default function EventMap({
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
+    if (pendingFinish && key === "FINISHED") return t("dashboard.status.resultPending");
     const i18nKey = STATUS_LABEL_KEYS[key];
     if (!i18nKey) return status;
     if (i18nKey === "SOS" || i18nKey === "DNF") return i18nKey;
     return t(i18nKey);
   };
 
-  const geojson = toGeoJSONCollection(locations, selectedUid);
+  const geojson = toGeoJSONCollection(locations, selectedUid, pendingFinish);
   const routeGeojson = useMemo(
     () => buildRouteGeoJSON(coursePolylines, courseLatlngs),
     [coursePolylines, courseLatlngs]
@@ -469,8 +478,8 @@ export default function EventMap({
             </div>
             <div>{popupInfo.speedAvailable === false || popupInfo.speed == null ? "—" : `${(popupInfo.speed ?? 0).toFixed(1)} km/h`}</div>
             <div>{popupInfo.distanceAvailable === false || popupInfo.distance == null ? "—" : `${((popupInfo.distance ?? 0) / 1000).toFixed(1)} km`}</div>
-            {popupInfo.overallRank != null && (
-              <div>{t("dashboard.alert.overallRank", { rank: popupInfo.overallRank })}</div>
+            {visibleOverallRank(popupInfo, pendingFinish) != null && (
+              <div>{t("dashboard.alert.overallRank", { rank: visibleOverallRank(popupInfo, pendingFinish) })}</div>
             )}
           </div>
         </Popup>
