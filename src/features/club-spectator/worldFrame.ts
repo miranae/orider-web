@@ -120,9 +120,10 @@ export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, 
   const old = new Map(previous.locations.map(r => [r.uid, r]));
   return {...next, locations: next.locations.map(r => {
     const prior = old.get(r.uid);
-    if (!prior) return r;
     // 완주·DNF는 콜러블이 최종 권한이다.
     if (r.status === "FINISHED" || r.status === "DNF") return r;
+    // 월드 정상 중 새로 들어온 참가자도 진행·격차는 월드 값만 쓴다(마커가 오기 전까지 비워 둔다, 출처 단일화).
+    if (!prior) return {...r, progressM: null, gapToLeaderM: null, leaderGapExpiresAtMs: null, gapToSelectedM: null, selectedGapExpiresAtMs: null};
     // 나머지는 월드의 위치·진행·격차를 유지하고 명단(displayName)만 콜러블에서 가져온다.
     return {...r, lat: prior.lat, lng: prior.lng, sampledAtMs: prior.sampledAtMs, speedMps: prior.speedMps,
       powerWatts: prior.powerWatts, powerExpiresAtMs: prior.powerExpiresAtMs, status: prior.status,
