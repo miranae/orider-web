@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_RECONNECT_LIMIT, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
+import { OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS, OPERATOR_SNAPSHOT_RECONNECT_LIMIT, OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
 
 class FakeSocket extends EventTarget {
   static CLOSING = 2;
@@ -65,8 +65,58 @@ describe("operator snapshot stream", () => {
     const fallback = vi.fn(() => () => {});
     subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback);
     await flush();
+    FakeSocket.latest.dispatchEvent(new Event("open"));
     await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS + 1);
     expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts the first-generation timer only after the subscription is sent, not while credentials are issued", async () => {
+    let issue: (token: string) => void = () => {};
+    const fallback = vi.fn(() => () => {});
+    subscribeOperatorSnapshot("official", { getIdToken: () => new Promise<string>(resolve => { issue = resolve; }) }, vi.fn(), vi.fn(), fallback);
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS * 2);
+    expect(fallback).not.toHaveBeenCalled();
+    issue("id-token");
+    await flush();
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS * 2);
+    expect(fallback).not.toHaveBeenCalled();
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_FIRST_FRAME_MS - 1);
+    expect(fallback).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(2);
+    expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a head page without checkpoints or counts as a decoding error and falls back to Firestore", async () => {
+    for (const head of [{ timestamp: 1, counts: {}, locations: [] }, { timestamp: 1, checkpoints: [], locations: [] },
+      { counts: {}, checkpoints: [], locations: [] }, { timestamp: 1, counts: {}, checkpoints: [], locations: [null] }]) {
+      FakeSocket.all = [];
+      const receive = vi.fn();
+      const fallback = vi.fn(() => () => {});
+      const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback, undefined, vi.fn());
+      await flush();
+      FakeSocket.latest.page("official", "001", 0, 1, head);
+      expect(fallback).toHaveBeenCalledTimes(1);
+      expect(receive.mock.calls.every(([value]) => value === null)).toBe(true);
+      stop();
+    }
+  });
+
+  it("does not redraw a generation withdrawn by a location privacy revocation", async () => {
+    const receive = vi.fn();
+    subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), vi.fn(() => () => {}));
+    await flush();
+    const socket = FakeSocket.latest;
+    socket.page("official", "005", 0, 1, { timestamp: 5, counts: {}, checkpoints: [], locations: [{ uid: "before" }] });
+    socket.page("official", "006", 0, 2, { timestamp: 6, counts: {}, checkpoints: [], locations: [{ uid: "partial" }] });
+    socket.message({ v: 1, type: "operator_snapshot", eventId: "official", version: null, snapshot: null });
+    expect(receive).toHaveBeenLastCalledWith(null);
+    socket.page("official", "005", 0, 1, { timestamp: 5, counts: {}, checkpoints: [], locations: [{ uid: "before" }] });
+    socket.page("official", "006", 1, 2, { locations: [{ uid: "partial-b" }] });
+    socket.page("official", "006", 0, 2, { timestamp: 6, counts: {}, checkpoints: [], locations: [{ uid: "partial" }] });
+    expect(receive).toHaveBeenLastCalledWith(null);
+    socket.page("official", "007", 0, 1, { timestamp: 7, counts: {}, checkpoints: [], locations: [{ uid: "after" }] });
+    expect(receive).toHaveBeenLastCalledWith({ timestamp: 7, counts: {}, checkpoints: [], locations: [{ uid: "after" }] });
   });
 
   it("reconnects once with fresh credentials when authentication expires", async () => {
@@ -103,25 +153,61 @@ describe("operator snapshot stream", () => {
     await flush();
     expect(FakeSocket.all).toHaveLength(0);
     expect(fallback).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith("operatorSnapshotStream.connect", expect.any(Error), { eventId: "official" });
   });
 
-  it("reconnects after a personal connection drop and keeps the current view, then falls back after the limit", async () => {
+  // 느린 소켓(4008)은 1013(서버 장애)과 달리 개별 끊김이라 1006과 같은 횟수·백오프로 재연결한다(#4079).
+  it.each([1006, OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE])("reconnects after a personal connection drop (%i), shows Firestore temporarily after the limit and returns to the world", async code => {
     const receive = vi.fn();
-    const fallback = vi.fn(() => () => {});
+    const stopFallback = vi.fn();
+    const fallback = vi.fn(() => stopFallback);
     subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, receive, vi.fn(), fallback);
     await flush();
     FakeSocket.latest.dispatchEvent(new Event("open"));
     FakeSocket.latest.page("official", "001", 0, 1, { timestamp: 1, counts: {}, checkpoints: [], locations: [{ uid: "a" }] });
     const shown = receive.mock.calls.length;
     for (let attempt = 0; attempt < OPERATOR_SNAPSHOT_RECONNECT_LIMIT; attempt++) {
-      FakeSocket.latest.end(1006);
+      FakeSocket.latest.end(code);
       expect(fallback).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(1000 * 2 ** attempt);
       await flush();
     }
     expect(FakeSocket.all).toHaveLength(OPERATOR_SNAPSHOT_RECONNECT_LIMIT + 1);
     expect(receive).toHaveBeenCalledTimes(shown);
-    FakeSocket.latest.end(1006);
+    FakeSocket.latest.end(code);
+    expect(fallback).toHaveBeenCalledTimes(1);
+    // Firestore 임시 표시 중에도 월드 재연결은 백오프(상한 60초)로 계속한다.
+    let delay = 1000 * 2 ** OPERATOR_SNAPSHOT_RECONNECT_LIMIT;
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(Math.min(delay, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS));
+      await flush();
+      FakeSocket.latest.end(code);
+      delay *= 2;
+    }
+    expect(FakeSocket.all).toHaveLength(OPERATOR_SNAPSHOT_RECONNECT_LIMIT + 5);
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_MAX_BACKOFF_MS - 1);
+    await flush();
+    expect(FakeSocket.all).toHaveLength(OPERATOR_SNAPSHOT_RECONNECT_LIMIT + 5);
+    // 온라인 복귀 시 바로 재시도하고, 첫 완성 세대를 받으면 Firestore를 끊고 월드로 되돌아간다.
+    window.dispatchEvent(new Event("online"));
+    await flush();
+    expect(FakeSocket.all).toHaveLength(OPERATOR_SNAPSHOT_RECONNECT_LIMIT + 6);
+    expect(stopFallback).not.toHaveBeenCalled();
+    FakeSocket.latest.dispatchEvent(new Event("open"));
+    FakeSocket.latest.page("official", "009", 0, 1, { timestamp: 9, counts: {}, checkpoints: [], locations: [{ uid: "back" }] });
+    expect(stopFallback).toHaveBeenCalledTimes(1);
+    expect(receive).toHaveBeenLastCalledWith({ timestamp: 9, counts: {}, checkpoints: [], locations: [{ uid: "back" }] });
+    expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry the world after a server-side close (1013) while showing Firestore", async () => {
+    const fallback = vi.fn(() => () => {});
+    subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback);
+    await flush();
+    FakeSocket.latest.end(1013);
+    window.dispatchEvent(new Event("online"));
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_MAX_BACKOFF_MS * 2);
+    expect(FakeSocket.all).toHaveLength(1);
     expect(fallback).toHaveBeenCalledTimes(1);
   });
 

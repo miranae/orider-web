@@ -22,14 +22,25 @@ export interface OperatorSnapshotOptions {
   appCheck?: (forceRefresh?: boolean) => Promise<string | null | undefined>;
 }
 
-/** 개별 연결 끊김(1006 등) 재연결 횟수 상한. 넘으면 Firestore로 넘어간다. */
+/** 개별 연결 끊김(1006 등) 재연결 횟수 상한. 넘으면 Firestore로 임시 표시하고 월드 재연결은 계속 시도한다. */
 export const OPERATOR_SNAPSHOT_RECONNECT_LIMIT = 3;
+/** 임시 Firestore 표시 중 월드 재연결 백오프 상한. */
+export const OPERATOR_SNAPSHOT_MAX_BACKOFF_MS = 60_000;
+/** 월드가 느린 운영자 소켓을 닫는 코드(#4079). 서버 장애(1013)가 아니라 개별 끊김이므로 재연결한다. */
+export const OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE = 4008;
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const validLocations = (value: unknown): value is unknown[] =>
+  Array.isArray(value) && value.every(row => isObject(row) && typeof row.uid === "string");
 
 /**
  * 월드가 전달하는 Functions 정본 스냅샷을 받는다(#4049). 월드가 정상인 동안 화면 전체를 이 값으로만 그린다(섞지 않음).
- * - 서버 쪽 사용 불가(1013)·Firestore 전용 행사(4004)·첫 세대 지연·디코딩 오류: `fallback`(Firestore onSnapshot)으로 넘어가
+ * - 서버 쪽 사용 불가(1013)·Firestore 전용 행사(4004)·첫 세대 지연·디코딩(스키마) 오류: `fallback`(Firestore onSnapshot)으로 넘어가
  *   이 구독이 끝날 때까지 그쪽만 쓴다(P11 서버 장애 자동 복귀).
- * - 개별 연결 끊김(1006 등): 마지막 화면을 유지한 채 다시 연결하고, 재연결 때 최신 세대를 다시 받는다(P11, 공백 허용).
+ * - 개별 연결 끊김(1006 등)·느린 소켓(4008 slow_consumer)·토큰 발급 실패: 마지막 화면을 유지한 채 백오프로 다시 연결한다.
+ *   상한을 넘으면 Firestore로 임시 표시하면서 최대 60초 간격으로 월드 재연결을 계속하고(온라인 복귀·탭 복귀 시 즉시),
+ *   재연결 후 첫 완성 세대를 받으면 월드로 되돌아간다(P11, 공백 허용).
  * - 토큰 만료(4001)는 새 토큰으로 다시 연결한다. 권한 철회(4003)는 `denied`.
  */
 export function subscribeOperatorSnapshot<T>(
@@ -43,66 +54,138 @@ export function subscribeOperatorSnapshot<T>(
 ): () => void {
   let active = true;
   let socket: WebSocket | undefined;
+  // Firestore 표시 해제 함수. `permanent`가 아니면 월드 재연결을 기다리는 임시 표시다.
   let stopFallback: (() => void) | undefined;
+  let permanent = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let refreshed = false;
   let reconnects = 0;
   // 마지막으로 화면에 넘긴 세대. 버전은 0으로 채운 스냅샷 시각이라 문자열 비교가 시간 순서와 같다.
   let deliveredVersion: string | undefined;
+  // 위치 공개 철회(snapshot: null) 때 넘겼거나 조립 중이던 세대. 이 버전 이하는 다시 그리지 않는다.
+  let revokedThrough: string | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
-  const useFallback = () => {
-    if (!active || stopFallback) return;
-    clearTimeout(timeout);
-    clearTimeout(retry);
+  const detach = () => {
+    if (typeof window !== "undefined") window.removeEventListener("online", retryNow);
+    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", retryNow);
+  };
+  const closeSocket = () => {
     const current = socket;
     socket = undefined;
     current?.close();
+  };
+  const showFallback = () => {
+    if (stopFallback) return true;
     receive(null);
-    try { stopFallback = fallback(); }
+    try { stopFallback = fallback(); return true; }
     catch (error) {
       report("operatorSnapshotStream.fallback", error, { eventId });
       active = false;
+      clearTimeout(timeout);
+      clearTimeout(retry);
+      detach();
+      closeSocket();
       denied();
+      return false;
     }
   };
+  // 서버 쪽 사용 불가: 이 구독이 끝날 때까지 Firestore만 쓴다.
+  const useFallback = () => {
+    if (!active || permanent) return;
+    permanent = true;
+    clearTimeout(timeout);
+    clearTimeout(retry);
+    retry = undefined;
+    detach();
+    closeSocket();
+    showFallback();
+  };
+  const reconnect = (forceRefresh: boolean) => {
+    void connect(forceRefresh).catch(error => {
+      // 토큰·App Check 발급 실패는 개인 쪽 문제로 보고, Firestore로 임시 표시한 채 재시도한다.
+      report("operatorSnapshotStream.connect", error, { eventId });
+      if (!active || permanent) return;
+      if (showFallback()) scheduleRetry();
+    });
+  };
+  function scheduleRetry(code?: number) {
+    clearTimeout(timeout);
+    clearTimeout(retry);
+    if (!active || permanent) return;
+    if (reconnects >= OPERATOR_SNAPSHOT_RECONNECT_LIMIT) {
+      if (!stopFallback) report("operatorSnapshotStream.temporaryFallback", new Error("Operator snapshot stream unavailable"), { eventId, code });
+      if (!showFallback()) return;
+    } else {
+      report("operatorSnapshotStream.reconnect", new Error("Operator snapshot stream dropped"), { eventId, code, attempt: reconnects + 1 });
+    }
+    const delay = Math.min(1000 * 2 ** reconnects, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS);
+    reconnects++;
+    retry = setTimeout(() => {
+      retry = undefined;
+      if (active && !permanent) reconnect(false);
+    }, delay);
+  }
+  // 온라인 복귀·탭 복귀 시 기다리던 재연결을 바로 시도한다.
+  function retryNow() {
+    if (!active || permanent || !retry) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    clearTimeout(retry);
+    retry = undefined;
+    reconnect(false);
+  }
+  if (typeof window !== "undefined") window.addEventListener("online", retryNow);
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", retryNow);
+
   const connect = async (forceRefresh: boolean) => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      report("operatorSnapshotStream.timeout", new Error("Initial snapshot timed out"), { eventId });
-      useFallback();
-    }, OPERATOR_SNAPSHOT_FIRST_FRAME_MS);
     const token = await viewer.getIdToken(forceRefresh || undefined);
     const appCheck = options.appCheck ? await options.appCheck(forceRefresh || undefined) : undefined;
     if (options.appCheck && !appCheck) throw new Error("Operator snapshot App Check token unavailable");
-    if (!active || stopFallback) return;
+    if (!active || permanent) return;
+    closeSocket();
     const connection = new WebSocket(options.endpoint);
     socket = connection;
     let assembling: { version: string; total: number; pages: Frame[] } | undefined;
     connection.addEventListener("open", () => {
-      if (!active || stopFallback || socket !== connection) return;
+      if (!active || permanent || socket !== connection) return;
       try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token, ...(appCheck ? { appCheck } : {}) })); }
-      catch (error) { report("operatorSnapshotStream.send", error, { eventId }); useFallback(); }
+      catch (error) { report("operatorSnapshotStream.send", error, { eventId }); useFallback(); return; }
+      // 첫 세대 대기는 구독을 보낸 뒤부터 잰다(토큰 발급·연결 시간은 넣지 않는다).
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        report("operatorSnapshotStream.timeout", new Error("Initial snapshot timed out"), { eventId });
+        useFallback();
+      }, OPERATOR_SNAPSHOT_FIRST_FRAME_MS);
     });
     connection.addEventListener("message", ({ data }) => {
-      if (!active || stopFallback || socket !== connection) return;
+      if (!active || permanent || socket !== connection) return;
       try {
         const frame = JSON.parse(String(data)) as Frame;
-        if (frame.eventId !== eventId) return;
+        if (!isObject(frame) || frame.eventId !== eventId) return;
         if (frame.v !== 1 || frame.type !== "operator_snapshot") throw new Error("Unsupported operator snapshot protocol");
         if (frame.snapshot === null && frame.version === null) {
-          // 위치 공개 철회: 새 revision 세대가 올 때까지 비운다.
+          // 위치 공개 철회: 새 revision 세대가 올 때까지 비우고, 철회 전 세대는 다시 받지 않는다.
+          for (const seen of [deliveredVersion, assembling?.version]) {
+            if (seen !== undefined && (revokedThrough === undefined || seen > revokedThrough)) revokedThrough = seen;
+          }
           assembling = undefined;
           clearTimeout(timeout);
           refreshed = false;
           reconnects = 0;
+          if (stopFallback) { stopFallback(); stopFallback = undefined; }
           receive(null);
           return;
         }
-        const { page, pages, version } = frame;
+        const { page, pages, version, snapshot } = frame;
         if (typeof version !== "string" || !Number.isSafeInteger(page) || !Number.isSafeInteger(pages) ||
-            pages! < 1 || page! < 0 || page! >= pages! || !frame.snapshot || !Array.isArray(frame.snapshot.locations)) {
+            pages! < 1 || page! < 0 || page! >= pages! || !isObject(snapshot) || !validLocations(snapshot.locations)) {
           throw new Error("Invalid operator snapshot page");
         }
+        // 첫 페이지는 화면 머리(시각·인원·체크포인트)를 반드시 가진다. 빠지면 디코딩 오류로 Firestore로 넘어간다.
+        if (page === 0 && (!Number.isSafeInteger(snapshot.timestamp) || !isObject(snapshot.counts) || !Array.isArray(snapshot.checkpoints))) {
+          throw new Error("Invalid operator snapshot head");
+        }
+        if (revokedThrough !== undefined && version <= revokedThrough) return;
         // 이미 넘긴 세대나 조립 중인 세대보다 오래된 페이지는 버린다. 더 새로운 세대가 오면 그 세대로 바꾼다.
         // (같은 세대 재전송은 재연결 직후의 최신 세대일 수 있으므로 다시 조립한다.)
         if (deliveredVersion !== undefined && version < deliveredVersion) return;
@@ -117,6 +200,8 @@ export function subscribeOperatorSnapshot<T>(
         clearTimeout(timeout);
         refreshed = false;
         reconnects = 0;
+        // 임시 Firestore 표시 중이었다면 첫 완성 세대로 월드로 되돌아간다(전환 순간 덮어쓰기).
+        if (stopFallback) { stopFallback(); stopFallback = undefined; }
         receive({ ...head!.snapshot, locations: [head!, ...rest].flatMap(part => part.snapshot!.locations!) } as T);
       } catch (error) {
         report("operatorSnapshotStream.decode", error, { eventId });
@@ -124,35 +209,34 @@ export function subscribeOperatorSnapshot<T>(
       }
     });
     connection.addEventListener("close", ({ code }) => {
-      if (!active || stopFallback || socket !== connection) return;
+      if (!active || permanent || socket !== connection) return;
       socket = undefined;
       if (code === 4003) {
         clearTimeout(timeout);
+        clearTimeout(retry);
         active = false;
+        detach();
+        if (stopFallback) { stopFallback(); stopFallback = undefined; }
         denied();
       } else if (code === 4001 && !refreshed) {
         refreshed = true;
-        void connect(true).catch(error => { report("operatorSnapshotStream.connect", error, { eventId }); useFallback(); });
-      } else if (code !== 1013 && code !== 4004 && code !== 4001 && reconnects < OPERATOR_SNAPSHOT_RECONNECT_LIMIT) {
-        // 개별 연결 끊김: 화면은 그대로 두고 다시 연결한다. 재연결하면 월드가 최신 세대를 다시 보낸다.
-        report("operatorSnapshotStream.reconnect", new Error("Operator snapshot stream dropped"), { eventId, code, attempt: reconnects + 1 });
         clearTimeout(timeout);
-        retry = setTimeout(() => {
-          retry = undefined;
-          if (!active || stopFallback) return;
-          void connect(false).catch(error => { report("operatorSnapshotStream.connect", error, { eventId }); useFallback(); });
-        }, 1000 * 2 ** reconnects++);
+        reconnect(true);
+      } else if (code !== 1013 && code !== 4004 && code !== 4001) {
+        // 개별 연결 끊김(1006·4008 등): 화면은 그대로 두고 다시 연결한다. 재연결하면 월드가 최신 세대를 다시 보낸다.
+        scheduleRetry(code);
       } else {
         report("operatorSnapshotStream.close", new Error("Operator snapshot stream closed"), { eventId, code });
         useFallback();
       }
     });
   };
-  void connect(false).catch(error => { report("operatorSnapshotStream.connect", error, { eventId }); useFallback(); });
+  reconnect(false);
   return () => {
     active = false;
     clearTimeout(timeout);
     clearTimeout(retry);
+    detach();
     stopFallback?.();
     if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
   };

@@ -511,8 +511,10 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
               },
             );
             if (currentRevision !== revision || !isCurrentSnapshot()) return;
+            // 출처(월드·Firestore)와 관계없이 체크포인트가 빠진 스냅샷도 렌더 중 예외 없이 그린다.
             const data: SnapshotData = {
               ...raw,
+              checkpoints: Array.isArray(raw.checkpoints) ? raw.checkpoints : [],
               locations: locations.map((l) => ({
                 ...l,
                 status: (l.status || "").toUpperCase(),
@@ -907,7 +909,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           </div>
 
           <Text as="div" variant="eyebrow" style={{ marginTop: 22, marginBottom: "var(--space-2)" }}><GlossaryText>{t("checkpoints")}</GlossaryText></Text>
-          {snapshot?.checkpoints.length ? (
+          {snapshot?.checkpoints?.length ? (
             snapshot.checkpoints.map((cp) => {
               const total = filteredCounts.total || snapshot.counts?.total || 1;
               const pct = Math.min(100, Math.round((cp.passedCount / total) * 100));
