@@ -117,3 +117,45 @@ it.each([{avgHr:120},{avgPower:180}])("retains the saved-only previous-analysis 
   renderRide();
   expect(screen.getByText(koActivity.serverMetrics.staleChip)).toBeVisible();
 });
+
+describe("뷰어의 활동 분석 범위 (P1)", () => {
+  /** 파워·페달링·존·클라임이 있는 남의 라이딩. 서버가 보낸 기준값(FTP·체중)도 함께 온다. */
+  function powerRide(): UseActivityMetricsState {
+    return {
+      status: "ready",
+      metrics: {
+        discipline: "bike", distanceKm: 42, durationSec: 6000, movingTimeSec: 5400,
+        avgPower: 210, np: 228, avgHr: 150, maxHr: 182, avgCadence: 86,
+        powerZoneSec: [600, 1200, 1800, 900, 600, 300, 0], hrZoneSec: [600, 1800, 1800, 900, 300], mmp: {},
+        contextSnapshot: { ftp: 250, weightKg: 70, maxHr: 190 },
+        quadrant: { q1Pct: 20, q2Pct: 30, q3Pct: 35, q4Pct: 15 },
+        cyclingMetrics: { cadenceStdDev: 10, longestZ4PlusSec: 120 },
+        climbs: [{ startKm: 1, lengthKm: 2, elevationGainM: 120, avgGrade: 6, avgPower: 260, wPerKg: 3.7, durationSec: 600 }],
+      },
+    } as unknown as UseActivityMetricsState;
+  }
+  const renderViewer = (renderSections?: (sections: import("./AnalysisTab").ActivityAnalysisSections) => null) => render(
+    <ThemeProvider><OriderThemeProvider><AnalysisTab activityId="viewer-ride" sport="ride" isOwner={false} renderSections={renderSections}
+      streams={{ time: [], distance: [] } as unknown as ActivityStreams} summary={{ distance: 42000 } as never} /></OriderThemeProvider></ThemeProvider>,
+  );
+
+  it("소유자와 같은 페달링·존·FTP 기준 분석 구역을 받는다", () => {
+    state.metrics = powerRide();
+    let sections: import("./AnalysisTab").ActivityAnalysisSections | undefined;
+    renderViewer(value => { sections = value; return null; });
+    expect(sections?.pedaling).toBeTruthy();
+    expect(sections?.zones).toBeTruthy();
+    expect(sections?.context).toMatchObject({ ftp: 250, weightKg: 70 });
+  });
+
+  it("페달링 지표를 그리되 소유자 동작(클라임 세그먼트 만들기)은 숨긴다", () => {
+    state.metrics = powerRide();
+    renderViewer();
+    expect(screen.getByText("analysis.section.pedalQuality")).toBeInTheDocument();
+    expect(screen.getByText("analysis.zones.power")).toBeInTheDocument();
+    expect(screen.getByText("analysis.climbs.footnote")).toBeInTheDocument();
+    expect(screen.getByText(/3\.7/)).toBeInTheDocument();
+    expect(screen.queryByText("analysis.climbs.promote")).not.toBeInTheDocument();
+    expect(screen.queryByText("analysis.climbs.header.action")).not.toBeInTheDocument();
+  });
+});

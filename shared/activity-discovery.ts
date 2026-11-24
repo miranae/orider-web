@@ -22,7 +22,7 @@ export interface ActivityDiscoveryActivity {
   effectiveFacts: { source: 'activity_metrics'; status: string; inputRevision: string | null; computedAt: number | null;
     coverage: string | null;
     /** 공개 활동의 분석 기준값(FTP·최대심박·LTHR). 활동 공개 범위가 분석 공개를 정한다(P1) — 없으면 null. */
-    thresholdBasis: Record<string, number> | null; powerSource: 'measured' | 'estimated' | 'unknown' | null; metrics: Record<string, number | null> | null };
+    thresholdBasis: { ftp?: number | null; maxHr?: number | null; lthr?: number | null; ftpRevision?: string | null; ftpSource?: 'user' | 'pdc_estimate' | 'none' | null } | null; powerSource: 'measured' | 'estimated' | 'unknown' | null; metrics: Record<string, number | null> | null };
 }
 export interface ActivityDiscoveryItem {
   /** Exact current viewer membership, not inferred from the bounded recent avatar list. */

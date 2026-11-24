@@ -314,7 +314,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
     setPeakSelection({ activityId, peak: null });
   }, [activityId, user?.uid, isActivityOwner, serverMetrics.metrics?.computedAt, activePowerOverride]);
   const selectedPeak = peakSelection.activityId === activityId
-    && visiblePeakEfforts(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)
+    && visiblePeakEfforts(serverMetrics.metrics, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)
       .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
     ? peakSelection.peak : null;
   const runLocationAnchor = useRef<HTMLDivElement>(null);
@@ -770,7 +770,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
   useEffect(() => {
     const pending = pendingPeakLocation.current;
     if (!pending) return;
-    if (hasPublicRouteParts || pending.activityId !== activityId || pending.uid !== user?.uid || (!isActivityOwner && !publicAccess)
+    if (hasPublicRouteParts || pending.activityId !== activityId || pending.uid !== user?.uid
       || pending.peak !== selectedPeak || streamsError) {
       pendingPeakLocation.current = null;
       return;
@@ -779,7 +779,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
     // 준비된 위치를 한 번만 보여 준다. 이후 사용자의 탭 선택은 바꾸지 않는다.
     pendingPeakLocation.current = null;
     if (peakLocation) viewMapLocation();
-  }, [activityId, user?.uid, isActivityOwner, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewMapLocation, hasPublicRouteParts]);
+  }, [activityId, user?.uid, selectedPeak, streams, streamsError, loadingStreams, peakLocation, viewMapLocation, hasPublicRouteParts]);
   const lapContext = { source: activity?.source, activityStartMs: normalizeEpochMilliseconds(activity?.startTime) ?? 0, durationSec: rangeSelection.durationSec };
   const [unlinkedLapIdentity, setUnlinkedLapIdentity] = useState<string | null>(null);
   const pendingLap = useRef<{ identity: string; lap: RecordedLap } | null>(null);
@@ -1028,6 +1028,11 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
     hasStreamPowerCandidate: powerNeedsPreview,
   });
   const runCadenceUnit = recordedRunCadenceUnit;
+  // 역치 페이스는 이 활동을 계산할 때의 스냅샷이 정본이다 — 소유자·뷰어 모두 같은 값을 본다 (P1).
+  // 옛 문서에 스냅샷이 없을 때만 소유자는 자기 프로필로 폴백한다(뷰어 프로필은 이 활동과 무관하다).
+  const activityThresholdPace = serverMetrics.metrics?.contextSnapshot?.thresholdPace
+    ?? serverMetrics.metrics?.runMetrics?.paceZoneAnalysis?.thresholdPaceSecPerKm
+    ?? (isActivityOwner ? profile?.thresholdPace ?? null : null);
   const stripStats = sport === "run" ? {
     ...rawStripStats,
     avgCadence: { ...rawStripStats.avgCadence, value: runningCadenceSpm(rawStripStats.avgCadence.value, providerRecord ? "strides_per_minute" : runCadenceUnit) },
@@ -1500,7 +1505,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
 
       {/* ── 스플릿 탭 (러닝 전용) ── */}
       {activeTab === "segments" && sport === "run" && streams && (
-        <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />
+        <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={activityThresholdPace} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />
       )}
 
       {/* ── 랩 탭 ── */}
@@ -1582,7 +1587,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
       {sport === "ride" ? <ActivityAnalysisBody summaryOutside
         overview={overview} isOwner={isActivityOwner} preview={activePowerOverride != null}
         ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={providerRecord ? latestMetrics?.caloriesKcal ?? null : stripStats.caloriesKcal.value}
-        storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
+        storedLoad={!activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
         sharedStats={providerRecord ? { averagePower: latestMetrics?.avgPower ?? null, averageCadence: latestMetrics?.avgCadence ?? null, averageHeartRate: latestMetrics?.avgHr ?? null, maxHeartRate: latestMetrics?.maxHr ?? null } : { averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
         analysisProps={analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signIn(); } } : null}
         timeline={null}
@@ -1594,8 +1599,8 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
         suppliedPdcState={bikePdcState} embedded /> }        </> : null}
         peakInspector={<>
 
-      {(visiblePeakEfforts(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 || twentyMinuteEffort(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)) && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
-        activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner || !!publicAccess}
+      {(visiblePeakEfforts(serverMetrics.metrics, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 || twentyMinuteEffort(serverMetrics.metrics, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)) && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
+        activityId={activity.id} metrics={serverMetrics.metrics}
         invalidated={activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true}
         suppressHeartRate={analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={analysisTabProps?.suppressServerCadenceMetrics}
         onSelectTwentyMinute={selectedAnalysis ? undefined : range => {
@@ -1619,7 +1624,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
           {activePowerOverride && <Button variant="ghost" size="sm" onClick={revertVirtualPowerPreview}>{t("page.vp.revertBtn")}</Button>}
         </div> : null}
         sensorFallback={<>
-      {activeTab === "analysis" && summarySensorMetrics.length > 0 && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
+      {activeTab === "analysis" && summarySensorMetrics.length > 0 && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
             title={t(providerRecord ? "sourceMetrics.sensorSummary" : "page.summarySensorTitle")}
@@ -1640,7 +1645,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
       </Card>}
 
       {/* 러닝/수영 전용 상세 — 기존 공개·센서 조건 유지 */}
-      {sport === "run" && streams && <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />}
+      {sport === "run" && streams && <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={activityThresholdPace} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />}
       {sport === "swim" && streams && <SwimLeftCards streams={streams} />}
 
       {(sport === "run" || sport === "swim") && (
@@ -1665,11 +1670,11 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
       {(sport === "run" || !!analysisTabProps
         || overview.enabled && (isActivityOwner || overview.response?.status === "available")
         || isActivityOwner && shareDiscipline === "bike"
-        || !hasAnalysisStreams && (isActivityOwner || overview.response?.status !== "available") && summarySensorMetrics.length > 0) && <Card className="activity-detail-analysis-details">
+        || !hasAnalysisStreams && summarySensorMetrics.length > 0) && <Card className="activity-detail-analysis-details">
       <Text as="h2" variant="subtitle" weight={600}>{t("detail.technicalDetails.title")}</Text>
       {activeTab === "analysis" && <section data-testid="D1-3" className="activity-detail-analysis">
 
-      {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
+      {activeTab === "analysis" && sport !== "run" && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
             title={t(providerRecord ? "sourceMetrics.sensorSummary" : "page.summarySensorTitle")}
@@ -1690,7 +1695,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
               다시 추정하지 않도록 한다. */}
-          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signIn(); }} integratedPresentation={overview.enabled && !overview.loading && overview.response?.status === "available" ? overview.response.presentation : undefined} />
+          <AnalysisTab {...analysisTabProps} onSignIn={() => { void signIn(); }} integratedPresentation={overview.enabled && !overview.loading && overview.response?.status === "available" ? overview.response.presentation : undefined} />
         </div>
       )}
       {activeTab === "analysis" && sport === "run" && <AnalysisTab
@@ -1704,7 +1709,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
         onSignIn={() => { void signIn(); }}
         streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
         summary={displayedSummary}
-        canonicalPresentationAvailable={overview.response?.status === "available"}
+       
         onSelectRunEffort={!selectedAnalysis && getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().activityAnalysisExpansionEnabled === true && rangeSelection.enabled && !rangeSelection.sourceLocked ? rangeSelection.select : undefined}
         onSelectLap={!selectedAnalysis && !hasPublicRouteParts && rangeSelection.ownerUid ? selectLap : undefined}
         canSelectLap={canSelectLap}
@@ -1712,7 +1717,7 @@ function ActivityPageContent({ publicAccess, initialOwnerActivity, initialOwnerA
         onViewRunSplitLocation={selectedAnalysis || hasPublicRouteParts ? undefined : onViewRunSplitLocation}
         canViewRunSplitLocation={!hasPublicRouteParts && !!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
-      {activeTab === "analysis" && !selectedAnalysis && sport === "run" && (isActivityOwner || publicAccess) && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">
+      {activeTab === "analysis" && !selectedAnalysis && sport === "run" && !!rangeSelection.ownerUid && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">
         {/* 차트가 없는 달리기(거리 스트림 없음)는 드래그할 그래프가 없어 시작 버튼으로만 구간 분석을 연다. */}
         <ActivityRangeControls selection={rangeSelection} showToggle />
         <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={rangeSelection.analysisActivityId ?? activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />

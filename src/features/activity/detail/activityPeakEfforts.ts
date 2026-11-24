@@ -1,9 +1,12 @@
 import type { ActivityMetrics, RidePeakEffort } from "@shared/types/activity-metrics";
 import type { ActivityStreams } from "@shared/types";
 
-/** 최고 노력은 서버가 확정한 실측 파워 창만 사용한다. 재계산하지 않는다. */
-export function visiblePeakEfforts(metrics: ActivityMetrics | null, owner: boolean, invalidated = false): RidePeakEffort[] {
-  if (!owner || invalidated || !metrics || metrics.discipline !== "bike" || metrics.isVirtualPower !== false
+/**
+ * 최고 노력은 서버가 확정한 실측 파워 창만 사용한다. 재계산하지 않는다.
+ * 활동을 볼 수 있는 누구에게나 같다 (P1) — 위치 보기(GPS)는 호출처가 경로 공개 범위로 따로 막는다.
+ */
+export function visiblePeakEfforts(metrics: ActivityMetrics | null, invalidated = false): RidePeakEffort[] {
+  if (invalidated || !metrics || metrics.discipline !== "bike" || metrics.isVirtualPower !== false
     || metrics.inputPending || metrics.inputCoverage === "pending") return [];
   const durations = new Set<number>();
   return (metrics.peakEfforts?.peaks ?? []).filter(peak => {
@@ -44,8 +47,8 @@ export function resolvePeakEffortLocation(peak: RidePeakEffort | null, axis: "ro
 }
 
 /** The PDC supplies elapsed bounds, never GPS/sensor array indices. */
-export function twentyMinuteEffort(metrics: ActivityMetrics | null, allowed: boolean, invalidated = false) {
-  if (!allowed || invalidated || metrics?.discipline !== "bike" || metrics.isVirtualPower !== false
+export function twentyMinuteEffort(metrics: ActivityMetrics | null, invalidated = false) {
+  if (invalidated || metrics?.discipline !== "bike" || metrics.isVirtualPower !== false
     || metrics.inputPending || metrics.inputCoverage === "pending") return null;
   const curve = metrics.powerDurationCurve;
   if (curve?.state !== "available") return null;

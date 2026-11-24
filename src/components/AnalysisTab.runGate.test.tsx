@@ -256,9 +256,9 @@ describe("러닝 분석 게이트", () => {
     for (const label of ["NP", "IF", "VI", "overviewEvidence.ftpMissing", "analysis.section.pedalQuality", "analysis.metric.ef", "analysis.metric.decoupling"]) expect(screen.queryByText(label)).not.toBeInTheDocument();
   });
 
-  it("공개 정본 모드에도 러닝 스플릿을 보존한다", () => {
+  it("뷰어에게도 러닝 스플릿을 보존한다", () => {
     state.metrics = gpsOnlyRunMetrics();
-    render(<AnalysisTab activityId="public-run" sport="run" canonicalPresentationAvailable streams={{ time: [], distance: [] } as unknown as ActivityStreams} />);
+    render(<AnalysisTab activityId="public-run" sport="run" streams={{ time: [], distance: [] } as unknown as ActivityStreams} />);
     expect(screen.getAllByText("analysis.section.splits").length).toBeGreaterThan(0);
     expect(screen.getByText("3:59/km")).toBeInTheDocument();
   });

@@ -1,6 +1,5 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { getCurrentUser } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { runningPaceAnalysisFixture, runningPacePeriodFixture } from "../../services/trainingAnalysisPeriods.fixture";
 import RunningPaceZonesPanel from "./RunningPaceZonesPanel";
@@ -75,24 +74,11 @@ describe("recorded GAP pace-zone presentation", () => {
     expect(source).toHaveStyle({ minHeight: "calc(var(--dim-button-height) + var(--space-1))" });
     expect(screen.getByText(`기준 프로필 저장 버전 ${revision}`)).toHaveStyle({ overflowWrap: "anywhere" });
   });
-  it("does not expose the new private pace panel to an anonymous owner or signed-out viewer", () => {
+  it("shows the activity's pace-zone snapshot to every viewer allowed to see the activity (P1)", () => {
     const metrics = { runMetrics: { gapAvgSec: null, paceZoneAnalysis: runningPaceAnalysisFixture() }, mmp: {} } as ActivityMetricsDoc;
-    const view = renderWithProviders(<RunAnalysisPanel metrics={metrics} isOwner />, { authenticated: false });
-    expect(screen.queryByRole("region", { name: "GAP 페이스존" })).not.toBeInTheDocument();
-    view.unmount();
-    const authenticated = renderWithProviders(<RunAnalysisPanel metrics={metrics} isOwner />, { authenticated: true });
-    expect(screen.getByRole("region", { name: "GAP 페이스존" })).toBeInTheDocument();
-    Object.assign(getCurrentUser()!, { isAnonymous: true });
-    authenticated.rerender(<RunAnalysisPanel metrics={{ ...metrics }} isOwner />);
-    expect(screen.queryByRole("region", { name: "GAP 페이스존" })).not.toBeInTheDocument();
-  });
-  it("only exposes genuine private single-activity pace snapshots to the owner", () => {
-    const metrics = { runMetrics: { gapAvgSec: null, paceZoneAnalysis: runningPaceAnalysisFixture() }, mmp: {} } as ActivityMetricsDoc;
-    const view = renderWithProviders(<RunAnalysisPanel metrics={metrics} isOwner={false} />, { authenticated: true });
-    expect(screen.queryByRole("region", { name: "GAP 페이스존" })).not.toBeInTheDocument();
-    view.rerender(<RunAnalysisPanel metrics={metrics} isOwner />);
+    const view = renderWithProviders(<RunAnalysisPanel metrics={metrics} />, { authenticated: false });
     expect(within(screen.getByRole("region", { name: "GAP 페이스존" })).getByText(/기준 역치 5:00/)).toBeInTheDocument();
-    view.rerender(<RunAnalysisPanel metrics={{ ...metrics, runMetrics: { gapAvgSec: null } }} isOwner />);
+    view.rerender(<RunAnalysisPanel metrics={{ ...metrics, runMetrics: { gapAvgSec: null } }} />);
     expect(screen.queryByRole("region", { name: "GAP 페이스존" })).not.toBeInTheDocument();
   });
 });

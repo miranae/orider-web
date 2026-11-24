@@ -13,9 +13,10 @@ import { savedActivityMetrics } from "../services/savedActivityMetrics";
  *   - stale: 저장 결과의 version 이 클라이언트 기대보다 낮음 (기존 결과를 유지하며 재분석은 명시 요청)
  *   - ready: 사용 가능
  *
- * Firestore rules: `activity_metrics/{id}` 는 **활동 owner 만** read (contextSnapshot 에
- * FTP·최대심박·체중·LTHR 이 들어 있다). 타인의 공개 활동을 보는 사람은 서버가 따로 내는
- * `activity_metrics_public/{id}` 를 읽는다 — 민감 필드를 뺀 부분집합이다. backend write,
+ * Firestore rules: `activity_metrics/{id}` 는 **활동 owner 만** read. 타인의 활동을 보는
+ * 사람은 서버가 따로 내는 `activity_metrics_public/{id}` 를 읽는다. 그 문서도 활동 단위
+ * 분석 전체(contextSnapshot 의 FTP·역치·체중 파생값 포함, P1)를 담으며 클라이언트는 받은
+ * 필드를 걸러 내지 않는다 — 옛 좁은 문서에 없는 필드는 결측으로 남는다. backend write,
  * 본 hook 은 read only.
  */
 
@@ -40,45 +41,6 @@ import { canonicalRolloutObservedOff } from "../services/canonicalRollout";
 export type ActivityMetricsDoc = ActivityMetrics & {
   newPrs?: Array<{ duration?: string; durationSeconds?: number; rank?: number; value?: number; watts?: number }>;
 };
-
-/**
- * 공개 projection 이 담는 필드. 민감한 선수 컨텍스트(FTP·존 경계·클라임 파워)는 서버가 애초에
- * 복사하지 않는다.
- *
- * @sync-with orider-g1-web/functions/src/analysis/activity-metrics-public-projection.ts#PUBLIC_ACTIVITY_METRICS_KEYS
- */
-export const PUBLIC_ACTIVITY_METRICS_KEYS = [
-  "version", "discipline", "activityType", "startTime", "computedAt",
-  "durationSec", "movingTimeSec", "pauseTimeSec",
-  "distanceKm", "distanceSource", "elevationGainM", "elevationLossM", "avgGrade", "maxGrade",
-  "avgSpeedKph", "maxSpeedKph", "avgCadence", "maxCadence", "cadenceUnit",
-  "np", "avgPower", "avgHr", "maxHr", "hrZoneSec", "runMetrics", "splits", "decoupling", "algorithmVersion", "cyclingDynamics", "lrBalance",
-  "workKj", "caloriesKcal", "isVirtualPower", "gpsQuality", "weather",
-  "sourceLayer", "inputPending", "inputCoverage",
-] as const;
-
-/**
- * 공개 doc → `ActivityMetricsDoc` 부분집합.
- *
- * 서버가 이미 걸러 내지만 여기서 한 번 더 화이트리스트를 지난다 — 나중에 서버가 필드를 더
- * 흘려도 화면이 조용히 그것을 그리지 않는다. **없는 필드는 undefined 로 남긴다**(0 으로
- * 채우면 "미계산" 과 "실제로 0" 이 같은 화면이 된다).
- */
-export function fromPublicActivityMetrics(data: Record<string, unknown>): ActivityMetricsDoc {
-  const projection: Record<string, unknown> = {};
-  for (const key of PUBLIC_ACTIVITY_METRICS_KEYS) {
-    if (Object.prototype.hasOwnProperty.call(data, key)) projection[key] = data[key];
-  }
-  // 잘못된 출처도 명시 결측으로 유지한다. 필드를 지우면 이전 형식의 숫자로 승격된다.
-  if (Object.prototype.hasOwnProperty.call(projection, "distanceSource")
-    && projection.distanceSource !== "recorded_summary" && projection.distanceSource !== "stream_counter") {
-    projection.distanceSource = null;
-  }
-  // 부분집합이므로 필수 필드가 비어 있다. 타입은 정본과 같은 것으로 두고(소비처가 두 모양을
-  // 따로 다루면 화면마다 분기가 늘어난다) 없는 값은 undefined 로 남긴다 — 소비처는 이미 모든
-  // 필드를 optional 로 다룬다(파일 머리 주석의 drift 규칙).
-  return projection as unknown as ActivityMetricsDoc;
-}
 
 export type UseActivityMetricsState =
   | { status: "loading"; metrics: null }
@@ -187,25 +149,24 @@ export function useActivityMetrics(activityId: string | null, isOwner = true): U
           return;
         }
         // 캐스팅은 hook 사용자 책임 영역 — 서버 doc 스키마는 functions 쪽에서 강제.
-        // 공개 문서는 부분집합이라 화이트리스트를 지난다.
         const raw = snap.data() as Record<string, unknown>;
         // v3 수명주기 문서는 final의 metrics만 서빙한다. pending/invalid의 사본은 확정값이 아니다.
         const isLifecycleDocument = Object.prototype.hasOwnProperty.call(raw, "status")
           || Object.prototype.hasOwnProperty.call(raw, "schemaVersion");
-        if (isOwner && isLifecycleDocument && (raw.status !== "final"
+        if (isLifecycleDocument && (raw.status !== "final"
           || !raw.metrics || typeof raw.metrics !== "object" || Array.isArray(raw.metrics))) {
           update({ status: raw.status === "pending" ? "loading" : "missing", metrics: null });
           return;
         }
-        const saved = savedActivityMetrics(raw);
-        const data = isOwner
-          ? saved.metrics!
-          : fromPublicActivityMetrics(raw);
+        // 소유자·뷰어 모두 서버가 준 문서를 그대로 쓴다 — 클라이언트 화이트리스트는 두지 않는다.
+        // 활동 단위 분석(FTP 대비 값·W/kg·존·역치 포함)은 활동을 볼 수 있는 누구에게나 같다
+        // (docs/product-invariants.md P1). 옛 좁은 공개 문서는 필드가 없을 뿐이며 소비처가 결측으로 다룬다.
+        const { metrics: data, retained } = savedActivityMetrics(raw) as { metrics: ActivityMetricsDoc; retained: boolean };
         // version 이 클라 기대보다 낮으면 stale — 값은 그대로 노출하되 호출자가 표식을 붙인다.
         // version 필드가 아예 없는 옛 문서는 0 으로 본다 — 모름을 최신으로 그리면 안 된다 (#2237).
         const version = typeof data.version === "number" && Number.isSafeInteger(data.version)
           && data.version >= 0 ? data.version : 0;
-        const isStale = saved.retained || (isOwner && isLifecycleDocument && raw.stale === true)
+        const isStale = retained || (isLifecycleDocument && raw.stale === true)
           || version < ACTIVITY_METRICS_VERSION;
         update({ status: isStale ? "stale" : "ready", metrics: data });
       },

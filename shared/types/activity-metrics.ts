@@ -300,6 +300,8 @@ export interface ActivityMetrics {
     maxHr?: number;
     weightKg?: number;
     lthr?: number;
+    /** 러닝 역치 페이스(초/km). 서버가 스냅샷에 남길 때만 있다 — 옛 문서엔 없다. */
+    thresholdPace?: number;
   };
 }
 
