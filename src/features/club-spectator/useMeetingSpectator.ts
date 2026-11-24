@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
+import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, useWorldEvent, type WorldEventFrame } from "../ride-world/useWorldEvent";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { retainNewerSamples } from "./presentation";
-import { applyWorldFrame, retainWorldPositions } from "./worldFrame";
+import { applyWorldFrame, retainWorldPositions, worldFrameCoversRiders } from "./worldFrame";
 import type { MeetingSpectatorSnapshot } from "./types";
+
+/** 월드 프레임이 이 시간 동안 새로 오지 않으면 연결·준비 상태와 무관하게 위치 변경 신호·콜러블로 따라잡는다. */
+export const WORLD_FRAME_STALL_MS = 5000;
 
 interface State { scope: string; data: MeetingSpectatorSnapshot | null; receivedAt: number; loading: boolean; error: unknown }
 /** 값은 회원 전용 API로 재검증하고 Firestore는 변경 신호로만 구독한다. */
@@ -20,14 +23,24 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const [retry, setRetry] = useState(0);
   const [state, setState] = useState<State>({scope, data: null, receivedAt: 0, loading: true, error: null});
   const activeState = state.scope === scope ? state : {data: null, loading: !!uid, error: null, receivedAt: 0};
-  // 운영 플래그가 켜지면 월드 위치를 바로 반영하는 보조 경로를 더한다. 위치 변경 신호·콜러블 경로는 항상 유지하므로
-  // 프레임이 멈추거나 끊겨도 지도와 서버 진행·격차는 기존 조회로 갱신된다.
+  // 운영 플래그가 켜지면 월드 위치와 서버 계산 진행·격차를 바로 반영한다. 프레임이 보이는 주행자를 모두 담는 동안에만
+  // 위치 변경 신호(=반복 콜러블)를 멈추고, 프레임이 빠지거나 멈추거나 끊기면 신호를 다시 열어 콜러블로 따라잡는다(P11).
   const worldViews = isProductionWorldEventEnabled();
   const world = useWorldEvent(activeState.data?.status === "LIVE" ? eventId : undefined,
     uid === services.auth.currentUser?.uid ? services.auth.currentUser : null, selectedUid, undefined, undefined, undefined, false, worldViews);
   const worldActive = world !== null;
   const worldViewsRef = useRef(worldViews);
   worldViewsRef.current = worldViews;
+  const [stalledFrame, setStalledFrame] = useState<WorldEventFrame | null>(null);
+  useEffect(() => {
+    if (!worldViews || !world) return;
+    const timer = setTimeout(() => setStalledFrame(world), WORLD_FRAME_STALL_MS);
+    return () => clearTimeout(timer);
+  }, [world, worldViews]);
+  const worldCovers = worldViews && world !== null && stalledFrame !== world && activeState.data !== null &&
+    worldFrameCoversRiders(activeState.data, world, activeState.data.serverNowMs + Math.max(0, Date.now() - activeState.receivedAt));
+  const worldCoversRef = useRef(worldCovers);
+  worldCoversRef.current = worldCovers;
   const syncLocationSignal = useRef<() => void>(() => {});
   const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
@@ -87,9 +100,11 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         if (selectedRef.current !== requestedUid) { queued = true; return; }
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
-        if (readySubscriptions.size === (spectatorActiveScope.current === scope ? 3 : 4)) recoveryAttempts = 0;
+        if (readySubscriptions.size === (locationSignalOff() ? 3 : 4)) recoveryAttempts = 0;
         const merge = worldViewsRef.current ? retainWorldPositions : retainNewerSamples;
-        setState(old => ({scope, data: merge(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
+        // 수신 시각은 응답 시점에 고정한다(serverNowMs와 함께 화면 시각의 기준이 된다).
+        const receivedAt = Date.now();
+        setState(old => ({scope, data: merge(old.scope === scope ? old.data : null, data), receivedAt, loading: false, error: null}));
       } catch (error) {
         if (current() && ticket === generation) fail(error);
       } finally {
@@ -107,9 +122,12 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
       }, Math.max(100, 5000 - (Date.now() - lastReadAt)));
     };
     spectatorSignal.current = code => signal(code === 4003 || code === 4004);
+    // 관전 Redis 신호가 준비됐거나 월드 프레임이 보이는 주행자를 모두 담으면 위치 변경 신호 구독을 쉰다.
+    // 명단·권한 신호(event·group·member)는 계속 구독해 콜러블로 다시 확인한다.
+    const locationSignalOff = () => spectatorActiveScope.current === scope || worldCoversRef.current;
     const syncSignal = () => {
       const path = `events/${eventId}/spectator_signals/latest`;
-      if (spectatorActiveScope.current === scope) {
+      if (locationSignalOff()) {
         stopLocationSignal?.();
         stopLocationSignal = undefined;
         readySubscriptions.delete(path);
@@ -158,6 +176,22 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     return () => { disposed = true; spectatorSignal.current = () => {}; syncLocationSignal.current = () => {}; stop(); document.removeEventListener("visibilitychange", visible); window.removeEventListener("focus", focus); window.removeEventListener("online", focus); };
   }, [services, scope, groupId, eventId, uid, retry, spectatorRedis, viewer]);
   useEffect(() => { syncLocationSignal.current(); if (world && !worldViews) spectatorSignal.current(); }, [world, worldActive, worldViews]);
+  const previousCovers = useRef(worldCovers);
+  useEffect(() => {
+    if (previousCovers.current === worldCovers) return;
+    previousCovers.current = worldCovers;
+    syncLocationSignal.current();
+    // 월드가 빠지면(누락·정지·끊김) 다시 연 신호를 기다리지 않고 콜러블로 따라잡는다.
+    if (!worldCovers) spectatorSignal.current();
+  }, [worldCovers]);
+  // 위치 신호를 쉬는 동안 명단 상태(완주·이탈·합류)가 바뀌면 콜러블로 한 번 다시 확인한다(5초 창에 묶인다).
+  const rosterKey = worldViews && world ? JSON.stringify(world.roster) : null;
+  const previousRoster = useRef(rosterKey);
+  useEffect(() => {
+    const changed = previousRoster.current !== null && rosterKey !== null && previousRoster.current !== rosterKey;
+    previousRoster.current = rosterKey;
+    if (changed && worldCoversRef.current) spectatorSignal.current();
+  }, [rosterKey]);
   useEffect(() => {
     if (!worldViews || !world) return;
     const now = Date.now();

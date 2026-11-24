@@ -24,6 +24,12 @@ export interface WorldEventMarker {
   powerExpiresAtMs?: number;
   hr?: number;
   hrExpiresAtMs?: number;
+  /** 운영 회원 관전 마커의 서버 계산 코스 진행·격차(g1-web#4005). 값은 숫자 또는 null이고 웹은 다시 계산하지 않는다. */
+  progressM?: number | null;
+  gapToLeaderM?: number | null;
+  leaderGapExpiresAtMs?: number | null;
+  gapToSelectedM?: number | null;
+  selectedGapExpiresAtMs?: number | null;
 }
 
 export interface WorldEventFrame {
@@ -36,6 +42,8 @@ export interface WorldEventFrame {
   counts: { riding: number; total: number };
   roster: { uid: string; state: string }[];
   markers: WorldEventMarker[];
+  /** 이 프레임을 만든 구독의 선택 대상(`event_subscribe.track`). 클라이언트가 붙이며 선택 격차의 기준을 가린다. */
+  track?: string | null;
 }
 
 type WorldEventDelta = Partial<Pick<WorldEventFrame, "roster" | "counts" | "viewers">> &
@@ -142,9 +150,12 @@ export function useWorldEvent(
           connection.close();
         }, 3000);
         let latest: WorldEventFrame | null = null;
+        // track을 바꿔 다시 구독하면 서버가 새 event_snapshot을 보낸다. 그 전 delta는 이전 선택 기준이다.
+        let subscribedTrack: string | null = null;
         const subscribe = () => {
           if (disposed || socket !== connection || connection.readyState !== WebSocket.OPEN) return;
           try {
+            subscribedTrack = options.current.track ?? null;
             connection.send(JSON.stringify({ v: 1, type: "event_subscribe", eventId: event, token, ...(appCheck ? { appCheck } : {}), guest: !identity && allowGuest, viewerSessionId, signalOnly, signalTopic, ...options.current }));
           } catch (error) {
             report("RideWorld.subscribeEvent", error, { eventId: event });
@@ -192,7 +203,7 @@ export function useWorldEvent(
             if (frame.revision <= (latest?.revision ?? 0)) return;
             if (frame.type === "event_snapshot" && Array.isArray(frame.markers) && Array.isArray(frame.roster)) {
               clearTimeout(initial);
-              latest = frame;
+              latest = { ...frame, track: subscribedTrack };
               hasFrame = true;
             } else if (frame.type === "event_delta") {
               if (!latest || frame.revision !== latest.revision + 1) {
