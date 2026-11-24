@@ -452,7 +452,8 @@
     "loading": "Loading activity and training data.",
     "unavailable": "Unable to connect right now. Check your connection and try again.",
     "analysisMissing": "This activity has no analysis data to show.",
-    "profileNotFound": "Profile not found."
+    "profileNotFound": "Profile not found.",
+    "signInInApp": "Sign in from Settings › Account in the app."
   },
   "dialog": {
     "alertTitle": "Notice",
