@@ -12,7 +12,10 @@ const listeners = vi.hoisted(() => ({
   snapshotSubscriptions: 0,
   eventNext: null as null | ((value: unknown) => void),
   snapshotNext: null as null | ((value: unknown) => void),
-  world: false,
+  operatorWorld: false, webgl: true, mapboxToken: "pk.test", markerMapThrows: false,
+  onFatalMapError: null as null | (() => void),
+  // true면 월드 스트림을 붙잡아 첫 스냅샷 전 상태를 본다.
+  holdWorld: false,
   worldSubscribe: null as null | { receive: (value: unknown) => void; options: { reconnecting?: (retrying: boolean) => void } },
 }));
 const translate = vi.hoisted(() => (key: string) => key);
@@ -50,20 +53,33 @@ vi.mock("firebase/firestore", () => ({
   },
 }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn() }));
-vi.mock("../../components/RouteMap", () => ({ default: () => null }));
-vi.mock("../../components/event/ParticipantTable", () => ({ default: ({ locations }: { locations: Array<{ displayName: string }> }) => <div>{locations.map(location => location.displayName).join(", ")}</div> }));
-vi.mock("../../features/ride-world/useWorldEvent", async importOriginal => ({ ...await importOriginal<typeof import("../../features/ride-world/useWorldEvent")>(), isProductionWorldEventEnabled: () => listeners.world }));
+vi.mock("../../components/RouteMap", () => ({ default: () => <div data-testid="route-map" />, supportsWebGL: () => listeners.webgl }));
+vi.mock("../../components/event/EventMap", () => ({ default: ({ locations, pendingFinish, onFatalMapError }: { locations: Array<{ uid: string }>; pendingFinish?: boolean; onFatalMapError?: () => void }) => {
+  if (listeners.markerMapThrows) throw new Error("map render failed");
+  listeners.onFatalMapError = onFatalMapError ?? null;
+  return <div data-testid="event-map" data-pending-finish={String(pendingFinish)}>{locations.map(location => location.uid).join(",")}</div>;
+} }));
+vi.mock("../../utils/mapbox", () => ({ getMapboxToken: () => listeners.mapboxToken }));
+vi.mock("../../features/ride-world/useWorldEvent", async importOriginal => ({
+  ...await importOriginal<typeof import("../../features/ride-world/useWorldEvent")>(),
+  isProductionWorldEventEnabled: () => listeners.operatorWorld,
+}));
 vi.mock("../../services/runtimeConfig", async importOriginal => {
   const actual = await importOriginal<typeof import("../../services/runtimeConfig")>();
-  return { ...actual, getRuntimeConfig: () => ({ ...actual.getRuntimeConfig(), operatorWorldSnapshotsEnabled: listeners.world }) };
+  return { ...actual, getRuntimeConfig: () => ({ ...actual.getRuntimeConfig(), operatorWorldSnapshotsEnabled: listeners.operatorWorld }) };
 });
-vi.mock("./operatorSnapshotStream", async importOriginal => ({
-  ...await importOriginal<typeof import("./operatorSnapshotStream")>(),
-  subscribeOperatorSnapshot: (_eventId: string, _viewer: unknown, receive: (value: unknown) => void, _denied: unknown, _fallback: unknown, options: { reconnecting?: (retrying: boolean) => void }) => {
+// 월드 스트림 대신 Firestore 폴백으로 바로 넘어간다: 출처와 관계없이 같은 지도 규칙을 쓰는지 본다.
+// holdWorld면 스트림을 붙잡아 첫 스냅샷 전(연결 중·재시도 중) 상태를 본다.
+vi.mock("./operatorSnapshotStream", () => ({
+  LOCAL_OPERATOR_SNAPSHOT_ENDPOINT: "ws://local", PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT: "wss://production",
+  subscribeOperatorSnapshot: (_eventId: string, _user: unknown, receive: (value: unknown) => void, _denied: unknown, fallback: () => () => void,
+    options: { reconnecting?: (retrying: boolean) => void }) => {
+    if (!listeners.holdWorld) return fallback();
     listeners.worldSubscribe = { receive, options };
     return () => {};
   },
 }));
+vi.mock("../../components/event/ParticipantTable", () => ({ default: ({ locations }: { locations: Array<{ displayName: string }> }) => <div>{locations.map(location => location.displayName).join(", ")}</div> }));
 vi.mock("./privateSnapshotPages", () => ({ loadPrivateSnapshotWithRetry: () => new Promise(resolve => { listeners.pageResolve = resolve; }) }));
 
 import { MemoryRouter } from "react-router-dom";
@@ -80,8 +96,9 @@ describe("EventDashboardPage read failures", () => {
     listeners.eventError = null;
     listeners.snapshotSubscriptions = 0;
     listeners.eventNext = null; listeners.snapshotNext = null;
-    listeners.world = false; listeners.worldSubscribe = null;
+    listeners.holdWorld = false; listeners.worldSubscribe = null;
     firebaseAuth.currentUser = { uid: "host-1" };
+    listeners.operatorWorld = false; listeners.webgl = true; listeners.mapboxToken = "pk.test"; listeners.markerMapThrows = false; listeners.onFatalMapError = null;
   });
 
   it.each(["FINISHED", "CANCELLED"])("does not subscribe to live locations for a confirmed %s event", async status => {
@@ -130,7 +147,7 @@ describe("EventDashboardPage read failures", () => {
 
   // 월드 첫 스냅샷 전(연결 중·재시도 중)에도 운영 컨트롤은 바로 쓸 수 있고 지도·표 영역에만 상태를 보인다(11-25 결정).
   it("keeps operator controls usable while the world snapshot is still connecting or reconnecting", async () => {
-    listeners.world = true;
+    listeners.operatorWorld = true; listeners.holdWorld = true;
     render(<EventDashboardPage />);
     expect(await screen.findByRole("button", { name: /button.finish/ })).toBeTruthy();
     expect(listeners.worldSubscribe).not.toBeNull();
@@ -233,4 +250,59 @@ describe("EventDashboardPage read failures", () => {
     expect(screen.queryByRole("button", { name: "action.sendNotice" })).not.toBeInTheDocument();
   });
 
+  describe("operator world map markers (#4078)", () => {
+    const showRider = async () => {
+      listeners.deferredPage = true;
+      render(<EventDashboardPage />);
+      await waitFor(() => expect(listeners.pageResolve).not.toBeNull());
+      act(() => {
+        listeners.pageResolve?.({ snapshot: { timestamp: 1, checkpoints: [], locations: [] },
+          locations: [{ uid: "rider-1", displayName: "Rider", status: "FINISHED", overallRank: 1 }] });
+      });
+      await screen.findByText("Rider");
+    };
+
+    it("draws participant markers with the table's pending-finish rank rule in operator world mode", async () => {
+      listeners.operatorWorld = true;
+      await showRider();
+      const map = await screen.findByTestId("event-map");
+      expect(map).toHaveTextContent("rider-1");
+      expect(map).toHaveAttribute("data-pending-finish", "true");
+      expect(screen.queryByTestId("route-map")).toBeNull();
+    });
+
+    it("keeps the course map when the operator world mode is off", async () => {
+      await showRider();
+      expect(screen.getByTestId("route-map")).toBeInTheDocument();
+      expect(screen.queryByTestId("event-map")).toBeNull();
+    });
+
+    it.each([["WebGL is unsupported", { webgl: false }], ["the Mapbox token is missing", { mapboxToken: "" }]])(
+      "falls back to the course map when %s", async (_label, override) => {
+        listeners.operatorWorld = true;
+        Object.assign(listeners, override);
+        await showRider();
+        expect(screen.getByTestId("route-map")).toBeInTheDocument();
+        expect(screen.queryByTestId("event-map")).toBeNull();
+      });
+
+    it("falls back to the course map when the marker map fails to render", async () => {
+      listeners.operatorWorld = true;
+      listeners.markerMapThrows = true;
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      await showRider();
+      expect(await screen.findByTestId("route-map")).toBeInTheDocument();
+      expect(screen.queryByTestId("event-map")).toBeNull();
+      consoleError.mockRestore();
+    });
+
+    it("falls back to the course map when the marker map emits a fatal mapbox error", async () => {
+      listeners.operatorWorld = true;
+      await showRider();
+      expect(await screen.findByTestId("event-map")).toBeInTheDocument();
+      act(() => { listeners.onFatalMapError?.(); });
+      expect(await screen.findByTestId("route-map")).toBeInTheDocument();
+      expect(screen.queryByTestId("event-map")).toBeNull();
+    });
+  });
 });

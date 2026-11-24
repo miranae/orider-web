@@ -68,6 +68,24 @@ interface EventMapProps {
   /** 첫 로드시 코스에 맞춰 fitBounds */
   fitToCourse?: boolean;
   onWorldViewport?: (view: { lat: number; lon: number }) => void;
+  /** 운영자 대시보드 표(ParticipantTable pendingFinish)와 같은 규칙: 행사 종료 전 완주자 순위를 숨기고 "결과 대기"로 보인다. */
+  pendingFinish?: boolean;
+  /**
+   * Mapbox 치명적 런타임 오류(인증·스타일·WebGL 컨텍스트 손실) 발생 시 호출된다.
+   * 호출된 쪽에서 지도 대체(RouteMap 등)로 전환할 수 있다.
+   * 타일 하나 실패 같은 일시 오류는 무시하고 호출하지 않는다.
+   */
+  onFatalMapError?: () => void;
+  /** 오류 기록 경로. 임베드 운영 화면은 주입 서비스(서버 백업 로그)를 쓰는 기록 함수를 넘긴다. 기본은 logClientError. */
+  onLogError?: (source: string, error: unknown, context?: Record<string, unknown>) => void;
+}
+
+/** WebGL 컨텍스트 손실 후 복구(webglcontextrestored)를 기다리는 시간. 넘으면 치명 오류로 보고 대체한다. */
+export const WEBGL_CONTEXT_RESTORE_MS = 3000;
+
+/** 지도에 보일 종합 순위. 표와 같은 규칙으로 결과 확정 전 완주자 순위는 숨긴다(#4078). */
+export function visibleOverallRank(loc: Pick<LocationData, "status" | "overallRank">, pendingFinish = false): number | null {
+  return pendingFinish && normalizeStatusKey(loc.status) === "FINISHED" ? null : loc.overallRank;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -92,7 +110,7 @@ function normalizeStatusKey(s: string): string {
   return (s || "").toUpperCase();
 }
 
-function toGeoJSONCollection(locations: LocationData[], selectedUid: string | null): GeoJSON.FeatureCollection {
+function toGeoJSONCollection(locations: LocationData[], selectedUid: string | null, pendingFinish: boolean): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: locations.map((loc) => ({
@@ -107,7 +125,7 @@ function toGeoJSONCollection(locations: LocationData[], selectedUid: string | nu
         bib: loc.bib,
         status: loc.status,
         speed: loc.speed,
-        rank: loc.overallRank,
+        rank: visibleOverallRank(loc, pendingFinish),
         color: STATUS_COLORS[normalizeStatusKey(loc.status)] ?? "#4CAF50",
         selected: loc.uid === selectedUid,
       },
@@ -227,6 +245,24 @@ function FitToBounds({
   return null;
 }
 
+type FatalMapKind = "auth" | "webgl_context" | "style";
+
+/** Mapbox 오류가 치명적(대체 필요)이면 종류를 돌려준다. 타일 하나 실패 등 일시 오류는 null이다. */
+function fatalMapboxError(event: { error?: unknown; sourceId?: unknown; tile?: unknown }): { kind: FatalMapKind; status: number | null } | null {
+  // 타일 등 개별 소스 요청 실패(sourceId 있음)는 403이어도 일시 오류다. 스타일·토큰 요청 실패만 치명이다.
+  if (typeof event.sourceId === "string" || event.tile != null) return null;
+  const e = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
+  const status = typeof e.status === "number" && Number.isInteger(e.status) && e.status >= 100 && e.status <= 599 ? e.status : null;
+  const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
+  // 인증 실패
+  if (status === 401 || status === 403) return { kind: "auth", status };
+  // WebGL 컨텍스트 손실
+  if (/webgl|context lost|gpu/.test(message)) return { kind: "webgl_context", status };
+  // 스타일 로드 실패 (타일 개별 실패와 구분)
+  if (/style/.test(message) && !/tile/.test(message) && (status == null || status >= 400)) return { kind: "style", status };
+  return null;
+}
+
 export default function EventMap({
   locations,
   selectedUid,
@@ -239,22 +275,63 @@ export default function EventMap({
   followSelected = false,
   preserveSelectionOnPopupClose = false,
   onWorldViewport,
+  pendingFinish = false,
+  onFatalMapError,
+  onLogError = logClientError,
 }: EventMapProps) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
   const [popupInfo, setPopupInfo] = useState<LocationData | null>(null);
   const [dismissedUid, setDismissedUid] = useState<string | null>(null);
   const previousPopupSelection = useRef(selectedUid);
+  const fatalErrorLogged = useRef(false);
+  const failFatal = useCallback((kind: FatalMapKind, status: number | null) => {
+    if (!fatalErrorLogged.current) {
+      fatalErrorLogged.current = true;
+      onLogError("EventMap.mapbox", new Error(`mapbox_${kind}_failure${status == null ? "" : `_${status}`}`), {
+        stage: "mapbox_runtime", kind, ...(status != null ? { status } : {}),
+      });
+    }
+    onFatalMapError?.();
+  }, [onFatalMapError, onLogError]);
+  const handleMapError = useCallback((event: { error?: unknown; sourceId?: unknown; tile?: unknown }) => {
+    const fatal = fatalMapboxError(event);
+    // 치명적이지 않은 오류(타일 실패·'Failed to fetch' 등)도 기존처럼 기록한다.
+    if (!fatal) { onLogError("EventMap.render", event.error); return; }
+    failFatal(fatal.kind, fatal.status);
+  }, [failFatal, onLogError]);
+  // WebGL 컨텍스트 손실은 onError가 아니라 캔버스의 webglcontextlost 이벤트로 온다. 제한 시간 안에 복구되지 않으면 대체한다.
+  const failFatalRef = useRef(failFatal);
+  useEffect(() => { failFatalRef.current = failFatal; }, [failFatal]);
+  const stopContextWatch = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopContextWatch.current?.(), []);
+  const watchContextLoss = (canvas: HTMLCanvasElement) => {
+    stopContextWatch.current?.();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const lost = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => failFatalRef.current("webgl_context", null), WEBGL_CONTEXT_RESTORE_MS);
+    };
+    const restored = () => { clearTimeout(timer); timer = undefined; };
+    canvas.addEventListener("webglcontextlost", lost);
+    canvas.addEventListener("webglcontextrestored", restored);
+    stopContextWatch.current = () => {
+      clearTimeout(timer);
+      canvas.removeEventListener("webglcontextlost", lost);
+      canvas.removeEventListener("webglcontextrestored", restored);
+    };
+  };
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
+    if (pendingFinish && key === "FINISHED") return t("dashboard.status.resultPending");
     const i18nKey = STATUS_LABEL_KEYS[key];
     if (!i18nKey) return status;
     if (i18nKey === "SOS" || i18nKey === "DNF") return i18nKey;
     return t(i18nKey);
   };
 
-  const geojson = toGeoJSONCollection(locations, selectedUid);
+  const geojson = toGeoJSONCollection(locations, selectedUid, pendingFinish);
   const routeGeojson = useMemo(
     () => buildRouteGeoJSON(coursePolylines, courseLatlngs),
     [coursePolylines, courseLatlngs]
@@ -290,9 +367,10 @@ export default function EventMap({
       initialViewState={DEFAULT_VIEW}
       onLoad={(e) => {
         try { applyKoreaCyclingStyle(e.target); }
-        catch (error) { logClientError("EventMap.style", error); }
+        catch (error) { onLogError("EventMap.style", error); }
+        watchContextLoss(e.target.getCanvas());
       }}
-      onError={event => logClientError("EventMap.render", event.error)}
+      onError={handleMapError}
       onMoveEnd={onWorldViewport ? ({ viewState }) => onWorldViewport({
         lat: Math.round(viewState.latitude * 200) / 200,
         lon: Math.round(viewState.longitude * 200) / 200,
@@ -469,8 +547,8 @@ export default function EventMap({
             </div>
             <div>{popupInfo.speedAvailable === false || popupInfo.speed == null ? "—" : `${(popupInfo.speed ?? 0).toFixed(1)} km/h`}</div>
             <div>{popupInfo.distanceAvailable === false || popupInfo.distance == null ? "—" : `${((popupInfo.distance ?? 0) / 1000).toFixed(1)} km`}</div>
-            {popupInfo.overallRank != null && (
-              <div>{t("dashboard.alert.overallRank", { rank: popupInfo.overallRank })}</div>
+            {visibleOverallRank(popupInfo, pendingFinish) != null && (
+              <div>{t("dashboard.alert.overallRank", { rank: visibleOverallRank(popupInfo, pendingFinish) })}</div>
             )}
           </div>
         </Popup>

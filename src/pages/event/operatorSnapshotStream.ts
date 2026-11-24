@@ -95,7 +95,7 @@ export function subscribeOperatorSnapshot<T>(
     current?.close();
   };
   // 서버 쪽 사용 불가: 이 구독이 끝날 때까지 Firestore만 쓴다.
-  const useFallback = () => {
+  const switchToFallback = () => {
     if (!active || permanent) return;
     permanent = true;
     clearTimeout(timeout);
@@ -135,13 +135,13 @@ export function subscribeOperatorSnapshot<T>(
     }, delay);
   }
   // open 없이 실패한 연결 시도: 30초 넘게 이어지면 월드 서버 접속 불가로 보고 Firestore로, 아니면 재연결한다.
-  function handshakeFailed(startedAt: number, code?: number) {
+  const handshakeFailed = (startedAt: number, code?: number) => {
     unreachableSince ??= startedAt;
     if (Date.now() - unreachableSince >= OPERATOR_SNAPSHOT_UNREACHABLE_MS) {
       report("operatorSnapshotStream.unreachable", new Error("Operator snapshot world unreachable"), { eventId, code });
-      useFallback();
+      switchToFallback();
     } else scheduleRetry(code);
-  }
+  };
   // 온라인 복귀·탭 복귀 시 기다리던 재연결을 바로 시도한다.
   function retryNow() {
     if (!active || permanent || !retry) return;
@@ -183,14 +183,14 @@ export function subscribeOperatorSnapshot<T>(
       opened = true;
       unreachableSince = undefined;
       try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token, ...(appCheck ? { appCheck } : {}) })); }
-      catch (error) { report("operatorSnapshotStream.send", error, { eventId }); useFallback(); return; }
+      catch (error) { report("operatorSnapshotStream.send", error, { eventId }); switchToFallback(); return; }
       // 첫 세대 대기는 구독을 보낸 뒤부터 잰다(토큰 발급·연결 시간은 넣지 않는다).
       // 최초 접속에서 연결은 됐는데 세대가 오지 않으면 서버 쪽 사용 불가로 본다. 재연결 뒤라면 다시 연결한다.
       clearTimeout(timeout);
       timeout = setTimeout(() => {
         if (!active || permanent || socket !== connection) return;
         report("operatorSnapshotStream.timeout", new Error("Initial snapshot timed out"), { eventId, received });
-        if (received) { closeSocket(); scheduleRetry(); } else useFallback();
+        if (received) { closeSocket(); scheduleRetry(); } else switchToFallback();
       }, OPERATOR_SNAPSHOT_FIRST_FRAME_MS);
     });
     connection.addEventListener("message", ({ data }) => {
@@ -242,7 +242,7 @@ export function subscribeOperatorSnapshot<T>(
         receive({ ...head!.snapshot, locations: [head!, ...rest].flatMap(part => part.snapshot!.locations!) } as T);
       } catch (error) {
         report("operatorSnapshotStream.decode", error, { eventId });
-        useFallback();
+        switchToFallback();
       }
     });
     connection.addEventListener("close", ({ code }) => {
@@ -265,7 +265,7 @@ export function subscribeOperatorSnapshot<T>(
         if (opened) scheduleRetry(code); else handshakeFailed(startedAt, code);
       } else {
         report("operatorSnapshotStream.close", new Error("Operator snapshot stream closed"), { eventId, code });
-        useFallback();
+        switchToFallback();
       }
     });
   };
