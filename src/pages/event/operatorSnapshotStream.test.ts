@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OPERATOR_SNAPSHOT_CONNECT_MS, OPERATOR_SNAPSHOT_CREDENTIAL_MS, OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS, OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
+import { OPERATOR_SNAPSHOT_CONNECT_MS, OPERATOR_SNAPSHOT_CREDENTIAL_MS, OPERATOR_SNAPSHOT_UNREACHABLE_MS, OPERATOR_SNAPSHOT_FIRST_FRAME_MS, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS, OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE, PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, subscribeOperatorSnapshot } from "./operatorSnapshotStream";
 
 class FakeSocket extends EventTarget {
   static CLOSING = 2;
@@ -181,6 +181,8 @@ describe("operator snapshot stream", () => {
       await vi.advanceTimersByTimeAsync(Math.min(delay, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS));
       await flush();
       expect(FakeSocket.all).toHaveLength(attempt + 2);
+      // 열린 뒤 끊기는 개인 끊김은 오래 이어져도 Firestore로 넘어가지 않는다.
+      FakeSocket.latest.dispatchEvent(new Event("open"));
       FakeSocket.latest.end(code);
       delay *= 2;
     }
@@ -306,6 +308,65 @@ describe("operator snapshot stream", () => {
     expect(getIdToken).toHaveBeenCalledTimes(2);
     expect(fallback).not.toHaveBeenCalled();
     expect(FakeSocket.all).toHaveLength(0);
+    stop();
+  });
+
+  // 핸드셰이크가 한 번도 성공하지 못한 채 30초 넘게 실패하면 월드 서버 접속 불가 = 서버 장애로 보고 Firestore로 넘어간다(11-25 결정).
+  it("switches to Firestore when the world stays unreachable without any open for 30 seconds", async () => {
+    const fallback = vi.fn(() => () => {});
+    const report = vi.fn();
+    const reconnecting = vi.fn();
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback,
+      { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: async () => "attested", reconnecting }, report);
+    await flush();
+    // 연결 거부(open 없이 1006)가 1·2·4·8·16초 백오프로 이어진다: 0·1·3·7·15초 실패는 재연결, 31초 실패에서 전환.
+    for (let i = 0; i < 5; i++) {
+      FakeSocket.latest.end(1006);
+      expect(fallback).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** i);
+      await flush();
+    }
+    FakeSocket.latest.end(1006);
+    expect(fallback).toHaveBeenCalledTimes(1);
+    expect(reconnecting).toHaveBeenLastCalledWith(false);
+    expect(report).toHaveBeenCalledWith("operatorSnapshotStream.unreachable", expect.any(Error), { eventId: "official", code: 1006 });
+    // 그 세션은 Firestore를 유지한다.
+    window.dispatchEvent(new Event("online"));
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_MAX_BACKOFF_MS * 2);
+    expect(FakeSocket.all).toHaveLength(6);
+    stop();
+  });
+
+  it("restarts the unreachable window after any successful open while reconnecting", async () => {
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => "id-token" }, vi.fn(), vi.fn(), fallback, undefined, vi.fn());
+    await flush();
+    const step = async (ms: number) => { await vi.advanceTimersByTimeAsync(ms); await flush(); };
+    FakeSocket.latest.end(1006); // 0초: open 없음
+    await step(1000);
+    FakeSocket.latest.end(1006); // 1초: open 없음
+    await step(2000);
+    FakeSocket.latest.dispatchEvent(new Event("open")); // 3초: 열림 → 기간을 새로 잰다
+    FakeSocket.latest.end(1006);
+    await step(4000);
+    FakeSocket.latest.end(1006); // 7초: 새 기간 시작
+    await step(8000);
+    FakeSocket.latest.end(1006); // 15초
+    await step(16_000);
+    FakeSocket.latest.end(1006); // 31초: 첫 실패부터는 31초지만 열린 뒤로는 24초라 재연결 유지
+    expect(fallback).not.toHaveBeenCalled();
+    await step(32_000);
+    FakeSocket.latest.end(1006); // 63초: 새 기간 56초 → 전환
+    expect(fallback).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it("does not count credential issuance failures toward the unreachable window", async () => {
+    const fallback = vi.fn(() => () => {});
+    const stop = subscribeOperatorSnapshot("official", { getIdToken: async () => { throw new Error("offline"); } }, vi.fn(), vi.fn(), fallback, undefined, vi.fn());
+    await vi.advanceTimersByTimeAsync(OPERATOR_SNAPSHOT_UNREACHABLE_MS * 4);
+    expect(FakeSocket.all).toHaveLength(0);
+    expect(fallback).not.toHaveBeenCalled();
     stop();
   });
 });

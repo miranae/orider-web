@@ -7,6 +7,11 @@ export const PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT = "wss://world.orider.co.kr/o
 export const OPERATOR_SNAPSHOT_FIRST_FRAME_MS = 6000;
 /** 연결 시도(핸드셰이크 포함)부터 open까지의 제한 시간. 넘으면 개인 연결 문제로 보고 재연결한다. */
 export const OPERATOR_SNAPSHOT_CONNECT_MS = 6000;
+/**
+ * 핸드셰이크가 한 번도 성공하지 못한(open 없음) 연속 실패를 견디는 시간. 넘으면 월드 서버 접속 불가 = 서버 장애로 보고
+ * Firestore로 넘어간다(최초 접속·재연결 모두, 2026-11-25 사용자 결정). 토큰·App Check 발급 실패는 넣지 않는다.
+ */
+export const OPERATOR_SNAPSHOT_UNREACHABLE_MS = 30_000;
 /** ID 토큰·App Check 발급 대기 상한. 연결 제한 시간에는 넣지 않지만 발급이 멈추면 발급 실패와 같이 처리한다. */
 export const OPERATOR_SNAPSHOT_CREDENTIAL_MS = 15_000;
 
@@ -42,7 +47,8 @@ const validLocations = (value: unknown): value is unknown[] =>
  * 월드가 전달하는 Functions 정본 스냅샷을 받는다(#4049). 월드가 정상인 동안 화면 전체를 이 값으로만 그린다(섞지 않음).
  * - 서버 쪽 신호(1013 Redis 구독 끊김·세대 정지, 4004 Firestore 전용 행사, 최초 접속에서 첫 세대 지연, 디코딩(스키마) 오류)만
  *   `fallback`(Firestore onSnapshot)으로 넘어가 이 구독이 끝날 때까지 그쪽만 쓴다(P11 서버 장애 자동 복귀).
- * - 개인 연결 끊김(1006·4008 slow_consumer·연결 제한 시간 초과·토큰/App Check 발급 실패·지연)은 Firestore로 넘어가지 않는다.
+ * - 월드 서버 접속 불가(open 없이 핸드셰이크 실패·시간 초과가 30초 넘게 이어짐)도 서버 장애로 보고 Firestore로 넘어간다.
+ * - 개인 연결 끊김(열린 뒤 1006·4008 slow_consumer, 30초 미만의 핸드셰이크 실패, 토큰/App Check 발급 실패·지연)은 Firestore로 넘어가지 않는다.
  *   마지막 월드 화면을 그대로 두고 `reconnecting(true)`로 알린 뒤 최대 60초 백오프로 계속 다시 연결한다(온라인·탭 복귀 시 즉시).
  *   재연결 후 완성 세대를 받으면 그대로 갱신한다. 끊긴 동안의 공백은 허용한다(P11, 새로고침으로 회복).
  * - 토큰 만료(4001)는 새 토큰으로 다시 연결한다. 권한 철회(4003)는 `denied`.
@@ -72,6 +78,8 @@ export function subscribeOperatorSnapshot<T>(
   // 월드 세대를 한 번이라도 받았는지. 최초 접속의 첫 세대 지연만 서버 쪽 사용 불가로 본다.
   let received = false;
   let retrying = false;
+  // open 없이 실패한 연결 시도가 이어지기 시작한 시각. open이 한 번이라도 오면 지운다.
+  let unreachableSince: number | undefined;
   const setRetrying = (value: boolean) => {
     if (retrying === value) return;
     retrying = value;
@@ -126,6 +134,14 @@ export function subscribeOperatorSnapshot<T>(
       if (active && !permanent) reconnect(false);
     }, delay);
   }
+  // open 없이 실패한 연결 시도: 30초 넘게 이어지면 월드 서버 접속 불가로 보고 Firestore로, 아니면 재연결한다.
+  function handshakeFailed(startedAt: number, code?: number) {
+    unreachableSince ??= startedAt;
+    if (Date.now() - unreachableSince >= OPERATOR_SNAPSHOT_UNREACHABLE_MS) {
+      report("operatorSnapshotStream.unreachable", new Error("Operator snapshot world unreachable"), { eventId, code });
+      useFallback();
+    } else scheduleRetry(code);
+  }
   // 온라인 복귀·탭 복귀 시 기다리던 재연결을 바로 시도한다.
   function retryNow() {
     if (!active || permanent || !retry) return;
@@ -150,6 +166,8 @@ export function subscribeOperatorSnapshot<T>(
     if (options.appCheck && !appCheck) throw new Error("Operator snapshot App Check token unavailable");
     if (!active || permanent) return;
     closeSocket();
+    const startedAt = Date.now();
+    let opened = false;
     const connection = new WebSocket(options.endpoint);
     socket = connection;
     let assembling: { version: string; total: number; pages: Frame[] } | undefined;
@@ -158,10 +176,12 @@ export function subscribeOperatorSnapshot<T>(
       if (!active || permanent || socket !== connection) return;
       report("operatorSnapshotStream.connectTimeout", new Error("Operator snapshot connection timed out"), { eventId });
       closeSocket();
-      scheduleRetry();
+      handshakeFailed(startedAt);
     }, OPERATOR_SNAPSHOT_CONNECT_MS);
     connection.addEventListener("open", () => {
       if (!active || permanent || socket !== connection) return;
+      opened = true;
+      unreachableSince = undefined;
       try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token, ...(appCheck ? { appCheck } : {}) })); }
       catch (error) { report("operatorSnapshotStream.send", error, { eventId }); useFallback(); return; }
       // 첫 세대 대기는 구독을 보낸 뒤부터 잰다(토큰 발급·연결 시간은 넣지 않는다).
@@ -241,7 +261,8 @@ export function subscribeOperatorSnapshot<T>(
         reconnect(true);
       } else if (code !== 1013 && code !== 4004 && code !== 4001) {
         // 개별 연결 끊김(1006·4008 등): 화면은 그대로 두고 다시 연결한다. 재연결하면 월드가 최신 세대를 다시 보낸다.
-        scheduleRetry(code);
+        // 열리지도 못하고 닫혔다면 접속 불가 시간을 함께 잰다.
+        if (opened) scheduleRetry(code); else handshakeFailed(startedAt, code);
       } else {
         report("operatorSnapshotStream.close", new Error("Operator snapshot stream closed"), { eventId, code });
         useFallback();

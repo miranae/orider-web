@@ -574,6 +574,7 @@
   "dashboard.errorTitle": "Failed to load dashboard",
   "dashboard.lastUpdated": "Last updated {{time}}",
   "dashboard.worldReconnecting": "Reconnecting",
+  "dashboard.worldConnecting": "Connecting",
   "dashboard.finishing": "Finishing...",
   "dashboard.statusTitle": "Status ({{category}})",
   "dashboard.noCheckpointData": "No checkpoint information",

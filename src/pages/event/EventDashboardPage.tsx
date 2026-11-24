@@ -287,6 +287,8 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
   // 개인 연결 끊김으로 월드에 다시 연결하는 중(마지막 화면 유지, P11).
   const [worldReconnecting, setWorldReconnecting] = useState(false);
+  // 월드 첫 스냅샷을 기다리는 중. 운영 컨트롤은 막지 않고 지도·표 영역에만 상태를 보인다.
+  const [worldConnecting, setWorldConnecting] = useState(false);
   // 「스냅샷 로딩 실패」 문구를 누르면 라이브 스냅샷을 다시 구독한다.
   const [snapshotAttempt, setSnapshotAttempt] = useState(0);
   const [authEpoch, setAuthEpoch] = useState(0);
@@ -622,13 +624,19 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     const worldOptions = productionWorld
       ? { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: (refresh?: boolean) => getAppCheckToken(refresh), reconnecting }
       : localWorld ? { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT, reconnecting } : null;
+    const world = Boolean(worldOptions && user);
+    if (world) {
+      // 첫 월드 스냅샷 전에도 운영 화면(종료·알림 등)은 바로 쓸 수 있게 로딩을 풀고, 지도·표에만 연결 상태를 보인다.
+      setLoading(false);
+      setWorldConnecting(true);
+    }
     const unsub = worldOptions && user ? subscribeOperatorSnapshot<SnapshotData>(
-      eventId, user, receive,
+      eventId, user, snapshot => { if (isCurrentSnapshot()) setWorldConnecting(false); receive(snapshot); },
       () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))),
       fallback, worldOptions,
       (source, error, context) => logClientError(source, error, context, services, user),
     ) : fallback();
-    return () => { active = false; revision++; unsub(); setWorldReconnecting(false); };
+    return () => { active = false; revision++; unsub(); setWorldReconnecting(false); setWorldConnecting(false); };
   }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt, db, services]);
 
   const handleFinishEvent = useCallback(async () => {
@@ -1001,7 +1009,8 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           {(!trackingEnded || snapshot) && <div style={{ height: 300, borderTop: "1px solid var(--line-soft)", flexShrink: 0, overflow: "hidden" }}>
             {!snapshot ? (
               <div className="flex items-center justify-center h-full">
-                <EmptyState icon={<Radio size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t(trackingEnded ? "dashboard.trackingEnded" : "dashboard.snapshotUnavailable")} compact />
+                <EmptyState icon={<Radio size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t(trackingEnded ? "dashboard.trackingEnded"
+                  : worldReconnecting ? "dashboard.worldReconnecting" : worldConnecting ? "dashboard.worldConnecting" : "dashboard.snapshotUnavailable")} compact />
               </div>
             ) : filteredLocations.length === 0 ? (
               <div className="flex items-center justify-center h-full">
