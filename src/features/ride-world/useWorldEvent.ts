@@ -186,6 +186,12 @@ export function useWorldEvent(
           if (latest && !latest.trackUnknown && latest.track === current) return;
           if (pendingTracks[pendingTracks.length - 1] !== current || Date.now() - lastSentAt >= TRACK_RETRY_MS) subscribe();
           if (trackRetries < TRACK_RETRY_LIMIT) trackRetry = setTimeout(() => { trackRetries++; confirmTrack(); }, TRACK_RETRY_MS);
+          else if (trackRetries === TRACK_RETRY_LIMIT) {
+            // 상한 도달은 한 번만 기록한다(선택 변경·기준 모름 snapshot에서 카운터가 다시 0이 된다).
+            trackRetries++;
+            report("ride-world.event.trackConfirm", new Error("track-confirm-exhausted"),
+              { eventId: event, retries: TRACK_RETRY_LIMIT, pending: pendingTracks.length, trackUnknown: latest?.trackUnknown ?? null });
+          }
         };
         const resubscribe = () => { trackRetries = 0; subscribe(); confirmTrack(); };
         subscribeCurrent.current = resubscribe;

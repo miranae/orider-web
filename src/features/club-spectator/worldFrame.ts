@@ -91,6 +91,9 @@ export function worldFrameCoversRiders(snapshot: MeetingSpectatorSnapshot | null
   if (selectedUid !== null && (frame.trackUnknown || frame.track !== selectedUid)) return false;
   const riding = ridingUids(snapshot);
   if (riding.size === 0) return false;
+  // 월드 명단에 콜러블 명단이 모르는 참가자나 콜러블이 아직 주행으로 보지 않는 주행자가 있으면 미커버로 두어 콜러블로 명단을 따라잡는다.
+  const known = new Set(snapshot.participants?.map(p => p.uid) ?? []);
+  if (frame.roster?.some(r => !known.has(r.uid) || (r.state === "RIDING" && !riding.has(r.uid)))) return false;
   const names = new Map(snapshot.participants?.map(p => [p.uid, p.displayName]) ?? []);
   const rows = new Map(snapshot.locations.map(r => [r.uid, r]));
   const covered = new Set<string>();
