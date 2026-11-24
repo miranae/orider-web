@@ -18,7 +18,7 @@ const metrics = { discipline: "bike", isVirtualPower: false, computedAt: 1,
 describe("ActivityPeakEffortInspector", () => {
   it("opens canonical sensor values without asking for location or streams; only explicit locate requests it", () => {
     const locate = vi.fn();
-    render(<ActivityPeakEffortInspector activityId="a" metrics={metrics} isOwner onLocate={locate} />);
+    render(<ActivityPeakEffortInspector activityId="a" metrics={metrics} onLocate={locate} />);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "최고 노력 자세히 보기" }));
     expect(screen.getByText("250 W")).toBeInTheDocument();
@@ -31,30 +31,28 @@ describe("ActivityPeakEffortInspector", () => {
     expect(locate).toHaveBeenLastCalledWith(null);
   });
   it("does not offer route location for sensor/unknown axis and never shows missing HR as zero", () => {
-    render(<ActivityPeakEffortInspector activityId="a" metrics={{ ...metrics, peakEfforts: { ...metrics.peakEfforts!, indexAxis: "sensor" } }} isOwner onLocate={vi.fn()} />);
+    render(<ActivityPeakEffortInspector activityId="a" metrics={{ ...metrics, peakEfforts: { ...metrics.peakEfforts!, indexAxis: "sensor" } }} onLocate={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "최고 노력 자세히 보기" }));
     expect(screen.queryByRole("button", { name: "차트·지도에서 구간 보기" })).not.toBeInTheDocument();
     expect(screen.queryByText("0 bpm")).not.toBeInTheDocument();
     expect(screen.getByText(ko.peakInspector.noLocation)).toBeInTheDocument();
   });
   it("withholds invalidated heart rate and cadence without discarding confirmed power", () => {
-    render(<ActivityPeakEffortInspector activityId="a" metrics={metrics} isOwner suppressHeartRate suppressCadence />);
+    render(<ActivityPeakEffortInspector activityId="a" metrics={metrics} suppressHeartRate suppressCadence />);
     fireEvent.click(screen.getByRole("button", { name: "최고 노력 자세히 보기" }));
     expect(screen.getByText("250 W")).toBeInTheDocument();
     expect(screen.queryByText("180 bpm")).not.toBeInTheDocument();
     expect(screen.queryByText("90 rpm")).not.toBeInTheDocument();
   });
-  it("resets opened state on activity/canonical revision changes and suppresses public/invalidated values", () => {
-    const view = render(<ActivityPeakEffortInspector activityId="a" metrics={metrics} isOwner />);
+  it("resets opened state on activity/canonical revision changes and suppresses invalidated values", () => {
+    const view = render(<ActivityPeakEffortInspector activityId="a" metrics={metrics} />);
     fireEvent.click(screen.getByRole("button", { name: "최고 노력 자세히 보기" }));
-    view.rerender(<ActivityPeakEffortInspector activityId="b" metrics={metrics} isOwner />);
+    view.rerender(<ActivityPeakEffortInspector activityId="b" metrics={metrics} />);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "최고 노력 자세히 보기" }));
-    view.rerender(<ActivityPeakEffortInspector activityId="b" metrics={{ ...metrics, computedAt: 2 }} isOwner />);
+    view.rerender(<ActivityPeakEffortInspector activityId="b" metrics={{ ...metrics, computedAt: 2 }} />);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    view.rerender(<ActivityPeakEffortInspector activityId="b" metrics={metrics} isOwner={false} />);
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    view.rerender(<ActivityPeakEffortInspector activityId="b" metrics={metrics} isOwner invalidated />);
+    view.rerender(<ActivityPeakEffortInspector activityId="b" metrics={metrics} invalidated />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
@@ -62,10 +60,10 @@ describe("ActivityPeakEffortInspector", () => {
 it("selects the saved 20-minute elapsed interval only on explicit action", () => {
   const select = vi.fn();
   const withWinner = { ...metrics, powerDurationCurve: { state: "available", points: [{ durationSeconds: 1200, maxAveragePowerW: 186.835 }], twentyMinuteEffort: { durationSec: 1200, startOffsetSec: 23.5, endOffsetSec: 1223.5, avgPowerW: 186.835 } } } as ActivityMetrics;
-  const view = render(<ActivityPeakEffortInspector activityId="a" metrics={withWinner} isOwner onSelectTwentyMinute={select} />);
+  const view = render(<ActivityPeakEffortInspector activityId="a" metrics={withWinner} onSelectTwentyMinute={select} />);
   expect(select).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "같은 시간 구간 분석하기" }));
   expect(select).toHaveBeenCalledWith({ startOffsetSec: 23.5, endOffsetSec: 1223.5 });
-  view.rerender(<ActivityPeakEffortInspector activityId="a" metrics={withWinner} isOwner invalidated onSelectTwentyMinute={select} />);
+  view.rerender(<ActivityPeakEffortInspector activityId="a" metrics={withWinner} invalidated onSelectTwentyMinute={select} />);
   expect(screen.queryByRole("button", { name: "같은 시간 구간 분석하기" })).not.toBeInTheDocument();
 });

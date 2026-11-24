@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { RunningBestEffortsFacts } from "@shared/types/running-best-efforts-facts";
 import type { ActivityMetricsDoc } from "../../hooks/useActivityMetrics";
-import { useAuth } from "../../contexts/AuthContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { formatPace, formatElev, formatDistance } from "../../utils/units";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
@@ -27,9 +26,8 @@ function RunMetric({ label, value, description, unit, explain }: { label: string
 }
 
 /** 서버의 러닝 지표만 표시한다. 사이클 FTP 기반 수치는 러닝 파워에 적용하지 않는다. */
-export default function RunAnalysisPanel({ metrics, summary, isOwner = false, suppressCadence = false, onSelectSplit, onViewSplitLocation, canViewSplitLocation = false, effortsReady = false, previousAnalysis = false, effortFacts, onSelectEffort }: {
+export default function RunAnalysisPanel({ metrics, summary, suppressCadence = false, onSelectSplit, onViewSplitLocation, canViewSplitLocation = false, effortsReady = false, previousAnalysis = false, effortFacts, onSelectEffort }: {
   metrics: ActivityMetricsDoc;
-  isOwner?: boolean;
   effortsReady?: boolean;
   previousAnalysis?: boolean;
   effortFacts?: RunningBestEffortsFacts;
@@ -42,7 +40,6 @@ export default function RunAnalysisPanel({ metrics, summary, isOwner = false, su
 }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
-  const { user } = useAuth();
   const pace = (sec: number | null | undefined) => sec != null && Number.isFinite(sec) && sec > 0 ? formatPace(sec, units) : "—";
   const number = (n: number | null | undefined, unit: string) => n != null && Number.isFinite(n) ? `${Math.round(n)} ${unit}` : "—";
   const avgPace = metrics.avgSpeedKph != null && Number.isFinite(metrics.avgSpeedKph) && metrics.avgSpeedKph > 0 ? 3600 / metrics.avgSpeedKph : null;
@@ -73,8 +70,8 @@ export default function RunAnalysisPanel({ metrics, summary, isOwner = false, su
       </details>}
     </Card>}
     <RunSplitProfile splits={splits} splitTimeStatus={metrics.runMetrics?.splitTimeStatus} distanceKm={distanceKm} suppressCadence={suppressCadence} cadenceLabel={cadenceLabel} formatCadence={cadence} onSelectSplit={onSelectSplit} onViewSplitLocation={onViewSplitLocation} canViewSplitLocation={canViewSplitLocation} />
-    {isOwner && user && !user.isAnonymous && metrics.runMetrics?.paceZoneAnalysis && <Card padding="compact"><RunningPaceZonesPanel analysis={metrics.runMetrics.paceZoneAnalysis} /></Card>}
-    <RunEffortsPanel metrics={metrics} isOwner={isOwner} ready={effortsReady} previousAnalysis={previousAnalysis} facts={effortFacts} onSelectEffort={onSelectEffort} />
+    {metrics.runMetrics?.paceZoneAnalysis && <Card padding="compact"><RunningPaceZonesPanel analysis={metrics.runMetrics.paceZoneAnalysis} /></Card>}
+    <RunEffortsPanel metrics={metrics} ready={effortsReady} previousAnalysis={previousAnalysis} facts={effortFacts} onSelectEffort={onSelectEffort} />
     {(metrics.avgHr != null || metrics.maxHr != null) && <div>
       <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3">{t("analysis.section.hr")}</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

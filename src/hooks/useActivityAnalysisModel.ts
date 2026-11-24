@@ -189,9 +189,9 @@ export function useActivityAnalysisModel(
   const canReadSavedAnalysis = !!activity && activity.id === activityId;
   const serverMetrics = savedAnalysis && canReadSavedAnalysis ? { status: "stale" as const, metrics: savedAnalysis.metrics } : publicMode ? publicInput.metrics : ownedMetrics;
   const showingSavedAnalysis = !!savedAnalysis && canReadSavedAnalysis;
-  // 확정 소유자 요약이 오기 전에는 스트림을 요청하지 않는다. 과거 문서만 기존 경로로 폴백한다.
-  const serverAnalysisSummary = (isActivityOwner || publicMode)
-    && serverMetrics.metrics?.inputPending !== true
+  // 확정 요약이 오기 전에는 스트림을 요청하지 않는다. 과거 문서만 기존 경로로 폴백한다.
+  // 활동을 볼 수 있는 누구나 같은 저장 요약을 읽는다 (P1) — 옛 좁은 공개 문서엔 없어 폴백한다.
+  const serverAnalysisSummary = serverMetrics.metrics?.inputPending !== true
     && serverMetrics.metrics?.inputCoverage !== "pending"
     && serverMetrics.metrics?.analysisSummary?.schemaVersion === 1
     ? serverMetrics.metrics.analysisSummary : null;
@@ -419,9 +419,7 @@ export function useActivityAnalysisModel(
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
-      completeActivityAccess: publicMode,
       serverMetrics,
-      canonicalPresentationAvailable: overview.response?.status === "available",
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
       startTime: activity.startTime,
       streams: analysisProjection?.streams ?? { userId: activity.userId, time: [], distance: [] },

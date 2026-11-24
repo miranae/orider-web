@@ -262,7 +262,9 @@ export default function ExploreAthletesPage() {
     ] as [string, string, number | undefined][]).filter((stat): stat is [string, string, number] => stat[2] !== undefined) : [];
     return <>
       <span className="explore-people-meta">
-        {item.friendCode && <span data-testid="E5-2-5" className="explore-people-code">{item.friendCode}</span>}
+        {/* 비공개 프로필의 친구 코드는 친구 코드로 찾은 경우(검색한 사람이 이미 아는 값)에만 보인다(#1891). */}
+        {item.friendCode && (item.profilePublic || item.matchedBy === "friendCode") &&
+          <span data-testid="E5-2-5" className="explore-people-code">{item.friendCode}</span>}
         {meta.length > 0 && <span data-testid="E5-2-8">{meta.join(" · ")}</span>}
       </span>
       {stats.length > 0 && <span data-testid="E5-2-9" className="explore-people-stats">

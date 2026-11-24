@@ -222,8 +222,6 @@
     "pending": "Confirmed analysis is not ready. Pending or incomplete inputs are not used for best efforts.",
     "curveMissing": "No confirmed pace curve is currently available to display.",
     "canonicalCurveBasis": "Best pace by duration confirmed by the server on the recorded elapsed-time axis. Only observed durations are shown; this is not GAP, a distance record, or a claim of improved fitness.",
-    "curveNotShared": "The shared analysis does not provide a pace curve to display.",
-    "recordsNotShared": "The shared analysis does not provide distance efforts to display.",
     "curveBasis": "Highest recorded average speed for each duration, shown as pace. This is not a distance record or a claim of improved fitness.",
     "distanceTitle": "Best distance efforts in this activity",
     "distance": "Distance",

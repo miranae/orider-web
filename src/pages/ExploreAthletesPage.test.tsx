@@ -83,7 +83,7 @@ it("runs the URL query on load and derives each row's friend action", async () =
 });
 
 it("sends a request to a private profile optimistically and shows the badge instead of details", async () => {
-  search.mockResolvedValue({ items: [person("p")], nextCursor: null });
+  search.mockResolvedValue({ items: [person("p", { matchedBy: "friendCode" })], nextCursor: null });
   renderPage("/ko/explore/athletes?q=CODEp", { authenticated: true, profile: { nickname: "나", photoURL: "https://example.com/me.png" } });
   await screen.findByRole("link", { name: "rider-p" });
   const item = row("rider-p");
@@ -94,6 +94,14 @@ it("sends a request to a private profile optimistically and shows the badge inst
   await waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ uid: "test-uid" }), "p", expect.anything()));
   expect(within(item).getByText("요청됨")).toBeInTheDocument();
   expect(await screen.findByText("rider-p님에게 친구 요청을 보냈어요")).toBeInTheDocument();
+});
+
+it("hides a private profile's friend code unless the search matched that code (#1891)", async () => {
+  search.mockResolvedValue({ items: [person("n"), person("q", { profilePublic: true })], nextCursor: null });
+  renderPage("/ko/explore/athletes?q=rider", { authenticated: true, profile: { nickname: "나", photoURL: null } });
+  await screen.findByRole("link", { name: "rider-n" });
+  expect(within(row("rider-n")).queryByTestId("E5-2-5")).not.toBeInTheDocument();
+  expect(within(row("rider-q")).getByTestId("E5-2-5")).toHaveTextContent("CODEq");
 });
 
 it("lets later subscription changes override an optimistic state (cancel, then the other side requests)", async () => {

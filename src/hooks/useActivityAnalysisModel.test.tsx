@@ -569,7 +569,8 @@ describe("useActivityAnalysisModel", () => {
     await waitFor(() => expect(result.current.analysisTabProps).not.toBeNull());
 
     expect(result.current.serverMetrics.metrics).toMatchObject({ np: 999, avgPower: 998, avgHr: 197 });
-    expect(result.current.serverMetrics.metrics?.contextSnapshot).toBeUndefined();
+    // 활동 단위 분석의 기준값도 뷰어에게 그대로 전달된다 (P1).
+    expect(result.current.serverMetrics.metrics?.contextSnapshot).toEqual({ ftp: 400 });
     expect(result.current.analysisTabProps).toMatchObject({
       isOwner: false,
       suppressServerPowerMetrics: false,
