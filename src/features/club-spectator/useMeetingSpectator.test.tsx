@@ -211,8 +211,9 @@ it("서버 진행 필드가 없는 운영 월드 프레임은 위치를 덮어�
   world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
   rerender();
   // 위치는 바로 반영하고 서버 진행·격차는 지우지 않는다. 주행자가 있으면 커버로 판정해 위치 신호를 쉰다.
-  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2280, gapToLeaderM: 120});
-  expect(result.current.data?.locations.find(r => r.uid === "rider-one")?.gapToLeaderM).toBe(0);
+  // 출처 단일화: 월드로 전환하면 콜러블 진행·격차를 지운다. 서버 진행 필드가 없는 프레임은 진행·격차를 채우지 않는다.
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: null, gapToLeaderM: null});
+  expect(result.current.data?.locations.find(r => r.uid === "rider-one")?.gapToLeaderM).toBeNull();
   expect(openLocationSignals()).toHaveLength(0);
   // 프레임이 멈추면 콜러블이 단독 출처이므로 콜러블의 위치·격차를 그대로 반영한다.
   const older = data();

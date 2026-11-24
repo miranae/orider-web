@@ -69,12 +69,24 @@ export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: World
     if (server) row = withProgress(row, server, selectedMatches);
     if (row === prior) continue;
     if (prior && row.sampledAtMs === prior.sampledAtMs && sameProgress(prior, row)) continue;
-    // 같은 표본인데 진행이 역행하면(이전 계산 순서 역전) 무시한다.
-    if (prior && row.sampledAtMs === prior.sampledAtMs && typeof row.progressM === "number" && typeof prior.progressM === "number" && row.progressM < prior.progressM) continue;
     rows.set(uid, row);
     changed = true;
   }
   return changed ? {...snapshot, locations: [...rows.values()]} : snapshot;
+}
+
+/**
+ * 콜러블→월드 전환 순간에 호출한다. 출처 단일화: 월드 정상 중 진행·격차는 월드 값만 쓰므로
+ * 콜러블에서 받은 진행·격차를 지우고 이후 월드 프레임이 채우게 한다. 완주·DNF는 콜러블이 최종 권한이라 둔다.
+ */
+export function enterWorldMode(snapshot: MeetingSpectatorSnapshot): MeetingSpectatorSnapshot {
+  let changed = false;
+  const locations = snapshot.locations.map(row => {
+    if (row.status === "FINISHED" || row.status === "DNF" || progressKeys.every(key => row[key] === null)) return row;
+    changed = true;
+    return {...row, progressM: null, gapToLeaderM: null, leaderGapExpiresAtMs: null, gapToSelectedM: null, selectedGapExpiresAtMs: null};
+  });
+  return changed ? {...snapshot, locations} : snapshot;
 }
 
 /**

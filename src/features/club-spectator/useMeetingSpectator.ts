@@ -5,7 +5,7 @@ import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { retainNewerSamples } from "./presentation";
-import { applyWorldFrame, retainWorldPositions, worldFrameCoversRiders } from "./worldFrame";
+import { applyWorldFrame, enterWorldMode, retainWorldPositions, worldFrameCoversRiders } from "./worldFrame";
 import type { MeetingSpectatorSnapshot } from "./types";
 
 /** 월드 프레임이 이 시간 동안 새로 오지 않으면 연결·준비 상태와 무관하게 위치 변경 신호·콜러블로 따라잡는다. */
@@ -200,15 +200,18 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     previousRoster.current = rosterKey;
     if (changed && worldCoversRef.current) spectatorSignal.current();
   }, [rosterKey]);
+  const appliedWorld = useRef(false);
   useEffect(() => {
-    if (!worldViews || !world || !worldCovers) return;
+    if (!worldViews || !world || !worldCovers) { appliedWorld.current = false; return; }
+    const entering = !appliedWorld.current;
+    appliedWorld.current = true;
     const now = Date.now();
     setState(old => {
       if (old.scope !== scope || !old.data) return old;
       // 화면 시각은 serverNowMs + 경과 시간이므로 둘을 함께 옮겨 서버 기준 시각이 되돌아가지 않게 한다.
       const serverNowMs = old.data.serverNowMs + Math.max(0, now - old.receivedAt);
-      // 월드가 정상일 때만 반영한다. 커버로 바뀌면 최신 프레임으로 즉시 덮는다(P11).
-      const data = applyWorldFrame(old.data, world, serverNowMs);
+      // 월드가 정상일 때만 반영한다. 커버로 바뀌면 콜러블 진행·격차를 지우고 최신 프레임으로 즉시 덮는다(P11, 출처 단일화).
+      const data = applyWorldFrame(entering ? enterWorldMode(old.data) : old.data, world, serverNowMs);
       return data === old.data ? old : {...old, data: {...data, serverNowMs}, receivedAt: now};
     });
   }, [world, worldViews, worldCovers, scope]);

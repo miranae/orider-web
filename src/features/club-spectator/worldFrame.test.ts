@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WorldEventFrame, WorldEventMarker } from "../ride-world/useWorldEvent";
 import { spectatorFixture } from "./fixtures";
 import { liveRiders } from "./presentation";
-import { applyWorldFrame, retainWorldPositions, worldFrameCoversRiders } from "./worldFrame";
+import { applyWorldFrame, enterWorldMode, retainWorldPositions, worldFrameCoversRiders } from "./worldFrame";
 
 const now = 1_800_000_000_000;
 const frame = (markers: Partial<WorldEventMarker>[], riding = markers.length): WorldEventFrame => ({
@@ -109,6 +109,18 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     expect(worldFrameCoversRiders(base, {...frame([{uid: "rider-one"}]), track: "rider-two"}, now, "rider-two")).toBe(false);
     // 선택이 없으면 선택 기준을 요구하지 않는다.
     expect(worldFrameCoversRiders(spectatorFixture(now), {...frame([{uid: "rider-one"}]), track: null, trackUnknown: true}, now, null)).toBe(true);
+  });
+  it("월드로 전환하면 콜러블 진행·격차를 지우고 월드 값만 채운다", () => {
+    const base = spectatorFixture(now);
+    // rider-two는 콜러블 진행·격차가 있지만 프레임에는 rider-one만 있다.
+    const next = applyWorldFrame(enterWorldMode(base), frame([{uid: "rider-one", ...progress(3000, 0)}]), now);
+    expect(next.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: null, gapToLeaderM: null, gapToSelectedM: null});
+    expect(next.locations.find(r => r.uid === "rider-one")).toMatchObject({progressM: 3000, gapToLeaderM: 0});
+  });
+  it("같은 표본에서 서버가 진행을 낮춰 정정하면 그대로 반영한다", () => {
+    const first = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", ...progress(2500, 40)}]), now);
+    const corrected = applyWorldFrame(first, frame([{uid: "rider-two", ...progress(2450, 90)}]), now);
+    expect(corrected.locations.find(r => r.uid === "rider-two")).toMatchObject({progressM: 2450, gapToLeaderM: 90});
   });
   it("정상 중 콜러블 응답이 와도 비완주 참가자의 진행·격차는 월드 값이 유지된다", () => {
     const fromWorld = applyWorldFrame(spectatorFixture(now), frame([{uid: "rider-two", ...progress(2500, 40)}]), now);
