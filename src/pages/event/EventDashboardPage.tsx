@@ -285,6 +285,8 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  // 개인 연결 끊김으로 월드에 다시 연결하는 중(마지막 화면 유지, P11).
+  const [worldReconnecting, setWorldReconnecting] = useState(false);
   // 「스냅샷 로딩 실패」 문구를 누르면 라이브 스냅샷을 다시 구독한다.
   const [snapshotAttempt, setSnapshotAttempt] = useState(0);
   const [authEpoch, setAuthEpoch] = useState(0);
@@ -611,21 +613,22 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         setSnapshotError(err.message ?? t("dashboard.errorLoadSnapshot"));
         setLoading(false);
     };
-    const fallback = (show: (data: SnapshotData | null) => void = receive) => onSnapshot(latestRef, snap => show(snap.exists() ? snap.data() as SnapshotData : null), snapshotFailed);
+    const fallback = () => onSnapshot(latestRef, snap => receive(snap.exists() ? snap.data() as SnapshotData : null), snapshotFailed);
     // 출처 단일화(#4049): 월드가 정상이면 화면 전체를 월드가 전달한 Functions 정본 스냅샷으로, 장애면 Firestore onSnapshot으로만 그린다.
     const localWorld = import.meta.env.DEV && import.meta.env.VITE_ORIDER_OPERATOR_SNAPSHOTS === "1" &&
       isEmulatorRuntime() && getRuntimeConfig().firebaseProjectId?.startsWith("demo-");
     const productionWorld = isProductionWorldEventEnabled() && getRuntimeConfig().operatorWorldSnapshotsEnabled === true;
+    const reconnecting = (retrying: boolean) => { if (isCurrentSnapshot()) setWorldReconnecting(retrying); };
     const worldOptions = productionWorld
-      ? { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: (refresh?: boolean) => getAppCheckToken(refresh) }
-      : localWorld ? { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT } : null;
+      ? { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: (refresh?: boolean) => getAppCheckToken(refresh), reconnecting }
+      : localWorld ? { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT, reconnecting } : null;
     const unsub = worldOptions && user ? subscribeOperatorSnapshot<SnapshotData>(
       eventId, user, receive,
       () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))),
       fallback, worldOptions,
       (source, error, context) => logClientError(source, error, context, services, user),
     ) : fallback();
-    return () => { active = false; revision++; unsub(); };
+    return () => { active = false; revision++; unsub(); setWorldReconnecting(false); };
   }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt, db, services]);
 
   const handleFinishEvent = useCallback(async () => {
@@ -780,7 +783,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
             <h1 className="text-[length:var(--fs-base)] font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: "var(--ft-body-size)" }}>
               {eventInfo.name}
             </h1>
-            {!trackingEnded && <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>· {t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>}
+            {!trackingEnded && <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>· {worldReconnecting && `${t("dashboard.worldReconnecting")} · `}{t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>}
           </div>
         </div>
         <div data-testid="O1-0" className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>

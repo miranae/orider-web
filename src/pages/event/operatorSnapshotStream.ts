@@ -5,7 +5,7 @@ export const LOCAL_OPERATOR_SNAPSHOT_ENDPOINT = "ws://127.0.0.1:19494/operator-s
 export const PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT = "wss://world.orider.co.kr/operator-snapshots";
 /** 첫 세대(모든 페이지)를 기다리는 시간. 월드는 5초 안에 못 보내면 1013으로 닫는다. */
 export const OPERATOR_SNAPSHOT_FIRST_FRAME_MS = 6000;
-/** 연결 시도(핸드셰이크 포함)부터 open까지의 제한 시간. 넘으면 개인 연결 문제로 보고 임시 Firestore 표시 후 재연결한다. */
+/** 연결 시도(핸드셰이크 포함)부터 open까지의 제한 시간. 넘으면 개인 연결 문제로 보고 재연결한다. */
 export const OPERATOR_SNAPSHOT_CONNECT_MS = 6000;
 /** ID 토큰·App Check 발급 대기 상한. 연결 제한 시간에는 넣지 않지만 발급이 멈추면 발급 실패와 같이 처리한다. */
 export const OPERATOR_SNAPSHOT_CREDENTIAL_MS = 15_000;
@@ -24,11 +24,11 @@ export interface OperatorSnapshotOptions {
   endpoint: string;
   /** 운영 월드는 App Check 토큰을 함께 요구한다. */
   appCheck?: (forceRefresh?: boolean) => Promise<string | null | undefined>;
+  /** 개인 연결 끊김으로 재연결 중이면 true, 월드 세대를 다시 받거나 Firestore로 넘어가면 false. */
+  reconnecting?: (retrying: boolean) => void;
 }
 
-/** 개별 연결 끊김(1006 등) 재연결 횟수 상한. 넘으면 Firestore로 임시 표시하고 월드 재연결은 계속 시도한다. */
-export const OPERATOR_SNAPSHOT_RECONNECT_LIMIT = 3;
-/** 임시 Firestore 표시 중 월드 재연결 백오프 상한. */
+/** 개인 연결 끊김 재연결 백오프 상한. 재연결은 횟수 제한 없이 계속한다. */
 export const OPERATOR_SNAPSHOT_MAX_BACKOFF_MS = 60_000;
 /** 월드가 느린 운영자 소켓을 닫는 코드(#4079). 서버 장애(1013)가 아니라 개별 끊김이므로 재연결한다. */
 export const OPERATOR_SNAPSHOT_SLOW_CONSUMER_CODE = 4008;
@@ -40,11 +40,11 @@ const validLocations = (value: unknown): value is unknown[] =>
 
 /**
  * 월드가 전달하는 Functions 정본 스냅샷을 받는다(#4049). 월드가 정상인 동안 화면 전체를 이 값으로만 그린다(섞지 않음).
- * - 서버 쪽 사용 불가(1013)·Firestore 전용 행사(4004)·첫 세대 지연·디코딩(스키마) 오류: `fallback`(Firestore onSnapshot)으로 넘어가
- *   이 구독이 끝날 때까지 그쪽만 쓴다(P11 서버 장애 자동 복귀).
- * - 개별 연결 끊김(1006 등)·느린 소켓(4008 slow_consumer)·토큰 발급 실패: 마지막 화면을 유지한 채 백오프로 다시 연결한다.
- *   상한을 넘으면 Firestore로 임시 표시하면서 최대 60초 간격으로 월드 재연결을 계속하고(온라인 복귀·탭 복귀 시 즉시),
- *   재연결 후 첫 완성 세대를 받으면 월드로 되돌아간다(P11, 공백 허용).
+ * - 서버 쪽 신호(1013 Redis 구독 끊김·세대 정지, 4004 Firestore 전용 행사, 최초 접속에서 첫 세대 지연, 디코딩(스키마) 오류)만
+ *   `fallback`(Firestore onSnapshot)으로 넘어가 이 구독이 끝날 때까지 그쪽만 쓴다(P11 서버 장애 자동 복귀).
+ * - 개인 연결 끊김(1006·4008 slow_consumer·연결 제한 시간 초과·토큰/App Check 발급 실패·지연)은 Firestore로 넘어가지 않는다.
+ *   마지막 월드 화면을 그대로 두고 `reconnecting(true)`로 알린 뒤 최대 60초 백오프로 계속 다시 연결한다(온라인·탭 복귀 시 즉시).
+ *   재연결 후 완성 세대를 받으면 그대로 갱신한다. 끊긴 동안의 공백은 허용한다(P11, 새로고침으로 회복).
  * - 토큰 만료(4001)는 새 토큰으로 다시 연결한다. 권한 철회(4003)는 `denied`.
  */
 export function subscribeOperatorSnapshot<T>(
@@ -52,14 +52,13 @@ export function subscribeOperatorSnapshot<T>(
   viewer: Viewer,
   receive: (snapshot: T | null) => void,
   denied: () => void,
-  /** Firestore 표시를 시작한다. 넘겨받은 `show`로 화면에 그려야 월드 복귀 시 더 오래된 세대로 되돌아가지 않는다. */
-  fallback: (show: (snapshot: T | null) => void) => () => void,
+  fallback: () => () => void,
   options: OperatorSnapshotOptions = { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT },
   report: typeof logClientError = logClientError,
 ): () => void {
   let active = true;
   let socket: WebSocket | undefined;
-  // Firestore 표시 해제 함수. `permanent`가 아니면 월드 재연결을 기다리는 임시 표시다.
+  // Firestore 표시 해제 함수(서버 쪽 사용 불가로 넘어간 뒤에만 있다).
   let stopFallback: (() => void) | undefined;
   let permanent = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -70,8 +69,14 @@ export function subscribeOperatorSnapshot<T>(
   // 위치 공개 철회(snapshot: null) 때 넘겼거나 조립 중이던 세대. 이 버전 이하는 다시 그리지 않는다.
   let revokedThrough: string | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
-  // 임시 Firestore 표시 중 화면에 있는 스냅샷의 생성 시각. 월드 세대가 이보다 오래되면 전환하지 않는다.
-  let fallbackTimestamp: number | undefined;
+  // 월드 세대를 한 번이라도 받았는지. 최초 접속의 첫 세대 지연만 서버 쪽 사용 불가로 본다.
+  let received = false;
+  let retrying = false;
+  const setRetrying = (value: boolean) => {
+    if (retrying === value) return;
+    retrying = value;
+    options.reconnecting?.(value);
+  };
   const detach = () => {
     if (typeof window !== "undefined") window.removeEventListener("online", retryNow);
     if (typeof document !== "undefined") document.removeEventListener("visibilitychange", retryNow);
@@ -80,30 +85,6 @@ export function subscribeOperatorSnapshot<T>(
     const current = socket;
     socket = undefined;
     current?.close();
-  };
-  const showFallback = () => {
-    if (stopFallback) return true;
-    receive(null);
-    fallbackTimestamp = undefined;
-    try {
-      const stop = fallback(snapshot => {
-        const timestamp = isObject(snapshot) ? snapshot.timestamp : undefined;
-        fallbackTimestamp = Number.isSafeInteger(timestamp) ? timestamp as number : undefined;
-        receive(snapshot);
-      });
-      stopFallback = () => { fallbackTimestamp = undefined; stop(); };
-      return true;
-    }
-    catch (error) {
-      report("operatorSnapshotStream.fallback", error, { eventId });
-      active = false;
-      clearTimeout(timeout);
-      clearTimeout(retry);
-      detach();
-      closeSocket();
-      denied();
-      return false;
-    }
   };
   // 서버 쪽 사용 불가: 이 구독이 끝날 때까지 Firestore만 쓴다.
   const useFallback = () => {
@@ -114,26 +95,30 @@ export function subscribeOperatorSnapshot<T>(
     retry = undefined;
     detach();
     closeSocket();
-    showFallback();
+    setRetrying(false);
+    receive(null);
+    try { stopFallback = fallback(); }
+    catch (error) {
+      report("operatorSnapshotStream.fallback", error, { eventId });
+      active = false;
+      denied();
+    }
   };
   const reconnect = (forceRefresh: boolean) => {
     void connect(forceRefresh).catch(error => {
-      // 토큰·App Check 발급 실패는 개인 쪽 문제로 보고, Firestore로 임시 표시한 채 재시도한다.
+      // 토큰·App Check 발급 실패·지연은 개인 쪽 문제로 보고 Firestore로 넘어가지 않고 다시 시도한다.
       report("operatorSnapshotStream.connect", error, { eventId });
-      if (!active || permanent) return;
-      if (showFallback()) scheduleRetry();
+      scheduleRetry();
     });
   };
+  // 개인 연결 끊김: 마지막 화면을 그대로 두고 횟수 제한 없이 백오프로 다시 연결한다.
   function scheduleRetry(code?: number) {
     clearTimeout(timeout);
     clearTimeout(retry);
     if (!active || permanent) return;
-    if (reconnects >= OPERATOR_SNAPSHOT_RECONNECT_LIMIT) {
-      if (!stopFallback) report("operatorSnapshotStream.temporaryFallback", new Error("Operator snapshot stream unavailable"), { eventId, code });
-      if (!showFallback()) return;
-    } else {
-      report("operatorSnapshotStream.reconnect", new Error("Operator snapshot stream dropped"), { eventId, code, attempt: reconnects + 1 });
-    }
+    // 끊김 한 번(재연결 성공 전까지)에 한 번만 기록한다.
+    if (reconnects === 0) report("operatorSnapshotStream.reconnect", new Error("Operator snapshot stream dropped"), { eventId, code });
+    setRetrying(true);
     const delay = Math.min(1000 * 2 ** reconnects, OPERATOR_SNAPSHOT_MAX_BACKOFF_MS);
     reconnects++;
     retry = setTimeout(() => {
@@ -168,22 +153,24 @@ export function subscribeOperatorSnapshot<T>(
     const connection = new WebSocket(options.endpoint);
     socket = connection;
     let assembling: { version: string; total: number; pages: Frame[] } | undefined;
-    // 핸드셰이크가 멈추면 open이 오지 않으므로 연결 시도부터 제한 시간을 둔다(토큰 발급 대기는 제외).
+    // 핸드셰이크가 멈추면 open이 오지 않으므로 연결 시도부터 제한 시간을 둔다(토큰 발급 대기는 제외). 개인 연결 문제로 다시 연결한다.
     timeout = setTimeout(() => {
       if (!active || permanent || socket !== connection) return;
       report("operatorSnapshotStream.connectTimeout", new Error("Operator snapshot connection timed out"), { eventId });
       closeSocket();
-      if (showFallback()) scheduleRetry();
+      scheduleRetry();
     }, OPERATOR_SNAPSHOT_CONNECT_MS);
     connection.addEventListener("open", () => {
       if (!active || permanent || socket !== connection) return;
       try { connection.send(JSON.stringify({ v: 1, type: "operator_snapshot_subscribe", eventId, token, ...(appCheck ? { appCheck } : {}) })); }
       catch (error) { report("operatorSnapshotStream.send", error, { eventId }); useFallback(); return; }
       // 첫 세대 대기는 구독을 보낸 뒤부터 잰다(토큰 발급·연결 시간은 넣지 않는다).
+      // 최초 접속에서 연결은 됐는데 세대가 오지 않으면 서버 쪽 사용 불가로 본다. 재연결 뒤라면 다시 연결한다.
       clearTimeout(timeout);
       timeout = setTimeout(() => {
-        report("operatorSnapshotStream.timeout", new Error("Initial snapshot timed out"), { eventId });
-        useFallback();
+        if (!active || permanent || socket !== connection) return;
+        report("operatorSnapshotStream.timeout", new Error("Initial snapshot timed out"), { eventId, received });
+        if (received) { closeSocket(); scheduleRetry(); } else useFallback();
       }, OPERATOR_SNAPSHOT_FIRST_FRAME_MS);
     });
     connection.addEventListener("message", ({ data }) => {
@@ -201,7 +188,8 @@ export function subscribeOperatorSnapshot<T>(
           clearTimeout(timeout);
           refreshed = false;
           reconnects = 0;
-          if (stopFallback) { stopFallback(); stopFallback = undefined; }
+          received = true;
+          setRetrying(false);
           receive(null);
           return;
         }
@@ -228,13 +216,9 @@ export function subscribeOperatorSnapshot<T>(
         clearTimeout(timeout);
         refreshed = false;
         reconnects = 0;
-        // 임시 Firestore 표시 중이었다면 화면의 Firestore 스냅샷보다 새롭거나 같은 완성 세대가 왔을 때만 월드로 되돌아간다.
-        if (stopFallback) {
-          if (fallbackTimestamp !== undefined && (head!.snapshot!.timestamp as number) < fallbackTimestamp) return;
-          stopFallback();
-          stopFallback = undefined;
-        }
+        received = true;
         deliveredVersion = version;
+        setRetrying(false);
         receive({ ...head!.snapshot, locations: [head!, ...rest].flatMap(part => part.snapshot!.locations!) } as T);
       } catch (error) {
         report("operatorSnapshotStream.decode", error, { eventId });
@@ -249,7 +233,7 @@ export function subscribeOperatorSnapshot<T>(
         clearTimeout(retry);
         active = false;
         detach();
-        if (stopFallback) { stopFallback(); stopFallback = undefined; }
+        setRetrying(false);
         denied();
       } else if (code === 4001 && !refreshed) {
         refreshed = true;
