@@ -295,6 +295,10 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  // 개인 연결 끊김으로 월드에 다시 연결하는 중(마지막 화면 유지, P11).
+  const [worldReconnecting, setWorldReconnecting] = useState(false);
+  // 월드 첫 스냅샷을 기다리는 중. 운영 컨트롤은 막지 않고 지도·표 영역에만 상태를 보인다.
+  const [worldConnecting, setWorldConnecting] = useState(false);
   // 「스냅샷 로딩 실패」 문구를 누르면 라이브 스냅샷을 다시 구독한다.
   const [snapshotAttempt, setSnapshotAttempt] = useState(0);
   const [authEpoch, setAuthEpoch] = useState(0);
@@ -526,8 +530,10 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
               },
             );
             if (currentRevision !== revision || !isCurrentSnapshot()) return;
+            // 출처(월드·Firestore)와 관계없이 체크포인트가 빠진 스냅샷도 렌더 중 예외 없이 그린다.
             const data: SnapshotData = {
               ...raw,
+              checkpoints: Array.isArray(raw.checkpoints) ? raw.checkpoints : [],
               locations: locations.map((l) => ({
                 ...l,
                 status: (l.status || "").toUpperCase(),
@@ -627,16 +633,22 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     const fallback = () => onSnapshot(latestRef, snap => receive(snap.exists() ? snap.data() as SnapshotData : null), snapshotFailed);
     // 출처 단일화(#4049): 월드가 정상이면 화면 전체를 월드가 전달한 Functions 정본 스냅샷으로, 장애면 Firestore onSnapshot으로만 그린다.
     const mode = operatorWorldMode();
+    const reconnecting = (retrying: boolean) => { if (isCurrentSnapshot()) setWorldReconnecting(retrying); };
     const worldOptions = mode === "production"
-      ? { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: (refresh?: boolean) => getAppCheckToken(refresh) }
-      : mode === "local" ? { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT } : null;
+      ? { endpoint: PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT, appCheck: (refresh?: boolean) => getAppCheckToken(refresh), reconnecting }
+      : mode === "local" ? { endpoint: LOCAL_OPERATOR_SNAPSHOT_ENDPOINT, reconnecting } : null;
+    if (worldOptions && user) {
+      // 첫 월드 스냅샷 전에도 운영 화면(종료·알림 등)은 바로 쓸 수 있게 로딩을 풀고, 지도·표에만 연결 상태를 보인다.
+      setLoading(false);
+      setWorldConnecting(true);
+    }
     const unsub = worldOptions && user ? subscribeOperatorSnapshot<SnapshotData>(
-      eventId, user, receive,
+      eventId, user, snapshot => { if (isCurrentSnapshot()) setWorldConnecting(false); receive(snapshot); },
       () => snapshotFailed(new Error(t("dashboard.errorLoadSnapshot"))),
       fallback, worldOptions,
       (source, error, context) => logClientError(source, error, context, services, user),
     ) : fallback();
-    return () => { active = false; revision++; unsub(); };
+    return () => { active = false; revision++; unsub(); setWorldReconnecting(false); setWorldConnecting(false); };
   }, [authEpoch, eventId, eventStatus, trackingEnded, t, user, snapshotAttempt, db, services]);
 
   const handleFinishEvent = useCallback(async () => {
@@ -806,7 +818,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
             <h1 className="text-[length:var(--fs-base)] font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: "var(--ft-body-size)" }}>
               {eventInfo.name}
             </h1>
-            {!trackingEnded && <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>· {t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>}
+            {!trackingEnded && <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>· {worldReconnecting && `${t("dashboard.worldReconnecting")} · `}{t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>}
           </div>
         </div>
         <div data-testid="O1-0" className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
@@ -935,7 +947,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           </div>
 
           <Text as="div" variant="eyebrow" style={{ marginTop: 22, marginBottom: "var(--space-2)" }}><GlossaryText>{t("checkpoints")}</GlossaryText></Text>
-          {snapshot?.checkpoints.length ? (
+          {snapshot?.checkpoints?.length ? (
             snapshot.checkpoints.map((cp) => {
               const total = filteredCounts.total || snapshot.counts?.total || 1;
               const pct = Math.min(100, Math.round((cp.passedCount / total) * 100));
@@ -1018,7 +1030,8 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           {(!trackingEnded || snapshot) && <div style={{ height: 300, borderTop: "1px solid var(--line-soft)", flexShrink: 0, overflow: "hidden" }}>
             {!snapshot ? (
               <div className="flex items-center justify-center h-full">
-                <EmptyState icon={<Radio size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t(trackingEnded ? "dashboard.trackingEnded" : "dashboard.snapshotUnavailable")} compact />
+                <EmptyState icon={<Radio size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t(trackingEnded ? "dashboard.trackingEnded"
+                  : worldReconnecting ? "dashboard.worldReconnecting" : worldConnecting ? "dashboard.worldConnecting" : "dashboard.snapshotUnavailable")} compact />
               </div>
             ) : filteredLocations.length === 0 ? (
               <div className="flex items-center justify-center h-full">

@@ -14,6 +14,9 @@ const listeners = vi.hoisted(() => ({
   snapshotNext: null as null | ((value: unknown) => void),
   operatorWorld: false, webgl: true, mapboxToken: "pk.test", markerMapThrows: false,
   onFatalMapError: null as null | (() => void),
+  // true면 월드 스트림을 붙잡아 첫 스냅샷 전 상태를 본다.
+  holdWorld: false,
+  worldSubscribe: null as null | { receive: (value: unknown) => void; options: { reconnecting?: (retrying: boolean) => void } },
 }));
 const translate = vi.hoisted(() => (key: string) => key);
 const firebaseAuth = vi.hoisted(() => ({ currentUser: { uid: "host-1" } as { uid: string } | null }));
@@ -66,9 +69,15 @@ vi.mock("../../services/runtimeConfig", async importOriginal => {
   return { ...actual, getRuntimeConfig: () => ({ ...actual.getRuntimeConfig(), operatorWorldSnapshotsEnabled: listeners.operatorWorld }) };
 });
 // 월드 스트림 대신 Firestore 폴백으로 바로 넘어간다: 출처와 관계없이 같은 지도 규칙을 쓰는지 본다.
+// holdWorld면 스트림을 붙잡아 첫 스냅샷 전(연결 중·재시도 중) 상태를 본다.
 vi.mock("./operatorSnapshotStream", () => ({
   LOCAL_OPERATOR_SNAPSHOT_ENDPOINT: "ws://local", PRODUCTION_OPERATOR_SNAPSHOT_ENDPOINT: "wss://production",
-  subscribeOperatorSnapshot: (_eventId: string, _user: unknown, _receive: unknown, _denied: unknown, fallback: () => () => void) => fallback(),
+  subscribeOperatorSnapshot: (_eventId: string, _user: unknown, receive: (value: unknown) => void, _denied: unknown, fallback: () => () => void,
+    options: { reconnecting?: (retrying: boolean) => void }) => {
+    if (!listeners.holdWorld) return fallback();
+    listeners.worldSubscribe = { receive, options };
+    return () => {};
+  },
 }));
 vi.mock("../../components/event/ParticipantTable", () => ({ default: ({ locations }: { locations: Array<{ displayName: string }> }) => <div>{locations.map(location => location.displayName).join(", ")}</div> }));
 vi.mock("./privateSnapshotPages", () => ({ loadPrivateSnapshotWithRetry: () => new Promise(resolve => { listeners.pageResolve = resolve; }) }));
@@ -87,6 +96,7 @@ describe("EventDashboardPage read failures", () => {
     listeners.eventError = null;
     listeners.snapshotSubscriptions = 0;
     listeners.eventNext = null; listeners.snapshotNext = null;
+    listeners.holdWorld = false; listeners.worldSubscribe = null;
     firebaseAuth.currentUser = { uid: "host-1" };
     listeners.operatorWorld = false; listeners.webgl = true; listeners.mapboxToken = "pk.test"; listeners.markerMapThrows = false; listeners.onFatalMapError = null;
   });
@@ -133,6 +143,19 @@ describe("EventDashboardPage read failures", () => {
     expect(screen.getByRole("alert").textContent).toContain("snapshot denied");
     expect(screen.getAllByText("dashboard.snapshotUnavailable")).toHaveLength(2);
     expect(screen.queryByText(/0\s*\/\s*0/)).toBeNull();
+  });
+
+  // 월드 첫 스냅샷 전(연결 중·재시도 중)에도 운영 컨트롤은 바로 쓸 수 있고 지도·표 영역에만 상태를 보인다(11-25 결정).
+  it("keeps operator controls usable while the world snapshot is still connecting or reconnecting", async () => {
+    listeners.operatorWorld = true; listeners.holdWorld = true;
+    render(<EventDashboardPage />);
+    expect(await screen.findByRole("button", { name: /button.finish/ })).toBeTruthy();
+    expect(listeners.worldSubscribe).not.toBeNull();
+    expect(screen.getByText("dashboard.worldConnecting")).toBeTruthy();
+    act(() => { listeners.worldSubscribe!.options.reconnecting!(true); });
+    expect(screen.getAllByText(/dashboard.worldReconnecting/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /button.finish/ })).toBeTruthy();
+    expect(listeners.privateSubscriptions).toBe(0);
   });
 
   it("blocks Finish when the event document itself is denied", async () => {
