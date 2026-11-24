@@ -200,7 +200,7 @@ it("운영 월드 플래그가 꺼져 있으면 월드 위치를 적용하지 �
   expect(locationSignals()[0].stop).not.toHaveBeenCalled();
 });
 
-it("운영 월드 프레임은 위치만 덮어쓰고 위치 신호 구독을 유지하며, 프레임이 멈추거나 끊겨도 콜러블로 지도와 격차를 갱신한다", async () => {
+it("서버 진행 필드가 없는 운영 월드 프레임은 위치만 덮어쓰고 위치 신호 구독을 유지하며, 프레임이 멈추거나 끊겨도 콜러블로 지도와 격차를 갱신한다", async () => {
   world.production = true;
   control.request.mockResolvedValue({data: data()});
   const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
@@ -236,4 +236,144 @@ it("운영 월드 프레임은 위치만 덮어쓰고 위치 신호 구독을 �
   rerender();
   expect(locationSignals()).toHaveLength(1);
   expect(locationSignals()[0].stop).not.toHaveBeenCalled();
+});
+
+const serverMarker = (uid: string, capturedAt: number, progressM: number, gapToLeaderM: number) => ({id: uid, uid, kind: "virtual" as const, lat: 37.525, lon: 126.98,
+  status: "riding" as const, capturedAt, progressM, gapToLeaderM, leaderGapExpiresAtMs: capturedAt + 30000, gapToSelectedM: null, selectedGapExpiresAtMs: null});
+const serverFrame = (revision: number, capturedAt = Date.now(), riding = 2, markers = [serverMarker("rider-one", capturedAt, 2600, 0), serverMarker("rider-two", capturedAt, 2500, 100)]) =>
+  ({v: 1 as const, type: "event_snapshot" as const, eventId: "meeting", revision, updatedAt: capturedAt, viewers: 1, counts: {riding, total: riding}, roster: [], markers});
+const openLocationSignals = () => locationSignals().filter(s => s.stop.mock.calls.length === 0);
+
+it("완전한 서버 진행 프레임 동안 위치 신호를 쉬고, 프레임이 멈추면 다시 열어 콜러블로 따라잡은 뒤 재전환한다", async () => {
+  world.production = true;
+  control.request.mockImplementation(async () => ({data: data()}));
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  let frame = serverFrame(1);
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2500, gapToLeaderM: 100});
+  expect(openLocationSignals()).toHaveLength(0);
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+  // 새 프레임이 계속 오면 신호·콜러블 없이 서버 격차만 갱신한다.
+  frame = serverFrame(2, Date.now(), 2, [serverMarker("rider-one", Date.now(), 2700, 0), serverMarker("rider-two", Date.now(), 2550, 150)]);
+  rerender();
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+  expect(control.request).toHaveBeenCalledTimes(1);
+  expect(openLocationSignals()).toHaveLength(0);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.gapToLeaderM).toBe(150);
+  // 연결은 그대로인데 프레임만 멈추면 제한 시간 뒤 위치 신호를 다시 열고 콜러블로 따라잡는다.
+  await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+  expect(openLocationSignals()).toHaveLength(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+  // 프레임이 다시 오면 위치 신호를 다시 쉰다.
+  frame = serverFrame(3);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(0);
+  // 신호를 쉬는 동안 명단 상태가 바뀌면(완주 등) 콜러블로 한 번 다시 확인한다.
+  frame = {...serverFrame(4), roster: [{uid: "rider-one", state: "finished"}]};
+  rerender();
+  await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+  expect(control.request).toHaveBeenCalledTimes(3);
+  expect(openLocationSignals()).toHaveLength(0);
+  // 명단·권한 신호는 계속 구독하며 권한 철회 시 화면을 비운다.
+  control.request.mockRejectedValue({code: "functions/permission-denied"});
+  act(() => control.signals.find(s => s.path === "groups/club/members/member")!.next());
+  expect(result.current.data).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(result.current.error).toEqual({code: "functions/permission-denied"});
+  expect(result.current.data).toBeNull();
+});
+
+it("주행 0명·버린 표본·서버 진행 필드 없는 프레임은 위치 신호를 쉬지 않는다", async () => {
+  world.production = true;
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  let frame: ReturnType<typeof serverFrame> | ReturnType<typeof worldFrame> = serverFrame(1, Date.now(), 0, []);
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(1);
+  frame = serverFrame(2, Date.now(), 2, [serverMarker("rider-one", Date.now(), 2600, 0), serverMarker("rider-two", Date.now() + 60000, 2500, 100)]);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(1);
+  frame = serverFrame(3, Date.now(), 2, [serverMarker("rider-one", Date.now(), 2600, 0), serverMarker("stranger", Date.now(), 2500, 100)]);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(1);
+  frame = worldFrame(1);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(1);
+  expect(locationSignals()).toHaveLength(1);
+});
+
+it("월드 연결이 끊기면 위치 신호를 다시 열고 바로 콜러블로 따라잡는다", async () => {
+  world.production = true;
+  control.request.mockResolvedValue({data: data()});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  let frame: ReturnType<typeof serverFrame> | null = serverFrame(1);
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(0);
+  frame = null;
+  rerender();
+  expect(openLocationSignals()).toHaveLength(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+});
+
+it("선택 참가자를 바꾸면 월드 구독의 track도 바꾼다", async () => {
+  world.production = true;
+  control.request.mockImplementation(async ({selectedUid}: {selectedUid: string | null}) => ({data: {...data(), selectedUid}}));
+  const {result, rerender} = renderHook(({selectedUid}) => useMeetingSpectator("club", "meeting", "member", selectedUid), {initialProps: {selectedUid: null as string | null}});
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  expect(fullWorld(world.subscribe.mock.calls).at(-1)?.[2]).toBeNull();
+  rerender({selectedUid: "rider-two"});
+  expect(fullWorld(world.subscribe.mock.calls).at(-1)?.[2]).toBe("rider-two");
+});
+
+it("시청자 수만 바뀌는 delta가 계속 와도 새 위치 표본이 없으면 제한 시간 뒤 위치 신호로 복귀한다", async () => {
+  world.production = true;
+  control.request.mockImplementation(async () => ({data: data()}));
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  const base = serverFrame(1);
+  let frame = base;
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(0);
+  for (let i = 2; i <= 6; i++) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    frame = {...base, revision: i, viewers: i};
+    rerender();
+  }
+  expect(openLocationSignals()).toHaveLength(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+});
+
+it("월드가 끊긴 폴백 중에는 콜러블이 준 새 격차를 위치 표본이 더 일러도 반영한다", async () => {
+  world.production = true;
+  control.request.mockImplementation(async () => ({data: data()}));
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  let frame: ReturnType<typeof serverFrame> | null = serverFrame(1);
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")?.gapToLeaderM).toBe(100);
+  control.request.mockImplementation(async () => {
+    const next = data();
+    next.locations = next.locations.map(r => r.uid === "rider-two" ? {...r, sampledAtMs: Date.now() - 10000, gapToLeaderM: 20, progressM: 2580} : r);
+    return {data: next};
+  });
+  frame = null;
+  rerender();
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+  expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, gapToLeaderM: 20, progressM: 2580});
 });

@@ -24,6 +24,12 @@ export interface WorldEventMarker {
   powerExpiresAtMs?: number;
   hr?: number;
   hrExpiresAtMs?: number;
+  /** 운영 회원 관전 마커의 서버 계산 코스 진행·격차(g1-web#4005). 값은 숫자 또는 null이고 웹은 다시 계산하지 않는다. */
+  progressM?: number | null;
+  gapToLeaderM?: number | null;
+  leaderGapExpiresAtMs?: number | null;
+  gapToSelectedM?: number | null;
+  selectedGapExpiresAtMs?: number | null;
 }
 
 export interface WorldEventFrame {
@@ -36,6 +42,10 @@ export interface WorldEventFrame {
   counts: { riding: number; total: number };
   roster: { uid: string; state: string }[];
   markers: WorldEventMarker[];
+  /** 이 프레임을 만든 구독의 선택 대상(`event_subscribe.track`). 클라이언트가 붙이며 선택 격차의 기준을 가린다. */
+  track?: string | null;
+  /** 어느 구독의 응답인지 가릴 수 없는 프레임이면 true. 선택 격차를 쓰지 않는다. */
+  trackUnknown?: boolean;
 }
 
 type WorldEventDelta = Partial<Pick<WorldEventFrame, "roster" | "counts" | "viewers">> &
@@ -142,9 +152,16 @@ export function useWorldEvent(
           connection.close();
         }, 3000);
         let latest: WorldEventFrame | null = null;
+        // track을 바꿔 다시 구독하면 서버가 새 event_snapshot을 보낸다(track 에코 없음). 그 전 delta는 이전 선택 기준이다.
+        // 서버는 구독을 순서대로 처리하되 다음 flush 전에 온 구독들을 snapshot 하나로 합칠 수 있어서, snapshot 하나는 대기 큐
+        // 앞쪽의 하나 이상 구독에 대한 응답이고 그 선택 기준은 큐에 남은 track 중 하나다. 그래서 snapshot마다 큐 앞에서 하나만
+        // 지우고(실제로 답한 수 이하), 큐에 남은 track이 모두 현재 선택과 같을 때만 선택 격차를 믿는다. 그 밖에는 기준을
+        // 모른다고 표시하고 현재 선택으로 다시 구독한다.
+        const pendingTracks: (string | null)[] = [];
         const subscribe = () => {
           if (disposed || socket !== connection || connection.readyState !== WebSocket.OPEN) return;
           try {
+            pendingTracks.push(options.current.track ?? null);
             connection.send(JSON.stringify({ v: 1, type: "event_subscribe", eventId: event, token, ...(appCheck ? { appCheck } : {}), guest: !identity && allowGuest, viewerSessionId, signalOnly, signalTopic, ...options.current }));
           } catch (error) {
             report("RideWorld.subscribeEvent", error, { eventId: event });
@@ -192,8 +209,13 @@ export function useWorldEvent(
             if (frame.revision <= (latest?.revision ?? 0)) return;
             if (frame.type === "event_snapshot" && Array.isArray(frame.markers) && Array.isArray(frame.roster)) {
               clearTimeout(initial);
-              latest = frame;
+              const current = options.current.track ?? null;
+              const known = pendingTracks.length > 0 && pendingTracks.every((pending) => pending === current);
+              pendingTracks.shift();
+              latest = known ? { ...frame, track: current } : { ...frame, track: null, trackUnknown: true };
               hasFrame = true;
+              // 합쳐진 응답으로 큐에 답 없는 항목이 남아도 멈추지 않도록, 기준을 모르는 snapshot마다 한 번씩 다시 구독한다.
+              if (!known) subscribe();
             } else if (frame.type === "event_delta") {
               if (!latest || frame.revision !== latest.revision + 1) {
                 report("RideWorld.deltaGap", new Error("World delta has no matching snapshot revision"), { eventId: event });

@@ -20,6 +20,8 @@ export interface SpectatorRider {
   gapToSelectedM: number | null;
   selectedGapExpiresAtMs: number | null;
   status: "RIDING" | "STOPPED" | "LOST_SIGNAL" | "FINISHED" | "DNF";
+  /** 화면 전용: 진행·격차가 위치 표본(sampledAtMs)의 월드 값이 아닐 때(더 이른 표본이거나 같은 표본의 콜러블 값) 그 계산 기준 표본 시각을 둔다. */
+  progressSampledAtMs?: number;
 }
 export interface MeetingSpectatorSnapshot {
   eventId: string;
