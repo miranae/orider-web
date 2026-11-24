@@ -197,8 +197,8 @@ describe("Fix 2: 오류 분류 — tile 있으면 일시, sourceId만이면 치�
     const sourceError = Object.assign(new Error("TileJSON 403"), { status: 403 });
     fireMapError({ error: sourceError, sourceId: "mapbox-streets" });
 
-    // 치명 콜백 없어도 오류는 기록된다
-    expect(logClientError).toHaveBeenCalled();
+    // 치명 콜백 없어도 원본 오류와 실패한 소스가 기록된다(P12)
+    expect(logClientError).toHaveBeenCalledWith("EventMap.render", sourceError, { sourceId: "mapbox-streets" });
   });
 });
 
