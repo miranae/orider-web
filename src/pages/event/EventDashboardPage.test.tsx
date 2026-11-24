@@ -13,6 +13,7 @@ const listeners = vi.hoisted(() => ({
   eventNext: null as null | ((value: unknown) => void),
   snapshotNext: null as null | ((value: unknown) => void),
   operatorWorld: false, webgl: true, mapboxToken: "pk.test", markerMapThrows: false,
+  onFatalMapError: null as null | (() => void),
 }));
 const translate = vi.hoisted(() => (key: string) => key);
 const firebaseAuth = vi.hoisted(() => ({ currentUser: { uid: "host-1" } as { uid: string } | null }));
@@ -50,8 +51,9 @@ vi.mock("firebase/firestore", () => ({
 }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn() }));
 vi.mock("../../components/RouteMap", () => ({ default: () => <div data-testid="route-map" />, supportsWebGL: () => listeners.webgl }));
-vi.mock("../../components/event/EventMap", () => ({ default: ({ locations, pendingFinish }: { locations: Array<{ uid: string }>; pendingFinish?: boolean }) => {
+vi.mock("../../components/event/EventMap", () => ({ default: ({ locations, pendingFinish, onFatalMapError }: { locations: Array<{ uid: string }>; pendingFinish?: boolean; onFatalMapError?: () => void }) => {
   if (listeners.markerMapThrows) throw new Error("map render failed");
+  listeners.onFatalMapError = onFatalMapError ?? null;
   return <div data-testid="event-map" data-pending-finish={String(pendingFinish)}>{locations.map(location => location.uid).join(",")}</div>;
 } }));
 vi.mock("../../utils/mapbox", () => ({ getMapboxToken: () => listeners.mapboxToken }));
@@ -86,7 +88,7 @@ describe("EventDashboardPage read failures", () => {
     listeners.snapshotSubscriptions = 0;
     listeners.eventNext = null; listeners.snapshotNext = null;
     firebaseAuth.currentUser = { uid: "host-1" };
-    listeners.operatorWorld = false; listeners.webgl = true; listeners.mapboxToken = "pk.test"; listeners.markerMapThrows = false;
+    listeners.operatorWorld = false; listeners.webgl = true; listeners.mapboxToken = "pk.test"; listeners.markerMapThrows = false; listeners.onFatalMapError = null;
   });
 
   it.each(["FINISHED", "CANCELLED"])("does not subscribe to live locations for a confirmed %s event", async status => {
@@ -269,6 +271,15 @@ describe("EventDashboardPage read failures", () => {
       expect(await screen.findByTestId("route-map")).toBeInTheDocument();
       expect(screen.queryByTestId("event-map")).toBeNull();
       consoleError.mockRestore();
+    });
+
+    it("falls back to the course map when the marker map emits a fatal mapbox error", async () => {
+      listeners.operatorWorld = true;
+      await showRider();
+      expect(await screen.findByTestId("event-map")).toBeInTheDocument();
+      act(() => { listeners.onFatalMapError?.(); });
+      expect(await screen.findByTestId("route-map")).toBeInTheDocument();
+      expect(screen.queryByTestId("event-map")).toBeNull();
     });
   });
 });

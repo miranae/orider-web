@@ -70,6 +70,12 @@ interface EventMapProps {
   onWorldViewport?: (view: { lat: number; lon: number }) => void;
   /** 운영자 대시보드 표(ParticipantTable pendingFinish)와 같은 규칙: 행사 종료 전 완주자 순위를 숨기고 "결과 대기"로 보인다. */
   pendingFinish?: boolean;
+  /**
+   * Mapbox 치명적 런타임 오류(인증·스타일·WebGL 컨텍스트 손실) 발생 시 호출된다.
+   * 호출된 쪽에서 지도 대체(RouteMap 등)로 전환할 수 있다.
+   * 타일 하나 실패 같은 일시 오류는 무시하고 호출하지 않는다.
+   */
+  onFatalMapError?: () => void;
 }
 
 /** 지도에 보일 종합 순위. 표와 같은 규칙으로 결과 확정 전 완주자 순위는 숨긴다(#4078). */
@@ -234,6 +240,20 @@ function FitToBounds({
   return null;
 }
 
+/** Mapbox 오류가 치명적(대체 필요)인지 판단한다. 타일 하나 실패 등 일시 오류는 false를 반환한다. */
+function isFatalMapboxError(event: { error?: unknown }): boolean {
+  const e = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
+  const status = typeof e.status === "number" && Number.isInteger(e.status) && e.status >= 100 && e.status <= 599 ? e.status : null;
+  const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
+  // 인증 실패
+  if (status === 401 || status === 403) return true;
+  // WebGL 컨텍스트 손실
+  if (/webgl|context lost|gpu/.test(message)) return true;
+  // 스타일 로드 실패 (타일 개별 실패와 구분)
+  if (/style/.test(message) && !/tile/.test(message) && (status == null || status >= 400)) return true;
+  return false;
+}
+
 export default function EventMap({
   locations,
   selectedUid,
@@ -247,12 +267,29 @@ export default function EventMap({
   preserveSelectionOnPopupClose = false,
   onWorldViewport,
   pendingFinish = false,
+  onFatalMapError,
 }: EventMapProps) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
   const [popupInfo, setPopupInfo] = useState<LocationData | null>(null);
   const [dismissedUid, setDismissedUid] = useState<string | null>(null);
   const previousPopupSelection = useRef(selectedUid);
+  const fatalErrorLogged = useRef(false);
+  const handleMapError = useCallback((event: { error?: unknown }) => {
+    if (!isFatalMapboxError(event)) return;
+    if (!fatalErrorLogged.current) {
+      fatalErrorLogged.current = true;
+      const e = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
+      const status = typeof e.status === "number" ? e.status : null;
+      const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
+      const kind = (status === 401 || status === 403) ? "auth"
+        : /webgl|context lost|gpu/.test(message) ? "webgl_context" : "style";
+      logClientError("EventMap.mapbox", new Error(`mapbox_${kind}_failure${status == null ? "" : `_${status}`}`), {
+        stage: "mapbox_runtime", kind, ...(status != null ? { status } : {}),
+      });
+    }
+    onFatalMapError?.();
+  }, [onFatalMapError]);
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
@@ -301,7 +338,7 @@ export default function EventMap({
         try { applyKoreaCyclingStyle(e.target); }
         catch (error) { logClientError("EventMap.style", error); }
       }}
-      onError={event => logClientError("EventMap.render", event.error)}
+      onError={handleMapError}
       onMoveEnd={onWorldViewport ? ({ viewState }) => onWorldViewport({
         lat: Math.round(viewState.latitude * 200) / 200,
         lon: Math.round(viewState.longitude * 200) / 200,

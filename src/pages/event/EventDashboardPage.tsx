@@ -973,6 +973,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   onWorldViewport={worldFrame ? setViewport : undefined}
                   followSelected
                   pendingFinish
+                  onFatalMapError={() => setMarkerMapFailed(true)}
                 />
               </ErrorBoundary>
             ) : routeMap}
