@@ -1,7 +1,7 @@
 import { logClientError } from "../../services/errorLogger";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef, useCallback, useMemo } from "react";
-import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
+import Map, { Source, Layer, Marker, Popup, useMap, type MapRef } from "react-map-gl/mapbox";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../../utils/mapbox";
@@ -249,8 +249,8 @@ type FatalMapKind = "auth" | "webgl_context" | "style";
 
 /** Mapbox 오류가 치명적(대체 필요)이면 종류를 돌려준다. 타일 하나 실패 등 일시 오류는 null이다. */
 function fatalMapboxError(event: { error?: unknown; sourceId?: unknown; tile?: unknown }): { kind: FatalMapKind; status: number | null } | null {
-  // 타일 등 개별 소스 요청 실패(sourceId 있음)는 403이어도 일시 오류다. 스타일·토큰 요청 실패만 치명이다.
-  if (typeof event.sourceId === "string" || event.tile != null) return null;
+  // 타일 단위 요청 실패(tile 있음)만 일시 오류다. sourceId만 있는 소스 메타데이터·TileJSON 오류는 치명이다.
+  if (event.tile != null) return null;
   const e = event.error && typeof event.error === "object" ? event.error as { status?: unknown; message?: unknown } : {};
   const status = typeof e.status === "number" && Number.isInteger(e.status) && e.status >= 100 && e.status <= 599 ? e.status : null;
   const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
@@ -261,6 +261,24 @@ function fatalMapboxError(event: { error?: unknown; sourceId?: unknown; tile?: u
   // 스타일 로드 실패 (타일 개별 실패와 구분)
   if (/style/.test(message) && !/tile/.test(message) && (status == null || status >= 400)) return { kind: "style", status };
   return null;
+}
+
+/** 스타일 문서 자체를 못 가져온 오류인지 판단한다.
+ * - TypeError (상태 코드 없음): 스타일·토큰 URL 네트워크 실패
+ * - 404 (스프라이트·글리프·이미지·아이콘 메시지 아닌 경우): 스타일 문서 없음
+ * 스타일 검증 오류(CSS 변수 색상 등)·스프라이트·글리프 실패는 false를 반환한다.
+ */
+function isStyleFetchFailure(error: unknown): boolean {
+  if (!error) return false;
+  if (error instanceof TypeError) return true;
+  const e = error as { status?: unknown; message?: unknown };
+  const status = typeof e.status === "number" ? e.status : null;
+  if (status === 404) {
+    const msg = (typeof e.message === "string" ? e.message : "").toLowerCase();
+    if (msg.includes("sprite") || msg.includes("glyph") || msg.includes("icon") || msg.includes("image")) return false;
+    return true;
+  }
+  return false;
 }
 
 export default function EventMap({
@@ -285,6 +303,8 @@ export default function EventMap({
   const [dismissedUid, setDismissedUid] = useState<string | null>(null);
   const previousPopupSelection = useRef(selectedUid);
   const fatalErrorLogged = useRef(false);
+  const loadedRef = useRef(false);
+  const [mapInstance, setMapInstance] = useState<MapRef | null>(null);
   const failFatal = useCallback((kind: FatalMapKind, status: number | null) => {
     if (!fatalErrorLogged.current) {
       fatalErrorLogged.current = true;
@@ -296,11 +316,20 @@ export default function EventMap({
   }, [onFatalMapError, onLogError]);
   const handleMapError = useCallback((event: { error?: unknown; sourceId?: unknown; tile?: unknown }) => {
     const fatal = fatalMapboxError(event);
-    // 치명적이지 않은 오류(타일 실패·'Failed to fetch' 등)도 기존처럼 기록한다.
-    if (!fatal) { onLogError("EventMap.render", event.error); return; }
+    if (!fatal) {
+      // 치명적이지 않더라도 원본 오류는 반드시 먼저 기록한다(onFatalMapError 없는 화면에서도 로그 보존).
+      onLogError("EventMap.render", event.error);
+      // 첫 load 전 타일 외 오류 중 스타일 문서를 못 가져온 경우에만 치명으로 전환한다.
+      // 스타일 검증 오류(CSS 변수 등)·스프라이트·글리프 실패는 비치명(로그만).
+      if (!loadedRef.current && event.tile == null && isStyleFetchFailure(event.error)) {
+        failFatal("style", null);
+      }
+      return;
+    }
     failFatal(fatal.kind, fatal.status);
   }, [failFatal, onLogError]);
   // WebGL 컨텍스트 손실은 onError가 아니라 캔버스의 webglcontextlost 이벤트로 온다. 제한 시간 안에 복구되지 않으면 대체한다.
+  // 캔버스는 onLoad 이전에도 존재하므로 맵 ref가 세팅되는 즉시(onLoad 전) 감시를 시작한다(Fix 1).
   const failFatalRef = useRef(failFatal);
   useEffect(() => { failFatalRef.current = failFatal; }, [failFatal]);
   const stopContextWatch = useRef<(() => void) | null>(null);
@@ -321,6 +350,11 @@ export default function EventMap({
       canvas.removeEventListener("webglcontextrestored", restored);
     };
   };
+  // 맵 ref가 세팅되면 즉시(onLoad 전) 캔버스에 WebGL 감시 등록한다.
+  useEffect(() => {
+    if (!mapInstance) return;
+    watchContextLoss(mapInstance.getCanvas());
+  }, [mapInstance]);
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
@@ -362,13 +396,14 @@ export default function EventMap({
 
   return (
     <Map
+      ref={setMapInstance}
       mapboxAccessToken={mapboxToken}
       mapStyle={MAP_STYLE}
       initialViewState={DEFAULT_VIEW}
       onLoad={(e) => {
-        try { applyKoreaCyclingStyle(e.target); }
+        loadedRef.current = true;
+        try { applyKoreaCyclingStyle(e.target, onLogError); }
         catch (error) { onLogError("EventMap.style", error); }
-        watchContextLoss(e.target.getCanvas());
       }}
       onError={handleMapError}
       onMoveEnd={onWorldViewport ? ({ viewState }) => onWorldViewport({
