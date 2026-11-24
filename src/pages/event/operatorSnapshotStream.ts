@@ -162,8 +162,6 @@ export function subscribeOperatorSnapshot<T>(
     } else scheduleRetry(code);
   };
   // 온라인 복귀·탭 복귀 시 기다리던 재연결을 바로 시도한다.
-  // unreachableTimer는 취소하지 않는다: 월드가 여전히 다운이면 t=30에 그대로 Firestore로 전환하고,
-  // 월드가 복귀하면 open 핸들러에서 타이머를 취소한다.
   function retryNow() {
     if (!active || permanent || !retry) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
@@ -176,6 +174,11 @@ export function subscribeOperatorSnapshot<T>(
 
   const connect = async (forceRefresh: boolean) => {
     clearTimeout(timeout);
+    // 발급 대기 중에 타이머가 발화하지 않도록 미리 해제한다.
+    // 월드가 여전히 다운이면 handshakeFailed가 경과 시간을 직접 판단하고,
+    // 월드가 복귀하면 open 핸들러가 unreachableSince를 초기화한다.
+    clearTimeout(unreachableTimer);
+    unreachableTimer = undefined;
     const issue = <V>(pending: Promise<V>, what: string) => {
       let limit: ReturnType<typeof setTimeout> | undefined;
       return Promise.race([pending, new Promise<never>((_, reject) => {
