@@ -208,3 +208,56 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     expect(retainWorldPositions(added, server).locations.find(r => r.uid === "rider-four")).toMatchObject({sampledAtMs: now, progressM: 1800, gapToLeaderM: 600});
   });
 });
+
+describe("진행·격차 계산 시각 (g1-web#4037)", () => {
+  // rider-two 마커 하나만 담은 프레임(다른 참가자는 바뀌지 않게). 커버 여부는 호출 인자로 준다.
+  const riders = (overrides: Record<string, Partial<WorldEventMarker>> = {}) => [{uid: "rider-two", ...overrides["rider-two"]}];
+  const callable = (row: Partial<ReturnType<typeof spectatorFixture>["locations"][number]>) => {
+    const next = spectatorFixture(now);
+    next.locations = next.locations.map(r => r.uid === "rider-two" ? {...r, ...row} : r);
+    return next;
+  };
+  const two = (snapshot: ReturnType<typeof spectatorFixture>) => snapshot.locations.find(r => r.uid === "rider-two");
+
+  it("콜러블이 늦게 도착했지만 더 일찍 계산됐으면 같은 표본의 월드 진행·격차를 유지한다", () => {
+    const shown = applyWorldFrame(spectatorFixture(now), frame(riders({"rider-two": {...progress(2500, 40), progressComputedAtMs: now + 2000}})), now, true);
+    expect(two(shown)).toMatchObject({sampledAtMs: now, gapToLeaderM: 40, progressComputedAtMs: now + 2000});
+    const late = callable({sampledAtMs: now, progressM: 2400, gapToLeaderM: 70, progressComputedAtMs: now + 1000});
+    expect(two(retainWorldPositions(shown, late, true))).toMatchObject({sampledAtMs: now, progressM: 2500, gapToLeaderM: 40, progressComputedAtMs: now + 2000});
+    // 콜러블 위치가 더 최신이어도 진행·격차는 더 늦게 계산된 월드 값이고 위치는 콜러블 표본이다.
+    const newerPosition = callable({sampledAtMs: now + 500, lng: 127, progressM: 2400, gapToLeaderM: 70, progressComputedAtMs: now + 1000});
+    expect(two(retainWorldPositions(shown, newerPosition, true))).toMatchObject({sampledAtMs: now + 500, lng: 127, progressM: 2500, gapToLeaderM: 40});
+  });
+
+  it("콜러블이 더 늦게 계산됐으면 월드 표본이 더 최신이어도 콜러블 진행·격차를 반영한다", () => {
+    const shown = applyWorldFrame(spectatorFixture(now), frame(riders({"rider-two": {capturedAt: now + 1000, lon: 126.99, ...progress(2500, 40), progressComputedAtMs: now + 1000}})), now + 1000, true);
+    const fresher = callable({sampledAtMs: now, progressM: 2450, gapToLeaderM: 90, progressComputedAtMs: now + 3000});
+    expect(two(retainWorldPositions(shown, fresher, true))).toMatchObject({sampledAtMs: now + 1000, lng: 126.99, progressM: 2450, gapToLeaderM: 90, progressComputedAtMs: now + 3000});
+    const same = callable({sampledAtMs: now + 1000, progressM: 2450, gapToLeaderM: 90, progressComputedAtMs: now + 3000});
+    expect(two(retainWorldPositions(shown, same, true))).toMatchObject({progressM: 2450, gapToLeaderM: 90});
+  });
+
+  it("늦게 온 월드 프레임이 더 늦게 계산된 콜러블 격차를 되돌리지 않고, 더 늦게 계산된 월드 격차는 오래된 표본이어도 반영한다", () => {
+    const base = callable({sampledAtMs: now, progressM: 2500, gapToLeaderM: 70, progressComputedAtMs: now + 2000});
+    expect(applyWorldFrame(base, frame(riders({"rider-two": {...progress(2500, 40), progressComputedAtMs: now + 1000}})), now + 2000, true)).toBe(base);
+    const newerSample = applyWorldFrame(base, frame(riders({"rider-two": {capturedAt: now + 500, lon: 127, ...progress(2510, 40), progressComputedAtMs: now + 1000}})), now + 2000, true);
+    expect(two(newerSample)).toMatchObject({sampledAtMs: now + 500, lng: 127, progressM: 2500, gapToLeaderM: 70, progressComputedAtMs: now + 2000});
+    const older = applyWorldFrame(base, frame(riders({"rider-two": {capturedAt: now - 1000, lon: 1, ...progress(2490, 20), progressComputedAtMs: now + 3000}})), now + 3000, true);
+    expect(two(older)).toMatchObject({sampledAtMs: now, lng: base.locations[1]!.lng, progressM: 2490, gapToLeaderM: 20, progressComputedAtMs: now + 3000});
+  });
+
+  it("선두 이동으로 같은 표본의 마커가 새 계산 시각으로 다시 오면 그 격차를 반영한다", () => {
+    const first = applyWorldFrame(spectatorFixture(now), frame(riders({"rider-two": {...progress(2500, 40), progressComputedAtMs: now}})), now, true);
+    const moved = applyWorldFrame(first, frame(riders({"rider-two": {...progress(2500, 90), progressComputedAtMs: now + 1000}})), now + 1000, true);
+    expect(two(moved)).toMatchObject({sampledAtMs: now, gapToLeaderM: 90, progressComputedAtMs: now + 1000});
+    expect(applyWorldFrame(moved, frame(riders({"rider-two": {...progress(2500, 90), progressComputedAtMs: now + 1000}})), now + 2000, true)).toBe(moved);
+  });
+
+  it("한쪽에만 계산 시각이 있으면 기존 표본 시각 규칙을 따른다(서버 배포 전 호환)", () => {
+    const shown = applyWorldFrame(spectatorFixture(now), frame(riders({"rider-two": {...progress(2500, 40), progressComputedAtMs: undefined}})), now, true);
+    const late = callable({sampledAtMs: now, progressM: 2400, gapToLeaderM: 70, progressComputedAtMs: now - 5000});
+    expect(two(retainWorldPositions(shown, late, true))).toMatchObject({progressM: 2400, gapToLeaderM: 70});
+    const base = callable({sampledAtMs: now, progressM: 2500, gapToLeaderM: 70});
+    expect(applyWorldFrame(base, frame(riders({"rider-two": {capturedAt: now - 1000, ...progress(2490, 20), progressComputedAtMs: now + 3000}})), now, true)).toBe(base);
+  });
+});
