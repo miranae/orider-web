@@ -963,7 +963,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
         <section style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
           <div style={{ flex: 1, minHeight: 300, position: "relative" }}>
             {markerMap ? (
-              <ErrorBoundary fallback={() => routeMap} onError={error => { logClientError("EventDashboard.markerMap", error, { eventId }); setMarkerMapFailed(true); }}>
+              <ErrorBoundary fallback={() => routeMap} onError={error => { logClientError("EventDashboard.markerMap", error, { eventId }, services, user); setMarkerMapFailed(true); }}>
                 <EventMap
                   locations={mapLocations}
                   selectedUid={selectedUid}
@@ -974,6 +974,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   followSelected
                   pendingFinish
                   onFatalMapError={() => setMarkerMapFailed(true)}
+                  onLogError={(source, error, context) => logClientError(source, error, context, services, user)}
                 />
               </ErrorBoundary>
             ) : routeMap}
