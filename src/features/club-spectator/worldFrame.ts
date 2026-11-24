@@ -33,9 +33,13 @@ const sameProgress = (a: SpectatorRider, b: SpectatorRider) =>
 /**
  * 월드(Redis) 위치를 받은 즉시 반영한다(P11 Redis 실시간 경로 예외). 위치·속도·파워·상태와, 마커에 있으면
  * 서버가 계산한 코스 진행·격차(P6, 다시 계산하지 않음)를 그대로 옮긴다. 서버 필드가 없는 마커는 직전 값을 남기고
- * 다음 회원 전용 API 결과로 갱신한다. 표본 시각이 같은 마커도 선두 이동으로 격차가 바뀌면 다시 오므로 격차만 갱신한다.
+ * 다음 회원 전용 API 결과로 갱신한다.
+ * 진행·격차는 마커 표본이 화면 진행 기준 표본보다 최신일 때만 옮긴다. 표본 시각이 같은 마커는 화면 진행이 바로 그
+ * 표본의 월드 값일 때(선두 이동으로 서버가 격차를 다시 보낸 경우)만 격차를 갱신하고, 콜러블이 그 뒤에 갱신한 값은
+ * delta에 남은 같은 마커로 되돌리지 않는다. 월드가 보이는 주행자를 모두 담지 못하는(폴백) 동안(`covered=false`)은
+ * 진행·격차를 옮기지 않는다.
  */
-export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: WorldEventFrame, now: number): MeetingSpectatorSnapshot {
+export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: WorldEventFrame, now: number, covered = true): MeetingSpectatorSnapshot {
   const course = snapshot.course;
   if (frame.eventId !== snapshot.eventId || !course) return snapshot;
   const names = new Map(snapshot.participants?.map(p => [p.uid, p.displayName]) ?? []);
@@ -46,10 +50,11 @@ export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: World
     if (!acceptable(snapshot, names, rows, marker, now)) continue;
     const uid = marker.uid!;
     const prior = rows.get(uid);
-    const server = serverProgress(marker);
+    const server = covered ? serverProgress(marker) : null;
     if (prior && prior.sampledAtMs > marker.capturedAt) continue;
     if (prior && prior.sampledAtMs === marker.capturedAt) {
-      if (!server) continue;
+      // progressSampledAtMs가 있으면 화면 진행은 이 표본의 월드 값이 아니다(콜러블 값 등). 같은 표본으로 덮지 않는다.
+      if (!server || prior.progressSampledAtMs !== undefined) continue;
       const next = withProgress(prior, server, selectedMatches);
       if (sameProgress(prior, next)) continue;
       rows.set(uid, next);
@@ -108,7 +113,9 @@ export function retainWorldPositions(previous: MeetingSpectatorSnapshot | null, 
   const old = new Map(previous.locations.map(r => [r.uid, r]));
   return {...next, locations: next.locations.map(r => {
     const prior = old.get(r.uid);
-    if (!prior || prior.sampledAtMs <= r.sampledAtMs) return r;
+    if (!prior || prior.sampledAtMs < r.sampledAtMs) return r;
+    // 같은 표본이면 콜러블 값을 쓰되, delta에 남은 같은 표본의 월드 마커가 이 값을 되돌리지 않게 진행 기준을 표시한다.
+    if (prior.sampledAtMs === r.sampledAtMs) return {...r, progressSampledAtMs: r.sampledAtMs};
     const position = {...r, lat: prior.lat, lng: prior.lng, sampledAtMs: prior.sampledAtMs, speedMps: prior.speedMps, powerWatts: prior.powerWatts,
       powerExpiresAtMs: prior.powerExpiresAtMs, status: r.status === "FINISHED" || r.status === "DNF" ? r.status : prior.status};
     if (!keepWorldProgress || (prior.progressSampledAtMs ?? prior.sampledAtMs) <= r.sampledAtMs) return {...position, progressSampledAtMs: r.sampledAtMs};
