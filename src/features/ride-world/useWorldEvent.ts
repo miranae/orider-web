@@ -75,6 +75,10 @@ export function isProductionWorldEventEnabled(): boolean {
     config.appEnvironment !== "stage" && config.deploymentProfile !== "production-parity-stage" && config.deploymentProfile !== "bundled-development";
 }
 
+/** 선택 기준을 모르는 동안 현재 선택으로 다시 구독하는 간격과 연속 재전송 상한. */
+export const TRACK_RETRY_MS = 3000;
+export const TRACK_RETRY_LIMIT = 5;
+
 interface EventState { scope: string; services: FirebaseServices; viewer: User | null; frame: WorldEventFrame }
 
 export interface WorldViewport { lat: number; lon: number }
@@ -133,6 +137,7 @@ export function useWorldEvent(
     let refreshCredentials = false;
     let generation = 0;
     let initial: ReturnType<typeof setTimeout> | undefined;
+    let trackRetry: ReturnType<typeof setTimeout> | undefined;
     const open = async () => {
       if (!ready || denied || disposed) return;
       const attempt = ++generation;
@@ -158,17 +163,32 @@ export function useWorldEvent(
         // 지우고(실제로 답한 수 이하), 큐에 남은 track이 모두 현재 선택과 같을 때만 선택 격차를 믿는다. 그 밖에는 기준을
         // 모른다고 표시하고 현재 선택으로 다시 구독한다.
         const pendingTracks: (string | null)[] = [];
+        let lastSentAt = 0;
+        let trackRetries = 0;
         const subscribe = () => {
           if (disposed || socket !== connection || connection.readyState !== WebSocket.OPEN) return;
           try {
             pendingTracks.push(options.current.track ?? null);
+            lastSentAt = Date.now();
             connection.send(JSON.stringify({ v: 1, type: "event_subscribe", eventId: event, token, ...(appCheck ? { appCheck } : {}), guest: !identity && allowGuest, viewerSessionId, signalOnly, signalTopic, ...options.current }));
           } catch (error) {
             report("RideWorld.subscribeEvent", error, { eventId: event });
             connection.close();
           }
         };
-        subscribeCurrent.current = subscribe;
+        // 서버는 처리 중에 온 구독을 버리고, 연속 구독을 snapshot 하나로 합친다. 현재 선택 기준이 확인될 때까지 현재 선택으로
+        // 다시 구독한다. 대기 큐 맨 뒤가 이미 현재 선택이고 최근에 보냈으면 응답을 기다리고, 응답이 없으면 간격마다 상한까지
+        // 재전송한다.
+        const confirmTrack = () => {
+          clearTimeout(trackRetry);
+          if (disposed || signalOnly || socket !== connection) return;
+          const current = options.current.track ?? null;
+          if (latest && !latest.trackUnknown && latest.track === current) return;
+          if (pendingTracks[pendingTracks.length - 1] !== current || Date.now() - lastSentAt >= TRACK_RETRY_MS) subscribe();
+          if (trackRetries < TRACK_RETRY_LIMIT) trackRetry = setTimeout(() => { trackRetries++; confirmTrack(); }, TRACK_RETRY_MS);
+        };
+        const resubscribe = () => { trackRetries = 0; subscribe(); confirmTrack(); };
+        subscribeCurrent.current = resubscribe;
         connection.addEventListener("open", subscribe);
         connection.addEventListener("error", () => {
           if (disposed || socket !== connection) return;
@@ -214,14 +234,15 @@ export function useWorldEvent(
               pendingTracks.shift();
               latest = known ? { ...frame, track: current } : { ...frame, track: null, trackUnknown: true };
               hasFrame = true;
-              // 합쳐진 응답으로 큐에 답 없는 항목이 남아도 멈추지 않도록, 기준을 모르는 snapshot마다 한 번씩 다시 구독한다.
-              if (!known) subscribe();
+              // 합쳐지거나 버려진 구독으로 큐에 답 없는 항목이 남아도 멈추지 않도록 현재 선택 기준 확인을 이어 간다.
+              if (known) clearTimeout(trackRetry);
+              else { trackRetries = 0; confirmTrack(); }
             } else if (frame.type === "event_delta") {
               if (!latest || frame.revision !== latest.revision + 1) {
                 report("RideWorld.deltaGap", new Error("World delta has no matching snapshot revision"), { eventId: event });
                 latest = null;
                 setState(null);
-                subscribe();
+                resubscribe();
                 return;
               }
               let markers = latest.markers;
@@ -252,7 +273,8 @@ export function useWorldEvent(
           socket = undefined;
           hasFrame = false;
           clearTimeout(initial);
-          if (subscribeCurrent.current === subscribe) subscribeCurrent.current = null;
+          clearTimeout(trackRetry);
+          if (subscribeCurrent.current === resubscribe) subscribeCurrent.current = null;
           setState(null);
           denied = code === 4003 || code === 4004;
           if (code === 4001) refreshCredentials = true;
@@ -277,6 +299,7 @@ export function useWorldEvent(
       generation++;
       clearTimeout(retry);
       clearTimeout(initial);
+      clearTimeout(trackRetry);
       const connection = socket;
       socket = undefined;
       hasFrame = false;
@@ -304,6 +327,7 @@ export function useWorldEvent(
       clearTimeout(readinessGrace);
       clearTimeout(retry);
       clearTimeout(initial);
+      clearTimeout(trackRetry);
       if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
     };
   }, [eventId, scope, signalOnly, signalTopic, user, allowGuest, services, production]);
