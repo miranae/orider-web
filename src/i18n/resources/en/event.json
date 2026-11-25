@@ -20,7 +20,7 @@
   "participants": "Participants",
   "results": "Results",
   "button.create": "Create Event",
-  "guest.compareCta": "Try the virtual power & FTP estimator",
+  "guest.signInCta": "Sign in to create events",
   "button.edit": "Edit",
   "button.register": "Register",
   "button.start": "Start Event",

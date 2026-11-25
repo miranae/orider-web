@@ -98,13 +98,13 @@ vi.mock("../features/courses/CoursesMap", () => ({
 }));
 
 describe("CoursesPage guest call to action", () => {
-  it("names the calculator it links to instead of an unselected course, in both locales", () => {
+  it("asks a guest to sign in to create courses instead of leaving for the calculator, in both locales", async () => {
     renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
 
-    const cta = screen.getByRole("link", { name: courseKo["guest.compareCta"] });
-    expect(cta.getAttribute("href")).toMatch(/\/tools\/virtual-power$/);
-    expect(courseKo["guest.compareCta"]).not.toContain("이 코스");
-    expect(courseEn["guest.compareCta"]).not.toMatch(/[가-힣]/);
+    expect(screen.queryByRole("link", { name: /가상 파워/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: courseKo["guest.signInCta"] }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(courseEn["guest.signInCta"]).not.toMatch(/[가-힣]/);
   });
 });
 

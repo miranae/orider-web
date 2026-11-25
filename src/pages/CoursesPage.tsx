@@ -57,7 +57,7 @@ const ELEVATION_FILTER_MAX_M = 3000;
 export default function CoursesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("course");
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
   const { firestore, auth, getAppCheckToken } = useFirebaseServices();
   const navigate = useNavigate();
   const location = useLocation();
@@ -289,9 +289,9 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
               {t("button.create")}
             </Link></span>
           ) : (
-            <Link data-testid="E1-5-2" to="/tools/virtual-power" className={`${buttonClass({ variant: 'secondary', className: 'whitespace-nowrap' })}`}>
-              {t("guest.compareCta")}
-            </Link>
+            <Button data-testid="E1-5-2" variant="secondary" className="whitespace-nowrap" onClick={() => { void signIn(); }}>
+              {t("guest.signInCta")}
+            </Button>
           )}
         </div>
 
