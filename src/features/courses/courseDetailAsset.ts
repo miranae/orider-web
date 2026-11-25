@@ -2,6 +2,21 @@ import { getDoc, doc, onSnapshot, type Firestore, type DocumentData, type Docume
 import { logClientError } from "../../services/errorLogger";
 import { followWorldSignal } from "../ride-world/followWorldSignal";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
+
+/**
+ * 공개 코스 신호의 월드 엔드포인트. 로컬 랩은 데모 에뮬레이터, 운영은 런타임 설정 `worldCourseSignalsEnabled` 로만 켠다.
+ * 월드가 닫히거나 거부하면 호출부가 Firestore `cache_metadata` 구독으로 돌아간다.
+ */
+export function courseWorldEndpoint(projectId?: string): string | undefined {
+  if (projectId === "demo-orider-lab" && import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+      import.meta.env.VITE_ORIDER_LOCAL_COURSE_REDIS === "1") {
+    return "ws://127.0.0.1:19487/course-signals";
+  }
+  if (projectId === "miranae-orider-g1" && !isEmulatorRuntime() && getRuntimeConfig().worldCourseSignalsEnabled === true) {
+    return "wss://world.orider.co.kr/course-signals";
+  }
+}
 
 // 목록과 상세는 별도 계약이다. 상세 표시 필드는 유지하고 무거운 원본만 정적 파일에서 받는다.
 export const COURSE_DETAIL_FIELDS = [
@@ -148,8 +163,8 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   let lastVersion: string | undefined;
   let lastTrack: DocumentData | undefined;
   let legacyStop: (() => void) | undefined;
-  const worldEnabled = COURSE_ID.test(id) && import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
-    import.meta.env.VITE_ORIDER_LOCAL_COURSE_REDIS === "1" && services.firestore.app.options.projectId === "demo-orider-lab";
+  const worldEndpoint = COURSE_ID.test(id) ? courseWorldEndpoint(services.firestore.app.options.projectId) : undefined;
+  const worldEnabled = worldEndpoint !== undefined;
   const current = () => !disposed && services.auth.currentUser === user;
   const legacy = (publicOnly = false) => {
     if (!current() || legacyStop) return;
@@ -254,7 +269,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   if (COURSE_ID.test(id)) restoreFirestore();
   else legacy();
   const signalStop = worldEnabled
-    ? followWorldSignal("ws://127.0.0.1:19487/course-signals",
+    ? followWorldSignal(worldEndpoint,
         async () => ({ v: 1, type: "course_subscribe", courseId: id }),
         (data) => {
           if (!current()) return false;
