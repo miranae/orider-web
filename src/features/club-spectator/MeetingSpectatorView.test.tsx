@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import MeetingSpectatorView from "./MeetingSpectatorView";
 import { spectatorFixture } from "./fixtures";
-vi.mock("../../components/event/EventMap", () => ({default: ({selectedUid, onSelectParticipant}: {selectedUid: string | null; onSelectParticipant: (uid: string | null) => void}) => <><button onClick={() => onSelectParticipant("rider-two")}>지도 선택 {selectedUid}</button><button onClick={() => onSelectParticipant(null)}>지도 팝업 닫기</button></>}));
+const mockServices = vi.hoisted(() => ({auth: {currentUser: {uid: "spectator-viewer"} as {uid: string} | null}}));
+vi.mock("../../contexts/FirebaseServicesContext", () => ({useFirebaseServices: () => mockServices}));
+vi.mock("../../services/errorLogger", () => ({logClientError: vi.fn()}));
+vi.mock("../../components/event/EventMap", () => ({default: ({selectedUid, onSelectParticipant, onLogError}: {selectedUid: string | null; onSelectParticipant: (uid: string | null) => void; onLogError?: (source: string, error: unknown, context?: Record<string, unknown>) => void}) => <><button onClick={() => onSelectParticipant("rider-two")}>지도 선택 {selectedUid}</button><button onClick={() => onSelectParticipant(null)}>지도 팝업 닫기</button>{onLogError && <button onClick={() => onLogError("EventMap.render", new Error("tile error"), {sourceId: "mapbox://test"})}>지도 오류 로그</button>}</>}));
 describe("클럽 가상 관전", () => {
   it("배번 없이 검색·선택·팔로우하고 코스 전체 보기에서도 친구 선택을 유지한다", () => {
     renderWithProviders(<MeetingSpectatorView snapshot={spectatorFixture(100000)} now={100000} receivedAt={100000} en={false} />);
@@ -53,4 +56,11 @@ it("출발 전에 고른 친구의 위치가 들어오면 재선택 없이 지�
   view.rerender(<MeetingSpectatorView snapshot={{...fixture, participants: [{uid: "rider-two", displayName: "나래", status: "RIDING"}]}} now={100000} receivedAt={100000} en={false} />);
   expect(screen.getByRole("button", {name: "지도 선택 rider-two"})).toBeInTheDocument();
   expect(screen.getByRole("button", {name: "나래", exact: true})).toHaveAttribute("aria-pressed", "true");
+});
+
+it("지도 오류를 주입된 서비스 객체와 함께 logClientError로 기록한다", async () => {
+  const { logClientError } = await import("../../services/errorLogger");
+  renderWithProviders(<MeetingSpectatorView snapshot={spectatorFixture(100000)} now={100000} receivedAt={100000} en={false} />);
+  fireEvent.click(screen.getByRole("button", {name: "지도 오류 로그"}));
+  expect(logClientError).toHaveBeenCalledWith("EventMap.render", expect.any(Error), {sourceId: "mapbox://test"}, mockServices, mockServices.auth.currentUser);
 });
