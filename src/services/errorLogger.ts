@@ -119,7 +119,8 @@ export function logClientError(
     && services.isSessionApproved?.(user ?? null) !== false
   )) && isRequestCurrent?.() !== false);
   const requestState = requestIsCurrent() ? "current" : "expired";
-  if (shouldSuppressClientError(recentErrorsFor(services, user), source, message, `${signedInAt}:${requestState}:${dedupeScope}`)) return;
+  const sourceId = typeof context?.sourceId === "string" ? context.sourceId : "";
+  if (shouldSuppressClientError(recentErrorsFor(services, user), source, message, `${signedInAt}:${requestState}:${dedupeScope}:${sourceId}`)) return;
 
   // Sentry 에 전송 (lazy-loaded, init 전이면 큐에 저장 → load 시 flush)
   captureError(

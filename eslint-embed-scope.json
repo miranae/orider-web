@@ -235,6 +235,7 @@
   "src/embedded/planGoalChanges.ts",
   "src/embedded/planSnapshotCache.ts",
   "src/embedded/runStartBridge.ts",
+  "src/embedded/signInRequest.ts",
   "src/embedded/surfaceSelection.ts",
   "src/embedded/surfaces/AboutDocumentSurface.tsx",
   "src/embedded/surfaces/ActivityAnalysisSurface.tsx",

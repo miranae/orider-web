@@ -1,7 +1,7 @@
 import { logClientError } from "../../services/errorLogger";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef, useCallback, useMemo } from "react";
-import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
+import Map, { Source, Layer, Marker, Popup, useMap, type MapRef } from "react-map-gl/mapbox";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../../utils/mapbox";
@@ -68,6 +68,24 @@ interface EventMapProps {
   /** 첫 로드시 코스에 맞춰 fitBounds */
   fitToCourse?: boolean;
   onWorldViewport?: (view: { lat: number; lon: number }) => void;
+  /** 운영자 대시보드 표(ParticipantTable pendingFinish)와 같은 규칙: 행사 종료 전 완주자 순위를 숨기고 "결과 대기"로 보인다. */
+  pendingFinish?: boolean;
+  /**
+   * Mapbox 치명적 런타임 오류(인증·스타일·WebGL 컨텍스트 손실) 발생 시 호출된다.
+   * 호출된 쪽에서 지도 대체(RouteMap 등)로 전환할 수 있다.
+   * 타일 하나 실패 같은 일시 오류는 무시하고 호출하지 않는다.
+   */
+  onFatalMapError?: () => void;
+  /** 오류 기록 경로. 임베드 운영 화면은 주입 서비스(서버 백업 로그)를 쓰는 기록 함수를 넘긴다. 기본은 logClientError. */
+  onLogError?: (source: string, error: unknown, context?: Record<string, unknown>) => void;
+}
+
+/** WebGL 컨텍스트 손실 후 복구(webglcontextrestored)를 기다리는 시간. 넘으면 치명 오류로 보고 대체한다. */
+export const WEBGL_CONTEXT_RESTORE_MS = 3000;
+
+/** 지도에 보일 종합 순위. 표와 같은 규칙으로 결과 확정 전 완주자 순위는 숨긴다(#4078). */
+export function visibleOverallRank(loc: Pick<LocationData, "status" | "overallRank">, pendingFinish = false): number | null {
+  return pendingFinish && normalizeStatusKey(loc.status) === "FINISHED" ? null : loc.overallRank;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -92,7 +110,7 @@ function normalizeStatusKey(s: string): string {
   return (s || "").toUpperCase();
 }
 
-function toGeoJSONCollection(locations: LocationData[], selectedUid: string | null): GeoJSON.FeatureCollection {
+function toGeoJSONCollection(locations: LocationData[], selectedUid: string | null, pendingFinish: boolean): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: locations.map((loc) => ({
@@ -107,7 +125,7 @@ function toGeoJSONCollection(locations: LocationData[], selectedUid: string | nu
         bib: loc.bib,
         status: loc.status,
         speed: loc.speed,
-        rank: loc.overallRank,
+        rank: visibleOverallRank(loc, pendingFinish),
         color: STATUS_COLORS[normalizeStatusKey(loc.status)] ?? "#4CAF50",
         selected: loc.uid === selectedUid,
       },
@@ -227,6 +245,23 @@ function FitToBounds({
   return null;
 }
 
+type FatalMapKind = "auth" | "webgl_context" | "load_timeout";
+
+/**
+ * 첫 load 이벤트가 이 시간(ms) 안에 오지 않으면 대체 지도로 전환한다.
+ * onFatalMapError가 없는 화면에서는 타이머가 동작하지 않는다.
+ */
+export const LOAD_TIMEOUT_MS = 10_000;
+
+/** load 이후 Mapbox 오류가 치명적(인증 실패)이면 종류를 돌려준다. 타일 하나 실패 등 일시 오류는 null이다. */
+function fatalMapboxError(event: { error?: unknown; tile?: unknown }): { kind: FatalMapKind; status: number } | null {
+  if (event.tile != null) return null;
+  const e = event.error && typeof event.error === "object" ? event.error as { status?: unknown } : {};
+  const status = typeof e.status === "number" && Number.isInteger(e.status) && e.status >= 100 && e.status <= 599 ? e.status : null;
+  if (status === 401 || status === 403) return { kind: "auth", status };
+  return null;
+}
+
 export default function EventMap({
   locations,
   selectedUid,
@@ -239,22 +274,91 @@ export default function EventMap({
   followSelected = false,
   preserveSelectionOnPopupClose = false,
   onWorldViewport,
+  pendingFinish = false,
+  onFatalMapError,
+  onLogError = logClientError,
 }: EventMapProps) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
   const [popupInfo, setPopupInfo] = useState<LocationData | null>(null);
   const [dismissedUid, setDismissedUid] = useState<string | null>(null);
   const previousPopupSelection = useRef(selectedUid);
+  const fatalErrorLogged = useRef(false);
+  const loadedRef = useRef(false);
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mapInstance, setMapInstance] = useState<MapRef | null>(null);
+  const failFatal = useCallback((kind: FatalMapKind, status: number | null) => {
+    if (!fatalErrorLogged.current) {
+      fatalErrorLogged.current = true;
+      onLogError("EventMap.mapbox", new Error(`mapbox_${kind}_failure${status == null ? "" : `_${status}`}`), {
+        stage: "mapbox_runtime", kind, ...(status != null ? { status } : {}),
+      });
+    }
+    onFatalMapError?.();
+  }, [onFatalMapError, onLogError]);
+  const handleMapError = useCallback((event: { error?: unknown; sourceId?: unknown; tile?: unknown }) => {
+    // 원본 오류와 실패한 소스를 항상 먼저 기록한다. onFatalMapError 없는 화면(관전 등)에서도 P12 로그 보존.
+    onLogError("EventMap.render", event.error, typeof event.sourceId === "string" ? { sourceId: event.sourceId } : undefined);
+    // 스타일·소스(TileJSON) 인증 실패(401·403, 개별 타일 제외)는 load 전후와 관계없이 치명이다.
+    // load 전에 실패한 뒤 Mapbox가 load를 보내도 배경이 빈 지도로 남으므로 타이머를 기다리지 않는다(토큰 만료·교체).
+    const fatal = fatalMapboxError(event);
+    if (fatal) { failFatal(fatal.kind, fatal.status); return; }
+    // 그 밖의 load 전 오류는 로그만 남기고, load가 N초 안에 오지 않으면 타이머가 대체 지도로 전환한다.
+    // load 이후의 기타 오류는 일시 오류다.
+  }, [failFatal, onLogError]);
+  // WebGL 컨텍스트 손실은 onError가 아니라 캔버스의 webglcontextlost 이벤트로 온다. 제한 시간 안에 복구되지 않으면 대체한다.
+  // 캔버스는 onLoad 이전에도 존재하므로 맵 ref가 세팅되는 즉시(onLoad 전) 감시를 시작한다(Fix 1).
+  const failFatalRef = useRef(failFatal);
+  useEffect(() => { failFatalRef.current = failFatal; }, [failFatal]);
+  const stopContextWatch = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopContextWatch.current?.(), []);
+  const watchContextLoss = (canvas: HTMLCanvasElement) => {
+    stopContextWatch.current?.();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const lost = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => failFatalRef.current("webgl_context", null), WEBGL_CONTEXT_RESTORE_MS);
+    };
+    const restored = () => { clearTimeout(timer); timer = undefined; };
+    canvas.addEventListener("webglcontextlost", lost);
+    canvas.addEventListener("webglcontextrestored", restored);
+    stopContextWatch.current = () => {
+      clearTimeout(timer);
+      canvas.removeEventListener("webglcontextlost", lost);
+      canvas.removeEventListener("webglcontextrestored", restored);
+    };
+  };
+  // 맵 ref가 세팅되면 즉시(onLoad 전) 캔버스에 WebGL 감시 등록한다.
+  useEffect(() => {
+    if (!mapInstance) return;
+    watchContextLoss(mapInstance.getCanvas());
+  }, [mapInstance]);
+
+  // onFatalMapError가 있을 때만 로드 타임아웃 타이머를 시작한다.
+  // load 이벤트가 LOAD_TIMEOUT_MS 안에 오지 않으면 대체 지도로 전환한다.
+  // 부모가 렌더마다 새 인라인 콜백을 넘겨도 기한이 다시 시작되지 않도록, 콜백 존재 여부에만 의존한다
+  // (최신 콜백은 failFatalRef로 호출한다).
+  const hasFatalHandler = onFatalMapError != null;
+  useEffect(() => {
+    if (!hasFatalHandler) return;
+    loadTimerRef.current = setTimeout(() => {
+      if (!loadedRef.current) failFatalRef.current("load_timeout", null);
+    }, LOAD_TIMEOUT_MS);
+    return () => {
+      if (loadTimerRef.current != null) { clearTimeout(loadTimerRef.current); loadTimerRef.current = null; }
+    };
+  }, [hasFatalHandler]);
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
+    if (pendingFinish && key === "FINISHED") return t("dashboard.status.resultPending");
     const i18nKey = STATUS_LABEL_KEYS[key];
     if (!i18nKey) return status;
     if (i18nKey === "SOS" || i18nKey === "DNF") return i18nKey;
     return t(i18nKey);
   };
 
-  const geojson = toGeoJSONCollection(locations, selectedUid);
+  const geojson = toGeoJSONCollection(locations, selectedUid, pendingFinish);
   const routeGeojson = useMemo(
     () => buildRouteGeoJSON(coursePolylines, courseLatlngs),
     [coursePolylines, courseLatlngs]
@@ -285,14 +389,17 @@ export default function EventMap({
 
   return (
     <Map
+      ref={setMapInstance}
       mapboxAccessToken={mapboxToken}
       mapStyle={MAP_STYLE}
       initialViewState={DEFAULT_VIEW}
       onLoad={(e) => {
-        try { applyKoreaCyclingStyle(e.target); }
-        catch (error) { logClientError("EventMap.style", error); }
+        loadedRef.current = true;
+        if (loadTimerRef.current != null) { clearTimeout(loadTimerRef.current); loadTimerRef.current = null; }
+        try { applyKoreaCyclingStyle(e.target, onLogError); }
+        catch (error) { onLogError("EventMap.style", error); }
       }}
-      onError={event => logClientError("EventMap.render", event.error)}
+      onError={handleMapError}
       onMoveEnd={onWorldViewport ? ({ viewState }) => onWorldViewport({
         lat: Math.round(viewState.latitude * 200) / 200,
         lon: Math.round(viewState.longitude * 200) / 200,
@@ -469,8 +576,8 @@ export default function EventMap({
             </div>
             <div>{popupInfo.speedAvailable === false || popupInfo.speed == null ? "—" : `${(popupInfo.speed ?? 0).toFixed(1)} km/h`}</div>
             <div>{popupInfo.distanceAvailable === false || popupInfo.distance == null ? "—" : `${((popupInfo.distance ?? 0) / 1000).toFixed(1)} km`}</div>
-            {popupInfo.overallRank != null && (
-              <div>{t("dashboard.alert.overallRank", { rank: popupInfo.overallRank })}</div>
+            {visibleOverallRank(popupInfo, pendingFinish) != null && (
+              <div>{t("dashboard.alert.overallRank", { rank: visibleOverallRank(popupInfo, pendingFinish) })}</div>
             )}
           </div>
         </Popup>

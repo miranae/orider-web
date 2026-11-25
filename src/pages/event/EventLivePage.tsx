@@ -1022,6 +1022,7 @@ export default function EventLivePage() {
               selectedUid={selectedUid}
               onSelectParticipant={setSelectedUid}
               onWorldViewport={worldFrame ? setViewport : undefined}
+              onLogError={(source, error, context) => logClientError(source, error, context)}
             />
           </div>
         </Card>
