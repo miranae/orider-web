@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { setDocData, simulateLogin, simulateLogout, simulateTokenChange } from "../__tests__/mocks/firebase";
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
@@ -38,8 +39,10 @@ function hubSurfaceMock(testId: string) {
   return {
     default: function HubFixture({ onReady }: { onReady: () => void }) {
       const services = useFirebaseServices();
+      const { user, signIn } = useAuth();
       if (testId === "clubs-surface") mocks.captureClubServices(services);
-      return <div data-testid={testId}>
+      return <div data-testid={testId} data-viewer={user?.uid ?? "guest"}>
+        <button type="button" onClick={() => void signIn()}>sign in</button>
         <button type="button" onClick={onReady}>ready</button>
         <a href="/ko/club/club-1">club detail</a>
         <a href="/ko/explore/events?type=race">events tab</a>
@@ -306,6 +309,62 @@ describe("app tab hub embeds", () => {
     renderHub(fitnessBridge, "fitness", "/ko/embed/fitness");
     act(() => fitnessBridge.emit(message("host.authorize", { contractVersion: 1 }, "auth-2")));
     expect(fitnessBridge.sent).toContainEqual({ type: "surface.error", payload: { code: "invalid_host_payload" }, requestId: "auth-2" });
+  });
+
+  it("advertises the sign-in request contract", async () => {
+    const bridge = createFakeBridge();
+    renderHub(bridge, "explore");
+    await waitFor(() => expect(bridge.sent.some(item => item.type === "bootstrap.ready")).toBe(true));
+    const ready = bridge.sent.find(item => item.type === "bootstrap.ready");
+    expect((ready?.payload as { capabilities: string[] }).capabilities).toContain("host.signInRequest.v1");
+  });
+
+  it("asks the app to open its sign-in screen from a guest hub when the host supports it", async () => {
+    mocks.state.currentUser = null; simulateLogout();
+    const bridge = createFakeBridge();
+    renderHub(bridge, "explore", "/ko/embed/explore?tab=athletes");
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", { ...accepted, capabilities: ["host.signInRequest.v1"] })));
+    fireEvent.click(await screen.findByRole("button", { name: "sign in" }));
+    expect(bridge.sent).toContainEqual({
+      type: "auth.signInRequested",
+      payload: { surface: "explore", returnPath: "/ko/embed/explore?tab=athletes" },
+      requestId: undefined,
+    });
+    expect(screen.queryByText("앱의 설정 › 계정에서 로그인해 주세요.")).toBeNull();
+  });
+
+  it("tells the user to sign in from the app settings when an older host cannot open sign-in", async () => {
+    mocks.state.currentUser = null; simulateLogout();
+    const bridge = createFakeBridge();
+    renderHub(bridge, "clubs");
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    fireEvent.click(await screen.findByRole("button", { name: "sign in" }));
+    expect(await screen.findByText("앱의 설정 › 계정에서 로그인해 주세요.")).toBeInTheDocument();
+    expect(bridge.sent.some(item => item.type === "auth.signInRequested")).toBe(false);
+  });
+
+  it("reopens a live guest hub as the signed-in user after the app authorizes the new account", async () => {
+    mocks.state.currentUser = null; simulateLogout();
+    const bridge = createFakeBridge();
+    const withSignIn = { ...accepted, capabilities: ["host.signInRequest.v1"] };
+    renderHub(bridge, "explore");
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", withSignIn)));
+    expect(await screen.findByTestId("explore-surface")).toHaveAttribute("data-viewer", "guest");
+    fireEvent.click(screen.getByRole("button", { name: "sign in" }));
+
+    // 앱 로그인 뒤 호스트가 새 인계와 함께 다시 승인한다.
+    mocks.consumeHandoff.mockImplementationOnce(async () => { mocks.state.currentUser = { uid: "owner-1" }; });
+    bridge.sent.length = 0;
+    await authorize(bridge, { expectedUid: "owner-1", contractVersion: 1 });
+    expect(bridge.sent).toContainEqual({ type: "auth.state", payload: { uid: "owner-1" }, requestId: "auth-1" });
+    act(() => { simulateLogin({ uid: "owner-1" }); simulateTokenChange(mocks.auth); });
+    act(() => bridge.emit(message("host.sessionAccepted", withSignIn)));
+    await waitFor(() => expect(screen.getByTestId("explore-surface")).toHaveAttribute("data-viewer", "owner-1"));
+    expect(bridge.sent.some(item => item.type === "surface.error")).toBe(false);
+    expect(bridge.sent.filter(item => item.type === "auth.state")).toHaveLength(1);
   });
 
   it("rejects training surface selection messages on hub surfaces", async () => {

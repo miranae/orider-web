@@ -25,6 +25,8 @@ export const WEB_MESSAGE_TYPES = [
   "telemetry.event",
   // run-start-scheduled-v1 협상 후에만 보낸다. payload: { scheduledSessionId }, requestId 필수.
   "run.startScheduled",
+  // host.signInRequest.v1 협상 후에만 보낸다. payload: { surface, returnPath? } (signInRequest.ts).
+  "auth.signInRequested",
 ] as const;
 
 export type HostMessageType = (typeof HOST_MESSAGE_TYPES)[number];

@@ -457,6 +457,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
           "athlete-profile-embed-v1",
           "records-studio-embed-v1",
           "app-menu-embed-v1",
+          "host.signInRequest.v1",
           "host.lifecycle",
           "host.themeChanged",
         ],

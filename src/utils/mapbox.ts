@@ -13,17 +13,24 @@ export const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
 /** 한국 중심 기본 뷰 */
 export const DEFAULT_VIEW = { latitude: 36.5, longitude: 127.5, zoom: 7 };
 
+type MapStyleLogger = (source: string, error: unknown, context?: Record<string, unknown>) => void;
+
 /**
  * 지도 로드 후 한국어 라벨 + 자전거 경로 강조 적용.
  * <Map onLoad={(e) => applyKoreaCyclingStyle(e.target)} />
+ *
+ * log: 오류 기록 함수. 임베드 컨텍스트는 주입 로거를 넘긴다(기본 logClientError).
  */
-export function applyKoreaCyclingStyle(map: { getStyle: () => any; setLayoutProperty: (...args: any[]) => void; setPaintProperty: (...args: any[]) => void; setLanguage?: (lang: string) => void }) {
+export function applyKoreaCyclingStyle(
+  map: { getStyle: () => any; setLayoutProperty: (...args: any[]) => void; setPaintProperty: (...args: any[]) => void; setLanguage?: (lang: string) => void },
+  log: MapStyleLogger = logClientError,
+) {
   // Mapbox GL v3: 지도 전체 라벨을 한국어로 강제. setConfigProperty 기반이라
   // 아래 text-field 개별 설정보다 우선 적용되며, Mapbox Standard 스타일에서도 동작.
   try {
     map.setLanguage?.("ko");
   } catch (error) {
-    logClientError("Mapbox.language", error);
+    log("Mapbox.language", error);
   }
 
   const style = map.getStyle();
@@ -40,7 +47,7 @@ export function applyKoreaCyclingStyle(map: { getStyle: () => any; setLayoutProp
           ["get", "name"],
         ]);
       } catch (error) {
-        logClientError("Mapbox.layout", error, { layerId: layer.id });
+        log("Mapbox.layout", error, { layerId: layer.id });
       }
     }
 
@@ -53,7 +60,7 @@ export function applyKoreaCyclingStyle(map: { getStyle: () => any; setLayoutProp
           map.setPaintProperty(layer.id, "line-width", 2);
         }
       } catch (error) {
-        logClientError("Mapbox.paint", error, { layerId: layer.id });
+        log("Mapbox.paint", error, { layerId: layer.id });
       }
     }
   }

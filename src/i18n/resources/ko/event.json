@@ -573,6 +573,8 @@
   "dashboard.permissionDesc": "호스트 대시보드는 이벤트 호스트만 접근할 수 있어요.",
   "dashboard.errorTitle": "대시보드를 불러오지 못했습니다",
   "dashboard.lastUpdated": "마지막 갱신 {{time}}",
+  "dashboard.worldReconnecting": "연결 재시도 중",
+  "dashboard.worldConnecting": "연결 중",
   "dashboard.finishing": "종료 중...",
   "dashboard.statusTitle": "현황 ({{category}})",
   "dashboard.noCheckpointData": "체크포인트 정보 없음",
