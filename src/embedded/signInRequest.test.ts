@@ -34,4 +34,17 @@ describe("embedded sign-in request", () => {
     const send = vi.fn(() => { throw new Error("embedded-bridge/host-unavailable"); });
     expect(requestEmbeddedSignIn({ hostCapabilities: [HOST_SIGN_IN_REQUEST_CAPABILITY], surface: "explore", send })).toBe("unavailable");
   });
+
+  it("hands the send failure to the caller for diagnostics", () => {
+    const failure = new Error("embedded-bridge/host-unavailable");
+    const onSendError = vi.fn();
+    const outcome = requestEmbeddedSignIn({
+      hostCapabilities: [HOST_SIGN_IN_REQUEST_CAPABILITY],
+      surface: "explore",
+      send: () => { throw failure; },
+      onSendError,
+    });
+    expect(outcome).toBe("unavailable");
+    expect(onSendError).toHaveBeenCalledWith(failure);
+  });
 });

@@ -36,18 +36,21 @@ export interface EmbeddedSignInRequest {
   surface: string;
   returnPath?: string;
   send: (payload: SignInRequestedPayload) => void;
+  /** 전송이 throw 하면 원인을 넘긴다 — 호출자가 진단 로그를 남긴다. */
+  onSendError?: (error: unknown) => void;
 }
 
 /**
  * 호스트가 기능을 알렸으면 요청을 보내고 곧바로 끝낸다(응답을 기다리지 않는다 — 결과는
  * 새 `host.authorize` 로 온다). 알리지 않았거나 전송이 실패하면 안내가 필요하다고 돌려준다.
  */
-export function requestEmbeddedSignIn({ hostCapabilities, surface, returnPath, send }: EmbeddedSignInRequest): EmbeddedSignInOutcome {
+export function requestEmbeddedSignIn({ hostCapabilities, surface, returnPath, send, onSendError }: EmbeddedSignInRequest): EmbeddedSignInOutcome {
   if (!hostCapabilities.includes(HOST_SIGN_IN_REQUEST_CAPABILITY)) return "unsupported";
   try {
     send(buildSignInRequestedPayload(surface, returnPath));
     return "requested";
-  } catch {
+  } catch (error) {
+    onSendError?.(error);
     return "unavailable";
   }
 }

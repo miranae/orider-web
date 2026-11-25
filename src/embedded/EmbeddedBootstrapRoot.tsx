@@ -369,6 +369,7 @@ function EmbeddedAuthProvider({
       surface: surfaceKind,
       returnPath,
       send: sendSignInRequest,
+      onSendError: (err) => logClientError("embedded.signInRequest", err, { surface: surfaceKind }),
     });
     if (outcome !== "requested") showToast(t("embeddedStatus.signInInApp"), "info");
   }, [hostCapabilities, returnPath, sendSignInRequest, showToast, surfaceKind, t]);
