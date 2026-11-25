@@ -243,7 +243,7 @@ export default function EventsPage() {
   }, []);
   const STATUS_TABS = STATUS_TAB_KEYS.map(({ k, labelKey }) => ({ k, label: t(labelKey) }));
   const TYPE_FILTERS = TYPE_FILTER_KEYS.map(({ k, labelKey, icon }) => ({ k, label: t(labelKey), icon }));
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   // 임베드(앱 탐색 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
   const services = useFirebaseServices();
   const { firestore } = services;
@@ -544,9 +544,9 @@ export default function EventsPage() {
                 + {t("button.create")}
               </Link>
             ) : !authLoading ? (
-              <Link to="/tools/virtual-power" className={buttonClass({ variant: "secondary", size: "sm" })}>
-                {t("guest.compareCta")}
-              </Link>
+              <Button variant="secondary" size="sm" onClick={() => { void signIn(); }}>
+                {t("guest.signInCta")}
+              </Button>
             ) : null
           }
         />

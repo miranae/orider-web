@@ -5,7 +5,8 @@ import { APP_MENU_EMBED_CAPABILITY, isMenuPage, isPublicMenuPage, type EmbeddedM
 import { useNavigate, useLocation } from "react-router-dom";
 import { DialogProvider } from "../contexts/DialogContext";
 import { ToastProvider, useToast } from "../contexts/ToastContext";
-import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
+import { EmbeddedHostCapabilitiesContext, EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
+import { COURSE_RIDE_CAPABILITY } from "./courseRideBridge";
 import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
 import { embeddedCoachPage } from "./coachNavigation";
 import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, EMBEDDED_PERSISTENT_AUTH_CAPABILITY, SEGMENT_DETAIL_EMBED_CAPABILITY, ATHLETE_PROFILE_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
@@ -553,7 +554,7 @@ function AuthorizedSurface({
         sendSignInRequest={sendSignInRequest} surfaceKind={surfaceKind}>
         <QueryClientProvider client={queryClient}>
           <LocaleProvider userId={null} profile={{ ...profile, locale: session.locale }}>
-            <DialogProvider><EmbeddedNavigationContext.Provider value={navigateWithHost}>
+            <DialogProvider><EmbeddedNavigationContext.Provider value={navigateWithHost}><EmbeddedHostCapabilitiesContext.Provider value={session.hostCapabilities}>
             {trainingSurface && <EmbeddedCoachNavigation defaultPage={mountedTrainingSurface === "plan" ? "plan" : "condition"} selectionKey={surfaceMountKey} />}
             <Suspense fallback={(
               <div className="orider-embedded-status" role="status" aria-label="Loading surface">
@@ -609,7 +610,7 @@ function AuthorizedSurface({
                 />
               ) : null}
             </Suspense>
-          </EmbeddedNavigationContext.Provider></DialogProvider>
+          </EmbeddedHostCapabilitiesContext.Provider></EmbeddedNavigationContext.Provider></DialogProvider>
           </LocaleProvider>
         </QueryClientProvider>
       </EmbeddedAuthProvider>
@@ -1224,6 +1225,7 @@ export default function EmbeddedBootstrapRoot({
           RETAINED_SURFACE_SELECTION_CAPABILITY,
           SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
           RUN_START_SCHEDULED_CAPABILITY,
+          COURSE_RIDE_CAPABILITY,
           CLUB_DETAIL_EMBED_CAPABILITY,
           COURSE_DETAIL_EMBED_CAPABILITY,
           SEGMENT_DETAIL_EMBED_CAPABILITY,

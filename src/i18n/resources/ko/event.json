@@ -20,7 +20,7 @@
   "participants": "참가자",
   "results": "결과",
   "button.create": "이벤트 만들기",
-  "guest.compareCta": "가상 파워·FTP 계산해 보기",
+  "guest.signInCta": "로그인하고 이벤트 만들기",
   "button.edit": "수정",
   "button.register": "참가 신청",
   "button.start": "이벤트 시작",
