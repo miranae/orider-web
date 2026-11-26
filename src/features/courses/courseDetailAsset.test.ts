@@ -1,5 +1,6 @@
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { COURSE_DETAIL_FIELDS, courseAssetUrl, courseMetadataUrl, loadCourseSource, subscribeCourseDetail } from "./courseDetailAsset";
 const sdk = vi.hoisted(() => ({ getDoc: vi.fn(), onSnapshot: vi.fn(), doc: vi.fn() }));
@@ -57,6 +58,29 @@ describe("코스 상세 정적 트랙", () => {
     observeMetadata({ exists: () => true });
     await vi.waitFor(() => expect(onData).toHaveBeenLastCalledWith(expect.objectContaining({ trackLoadState: "ready" })));
     stop();
+  });
+  it("운영 월드 신호를 켜도 서버에서 확인한 숨김 코스를 Firestore 대체 경로로 전달한다", () => {
+    resetRuntimeConfigForTests({ worldCourseSignalsEnabled: true });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+    const service = services();
+    service.firestore.app.options.projectId = "miranae-orider-g1";
+    const onData = vi.fn();
+    sdk.onSnapshot.mockImplementation(() => vi.fn());
+    const stop = subscribeCourseDetail(service, "course", onData, vi.fn());
+    try {
+      const signalError = sdk.onSnapshot.mock.calls[0]?.[3] as (error: Error) => void;
+      signalError(new Error("permission-denied"));
+      const observeCourse = sdk.onSnapshot.mock.calls[1]?.[2] as (snapshot: unknown) => void;
+      const course = { exists: () => true, data: () => ({ name: "숨김 코스", hidden: true }) };
+      observeCourse({ ...course, metadata: { fromCache: true } });
+      expect(onData).toHaveBeenCalledTimes(1);
+      expect(onData).toHaveBeenLastCalledWith(null);
+      observeCourse({ ...course, metadata: { fromCache: false } });
+      expect(onData).toHaveBeenLastCalledWith({ id: "course", name: "숨김 코스", hidden: true });
+    } finally {
+      stop();
+      resetRuntimeConfigForTests({});
+    }
   });
   it("상세 메타데이터가 원본 트랙과 고도를 제외한다", () => {
     const url = courseMetadataUrl(services().firestore, "course");

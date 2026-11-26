@@ -4,8 +4,9 @@ import { RetainedSurfaceActivity } from "./RetainedSurfaceActivity";
 import { APP_MENU_EMBED_CAPABILITY, isMenuPage, isPublicMenuPage, type EmbeddedMenuPage } from "./menuPages";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DialogProvider } from "../contexts/DialogContext";
-import { ToastProvider } from "../contexts/ToastContext";
-import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
+import { ToastProvider, useToast } from "../contexts/ToastContext";
+import { EmbeddedHostCapabilitiesContext, EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
+import { COURSE_RIDE_CAPABILITY } from "./courseRideBridge";
 import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
 import { embeddedCoachPage } from "./coachNavigation";
 import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, EMBEDDED_PERSISTENT_AUTH_CAPABILITY, SEGMENT_DETAIL_EMBED_CAPABILITY, ATHLETE_PROFILE_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
@@ -23,10 +24,12 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type ReactNode,
 } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import type { UserProfile } from "@shared/types";
+import { useTranslation } from "react-i18next";
 import { AuthContextProvider, type AuthContextValue } from "../contexts/AuthContext";
 import {
   FirebaseServicesProvider,
@@ -66,6 +69,7 @@ import {
   RUN_START_SCHEDULED_CAPABILITY,
   type RunStartChannel,
 } from "./runStartBridge";
+import { HOST_SIGN_IN_REQUEST_CAPABILITY, requestEmbeddedSignIn } from "./signInRequest";
 import {
   clearTrainingSurfaceCache,
   prepareTrainingSurfaceCacheOwner,
@@ -338,6 +342,42 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession, liveDark
   return theme.mode;
 }
 
+/**
+ * 임베드 AuthContext. `signIn` 은 웹 로그인 대신 호스트에 `auth.signInRequested` 를 보내고
+ * 곧바로 끝난다. 호스트가 `host.signInRequest.v1` 을 알리지 않았거나 전송이 실패하면 앱 설정에서
+ * 로그인하라는 안내를 띄운다. 안내 토스트를 쓰려고 ToastProvider 안쪽에 둔다.
+ */
+function EmbeddedAuthProvider({
+  value,
+  hostCapabilities,
+  sendSignInRequest,
+  surfaceKind,
+  children,
+}: {
+  value: Omit<AuthContextValue, "signIn">;
+  hostCapabilities: readonly string[];
+  sendSignInRequest: (payload: unknown) => void;
+  surfaceKind: EmbeddedSurfaceKind;
+  children: ReactNode;
+}) {
+  const { showToast } = useToast();
+  const { t } = useTranslation("common");
+  const location = useLocation();
+  const returnPath = `${location.pathname}${location.search}`;
+  const signIn = useCallback(async () => {
+    const outcome = requestEmbeddedSignIn({
+      hostCapabilities,
+      surface: surfaceKind,
+      returnPath,
+      send: sendSignInRequest,
+      onSendError: (err) => logClientError("embedded.signInRequest", err, { surface: surfaceKind }),
+    });
+    if (outcome !== "requested") showToast(t("embeddedStatus.signInInApp"), "info");
+  }, [hostCapabilities, returnPath, sendSignInRequest, showToast, surfaceKind, t]);
+  const authValue = useMemo<AuthContextValue>(() => ({ ...value, signIn }), [signIn, value]);
+  return <AuthContextProvider value={authValue}>{children}</AuthContextProvider>;
+}
+
 function AuthorizedSurface({
   activityId,
   approvedUid,
@@ -429,14 +469,16 @@ function AuthorizedSurface({
   const logout = useCallback(async () => {
     await signOut(services.auth);
   }, [services.auth]);
-  const authValue = useMemo<AuthContextValue>(() => ({
+  const authValue = useMemo<Omit<AuthContextValue, "signIn">>(() => ({
     user,
     profile,
     profileLoading,
     loading: false,
-    signIn: async () => {},
     logout,
   }), [logout, profile, profileLoading, user]);
+  const sendSignInRequest = useCallback((payload: unknown) => {
+    bridge.send("auth.signInRequested", payload);
+  }, [bridge]);
 
   // host 언어를 표면이 마운트되기 전에 적용한다. 마운트 뒤에 바꾸면 언어(t)에 의존하는 활동·
   // 시계열 리스너가 한 번 열렸다 닫히고 다시 열려 첫 로드에 같은 문서를 두 번 읽는다.
@@ -507,10 +549,12 @@ function AuthorizedSurface({
   };
   const surface = (
     <FirebaseServicesProvider services={services}>
-      <AuthContextProvider value={authValue}>
+      <ToastProvider>
+      <EmbeddedAuthProvider value={authValue} hostCapabilities={session.hostCapabilities}
+        sendSignInRequest={sendSignInRequest} surfaceKind={surfaceKind}>
         <QueryClientProvider client={queryClient}>
           <LocaleProvider userId={null} profile={{ ...profile, locale: session.locale }}>
-            <ToastProvider><DialogProvider><EmbeddedNavigationContext.Provider value={navigateWithHost}>
+            <DialogProvider><EmbeddedNavigationContext.Provider value={navigateWithHost}><EmbeddedHostCapabilitiesContext.Provider value={session.hostCapabilities}>
             {trainingSurface && <EmbeddedCoachNavigation defaultPage={mountedTrainingSurface === "plan" ? "plan" : "condition"} selectionKey={surfaceMountKey} />}
             <Suspense fallback={(
               <div className="orider-embedded-status" role="status" aria-label="Loading surface">
@@ -566,10 +610,11 @@ function AuthorizedSurface({
                 />
               ) : null}
             </Suspense>
-          </EmbeddedNavigationContext.Provider></DialogProvider></ToastProvider>
+          </EmbeddedHostCapabilitiesContext.Provider></EmbeddedNavigationContext.Provider></DialogProvider>
           </LocaleProvider>
         </QueryClientProvider>
-      </AuthContextProvider>
+      </EmbeddedAuthProvider>
+      </ToastProvider>
     </FirebaseServicesProvider>
   );
 
@@ -1180,11 +1225,13 @@ export default function EmbeddedBootstrapRoot({
           RETAINED_SURFACE_SELECTION_CAPABILITY,
           SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
           RUN_START_SCHEDULED_CAPABILITY,
+          COURSE_RIDE_CAPABILITY,
           CLUB_DETAIL_EMBED_CAPABILITY,
           COURSE_DETAIL_EMBED_CAPABILITY,
           SEGMENT_DETAIL_EMBED_CAPABILITY,
           ATHLETE_PROFILE_EMBED_CAPABILITY,
           APP_MENU_EMBED_CAPABILITY,
+          HOST_SIGN_IN_REQUEST_CAPABILITY,
           ...(persists ? [EMBEDDED_PERSISTENT_AUTH_CAPABILITY] : []),
           "host.lifecycle",
           "host.themeChanged",

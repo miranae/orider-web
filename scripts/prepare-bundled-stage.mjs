@@ -78,6 +78,9 @@ export async function prepareBundledStage({ workspace = process.cwd(), directory
   const accountSignals = process.env.VITE_WORLD_ACCOUNT_SIGNALS_ENABLED;
   if (accountSignals === "true" || accountSignals === "false") source.worldAccountSignalsEnabled = accountSignals === "true";
   else if (accountSignals) throw new Error("invalid VITE_WORLD_ACCOUNT_SIGNALS_ENABLED");
+  const courseSignals = process.env.VITE_WORLD_COURSE_SIGNALS_ENABLED;
+  if (courseSignals === "true" || courseSignals === "false") source.worldCourseSignalsEnabled = courseSignals === "true";
+  else if (courseSignals) throw new Error("invalid VITE_WORLD_COURSE_SIGNALS_ENABLED");
   const runtime = bundledFunctionsConfig(source, "development");
   const topologyHash = await readBackendIdentity(runtime, backendSourceSha, undefined, fetcher);
   const hosting = bundledHostingConfig(json(resolve(workspace, "firebase.json")), "development");
