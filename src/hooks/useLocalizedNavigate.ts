@@ -19,7 +19,7 @@ function hasLangPrefix(path: string) {
 export function useLocalizedPath(to: string): string {
   const { lang } = useParams();
   const location = useLocation();
-  const embedded = embeddedInternalDestination(location.pathname, to);
+  const embedded = embeddedInternalDestination(location.pathname, to, location.search);
   if (embedded) return embedded;
   if (isAbsolute(to)) return to;
   const norm = to.startsWith('/') ? to : '/' + to;
@@ -47,7 +47,7 @@ export function useLocalizedNavigate() {
         window.location.href = to;
         return;
       }
-      const embedded = embeddedInternalDestination(location.pathname, to);
+      const embedded = embeddedInternalDestination(location.pathname, to, location.search);
       if (embedded) { navigate(embedded, opts); return; }
       const norm = to.startsWith('/') ? to : '/' + to;
       const target = hasLangPrefix(norm) ? norm : `/${lang ?? 'ko'}${norm}`;

@@ -4,6 +4,9 @@ import {
   embeddedCourseDetailDestination,
   embeddedSegmentDetailDestination,
   embeddedAthleteProfileDestination,
+  embeddedRecordsStudioDestination,
+  recordsStudioEmbedActivityId,
+  recordsStudioEmbedSection,
   isEmbeddableAthleteId,
   embeddedExplorePage,
   embeddedHubDestination,
@@ -14,8 +17,10 @@ import {
 
 describe("app explore tab sub-pages", () => {
   it("follows the web explore hub order and appends the board", () => {
-    expect(EXPLORE_PAGES).toEqual(["courses", "segments", "events", "challenges", "athletes", "recipes", "board"]);
+    expect(EXPLORE_PAGES).toEqual(["courses", "segments", "events", "challenges", "athletes", "board"]);
     expect(embeddedExplorePage("board")).toBe("board");
+    // 기록 활용은 탐색에서 빠졌다(#3956) — 옛 page=recipes 는 서브탭이 아니라 기본 화면으로 연다.
+    expect(embeddedExplorePage("recipes")).toBeNull();
     // 게시판 페이지 번호 같은 값은 서브탭이 아니다.
     expect(embeddedExplorePage("2")).toBeNull();
     expect(embeddedExplorePage(null)).toBeNull();
@@ -28,8 +33,6 @@ describe("hub embed destinations", () => {
       .toBe(`/${lang}/embed/explore?type=race&hubPage=events#list`);
     expect(embeddedHubDestination(`/${lang}/embed/explore`, "/community/board?type=inquiry&page=3"))
       .toBe(`/${lang}/embed/explore?type=inquiry&page=3&hubPage=board`);
-    expect(embeddedHubDestination(`/${lang}/embed/explore`, "/explore/recipes/recipes"))
-      .toBe(`/${lang}/embed/explore?hubPage=recipes&section=recipes`);
   });
 
   it("keeps club list links in the clubs embed", () => {
@@ -38,6 +41,8 @@ describe("hub embed destinations", () => {
 
   it("leaves details, other hubs, external links and non-hub embeds to the app", () => {
     expect(embeddedHubDestination("/ko/embed/explore", "/ko/course/abc")).toBeNull();
+    expect(embeddedHubDestination("/ko/embed/explore", "/ko/explore/recipes/recipes")).toBeNull();
+    expect(embeddedHubDestination("/ko/embed/explore", "/ko/records/studio")).toBeNull();
     expect(embeddedHubDestination("/ko/embed/explore", "/ko/clubs")).toBeNull();
     expect(embeddedHubDestination("/ko/embed/clubs", "/ko/club/abc")).toBeNull();
     expect(embeddedHubDestination("/ko/embed/clubs", "/ko/explore/courses")).toBeNull();
@@ -50,6 +55,39 @@ describe("hub embed destinations", () => {
     expect(embeddedInternalDestination("/ko/embed/plan", "/coach/analysis")).toBe("/ko/embed/plan?page=analysis");
     expect(embeddedInternalDestination("/ko/embed/explore", "/explore/athletes?q=kim")).toBe("/ko/embed/explore?q=kim&hubPage=athletes");
     expect(embeddedInternalDestination("/ko/embed/explore", "/coach/analysis")).toBeNull();
+  });
+});
+
+describe("records studio embed destinations", () => {
+  it.each(["ko", "en"])("keeps %s studio section links inside the records studio embed", lang => {
+    const current = `/${lang}/embed/records-studio`;
+    expect(embeddedRecordsStudioDestination(current, `/${lang}/records/studio/share`)).toBe(`${current}?section=share`);
+    expect(embeddedRecordsStudioDestination(current, "/records/studio/recipes#top")).toBe(`${current}?section=recipes#top`);
+    expect(embeddedRecordsStudioDestination(current, "/records/studio")).toBe(current);
+    expect(embeddedRecordsStudioDestination(current, "/records/studio/unknown")).toBe(current);
+  });
+
+  it("carries the app's activity query across section changes", () => {
+    expect(embeddedRecordsStudioDestination("/ko/embed/records-studio", "/records/studio/share", "?section=recipes&activity=act_1"))
+      .toBe("/ko/embed/records-studio?section=share&activity=act_1");
+    expect(embeddedRecordsStudioDestination("/ko/embed/records-studio", "/records/studio", "?activity=bad%2Fid")).toBe("/ko/embed/records-studio");
+  });
+
+  it("hands developer guides, other screens and other embeds to the app", () => {
+    expect(embeddedRecordsStudioDestination("/ko/embed/records-studio", "/settings/developer/deploy")).toBeNull();
+    expect(embeddedRecordsStudioDestination("/ko/embed/records-studio", "/community/board/write")).toBeNull();
+    expect(embeddedRecordsStudioDestination("/ko/embed/records-studio", "https://other.invalid/records/studio")).toBeNull();
+    expect(embeddedRecordsStudioDestination("/ko/embed/explore", "/records/studio/share")).toBeNull();
+    expect(embeddedInternalDestination("/ko/embed/records-studio", "/records/studio/share")).toBe("/ko/embed/records-studio?section=share");
+  });
+
+  it("accepts only known sections and safe activity ids", () => {
+    expect(recordsStudioEmbedSection("share")).toBe("share");
+    expect(recordsStudioEmbedSection("deploy")).toBe("overview");
+    expect(recordsStudioEmbedSection(null)).toBe("overview");
+    expect(recordsStudioEmbedActivityId("abc-123_X")).toBe("abc-123_X");
+    expect(recordsStudioEmbedActivityId("../x")).toBeNull();
+    expect(recordsStudioEmbedActivityId(null)).toBeNull();
   });
 });
 

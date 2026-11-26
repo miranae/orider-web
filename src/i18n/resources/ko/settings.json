@@ -528,7 +528,9 @@
       "copyFailed": "복사에 실패했습니다",
       "copied": "복사되었습니다",
       "docsTitle": "개발자 문서",
+      "deployLink": "연결 가이드 →",
       "examplesLink": "활용 예시 →",
+      "githubLink": "공개 저장소(GitHub)",
       "apiDocsLink": "API 문서"
     }
   },

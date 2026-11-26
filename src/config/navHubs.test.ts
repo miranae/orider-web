@@ -20,7 +20,10 @@ describe("navHubs", () => {
       expect(getActiveHub("/explore/segments/leaderboard")).toBe("explore");
       expect(getActiveHub("/explore/events")).toBe("explore");
       expect(getActiveHub("/community/board")).toBe("community");
-      expect(getActiveHub("/explore/recipes")).toBe("explore");
+      // 이 기록으로 만들기는 탐색이 아니라 내 기록(프로필·설정) 쪽이다(#3956).
+      expect(getActiveHub("/records/studio")).toBe("settings");
+      expect(getActiveHub("/records/studio/share")).toBe("settings");
+      expect(getActiveHub("/settings/developer/deploy")).toBe("settings");
       expect(getActiveHub("/clubs")).toBe("club");
       expect(getActiveHub("/athlete/me")).toBe("settings");
       expect(getActiveHub("/athlete/me/activities")).toBe("coach");
@@ -38,7 +41,6 @@ describe("navHubs", () => {
       expect(getActiveHub("/segment/create")).toBe("explore");
       expect(getActiveHub("/segment/abc")).toBe("explore");
       expect(getActiveHub("/community/board/123")).toBe("community");
-      expect(getActiveHub("/explore/recipes/deploy")).toBe("explore");
       expect(getActiveHub("/club/g1")).toBe("club");
       expect(getActiveHub("/club/g1/rides/r1")).toBe("club");
       expect(getActiveHub("/group/join/CODE")).toBe("club");
@@ -67,7 +69,7 @@ describe("navHubs", () => {
 
   describe("isHubSubRoute", () => {
     it("허브 서브 목적지(목록/루트)에선 true", () => {
-      for (const p of ["/coach/condition", "/coach/today", "/coach/plan", "/coach/goals", "/coach/analysis", "/coach/chat", "/athlete/me/activities", "/explore/challenges", "/explore/segments", "/explore/courses", "/explore/events", "/explore/recipes", "/athlete/me", "/settings/account"]) {
+      for (const p of ["/coach/condition", "/coach/today", "/coach/plan", "/coach/goals", "/coach/analysis", "/coach/chat", "/athlete/me/activities", "/explore/challenges", "/explore/segments", "/explore/courses", "/explore/events", "/athlete/me", "/settings/account"]) {
         expect(isHubSubRoute(p)).toBe(true);
       }
     });
@@ -81,7 +83,7 @@ describe("navHubs", () => {
 
   it("getHub 은 key 로 허브를 반환", () => {
     expect(getHub("coach").subs.map((s) => s.to)).toEqual(["/coach/condition", "/coach/plan", "/coach/goals", "/coach/analysis", "/coach/chat"]);
-    expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/explore/courses", "/explore/segments", "/explore/events", "/explore/challenges", "/explore/athletes", "/explore/recipes"]);
+    expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/explore/courses", "/explore/segments", "/explore/events", "/explore/challenges", "/explore/athletes"]);
     expect(getHub("community").subs).toHaveLength(0);
     expect(getHub("settings").subs.map((s) => s.to)).toEqual(["/athlete/me", "/settings/account"]);
     expect(getHub("home").subs).toHaveLength(0);

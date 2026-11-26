@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X } from "lucide-react";
+import { Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X, Sparkles } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
 import { useProfileAvatarLoadError, useProfileAvatarDisplayUrl } from "../../hooks/useProfileAvatarDisplayUrl";
@@ -53,6 +53,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     { to: "/athlete/me", labelKey: "nav.my", icon: User },
     { to: "/athlete/me/activities", labelKey: "nav.log", icon: Activity },
     { to: "/athlete/me/records", labelKey: "nav.records", icon: Trophy },
+    // 이 기록으로 만들기(AI 일기·리포트·자랑 카드) — 탐색에서 내 기록 쪽으로 옮겼다(#3956).
+    { to: "/records/studio", labelKey: "nav.recordsStudio", icon: Sparkles },
     { to: "/athlete/me/friends", labelKey: "nav.friends", icon: Users },
     { to: "/athlete/me/gear", labelKey: "nav.equipment", icon: Bike },
     { to: "/settings/account", labelKey: "nav.settings", icon: Settings },
@@ -594,7 +596,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             {/* 법적 링크 (모바일 — 데스크톱 푸터 대체. 약관/개인정보 접근성 보장) */}
             <div className="mobile-navigation-legal">
               <Link to="/about" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.aboutOrider')}</Link>
-              <Link to="/explore/recipes" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.developerDocs')}</Link>
+              <Link to="/settings/developer/deploy" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.developerDocs')}</Link>
               <Link to="/terms" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.terms')}</Link>
               <Link to="/privacy" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.privacy')}</Link>
               <Link to="/policies/community" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>

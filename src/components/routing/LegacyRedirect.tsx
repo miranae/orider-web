@@ -1,4 +1,5 @@
 import { Navigate, useLocation, useParams } from "react-router-dom";
+import { creatorSectionDestination } from "../../data/creatorHubDetailLinks";
 
 /** 옛 /settings?section= 값 → 새 경로. 알 수 없는 값은 account. */
 const SETTINGS_SECTION_TARGETS: Record<string, string> = {
@@ -52,4 +53,15 @@ export function LegacySettingsRedirect() {
   const location = useLocation();
   const { pathname, search } = resolveLegacySettingsTarget(location.search);
   return <Navigate to={{ pathname: withLang(lang, pathname), search, hash: new URLSearchParams(location.search).get("section") === "training" ? "#thresholds" : location.hash }} state={location.state} replace />;
+}
+
+/**
+ * 옛 「기록 활용」 주소(`/explore/recipes[/:section]`·`/creator[/:section]`·`/community/recipes[/:section]`) →
+ * 라이더 섹션(overview·recipes·share)은 `/records/studio[/:section]`, 개발자 섹션(deploy·examples)은
+ * `/settings/developer/:section`, 모르는 섹션은 `/records/studio`(#3956). search·hash 는 보존한다.
+ */
+export function LegacyCreatorRedirect() {
+  const { lang, section } = useParams();
+  const location = useLocation();
+  return <Navigate to={{ pathname: withLang(lang, creatorSectionDestination(section)), search: location.search, hash: location.hash }} state={location.state} replace />;
 }
