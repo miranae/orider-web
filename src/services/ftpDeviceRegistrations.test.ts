@@ -17,7 +17,7 @@ beforeEach(() => vi.clearAllMocks());
 it("소유자의 활성 기기를 8개까지 읽고 마지막 접속이 오래된 순서로 보여 준다", async () => {
   const client = services();
   mocks.get.mockResolvedValue({ docs: [2, 1].map((n) => ({
-    id: String(n), data: () => ({ platform: "android", lastSeenAt: n }),
+    id: String(n), data: () => ({ platform: "android", lastSeenAt: n === 1 ? 1 : { toMillis: () => 2 } }),
   })) });
   expect((await listActiveFtpDevices(client, "owner")).map((device) => device.id)).toEqual(["1", "2"]);
   expect(mocks.collection).toHaveBeenCalledWith(client.firestore, "users", "owner", "deviceRegistrations");

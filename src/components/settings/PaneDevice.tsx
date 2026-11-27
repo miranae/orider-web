@@ -764,25 +764,25 @@ export function PaneDevice() {
       </SettingsCard>
     );
   }
+  const ftpDevices = <FtpDevicesCard key={uid} uid={uid} names={new Map(records.map((device) => [device.deviceId, device.deviceName]))} />;
   if (loading) {
     return (
-      <SettingsCard data-testid="S6.loading" title={t("device.mobileSync")}>
+      <><SettingsCard data-testid="S6.loading" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.loading")}
         </div>
-      </SettingsCard>
+      </SettingsCard>{ftpDevices}</>
     );
   }
   if (error) {
     return (
-      <SettingsCard data-testid="S6.error" title={t("device.mobileSync")} danger>
+      <><SettingsCard data-testid="S6.error" title={t("device.mobileSync")} danger>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--rose)" }}>
           <Resolvable resolve={{ onClick: () => void reload() }}>{t("device.loadFailed", { message: error.message })}</Resolvable>
         </div>
-      </SettingsCard>
+      </SettingsCard>{ftpDevices}</>
     );
   }
-  const ftpDevices = <FtpDevicesCard key={uid} uid={uid} names={new Map(records.map((device) => [device.deviceId, device.deviceName]))} />;
   if (!record) {
     return (
       <><SettingsCard data-testid="S6.noDevice" title={t("device.mobileSync")}>

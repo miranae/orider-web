@@ -1,6 +1,7 @@
 import { collection, getDocsFromServer, limit, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 
+import { timestampMillis } from "./riderWorkoutDeliveryContract";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 
 export interface FtpRegistration {
@@ -24,7 +25,7 @@ export async function listActiveFtpDevices(services: FirebaseServices, uid: stri
   requireOwner(services, uid);
   return snapshot.docs.map((doc) => {
     const { platform, lastSeenAt } = doc.data();
-    return { id: doc.id, platform: typeof platform === "string" ? platform : "", lastSeenAt: typeof lastSeenAt === "number" ? lastSeenAt : 0 };
+    return { id: doc.id, platform: typeof platform === "string" ? platform : "", lastSeenAt: timestampMillis(lastSeenAt) };
   }).sort((a, b) => a.lastSeenAt - b.lastSeenAt);
 }
 

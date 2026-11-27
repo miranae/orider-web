@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useDialog } from "../../contexts/DialogContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { listActiveFtpDevices, retireFtpRegistration, type FtpRegistration } from "../../services/ftpDeviceRegistrations";
+import { logClientError } from "../../services/errorLogger";
 import { Button, Stack } from "../../theme/components";
 import { SettingsCard } from "./_primitives";
 
@@ -15,11 +16,13 @@ export function FtpDevicesCard({ uid, names }: { uid: string; names: ReadonlyMap
   const [error, setError] = useState(false);
 
   async function load() {
+    const viewer = services.auth?.currentUser;
     setBusy(true);
     setError(false);
     try {
       setDevices(await listActiveFtpDevices(services, uid));
-    } catch {
+    } catch (cause) {
+      logClientError("FtpDevicesCard.list", cause, {}, services, viewer);
       setError(true);
     } finally {
       setBusy(false);
@@ -27,6 +30,7 @@ export function FtpDevicesCard({ uid, names }: { uid: string; names: ReadonlyMap
   }
 
   async function retire(device: FtpRegistration, name: string) {
+    const viewer = services.auth?.currentUser;
     setBusy(true);
     setError(false);
     try {
@@ -34,7 +38,8 @@ export function FtpDevicesCard({ uid, names }: { uid: string; names: ReadonlyMap
         await retireFtpRegistration(services, uid, device.id);
         setDevices((current) => current?.filter((item) => item.id !== device.id) ?? null);
       }
-    } catch {
+    } catch (cause) {
+      logClientError("FtpDevicesCard.retire", cause, {}, services, viewer);
       setError(true);
     } finally {
       setBusy(false);
