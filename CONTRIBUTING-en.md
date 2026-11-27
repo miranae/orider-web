@@ -25,13 +25,15 @@ Some flows need Firebase services or emulator data. See [docs/DEVELOPMENT.md](do
 
 ## Branch and PR Flow
 
-Use a short-lived topic branch and open a Pull Request. External contributors should branch from a fork; maintainers still do not push directly to `main`.
+Use a short-lived topic branch and open a Pull Request against `dev` (`gh pr create --base dev`). External contributors should branch from a fork; maintainers still do not push directly to `dev` or `main`.
 
-Branch naming and PR gates are documented in [docs/BRANCHING.md](docs/BRANCHING-en.md). Required checks are:
+Maintainers promote the changes accumulated on `dev` to `main` through a promotion PR. `main` only accepts promotion PRs from `dev` (or a fixed snapshot of it, `promote/snapshot-*`) and urgent `hotfix/*` PRs; `main-promote-guard.yml` rejects any other PR.
 
-- `PR metadata`
-- `DCO`
-- `CI / check`
+Branch naming and PR gates are documented in [docs/BRANCHING.md](docs/BRANCHING-en.md). Which checks run depends on the PR target:
+
+- `DCO`: PRs to both `dev` and `main`
+- `PR metadata`, `CI / check`: PRs to `main` (promotions and hotfixes)
+- lint/quality/test/build for PRs to `dev`: verified by maintainers in the merge gate (`scripts/merge-pr.sh`)
 
 Use Conventional Commit-style PR titles such as `fix: handle mobile tab overflow` or `docs: simplify README`.
 
@@ -85,7 +87,7 @@ git commit -s
 
 Contributions use the [Developer Certificate of Origin](DCO-en.md), not broad copyright assignment. By contributing, you agree that your contribution is provided under [AGPL-3.0](LICENSE).
 
-For shared branches, the original author may explicitly add a signed follow-up [individual remediation commit](https://github.com/dcoapp/app#individual-remediation-commit-support) without rewriting history. The author name/email and sign-off must match the original author exactly. Include the full 40-character SHA in this exact line: `I, Author <author@example.com>, hereby add my Signed-off-by to this commit: FULL_40_CHARACTER_COMMIT_SHA`. The signed remediation must descend from the original and be reachable in the PR history. Third-party and blanket exemptions are not supported; the required DCO check remains enabled. Verify locally with `node scripts/check-dco.mjs origin/main HEAD`.
+For shared branches, the original author may explicitly add a signed follow-up [individual remediation commit](https://github.com/dcoapp/app#individual-remediation-commit-support) without rewriting history. The author name/email and sign-off must match the original author exactly. Include the full 40-character SHA in this exact line: `I, Author <author@example.com>, hereby add my Signed-off-by to this commit: FULL_40_CHARACTER_COMMIT_SHA`. The signed remediation must descend from the original and be reachable in the PR history. Third-party and blanket exemptions are not supported; the required DCO check remains enabled. Verify locally with `node scripts/check-dco.mjs origin/dev HEAD` (use `origin/main` for PRs to `main`).
 
 ## Security
 

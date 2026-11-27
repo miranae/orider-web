@@ -27,13 +27,15 @@ npm run dev
 
 ## 브랜치와 PR
 
-짧게 사는 topic branch에서 작업하고 Pull Request를 여세요. 외부 기여자는 fork에서 브랜치를 만들고, maintainer도 `main`에 직접 push하지 않습니다.
+짧게 사는 topic branch에서 작업하고 `dev`를 base로 Pull Request를 여세요(`gh pr create --base dev`). 외부 기여자는 fork에서 브랜치를 만들고, maintainer도 `dev`와 `main`에 직접 push하지 않습니다.
 
-브랜치 이름과 PR gate는 [docs/BRANCHING.md](docs/BRANCHING.md)에 정리되어 있습니다. 주요 체크는 다음입니다.
+`dev`에 쌓인 변경은 maintainer가 승격 PR로 `main`에 올립니다. `main`은 `dev`(또는 그 고정 스냅샷 `promote/snapshot-*`)의 승격 PR과 `hotfix/*` 긴급 수정 PR만 받으며, 그 외 PR은 `main-promote-guard.yml`이 거부합니다.
 
-- `PR metadata`
-- `DCO`
-- `CI / check`
+브랜치 이름과 PR gate는 [docs/BRANCHING.md](docs/BRANCHING.md)에 정리되어 있습니다. 체크는 PR 대상에 따라 다릅니다.
+
+- `DCO`: `dev`와 `main` 대상 PR 모두
+- `PR metadata`, `CI / check`: `main` 대상 PR(승격, hotfix)
+- `dev` 대상 PR의 lint/quality/test/build: maintainer가 머지 게이트(`scripts/merge-pr.sh`)에서 확인
 
 PR 제목은 Conventional Commit 스타일을 사용합니다. 예: `fix: handle mobile tab overflow`, `docs: simplify README`.
 
@@ -97,7 +99,7 @@ I, Author <author@example.com>, hereby add my Signed-off-by to this commit: FULL
 Signed-off-by: Author <author@example.com>
 ```
 
-필수 DCO 검사는 유지됩니다. 로컬 검증: `node scripts/check-dco.mjs origin/main HEAD`.
+필수 DCO 검사는 유지됩니다. 로컬 검증: `node scripts/check-dco.mjs origin/dev HEAD`(`main` 대상 PR은 `origin/main`).
 
 ## 보안
 
