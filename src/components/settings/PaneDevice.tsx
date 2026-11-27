@@ -585,11 +585,15 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
 }
 
 export function PaneDevice() {
-  const { t, i18n } = useTranslation("settings");
   const { user } = useAuth();
+  const uid = user?.uid ?? null;
+  return <AccountDeviceSettings key={uid} uid={uid} />;
+}
+
+function AccountDeviceSettings({ uid }: { uid: string | null }) {
+  const { t, i18n } = useTranslation("settings");
   const { showToast } = useToast();
   const dialog = useDialog();
-  const uid = user?.uid ?? null;
   const signInResolve = useSignInResolve();
   const { records, loading, error, reload, update, broadcastUserScoped } =
     useAllDeviceSettings(uid);
