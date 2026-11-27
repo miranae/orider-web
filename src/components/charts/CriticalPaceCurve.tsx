@@ -1,3 +1,4 @@
+import { capDecimals } from "../../utils/numberDisplay";
 import { useId, useState, type KeyboardEvent, type PointerEvent, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
@@ -71,7 +72,7 @@ export default function CriticalPaceCurve({ color = "var(--amber)", stableSelect
 
   const durations = [...new Set([...recentPoints, ...prevPoints].map(point => point.durationSec))].sort((a, b) => a - b);
   const selected = selectedDuration != null && durations.includes(selectedDuration) ? selectedDuration : stableSelection ? [1800, 1200, 300].find(duration => durations.includes(duration)) ?? durations[0] ?? null : null;
-  const durationLabel = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds % 3600 !== 0 ? `${seconds / 60}m` : `${seconds / 3600}h`;
+  const durationLabel = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds % 3600 !== 0 ? `${capDecimals(seconds / 60)}m` : `${capDecimals(seconds / 3600)}h`;
   const choosePointer = (event: PointerEvent<SVGSVGElement> | MouseEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     if (!bounds.width || !Number.isFinite(event.clientX)) return;
@@ -123,7 +124,7 @@ export default function CriticalPaceCurve({ color = "var(--amber)", stableSelect
     </Card>}
     </ChartFrame>
     <DataTable caption={fitnessT("criticalPace.title")} captionVisibility="screen-reader" rows={durations} rowKey={duration => String(duration)} emptyLabel={t("charts.fitness.noData")} columns={[
-      { id: "duration", header: fitnessT("criticalPace.duration"), rowHeader: true, cell: duration => duration < 60 ? `${duration}s` : `${duration / 60}m` },
+      { id: "duration", header: fitnessT("criticalPace.duration"), rowHeader: true, cell: duration => duration < 60 ? `${duration}s` : `${capDecimals(duration / 60)}m` },
       ...([{ id: "recent", points: recentPoints }, { id: "previous", points: prevPoints }]).map(({ id, points }) => ({ id, header: periodLabels ? (id === "recent" ? recentLabel : previousLabel) : fitnessT(`criticalPace.${id}`), align: "end" as const, cell: (duration: number) => { const point = points.find(point => point.durationSec === duration); return <ChartValue primary={point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"} />; } })),
     ]} /></div>
   );

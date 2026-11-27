@@ -6,16 +6,42 @@ import { callApprovedActivityRead, reportApprovedActivityReadFailure } from '../
 import { isFunctionsGatewayRuntime, getRuntimeConfig, isEmulatorRuntime } from './runtimeConfig';
 import { activityFeedSourceRevision } from './activityFeedContent';
 import { logClientError } from './errorLogger';
+/**
+ * 공개 활동의 기준값은 서버가 활동 공개 범위 정책(P1)에 따라 내보낸다. null 또는 숫자 값 객체만 받는다.
+ * 예전에는 null 만 허용해 기준값이 실린 페이지 전체를 거부했고, 홈 활동 목록이 "활동을 불러오지 못했어요"로
+ * 막혔다(2026-11-24). 화면은 이 값을 쓰지 않으므로 형태만 확인한다.
+ */
+// 기준값은 활동을 볼 수 있는 모든 뷰어에게 같은 모양으로 온다(P1, 2026-11-24): 수치 3종은 숫자/null,
+// ftpRevision 은 문자열/null, ftpSource 는 열거값/null. 모르는 키는 원시값이면 통과시켜 서버 필드 추가에 목록 전체가 깨지지 않게 한다.
+const THRESHOLD_NUMBER_KEYS = new Set(['ftp', 'maxHr', 'lthr']);
+const FTP_SOURCES = new Set(['user', 'pdc_estimate', 'none']);
+function isThresholdBasis(value: unknown): boolean {
+  if (value === null) return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.entries(value).every(([key, v]) => {
+    if (THRESHOLD_NUMBER_KEYS.has(key)) return v === null || typeof v === 'number' && Number.isFinite(v);
+    if (key === 'ftpRevision') return v === null || typeof v === 'string';
+    if (key === 'ftpSource') return v === null || typeof v === 'string' && FTP_SOURCES.has(v);
+    return v === null || ['number', 'string', 'boolean'].includes(typeof v);
+  });
+}
 export type { ActivityDiscoveryRequest } from '@shared/activity-discovery';
 export type DiscoveryActivity = Activity & { discoveryFacts: ActivityDiscoveryItem['activity']['effectiveFacts']; activityRevision: string };
 const finite = (value: unknown): number | null => typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;
-/** Public presentation only. Never reconstruct private load, thresholds, original IDs or streams. */
+/**
+ * 서버가 보낸 활동 단위 값만 그린다 — 원본 ID·스트림은 재구성하지 않는다.
+ * 심박·파워·케이던스·칼로리·부하도 활동을 볼 수 있는 누구에게나 보인다(P1). 서버가 안 보낸 값(옛 좁은 응답)은 null 로 둔다.
+ */
 export function mapDiscoveryActivity(item: ActivityDiscoveryItem): DiscoveryActivity {
  const a=item.activity,m=a.effectiveFacts.metrics,s=a.summary;
  const metric=(canonical:string,recorded:string,scale=1)=>{const value=finite(m?m[canonical]:s[recorded]);return value===null?Number.NaN:value*scale;};
+ const optional=(canonical:string,recorded:string)=>finite(m?m[canonical]:s[recorded]);
  const summary: ActivitySummary={distance:metric('distanceKm','distance',m?1000:1),ridingTimeMillis:metric('durationSec','ridingTimeMillis',m?1000:1),
   averageSpeed:metric('avgSpeedKph','averageSpeed'),maxSpeed:metric('maxSpeedKph','maxSpeed'),elevationGain:metric('elevationGainM','elevationGain'),
-  averageCadence:null,maxCadence:null,averageHeartRate:null,maxHeartRate:null,averagePower:null,maxPower:null,normalizedPower:null,calories:null,relativeEffort:null,tss:null,swolf:null};
+  averageCadence:optional('avgCadence','averageCadence'),maxCadence:optional('maxCadence','maxCadence'),
+  averageHeartRate:optional('avgHr','averageHeartRate'),maxHeartRate:optional('maxHr','maxHeartRate'),
+  averagePower:optional('avgPower','averagePower'),maxPower:optional('maxPower','maxPower'),normalizedPower:optional('np','normalizedPower'),
+  calories:optional('caloriesKcal','calories'),relativeEffort:optional('trimp','relativeEffort'),tss:optional('tss','tss'),swolf:null};
  if(m){const moving=finite(m.movingTimeSec),pause=finite(m.pauseTimeSec);if(moving!==null)summary.movingTimeSec=moving;if(pause!==null)summary.pauseTimeSec=pause;}
  else {const elapsed=finite(s.elapsedTimeMillis),moving=finite(s.movingTimeSec),pause=finite(s.pauseTimeSec);if(elapsed!==null)summary.elapsedTimeMillis=elapsed;if(moving!==null)summary.movingTimeSec=moving;if(pause!==null)summary.pauseTimeSec=pause;}
  const activity:DiscoveryActivity={id:a.id,userId:a.userId,nickname:a.nickname,profileImage:a.profileImage,type:a.type,createdAt:a.createdAt,startTime:a.startTime,endTime:a.endTime,
@@ -83,7 +109,7 @@ async function readActivityDiscovery(services:FirebaseServices,request:ActivityD
 function validateDiscoveryPage(data: ActivityDiscoveryResponse, request: ActivityDiscoveryRequest): DiscoveryPage {
  if(!data||!Array.isArray(data.items)||data.items.length>Math.min(request.limit??20,20)||!Number.isFinite(data.expiresAt)||data.expiresAt<=Date.now()||data.totalCount!==null||data.consistency!=='current_authorized_seek_pages'||!Number.isInteger(data.scannedCount)||data.scannedCount<0||data.scannedCount>50||typeof data.exhausted!=='boolean'||data.exhausted!==(data.nextCursor===null)||data.nextCursor!==null&&(typeof data.nextCursor!=='string'||!data.nextCursor.startsWith('ad1.'))||data.order!==(request.order??'startTime_desc')||data.includesUndated!==(data.order==='id_asc'&&request.fromInclusive===undefined&&request.toExclusive===undefined))throw Error('invalid_activity_discovery');
  const ids=new Set<string>();
- for(const item of data.items){const a=item?.activity;if(request.anchorActivityId&&item.anchorBoundCoRider!==true)throw Error('invalid_activity_discovery');if(item.viewerHasKudos!==undefined&&typeof item.viewerHasKudos!=='boolean')throw Error('invalid_activity_discovery');if(!a||typeof a.id!=='string'||!a.id||ids.has(a.id)||typeof a.userId!=='string'||!a.userId||a.externalId!==null||!a.effectiveFacts||a.effectiveFacts.thresholdBasis!==null||!item.mapPreview||!item.content||!['ready','pending'].includes(item.content.status)||typeof item.presentationRevision!=='string'||!/^[a-f0-9]{64}$/.test(item.presentationRevision))throw Error('invalid_activity_discovery');if(item.generatedSummary&&(!/^[a-f0-9]{64}$/.test(item.generatedSummary.inputDigest)||!/^[a-z0-9][a-z0-9._-]{0,99}$/i.test(item.generatedSummary.formatterVersion)||!['ko','en'].every(lang=>{const text=item.generatedSummary!.text?.[lang as 'ko'|'en'];return typeof text==='string'&&text.trim().length>0&&text.length<=3500;})))throw Error('invalid_activity_discovery');ids.add(a.id);}
+ for(const item of data.items){const a=item?.activity;if(request.anchorActivityId&&item.anchorBoundCoRider!==true)throw Error('invalid_activity_discovery');if(item.viewerHasKudos!==undefined&&typeof item.viewerHasKudos!=='boolean')throw Error('invalid_activity_discovery');if(!a||typeof a.id!=='string'||!a.id||ids.has(a.id)||typeof a.userId!=='string'||!a.userId||a.externalId!==null||!a.effectiveFacts||!isThresholdBasis(a.effectiveFacts.thresholdBasis)||!item.mapPreview||!item.content||!['ready','pending'].includes(item.content.status)||typeof item.presentationRevision!=='string'||!/^[a-f0-9]{64}$/.test(item.presentationRevision))throw Error('invalid_activity_discovery');if(item.generatedSummary&&(!/^[a-f0-9]{64}$/.test(item.generatedSummary.inputDigest)||!/^[a-z0-9][a-z0-9._-]{0,99}$/i.test(item.generatedSummary.formatterVersion)||!['ko','en'].every(lang=>{const text=item.generatedSummary!.text?.[lang as 'ko'|'en'];return typeof text==='string'&&text.trim().length>0&&text.length<=3500;})))throw Error('invalid_activity_discovery');ids.add(a.id);}
  return {...data,items:data.items.map(mapDiscoveryActivity)};
 }
 

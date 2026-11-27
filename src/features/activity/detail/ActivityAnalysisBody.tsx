@@ -1,3 +1,4 @@
+import { capDecimals } from "../../../utils/numberDisplay";
 import { Fragment, isValidElement, type ComponentProps, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
@@ -78,7 +79,7 @@ export default function ActivityAnalysisBody(props: Props) {
     for (const point of context?.powerCurve ?? []) {
       if (!curveRows.some(row => powerDurationSeconds(row.duration) === point.durationSeconds)) {
         const seconds = point.durationSeconds;
-        curveRows.push({ duration: seconds >= 3600 && seconds % 3600 === 0 ? `${seconds / 3600}h` : seconds >= 60 && seconds % 60 === 0 ? `${seconds / 60}m` : `${seconds}s`, watts: point.maxPower });
+        curveRows.push({ duration: seconds >= 3600 && seconds % 3600 === 0 ? `${capDecimals(seconds / 3600)}h` : seconds >= 60 && seconds % 60 === 0 ? `${capDecimals(seconds / 60)}m` : `${seconds}s`, watts: point.maxPower });
       }
     }
     curveRows.sort((a, b) => (powerDurationSeconds(a.duration) ?? 0) - (powerDurationSeconds(b.duration) ?? 0));
@@ -207,7 +208,7 @@ export default function ActivityAnalysisBody(props: Props) {
         {p?.highlight && note(p.highlight.reason)}
         {(curveRows.length > 0 || p?.availability?.records) && note(label(`recordStates.${records ? p?.powerFingerprint?.length ? "evaluatedWithEvidence" : "evaluatedEmpty" : p?.availability?.records ?? "unavailable"}`))}
         {peakInspector}
-        {p?.peakMoment && note([label("peakMoment"), p.peakMoment.segmentName, p.peakMoment.segmentPr ? label("segmentPr") : null, p.peakMoment.fromKm != null && p.peakMoment.toKm != null ? t("overviewEvidence.peakMomentAt", { from: p.peakMoment.fromKm, to: p.peakMoment.toKm }) : null, `${span(p.peakMoment.durationSec)} · ${num(p.peakMoment.avgPowerW, " W")}`, p.peakMoment.avgSpeedKmh != null ? num(p.peakMoment.avgSpeedKmh, " km/h") : null, p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${num(p.peakMoment.maxHr, " bpm")}` : null].filter(Boolean).join(" · "))}
+        {p?.peakMoment && note([label("peakMoment"), p.peakMoment.segmentName, p.peakMoment.segmentPr ? label("segmentPr") : null, p.peakMoment.fromKm != null && p.peakMoment.toKm != null ? t("overviewEvidence.peakMomentAt", { from: capDecimals(p.peakMoment.fromKm), to: capDecimals(p.peakMoment.toKm) }) : null, `${span(p.peakMoment.durationSec)} · ${num(p.peakMoment.avgPowerW, " W")}`, p.peakMoment.avgSpeedKmh != null ? num(p.peakMoment.avgSpeedKmh, " km/h") : null, p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${num(p.peakMoment.maxHr, " bpm")}` : null].filter(Boolean).join(" · "))}
       </Topic>
       <Topic id="efficiency" title={t("detail.analysisTopics.efficiency")}>
         {extras(["평균 케이던스", "Average cadence", "평균 심박", "Average HR", "최대 심박", "Max HR"])}
@@ -266,5 +267,5 @@ export default function ActivityAnalysisBody(props: Props) {
       {p?.qualityNote && note(label("qualityNote"))}
     </div></GlossaryProvider>;
   };
-  return <AnalysisTab {...(analysisProps ?? { activityId: null, isOwner, streams: { userId: "", time: [], distance: [] }, serverMetrics: { status: "loading", metrics: null } })} canonicalPresentationAvailable={overview.enabled && overview.response?.status === "available"} integratedPresentation={p} renderSections={render} />;
+  return <AnalysisTab {...(analysisProps ?? { activityId: null, isOwner, streams: { userId: "", time: [], distance: [] }, serverMetrics: { status: "loading", metrics: null } })} integratedPresentation={p} renderSections={render} />;
 }

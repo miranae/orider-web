@@ -26,7 +26,7 @@ it.each([
   Object.assign(state, { tss, estimated, unknown });
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-  const { container } = renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  const { container } = renderWithProviders(<Routes><Route path="/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/records/studio/share" });
   await waitFor(() => expect(container.textContent).toContain(label));
   expect(container.textContent).toContain(qualifier);
   expect(container.textContent).toContain("12km");
@@ -46,26 +46,53 @@ it.each([
   expect(writeText.mock.calls[0]?.[0]).toContain("1.5h");
 });
 
-it("prioritizes rider tasks and keeps connection metadata collapsed without a leak guarantee", async () => {
-  renderWithProviders(<Routes><Route path="/explore/recipes" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/explore/recipes" });
-  expect(await screen.findByRole("heading", { name: "라이딩 기록 활용" })).toBeInTheDocument();
-  const technical = screen.getByText("연결 방식과 데이터 권한").closest("details");
-  expect(technical).not.toHaveAttribute("open");
+// 라이더 화면에는 API key·Swagger·GitHub·n8n 같은 개발자 안내를 두지 않는다(#3956).
+const developerOnly = /Swagger|OpenAPI|API key|n8n|오라이더 공개 저장소|Personal Data API/;
+
+it("shows rider tasks under the new title with only rider detail links", async () => {
+  renderWithProviders(<Routes><Route path="/ko/records/studio" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/ko/records/studio" });
+  expect(await screen.findByRole("heading", { name: "이 기록으로 만들기" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "AI 일기 생성" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "게시글로 공유" })).toBeInTheDocument();
-  expect(screen.queryByText(/외부로 유출되지 않게/)).toBeNull();
+  expect(screen.queryByText("연결 방식과 데이터 권한")).toBeNull();
+  expect(screen.getByRole("link", { name: /^만들 수 있는 것 일기/ })).toHaveAttribute("href", "/ko/records/studio/recipes");
+  expect(screen.getByRole("link", { name: /^자랑 카드/ })).toHaveAttribute("href", "/ko/records/studio/share");
+  expect(screen.queryByRole("link", { name: /내 도구에 직접 연결하기|활용 예시/ })).toBeNull();
+  expect(document.body.textContent).not.toMatch(developerOnly);
 });
 
+it.each(["recipes", "share"])("hides developer content in the rider %s section", async section => {
+  renderWithProviders(<Routes><Route path="/ko/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: `/ko/records/studio/${section}` });
+  await screen.findByRole("link", { name: "이 기록으로 만들기" });
+  expect(screen.queryByText("데이터 권한과 연결 방식")).toBeNull();
+  expect(screen.queryByText("활용 흐름과 데이터 보호 원칙")).toBeNull();
+  expect(screen.queryByRole("button", { name: "배치 방법 보기" })).toBeNull();
+  expect(screen.queryByTestId("E6-3-1")).toBeNull();
+  expect(screen.queryByTestId("E6-1-8")).toBeNull();
+  expect(screen.getByTestId("E6-1-7")).toHaveAttribute("href", "/ko/community/board/write?type=inquiry&template=creator-recipe");
+  expect(document.body.textContent).not.toMatch(developerOnly);
+});
 
-it("marks generated-diary fallback as an example and keeps recipe permissions collapsed", async () => {
-  renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/recipes" });
+it("marks generated-diary fallback as an example in the rider recipes section", async () => {
+  renderWithProviders(<Routes><Route path="/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/records/studio/recipes" });
   expect(await screen.findByText("예시 데이터: 총 182km, 상승고도 2,140m. 수요일 고강도 이후 금요일은 회복주로 전환했고, 주말 롱라이드에서 페이스가 안정적으로 돌아왔습니다.")).toBeInTheDocument();
+});
+
+it("serves the developer guides with API key, Swagger and repository links and back to developer settings", async () => {
+  renderWithProviders(<Routes><Route path="/ko/settings/developer/:section" element={<CreatorHubPage mode="developer" />} /></Routes>, { authenticated: true, route: "/ko/settings/developer/deploy" });
+  expect(await screen.findByRole("heading", { name: "내 도구에 직접 연결하기" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "개발자 설정" })).toHaveAttribute("href", "/ko/settings/developer");
+  expect(screen.getByRole("link", { name: "Swagger UI 열기" })).toBeInTheDocument();
+  expect(screen.getByTestId("E6-3-1")).toHaveAttribute("href", "/ko/settings/developer");
+  expect(screen.getByTestId("E6-1-8")).toHaveAttribute("href", "https://github.com/miranae/orider-web");
+  expect(screen.getByRole("link", { name: /활용 예시 보기/ })).toHaveAttribute("href", "/ko/settings/developer/examples");
   expect(screen.getByText("활용 흐름과 데이터 보호 원칙").closest("details")).not.toHaveAttribute("open");
-  for (const summary of screen.getAllByText("데이터 권한과 연결 방식")) expect(summary.closest("details")).not.toHaveAttribute("open");
+  // 라이더 섹션은 개발자 경로에서 그리지 않는다 — 모르는 섹션은 deploy.
+  expect(screen.queryByTestId("E6-1")).toBeNull();
 });
 
 it("keeps full setup and copyable prompts available behind disclosures", () => {
-  renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/examples" });
+  renderWithProviders(<Routes><Route path="/settings/developer/:section" element={<CreatorHubPage mode="developer" />} /></Routes>, { authenticated: true, route: "/settings/developer/examples" });
   expect(screen.getAllByText("준비와 따라하기")).toHaveLength(4);
   for (const summary of screen.getAllByText("AI 작업 지시와 복사")) expect(summary.closest("details")).not.toHaveAttribute("open");
   expect(screen.getAllByTestId("E6-4-1")).toHaveLength(4);
@@ -79,7 +106,7 @@ it.each(["ko", "en"])("keeps all six distance bars, three complete mobile dates 
     loadEvidence: { basisTotals: { power: 347, heartRate: 0, time: 0, unknown: 214 } } as WeeklyLoadEvidence,
   }));
   i18n.addResourceBundle("en", "dashboard", enDashboard);
-  const { container } = renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  const { container } = renderWithProviders(<Routes><Route path="/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/records/studio/share" });
   await screen.findAllByTestId("creator-distance-bar");
   await act(async () => { await i18n.changeLanguage(language); });
   const bars = screen.getAllByTestId("creator-distance-bar");
@@ -96,7 +123,7 @@ it.each(["ko", "en"])("keeps all six distance bars, three complete mobile dates 
 
 it("shows an honest empty state for a signed-in rider without synthetic chart totals", async () => {
   state.empty = true;
-  const { container } = renderWithProviders(<Routes><Route path="/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/creator/share" });
+  const { container } = renderWithProviders(<Routes><Route path="/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/records/studio/share" });
   await screen.findByText("아직 차트로 표시할 활동이 없습니다.");
   expect(container.textContent).not.toContain("데모 데이터");
   expect(screen.getByRole("button", { name: "차트 카드 복사" })).toBeDisabled();

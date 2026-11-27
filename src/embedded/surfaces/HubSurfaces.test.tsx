@@ -11,7 +11,6 @@ function listPage(name: string) {
       const [params, setParams] = useSearchParams();
       return <div data-testid={`page-${name}`} data-query={params.toString()} data-section={section ?? ""}>
         <button type="button" onClick={() => setParams(current => { const next = new URLSearchParams(current); next.set("page", "2"); return next; })}>next page</button>
-        {name === "recipes" && <button type="button" onClick={() => setParams(current => { const next = new URLSearchParams(current); next.delete("tab"); return next; })}>Featured tab</button>}
       </div>;
     },
   };
@@ -21,7 +20,11 @@ vi.mock("../../pages/ExplorePage", () => listPage("segments"));
 vi.mock("../../pages/EventsPage", () => listPage("events"));
 vi.mock("../../pages/ChallengesPage", () => listPage("challenges"));
 vi.mock("../../pages/ExploreAthletesPage", () => listPage("athletes"));
-vi.mock("../../pages/CreatorHubPage", () => listPage("recipes"));
+vi.mock("../../pages/CreatorHubPage", () => ({
+  default: function MockStudio({ mode, section, activityId }: { mode?: string; section?: string | null; activityId?: string | null }) {
+    return <div data-testid="page-studio" data-mode={mode ?? ""} data-section={section ?? ""} data-activity={activityId ?? ""} />;
+  },
+}));
 vi.mock("../../pages/BoardPage", () => listPage("board"));
 vi.mock("../../pages/group/GroupsPage", () => listPage("clubs"));
 vi.mock("../../components/redesign/MobileMenuSearch", async () => {
@@ -40,6 +43,7 @@ vi.mock("../../components/redesign/MobileMenuSearch", async () => {
 
 import ExploreSurface from "./ExploreSurface";
 import SearchSurface from "./SearchSurface";
+import RecordsStudioSurface from "./RecordsStudioSurface";
 
 function Location() {
   const location = useLocation();
@@ -70,7 +74,7 @@ describe("explore embed", () => {
     // 앱 코치 상단 탭과 같은 밑줄 탭(TabNav) — 알약형 토글(aria-pressed)이 아니다.
     const nav = screen.getByRole("navigation", { name: "탐색" });
     expect(within(nav).getByRole("tablist")).toBeInTheDocument();
-    expect(within(nav).getAllByRole("tab").map(tab => tab.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "사람", "기록 활용", "게시판"]);
+    expect(within(nav).getAllByRole("tab").map(tab => tab.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "사람", "게시판"]);
     expect(within(nav).getByRole("tab", { name: "코스" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryAllByRole("button").filter(button => button.hasAttribute("aria-pressed"))).toEqual([]);
     expect(screen.getByTestId("embedded-explore")).toHaveClass("orider-embedded-explore");
@@ -120,13 +124,6 @@ describe("explore embed", () => {
     }
   });
 
-  it("keeps the outer selection when Creator Hub selects Featured and clears its own tab", async () => {
-    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?page=recipes&section=recipes&tab=saved");
-    expect(await screen.findByTestId("page-recipes")).toHaveAttribute("data-query", "section=recipes&tab=saved&hubPage=recipes");
-    fireEvent.click(screen.getByRole("button", { name: "Featured tab" }));
-    expect(await screen.findByTestId("page-recipes")).toHaveAttribute("data-query", "section=recipes&hubPage=recipes");
-  });
-
   it("hides only the explore page titles that repeat the top tab, like the coach embed", () => {
     // 코치(#1460)와 같은 시각 숨김 — 탐색 임베드 범위에서만, 검색 임베드·웹 사이트는 제목을 그대로 보인다.
     const embeddedCss = readFileSync(resolve(import.meta.dirname, "../embedded.css"), "utf8");
@@ -135,9 +132,32 @@ describe("explore embed", () => {
     expect(embeddedCss).not.toMatch(/(^|[\s,])\.explore-page-title\s*\{/m);
   });
 
-  it("passes the creator section from the query", async () => {
-    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?page=recipes&section=recipes");
-    expect(await screen.findByTestId("page-recipes")).toHaveAttribute("data-section", "recipes");
+  it.each(["page=recipes", "hubPage=recipes&section=deploy"])("opens the default courses tab for the removed recipes tab (%s)", async query => {
+    renderSurface(<ExploreSurface {...props} />, `/ko/embed/explore?${query}`);
+    expect(await screen.findByTestId("page-courses")).toBeInTheDocument();
+    expect(screen.queryByTestId("page-studio")).toBeNull();
+    expect(screen.getByRole("tab", { name: "코스" })).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("records studio embed", () => {
+  const props = { retryKey: 0, onReady: vi.fn(), onError: vi.fn() };
+
+  it("renders the rider-only studio with the requested section and activity", async () => {
+    renderSurface(<RecordsStudioSurface {...props} />, "/ko/embed/records-studio?section=share&activity=act-1");
+    const page = await screen.findByTestId("page-studio");
+    expect(page).toHaveAttribute("data-mode", "rider");
+    expect(page).toHaveAttribute("data-section", "share");
+    expect(page).toHaveAttribute("data-activity", "act-1");
+    expect(screen.getByTestId("embedded-records-studio")).toBeInTheDocument();
+    expect(props.onReady).toHaveBeenCalled();
+  });
+
+  it("falls back to the overview for developer or unknown sections and drops unsafe activity ids", async () => {
+    renderSurface(<RecordsStudioSurface {...props} />, "/ko/embed/records-studio?section=deploy&activity=..%2Fx");
+    const page = await screen.findByTestId("page-studio");
+    expect(page).toHaveAttribute("data-section", "overview");
+    expect(page).toHaveAttribute("data-activity", "");
   });
 });
 

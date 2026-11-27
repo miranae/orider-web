@@ -16,7 +16,7 @@ const partnershipLinks = [
 const helpLinks = [
   ["/manual", "footer.appManual"], ["/web-manual", "footer.webManual"],
   ["/community/board?type=inquiry", "footer.contact"], ["/feedback", "footer.feedback"],
-  ["/tools/virtual-power", "footer.calculator"], ["/explore/recipes/deploy", "nav.developerDocs"],
+  ["/tools/virtual-power", "footer.calculator"], ["/settings/developer/deploy", "nav.developerDocs"],
 ];
 // 매뉴얼은 Hosting 의 정적 HTML(public/manual, public/web-manual)이라 SPA 라우트가 없다.
 // LocalizedLink 로 걸면 /ko/web-manual 로 SPA 내부 이동해 404 화면이 나오므로 전체 페이지 이동으로 연다.

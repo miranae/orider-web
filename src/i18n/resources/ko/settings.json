@@ -528,7 +528,9 @@
       "copyFailed": "복사에 실패했습니다",
       "copied": "복사되었습니다",
       "docsTitle": "개발자 문서",
+      "deployLink": "연결 가이드 →",
       "examplesLink": "활용 예시 →",
+      "githubLink": "공개 저장소(GitHub)",
       "apiDocsLink": "API 문서"
     }
   },
@@ -754,6 +756,13 @@
     "loading": "불러오는 중…"
   },
   "device": {
+    "ftpRegistrations": "FTP 동기화 기기",
+    "ftpList": "등록 기기 보기",
+    "ftpRetire": "등록 해제",
+    "ftpRetireConfirm": "{{name}} 기기의 FTP 동기화 등록을 해제할까요? 이 기기로 앱을 다시 열면 재등록될 수 있습니다.",
+    "ftpLastSeen": "마지막 연결 {{date}}",
+    "ftpNone": "등록된 FTP 동기화 기기가 없습니다.",
+    "ftpRequestFailed": "기기 요청을 처리하지 못했습니다. 다시 시도해 주세요.",
     "mobileSync": "모바일 동기화",
     "loginRequired": "로그인 후 모바일 기기 설정을 확인할 수 있습니다.",
     "loading": "모바일 기기 설정을 불러오는 중…",
@@ -1138,17 +1147,5 @@
     "saving": "저장 중입니다.",
     "failed": "설정을 저장하거나 불러오지 못했습니다. 현재 표시된 설정을 확인하고 다시 시도해 주세요.",
     "loadFailed": "알림 설정을 불러오지 못했습니다."
-  },
-  "publicData": {
-    "title": "공개 데이터",
-    "description": "활동을 볼 수 있는 사람에게 공개할 항목입니다. 끄면 기존 활동에도 적용됩니다.",
-    "heartRate": "심박",
-    "power": "파워",
-    "training": "훈련 지표 (TSS·IF)",
-    "cadence": "케이던스",
-    "calories": "칼로리",
-    "thresholds": "내 기준값 (FTP·최대 심박 설정·LTHR)",
-    "loadFailed": "공개 데이터 설정을 불러오지 못했습니다.",
-    "saveFailed": "공개 데이터 설정을 저장하지 못했습니다."
   }
 }

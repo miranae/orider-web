@@ -1,3 +1,4 @@
+import { capDecimals } from "../../utils/numberDisplay";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RUN_DISTANCES, RUN_DISTANCE_M } from "@shared/types/personal-records";
@@ -9,7 +10,7 @@ import { Button, ChartFrame, Select, Stat, Text } from "../../theme";
 import { formatPace } from "../../utils/units";
 
 /** 확정 서버 값만 표시한다. 속도에서 거리별 최고 기록이나 위치를 추정하지 않는다. */
-export default function RunEffortsPanel({ metrics, ready, previousAnalysis = false, facts, onSelectEffort, isOwner = false }: { metrics: ActivityMetricsDoc; ready: boolean; previousAnalysis?: boolean; isOwner?: boolean; facts?: RunningBestEffortsFacts; onSelectEffort?: (range: { startOffsetSec: number; endOffsetSec: number }) => void }) {
+export default function RunEffortsPanel({ metrics, ready, previousAnalysis = false, facts, onSelectEffort }: { metrics: ActivityMetricsDoc; ready: boolean; previousAnalysis?: boolean; facts?: RunningBestEffortsFacts; onSelectEffort?: (range: { startOffsetSec: number; endOffsetSec: number }) => void }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   const id = useId();
@@ -30,7 +31,7 @@ export default function RunEffortsPanel({ metrics, ready, previousAnalysis = fal
     const hours = Math.floor(rounded / 3600);
     return `${hours ? `${hours}:` : ""}${String(Math.floor(rounded / 60) % 60).padStart(2, "0")}:${String(rounded % 60).padStart(2, "0")}`;
   };
-  const durationLabel = (seconds: number) => seconds < 60 ? t("runEfforts.seconds", { count: seconds }) : t("runEfforts.minutes", { count: seconds / 60 });
+  const durationLabel = (seconds: number) => seconds < 60 ? t("runEfforts.seconds", { count: seconds }) : t("runEfforts.minutes", { count: capDecimals(seconds / 60) });
   const low = Math.min(...points.map(point => point.paceSecPerKm)), high = Math.max(...points.map(point => point.paceSecPerKm));
   const x = (seconds: number) => points.length < 2 ? 180 : 36 + (Math.log(seconds) - Math.log(points[0]!.durationSeconds)) / (Math.log(points[points.length - 1]!.durationSeconds) - Math.log(points[0]!.durationSeconds)) * 288;
   const y = (seconds: number) => 112 - (high - seconds) / (high - low || 1) * 72;
@@ -49,11 +50,11 @@ export default function RunEffortsPanel({ metrics, ready, previousAnalysis = fal
             </svg>
             <label className="flex flex-wrap items-center gap-3" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("runEfforts.duration")}</Text><Select id={id} value={selected.durationSeconds} onChange={event => setDuration(Number(event.target.value))}>{points.map(point => <option key={point.durationSeconds} value={point.durationSeconds}>{durationLabel(point.durationSeconds)}</option>)}</Select></label>
             <Stat compact label={durationLabel(selected.durationSeconds)} value={pace(selected.paceSecPerKm)} />
-          </div> : <Text as="p" variant="bodySmall" tone="secondary">{t(isOwner ? "runEfforts.curveMissing" : "runEfforts.curveNotShared")}</Text>}
+          </div> : <Text as="p" variant="bodySmall" tone="secondary">{t("runEfforts.curveMissing")}</Text>}
         </ChartFrame>
         <section className="space-y-3">
           <Text as="h3" variant="subtitle">{t("runEfforts.distanceTitle")}</Text>
-          {records.length ? <div className="overflow-x-auto"><table className="w-full text-[length:var(--fs-md)] tabular-nums"><thead><tr><th scope="col" className="text-left py-2">{t("runEfforts.distance")}</th><th scope="col" className="text-right py-2">{t("runEfforts.elapsed")}</th><th scope="col" className="text-right py-2">{t("stat.avgPace")}</th>{hasAnchors && <th scope="col" className="text-right py-2">{t("runEfforts.selection")}</th>}</tr></thead><tbody>{records.map(record => <tr key={record.key} className="border-t border-[var(--line-soft)]"><th scope="row" className="text-left py-3 font-normal">{t(`runRecord.dist.${record.key}`)}</th><td className="text-right py-3 whitespace-nowrap">{elapsed(record.seconds)}</td><td className="text-right py-3 whitespace-nowrap">{formatPace(record.seconds / (RUN_DISTANCE_M[record.key] / 1000), units)}</td>{hasAnchors && <td className="text-right py-3">{anchorFor(record.key, record.seconds) && <Button size="sm" variant="outline" onClick={() => { const fact = anchorFor(record.key, record.seconds); if (fact) onSelectEffort?.({ startOffsetSec: fact.startOffsetSec, endOffsetSec: fact.endOffsetSec }); }}>{t("runEfforts.selectEffort", { distance: t(`runRecord.dist.${record.key}`) })}</Button>}</td>}</tr>)}</tbody></table></div> : <Text as="p" variant="bodySmall" tone="secondary">{t(isOwner ? "runEfforts.recordsMissing" : "runEfforts.recordsNotShared")}</Text>}
+          {records.length ? <div className="overflow-x-auto"><table className="w-full text-[length:var(--fs-md)] tabular-nums"><thead><tr><th scope="col" className="text-left py-2">{t("runEfforts.distance")}</th><th scope="col" className="text-right py-2">{t("runEfforts.elapsed")}</th><th scope="col" className="text-right py-2">{t("stat.avgPace")}</th>{hasAnchors && <th scope="col" className="text-right py-2">{t("runEfforts.selection")}</th>}</tr></thead><tbody>{records.map(record => <tr key={record.key} className="border-t border-[var(--line-soft)]"><th scope="row" className="text-left py-3 font-normal">{t(`runRecord.dist.${record.key}`)}</th><td className="text-right py-3 whitespace-nowrap">{elapsed(record.seconds)}</td><td className="text-right py-3 whitespace-nowrap">{formatPace(record.seconds / (RUN_DISTANCE_M[record.key] / 1000), units)}</td>{hasAnchors && <td className="text-right py-3">{anchorFor(record.key, record.seconds) && <Button size="sm" variant="outline" onClick={() => { const fact = anchorFor(record.key, record.seconds); if (fact) onSelectEffort?.({ startOffsetSec: fact.startOffsetSec, endOffsetSec: fact.endOffsetSec }); }}>{t("runEfforts.selectEffort", { distance: t(`runRecord.dist.${record.key}`) })}</Button>}</td>}</tr>)}</tbody></table></div> : <Text as="p" variant="bodySmall" tone="secondary">{t("runEfforts.recordsMissing")}</Text>}
           <details className="text-[length:var(--fs-md)]"><summary className="cursor-pointer py-3" style={{ minHeight: "var(--space-8)" }}>{t("runEfforts.calculationBasis")}</summary><div className="space-y-2 pt-2">
             <Text as="p" variant="bodySmall" tone="secondary">{t(curve.sourceBasis === "run_metrics_pace_curve" ? "runEfforts.canonicalCurveBasis" : "runEfforts.curveBasis")}</Text>
             <Text as="p" variant="bodySmall" tone="secondary">{t("runEfforts.elapsedBasis")}</Text>

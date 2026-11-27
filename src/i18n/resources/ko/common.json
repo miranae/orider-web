@@ -195,7 +195,7 @@
     "segments": "세그먼트",
     "discover": "챌린지",
     "board": "게시판",
-    "creator": "기록 활용",
+    "recordsStudio": "이 기록으로 만들기",
     "friends": "친구",
     "friendRequests": "받은 친구 요청 {{count}}건",
     "aboutOrider": "오라이더 소개",
@@ -452,7 +452,8 @@
     "loading": "기록과 훈련 데이터를 불러오고 있어요.",
     "unavailable": "잠시 연결할 수 없어요. 연결 상태를 확인한 후 다시 시도해 주세요.",
     "analysisMissing": "이 활동에는 보여 줄 분석 데이터가 없어요.",
-    "profileNotFound": "프로필을 찾을 수 없어요."
+    "profileNotFound": "프로필을 찾을 수 없어요.",
+    "signInInApp": "앱의 설정 › 계정에서 로그인해 주세요."
   },
   "dialog": {
     "alertTitle": "알림",

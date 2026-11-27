@@ -2,6 +2,21 @@ import { getDoc, doc, onSnapshot, type Firestore, type DocumentData, type Docume
 import { logClientError } from "../../services/errorLogger";
 import { followWorldSignal } from "../ride-world/followWorldSignal";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
+
+/**
+ * 공개 코스 신호의 월드 엔드포인트. 로컬 랩은 데모 에뮬레이터, 운영은 런타임 설정 `worldCourseSignalsEnabled` 로만 켠다.
+ * 월드가 닫히거나 거부하면 호출부가 Firestore `cache_metadata` 구독으로 돌아간다.
+ */
+export function courseWorldEndpoint(projectId?: string): string | undefined {
+  if (projectId === "demo-orider-lab" && import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+      import.meta.env.VITE_ORIDER_LOCAL_COURSE_REDIS === "1") {
+    return "ws://127.0.0.1:19487/course-signals";
+  }
+  if (projectId === "miranae-orider-g1" && !isEmulatorRuntime() && getRuntimeConfig().worldCourseSignalsEnabled === true) {
+    return "wss://world.orider.co.kr/course-signals";
+  }
+}
 
 // 목록과 상세는 별도 계약이다. 상세 표시 필드는 유지하고 무거운 원본만 정적 파일에서 받는다.
 export const COURSE_DETAIL_FIELDS = [
@@ -148,23 +163,25 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   let lastVersion: string | undefined;
   let lastTrack: DocumentData | undefined;
   let legacyStop: (() => void) | undefined;
-  const worldEnabled = COURSE_ID.test(id) && import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
-    import.meta.env.VITE_ORIDER_LOCAL_COURSE_REDIS === "1" && services.firestore.app.options.projectId === "demo-orider-lab";
+  const projectId = services.firestore.app.options.projectId;
+  const worldEndpoint = COURSE_ID.test(id) ? courseWorldEndpoint(projectId) : undefined;
+  const worldEnabled = worldEndpoint !== undefined;
   const current = () => !disposed && services.auth.currentUser === user;
-  const legacy = (publicOnly = false) => {
+  const legacy = () => {
     if (!current() || legacyStop) return;
     const source = doc(services.firestore, "courses", id);
     const next = (snapshot: DocumentSnapshot) => {
-      if (!current() || (publicOnly && snapshot.metadata?.fromCache)) return;
+      if (!current() || (worldEnabled && snapshot.metadata?.fromCache)) return;
       const data = snapshot.exists() ? snapshot.data() : undefined;
-      if (publicOnly && (!data || data.deletedAt != null || data.hidden === true || (data.visibility ?? "public") !== "public")) {
+      // Keep the local public-signal rehearsal restricted to public courses.
+      if (worldEnabled && projectId === "demo-orider-lab" && (!data || data.deletedAt != null || data.hidden === true || (data.visibility ?? "public") !== "public")) {
         onData(null);
       } else onData(data ? { ...data, id } : null);
     };
     const failed = (error: Error) => {
       if (current()) { logClientError("CourseDetail.legacyRead", error, { courseId: id }, services, user); onData(null); onError(error); }
     };
-    legacyStop = publicOnly ? onSnapshot(source, { includeMetadataChanges: true }, next, failed) : onSnapshot(source, next, failed);
+    legacyStop = worldEnabled ? onSnapshot(source, { includeMetadataChanges: true }, next, failed) : onSnapshot(source, next, failed);
   };
   const refresh = async () => {
     if (!current()) return;
@@ -182,7 +199,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       if (!wire.fields) throw new Error("코스 메타데이터 없음");
       const metadata = Object.fromEntries(Object.entries(wire.fields).map(([key, value]) => [key, decode(value)]));
       const url = courseAssetUrl(services.firestore, id, metadata);
-      if (!url) { legacy(worldEnabled); return; }
+      if (!url) { legacy(); return; }
       const version = String(metadata.trackVersion);
       // 현재 접근이 확인된 메타데이터부터 표시한다. 새 revision에는 이전 고도를 섞지 않는다.
       if (lastVersion !== version || !lastTrack) onData({ ...metadata, elevationProfile: undefined, id, trackLoadState: "loading" });
@@ -225,7 +242,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       if (active()) {
         logClientError("CourseDetail.metadataRead", error, { courseId: id }, services, user);
         onData(null);
-        if (worldEnabled) legacy(true);
+        if (worldEnabled) legacy();
         else onError(error instanceof Error ? error : new Error(String(error)));
       }
     }
@@ -235,7 +252,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
     const next = (snapshot: DocumentSnapshot) => {
       if (!current() || (worldEnabled && snapshot.metadata?.fromCache)) return;
       if (!snapshot.exists()) {
-        ++generation; request?.abort(); legacy(worldEnabled); return;
+        ++generation; request?.abort(); legacy(); return;
       }
       legacyStop?.(); legacyStop = undefined;
       void refresh();
@@ -243,7 +260,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
     const failed = (error: Error) => {
       if (!current()) return;
       logClientError("CourseDetail.signalFallback", error, { courseId: id }, services, user);
-      onData(null); ++generation; request?.abort(); legacy(worldEnabled);
+      onData(null); ++generation; request?.abort(); legacy();
     };
     return worldEnabled ? onSnapshot(source, { includeMetadataChanges: true }, next, failed) : onSnapshot(source, next, failed);
   };
@@ -254,7 +271,7 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   if (COURSE_ID.test(id)) restoreFirestore();
   else legacy();
   const signalStop = worldEnabled
-    ? followWorldSignal("ws://127.0.0.1:19487/course-signals",
+    ? followWorldSignal(worldEndpoint,
         async () => ({ v: 1, type: "course_subscribe", courseId: id }),
         (data) => {
           if (!current()) return false;

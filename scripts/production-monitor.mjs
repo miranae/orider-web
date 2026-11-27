@@ -4,6 +4,8 @@ import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { classify, isFeedApiUrl, isAppCheckUrl, isCompletedListenerCancellation, assertDeploymentCheckpoint } from './production-monitor-lib.mjs';
+const appCheckDebugToken = process.env.MONITOR_APP_CHECK_DEBUG_TOKEN;
+delete process.env.MONITOR_APP_CHECK_DEBUG_TOKEN;
 const base = process.env.PROD_SMOKE_BASE_URL || 'https://orider.co.kr';
 const out = resolve(process.env.MONITOR_RESULT_DIR || 'production-monitor-results');
 const startedAt = new Date().toISOString();
@@ -24,16 +26,61 @@ if (process.env.MONITOR_RESOLVE_HOSTING === 'true') {
 // No HAR, storage state, response bodies, query strings or rider data are persisted.
 const safeUrl = value => { try { const u = new URL(value); return `${u.origin}${u.pathname.replace(/\/activity\/[^/]+/g, '/activity/[redacted]').replace(/\/apps\/[^/]+/g, '/apps/[redacted]')}`; } catch { return '[invalid-url]'; } };
 const category = text => /chunk|dynamically imported|module script/i.test(text) ? 'chunk' : /firestore|firebase|permission|unavailable|fetch|network|activity/i.test(text) ? 'api' : 'other';
+const productionOrigin = 'https://orider.co.kr';
+const exchangeUrl = 'https://content-firebaseappcheck.googleapis.com/v1/projects/miranae-orider-g1/apps/1:289663940841:web:ba08cdae154286e6499878:exchangeDebugToken';
+const debugMarker = 'orider-production-monitor';
+
+async function enableMonitorAppCheck(page, dependencyErrors) {
+  await page.route(url => url.origin + url.pathname === exchangeUrl, async route => {
+    const request = route.request();
+    try {
+      if (request.method() !== 'POST' || request.frame() !== page.mainFrame() ||
+          new URL(request.frame().url()).origin !== productionOrigin ||
+          request.postDataJSON()?.debug_token !== debugMarker) {
+        return await route.abort();
+      }
+      const response = await fetch(request.url(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: productionOrigin },
+        body: JSON.stringify({ debug_token: appCheckDebugToken }),
+        redirect: 'error',
+        signal: AbortSignal.timeout(8000),
+      });
+      await route.fulfill({
+        status: response.status,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': productionOrigin },
+        body: Buffer.from(await response.arrayBuffer()),
+      });
+    } catch (error) {
+      dependencyErrors.push({ dependency: 'App Check', phase: 'debug-token-exchange',
+        failure: error.name === 'TimeoutError' ? 'timeout' : 'request-failed' });
+      await route.abort('failed');
+    }
+  });
+  // The live page sees a marker. Only the monitor process exchanges the registered secret.
+  await page.addInitScript(({ origin, marker }) => {
+    if (self === top && location.origin === origin) self.FIREBASE_APPCHECK_DEBUG_TOKEN = marker;
+  }, { origin: productionOrigin, marker: debugMarker });
+}
 let browser;
+let phase = 'configuration';
 try {
+  if (appCheckDebugToken && (base !== productionOrigin || result.simulation)) {
+    throw new Error('Monitor App Check credentials require the live production check');
+  }
   if (process.env.MONITOR_SOURCE_EVIDENCE) {
+    phase = 'deployment-checkpoint';
     result.deploymentSource = assertDeploymentCheckpoint(JSON.parse(await readFile(process.env.MONITOR_SOURCE_EVIDENCE, 'utf8')));
   }
+  phase = 'browser-launch';
   browser = await chromium.launch({ headless: true, ...(process.env.MONITOR_CHROMIUM_PATH ? { executablePath: process.env.MONITOR_CHROMIUM_PATH } : {}) });
+  phase = 'browser-checks';
   for (const locale of ['ko', 'en']) {
     const context = await browser.newContext({ viewport: { width: 393, height: 851 }, locale, serviceWorkers: 'block' });
     const page = await context.newPage();
     const check = { locale, at: new Date().toISOString(), httpStatus: null, rootVisible: false, cards: 0, cardContentVisible: false, emptyVisible: false, verifiedEmpty: false, pageErrors: [], apiErrors: [], dependencyErrors: [], chunkErrors: [], console: [], network: [], feedAlert: false };
+    if (appCheckDebugToken) await enableMonitorAppCheck(page, check.dependencyErrors);
     result.checks.push(check);
     const pending = [];
     let collecting = true;
@@ -85,7 +132,7 @@ try {
     await writeFile(join(dir, `${locale}.json`), JSON.stringify(check, null, 2));
     await context.close();
   }
-} catch (error) { result.runnerError = { name: error.name, message: 'Monitor infrastructure failure; see process stderr' }; console.error(error); }
+} catch (error) { result.runnerError = { name: error.name, phase, message: 'Monitor infrastructure failure' }; console.error('Monitor infrastructure failure:', phase, error.name); }
 finally { await browser?.close(); }
 if (new Set(result.live.map(v => v.sha256)).size > 1) result.runnerError = { name: 'LiveVersionChanged', message: 'Live bundle changed during the two-locale check; rerun to obtain one consistent version' };
 result.dependencyStatus = result.checks.some(c => c.dependencyErrors.length) ? 'degraded' : 'healthy';

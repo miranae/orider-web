@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { setDocData, simulateLogin, simulateLogout, simulateTokenChange } from "../__tests__/mocks/firebase";
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
@@ -38,8 +39,10 @@ function hubSurfaceMock(testId: string) {
   return {
     default: function HubFixture({ onReady }: { onReady: () => void }) {
       const services = useFirebaseServices();
+      const { user, signIn } = useAuth();
       if (testId === "clubs-surface") mocks.captureClubServices(services);
-      return <div data-testid={testId}>
+      return <div data-testid={testId} data-viewer={user?.uid ?? "guest"}>
+        <button type="button" onClick={() => void signIn()}>sign in</button>
         <button type="button" onClick={onReady}>ready</button>
         <a href="/ko/club/club-1">club detail</a>
         <a href="/ko/explore/events?type=race">events tab</a>
@@ -51,6 +54,7 @@ function hubSurfaceMock(testId: string) {
 vi.mock("./surfaces/ClubsSurface", () => hubSurfaceMock("clubs-surface"));
 vi.mock("./surfaces/ExploreSurface", () => hubSurfaceMock("explore-surface"));
 vi.mock("./surfaces/SearchSurface", () => hubSurfaceMock("search-surface"));
+vi.mock("./surfaces/RecordsStudioSurface", () => hubSurfaceMock("records-studio-surface"));
 vi.mock("./surfaces/MenuPageSurface", () => hubSurfaceMock("menu-surface"));
 
 // 클럽 상세는 실제 ClubDetailSurface(하위 라우팅)를 쓰고 웹 클럽 화면만 가볍게 바꾼다.
@@ -153,7 +157,7 @@ describe("app tab hub embeds", () => {
   });
 
   it("routes the hub embeds and club detail outside the standard web shell", () => {
-    for (const hub of ["clubs", "explore", "search", "about", "policies/community", "feedback", "activity/owned/edit"]) {
+    for (const hub of ["clubs", "explore", "search", "records-studio", "about", "policies/community", "feedback", "activity/owned/edit"]) {
       expect(isEmbeddedRoutePath(`/ko/embed/${hub}`)).toBe(true);
       expect(isEmbeddedRoutePath(`/en/embed/${hub}/`)).toBe(true);
     }
@@ -194,7 +198,15 @@ describe("app tab hub embeds", () => {
     expect((ready?.payload as { capabilities: string[] }).capabilities).toContain("segment-detail-embed-v1");
   });
 
-  it.each(["clubs", "explore", "search"] as const)("opens the signed-in %s surface with the existing handoff and reports readiness", async (kind) => {
+  it("advertises the records studio embed so the app opens it only on a web that has the route", async () => {
+    const bridge = createFakeBridge();
+    renderHub(bridge, "records-studio");
+    await waitFor(() => expect(bridge.sent.some(item => item.type === "bootstrap.ready")).toBe(true));
+    const ready = bridge.sent.find(item => item.type === "bootstrap.ready");
+    expect((ready?.payload as { capabilities: string[] }).capabilities).toContain("records-studio-embed-v1");
+  });
+
+  it.each(["clubs", "explore", "search", "records-studio"] as const)("opens the signed-in %s surface with the existing handoff and reports readiness", async (kind) => {
     const bridge = createFakeBridge();
     renderHub(bridge, kind);
     await authorize(bridge, { expectedUid: "owner-1", contractVersion: 1 });
@@ -204,15 +216,16 @@ describe("app tab hub embeds", () => {
     expect(bridge.sent).toContainEqual({ type: "surface.ready", payload: { surface: kind }, requestId: undefined });
   });
 
-  it("shows public hub content as a guest when the app has no signed-in web session", async () => {
+  // 이 기록으로 만들기도 비로그인이면 웹과 같이 데모 데이터로 보인다(#3956).
+  it.each(["clubs", "records-studio"] as const)("shows public %s content as a guest when the app has no signed-in web session", async kind => {
     mocks.state.currentUser = null;
     simulateLogout();
     const bridge = createFakeBridge();
-    renderHub(bridge, "clubs");
+    renderHub(bridge, kind);
     await authorize(bridge, { contractVersion: 1 });
     expect(bridge.sent).toContainEqual({ type: "auth.state", payload: { uid: null }, requestId: "auth-1" });
     act(() => bridge.emit(message("host.sessionAccepted", accepted)));
-    expect(await screen.findByTestId("clubs-surface")).toBeInTheDocument();
+    expect(await screen.findByTestId(`${kind}-surface`)).toBeInTheDocument();
     expect(mocks.isolate).toHaveBeenCalledWith(null);
     expect(bridge.sent.some(item => item.type === "surface.error")).toBe(false);
   });
@@ -296,6 +309,62 @@ describe("app tab hub embeds", () => {
     renderHub(fitnessBridge, "fitness", "/ko/embed/fitness");
     act(() => fitnessBridge.emit(message("host.authorize", { contractVersion: 1 }, "auth-2")));
     expect(fitnessBridge.sent).toContainEqual({ type: "surface.error", payload: { code: "invalid_host_payload" }, requestId: "auth-2" });
+  });
+
+  it("advertises the sign-in request contract", async () => {
+    const bridge = createFakeBridge();
+    renderHub(bridge, "explore");
+    await waitFor(() => expect(bridge.sent.some(item => item.type === "bootstrap.ready")).toBe(true));
+    const ready = bridge.sent.find(item => item.type === "bootstrap.ready");
+    expect((ready?.payload as { capabilities: string[] }).capabilities).toContain("host.signInRequest.v1");
+  });
+
+  it("asks the app to open its sign-in screen from a guest hub when the host supports it", async () => {
+    mocks.state.currentUser = null; simulateLogout();
+    const bridge = createFakeBridge();
+    renderHub(bridge, "explore", "/ko/embed/explore?tab=athletes");
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", { ...accepted, capabilities: ["host.signInRequest.v1"] })));
+    fireEvent.click(await screen.findByRole("button", { name: "sign in" }));
+    expect(bridge.sent).toContainEqual({
+      type: "auth.signInRequested",
+      payload: { surface: "explore", returnPath: "/ko/embed/explore?tab=athletes" },
+      requestId: undefined,
+    });
+    expect(screen.queryByText("앱의 설정 › 계정에서 로그인해 주세요.")).toBeNull();
+  });
+
+  it("tells the user to sign in from the app settings when an older host cannot open sign-in", async () => {
+    mocks.state.currentUser = null; simulateLogout();
+    const bridge = createFakeBridge();
+    renderHub(bridge, "clubs");
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    fireEvent.click(await screen.findByRole("button", { name: "sign in" }));
+    expect(await screen.findByText("앱의 설정 › 계정에서 로그인해 주세요.")).toBeInTheDocument();
+    expect(bridge.sent.some(item => item.type === "auth.signInRequested")).toBe(false);
+  });
+
+  it("reopens a live guest hub as the signed-in user after the app authorizes the new account", async () => {
+    mocks.state.currentUser = null; simulateLogout();
+    const bridge = createFakeBridge();
+    const withSignIn = { ...accepted, capabilities: ["host.signInRequest.v1"] };
+    renderHub(bridge, "explore");
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", withSignIn)));
+    expect(await screen.findByTestId("explore-surface")).toHaveAttribute("data-viewer", "guest");
+    fireEvent.click(screen.getByRole("button", { name: "sign in" }));
+
+    // 앱 로그인 뒤 호스트가 새 인계와 함께 다시 승인한다.
+    mocks.consumeHandoff.mockImplementationOnce(async () => { mocks.state.currentUser = { uid: "owner-1" }; });
+    bridge.sent.length = 0;
+    await authorize(bridge, { expectedUid: "owner-1", contractVersion: 1 });
+    expect(bridge.sent).toContainEqual({ type: "auth.state", payload: { uid: "owner-1" }, requestId: "auth-1" });
+    act(() => { simulateLogin({ uid: "owner-1" }); simulateTokenChange(mocks.auth); });
+    act(() => bridge.emit(message("host.sessionAccepted", withSignIn)));
+    await waitFor(() => expect(screen.getByTestId("explore-surface")).toHaveAttribute("data-viewer", "owner-1"));
+    expect(bridge.sent.some(item => item.type === "surface.error")).toBe(false);
+    expect(bridge.sent.filter(item => item.type === "auth.state")).toHaveLength(1);
   });
 
   it("rejects training surface selection messages on hub surfaces", async () => {

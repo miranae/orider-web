@@ -39,7 +39,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { formatTrainingLoad } from "../utils/trainingLoadDisplay";
 import { useWeeklyStats } from "../hooks/useActivities";
-import { buildCreatorHubDetailLinks } from "../data/creatorHubDetailLinks";
+import {
+  buildCreatorHubDetailLinks,
+  DEVELOPER_GUIDE_PATH,
+  RECORDS_STUDIO_PATH,
+  isDeveloperGuideSection,
+  isRiderStudioSection,
+  type CreatorHubMode,
+} from "../data/creatorHubDetailLinks";
 import {
   creatorRecipes,
   type CreatorRecipeIcon,
@@ -63,13 +70,8 @@ interface CreatorItem {
   summary: string;
   outcome: string;
   detail: string;
-  scopes: string[];
-  channels: string[];
   showShareCardPreview: boolean;
   labels: string[];
-  scopeLabel: string;
-  shareMode: string;
-  deployMode: string;
   status: string;
 }
 
@@ -139,15 +141,15 @@ const CREATOR_RECIPE_REQUEST_LINK = {
   search: "?type=inquiry&template=creator-recipe",
 };
 const recipeActionClass = "w-full justify-center min-[420px]:w-auto";
-const metadataCodeClass = "max-w-full break-all rounded-[var(--r-sm)] px-1.5 py-0.5";
 
 function parseCreatorTab(value: string | null): CreatorTab {
   return value === "recipes" || value === "share" ? value : "featured";
 }
 
-function parseCreatorSection(value: string | undefined): CreatorSection {
-  if (value === "deploy" || value === "examples" || value === "recipes" || value === "share") return value;
-  return "overview";
+/** 라이더 화면은 overview·recipes·share, 개발자 안내는 deploy·examples 만 그린다. 모르는 값은 각 첫 화면. */
+function parseCreatorSection(value: string | null | undefined, mode: CreatorHubMode): CreatorSection {
+  if (mode === "developer") return isDeveloperGuideSection(value) ? value : "deploy";
+  return isRiderStudioSection(value) ? value : "overview";
 }
 
 function sectionDefaultTab(section: CreatorSection, value: string | null): CreatorTab {
@@ -159,20 +161,22 @@ function sectionDefaultTab(section: CreatorSection, value: string | null): Creat
 function buildCopy(language: string) {
   const ko = language.startsWith("ko");
   return {
-    title: ko ? "기록 활용" : "Ride tools",
-    headline: ko ? "라이딩 기록 활용" : "Make more of your rides",
+    title: ko ? "이 기록으로 만들기" : "Make something from your rides",
+    headline: ko ? "이 기록으로 만들기" : "Make something from your rides",
+    developerTitle: ko ? "개발자 연결 가이드" : "Developer guides",
+    developerBack: ko ? "개발자 설정" : "Developer settings",
     eyebrow: ko ? "내 기록으로 일기와 공유 카드 만들기" : "Turn your rides into stories and share cards",
     subtitle: ko
-      ? "내 활동으로 일기를 만들고 공유 카드를 준비하세요. 외부 도구에 연결할 때는 사용할 기록과 필요한 권한을 선택합니다."
-      : "Create a diary or prepare a share card from your activities. Choose which records and permissions to use when connecting external tools.",
+      ? "내 활동으로 AI 일기, 리포트 이메일, 자랑 카드를 만들어 보세요. 공유하기 전에 위치와 민감한 지표는 숨겨집니다."
+      : "Create an AI diary, a report email, or a share card from your activities. Locations and sensitive metrics stay hidden before you share.",
     tabs: {
       featured: ko ? "추천" : "Featured",
-      recipes: ko ? "레시피" : "Recipes",
+      recipes: ko ? "만들 수 있는 것" : "What you can make",
       share: ko ? "자랑 카드" : "Share cards",
     },
     actions: {
       preview: ko ? "공유 카드 보기" : "Preview share card",
-      recipe: ko ? "활용 방법 보기" : "View ideas",
+      recipe: ko ? "만들 수 있는 것 보기" : "See what you can make",
       generate: ko ? "AI 일기 생성" : "Generate diary",
       generating: ko ? "AI 일기 생성 중" : "Generating diary",
       post: ko ? "게시글로 공유" : "Share as post",
@@ -207,8 +211,6 @@ function buildCopy(language: string) {
       emailLogin: ko ? "로그인하면 본인 확인 이메일로만 받아볼 수 있습니다." : "Sign in to send this only to your verified account email.",
       reportLogin: ko ? "로그인하면 레시피 신고를 접수할 수 있습니다." : "Sign in to report this recipe.",
       copyFailed: ko ? "복사 권한을 확인한 뒤 다시 시도해 주세요." : "Check clipboard permission and try again.",
-      deploy: ko ? "배치 방법 보기" : "View deployment path",
-      deployOpened: ko ? "레시피 배치 흐름을 보여드릴게요." : "Showing the recipe deployment flow.",
     },
     pathsTitle: ko ? "원하는 역할을 고르세요" : "Choose your role",
     paths: [
@@ -284,11 +286,6 @@ function buildCopy(language: string) {
         ? "AI 일기를 생성하지 못했습니다. 활동 데이터가 있는지 확인하거나 일일 한도가 초기화된 뒤 다시 시도해 주세요."
         : "Could not generate the diary. Check that activity data is available, or try again after the daily limit resets.",
     },
-    stats: [
-      { label: ko ? "활용 방법" : "Ways to use", value: ko ? "일기·리포트·공유 카드" : "Diaries, reports, share cards" },
-      { label: ko ? "이용 방식" : "How to use", value: ko ? "직접 실행·내 도구 연결" : "Run here or connect tools" },
-      { label: ko ? "데이터 접근" : "Data access", value: ko ? "본인 승인" : "Rider approved" },
-    ],
     marketTitle: ko ? "레시피 허브로 키우려면 구조가 먼저 필요합니다" : "A recipe hub needs structure before scale",
     marketBody: ko
       ? "Creator Hub가 커지려면 레시피 카드가 많아지는 것만으로는 부족합니다. 사용자는 검색하고, 고르고, 권한을 확인하고, 배치하고, 결과를 보고, 언제든 중지할 수 있어야 합니다. 오라이더의 방향은 데이터를 밖으로 내보내는 일이 아니라, 본인 기록을 안전한 방식으로 오래 활용하게 돕는 것입니다."
@@ -328,15 +325,16 @@ function buildCopy(language: string) {
     ],
     card: {
       outcome: ko ? "나오는 결과" : "Output",
-      delivery: ko ? "전달 채널" : "Delivery",
       why: ko ? "왜 유용한가" : "Why it helps",
-      deploy: ko ? "배치 방식" : "Deployment",
     },
     email: {
       title: ko ? "리포트 템플릿 이메일" : "Report-template email",
       body: ko
         ? "대표 레시피는 본인 계정 이메일로 실제 리포트를 보내볼 수 있습니다. 주간 부하 리포트는 KPI 카드, 부하 차트, 대표 활동 썸네일, 다음 행동을 포함합니다. 내장 정기 발송은 제공하지 않으며, 직접 자동화를 만들려면 Personal Data API를 사용합니다."
         : "Flagship recipes can send a real report to your account email. The weekly load report includes KPI cards, a load chart, key-session thumbnails, and next actions. Recurring delivery requires your own Personal Data API automation.",
+      riderBody: ko
+        ? "대표 항목은 본인 계정 이메일로 실제 리포트를 보내볼 수 있습니다. 주간 부하 리포트는 핵심 수치, 부하 차트, 대표 활동 썸네일, 다음 행동을 담습니다."
+        : "Flagship items can send a real report to your account email. The weekly load report includes key numbers, a load chart, key-session thumbnails, and next actions.",
       safety: ko
         ? "임의 주소 입력은 허용하지 않고, 로그인한 본인의 확인된 이메일로만 보냅니다. 외부 공유용 결과는 집계 요약 중심으로 따로 줄일 수 있어야 합니다."
         : "No arbitrary recipient entry: Orider sends only to the signed-in rider's verified account email. External sharing should be reducible to aggregate-only summaries.",
@@ -361,6 +359,9 @@ function buildCopy(language: string) {
       footer: ko ? "정확한 위치와 민감 지표는 숨김" : "Exact location and sensitive metrics hidden",
     },
     builderTitle: ko ? "만들고 싶은 활용법을 제안하세요" : "Propose what you want to build",
+    riderBuilderBody: ko
+      ? "동호회 리포트, 회복 알림, 월간 배지처럼 내 기록으로 만들고 싶은 것을 남겨 주세요. 다음 만들기 항목의 후보가 됩니다."
+      : "Tell us what you want to make from your rides, such as club reports, recovery alerts, or monthly badges. Requests become candidates for new items.",
     builderBody: ko
       ? "개발자가 아니어도 괜찮습니다. 노션에 주간 리포트를 남기고 싶다, Slack으로 회복 알림을 받고 싶다, n8n으로 월간 배지를 자동 생성하고 싶다처럼 실제로 필요한 장면을 남겨 주세요. 개발자는 그 아이디어를 Personal Data API 레시피로 구체화해 PR로 보낼 수 있습니다."
       : "You do not need to be a developer to contribute. Ask for real workflows such as a Notion weekly report, Slack recovery reminder, or n8n monthly badge automation. Developers can turn those ideas into Personal Data API recipes and submit PRs.",
@@ -372,7 +373,7 @@ function buildCopy(language: string) {
           ? "AI 일기 생성, 주간 부하 차트 미리보기, 공유 카드 복사처럼 화면 안에서 끝나는 기능입니다. 로그인하면 내 활동 데이터로 계산되고, 비로그인 상태에서는 데모 데이터가 보입니다."
           : "Use in-product actions such as AI diary generation, weekly load preview, and share-card copy. Signed-in riders use their own data; signed-out visitors see demo data.",
         action: ko ? "자랑 카드 보기" : "View share cards",
-        to: "/explore/recipes/share",
+        to: `${RECORDS_STUDIO_PATH}/share`,
       },
       {
         title: ko ? "내 도구에 직접 연결하기" : "Connect it to your own tools",
@@ -380,7 +381,7 @@ function buildCopy(language: string) {
           ? "설정의 Developer API에서 개인 API key를 만들고, 필요한 scope만 골라 Notion, Slack, n8n, 개인 대시보드 같은 도구에서 본인 데이터를 읽어갑니다. 이 단계는 간단한 자동화나 개발 지식이 필요합니다."
           : "Create a personal API key in Developer API settings, choose only the scopes you need, and read your own data from tools like Notion, Slack, n8n, or a personal dashboard. This path needs basic automation or development knowledge.",
         action: ko ? "활용 예시 보기" : "View examples",
-        to: "/explore/recipes/examples",
+        to: `${DEVELOPER_GUIDE_PATH}/examples`,
       },
       {
         title: ko ? "아이디어만 제안하기" : "Request an idea",
@@ -458,18 +459,6 @@ function buildCopy(language: string) {
           : "You are the web automation implementer. Write an implementation-ready server/automation design and frontend code for a public Orider profile badge on a personal website.\n\nGoal: never expose the API key in the browser. Once per day, read Orider monthly aggregates, update public JSON, and render that JSON as a small badge on the site.\nReference paths: create API keys at /en/settings/developer; API guide is docs/PERSONAL_DATA_API-en.md; the formal API contract is Swagger UI /api/v1/docs or OpenAPI YAML /api/v1/docs/openapi.yaml.\nAPI contract check: confirm the X-API-Key header, endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI.\nRequired scopes: use Orider activities:read, or a more limited monthly aggregate scope if OpenAPI/the guide provides one.\nValues the user must provide: ORIDER_API_KEY, public JSON storage location, site path for the badge, timezone.\nPublic JSON schema: include only month, distanceKm, elevationM, rideCount, and updatedAt.\nExclude: routes, start/end areas, activity names, detailed heart-rate/power values, and API keys.\nOutput format: recommended architecture, GitHub Actions or server-function example, environment variables, public JSON example, frontend badge component, cache/error handling, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented in Swagger/OpenAPI, mark it as needs confirmation instead of inventing it.",
       },
     ],
-    apiPath: {
-      title: ko ? "직접 연결해서 쓰는 가장 짧은 경로" : "Shortest path to connect your own tools",
-      body: ko
-        ? "외부 도구에서 쓰려면 완성 기능을 복사하는 것이 아니라, Personal Data API로 본인 데이터를 읽어 직접 연결합니다. API key는 본인 계정에서 만들고 언제든 폐기할 수 있으며, 배치할 때 필요한 scope와 실행 주기만 선택해야 합니다."
-        : "External tools do not copy a finished feature from this page. They connect to your own data through the Personal Data API. Create and revoke keys from your account, then choose only the scopes and schedule each deployment needs.",
-      steps: [
-        ko ? "1. /ko/settings/developer에서 개인 API key 생성" : "1. Create a personal API key at /en/settings/developer",
-        ko ? "2. Swagger/OpenAPI의 endpoint 계약에 맞춰 Notion, Slack, n8n, 개인 서버에서 호출" : "2. Call endpoints from Swagger/OpenAPI in Notion, Slack, n8n, or your own server",
-        ko ? "3. 실행 주기 선택: 수동, 매일 1회, 매주 월요일, 라이딩 완료 후" : "3. Choose a trigger: manual, daily, Monday morning, or after a ride",
-        ko ? "4. 공유 전 위치·민감 지표를 집계하거나 제거하고, 필요하면 API key를 폐기" : "4. Aggregate or remove sensitive data before sharing, and revoke the key when needed",
-      ],
-    },
     apiDocs: {
       title: ko ? "API 계약 바로 확인" : "API contract",
       body: ko
@@ -523,7 +512,20 @@ function diaryFailureMessage(error: unknown, language: string, fallback: string)
   }
 }
 
-export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 탐색 임베드는 경로 대신 쿼리로 섹션을 넘긴다. */ section?: string | null } = {}) {
+export interface CreatorHubPageProps {
+  /** 앱 「이 기록으로 만들기」 임베드는 경로 대신 쿼리로 섹션을 넘긴다. */
+  section?: string | null;
+  /** rider: `/records/studio` (개발자 안내 숨김), developer: `/settings/developer/:section`. */
+  mode?: CreatorHubMode;
+  /**
+   * 앱이 특정 활동에서 열었을 때의 활동 ID(임베드 `?activity=`). AI 일기는 최근 7일 집계로만 만들어
+   * 특정 활동을 받지 않는다 — 이 값은 사진·경로 포스터(ride-story) 선택 창에서 그 활동을 먼저 고르는 데만 쓴다.
+   */
+  activityId?: string | null;
+}
+
+export default function CreatorHubPage({ section: sectionOverride, mode = "rider", activityId = null }: CreatorHubPageProps = {}) {
+  const rider = mode === "rider";
   const { i18n } = useTranslation();
   const { t: loadT } = useTranslation("dashboard");
   const { user, signIn } = useAuth();
@@ -537,7 +539,7 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
   const { weeklyStats } = useWeeklyStats();
   const copy = useMemo(() => buildCopy(i18n.language), [i18n.language]);
   const apiDocsLinks = creatorApiDocsLinks();
-  const section = parseCreatorSection(sectionParam);
+  const section = parseCreatorSection(sectionParam, mode);
   const tabParam = searchParams.get("tab");
   const [tab, setTabState] = useState<CreatorTab>(() => sectionDefaultTab(section, tabParam));
   const [chartCopied, setChartCopied] = useState(false);
@@ -594,13 +596,8 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
         summary: localized.summary,
         outcome: localized.outcome,
         detail: localized.detail,
-        scopes: recipe.scopes,
-        channels: recipe.channels,
         showShareCardPreview: recipe.showShareCardPreview,
         labels: localized.labels,
-        scopeLabel: localized.scopeLabel ?? (locale === "ko" ? "Scopes · 직접 만드는 확장판" : "Scopes · extension only"),
-        shareMode: localized.shareMode,
-        deployMode: localized.deployMode,
         status: localized.status,
       };
     });
@@ -672,15 +669,15 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
 
   const setTab = (nextTab: CreatorTab, scrollTarget?: CreatorScrollTarget) => {
     if (scrollTarget === "deploy") {
-      navigate("/explore/recipes/deploy");
+      navigate(`${DEVELOPER_GUIDE_PATH}/deploy`);
       return;
     }
     if (scrollTarget === "share" || nextTab === "share") {
-      navigate("/explore/recipes/share");
+      navigate(`${RECORDS_STUDIO_PATH}/share`);
       return;
     }
     if (scrollTarget === "recipes" || nextTab === "recipes") {
-      navigate("/explore/recipes/recipes");
+      navigate(`${RECORDS_STUDIO_PATH}/recipes`);
       return;
     }
     setTabState(nextTab);
@@ -816,8 +813,9 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
     }
   };
 
-  const detailLinks = useMemo(() => buildCreatorHubDetailLinks(i18n.language), [i18n.language]);
-  const activeDetail = detailLinks.find((link) => link.to.endsWith(`/${section}`));
+  const detailLinks = useMemo(() => buildCreatorHubDetailLinks(i18n.language, mode), [i18n.language, mode]);
+  const activeDetail = detailLinks.find((link) => link.section === section);
+  const homeLink = rider ? { to: RECORDS_STUDIO_PATH, label: copy.title } : { to: DEVELOPER_GUIDE_PATH, label: copy.developerBack };
 
   return (
     <GlossaryProvider scopeKey={`record-tools:${section}`}>
@@ -861,7 +859,7 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
                 <MessageSquareText size={ICON_SIZE.sm} aria-hidden />
                 {copy.actions.post}
             </Link>
-            <Link to="/explore/recipes/recipes" className={buttonClass({ variant: "secondary", size: "sm", className: recipeActionClass })}>
+            <Link to={`${RECORDS_STUDIO_PATH}/recipes`} className={buttonClass({ variant: "secondary", size: "sm", className: recipeActionClass })}>
                 <BookOpen size={ICON_SIZE.sm} />
                 {copy.actions.recipe}
             </Link>
@@ -870,29 +868,16 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
           </>
           ) : (
           <>
-            <Link to="/explore/recipes" className="inline-flex items-center gap-2 text-[length:var(--ft-body-size)] font-medium no-underline" style={{ color: "var(--lime)" }}>
+            <Link to={homeLink.to} className="inline-flex items-center gap-2 text-[length:var(--ft-body-size)] font-medium no-underline" style={{ color: "var(--lime)" }}>
               <BookOpen size={ICON_SIZE.sm} />
-              {copy.title}
+              {homeLink.label}
             </Link>
-            <h1 className="mt-3 max-w-3xl text-[length:var(--fs-xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{activeDetail?.title ?? copy.title}</h1>
+            <h1 className="mt-3 max-w-3xl text-[length:var(--fs-xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{activeDetail?.title ?? (rider ? copy.title : copy.developerTitle)}</h1>
             <p className="mt-2 max-w-3xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{activeDetail?.body ?? copy.subtitle}</p>
           </>
           )}
         </div>
 
-        {section === "overview" && (
-        <details className="creator-technical-summary">
-          <summary>{i18n.language.startsWith("ko") ? "연결 방식과 데이터 권한" : "Connections and data access"}</summary>
-        <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-3">
-          {copy.stats.map((stat) => (
-            <div key={stat.label} className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-              <Text as="div" variant="eyebrow">{stat.label}</Text>
-              <div className="mt-1 text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{stat.value}</div>
-            </div>
-          ))}
-        </div>
-        </details>
-        )}
       </section>
 
 
@@ -901,8 +886,8 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
         <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>
           {i18n.language.startsWith("ko") ? "다른 활용 방법" : "More ways to use your rides"}
         </h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          {[...detailLinks].sort((a, b) => Number(b.to.endsWith("/share")) - Number(a.to.endsWith("/share"))).map((link) => {
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {[...detailLinks].sort((a, b) => Number(b.section === "share") - Number(a.section === "share")).map((link) => {
             const DetailIcon = link.icon;
             return (
               <Link key={link.to} to={link.to} className="rounded-[var(--r-md)] border p-4 no-underline" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
@@ -925,7 +910,7 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
             <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.deployTitle}</GlossaryText></h2>
             <p className="mt-2 max-w-4xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.deployBody}</GlossaryText></p>
           </div>
-          <Link to="/settings/developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
+          <Link to={DEVELOPER_GUIDE_PATH} className={buttonClass({ variant: "secondary", size: "sm" })}>
             <KeyRound size={ICON_SIZE.sm} aria-hidden />
             {copy.actions.manageApiKeys}
           </Link>
@@ -937,6 +922,26 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
               <p className="mt-2 text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{step.body}</p>
             </div>
           ))}
+        </div>
+      </section>
+      )}
+
+      {section === "deploy" && (
+      <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+        <div className="flex items-center gap-2">
+          <FileText size={ICON_SIZE.md} style={{ color: "var(--aqua)" }} />
+          <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.apiDocs.title}</GlossaryText></h2>
+        </div>
+        <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.apiDocs.body}</GlossaryText></p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <a href={apiDocsLinks.docs} className={buttonClass({ variant: "secondary", size: "sm" })}>
+            <ExternalLink size={ICON_SIZE.sm} aria-hidden />
+            {copy.apiDocs.swagger}
+          </a>
+          <a data-testid="E6-4-2" href={apiDocsLinks.openapi} className={buttonClass({ variant: "secondary", size: "sm" })}>
+            <FileText size={ICON_SIZE.sm} aria-hidden />
+            {copy.apiDocs.yaml}
+          </a>
         </div>
       </section>
       )}
@@ -1094,35 +1099,6 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
                   ))}
                 </div>
 
-                <details className="creator-technical-summary mt-4">
-                  <summary>{i18n.language.startsWith("ko") ? "데이터 권한과 연결 방식" : "Data permissions and connections"}</summary>
-                <div className="mt-4 grid gap-3 text-[length:var(--ft-body-size)] min-[420px]:grid-cols-2" style={{ color: "var(--ink-3)" }}>
-                  <div>
-                    <Text as="div" variant="eyebrow">{item.scopeLabel}</Text>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {item.scopes.map((scope) => <code key={scope} className={metadataCodeClass} style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>{scope}</code>)}
-                    </div>
-                  </div>
-                  <div>
-                    <Text as="div" variant="eyebrow">Share</Text>
-                    <div className="mt-1 break-words" style={{ color: "var(--ink-2)" }}>{item.shareMode}</div>
-                  </div>
-                </div>
-                <div className="mt-3 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>
-                  <Text as="div" variant="eyebrow">{copy.card.delivery}</Text>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {item.channels.map((channel) => (
-                      <code key={channel} className={metadataCodeClass} style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>{channel}</code>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-3 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                  <Text as="div" variant="eyebrow">{copy.card.deploy}</Text>
-                  <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{item.deployMode}</p>
-                </div>
-
-                </details>
-
                 <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
                   <Button data-testid="E6-1-2" className={recipeActionClass} size="sm" variant="secondary" onClick={() => {
                     if (!user) { void signIn(); return; }
@@ -1169,18 +1145,6 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
                       <BookOpen size={ICON_SIZE.sm} />
                       {copy.actions.recipe}
                   </Button>
-                  <Button
-                    className={recipeActionClass}
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setTab("recipes", "deploy");
-                      showToast(copy.actions.deployOpened, "info");
-                    }}
-                  >
-                    <KeyRound size={ICON_SIZE.sm} />
-                    {copy.actions.deploy}
-                  </Button>
                   <Button data-testid="E6-1-6"
                     className={recipeActionClass}
                     size="sm"
@@ -1203,29 +1167,12 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-            <div className="flex items-center gap-2">
-              <FileText size={ICON_SIZE.md} style={{ color: "var(--aqua)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.apiDocs.title}</GlossaryText></h2>
-            </div>
-            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.apiDocs.body}</GlossaryText></p>
-            <div className="mt-4 grid gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1">
-              <a href={apiDocsLinks.docs} className={buttonClass({ variant: "secondary", size: "sm" })}>
-                <ExternalLink size={ICON_SIZE.sm} aria-hidden />
-                {copy.apiDocs.swagger}
-              </a>
-              <a data-testid="E6-4-2" href={apiDocsLinks.openapi} className={buttonClass({ variant: "secondary", size: "sm" })}>
-                <FileText size={ICON_SIZE.sm} aria-hidden />
-                {copy.apiDocs.yaml}
-              </a>
-            </div>
-          </div>
           <div ref={shareSectionRef} className="scroll-mt-28 rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Bell size={ICON_SIZE.md} style={{ color: "var(--amber)" }} />
               <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.email.title}</GlossaryText></h2>
             </div>
-            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.email.body}</GlossaryText></p>
+            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.email.riderBody}</GlossaryText></p>
             <div className="mt-3 rounded-[var(--r-md)] border p-3 text-[length:var(--ft-body-size)] leading-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
               {copy.email.safety}
             </div>
@@ -1354,7 +1301,7 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
       )}
 
       {section === "share" && (
-      <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="grid items-start gap-4">
         <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -1425,27 +1372,10 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
           </div>
         </div>
 
-        <aside className="space-y-4">
-          <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-            <div data-testid="E6-3" className="flex items-center gap-2">
-              <Send size={ICON_SIZE.md} style={{ color: "var(--lime)" }} />
-              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.apiPath.title}</GlossaryText></h2>
-            </div>
-            <details className="creator-technical-summary mt-3"><summary>{i18n.language.startsWith("ko") ? "내 도구에 연결하는 방법" : "How to connect your tools"}</summary>
-            <p className="mt-2 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.apiPath.body}</GlossaryText></p>
-            <ol className="mt-3 space-y-2">
-              {copy.apiPath.steps.map((step) => (
-                <li key={step} className="text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-2)" }}>{step}</li>
-              ))}
-            </ol>
-            </details>
-
-          </div>
-        </aside>
       </section>
       )}
 
-      {(section === "deploy" || section === "recipes") && (
+      {section === "deploy" && (
       <details className="creator-technical-summary rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
       <summary>{i18n.language.startsWith("ko") ? "활용 흐름과 데이터 보호 원칙" : "Workflow and data protection"}</summary>
       <section className="grid gap-4 rounded-[var(--r-lg)] border p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
@@ -1495,9 +1425,10 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
       {section !== "overview" && (
       <section className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.builderTitle}</GlossaryText></h2>
-        <p className="mt-1 max-w-4xl text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.builderBody}</GlossaryText></p>
+        <p className="mt-1 max-w-4xl text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{rider ? copy.riderBuilderBody : copy.builderBody}</GlossaryText></p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link data-testid="E6-3-1" to="/settings/developer" className={buttonClass({ variant: "primary", size: "sm" })}>
+          {!rider && <>
+          <Link data-testid="E6-3-1" to={DEVELOPER_GUIDE_PATH} className={buttonClass({ variant: "primary", size: "sm" })}>
             <KeyRound size={ICON_SIZE.sm} aria-hidden />
             {copy.actions.manageApiKeys}
           </Link>
@@ -1505,6 +1436,7 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
             <GitPullRequest size={ICON_SIZE.sm} aria-hidden />
             {copy.actions.submitRecipe}
           </a>
+          </>}
           <Link data-testid="E6-1-7" to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
             <MessageSquareText size={ICON_SIZE.sm} aria-hidden />
             {copy.actions.requestRecipe}
@@ -1518,6 +1450,7 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
         onPreview={(selection) => { setPreviewRequest({ recipeId: "ride-story", ...selection }); setRideStoryPickerOpen(false); }}
         open={rideStoryPickerOpen}
         userId={user?.uid ?? null}
+        preferredActivityId={activityId}
         onClose={() => setRideStoryPickerOpen(false)}
         onSent={() => markEmailSent("ride-story")}
         onFailed={() => markEmailFailed("ride-story")}

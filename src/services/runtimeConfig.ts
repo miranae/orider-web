@@ -37,6 +37,12 @@ export interface RuntimeConfig {
   trainingExecutionEnabled?: boolean;
   riderWorkoutDeliveryEnabled?: boolean;
   worldAccountSignalsEnabled?: boolean;
+  /** 공개 코스 상세의 운영 월드 `/course-signals` 구독. 기본 꺼짐 — 끄면 Firestore `cache_metadata` 구독만 쓴다. */
+  worldCourseSignalsEnabled?: boolean;
+  /** 회원 관전의 운영 월드 `/events` 구독(#1855). 기본 꺼짐 — 끄면 콜러블·Firestore 신호 경로만 쓴다. */
+  worldEventViewsEnabled?: boolean;
+  /** 운영자 대시보드의 운영 월드 정본 스냅샷 구독(#4049). 기본 꺼짐 — worldEventViewsEnabled 와 함께 켜야 동작한다. */
+  operatorWorldSnapshotsEnabled?: boolean;
   coachRidePlanTokenEnabled?: boolean;
   coachRidePlanSnapshotEnabled?: boolean;
   coachRidePlanAiEnabled?: boolean;
@@ -111,6 +117,9 @@ function readBuildFallbackConfig(): RuntimeConfig {
     trainingExecutionEnabled: import.meta.env.VITE_TRAINING_EXECUTION_ENABLED === "true",
     riderWorkoutDeliveryEnabled: import.meta.env.VITE_RIDER_WORKOUT_DELIVERY_ENABLED === "true",
     worldAccountSignalsEnabled: import.meta.env.VITE_WORLD_ACCOUNT_SIGNALS_ENABLED === "true",
+    worldCourseSignalsEnabled: import.meta.env.VITE_WORLD_COURSE_SIGNALS_ENABLED === "true",
+    worldEventViewsEnabled: import.meta.env.VITE_WORLD_EVENT_VIEWS_ENABLED === "true",
+    operatorWorldSnapshotsEnabled: import.meta.env.VITE_OPERATOR_WORLD_SNAPSHOTS_ENABLED === "true",
     coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",

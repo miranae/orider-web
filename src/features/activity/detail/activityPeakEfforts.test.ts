@@ -7,18 +7,17 @@ const peak = { durationSec: 60, startIndex: 987, endIndex: 1047, startOffsetSec:
   avgSpeedKmh: null, maxSpeedKmh: null, avgCadence: null, containsMaxHr: false, leadsToMaxHr: false } satisfies RidePeakEffort;
 const metrics = { discipline: "bike", isVirtualPower: false, peakEfforts: { peaks: [peak], highlight: peak, indexAxis: "route" } } as ActivityMetrics;
 describe("canonical peak efforts", () => {
-  it("requires owner, confirmed measured power and settled input", () => {
-    expect(visiblePeakEfforts(metrics, true)).toEqual([peak]);
-    expect(visiblePeakEfforts(metrics, false)).toEqual([]);
-    expect(visiblePeakEfforts(metrics, true, true)).toEqual([]);
+  it("requires confirmed measured power and settled input — same for every authorized viewer (P1)", () => {
+    expect(visiblePeakEfforts(metrics)).toEqual([peak]);
+    expect(visiblePeakEfforts(metrics, true)).toEqual([]);
     for (const change of [{ isVirtualPower: undefined }, { isVirtualPower: true }, { inputPending: true }, { inputCoverage: "pending" }, { discipline: "run" }]) {
-      expect(visiblePeakEfforts({ ...metrics, ...change } as ActivityMetrics, true)).toEqual([]);
+      expect(visiblePeakEfforts({ ...metrics, ...change } as ActivityMetrics)).toEqual([]);
     }
   });
   it("retains missing sensor values and does not substitute highlight or fabricate durations", () => {
-    expect(visiblePeakEfforts(metrics, true)[0]?.avgHr).toBeNull();
-    expect(visiblePeakEfforts({ ...metrics, peakEfforts: { peaks: [], highlight: peak } }, true)).toEqual([]);
-    expect(visiblePeakEfforts({ ...metrics, peakEfforts: { peaks: [peak, peak, { ...peak, durationSec: 30 }, { ...peak, durationSec: 300, avgPowerW: NaN }], highlight: null } }, true)).toEqual([peak]);
+    expect(visiblePeakEfforts(metrics)[0]?.avgHr).toBeNull();
+    expect(visiblePeakEfforts({ ...metrics, peakEfforts: { peaks: [], highlight: peak } })).toEqual([]);
+    expect(visiblePeakEfforts({ ...metrics, peakEfforts: { peaks: [peak, peak, { ...peak, durationSec: 30 }, { ...peak, durationSec: 300, avgPowerW: NaN }], highlight: null } })).toEqual([peak]);
   });
   it("maps route and downsampled chart independently by absolute distance, never raw peak indices", () => {
     const streams = { distance: [0, 50, 100, 150, 200, 250, 300, 350], latlng: Array.from({ length: 8 }, () => [37, 127] as [number, number]) };
@@ -40,12 +39,11 @@ describe("canonical peak efforts", () => {
 describe("20 minute elapsed winner", () => {
   const winner = { durationSec: 1200 as const, startOffsetSec: 23.5, endOffsetSec: 1223.5, avgPowerW: 186.835 };
   const current = { ...metrics, powerDurationCurve: { state: "available", points: [{ durationSeconds: 1200, maxAveragePowerW: 186.835 }], twentyMinuteEffort: winner } } as ActivityMetrics;
-  it("uses exact saved elapsed bounds without requiring matching GPS indices", () => expect(twentyMinuteEffort(current, true)).toEqual(winner));
-  it("never invents an interval for legacy, stale, denied or mismatched PDC", () => {
-    expect(twentyMinuteEffort(metrics, true)).toBeNull();
-    expect(twentyMinuteEffort(current, false)).toBeNull();
-    expect(twentyMinuteEffort(current, true, true)).toBeNull();
-    expect(twentyMinuteEffort({ ...current, inputPending: true }, true)).toBeNull();
-    expect(twentyMinuteEffort({ ...current, powerDurationCurve: { ...current.powerDurationCurve, points: [] } } as ActivityMetrics, true)).toBeNull();
+  it("uses exact saved elapsed bounds without requiring matching GPS indices", () => expect(twentyMinuteEffort(current)).toEqual(winner));
+  it("never invents an interval for legacy, stale or mismatched PDC", () => {
+    expect(twentyMinuteEffort(metrics)).toBeNull();
+    expect(twentyMinuteEffort(current, true)).toBeNull();
+    expect(twentyMinuteEffort({ ...current, inputPending: true })).toBeNull();
+    expect(twentyMinuteEffort({ ...current, powerDurationCurve: { ...current.powerDurationCurve, points: [] } } as ActivityMetrics)).toBeNull();
   });
 });

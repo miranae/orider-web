@@ -13,7 +13,7 @@ import enEventStrings from "../../i18n/resources/en/event.json";
 
 const dialog = vi.hoisted(() => ({ confirm: vi.fn(async () => true), alert: vi.fn(async () => {}), prompt: vi.fn(async () => null) }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => dialog }));
-vi.mock("../../components/RouteMap", () => ({ default: () => null }));
+vi.mock("../../components/RouteMap", () => ({ default: () => null, supportsWebGL: () => false }));
 
 function simulateLogin(value: { uid: string }) { mockLogin(value); auth.currentUser = getCurrentUser() as unknown as User; }
 

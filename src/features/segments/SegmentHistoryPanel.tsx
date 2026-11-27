@@ -1,3 +1,4 @@
+import { capDecimals } from "../../utils/numberDisplay";
 import GlossaryText from "../../components/common/GlossaryText";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -47,7 +48,7 @@ export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds
   for (const label of gapLabels) gapLabelCounts.set(label, (gapLabelCounts.get(label) ?? 0) + 1);
   const select = (activityId: string, effortId: string) => setSelection(old => ({ activityId, effortId, nonce: (old?.nonce ?? 0) + 1 }));
   const source = (row: SegmentHistoryAttempt) => typeof row.source === "string" && row.source ? row.source : t("history.unknownSource");
-  const sensors = (row: SegmentHistoryAttempt) => `${row.averageSpeedKph == null ? "—" : row.averageSpeedKph.toFixed(1)} km/h · ${row.averageHeartrate ?? "—"} bpm · ${row.averageWatts ?? "—"} W${row.isVirtualPower ? ` (${t("history.virtual")})` : ""} · ${row.averageCadence ?? "—"} rpm`;
+  const sensors = (row: SegmentHistoryAttempt) => `${row.averageSpeedKph == null ? "—" : row.averageSpeedKph.toFixed(1)} km/h · ${row.averageHeartrate == null ? "—" : capDecimals(row.averageHeartrate)} bpm · ${row.averageWatts == null ? "—" : capDecimals(row.averageWatts)} W${row.isVirtualPower ? ` (${t("history.virtual")})` : ""} · ${row.averageCadence ?? "—"} rpm`;
   const attempt = (row: SegmentHistoryAttempt, current: boolean) => (
     <div className={`segment-history-row${current ? " segment-history-row-current" : ""}`} key={row.effortId} aria-current={current ? "true" : undefined}>
       <div className="segment-history-row-heading"><Text variant="bodySmall">{date(row.startDateMs)}</Text><Text variant="dataSmall">{elapsed(row.elapsedMs)}</Text></div>

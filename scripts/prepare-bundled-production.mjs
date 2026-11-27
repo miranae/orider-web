@@ -85,9 +85,9 @@ export async function verifyBundledProductionBackend(runtime, backend, fetcher =
   }
   for (const origin of [primaryOrigin, "https://www.orider.co.kr", "https://miranae-orider-g1.web.app", "https://miranae-orider-g1.firebaseapp.com"]) {
     if (origin !== primaryOrigin) {
-      for (const name of ["getActivityDiscovery", "socialAuthStart"]) {
-        await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name, fetcher });
-      }
+      await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "getActivityDiscovery", fetcher });
+      // 소셜 로그인 시작은 비로그인 사용자가 부르는 콜러블이라 인증 대신 입력 검증으로 거절한다(기존 Functions와 같은 400).
+      await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "socialAuthStart", fetcher, responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
     }
     await verifyBundledCallable({ base: runtime.firebaseFunctionsBase, origin, name: "webHandoffRedeem", fetcher, requestHeaders: ["content-type"], responseContract: { status: 400, field: "status", value: "INVALID_ARGUMENT" } });
     await verifyBundledCallable({ base: runtime.aiApiBase, origin, name: "v1/activity-narrative", fetcher, requestBody: {}, responseContract: { status: 401, field: "code", value: "unauthenticated" } });
