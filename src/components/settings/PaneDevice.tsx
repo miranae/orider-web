@@ -43,6 +43,7 @@ import {
 } from "./_primitives";
 import { Resolvable } from "../redesign/states/Resolvable";
 import { useSignInResolve } from "../../hooks/useSignInResolve";
+import { FtpDevicesCard } from "./FtpDevicesCard";
 import { LayoutEditorCard } from "./LayoutEditorCard";
 import { Button, Card, DropdownSelect, IconButton, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -781,13 +782,14 @@ export function PaneDevice() {
       </SettingsCard>
     );
   }
+  const ftpDevices = <FtpDevicesCard key={uid} uid={uid} names={new Map(records.map((device) => [device.deviceId, device.deviceName]))} />;
   if (!record) {
     return (
-      <SettingsCard data-testid="S6.noDevice" title={t("device.mobileSync")}>
+      <><SettingsCard data-testid="S6.noDevice" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.noDevice")}
         </div>
-      </SettingsCard>
+      </SettingsCard>{ftpDevices}</>
     );
   }
 
@@ -981,6 +983,7 @@ export function PaneDevice() {
         <ScopeBadge scope="device" />
       </div>
 
+      {ftpDevices}
       <LocalizedLink to="/coach/condition#thresholds" className="ds-tap-target">{t("device.thresholdSource")}</LocalizedLink>
       <div
         style={{
