@@ -34,7 +34,7 @@
       }
       if (hits.length >= 20) break;
     }
-    if (!hits.length) { box.innerHTML = '<div class="r-empty">검색 결과 없음</div>'; box.classList.add("show"); return; }
+    if (!hits.length) { box.innerHTML = '<div class="r-empty">' + esc(box.dataset.emptyLabel || "검색 결과 없음") + '</div>'; box.classList.add("show"); return; }
     box.innerHTML = hits.map(function (h) {
       return '<a href="' + h.url + '"><span class="r-grp">' + esc(h.group) + '</span><br>' +
         esc(h.title) + (h.sub ? ' <span class="r-grp">· ' + esc(h.sub) + "</span>" : "") + "</a>";

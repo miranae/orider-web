@@ -4,6 +4,7 @@ import FitnessPdcProfile from "../../features/fitness/components/FitnessPdcProfi
 import GlossaryText from "../common/GlossaryText";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { localizedManualPath } from "../../i18n/manualPath";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
@@ -53,7 +54,7 @@ const RIDER_TYPE_KEYS = new Set([
 
 
 export default function BikePerformanceSummaryCard({ part = "all", compact = false, stableDetails = false, decision, pdc, weightKg, progression = [], ftpHistory = [], ftpHistoryControls, ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation("dashboard");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const evidenceId = useId();
   const activeFtp = decision?.activeFtpW ?? null;
@@ -168,7 +169,7 @@ export default function BikePerformanceSummaryCard({ part = "all", compact = fal
           <GlossaryText>{vo2Source === "pdc" ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc?.activityCount ?? 0 }) : vo2Source === "formula" ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient")}</GlossaryText>
         </Text>
         <Text as="p" variant="caption" tone="secondary"><GlossaryText>{t("mobileFitness.performance.modelEvidence")}</GlossaryText></Text>
-        <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
+        <a href={localizedManualPath("/web-manual/ch06-advanced.html#s6-3", i18n?.resolvedLanguage ?? i18n?.language)} style={{ color: "var(--aqua)", fontWeight: 600 }}>
           {t("mobileFitness.sport.bike.manualLink")}
         </a>
       </div>

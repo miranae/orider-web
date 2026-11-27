@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import InfoTip from "../../components/InfoTip";
 import { useState } from "react";
 import { Copy, Share2 } from "lucide-react";
@@ -26,7 +27,7 @@ type Props = {
 export default function MeetingInviteShare({ groupId, eventId, title, date, time, place, en }: Props) {
   const services = useFirebaseServices();
   const [status, setStatus] = useState("");
-  const text = (ko: string, english: string) => en ? english : ko;
+  const { t: clubText } = useTranslation("clubMeeting");
   const url = meetingInviteUrl(window.location.origin, groupId, eventId, en);
   const recordFailure = (action: string, error: unknown) => {
     logClientError("MeetingInviteShare", error, { action, groupId, eventId }, services);
@@ -35,17 +36,17 @@ export default function MeetingInviteShare({ groupId, eventId, title, date, time
     try {
       await navigator.clipboard.writeText(value);
       setStatus(invitation
-        ? text("초대 문구와 링크를 복사했어요. 카카오톡이나 메시지에 붙여넣으세요.", "Invitation copied. Paste it into KakaoTalk or Messages.")
-        : text("초대 링크를 복사했어요.", "Invitation link copied."));
+        ? clubText("meetingInviteShareCopy.invitation_copied_paste_it_into_kakaotalk")
+        : clubText("meetingInviteShareCopy.invitation_link_copied"));
     } catch (error) {
       recordFailure("copy", error);
-      setStatus(text("아래 링크를 길게 누르거나 선택해 복사해주세요.", "Select or press and hold the link below to copy."));
+      setStatus(clubText("meetingInviteShareCopy.select_or_press_and_hold_the"));
     }
   };
   const share = async () => {
     const payload = {
       title,
-      text: `${text("함께 라이딩해요!", "Join our ride!")}\n${title}\n${date} ${time} · ${place}\n${text("로그인 후 클럽 가입 및 참가 신청이 필요합니다.", "Sign in, join the club and register to attend.")}`,
+      text: `${clubText("meetingInviteShareCopy.join_our_ride")}\n${title}\n${date} ${time} · ${place}\n${clubText("meetingInviteShareCopy.sign_in_join_the_club_and")}`,
       url,
     };
     setStatus("");
@@ -58,24 +59,24 @@ export default function MeetingInviteShare({ groupId, eventId, title, date, time
     } catch (error) {
       if (isShareCancellation(error)) return;
       recordFailure("share", error);
-      setStatus(text("공유하지 못했어요. 초대 링크 복사를 눌러주세요.", "Could not share. Use Copy invite link."));
+      setStatus(clubText("meetingInviteShareCopy.could_not_share_use_copy_invite"));
     }
   };
   return (
-    <section className="cp-meeting-invite" aria-label={text("모임 초대", "Invite to meeting")}>
+    <section className="cp-meeting-invite" aria-label={clubText("meetingInviteShareCopy.invite_to_meeting")}>
       <div className="cp-actions">
         <Button size="sm" variant="outline" leadingIcon={<Copy size={ICON_SIZE.sm} />}
           onClick={() => void copy(url)}>
-          {text("초대 링크 복사", "Copy invite link")}
+          {clubText("meetingInviteShareCopy.copy_invite_link")}
         </Button>
         <Button size="sm" variant="outline" leadingIcon={<Share2 size={ICON_SIZE.sm} />}
           onClick={() => void share()}>
-          {text("공유", "Share")}
+          {clubText("meetingInviteShareCopy.share")}
         </Button>
-        <InfoTip label={text("초대 안내", "Invitation help")} title={text("모임 초대", "Invite to meeting")} content={text("카카오톡·메시지로 공유하세요. 참여하려면 로그인과 클럽 가입이 필요해요.", "Share via KakaoTalk or Messages. Sign-in and club membership are required.")}>{text("초대 안내", "Invitation help")}</InfoTip>
+        <InfoTip label={clubText("meetingInviteShareCopy.invitation_help")} title={clubText("meetingInviteShareCopy.invite_to_meeting")} content={clubText("meetingInviteShareCopy.share_via_kakaotalk_or_messages_sign")}>{clubText("meetingInviteShareCopy.invitation_help")}</InfoTip>
       </div>
       <details>
-        <summary>{text("간편 초대 링크", "Invitation link")}</summary>
+        <summary>{clubText("meetingInviteShareCopy.invitation_link")}</summary>
         <a href={url}>{url}</a>
       </details>
       <p role="status">{status}</p>

@@ -4,7 +4,8 @@ import { join } from 'node:path';
 
 const ROOT = fileURLToPath(new URL('../src/i18n/resources', import.meta.url));
 const BASE_LANG = 'ko';
-const CHECK_LANGS = ['en'];
+const NEW_LANGS = ['ja', 'zh-TW', 'pt-BR', 'es'];
+const CHECK_LANGS = ['en', ...NEW_LANGS];
 
 function flattenKeys(value, prefix = '') {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -28,7 +29,8 @@ const failures = [];
 
 for (const namespace of namespaces) {
   const basePath = join(ROOT, BASE_LANG, `${namespace}.json`);
-  const baseKeys = new Set(flattenKeys(readJson(basePath)));
+  const baseKeys = flattenKeys(readJson(basePath));
+  const englishKeys = flattenKeys(readJson(join(ROOT, "en", `${namespace}.json`)));
 
   for (const lang of CHECK_LANGS) {
     const targetPath = join(ROOT, lang, `${namespace}.json`);
@@ -40,7 +42,8 @@ for (const namespace of namespaces) {
       continue;
     }
 
-    for (const key of baseKeys) {
+    const requiredKeys = lang === "en" ? baseKeys : new Set([...baseKeys, ...englishKeys]);
+    for (const key of requiredKeys) {
       if (!targetKeys.has(key)) failures.push(`${lang}/${namespace}.json: missing key ${key}`);
     }
   }

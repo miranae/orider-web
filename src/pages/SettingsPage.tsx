@@ -101,7 +101,6 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
     <div className="settings-layout">
       <aside className="settings-sidebar">
         <div className="settings-sidebar-header">
-          <Text as="div" variant="eyebrow">SETTINGS</Text>
           <h1>{t("nav.pageTitle")}</h1>
         </div>
         {NAV_GROUPS.map((g) => (

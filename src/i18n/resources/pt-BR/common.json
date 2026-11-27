@@ -1,0 +1,581 @@
+{
+  "surfaceStatus": {
+    "loadingAnalysis": "Carregando análise",
+    "loadingProfile": "Carregando perfil",
+    "loadingScreen": "Carregando tela",
+    "waitingAuthorization": "Aguardando autorização do aplicativo",
+    "creatorViews": "Visualizações da central de criação",
+    "share": "Compartilhar"
+  },
+  "button": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "back": "Voltar",
+    "loading": "Carregando…",
+    "retry": "Tentar novamente",
+    "close": "Fechar",
+    "more": "Mais",
+    "nextTabs": "Mais TABs",
+    "previousTabs": "AnteriorTab",
+    "less": "menos",
+    "login": "Entrar",
+    "logout": "Sair",
+    "loginGoogle": "Entrar",
+    "markAllRead": "Marcelo Todos lendo"
+  },
+  "error": {
+    "generic": "Algo foi errado.",
+    "network": "Erro de rede.",
+    "permission": "Você não tem permissão.",
+    "notFound": "Não encontrado.",
+    "title": "Algo foi errado",
+    "description": "Por favor, tente novamente em um momento.",
+    "boundaryTitle": "Algo foi errado",
+    "unknownError": "Erro desconhecido",
+    "reload": "Reload",
+    "reloadAriaLabel": "Reload página",
+    "offlineBanner": "Você está offline. Algumas tela retirem quando a conexão retorna.",
+    "offlineTitle": "Você está offline",
+    "offlineDescription": "As tela que não são cache mas irá retrair automaticamente quando você está de volta online.",
+    "waitingOnline": "Esperando a conexão",
+    "appLoadFailed": "Não podia carregar o aplicativo",
+    "appLoadFailedReload": "Reload"
+  },
+  "label": {
+    "today": "Hoje",
+    "yesterday": "ontem",
+    "thisWeek": "Esta semana",
+    "thisMonth": "Este mês",
+    "all": "Todos os",
+    "language": "Idioma",
+    "profile": "Perfil",
+    "settings": "Configurações",
+    "rider": "Rider",
+    "ride": "Pedal",
+    "notifications": "Notificações",
+    "noNotifications": "Nenhuma notificação",
+    "search": "Busca",
+    "searchEmpty": "Não há resultados para \"{{query}}\"",
+    "loadingHint": "Carregamento"
+  },
+  "auth": {
+    "loginRequiredTitle": "Assinala em Necessário",
+    "loginRequiredDescription": "Inscreva-se para usar esta função.",
+    "loginValue": "Inscreva-se para salvar as rodas",
+    "loginLoading": "Assinando em...",
+    "loginFailed": "A inscrição falhou, por favor tente novamente."
+  },
+  "notFound": {
+    "description": "A página que você solicitou não existe ou foi movida."
+  },
+  "footer": {
+    "feedback": "Feedback",
+    "terms": "Termos",
+    "privacy": "Privacidade",
+    "community": "Guia comunitária",
+    "contact": "Contato",
+    "more": "Mais",
+    "collapse": "colapso",
+    "appManual": "Manual de aplicativo",
+    "webManual": "Manual de Web",
+    "aiPolicy": "A política do treinador",
+    "stravaTerms": "Strava Termos",
+    "calculator": "Calculador Público",
+    "partnershipInquiry": "Participe",
+    "help": "Ajuda",
+    "policies": "Termos e políticas",
+    "install": "Baixar o app",
+    "navigation": "Informações do site",
+    "email": "e-mail"
+  },
+  "partnership": {
+    "eyebrow": "O nosso cavaleiro, o nosso cavaleiro aberto.",
+    "title": "Se envolver com Orider",
+    "intro": "Ajude a construí-lo, conectá-lo ou explore como pode durar. Escolha a conversa que você gostaria de começar.",
+    "choicesLabel": "Maneiras de se envolver",
+    "back": "Todas as formas de se envolver",
+    "aboutContext": "Construído por um cavaleiro, formado pelas pessoas que o usam.",
+    "aboutLink": "Como Orider Começou",
+    "jumpToContact": "Comece uma conversa por e-mail",
+    "contactTitle": "Diga-nos sua história por e-mail",
+    "contactDescription": "Você não precisa de uma proposta formal. compartilhe tanto ou menos do seguinte como você gostaria.",
+    "emailLabel": "e-mail",
+    "emailHint": "Selecione o endereço para copiá-lo ou use o botão para abrir o seu aplicativo de e-mail.",
+    "supportText": "Tem alguma pergunta sobre o aplicativo ou uma melhoria em mente?",
+    "supportLink": "Perguntas e feedback",
+    "build": {
+      "title": "Construa com nós",
+      "summary": "Planejamento de Produto, Design, Reunião com a equipe e Contribuições de código aberto",
+      "intro": "Orider É um produto de fase inicial que começou com frustrações em viagens reais. Ajuda a moldar uma plataforma que os cavaleiros e os correntes melhoram e usam juntos.",
+      "sections": [
+        {
+          "title": "Planejamento e design de produtos são nossas maiores necessidades",
+          "description": "Ajuda a decidir o que construir primeiro e melhorar o caminho de se preparar para uma atividade para revisar registros. gostaríamos de trabalhar com pessoas que querem transformar feedback de usuário real em um produto melhor."
+        },
+        {
+          "title": "Descubra se tornar parte da equipe",
+          "description": "Fale-nos sobre o papel e a forma de contribuir que você tem em mente. Estamos abertos às conversas sobre co-fundar ou se juntar à equipe, começando com a compreensão da direção uns dos outros."
+        },
+        {
+          "title": "Começar pequeno com código aberto",
+          "description": "Explore o código e a documentação no repositório web público, sugere melhorias ou contribui. Orider É um bom lugar para começar."
+        }
+      ],
+      "repository": "Ver o repositório público da web no GitHub",
+      "contactDetails": [
+        "Uma breve introdução e o papel que você está interessado",
+        "Sua experiência, portfólio ou link do GitHub, se disponível",
+        "Como você gostaria de trabalhar juntos e as ideias que você quer compartilhar"
+      ],
+      "emailAction": "E-mail sobre se juntar a nós"
+    },
+    "collaborate": {
+      "title": "Parceria e publicidade",
+      "summary": "Integrações de dispositivos, colaboração de marcas, publicidade direta, patrocínios e eventos locais",
+      "intro": "Estamos à procura de conexões que ajudam as pessoas a permanecer ativas. Diga-nos sobre parcerias, anúncios diretos ou patrocínios que podem estender o Orider experiência .",
+      "sections": [
+        {
+          "title": "Equipamentos e integrações de serviços",
+          "description": "Propor formas de conectar sensores, dispositivos esportivos e serviços de treinamento que as pessoas poderiam usar juntos."
+        },
+        {
+          "title": "Marcas, publicidade direta e patrocínios",
+          "description": "Nós recebemos conversas sobre campanhas conjuntas, benefícios do usuário, publicidade direta e patrocínios de marca."
+        },
+        {
+          "title": "Clubes, eventos e conteúdo",
+          "description": "Compartilhe ideias para viagens e corridas de grupo, corridas e desafios, conteúdo de coaching ou projetos criativos conjuntos."
+        },
+        {
+          "title": "Compras, viagens e projetos locais",
+          "description": "Propor maneiras de conectar lojas de bicicletas, reparações, aluguer de equipamentos, viagens ativas e rotas locais. Ideias além destes exemplos são bem-vindas, também."
+        }
+      ],
+      "contactDetails": [
+        "Uma introdução para você, sua organização ou marca e detalhes de contato",
+        "Sua ideia de parceria, publicidade ou patrocínio",
+        "A audiência pretendida, o tempo tentativo e os materiais úteis, se disponíveis"
+      ],
+      "emailAction": "Email uma ideia de parceria"
+    },
+    "investment": {
+      "title": "Investimentos de inquérito",
+      "summary": "A direção de uma plataforma desportiva aberta e um negócio sustentável",
+      "intro": "Queremos construir confiança em vez de propriedade. gostaríamos de encontrar investidores que compartilham a direção de uma plataforma desportiva aberta e querem explorar um negócio duradouro para Orider.",
+      "sections": [
+        {
+          "title": "Começamos com onde estamos hoje",
+          "description": "Orider Estamos em um estágio inicial, refinando o produto através do uso real. Estamos explorando como o valor duradouro para as pessoas que o usam pode apoiar um negócio sustentável."
+        },
+        {
+          "title": "Faça suas perguntas sobre o seu produto e negócios",
+          "description": "Diga-nos o que você está interessado e o que você gostaria de entender. gostaríamos de começar uma conversa de investimento baseada no produto atual e nosso pensamento sobre o negócio."
+        }
+      ],
+      "contactDetails": [
+        "Seu nome ou organização e detalhes de contato",
+        "A direção de negócios ou perspectiva de investimento que lhe interessa",
+        "Perguntas ou materiais que você gostaria de discutir primeiro"
+      ],
+      "emailAction": "E-mail sobre o investimento"
+    }
+  },
+  "nav": {
+    "planRecords": "Plano / Registro",
+    "todayTraining": "Treino de hoje",
+    "analysis": "Análise",
+    "fitness": "Condição",
+    "plan": "Plano",
+    "log": "Curso de Log",
+    "courses": "Percursos",
+    "leaderboard": "Leaderboard",
+    "events": "Eventos",
+    "social": "Socialmente",
+    "my": "Meu perfil",
+    "home": "Início",
+    "coach": "Treinador",
+    "explore": "Explorar",
+    "community": "Fórum",
+    "settings": "Configurações",
+    "segments": "Segmentos",
+    "discover": "Desafios",
+    "board": "Fórum",
+    "creator": "Ferramentas de pedal",
+    "friends": "Amigos",
+    "friendRequests": "{{count}} Requisitos de amigos chegados",
+    "aboutOrider": "Sobre Orider",
+    "profile": "Perfil",
+    "account": "Conta",
+    "mainNavAria": "Principal Navegação",
+    "clubs": "Clubes",
+    "goals": "Objetivos",
+    "chat": "Chat",
+    "equipment": "Equipamento",
+    "developerDocs": "Desenvolvimento Docs",
+    "challenges": "Desafios",
+    "records": "Recorde",
+    "people": "Pessoas"
+  },
+  "about": {
+    "title": "Redação de registros que levam à próxima escolha",
+    "subtitle": "Orider conecta história de atividades, descoberta de cursos, grupos e eventos em uma plataforma de condução.",
+    "pointsAria": "Sobre Orider",
+    "points": [
+      "Use os seus dados de atividade para ler os sinais de fluxo de treinamento e recuperação.",
+      "Encontre o próximo desafio através de cursos, segmentos e painéis de liderança.",
+      "Encontra os cavaleiros e compartilhe o contexto através de grupos, eventos e comando."
+    ]
+  },
+  "search": {
+    "activities": "Atividades",
+    "courses": "Cursos"
+  },
+  "time": {
+    "justNow": "Agora mesmo",
+    "minsAgo": "{{count}}M há",
+    "hoursAgo": "{{count}}H há",
+    "daysAgo": "{{count}}D há",
+    "am": "AM",
+    "pm": "PM",
+    "hour": "Hora",
+    "minute": "Min",
+    "yesterday": "ontem"
+  },
+  "field": {
+    "datePlaceholder": "Escolha data",
+    "timePlaceholder": "Escolha o tempo",
+    "selectDateAria": "Escolha data",
+    "selectTimeAria": "Escolha o tempo",
+    "prevMonth": "mês passado",
+    "nextMonth": "Próximo mês",
+    "now": "Agora",
+    "clear": "Claro",
+    "presetWeek": "1 semana",
+    "presetMonth": "1 mês + 1 mês",
+    "preset3Months": "+ 3 meses",
+    "yearMonth": "{{month}} {{year}}",
+    "dateLabel": "{{weekday}}, {{month}}/{{day}}/{{year}}"
+  },
+  "discipline": {
+    "selectAria": "Escolha a disciplina",
+    "tri": "Multiplicação",
+    "bike": "Ciclismo",
+    "run": "Corrida",
+    "swim": "nadando",
+    "other": "Outros",
+    "comingSoon": "Chegando em breve"
+  },
+  "unit": {
+    "km": "km",
+    "mi": "Meu",
+    "m": "M",
+    "ft": "Ft",
+    "h": "H",
+    "min": "Minha",
+    "sec": "sec"
+  },
+  "difficulty": {
+    "easy": "fácil",
+    "mid": "Medium",
+    "hard": "Hardes",
+    "hc": "HC"
+  },
+  "weekday": {
+    "mon": "Mãe",
+    "tue": "Tua",
+    "wed": "Acontece",
+    "thu": "Tua",
+    "fri": "Livre",
+    "sat": "Sete",
+    "sun": "Sol"
+  },
+  "topnav": {
+    "searchPlaceholder": "Busca",
+    "notifications": "Notificações",
+    "activities": "Atividades",
+    "language": "Idioma",
+    "mobileNavigation": "Navegação móvel",
+    "menuSearch": {
+      "label": "Busca ORider",
+      "category": "Categoria de busca",
+      "keyword": "Termo de busca",
+      "placeholder": "Busca",
+      "submit": "Busca",
+      "activities": "Atividades",
+      "athletes": "Pessoas",
+      "clubs": "Clubes",
+      "courses": "Cursos",
+      "segments": "Segmentos",
+      "posts": "Posts",
+      "athletesHint": "Encontre pessoas por e-mail, apelido ou código amigo",
+      "clubsHint": "Busque clubes públicos no início de um nome.",
+      "filters": "Condições de busca: {{count}}",
+      "clear": "Condições de busca claras",
+      "scope": "Área de Atividade",
+      "following": "assinado",
+      "date": "Data",
+      "sport": "Esporte",
+      "city": "Cidade do Clube Público (tempo de partida)",
+      "surface": "superfície",
+      "difficulty": "dificuldade",
+      "owner": "Curso de Esquema",
+      "segmentType": "Tipo de Segmento",
+      "board": "Fórum",
+      "tag": "Tag (tempo de jogo)",
+      "all": "Todos os",
+      "friends": "Amigos",
+      "self": "Minhas atividades",
+      "7d": "Últimos 7 dias",
+      "30d": "Últimos 30 dias",
+      "90d": "90 dias anteriores",
+      "year": "Este ano",
+      "bike": "Ciclismo",
+      "run": "Corrida",
+      "swim": "nadando",
+      "tri": "Triatlon",
+      "paved": "Paisagem",
+      "gravel": "Gravado",
+      "mixed": "Misturado",
+      "myCourses": "Meus cursos",
+      "climb": "Cimão",
+      "flat": "Flat",
+      "difficulty1": "Nível 1",
+      "difficulty2": "Nível 2",
+      "difficulty3": "Nível 3",
+      "difficulty4": "Nível 4",
+      "difficulty5": "Nível 5"
+    }
+  },
+  "notif": {
+    "fromUser": "Notificação de {{fromNickname}}"
+  },
+  "sportFilter": {
+    "bike": "⁇  Ciclismo",
+    "run": "⁇  Correr",
+    "swim": "⁇  nadar"
+  },
+  "social": {
+    "tabFriends": "Amigos",
+    "tabGroups": "Grupos",
+    "searchFriendsPlaceholder": "Busca amigos",
+    "friendCodeCopied": "Código de Amigo Copiado",
+    "shareMyCode": "Compartilhe o meu código",
+    "addFriends": "Adicionar amigos",
+    "followingCount": "Seguindo {{count}}",
+    "following": "Seguindo",
+    "searchEmpty": "Nenhum resultado encontrado",
+    "noFriends": "Não há amigos ainda",
+    "noFriendsDesc": "Use a página Amigos para inserir códigos de amizade e gerenciar pedidos.",
+    "newGroup": "+ Crie um novo grupo",
+    "myGroupCount": "Os nossos grupos ({{count}})",
+    "memberCount": "{{count}} Membros",
+    "noGroups": "Não se juntam grupos"
+  },
+  "sport": {
+    "ride": "Pedal",
+    "mtb": "MTB",
+    "gravel": "Gravado",
+    "ebike": "E-Bicó",
+    "velolift": "Velóquia",
+    "virtualRide": "Redação Virtual",
+    "run": "Corrida",
+    "trailRun": "Trail de corrida",
+    "virtualRun": "Virtual Run",
+    "walk": "caminhadas",
+    "hike": "Caminho",
+    "swim": "nadando",
+    "workout": "Treino",
+    "weightTraining": "Treinamento de peso",
+    "yoga": "Yoga",
+    "tennis": "Tênio",
+    "soccer": "Futebol",
+    "golf": "Golfe",
+    "ski": "Esqui",
+    "snowboard": "Snowboard em",
+    "activity": "Atividade",
+    "indoor": "Interior"
+  },
+  "map": {
+    "placeholder": "Mapa",
+    "noRouteData": "Não há dados de rota",
+    "routeImageAlt": "Mapa de Rotação de Atividade",
+    "routePreviewTitle": "Rotação Previsão",
+    "routePreviewDescription": "O mapa não está disponível, portanto apenas a linha de rota é mostrada.",
+    "unavailableTitle": "Não podia preparar o mapa",
+    "unavailableDescription": "Os dados de rotas ainda estão disponíveis."
+  },
+  "designTheme": {
+    "default": "Definição",
+    "appParity": "App Paridade"
+  },
+  "discover": {
+    "title": "Descobrindo",
+    "subtitle": "Cursos, segmentos e painéis de liderança em um só lugar",
+    "searchPlaceholder": "Cursos de pesquisa e segmentos...",
+    "searching": "Buscando...",
+    "noResults": "Nenhum resultado",
+    "viewAll": "Ver todos",
+    "entrySegmentsDesc": "Navegue segmentos próximos no mapa",
+    "entryLeaderboardDesc": "Veja a lista de com e de corrida",
+    "entryCoursesDesc": "Encontre Cursos de Condução",
+    "challenge": {
+      "beatPr": "Bate meu tempo",
+      "strength": "Jogue com suas forças",
+      "newPlace": "Novos lugares",
+      "popularCourses": "Cursos populares",
+      "notable": "Segmentos notáveis",
+      "monthlyTitle": "Desafios mensuais pessoais",
+      "monthlyHeading": "{{month}} Desafios de distância",
+      "monthlyDescription": "Use a sua distância de atividade para alcançar um objetivo de 300, 500 ou 1.000 km.",
+      "monthlyProgressLabel": "Distância mensal desafia progresso",
+      "monthlyRemaining": "{{distance}} quilômetros restantes",
+      "monthlyCompleted": "Objetivo mensal completo",
+      "joinTier": "Junte-se {{tier}} km",
+      "joined": "Juntando",
+      "joinSuccess": "Junte-se ao {{tier}} O desafio de quilômetros.",
+      "joinFailed": "Não pode salvar sua participação no desafio.",
+      "loading": "Com o progresso deste mês...",
+      "predicted": "Estão {{time}}",
+      "faster": "−{{sec}}S mais rápido"
+    }
+  },
+  "likers": {
+    "more": "+{{count}}",
+    "andOthers": "+{{count}} Mais",
+    "kudos": {
+      "title": "{{count}} Cubo",
+      "aria": "{{count}} O KUDO: {{names}}"
+    },
+    "like": {
+      "title": "{{count}} Gostaria de",
+      "aria": "{{count}} Gostam de: {{names}}"
+    }
+  },
+  "embeddedStatus": {
+    "hubLoading": "Carregar o conteúdo.",
+    "cached": "Mostrando informações previamente salvas.",
+    "loading": "Dados de atividade de carga e treinamento.",
+    "unavailable": "Não pode se conectar agora. verificar a sua conexão e tentar novamente.",
+    "analysisMissing": "Esta atividade não tem dados de análise para mostrar.",
+    "profileNotFound": "Profilo não encontrado.",
+    "signInInApp": "Inscreva-se em Settings › Conta na aplicação."
+  },
+  "dialog": {
+    "alertTitle": "Notificação",
+    "confirmTitle": "Confirmar",
+    "promptTitle": "INTRODUÇÃO",
+    "ok": "OK"
+  },
+  "nav.create": "+ Criar",
+  "nav.create.course": "Crie curso",
+  "nav.create.segment": "Criação de Segmento",
+  "nav.create.event": "Crie evento",
+  "nav.create.club": "Criação de clube",
+  "nav.create.post": "Postado em",
+  "nav.create.import": "Atividades de importação",
+  "nav.create.goal": "Crie um objetivo",
+  "discipline.compact.tri": "Multiplicação",
+  "discipline.compact.bike": "Bicicleta",
+  "discipline.compact.run": "Corrida",
+  "discipline.compact.swim": "nadando",
+  "discipline.compact.soon": "Em breve",
+  "profileSocial": {
+    "followers": "Seguidores",
+    "following": "Seguindo",
+    "empty": "Não há conexões ainda.",
+    "unavailable": "Não pode carregar ligações.",
+    "retry": "Tentar novamente",
+    "more": "Carregar mais",
+    "activities": "Atividades",
+    "latest": "Última atividade",
+    "noActivities": "Não há atividades ainda.",
+    "streak": "Seu estragado",
+    "weeks": "{{count}} Semanas",
+    "weeksAtLeast": "Pelo menos {{count}} Semanas",
+    "thisWeek": "Esta semana",
+    "unknownDay": "desconhecido",
+    "activeDay": "Ativação",
+    "restDay": "Não há atividade",
+    "streakWindow": "As últimas 52 semanas · segunda-feira começa na Coreia. se esta semana é vazia, o estragamento começa na semana passada.",
+    "futureDay": "A chegada",
+    "limited": "Verificado até 400 atividades recentes. continuidade anterior é inavista.",
+    "activityUnavailable": "Não podia carregar a história da atividade."
+  },
+  "activitySubscriptions": {
+    "subscriptions": "Subscrições",
+    "subscribers": "Subscrição",
+    "friends": "Amigos",
+    "subscribe": "Subscrição",
+    "unsubscribe": "Não assinatura",
+    "checking": "Verificação",
+    "updating": "Atualização...",
+    "notDeployed": "Subscrições chegam em breve",
+    "forbidden": "Subscrição não disponível",
+    "unavailable": "Não podia verificar o status da assinatura.",
+    "management": "Amigos e Relações",
+    "blocked": "bloqueado",
+    "unblock": "Desbloqueio",
+    "blockedDescription": "A desbloquear não restaura amizades ou assinaturas.",
+    "actionFailed": "Não posso atualizar, por favor tente novamente.",
+    "managementNotReady": "Gestão de relacionamentos chega em breve",
+    "signInRequired": "Inscreva-se na aplicação para seguir este rider."
+  },
+  "notif.loading": "Verificação de notificações...",
+  "notif.failed": "Não podia verificar o status de notificação. por favor, retire.",
+  "notif.retry": "Retiro",
+  "notif.more": "Carregar notificações mais antigas",
+  "notif.unavailable": "Esta notificação foi excluída ou não está mais acessível.",
+  "notif.commentDestination": "Comentário da Notificação",
+  "notif.loginDestination": "Inscreva-se para ler este comentário.Você voltará aqui após a assinatura.",
+  "notif.signIn": "Entrar",
+  "notif.targetUnavailable": "Este comentário foi excluído, oculto ou não está mais acessível.",
+  "coachPages": {
+    "condition": "Condição",
+    "today": "Hoje",
+    "analysis": "Análise",
+    "plan": "Plano",
+    "goals": "Objetivos"
+  },
+  "challengeGuest": {
+    "loginAction": "Inscreva-se para iniciar um desafio",
+    "title": "Escolha seu objetivo de distância este mês",
+    "body": "Siga um objetivo de distância mensal e junte-se a uma liga de distância com o seu clube.",
+    "previewTitle": "Objetivos de distância mensal",
+    "example": "Por exemplo: 300, 500 ou 1.000 km em um mês."
+  },
+  "creatorHubCopy": {
+    "consent_to_ai_ride_diary_generation": "Consentimento para a AI conduzir diário geração",
+    "external_ai_processor_country": "Processador de IA Externo · País",
+    "data_sent": "Dados enviados",
+    "data_excluded": "Dados excluídos",
+    "retention": "Retenção",
+    "location_activity_names_and_raw_heart": "Localização, nomes de atividades e dados de ritmo cardíaco / potência não são enviados. seu diário é privado; revisar o destacamento separado antes de compartilhá-lo por si mesmo.",
+    "ai_processor_privacy_policy": "A Política de Privacidade do Processador",
+    "cancel": "Cancelamento",
+    "agree_and_generate": "Conheça e gera",
+    "connections_and_data_access": "Conectividades e acesso a dados",
+    "more_ways_to_use_your_rides": "Mais maneiras de usar suas viagens",
+    "guides_for_your_tools": "Guia para as suas ferramentas",
+    "result": "Resultados",
+    "setup_and_steps": "Instalação e passos",
+    "prepare": "Prepare",
+    "steps": "Passos",
+    "ai_prompt_and_copy": "Aplicar e copiar",
+    "prompt_for_your_ai_assistant": "Acompanhe seu assistente",
+    "data_permissions_and_connections": "Dados e permissões de conexão",
+    "preview_output": "Previsão de produção",
+    "generation_limits_and_data": "Limites de geração e dados",
+    "could_not_save_the_image_please": "Não consigo salvar a imagem, por favor, retire.",
+    "private_diary_only_you": "Diário de Notícias - Só Você",
+    "how_to_connect_your_tools": "Como conectar suas ferramentas",
+    "workflow_and_data_protection": "Fluxo de trabalho e proteção de dados"
+  },
+  "impersonation": {
+    "active": "Sessão delegada — acesso como <account>{{name}}</account> (emitida por {{issuedBy}})",
+    "exit": "Encerrar",
+    "exitFailed": "Não foi possível encerrar a sessão delegada. Você ainda está conectado à conta delegada. Tente novamente."
+  }
+}

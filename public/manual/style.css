@@ -524,3 +524,6 @@ dl.glossary dd { margin: 2px 0 0 0; color: var(--text); }
   .container table { display: block; overflow-x: auto; }
   th { white-space: normal; }
 }
+
+.doc-language-nav { padding: 1rem; text-align: center; line-height: 2; }
+.doc-language-nav a[aria-current="page"] { font-weight: bold; }

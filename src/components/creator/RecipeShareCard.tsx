@@ -1,3 +1,4 @@
+import { standaloneText } from "../../i18n/standaloneText";
 import { useEffect, useRef, useState } from "react";
 import { Clipboard, Download, MessageSquareText, Pencil } from "lucide-react";
 import { LocalizedLink } from "../LocalizedLink";
@@ -42,7 +43,6 @@ function wrapCardText(text: string, width: number): string[] {
 export function RecipeShareCard({ card, language, ready, onError }: {
   card: RecipePublicCard; language: string; ready: boolean; onError: (action: "copy" | "export") => void;
 }) {
-  const ko = language.startsWith("ko");
   const [draft, setDraft] = useState(card);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -51,7 +51,7 @@ export function RecipeShareCard({ card, language, ready, onError }: {
   const hasPhoto = Boolean(draft.imageDataUrl && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(draft.imageDataUrl));
   const artworkOffset = hasPhoto ? 380 : 0;
   const artworkHeight = 900 + artworkOffset;
-  const editedFooter = ko ? "라이더가 편집한 문구 · 공유 전 확인" : "Edited by rider · review before sharing";
+  const editedFooter = standaloneText(language, "recipe_share_edited_by_rider_review_before_sharing");
   const preview = useRef<SVGSVGElement>(null);
   const title = draft.title.trim();
   const body = draft.body.trim();
@@ -109,15 +109,15 @@ export function RecipeShareCard({ card, language, ready, onError }: {
   const titleFontSize = Math.min(37, 85 / Math.max(titleLines.length, 1));
   return <div className="recipe-share-card space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
-      <span>{ready ? (ko ? "공유용 하이라이트 · 원문 일기 제외" : "Public highlight · private diary excluded") : (ko ? "디자인 예시 · 내 활동이 아닙니다" : "Design example · not your activity")}</span>
+      <span>{ready ? (standaloneText(language, "recipe_share_public_highlight_private_diary_excluded")) : (standaloneText(language, "recipe_share_design_example_not_your_activity"))}</span>
       {ready && <IconButton size="md" variant="ghost" icon={<Pencil size={ICON_SIZE.md} />} aria-pressed={editing} onClick={() => setEditing(!editing)}
-        aria-label={ko ? "문구 편집" : "Edit copy"} title={ko ? "문구 편집" : "Edit copy"} />}
+        aria-label={standaloneText(language, "recipe_share_edit_copy")} title={standaloneText(language, "recipe_share_edit_copy")} />}
     </div>
     <svg ref={preview} xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 720 ${artworkHeight}`} role="img" aria-label={title} className="mx-auto w-full max-w-md rounded-[var(--r-lg)]" fontFamily="sans-serif">
       <title>{title}</title><desc>{body}</desc>
       <rect width="720" height={artworkHeight} fill="var(--bg-1)" />
       <rect x="42" y="42" width="636" height={artworkHeight - 84} rx="8" fill="var(--bg-2)" stroke="var(--line)" />
-      {hasPhoto && <image href={draft.imageDataUrl} x="42" y="146" width="636" height="350" preserveAspectRatio="xMidYMid slice" aria-label={draft.imageAlt ?? (ko ? "선택한 라이딩 사진" : "Selected ride photo")} />}
+      {hasPhoto && <image href={draft.imageDataUrl} x="42" y="146" width="636" height="350" preserveAspectRatio="xMidYMid slice" aria-label={draft.imageAlt ?? (standaloneText(language, "recipe_share_selected_ride_photo"))} />}
       <path d={`M80 146h560M80 ${748 + artworkOffset}h560`} stroke="var(--line)" />
       <text x="80" y="110" fill="var(--lime)" fontSize="25" fontWeight="800" letterSpacing="6">ORIDER</text>
       <text x="640" y="108" textAnchor="end" fill="var(--ink-3)" fontSize="13" letterSpacing="2">RIDE / REFLECT / REPEAT</text>
@@ -137,15 +137,15 @@ export function RecipeShareCard({ card, language, ready, onError }: {
       <text x="80" y={825 + artworkOffset} fill="var(--ink-3)" fontSize="14" letterSpacing="2">orider.co.kr</text>
     </svg>
     {editing && <div className="grid gap-3">
-      <label className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{ko ? "제목 (30자)" : "Title (30 characters)"}<Input className="mt-1 w-full" maxLength={30} value={draft.title} onChange={(event) => { setDraft({ ...draft, title: event.target.value, footer: editedFooter }); setCopied(false); }} /></label>
-      <label className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{ko ? "공개 문구 (160자)" : "Public copy (160 characters)"}<Textarea className="mt-1 w-full" maxLength={160} rows={5} value={draft.body} onChange={(event) => { setDraft({ ...draft, body: event.target.value, footer: editedFooter }); setCopied(false); }} /></label>
-      <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{ko ? "추가한 문구에 위치·활동명·민감한 정보가 없는지 확인하세요." : "Check that your edits contain no locations, activity names, or sensitive information."}</p>
+      <label className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{standaloneText(language, "recipe_share_title_30_characters")}<Input className="mt-1 w-full" maxLength={30} value={draft.title} onChange={(event) => { setDraft({ ...draft, title: event.target.value, footer: editedFooter }); setCopied(false); }} /></label>
+      <label className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{standaloneText(language, "recipe_share_public_copy_160_characters")}<Textarea className="mt-1 w-full" maxLength={160} rows={5} value={draft.body} onChange={(event) => { setDraft({ ...draft, body: event.target.value, footer: editedFooter }); setCopied(false); }} /></label>
+      <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{standaloneText(language, "recipe_share_check_that_your_edits_contain_no")}</p>
     </div>}
-    {!contentFits && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)" }}>{ko ? "카드에 읽기 좋게 담기도록 제목은 2줄, 본문은 7줄 이내로 줄여 주세요." : "Keep the title within 2 lines and the caption within 7 lines for a readable card."}</p>}
+    {!contentFits && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)" }}>{standaloneText(language, "recipe_share_keep_the_title_within_2_lines")}</p>}
     <div className="recipe-share-actions flex flex-wrap gap-2">
-      <Button wrap size="sm" variant="secondary" disabled={!valid} leadingIcon={<Clipboard size={ICON_SIZE.md} />} onClick={() => void copy()}>{copied ? (ko ? "복사 완료" : "Copied") : (ko ? "공유 문구 복사" : "Copy caption")}</Button>
-      <Button wrap size="sm" variant="secondary" disabled={!valid} loading={saving} leadingIcon={<Download size={ICON_SIZE.md} />} onClick={() => void download()}>{ko ? "PNG 저장" : "Save PNG"}</Button>
-      {valid && <LocalizedLink data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: { title, body: text } }} className={buttonClass({ variant: "primary", size: "sm", wrap: true })}><MessageSquareText size={ICON_SIZE.sm} />{ko ? "게시글로 공유" : "Share as post"}</LocalizedLink>}
+      <Button wrap size="sm" variant="secondary" disabled={!valid} leadingIcon={<Clipboard size={ICON_SIZE.md} />} onClick={() => void copy()}>{copied ? (standaloneText(language, "recipe_share_copied")) : (standaloneText(language, "recipe_share_copy_caption"))}</Button>
+      <Button wrap size="sm" variant="secondary" disabled={!valid} loading={saving} leadingIcon={<Download size={ICON_SIZE.md} />} onClick={() => void download()}>{standaloneText(language, "recipe_share_save_png")}</Button>
+      {valid && <LocalizedLink data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: { title, body: text } }} className={buttonClass({ variant: "primary", size: "sm", wrap: true })}><MessageSquareText size={ICON_SIZE.sm} />{standaloneText(language, "recipe_share_share_as_post")}</LocalizedLink>}
     </div>
   </div>;
 }

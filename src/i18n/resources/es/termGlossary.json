@@ -1,0 +1,457 @@
+{
+  "openLabel": "Sobre {{term}}",
+  "terms": {
+    "di2": {
+      "label": "2 El cambio electrónico",
+      "description": "Sistema de transferencia electrónica de Shimano. equipos conectados compatibles pueden proporcionar información de transferencia."
+    },
+    "axs": {
+      "label": "Conectividad de componentes AXS",
+      "description": "El sistema de SRAM conecta componentes y software de la bicicleta electrónica. esta pantalla lista los equipos de movimiento conectados."
+    },
+    "virtualPower": {
+      "label": "El poder virtual",
+      "description": "La producción estimada se basa en la velocidad de movimiento, gradiente, peso y ajustes de resistencia. Puede diferir de la potencia medida directamente por un mértil de potencia."
+    },
+    "timeFormat": {
+      "label": "Hores y minutos",
+      "description": "Hores (HH) y minutos (MM) separados por una columna. tiempos de reloj utilizan el formato de 24 horas; duradas estimadas son horas y minutos."
+    },
+    "liveTracking": {
+      "label": "El seguimiento en vivo",
+      "description": "Mostrar las ubicaciones y el progreso de los participantes a medida que actualizan durante el evento."
+    },
+    "lsd": {
+      "label": "Longas distancias lentas",
+      "description": "LSD significa largo y lento: entrenamiento de resistencia prolongado a una intensidad fácil y conversativa. describe un enfoque a la formación, no una distancia o ritmo fijo."
+    },
+    "ftp": {
+      "label": "Puesto de límite funcional",
+      "description": "Una estimación de la potencia sostenible durante aproximadamente una hora, utilizada para escalar la intensidad y la carga de la formación de energía."
+    },
+    "ctl": {
+      "label": "Carga de entrenamiento crónica",
+      "description": "Una estimación de su carga de entrenamiento durante aproximadamente seis semanas, con más peso dado a las sesiones recientes."
+    },
+    "atl": {
+      "label": "La carga de entrenamiento aguda",
+      "description": "Una estimación de su carga de entrenamiento durante aproximadamente la semana pasada, con más peso dado a las sesiones recientes."
+    },
+    "tsb": {
+      "label": "Equilibrio de estrés",
+      "description": "CTL minus ATL: una referencia para el equilibrio de la carga de entrenamiento a largo plazo y reciente, no una evaluación definitiva de la preparación."
+    },
+    "tss": {
+      "label": "Punto de entrenamiento de estrés",
+      "description": "Una estimativa de carga de entrenamiento que combina duración y intensidad relativa. FTP corresponde a aproximadamente 100 puntos para la base de energía TSS."
+    },
+    "np": {
+      "label": "El poder normalizado",
+      "description": "Una métrica de potencia que cuenta con variaciones en la producción. sesiones con una potencia media igual pueden tener valores NP diferentes."
+    },
+    "if": {
+      "label": "Factor de intensidad",
+      "description": "para los ejercicios de potencia, la potencia normalizada dividida por FTPUn valor de 1.0 corresponde a la configuración FTP."
+    },
+    "vi": {
+      "label": "Indice de variabilidad",
+      "description": "La potencia normalizada dividida por la potencia media.Values más cercanas a 1 indican más incluso la producción de energía."
+    },
+    "ef": {
+      "label": "Factor de eficiencia",
+      "description": "La potencia normalizada o la velocidad graduada normalizada dividida por la velocidad cardíaca media."
+    },
+    "cp": {
+      "label": "El poder crítico",
+      "description": "Un parámetro estimado de los mejores esfuerzos de potencia en diferentes duraderas. FTP Pero no es la misma medida."
+    },
+    "wprime": {
+      "label": "Capacidad de trabajo por encima de la fuerza crítica",
+      "description": "Estimación de la energía disponible para esfuerzos por encima de la potencia crítica, generalmente expresada en joules (J)."
+    },
+    "rtss": {
+      "label": "Ejercicio de entrenamiento de estrés",
+      "description": "Estimación de carga de corriente basada en la duración y la intensidad relativa al ritmo del límite."
+    },
+    "hrtss": {
+      "label": "Punto de estrés de entrenamiento de ritmo cardíaco",
+      "description": "Una estimación de la carga de entrenamiento utilizando la intensidad y la duración del ritmo cardíaco, afectada por la respuesta del ritmo cardíaco y los límites configurados."
+    },
+    "trimp": {
+      "label": "El impulso de entrenamiento",
+      "description": "Un método de carga de entrenamiento que combina la duración del ejercicio con la intensidad cardíaca relativa."
+    },
+    "gap": {
+      "label": "Rato ajustado",
+      "description": "Un ritmo equivalente estimado en el suelo plano después de contar los gradientes de defilación y de descendencia."
+    },
+    "css": {
+      "label": "Velocidad crítica de natación",
+      "description": "Una referencia de velocidad de natación sostenible estimada desde distancias temporadas, utilizada para establecer los paquetes de entrenamiento."
+    },
+    "vo2max": {
+      "label": "Maxima absorción de oxígeno",
+      "description": "El máximo de uso de oxígeno durante el ejercicio intenso. los valores de aplicación pueden ser estimados dependiendo del método de medición."
+    },
+    "hrv": {
+      "label": "Variabilidad de la tasa cardíaca",
+      "description": "Variedad en el tiempo entre los batidos cardíacos consecutivos, interpretados contra las baselias personales y las condiciones de medición."
+    },
+    "rpe": {
+      "label": "Valoración de la percepción de los ejercicios",
+      "description": "Una calificación auto-reportada de cuánto se siente el ejercicio duro.El rango numérico depende de la escala utilizada."
+    },
+    "met": {
+      "label": "Metabolismo equivalente",
+      "description": "Unidad de intensidad de actividad relativa a una tasa metabólica de descanso estándar.Un MET representa la referencia de descanso."
+    },
+    "fatmax": {
+      "label": "Intensidad de oxidación de grasa máxima",
+      "description": "La intensidad del ejercicio en la que la tasa de oxidación de grasa es más alta. varía según la persona y las condiciones de prueba."
+    },
+    "zones": {
+      "label": "Zona de entrenamiento",
+      "description": "Las bandas de intensidad basadas en la potencia, la velocidad cardíaca o las referencias del ritmo.Las fronteras dependen del deporte y del sistema de la zona."
+    },
+    "cadence": {
+      "label": "Cadencia",
+      "description": "La revolución de los pedales por minuto (rpmEn ciclismo, o pasos por minuto (spm) en correr."
+    },
+    "thresholdPace": {
+      "label": "Fronteras de ritmo",
+      "description": "Un ritmo estimado sostenible durante aproximadamente una hora, utilizado para escalar la intensidad de correr y la carga de entrenamiento."
+    },
+    "pace": {
+      "label": "Ritmo",
+      "description": "Cuando se expresa como minutos por kilómetro, los valores inferiores significan un movimiento más rápido."
+    },
+    "interval": {
+      "label": "Intervalo de entrenamiento",
+      "description": "La formación que alternan los esfuerzos repetidos con períodos de recuperación."
+    },
+    "taper": {
+      "label": "Taper",
+      "description": "Una reducción planificada en el volumen de entrenamiento antes de un evento objetivo para reducir la fatiga acumulada."
+    },
+    "lactateThreshold": {
+      "label": "Lácteos límite",
+      "description": "Un límite de intensidad asociado con cambios en la acumulación de lactato sanguíneo. su definición depende del método de prueba."
+    },
+    "decoupling": {
+      "label": "Desconducción aeróbica",
+      "description": "El cambio en la relación entre la potencia o la velocidad y la velocidad del corazón a lo largo de un entrenamiento. calor, hidratación y terreno pueden afectar."
+    },
+    "pdc": {
+      "label": "Curva de duración de la potencia",
+      "description": "Una curva que muestra la mejor potencia media registrada para una serie de duraderas de esfuerzo."
+    },
+    "pmc": {
+      "label": "Gestión de la Performance Chart",
+      "description": "Un gráfico que muestra la carga crónica (CTL), la carga aguda (ATL) y el equilibrio de estrés de entrenamiento (TSB) a lo largo del tiempo."
+    },
+    "pr": {
+      "label": "Mejor / Mejor / Mejor / Mejor / Mejor",
+      "description": "Su mejor resultado registrado para una distancia, segmento o duración de esfuerzo."
+    },
+    "kom": {
+      "label": "El rey de la montaña",
+      "description": "Un título para el tiempo más rápido en la categoría masculina en un segmento de liderazgo."
+    },
+    "qom": {
+      "label": "La reina de la montaña",
+      "description": "Un título para el tiempo más rápido en la categoría femenina en un segmento de liderazgo."
+    },
+    "gpx": {
+      "label": "El formato de intercambio GPS",
+      "description": "Un formato de archivo utilizado para intercambiar información GPS como rutas, posiciones y timestamps."
+    },
+    "fit": {
+      "label": "Transferencia de datos flexible e interoperable",
+      "description": "Formato de archivo para datos de actividad y sensor.Los campos disponibles varían por dispositivo de grabación."
+    },
+    "tcx": {
+      "label": "Centro de formación XML",
+      "description": "Un formato de archivo basado en XML para intercambiar detalles de entrenamiento como rutas, rutas y ritmo cardíaco."
+    },
+    "csv": {
+      "label": "Valores separados",
+      "description": "Un formato de texto para las líneas de tablas y las columnas que se pueden abrir en el software de la hoja de referencia."
+    },
+    "ant": {
+      "label": "ANT+ Comunicación inalámbrica",
+      "description": "Un protocolo sin fíos utilizado por sensores deportivos como monitores de ritmo cardíaco y mediadores de potencia."
+    },
+    "ble": {
+      "label": "Bluetooth bajo energía",
+      "description": "Una tecnología de comunicación Bluetooth diseñada para el intercambio de datos de baja potencia entre sensores y dispositivos."
+    },
+    "gps": {
+      "label": "Sistema de posicionamiento global",
+      "description": "Un sistema de posicionamiento basado en satélite. condiciones de recepción pueden afectar la precisión de la ruta y la distancia."
+    },
+    "bpm": {
+      "label": "Batidos por minuto",
+      "description": "Unidad de ritmo cardíaco que indica el número de batidas cardíacas en un minuto."
+    },
+    "rpm": {
+      "label": "Revoluciones por minuto",
+      "description": "El número de revoluciones en un minuto, utilizado para la cadencia de pedal de bicicleta."
+    },
+    "spm": {
+      "label": "Pasos por minuto",
+      "description": "El número total de pasos tomados en un minuto mientras se lleva."
+    },
+    "watts": {
+      "label": "El Watts",
+      "description": "Unidad de energía: un watt es un joule de energía transferida por segundo."
+    },
+    "wkg": {
+      "label": "Ratio de potencia a peso",
+      "description": "La potencia se divide por masa corporal, expresada en watts por kilogramo."
+    },
+    "lthr": {
+      "label": "La tasa del corazón del lácteo",
+      "description": "Una referencia estimada de la frecuencia cardíaca cerca del límite de lactato, utilizada para establecer zonas de entrenamiento de la frecuencia cardíaca."
+    },
+    "runningPower": {
+      "label": "Correr el poder",
+      "description": "Una estimación de la producción de corriente en watts (W), derivada por un dispositivo o servicio de las entradas como movimiento de corriente, velocidad, espalda y masa corporal. las entradas y los métodos varían por dispositivo y servicio. Compare los cambios de esfuerzo utilizando el mismo dispositivo en condiciones similares en lugar de comparar directamente con la potencia de ciclismo o FTP."
+    },
+    "power": {
+      "label": "Potencia",
+      "description": "El trabajo se realiza por unidad de tiempo.En ciclismo, suele ser medido por un mértil de potencia y expresado en wattes."
+    },
+    "elevationGain": {
+      "label": "El aumento ganancias",
+      "description": "La suma de la elevación de mantenimiento cambia durante una actividad, en lugar de la diferencia entre las elevaciones de inicio y final."
+    },
+    "segment": {
+      "label": "Segmento",
+      "description": "Una sección definida de una ruta utilizada para comparar los tiempos o las actuaciones registradas."
+    },
+    "granfondo": {
+      "label": "Gran fondo",
+      "description": "Un evento de ciclismo de larga distancia de participación en masa.Distancias y reglas de eventos varían."
+    },
+    "longRide": {
+      "label": "Longitud de viaje",
+      "description": "Un viaje de larga duración dirigido al desarrollo de la resistencia.La duración adecuada depende del fondo de entrenamiento del caballero."
+    },
+    "sweetSpot": {
+      "label": "El lugar dulce",
+      "description": "Una intensidad de entrenamiento sostenida es algo por debajo del límite. rango exacto depende del sistema de zona utilizado."
+    },
+    "tempo": {
+      "label": "Tempo",
+      "description": "Trabajo sostenido por encima de la intensidad de resistencia fácil y por debajo del límite.Randos varían según el sistema deportivo y zona."
+    },
+    "endurance": {
+      "label": "Resistencia",
+      "description": "Como etiqueta de entrenamiento, suele referirse a un ejercicio de intensidad baja a moderada."
+    },
+    "aerobic": {
+      "label": "Metabolismo aeróbico",
+      "description": "La producción de energía utilizando oxígeno, contribuyendo a través de una serie de intensidades de ejercicio."
+    },
+    "anaerobic": {
+      "label": "Metabolismo Anaeróbico",
+      "description": "La producción rápida de energía que no requiere directamente oxígeno, contribuyendo más durante los esfuerzos cortos e intensos."
+    },
+    "hrDrift": {
+      "label": "Rate de corazón Drift",
+      "description": "Un aumento en la frecuencia cardíaca a lo largo del tiempo a pesar de la misma potencia o velocidad, afectada por factores como el calor y la hidratación."
+    },
+    "xpower": {
+      "label": "El poder exponencial",
+      "description": "Una métrica de potencia que pesa cambios en la producción para estimar la intensidad del ejercicio. su cálculo se diferencia de la NP."
+    },
+    "rer": {
+      "label": "Ratio de intercambio respiratorio",
+      "description": "La producción de dióxido de carbono dividida por la absorción de oxígeno, utilizada en las pruebas de gases respiratorios para examinar el metabolismo energético."
+    },
+    "kj": {
+      "label": "Kilojoules",
+      "description": "Una unidad de trabajo o energía equivale a 1.000 joules, a menudo utilizados para el trabajo mecánico durante el ejercicio."
+    },
+    "sprint": {
+      "label": "Sprint",
+      "description": "Un poco de esfuerzo realizado a una potencia o velocidad muy alta."
+    },
+    "recoveryRide": {
+      "label": "Recuperación Ride",
+      "description": "Un viaje de baja intensidad entre sesiones más difíciles. no sustituye el descanso necesario."
+    },
+    "z1": {
+      "label": "Zona 1",
+      "description": "Recuperación en un modelo de potencia de siete zonas comúnmente utilizado.Las limitaciones y significados precisos dependen del deporte y el sistema de potencia, ritmo cardíaco o zona de ritmo."
+    },
+    "z2": {
+      "label": "Zona 2",
+      "description": "La resistencia en un modelo de potencia de siete zonas comúnmente utilizado.Las limitaciones y significados precisos dependen del deporte y el sistema de potencia, ritmo cardíaco o zona de ritmo."
+    },
+    "z3": {
+      "label": "Zona 3",
+      "description": "Tempo en un modelo de potencia de siete zonas comúnmente utilizado.Las limitaciones y significados precisos dependen del deporte y el sistema de potencia, ritmo cardíaco o zona de ritmo."
+    },
+    "z4": {
+      "label": "Zona 4",
+      "description": "Fronteras en un modelo de potencia de siete zonas comúnmente utilizado.Las limitaciones y significados precisos dependen del deporte y el sistema de potencia, ritmo cardíaco o zona de ritmo."
+    },
+    "z5": {
+      "label": "Zona 5",
+      "description": "La aerobicidad en un modelo de potencia de siete zonas comúnmente utilizado.Las limitaciones y significados precisos dependen del deporte y la potencia, el ritmo cardíaco o el sistema de la zona de ritmo."
+    },
+    "z6": {
+      "label": "Zona 6",
+      "description": "Anaeróbico en un modelo de potencia de siete zonas comúnmente utilizado.Las limitaciones y significados precisos dependen del deporte y el sistema de potencia, ritmo cardíaco o zona de ritmo."
+    },
+    "z7": {
+      "label": "Zona 7",
+      "description": "Neuromuscular / máxima en un modelo de potencia de siete zonas comúnmente utilizado.Las limitaciones y significados precisos dependen del deporte y la potencia, la velocidad cardíaca o el sistema de la zona de ritmo."
+    },
+    "trainingLoad": {
+      "label": "La carga de entrenamiento",
+      "description": "Una medida de la demanda de una actividad basada en su duración e intensidad.Values dependen de los datos de potencia, ritmo cardíaco o tiempo disponibles y el método de cálculo."
+    },
+    "countdown": {
+      "label": "Días hasta la fecha del objetivo",
+      "description": "El número después de D indica los días que permanecen hasta la fecha de destino.D-day marca la fecha de destino misma."
+    },
+    "eftp": {
+      "label": "Estimado FTP",
+      "description": "FTP estimación de los registros de actividad y un modelo de potencia. puede diferir de su configurado o probado FTP."
+    },
+    "tte": {
+      "label": "Tiempo para la exhaustivación",
+      "description": "Una estimación de cuánto tiempo puede mantenerse la potencia de nivel límite. la duración actual depende de las condiciones y la preparación."
+    },
+    "vam": {
+      "label": "La tasa de ascenso vertical",
+      "description": "El elevación obtenida en un ascenso expresado en metros por hora (m/h). gradiente y terreno afectan el valor."
+    },
+    "swolf": {
+      "label": "Piscina de eficiencia",
+      "description": "El tiempo en segundos y el accidente de estómago cuentan para una longitud de natación. Compara los registros con la misma distancia, tipo de accidente de estómago y dispositivo."
+    },
+    "dps": {
+      "label": "Distancia por accidente",
+      "description": "La distancia de natación dividida por el número de accidente cerebrovascular. Los dispositivos pueden contar los accidente cerebrovascular de manera diferente."
+    },
+    "cda": {
+      "label": "Aerodinámica de la zona de la",
+      "description": "Coeficiente de trayectoria multiplicado por área frontal (m2), utilizado para estimar la resistencia aerodinámica de la posición y el equipo."
+    },
+    "crr": {
+      "label": "Coeficiente de resistencia de rol",
+      "description": "Un coeficiente que describe la resistencia como un anillo de rodas. se varía con las anillas, la presión y la superficie de la carretera."
+    },
+    "wprimeBal": {
+      "label": "Capacidad de W-prime",
+      "description": "La capacidad restante de W-prime calculada por un modelo de energía. no mide directamente los almacenes de energía o la exhausción."
+    },
+    "ema": {
+      "label": "Mediana movida exponencialmente pesada",
+      "description": "Un cálculo que da más peso a los registros recientes para resumir una tendencia. su constante tiempo determina la respuesta."
+    },
+    "btss": {
+      "label": "Ciclo de entrenamiento de estrés",
+      "description": "Un puntuación de carga de entrenamiento para la duración y la intensidad relativa del ciclismo. ver si las entradas se meden o se estima."
+    },
+    "stss": {
+      "label": "Piscina entrenamiento de estrés puntuación",
+      "description": "Un puntuación de carga de entrenamiento basado en la duración y la intensidad de la natación en relación con la velocidad crítica de la natación."
+    },
+    "epoc": {
+      "label": "Consumo excesivo de oxígeno después de ejercicio",
+      "description": "El oxígeno consumido por encima de los niveles de descanso después del ejercicio. los valores reportados por el dispositivo pueden ser estimaciones de modelo."
+    },
+    "hr": {
+      "label": "Frecuencia cardíaca",
+      "description": "El calor, el sueño y el estrés pueden afectar a la intensidad del ejercicio."
+    },
+    "zip": {
+      "label": "Archivo Comprimido",
+      "description": "Un formato de archivo que combina los archivos y puede reducir su tamaño."
+    },
+    "json": {
+      "label": "Formato de datos estructurados",
+      "description": "Un formato de texto que representa los datos como claves y valores, utilizado para intercambiar datos y almacenar configuraciones."
+    },
+    "utc": {
+      "label": "El tiempo universal coordinado",
+      "description": "La hora estándar de Corea está nueve horas adelante."
+    },
+    "kst": {
+      "label": "Tiempo estándar de Corea",
+      "description": "El tiempo estándar utilizado en Corea, nueve horas antes de UTC."
+    },
+    "ai": {
+      "label": "Inteligencia artificial",
+      "description": "Tecnología que produce análisis o texto de datos.El contenido generado puede contener errores."
+    },
+    "api": {
+      "label": "Interfaz de programación de aplicaciones",
+      "description": "Una manera definida para los programas para intercambiar datos o utilizar las características de los demás."
+    },
+    "bmi": {
+      "label": "Indice de masa corporal",
+      "description": "El peso en kilos dividido por altura en metros cuadrados. no determina la composición o salud del cuerpo individual."
+    },
+    "sos": {
+      "label": "Solicitud de asistencia de emergencia",
+      "description": "Una característica para alertar al evento organizador a una emergencia. ver la información en la pantalla sobre lo que se envía."
+    },
+    "dnf": {
+      "label": "No terminó",
+      "description": "Un estado de participante para alguien que inició pero no cumplió los criterios de finalización del evento."
+    },
+    "dns": {
+      "label": "No comenzó",
+      "description": "Un estado de participante para alguien que se ha registrado pero no ha empezado."
+    },
+    "checkpoint": {
+      "label": "El punto de verificación",
+      "description": "Un punto en un curso de eventos donde se registra el paso o el tiempo."
+    },
+    "sag": {
+      "label": "Vehículo de apoyo de eventos",
+      "description": "Un vehículo que apoya a los participantes con problemas mecánicos o retiro. ver el contenido de apoyo declarado del evento."
+    },
+    "tt": {
+      "label": "TIME JURIO",
+      "description": "Un formato de carrera en el que los caballeros compiten por el tiempo de los individuos que se han ido a cabo a lo largo de un curso."
+    },
+    "powerMeter": {
+      "label": "Metrado de potencia",
+      "description": "Un sensor que mide la potencia producida durante el pedal, distinto de la potencia estimada por velocidad o otras entradas."
+    },
+    "brick": {
+      "label": "El entrenamiento Brick",
+      "description": "Un ejercicio que combina deportes en secuencia, como el ciclismo seguido por la carrera."
+    },
+    "sighting": {
+      "label": "Ver",
+      "description": "Levantar la cabeza durante la natación en agua abierta para comprobar un punto de vista o dirección."
+    },
+    "openWater": {
+      "label": "El baño en agua abierta",
+      "description": "Piscina en cuerpos naturales de agua como mares, lagos o ríos en lugar de una piscina."
+    },
+    "buildUp": {
+      "label": "Intensidad progresiva",
+      "description": "Un enfoque de entrenamiento que gradualmente aumenta la velocidad o la intensidad."
+    },
+    "peak": {
+      "label": "Pico de valor o fase de entrenamiento",
+      "description": "En los registros, el valor más alto observado; en un plan de entrenamiento, la fase final de preparación para un evento objetivo."
+    },
+    "grade": {
+      "label": "Gradiento",
+      "description": "La elevación cambia como un porcentaje de la distancia horizontal. positivo significa soportar y negativo significa bajar."
+    },
+    "leaderboard": {
+      "label": "Líderes",
+      "description": "Una lista de participantes o actividades clasificadas utilizando los mismos criterios establecidos."
+    }
+  }
+}

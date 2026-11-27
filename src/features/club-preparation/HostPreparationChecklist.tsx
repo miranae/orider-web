@@ -23,13 +23,11 @@ export default function HostPreparationChecklist({ meeting, members, unassignedC
   unassignedCount?: number;
   noticePageLimited?: boolean;
 }) {
-  const { i18n } = useTranslation();
-  const en = i18n.language.startsWith('en');
-  const text = (ko: string, english: string) => en ? english : ko;
+  const { t: clubText } = useTranslation("clubMeeting");
   const { unconfirmed, unsetTravel } = preparationFollowUps(meeting);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [lastCopiedText, setLastCopiedText] = useState('');
-  const name = (id: string) => members.find(member => member.id === id)?.name ?? text('클럽 회원', 'Club member');
+  const name = (id: string) => members.find(member => member.id === id)?.name ?? clubText("hostPreparationChecklistCopy.club_member");
   const reminderText = [meeting.title, ...meeting.notices.flatMap(notice => {
     const pending = notice.targets.filter(id => unconfirmed.includes(id) && !notice.confirmed.includes(id));
     return pending.length ? [`${notice.title}: ${pending.map(name).join(', ')}`] : [];
@@ -45,28 +43,28 @@ export default function HostPreparationChecklist({ meeting, members, unassignedC
   };
   return (
     <Card className="cp-followups" id="meeting-followups">
-      <div className="cp-section-heading"><h2><InfoTip label={text('준비할 일 한눈에', 'Preparation at a glance')} title={text('준비할 일 한눈에', 'Preparation at a glance')} content={text('현재 명단에서 챙길 인원입니다. 신청·취소·공지 확인에 따라 갱신됩니다.', 'Follow-ups reflect the current roster and update with registration, cancellation and notice confirmation.')}>{text('준비할 일 한눈에', 'Preparation at a glance')}</InfoTip></h2></div>
-      {noticePageLimited && <p className="cp-muted">{text('공지 미확인 명단은 현재 표시된 공지 기준입니다. 이전 공지도 확인해주세요.', 'Notice follow-ups cover this page. Check older notices as well.')}</p>}
+      <div className="cp-section-heading"><h2><InfoTip label={clubText("hostPreparationChecklistCopy.preparation_at_a_glance")} title={clubText("hostPreparationChecklistCopy.preparation_at_a_glance")} content={clubText("hostPreparationChecklistCopy.follow_ups_reflect_the_current_roster")}>{clubText("hostPreparationChecklistCopy.preparation_at_a_glance")}</InfoTip></h2></div>
+      {noticePageLimited && <p className="cp-muted">{clubText("hostPreparationChecklistCopy.notice_follow_ups_cover_this_page")}</p>}
       <div className="cp-followup-links">
-        {unassignedCount !== undefined && <a href="#meeting-teams"><strong>{unassignedCount}</strong><span>{text('조 미배정', 'Unassigned')}</span></a>}
-        <a href="#meeting-travel"><strong>{unsetTravel.length}</strong><span>{text('합류 지점 미정', 'Meeting point not selected')}</span></a>
-        <a href="#meeting-notices"><strong>{unconfirmed.length}</strong><span>{text('공지 미확인', 'Unconfirmed notices')}</span></a>
+        {unassignedCount !== undefined && <a href="#meeting-teams"><strong>{unassignedCount}</strong><span>{clubText("hostPreparationChecklistCopy.unassigned")}</span></a>}
+        <a href="#meeting-travel"><strong>{unsetTravel.length}</strong><span>{clubText("hostPreparationChecklistCopy.meeting_point_not_selected")}</span></a>
+        <a href="#meeting-notices"><strong>{unconfirmed.length}</strong><span>{clubText("hostPreparationChecklistCopy.unconfirmed_notices")}</span></a>
       </div>
-      {unsetTravel.length > 0 && <p>{text('합류 확인 필요', 'Check meeting points')}: {unsetTravel.map(name).join(', ')}</p>}
+      {unsetTravel.length > 0 && <p>{clubText("hostPreparationChecklistCopy.check_meeting_points")}: {unsetTravel.map(name).join(', ')}</p>}
       {/* 미확인 명단 복사는 해당 줄 옆 작은 복사 아이콘으로 둔다. */}
       {unconfirmed.length > 0 && <div className="cp-heading-with-edit">
-        <p><InfoTip label={text('공지 확인 필요', 'Check notices')} title={text('공지 확인 필요', 'Check notices')} content={text('공지는 모임 화면에서 확인합니다. 명단 복사는 메시지를 발송하지 않습니다.', 'Notices are available on this meeting page. Copying the list does not send a message.')}>{text('공지 확인 필요', 'Check notices')}</InfoTip>: {unconfirmed.map(name).join(', ')}</p>
+        <p><InfoTip label={clubText("hostPreparationChecklistCopy.check_notices")} title={clubText("hostPreparationChecklistCopy.check_notices")} content={clubText("hostPreparationChecklistCopy.notices_are_available_on_this_meeting")}>{clubText("hostPreparationChecklistCopy.check_notices")}</InfoTip>: {unconfirmed.map(name).join(', ')}</p>
         <IconButton
           size="sm"
           variant="ghost"
-          aria-label={text('공지 미확인 명단 복사', 'Copy notice follow-up list')}
-          title={text('공지 미확인 명단 복사', 'Copy notice follow-up list')}
+          aria-label={clubText("hostPreparationChecklistCopy.copy_notice_follow_up_list")}
+          title={clubText("hostPreparationChecklistCopy.copy_notice_follow_up_list")}
           icon={<Copy size={ICON_SIZE.sm} />}
           onClick={() => void copy()}
         />
       </div>}
-      <span role="status">{copyState === 'copied' && lastCopiedText === reminderText ? text('명단을 복사했어요.', 'List copied.') : copyState === 'failed' ? text('복사할 수 없어 아래에 명단을 열었어요. 직접 선택해 복사해주세요.', 'Copy is unavailable. Select and copy the text below.') : ''}</span>
-      {copyState === 'failed' && <textarea readOnly aria-label={text('복사용 공지 미확인 명단', 'Notice follow-up text to copy')} value={reminderText} />}
+      <span role="status">{copyState === 'copied' && lastCopiedText === reminderText ? clubText("hostPreparationChecklistCopy.list_copied") : copyState === 'failed' ? clubText("hostPreparationChecklistCopy.copy_is_unavailable_select_and_copy") : ''}</span>
+      {copyState === 'failed' && <textarea readOnly aria-label={clubText("hostPreparationChecklistCopy.notice_follow_up_text_to_copy")} value={reminderText} />}
     </Card>
   );
 }

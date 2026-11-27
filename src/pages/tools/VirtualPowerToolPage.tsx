@@ -1,3 +1,4 @@
+import { standaloneText } from "../../i18n/standaloneText";
 import "./VirtualPowerToolPage.css";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,7 +14,6 @@ function numberValue(value: string, fallback: number): number {
 
 export default function VirtualPowerToolPage() {
   const { i18n } = useTranslation();
-  const ko = i18n.language.startsWith("ko");
   const [speedKmh, setSpeedKmh] = useState("28");
   const [gradePercent, setGradePercent] = useState("3");
   const [durationMin, setDurationMin] = useState("40");
@@ -34,21 +34,19 @@ export default function VirtualPowerToolPage() {
   );
 
   const labels = {
-    eyebrow: ko ? "공개 계산기" : "Public calculator",
-    title: ko ? "가상 파워 · FTP 추정기" : "Virtual power and FTP estimator",
-    desc: ko
-      ? "속도, 경사, 체중만으로 검증된 Orider 가상 파워 계산을 체험합니다. 로그인 없이 예상 와트, TSS, 20분 FTP 추정치를 확인할 수 있습니다."
-      : "Try Orider's validated virtual power estimate from speed, grade, and weight. No sign-in is required for watts, TSS, and a 20-minute FTP estimate.",
-    speed: ko ? "평균 속도" : "Average speed",
-    grade: ko ? "평균 경사" : "Average grade",
-    duration: ko ? "운동 시간" : "Duration",
-    rider: ko ? "라이더 체중" : "Rider weight",
-    bike: ko ? "자전거 무게" : "Bike weight",
-    ftp: ko ? "현재 FTP" : "Current FTP",
-    watts: ko ? "예상 평균 파워" : "Estimated average power",
-    tss: ko ? "예상 TSS" : "Estimated TSS",
-    ftpEstimate: ko ? "20분 FTP 추정" : "20-min FTP estimate",
-    distance: ko ? "예상 거리" : "Estimated distance",
+    eyebrow: standaloneText(i18n.language, "virtual_power_eyebrow"),
+    title: standaloneText(i18n.language, "virtual_power_title"),
+    desc: standaloneText(i18n.language, "virtual_power_desc"),
+    speed: standaloneText(i18n.language, "virtual_power_speed"),
+    grade: standaloneText(i18n.language, "virtual_power_grade"),
+    duration: standaloneText(i18n.language, "virtual_power_duration"),
+    rider: standaloneText(i18n.language, "virtual_power_rider"),
+    bike: standaloneText(i18n.language, "virtual_power_bike"),
+    ftp: standaloneText(i18n.language, "virtual_power_ftp"),
+    watts: standaloneText(i18n.language, "virtual_power_watts"),
+    tss: standaloneText(i18n.language, "virtual_power_tss"),
+    ftpEstimate: standaloneText(i18n.language, "virtual_power_ftpEstimate"),
+    distance: standaloneText(i18n.language, "virtual_power_distance"),
   };
 
   const fields = [

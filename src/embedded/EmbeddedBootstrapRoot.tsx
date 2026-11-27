@@ -37,6 +37,7 @@ import {
 } from "../contexts/FirebaseServicesContext";
 import { LocaleProvider } from "../contexts/LocaleContext";
 import i18n from "../i18n";
+import { isManualPath } from "../i18n/manualPath";
 import { consumeAppHandoffCode } from "../services/appHandoff";
 import {
   createEmbeddedBridge,
@@ -414,6 +415,7 @@ function AuthorizedSurface({
   surfaceKind: EmbeddedSurfaceKind;
   trainingSurfaceVisible: boolean;
 }) {
+  const { t } = useTranslation("common");
   const [embeddedParams] = useSearchParams();
   const coachPage = embeddedCoachPage(embeddedParams.get("page"));
   const displayedTrainingSurface = mountedTrainingSurface === null ? null
@@ -529,7 +531,7 @@ function AuthorizedSurface({
   if (!approved) return null;
   if (surfaceGateLoading && !trainingSurface) {
     return (
-      <div className="orider-embedded-status" role="status" aria-label="Loading profile">
+      <div className="orider-embedded-status" role="status" aria-label={t("surfaceStatus.loadingProfile")}>
         <div className="orider-embedded-status__pulse" />
       </div>
     );
@@ -544,7 +546,7 @@ function AuthorizedSurface({
   const hubError = (code: string) => sendSafely("surface.error", { code });
   const navigateWithHost = (destination: string) => {
     const url = new URL(destination, window.location.origin);
-    if (url.origin === window.location.origin) bridge.send("navigation.openNative", { path: `${url.pathname}${url.search}${url.hash}` });
+    if (url.origin === window.location.origin && !isManualPath(url.pathname)) bridge.send("navigation.openNative", { path: `${url.pathname}${url.search}${url.hash}` });
     else if (url.protocol === "https:" || url.protocol === "http:") bridge.send("navigation.openExternal", { url: url.toString() });
   };
   const surface = (
@@ -557,7 +559,7 @@ function AuthorizedSurface({
             <DialogProvider><EmbeddedNavigationContext.Provider value={navigateWithHost}><EmbeddedHostCapabilitiesContext.Provider value={session.hostCapabilities}>
             {trainingSurface && <EmbeddedCoachNavigation defaultPage={mountedTrainingSurface === "plan" ? "plan" : "condition"} selectionKey={surfaceMountKey} />}
             <Suspense fallback={(
-              <div className="orider-embedded-status" role="status" aria-label="Loading surface">
+              <div className="orider-embedded-status" role="status" aria-label={t("surfaceStatus.loadingScreen")}>
                 <div className="orider-embedded-status__pulse" />
               </div>
             )}>
@@ -650,6 +652,7 @@ export default function EmbeddedBootstrapRoot({
   bridgeFactory = () => createEmbeddedBridge(createWebViewTransport()),
   surfaceKind = "activity-analysis",
 }: EmbeddedBootstrapRootProps) {
+  const { t } = useTranslation("common");
   const { activityId } = useParams();
   const location = useLocation();
   const liveDark = usesLiveDarkAppearance(location.pathname);
@@ -856,7 +859,7 @@ export default function EmbeddedBootstrapRoot({
     }
     if (destination.origin === window.location.origin && destination.pathname === location.pathname) return;
     event.preventDefault();
-    if (destination.origin === window.location.origin) {
+    if (destination.origin === window.location.origin && !isManualPath(destination.pathname)) {
       const internal = embeddedInternalDestination(location.pathname, `${destination.pathname}${destination.search}${destination.hash}`);
       if (internal || destination.pathname === location.pathname) {
         navigate(internal ?? `${destination.pathname}${destination.search}${destination.hash}`);
@@ -1335,7 +1338,7 @@ export default function EmbeddedBootstrapRoot({
         />
         </RetainedSurfaceActivity>
       ) : (
-        <div className="orider-embedded-status" role="status" aria-label="Waiting for host authorization">
+        <div className="orider-embedded-status" role="status" aria-label={t("surfaceStatus.waitingAuthorization")}>
           <div className="orider-embedded-status__pulse" />
         </div>
       )}

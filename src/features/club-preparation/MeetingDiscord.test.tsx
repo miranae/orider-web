@@ -1,3 +1,5 @@
+import { createInstance } from "i18next";
+import { I18nextProvider } from "react-i18next";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,6 +22,21 @@ const show=(extra={})=>render(<MemoryRouter><MeetingDiscord eventId="meeting" gr
 beforeEach(()=>{vi.resetAllMocks();transport.paths=[];api.signals=[];api.getClubMeetingDiscord.mockResolvedValue(view());api.openClubMeetingDiscord.mockResolvedValue(ready);api.closeClubMeetingDiscord.mockResolvedValue(view({state:"closed"}));});
 afterEach(()=>{vi.unstubAllEnvs();resetRuntimeConfigForTests();});
 describe("meeting public Discord voice",()=>{
+ it.each(["ko", "en", "ja", "zh-TW", "pt-BR", "es"])("renders the voice-room controls in %s", async (locale) => {
+  const loaders = import.meta.glob("../../i18n/resources/*/clubMeeting.json", { import: "default" });
+  const load = loaders[`../../i18n/resources/${locale}/clubMeeting.json`];
+  if (!load) throw new Error("Missing club meeting resource");
+  const resources = await load() as { discordRoom: Record<string, string> };
+  const i18n = createInstance();
+  await i18n.init({ lng: locale, ns: ["clubMeeting"], resources: { [locale]: { clubMeeting: resources } } });
+
+  render(
+   <I18nextProvider i18n={i18n}>
+    <MemoryRouter><MeetingDiscord eventId="meeting" groupId="club" uid="host" en={false} /></MemoryRouter>
+   </I18nextProvider>,
+  );
+  expect(await screen.findByRole("button", { name: resources.discordRoom.open_voice_room })).toBeInTheDocument();
+ });
  it("keeps public-room guidance available on demand without replacing close confirmation",async()=>{
   api.getClubMeetingDiscord.mockResolvedValue(ready);show();
   const close=await screen.findByRole("button",{name:"음성 채널 닫기"});

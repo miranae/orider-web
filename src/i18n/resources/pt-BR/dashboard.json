@@ -1,0 +1,780 @@
+{
+  "header": {
+    "greetingPrefix": "Olá ",
+    "greetingSuffix": ".",
+    "subtitleSuffix": " nos últimos 7 dias.",
+    "runSubtitleSuffix": " Correr, andar e andar nos últimos 7 dias.",
+    "runCountUnit": " Atividades",
+    "subtitleRecent": "Você está logado ",
+    "defaultName": "Rider",
+    "slogan": "Conduza o seu tempo.",
+    "sloganTagline": "",
+    "anonSubtitle": "Levar registros de atividade espalhados juntos com segurança, e depois converter-os em cargas de treinamento, cursos, segmentos e treinamento de IA.",
+    "anonCta": "Começando",
+    "signingIn": "Assinando em...",
+    "signInFailed": "A inscrição falhou, por favor tente novamente."
+  },
+  "kpi": {
+    "weekGroup": "Últimos 7 dias",
+    "runWeekGroup": "Meus caminhos, caminhos e saídas · últimos 7 dias",
+    "trainingGroup": "Status de treinamento",
+    "weekDistance": "Distância viajando",
+    "activities": "Atividade contada",
+    "rides": "Ride conta",
+    "runs": "Atividade contada",
+    "runUnavailable": "Estadísticas de corrida, caminhada e caminhada não estão disponíveis",
+    "movingTime": "Tempo de Atividade",
+    "elevation": "Aumento ganho",
+    "fitness": "Fitness",
+    "fitnessBuild": "Pronto para aumentar a formação",
+    "fitnessMaintain": "Mantenha",
+    "fitnessRecovery": "Recuperar primeiro",
+    "subRecent7d": "Últimos 7 dias",
+    "subAtl": "ATL {{value}}",
+    "subInsufficient": "Dados insuficientes",
+    "thresholdRunLabel": "Fronteira da Paz",
+    "thresholdRunSub": "Tempo de corrida de limite",
+    "thresholdRunUnit": "/km",
+    "thresholdSwimLabel": "CSS",
+    "thresholdSwimSub": "Velocidade crítica da natação",
+    "thresholdSwimUnit": "/ 100m",
+    "thresholdBikeLabel": "FTP",
+    "thresholdBikeSub": "Funcional Limitado de Potência",
+    "thresholdBikeUnit": "e"
+  },
+  "feed": {
+    "subscriptionsUnavailable": "A inscrição está sendo preparada. por favor, use outro âmbito de atividade para agora.",
+    "title": "Recentes atividades",
+    "countTooltip": "Todas as atividades públicas + suas próprias atividades",
+    "feedScope": "· Fim completo",
+    "countSuffix": "{{value}}",
+    "filter": {
+      "label": "Visibilidade",
+      "all": "Todos os",
+      "friends": "Amigos",
+      "self": "Minha"
+    },
+    "search": {
+      "placeholder": "Atividades de busca...",
+      "submit": "Busca",
+      "reset": "Busca clara",
+      "clearFilters": "Filtros claros",
+      "morePossibleTitle": "Podem haver mais resultados",
+      "morePossibleDescription": "Carregue mais atividades para continuar a pesquisa.",
+      "resultsCount": "{{count}} Resultados",
+      "resultsCount_one": "{{count}} Resultado",
+      "resultsCount_other": "{{count}} Resultados",
+      "emptyTitle": "Nenhum resultado encontrado",
+      "emptyDescription": "Tente uma palavra-chave ou uma faixa de data diferente.",
+      "resetScopeDates": "Resetam o alcance e as datas"
+    },
+    "datePreset": {
+      "label": "Rango de Data",
+      "all": "Todos os",
+      "7d": "7D",
+      "30d": "30d",
+      "90d": "90d",
+      "year": "Ano"
+    },
+    "loadMore": "Carregar mais",
+    "loading": "Atividades de carregamento...",
+    "empty": {
+      "title": "Não há atividades ainda",
+      "description": "Conectando Strava Ou carregar uma atividade para começar.",
+      "ctaConnectStrava": "Conectando Strava"
+    },
+    "noMatches": {
+      "title": "Não há atividades de correspondência",
+      "description": "Tente outro filtro ou faixa de data."
+    },
+    "error": {
+      "title": "Não pode carregar atividades",
+      "description": "Verifique a sua conexão e tente novamente. isto não significa que não haja atividades.",
+      "retry": "Tentar novamente"
+    },
+    "partialError": {
+      "title": "Não podia carregar mais atividades",
+      "description": "Só parte da lista de atividades carregada. recarregar a lista completa para tentar novamente.",
+      "retry": "Lista de Reload"
+    }
+  },
+  "yearRecap": {
+    "eyebrow": "Sessão de Dezembro",
+    "title": "Revise seu ano de viagem",
+    "desc": "Resumindo distância, tempo, elevação, consistência de 90 dias e tendências mensais em um cartão de ações.",
+    "cta": "Veja o recado"
+  },
+  "streak": {
+    "allEyebrow": "Routina de atividades esportivas",
+    "allTitle": "{{count}}- Atividade semanal",
+    "allMaintained": "{{count}} dia(s) da atividade esta semana · dia de trabalho mantido",
+    "allNeedOne": "1 dia ativo para manter esta semana · uma atividade de fim de semana mantém a vida",
+    "eyebrow": "Rotação Routina",
+    "title": "{{count}}Semana de greve",
+    "maintained": "{{count}} Ride(s) esta semana · Streak mantido",
+    "needOne": "1 passeio para manter esta semana · um passeio de fim de semana mantém-o vivo",
+    "score": "90 dias de consistência"
+  },
+  "sidebar": {
+    "runWeekly": {
+      "title": "Corridas semanais, caminhadas e saídas",
+      "sub": "8 semanas atrás · minha distância viajou",
+      "value": "{{count}} Atividades · {{distance}}"
+    },
+    "runMonth": {
+      "title": "{{monthName}} Distância",
+      "sub": "Minhas corridas, caminhos e saídas",
+      "plan": "Veja o plano de execução"
+    },
+    "weeklyTss": {
+      "title": "Carga de Treinamento Semanal",
+      "sub": "12 semanas anteriores",
+      "barTooltip": "{{week}}: {{tss}} TSS",
+      "barTooltipUnknown": "{{week}}• Não há dados",
+      "avgPerWeek": "AVG / Semana",
+      "peakWeek": "Pequena semana",
+      "trend": "Tendência",
+      "trendUp": "↑ Crescimento",
+      "trendDown": "⁇  Cair",
+      "distanceTitle": "Distância semanais",
+      "partial": "Os registros parciais",
+      "thisWeek": "Esta semana",
+      "scope": {
+        "allSupported": "Todos os esportes",
+        "bike": "Ciclismo",
+        "run": "Corrida",
+        "swim": "nadando"
+      },
+      "distanceRow": "Distância viajada (km)",
+      "loadRow": "Avaliação (TSS)",
+      "summary": "Resumo semanal de distância e carga de treinamento",
+      "metric": "Métrio",
+      "summaryHelpTitle": "Avaliação de Padrões de Estresse (TSS)",
+      "summaryHelp": "Uma pontuação de carga de treinamento que combina duração e intensidade. {{count}} ≈ inclui estimativas · + subtotal de registros conhecidos · — desconhecido",
+      "distanceHelpTitle": "Resumo da Distância",
+      "distanceHelp": "A média cobre as últimas 12 semanas. + é um subtotal de registros conhecidos; - é desconhecido."
+    },
+    "monthlyGoal": {
+      "title": "{{month}} Objetivo",
+      "subPrefix": "Objetivo ",
+      "setupTitle": "Objetivos mensuais",
+      "setupHint": "Gerado automaticamente uma vez que você cria um plano de treinamento",
+      "remainingPrefix": "",
+      "remainingSuffix": " Para ir; {{days}} dias deixados"
+    },
+    "fitness": {
+      "title": "Fim de Fim Snapshot",
+      "sub": "Baseado no CTL",
+      "insufficient": "Dados insuficientes",
+      "ctl": "Avaliação de Física (CTL)",
+      "atl": "Acontece a fadiga (ATL)",
+      "tsb": "Formulário (TSB )",
+      "ctlHint": "42 dias de carga",
+      "atlHint": "7 dias de fadiga",
+      "tsbHint": "frescura",
+      "recommend": "Recomendação",
+      "recoMaintain": "Manter a resistência",
+      "recoRecovery": "Recuperação sugerida",
+      "recoModerate": "Treinamento moderado"
+    },
+    "community": {
+      "title": "Comunidade de Ciclismo Coreana"
+    },
+    "app": {
+      "manualWebTitle": "Guia do usuário Web",
+      "manualWebDesc": "Análise · Dados · Grupos e Eventos",
+      "storeIos": "App Store em",
+      "storeAos": "Google Play",
+      "manualIos": "Guia do IOS",
+      "manualAos": "Guia do Android"
+    }
+  },
+  "home": {
+    "hero": {
+      "title": "Mantenha os registros dos pilotos coreanos seguros",
+      "descLoggedIn": "Conectando Strava Impor suas viagens automaticamente.",
+      "descAnon": "Salve suas viagens em Orider Junte-se à comunidade de ciclismo coreana.",
+      "statsActivities": "Atividades",
+      "statsSegments": "Segmentos",
+      "statsCourses": "Cursos",
+      "statsKm": "km",
+      "ctaStart": "Começando",
+      "ctaStrava": "Conectando Strava"
+    },
+    "feed": {
+      "titleMine": "FODE Atividade",
+      "titlePublic": "Recentes atividades públicas",
+      "countSuffix": "{{count}}",
+      "searchResults": "{{count}} Resultados",
+      "searchPlaceholder": "Atividades de busca (Enter)",
+      "searchSubmit": "Busca",
+      "searchClearTitle": "Busca clara",
+      "searchEmptyMessage": "Não há atividades de correspondência.",
+      "searchReset": "Busca clara",
+      "loadMoreRemaining": "Mais informações ({{remaining}} permanecer)",
+      "loadMore": "Carregar mais",
+      "loadingMore": "Para fazer mais atividades...",
+      "filterAll": "Todos os",
+      "filterFriends": "Amigos",
+      "filterMe": "Minha",
+      "filterCaption": "Resultados do Filtro",
+      "emptyTitle": "Não há atividades ainda",
+      "emptyConnectStrava": "Conectando Strava Atividades para importação",
+      "emptyPublic": "Não há atividades públicas ainda."
+    },
+    "datePreset": {
+      "all": "Todos os",
+      "7d": "Últimos 7 dias",
+      "30d": "Últimos 30 dias",
+      "90d": "90 dias anteriores",
+      "year": "Este ano"
+    },
+    "communities": {
+      "lara": "Somos maiores do que eu",
+      "jachulsa": "Comunidade de Bike Comuters",
+      "dossa": "Salão de Bicicleta",
+      "clien": "Cliente de Ciclismo",
+      "bikesell": "Mercado de bicicletas",
+      "thebike": "Revista de Ciclismo"
+    },
+    "sidebarMy": {
+      "stravaConnected": "Strava Conectados",
+      "weekSummary": "Esta semana",
+      "rides": "Rides",
+      "ridesUnit": "{{count}}",
+      "distance": "Distância",
+      "time": "tempo",
+      "elev": "Aumento ganho",
+      "weeklyDistance": "Distância semanais (últimas 12 semanas)"
+    },
+    "sidebarAnon": {
+      "welcome": "Bem-vindo ao Orider",
+      "welcomeDesc": "Inscreva-se e conecte-se Strava para gerenciar suas viagens.",
+      "signInGoogle": "Entrar"
+    }
+  },
+  "mobileFeed": {
+    "inlineFilters": {
+      "scopeAll": "Público: Todos",
+      "scopeFriends": "Público: Amigos",
+      "scopeSelf": "Público: Eu",
+      "dateAll": "Período: Todos",
+      "date7d": "Duração: 7D",
+      "date30d": "Duração: 30d",
+      "date90d": "Tempo: 90d",
+      "sport": {
+        "all": "Esporte: Tudo",
+        "bike": "Esporte: Ciclismo",
+        "run": "Esporte: Correndo",
+        "swim": "Esporte: nadar"
+      }
+    },
+    "searchLabel": "Busca",
+    "sportLabel": "Esporte",
+    "scopeSelf": "Meu",
+    "date7d": "7D",
+    "date30d": "30d",
+    "date90d": "90d",
+    "searchContext": "Busca de: {{query}}",
+    "occurred": {
+      "today": "Hoje em dia em {{time}}",
+      "yesterday": "Ontem em {{time}}",
+      "unknown": "Tempo de atividade não disponível"
+    },
+    "homeTitle": "Início",
+    "feedTitle": "FODE Atividade",
+    "publicTitle": "Atividades públicas",
+    "publicDescription": "Explore as atividades dos cavaleiros. Inscreva-se para ver seus próprios registros também.",
+    "runSummary": {
+      "count": "Atividade contada",
+      "distance": "Distância viajando",
+      "time": "Tempo de Atividade",
+      "elevation": "Aumento ganho"
+    },
+    "defaultRider": "Rider",
+    "defaultActivity": "Pedal",
+    "statDistance": "Distância viajando",
+    "statTime": "Tempo em movimento",
+    "statElev": "Aumento ganho",
+    "statSpeed": "A velocidade",
+    "weekSummary": "Esta semana",
+    "streakWeeks": "{{count}}Semana de greve",
+    "routineScore": "90 dias de pontuação {{score}}",
+    "filterToggle": "Filtros",
+    "sportFilterLabel": "Filtros de Esporte",
+    "viewAll": "Ver todos",
+    "loading": "Carregando…",
+    "loadingMore": "Carregando…",
+    "loadMore": "Carregar mais",
+    "emptyTitle": "Não há atividades ainda",
+    "emptyDesc": "Conectando Strava Ou escreva uma viagem para começar.",
+    "dataWarningBadge": "Anomalia de dados",
+    "dataWarningTooltip": "Algumas métricas podem ser irrealistas devido ao ruído GPS ou uma atividade muito curta.",
+    "viewProfile": "Veja o meu perfil",
+    "statElapsedTime": "Tempo perdido"
+  },
+  "weeklySummary": {
+    "title": "Esta semana",
+    "load": "Carga",
+    "activities": "Atividades",
+    "activitiesCount": "{{count}}",
+    "activitiesPrev": "Semana passada {{count}}",
+    "time": "tempo",
+    "distance": "Distância",
+    "vsLastWeek": "VS semana passada {{delta}}",
+    "newThisWeek": "Novo",
+    "viewAll": "Ver todos",
+    "weeklyDistanceKm": "Distância semanais (km)",
+    "ridesUnit": "",
+    "durationHourMin": "{{h}}H {{m}}M",
+    "durationMin": "{{m}}M",
+    "dateMonthDay": "{{month}}/{{day}}"
+  },
+  "fitnessSummary": {
+    "ctl": "Avaliação de Física (CTL)",
+    "atl": "Acontece a fadiga (ATL)",
+    "tsb": "Formulário (TSB )",
+    "status": "Status",
+    "vsWeekAgo": "vs 7 dias atrás {{delta}}",
+    "tsbOptimal": "TSB -10 ~ + 5 = ótimo",
+    "statusWellRested": "Bem descansado",
+    "statusRecovered": "Recuperação",
+    "statusOptimal": "Forma ótima",
+    "statusFatigued": "Acontece a fadiga",
+    "statusOverreaching": "O risco de sobrevivência"
+  },
+  "charts": {
+    "fitness": {
+      "noData": "Não há dados para mostrar ainda",
+      "today": "Hoje",
+      "goalDay": "Dia do Goal",
+      "forecast": "Previsão",
+      "legendFitness": "Fitness",
+      "legendFatigue": "fadiga",
+      "legendForm": "Recuperação",
+      "projectionNote": "Se o plano for seguido 100%",
+      "activityMarkers": "{{count}} marcadores de atividade.",
+      "selectedActivityMarker": "Atividades selecionadas: {{label}}."
+    },
+    "powerCurve": {
+      "noData": "Não há dados de energia ainda",
+      "noDataProgression": "Não há atividades com dados de energia ainda",
+      "emptyTitle": "A curva de energia ainda não está pronta",
+      "emptyDescription": "Uma vez que as atividades incluem o metrô de energia ou dados de energia virtual, a potência média de pico de 5 segundos a 60 minutos aparecerá aqui.",
+      "datasetLabel": "Pico de potência média",
+      "peakPower": "Pequeno {{power}}Ação (1s)",
+      "unitSec": "{{n}}S",
+      "unitMin": "{{n}}M",
+      "unitHour": "{{n}}H"
+    },
+    "weeklyChart": {
+      "recordsCount": "Recorde salvo: {{count}}",
+      "tssValue": "TSS {{value}}",
+      "tssUnknown": "TSS desconhecido",
+      "tssPartial": "- Quantia parcial das cargas disponíveis; {{count}} Atividades desconhecidas",
+      "tssEstimated": "Inclui estimativas",
+      "distance": "Distância (km)",
+      "time": "Tempo (h)",
+      "elevation": "Aumento (m)",
+      "title": "Atividade mensal"
+    },
+    "dailyLoad": {
+      "datasetLabel": "Carga diária",
+      "tooltipLabel": "Carga {{value}}"
+    },
+    "zoneDistribution": {
+      "dominant": "Título: Z{{zone}} {{name}} ({{pct}}%)",
+      "emptyTitle": "Não há dados suficientes para a distribuição de zonas",
+      "emptyDescription": "Quando a taxa de coração, a potência ou os fluxos de ritmo são registrados para o suficiente da atividade, o tempo em cada zona de intensidade aparecerá aqui."
+    },
+    "criticalPace": {
+      "half": "metade"
+    },
+    "speedCurve": {
+      "datasetLabel": "Melhor velocidade média",
+      "peakSpeed": "Pequeno {{speed}}km/h ( 5s )"
+    }
+  },
+  "leaderboard": {
+    "colRank": "Ranking",
+    "colRider": "Rider",
+    "colTime": "tempo",
+    "colSpeed": "Velocidade",
+    "colHr": "O HR",
+    "colPower": "Potência",
+    "colDate": "Data"
+  },
+  "mobileFitness": {
+    "title": "Fitness",
+    "currentStatusTitle": "Situação atual",
+    "decision": {
+      "signedOut": "Inscreva-se para ver o plano de hoje",
+      "unavailable": "O plano de hoje não está disponível",
+      "healthStop": "Veja a razão para parar o treinamento primeiro",
+      "viewDetails": "Veja a decisão e a ação de hoje",
+      "viewSafetyDetails": "Revisão da razão do stop"
+    },
+    "analysisNeedsSport": "Escolha ciclismo ou correr para ver análise",
+    "tabOverview": "Avaliação",
+    "tabZones": "Zonas de Poder",
+    "tabAnalysis": "Análise",
+    "thresholdMissingRun": "Seu ritmo de limite de corrida não é configurado. aparecerá quando configurado.",
+    "thresholdMissingSwim": "Sua velocidade crítica de natação (CSS) não é configurada. aparecerá quando configurada.",
+    "hrZonesMissing": "Não há distribuição de zona de ritmo cardíaco armazenada ainda. aparecerá quando os dados da zona medida estiverem disponíveis.",
+    "tabZonesBike": "Zonas de Poder",
+    "tabZonesRun": "Análise de corrida",
+    "tabZonesSwim": "nadando",
+    "metricCtl": "Ctl (Fitness e Ficção)",
+    "metricAtl": "ATL (Fatigue) em uma",
+    "metricTsb": "TD ( Forma de Formação)",
+    "ftpBasis": "Baseado no melhor poder de 90 dias",
+    "zoneDist": "Distribuição da zona de energia (últimas 4 semanas)",
+    "zoneDefTitle": "Definições de Zona",
+    "kpiCtlLabel": "Carga de longo prazo CTL",
+    "kpiAtlLabel": "Carga de curto prazo ATL",
+    "kpiTsbLabel": "Balanço de carga TSB",
+    "tsbMeaning": {
+      "fatigueHigher": "A fadiga excede a fitness",
+      "fitnessHigher": "Fim de saúde excede a fadiga",
+      "balanced": "Fim e fadiga estão equilibrados",
+      "noData": "Não há dados suficientes"
+    },
+    "vo2maxDesc": "Estimado",
+    "vo2maxNoFtp": "FTP O peso necessário",
+    "tsbOverRested": "Sobrevivência",
+    "tsbOptimalForm": "Forma ótima",
+    "tsbTrainingOk": "Treinamento em OK",
+    "tsbFatigue": "Cansamento acumulado",
+    "tsbOverload": "sobrecarga",
+    "pmcTitle": "Tendência do PMC {{n}} dias",
+    "pmcSub": "CTL Fitness · ATL Fatiga · TSB Forma",
+    "pmcByDiscipline": {
+      "tri": {
+        "title": "Trends de fitness combinados {{n}} dias",
+        "sub": "Treinamento combinado em todos os esportes",
+        "ctlLabel": "Total CTL"
+      },
+      "bike": {
+        "title": "Tendência de fitness de ciclismo {{n}} dias",
+        "sub": "Calcular apenas a carga de atividade de ciclismo",
+        "ctlLabel": "Ciclismo CTL"
+      },
+      "run": {
+        "title": "Tendência de fitness; {{n}} dias",
+        "sub": "Calcule-se apenas a partir da carga de atividade",
+        "ctlLabel": "Corrida do CTL"
+      },
+      "swim": {
+        "title": "Tendência de natação fitness {{n}} dias",
+        "sub": "Calcule-se apenas a carga da atividade de natação",
+        "ctlLabel": "Avaliação CTL"
+      }
+    },
+    "weeklyLoadTitle": "Carga semanais · 4 semanas atrás",
+    "weeklyLoadSub": "Esta semana {{thisWeek}} • Ag {{avg}} · {{restDays}} Dia de descanso",
+    "zonePowerTitle": "Distribuição de energia · 4 semanas atrás",
+    "zoneHrTitle": "Distribuição de área de RH · 4 semanas atrás",
+    "zoneSourcePower": "Baseado em Power Stream",
+    "zoneSourceHrBike": "Estimação de RH (HR Z1 - Z5 mapeado para zonas de energia; Z6 - Z7 não pode ser separado) Inclui apenas atividades com evidência completa de zona.",
+    "zoneSourceHrRun": "Baseado no fluxo de RH Inclui apenas atividades com evidência de zona completa.",
+    "zoneSourceNone": "Não há dados de fluxo — será preenchido após a sincronização de uma viagem",
+    "powerCurveTitle": "Curva de energia · 28 dias atrás",
+    "powerCurveSub": "Pequeno {{maxW}} W · 5s - 60m",
+    "zoneDefsSectionTitle": "Definições de Zona",
+    "analysisInsufficient": "Ainda não há dados suficientes para analisar.",
+    "trendTitle": "Tendência de Fitness",
+    "trendLoading": "Compreender a sua tendência de fitness...",
+    "trendError": "Não pode carregar sua tendência de fitness. Outras informações de fitness ainda estão disponíveis.",
+    "derivedLoading": "Avaliação de análise detalhada...",
+    "derivedError": "Não poderia carregar análise detalhada.",
+    "pmcNoData": "Não há dados suficientes - requer pelo menos 2 dias",
+    "pmcLabelToday": " · Hoje em dia",
+    "pmcLabelForecast": " · Previsão",
+    "weeklyTssThisWeek": "Esta semana",
+    "coreStatusTitle": "Ativação FTP • Capacidade de ciclismo",
+    "integrated": {
+      "cardAria": "Estato de treinamento multi-esportado combinado e foco de carga de 28 dias",
+      "eyebrow": "Sumação de treinamento combinado",
+      "title": "Estato de multisport combinado",
+      "coverageChip": "{{pct}}% cLassado → {{confidence}}",
+      "ctlLabel": "CTL - Física Combinada",
+      "ctlHint": "Carga de treinamento de longo prazo",
+      "atlLabel": "ATL - Fatiga",
+      "atlHint": "Carga de treinamento de curto prazo",
+      "tsbLabel": "Tb · Forma",
+      "tsbHint": "Fim de Fim, menos fadiga",
+      "conditionSource": "Modelo combinado que agrupou as cargas disciplinares",
+      "authoritativeSource": "Combinado com o servidor com CTL, ATL e TSB em bicicleta, corrida e natação",
+      "detailsToggle": "Notas de cálculo e interpretação",
+      "contributionTitle": "Contribuição atual do fitness",
+      "contributionBasis": "As contribuições atuais da CTL descrevem a carga de treinamento acumulada pelo esporte. não são proporções recomendadas para a formação futura.",
+      "discipline": {
+        "bike": "Ciclismo",
+        "run": "Corrida",
+        "swim": "nadando"
+      },
+      "barPart": "{{label}} {{value}}, {{pct}} Percentagem",
+      "contributionBarAria": "A contribuição atual do fitness pelo esporte: {{values}}",
+      "noContributionData": "Não há dados de contribuição de fitness por esporte",
+      "contributionValue": "CtL {{value}} · {{pct}}%",
+      "contributionAria": "{{sport}} Contribuições {{pct}} Percentagem de fitness combinado",
+      "focusTitle": "Foco de carga · último {{days}} dias",
+      "dominant": "Carga primária {{label}}",
+      "noFocusData": "Não há carga classificada",
+      "focusUnavailable": "O foco de carga não está disponível porque não é fornecido pelos dados do servidor canônico.",
+      "focusBarAria": "Foco de carga para o último {{days}} dias de: {{values}}",
+      "focusBasis": "Com pelo menos 50% zoCada carga de atividade é atribuída uma vez por tempo de zona pesada por intensidade representativa quadrada; caso contrário, permanece não classificada.",
+      "bucket": {
+        "baseAerobic": "Base aeróbica",
+        "highAerobic": "Aeronáutica alta",
+        "highIntensity": "Alta intensidade",
+        "unclassified": "Não classificado"
+      },
+      "focusAria": "{{band}}• Carga {{load}}, {{pct}} Percentagem",
+      "coverage": "Coberta Classificada {{pct}}% · {{confidence}} confiança",
+      "sources": "Carga de potência {{power}} • Carga de RH {{hr}} · Não classificado {{unclassified}}",
+      "anaerobicBikeDetail": "A potência de ciclismo medida Z6–Z7 é incluída como alta intensidade e pode suportar detalhes de ciclismo anaeróbicos.",
+      "hrHighIntensityNote": "O HR Z5 é uma prova de alta intensidade, não uma prova de contribuição anaeróbica.",
+      "confidence": {
+        "high": "Alto",
+        "medium": "Medium",
+        "low": "baixo",
+        "none": "Não"
+      }
+    },
+    "sport": {
+      "cardAria": "Esporte-specificamente medido evidência de desempenho",
+      "insufficient": "Não há evidências suficientes; não há resultados",
+      "noMeasuredEvidence": "Não há evidência de duração",
+      "axisScoreAria": "{{metric}} Sorteio",
+      "scoreGuide": "Uma pontuação de capacidade de 100 pontos simplificada do seu PDC pessoal nos últimos 90 dias.",
+      "bike": {
+        "title": "A prova da capacidade de ciclismo",
+        "basis": "Três eixos separados dos últimos 90 dias medidos PDC · {{count}} • Profil de potência pessoal resumido em uma escala de 100 pontos",
+        "notGarmin": "O cálculo é diferente de Garmin. Garmin utiliza metrinas proprietárias como EPOC e Trein Effect; O-Rider Explica suas habilidades pessoais usando evidências publicadas do PDC.",
+        "manualLink": "Como o PDC e os três eixos são calculados",
+        "strongestAxis": "Sua capacidade atual mais forte é {{axis}}.",
+        "axis": {
+          "anaerobic": "Capacidade de energia curta",
+          "aerobic": "Capacidade aeróbica",
+          "endurance": "Sustentável resistência"
+        }
+      },
+      "run": {
+        "cardAria": "Instalações de execução e fontes de registro",
+        "title": "Prova de corrida",
+        "basis": "Os tempos de registro permanecem escondidos até que sua fonte seja verificada.",
+        "threshold": "Tempo de limite definido",
+        "noQualifiedEvidence": "Não há registros de distância de fonte qualificados disponíveis.",
+        "unverifiedTitle": "Registro de Distância: {{count}} · Actividades identificáveis: {{activityCount}}",
+        "unverifiedBasis": "Revise o esporte e registros nas atividades de origem.",
+        "sourceMissing": "Fonte de atividade inacessível"
+      },
+      "swim": {
+        "title": "evidência de natação",
+        "basis": "Configurado CSS e medido eficiência de natação do último {{days}} dias apenas; sem curva de mock ou PR inventado.",
+        "distancePerStroke": "Distância por acidente"
+      }
+    },
+    "abilityScore": {
+      "raw": "A capacidade de pontuação {{score}}/100",
+      "ariaValue": "A capacidade de pontuação {{score}}/100, {{stage}} Nível",
+      "guide": "Um punho de cinco níveis fixo que resume sua análise pessoal do PDC, não um ranking ou percentil entre os usuários.",
+      "stage": {
+        "entry": "Entrada",
+        "foundation": "Fundação",
+        "average": "média",
+        "excellent": "Excelente",
+        "top": "Top"
+      }
+    },
+    "snapshot": {
+      "title": "Atualidade Fitness Snapshot",
+      "subtitle": "Leia cada valor juntamente com sua avaliação e base",
+      "ftp": "Poder de Referência",
+      "ftpStatus": "Profilo FTP",
+      "ftpSource": "W/kg Calcule-se do perfil atual FTP e peso",
+      "ftpWeightMissing": "Profilo FTP · W/kg Não disponível sem peso corporal",
+      "riderType": "Capacidade de ciclismo",
+      "riderSource": "Últimos 90 dias PDC · Coggan perfil de potência dos homens (v1); sexo e idade não são ajustados",
+      "vo2PdcSource": "Estimado de CP/5-minutos de potência e peso nos últimos 90 dias de PDC · {{count}} Atividades; não uma medição de laboratório",
+      "vo2FormulaSource": "Avaliação simples do perfil FTP e peso; não uma medição de laboratório",
+      "estimateOnly": "Estimação · não uma medição de laboratório",
+      "load": "O-Rider Treinamento de carga",
+      "loadSource": "CTL EMA de 42 dias · ATL EMA de 7 dias · TSB=CTL-ATL. Garmin Carga aguda",
+      "insufficient": "Não há dados suficientes; não avaliados",
+      "bandAria": "{{metric}} Posição : {{status}}"
+    },
+    "performance": {
+      "title": "Perfeição de ciclismo",
+      "ariaLabel": "Resumo de desempenho de ciclismo",
+      "canonical": "Profilo fonte de verdade · aplicado às zonas e treinamento",
+      "ftpMissing": "Configuração de perfil FTP Primeiro",
+      "ftpMissingEvidence": "Não há perfil ativo FTPAssim W/kg E o FTP A diferença não é calculada.",
+      "weightMissing": "Adicionar peso para ver W/kg",
+      "riderUnknown": "Não há evidência suficiente de tipo de cavaleiro",
+      "abilityLabel": "Capacidade de ciclismo geral",
+      "abilityUnknown": "Não há evidência suficiente de capacidade-score",
+      "abilityScoreAria": "Total de capacidade de ciclismo",
+      "estimated": "Estimado",
+      "insufficient": "Não há evidência suficiente",
+      "metrics": {
+        "eftp": "Últimas mensagens eFTP",
+        "cp": "Poder crítico CP",
+        "tte": "Duração TTE"
+      },
+      "evidenceOpen": "Veja a evidência de cálculo",
+      "evidenceClose": "Certo cálculo de evidência",
+      "evidence": {
+        "twentyMinute": "Melhor média de 20 minutos",
+        "latestPeriod": "Última data do eFTP",
+        "activityCount": "Atividades em Análise PDC",
+        "activityCountValue": "{{count}} Atividades",
+        "activeDelta": "EFTP vs Ativo FTP",
+        "riderConfidence": "Confiança de tipo Rider"
+      },
+      "modelEvidence": "O FTP usa 95% of melhor potência média mensal de 20 minutos; CP e TTE vem do último modelo de 90 dias PDC. Todos são estimativas e nunca mudam ativa FTP automaticamente ."
+    },
+    "zoneSourcePowerHistorical": "Z1–Z7 combinados usando cada atividade FTP • Não se reescrever com o atual FTPInclui apenas atividades com evidência de zona completa.",
+    "modelEvidence": "Dados por trás das metrinas"
+  },
+  "runEmpty": {
+    "title": "Não há recentes registros",
+    "subtitle": "Conectando Strava Ou importar um arquivo para reunir os seus registros em execução.",
+    "waitingTitle": "Não há recentes registros",
+    "waitingSubtitle": "O seu Strava As corridas aparecerão aqui uma vez sincronizado. você também pode importar um arquivo.",
+    "connectCta": "Conectando Strava",
+    "previewTag": "Previsão",
+    "sampleSentence": "Uma vez conectado você verá leituras como esta — \"Fator no escalão e você efetivamente correr {{gap}} por quilômetro no apartamento”.",
+    "samplePace": "Ritmo",
+    "sampleLoad": "Carga",
+    "manualHint": "Novo para ritmo, GAP e carga de treinamento?",
+    "manualCta": "Leia o guia em inglês",
+    "importCta": "Importar registros em curso"
+  },
+  "runRecap": {
+    "eyebrow": "A corrida da semana passada",
+    "headlineFaster": "{{count}} correndo em {{km}} km - seu ritmo médio caiu {{sec}} segundos da semana anterior.",
+    "headlineSlower": "{{count}} correndo em {{km}} A paz se move com o terreno e como você se sente.",
+    "headlinePlain": "{{count}} correndo em {{km}} quilômetro",
+    "runs": "Caminho contado",
+    "distance": "Distância viajando",
+    "avgPace": "O ritmo",
+    "unitTimes": "",
+    "unitSeconds": "S",
+    "prevWeek": "Semana anterior: {{count}} Runs → {{km}} km",
+    "deltaFasterA11y": "{{sec}} segundos mais rápido",
+    "deltaSlowerA11y": "{{sec}} segundos mais lentos"
+  },
+  "firstSync": {
+    "title": "Sua primeira viagem chegou",
+    "body": "De lá, seus registros se tornam leituras. Veja o seu ritmo e a carga de treinamento ajustados.",
+    "viewCta": "Veja a leitura",
+    "later": "Mais tarde"
+  },
+  "thresholdNudge": {
+    "body": "Estabelecer um ritmo limite acentuará consideravelmente as suas passas-alvo e a carga de treinamento.",
+    "cta": "Definição de ritmo limite"
+  },
+  "shoeBadge": {
+    "title": "{{name}} Está a chegar ao fim da sua vida",
+    "detail": "{{total}} km logged · aproximadamente {{remaining}} km de esquerda"
+  },
+  "canonical": {
+    "pending": "O último resumo de sete dias ainda não está disponível.",
+    "failed": "O resumo de sete dias não pode ser carregado. por favor tente novamente em breve.",
+    "empty": "Não há atividades para resumir nos últimos sete dias.",
+    "stale": "Mostrando o último resumo confirmado de sete dias.",
+    "staleChip": "Resumo anterior"
+  },
+  "weeklyEvidence": {
+    "loadUnknown": "Carga não calculada",
+    "shortTitle": "{{week}} Carga semanal",
+    "noKnownWeeks": "Não há semanas nesta faixa que tenham uma carga conhecida, então uma média ou pico não é calculado.",
+    "untitled": "Atividade sem título",
+    "unknown": "Não calculado",
+    "timeInput": "Duração Reflexada {{minutes}} ÷ 60 × fator horário {{factor}} (Rondado após o cálculo)",
+    "averageHelp": "A carga total conhecida {{total}} Por meio {{count}} Semanas são divididas por {{count}} e redondo para {{value}}Semanas desconhecidas são excluídas do {{weeks}}- denominador semana; semanas com total parcial ou estimado permanecem incluídas.",
+    "peakHelp": "A maior totalidade exibida entre {{count}} Semanas conhecidas são {{value}} ({{weeks}}Os custos armazenados/server e as cargas estimadas podem ser incluídos; semanas desconhecidas são excluídas.",
+    "trendHelp": "Compare a semana anterior {{previous}} Com a semana atual {{current}}Uma tendência é relatada apenas quando ambos os totais exibidos estão disponíveis e não contêm estimativas ou atividades desconhecidas.",
+    "scope": {
+      "allSupported": "Área: todas as atividades de ciclismo, corrida e natação apoiadas",
+      "bike": "Ciclismo",
+      "run": "Correr, andar e caminhar",
+      "swim": "nadando"
+    },
+    "input": {
+      "streamTrimpTss": "Rápido cardíaco substitui entrada {{value}}",
+      "relativeEffort": "Início Relativo Substituição de Input {{value}}"
+    },
+    "totalLabel": "Total de carga semanais",
+    "showDetails": "Vista {{week}} Atividade TSS",
+    "hideDetails": "Esconde a atividade TSS",
+    "detailsTitle": "{{week}} Atividade TSS Calculações",
+    "noEvidence": "O que TSS As informações e os dados não estão disponíveis para esta semana.",
+    "activityInputs": "Valores de cálculo de atividades",
+    "basis": {
+      "power": "Baseado em poder",
+      "heartRate": "Baseado em ritmo cardíaco",
+      "time": "Avaliação do tempo",
+      "unknown": "Método de cálculo desconhecido",
+      "excluded": "Excluso"
+    },
+    "tooltipTitle": "Semana de {{week}} · {{value}} TSS",
+    "tooltipUnknownTitle": "Semana de {{week}} • Carga não calculada",
+    "distance": "Distância {{value}} km",
+    "distanceTitle": "Semana de {{week}} · {{value}} km",
+    "distanceFormattedTitle": "Semana de {{week}} · {{distance}}{{partial}}",
+    "distanceUnknownTitle": "Semana de {{week}} • Distância não disponível",
+    "distancePartialTitle": "Semana {{week}} · {{value}}+ km"
+  },
+  "todayStrip": {
+    "goalCountdownTitle": "Días para o seu objetivo",
+    "goalCountdownLabel": "Objetivo de data explicação",
+    "goalCountdownHelp": "D−N contam dias até o objetivo, D+N dias desde o objetivo e D-DAY é o dia do objetivo.",
+    "weekTitle": "Nos últimos 7 dias; {{sport}}",
+    "findEvents": "Encontre eventos",
+    "goalLink": "Veja o objetivo",
+    "analysisLink": "Veja a análise",
+    "allSportsRecent7d": "Todos os esportes · últimos 7 dias",
+    "today": "Treinamento de hoje",
+    "choose": "Decidir →",
+    "loading": "Carregando…",
+    "noToday": "Escolha a formação de hoje no Coach",
+    "unavailable": "Atualmente não disponível",
+    "goal": "Objetivo",
+    "createGoal": "Crie um objetivo",
+    "monthFlow": "Progresso deste mês",
+    "monthFlowValue": "{{distance}} km em {{percent}}% oF. A sua base mensal habitual",
+    "events": "Meu horário",
+    "noEvents": "Não há eventos registrados",
+    "condition": "Condição",
+    "conditionLink": "Ver Condição",
+    "week": "Log da atividade mensal",
+    "more": "Mais informações e horário de treinamento",
+    "support": "Apps e ajuda",
+    "recap": "Veja o recado anual",
+    "firstRecord": "Recorde sua primeira atividade · Obtenha a app",
+    "importHistory": "Importar atividades existentes",
+    "goalCtl": "Projetado dia-alvo CTL {{value}}",
+    "monthFlowAllTitle": "Este mês, todos os esportes",
+    "monthFlowAllValue": "{{distance}} km em {{percent}}% oF. Distância mensal habitual"
+  },
+  "homeMetrics": {
+    "distance": "Distância viajando",
+    "movingTime": "Tempo em movimento",
+    "elapsedTime": "Tempo perdido",
+    "avgHeartRate": "Título: Título cardíaco médio",
+    "avgPower": "Poder médio",
+    "activityTime": "Tempo de Atividade"
+  },
+  "charts.weeklyChart.weekTitle": "Atividades Semanuais",
+  "charts.weeklyChart.previousWeek": "Semana passada",
+  "charts.weeklyChart.nextWeek": "próxima semana",
+  "mobileFitness.periodScope": "Atividade deste mês e a curva de 28 dias recentes usam períodos separados.",
+  "mobileFitness.conditionLink": "Veja a situação atual",
+  "mobileFitness.performance.missingMetrics": "Avaliação de evidências insuficientes: {{metrics}}",
+  "mobileFitness.powerChanges": "Mudanças de potência · Compare dois períodos",
+  "mobileFitness.analysisDestination": "Resultados e comparações de dados em análise",
+  "mobileFitness.weeklyUnknown": "A comparação semanal requer mais evidências diárias de carga."
+}

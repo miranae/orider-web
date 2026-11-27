@@ -1,0 +1,684 @@
+{
+  "terms": {
+    "title": "Orider Condiciones de servicio",
+    "lastUpdated": "Última actualización: 18 de febrero de 2026",
+    "stravaTermsLink": "Strava Migración adicional",
+    "sections": [
+      {
+        "title": "Artículo 1 (Pero es necesario)",
+        "paragraphs": [
+          "Estos Términos regulan el uso del servicio de seguimiento de viajes y plataforma social (incluido el sitio web y las aplicaciones móviles) proporcionado por Orider ( \"Compañía\"), y define los derechos, obligaciones y responsabilidades entre la Compañía y los Usuarios, así como otras cuestiones necesarias."
+        ]
+      },
+      {
+        "title": "Artículo 2 (definciones)",
+        "list": [
+          "\"Servizo\" significa todos los servicios prestados por la Empresa a través del sitio web (orider.app) y de las aplicaciones móviles (Android, iOS), incluyendo la gestión de registros de viajes, análisis de datos, segmentos y tablas de liderazgo, características sociales y integraciones de servicios externos.",
+          "\"Usuario\" significa un miembro o no miembro que accede y utiliza el Servicio de acuerdo con estos Términos.",
+          "\"Membro\" significa una persona que ha firmado a través de una cuenta de Google o de un método similar y ha firmado un acuerdo de servicio con la Empresa.",
+          "\"Content\" significa toda la información que los Usuarios carguen o publiquen, incluidos los registros de viajes, fotos, comentarios, descripciones y información de perfil.",
+          "\"Servicio externo\" significa un servicio de terceros como Strava que la empresa integra con."
+        ]
+      },
+      {
+        "title": "Artículo 3 (Conformidad de contrato de servicio)",
+        "list": [
+          "Se forma un acuerdo de servicio cuando el Usuario acepta estos Términos y completa el proceso de suscripción.",
+          "La Empresa podrá restringir el registro o terminar el acuerdo después del hecho en los siguientes casos: (1) si la información de otra persona se utiliza mal, (2) si el Usuario es menor de 14 años (incluido sin consentimiento del guardián legal), (3) si el Usuario viola las leyes o estos Términos.",
+          "Los miembros no pueden transferir, prestar, o compartir su cuenta con otros."
+        ]
+      },
+      {
+        "title": "Artículo 4 (Gestión de Cuentas)",
+        "list": [
+          "Los miembros son responsables de gestionar su propia información de cuenta.",
+          "Los miembros deben informar de inmediato a la Empresa si se sospecha que se haga uso no autorizado de su cuenta.",
+          "La empresa no se responsabiliza por los daños causados por la propia culpa del miembro."
+        ]
+      },
+      {
+        "title": "Artículo 5 (Provision y Modificación del Servicio)",
+        "paragraphs": [
+          "La empresa presta los siguientes servicios:"
+        ],
+        "list": [
+          "Recopilación y análisis de registros de Ride",
+          "Strava Migración de datos y sincronización",
+          "Segmentos y liderazgo",
+          "Características sociales como amigos, comentarios y kudos",
+          "Recopilación de viaje en tiempo real (ruta GPS, velocidad, elevación)",
+          "Integración de sensor BLE (rito cardíaco, cadencia, potencia, girar, radar)",
+          "Conducciones de grupos y compartición de ubicación en tiempo real"
+        ],
+        "list2": [
+          "El Servicio está actualmente en una etapa temprana (Beta) y algunas funciones pueden cambiar o ser interrumpidas.",
+          "La Empresa podrá modificar todo o parte del Servicio por razones operativas o técnicas; los cambios significativos serán anunciados previamente.",
+          "El Servicio se ofrece actualmente de forma gratuita, pero las funciones pagadas pueden introducirse en el futuro con previo aviso."
+        ]
+      },
+      {
+        "title": "Artículo 6 (Integración y datos de servicio externo)",
+        "list": [
+          "El Servicio puede integrarse con servicios externos como el Strava API con el consentimiento explícito del Usuario.",
+          "Algunas características pueden estar limitadas debido a cambios en las políticas de servicio externas, límites de API o desechos.",
+          "La empresa no garantiza la exactitud, completa o timilidad de los datos obtenidos de los servicios externos.",
+          "Los usuarios pueden desaconear los servicios externos en cualquier momento, en el caso de que se desactiven los tokens de autenticación.",
+          "El tratamiento de los datos del Servicio no afecta a los datos de los servicios externos."
+        ],
+        "stravaLinkSentencePrefix": "Detalles de Strava La integración sigue el ",
+        "stravaLinkSentenceSuffix": "."
+      },
+      {
+        "title": "Artículo 7 (Protección de la privacidad)",
+        "list": [
+          "La empresa procesará y protegerá la información personal de los Usuarios de acuerdo con las leyes aplicables.",
+          "Las categorías recogidas, los fines y los períodos de retención se regulan por la Política de Privacidad separada.",
+          "Los usuarios pueden exportar o solicitar la eliminación de sus datos a través de Settings."
+        ]
+      },
+      {
+        "title": "Artículo 8 (Obligaciones del usuario y actividades prohibidas)",
+        "paragraphs": [
+          "Los usuarios no deben participar en ninguna de las siguientes actividades:"
+        ],
+        "list": [
+          "Actos que violen las leyes o estos Términos",
+          "infringir los derechos de los demás (derechos de autor, retratos, datos personales, etc.)",
+          "Publicar contenido que defama, insulta o causa odio o malestar",
+          "Colección de masa (escraping) utilizando herramientas automatizadas, generando tráfico anormal",
+          "Ingeniería inversa, pasajos de acceso, compartir credenciales o interferir con la operación del Servicio",
+          "Inducir violaciones de las políticas de servicios externos"
+        ]
+      },
+      {
+        "title": "Artículo 9 (Restruturación y cese de uso)",
+        "list": [
+          "La Empresa podrá emitir avisos, suspensión temporal o suspensión permanente si un Usuario viola estos Términos.",
+          "Para violaciones graves, el uso puede ser restringido sin previo aviso.",
+          "Los miembros podrán solicitar la retirada en cualquier momento; al retirarse, los datos personales se procesan de acuerdo con las leyes aplicables y la Política de Privacidad.",
+          "Los miembros podrán apelar medidas de restricción a la Compañía."
+        ]
+      },
+      {
+        "title": "Artículo 10 (Derechos y responsabilidades de contenido)",
+        "list": [
+          "Los usuarios deben poseer o tener derechos legales sobre el contenido que cargan.",
+          "Los usuarios otorgan a la empresa una licencia no exclusiva, libre de autoridad, mundial en la medida necesaria para proporcionar, mostrar, almacenar y transmitir el Servicio.",
+          "La Empresa podrá tomar medidas temporales (blindad, eliminación, etc.) sobre contenido sospechoso de infracción.",
+          "Los usuarios son responsables de cualquier controversia que surja de su contenido."
+        ]
+      },
+      {
+        "title": "Artículo 11 (Interrupción del servicio)",
+        "list": [
+          "La Empresa puede interrumpir temporalmente todo o parte del Servicio debido a mantenimiento del sistema, fallos o fuerza mayor.",
+          "Las notificaciones se publicarán de antemano cuando sea posible, o después del hecho cuando sea inevitable."
+        ]
+      },
+      {
+        "title": "Artículo 12 (Limitado de la responsabilidad)",
+        "list": [
+          "La empresa limita su responsabilidad por el servicio gratuito en la medida permitida por la ley.",
+          "La empresa no se responsabiliza por daños causados por interrupciones de servicio externas o cambios en la política.",
+          "La empresa no se responsabiliza por daños indirectos, especiales o consecutivos.",
+          "Sin embargo, los daños causados por la malacción voluntaria o la negligencia grave de la Compañía se regulan por la ley aplicable."
+        ]
+      },
+      {
+        "title": "Artículo 13 (Cambios en los Términos)",
+        "list": [
+          "La Empresa podrá modificar estos Términos dentro del ámbito permitido por la ley.",
+          "Los cambios se anunciarán a través de la pantalla del servicio o por correo electrónico.",
+          "Los usuarios que no se acuerden de los cambios pueden retirarse."
+        ]
+      },
+      {
+        "title": "Artículo 14 (Resolución de litigios y ley de gobierno)",
+        "list": [
+          "Los litigios relacionados con el Servicio se resolverán mediante consulta mutua.",
+          "Si la consulta no se realiza, las leyes de la República de Corea regirán y el tribunal con jurisdicción sobre la sede de la Empresa tendrá jurisdicción."
+        ]
+      },
+      {
+        "title": "Artículo 15 (Contact)",
+        "paragraphs": [
+          "Las encuestas sobre el Servicio se pueden hacer a través de lo siguiente:"
+        ],
+        "list": [
+          "El correo electrónico: orider.app@gmail.com",
+          "Feedback o correo electrónico"
+        ]
+      }
+    ]
+  },
+  "stravaTerms": {
+    "pageTitle": "Strava Migración de datos y integración",
+    "pageSubtitle": "Este aporte forma parte de la Orider Condiciones de servicio.",
+    "article1": {
+      "title": "Artículo 1 (Pero es necesario)",
+      "body": "Este Añado regula los derechos y responsabilidades relacionados con la función que permite a los Usuarios importar Strava Datos en Orider."
+    },
+    "article2": {
+      "title": "Artículo 2 (Método de integración)",
+      "item1": "La integración se realiza a través de la autenticación de OAuth.",
+      "item2": "Los usuarios otorgan permiso de acceso a los datos mediante el consentimiento explícito."
+    },
+    "article3": {
+      "title": "Artículo 3 (Segundo de datos)",
+      "intro": "Se pueden importar los siguientes datos:",
+      "item1": "Ride los registros",
+      "item2": "Distancia, velocidad, altura y tiempo",
+      "item3": "Los registros de segmento",
+      "item4": "Descripción de Actividades",
+      "footer": "El alcance de los datos importables está sujeto a Strava Política de fuego."
+    },
+    "article4": {
+      "title": "Artículo 4 (Limitado de la responsabilidad)",
+      "item1": "Algunos datos pueden faltar debido a Strava Limitaciones de API o cambios de políticas.",
+      "item2": "Los retrasos en la sincronización de datos pueden ocurrir bajo límites de API.",
+      "item3": "La empresa no garantiza la precisión de Strava Los datos."
+    },
+    "article5": {
+      "title": "Artículo 5 (Disconnección)",
+      "item1": "Los usuarios pueden desactivar la integración en cualquier momento.",
+      "item2": "En caso de desconectar, los tokens de autenticación se descuidarán.",
+      "item3": "Los datos ya importados se conservarán dentro del Servicio a menos que el Usuario solicite la eliminación."
+    },
+    "article6": {
+      "title": "Artículo 6 (Relación con Strava)",
+      "body": "Orider no está asociado con o con un socio oficial de Stravay Strava No es el operador de este servicio."
+    }
+  },
+  "guidelines": {
+    "eyebrow": "Normas para una comunidad más segura",
+    "pageTitle": "Orider Guía de la Comunidad",
+    "intro": "Orider Es una plataforma para una cultura de conducción saludable.Todos los usuarios deben cumplir con los siguientes estándares.",
+    "highlights": [
+      "Compartir registros de viaje y opiniones basadas en hechos.",
+      "No publique la ubicación, los datos de contacto, la cara o otra información personal de otra persona sin su permiso.",
+      "La manipulación de registros, la manipulación de ranking y el discurso de odio dañan la confianza de la comunidad."
+    ],
+    "actions": {
+      "home": "ir a Orider Casa",
+      "board": "Volver a la comunidad",
+      "write": "Escribe un post",
+      "feedback": "Contacto o informe"
+    },
+    "next": {
+      "title": "Después de revisar el guía",
+      "body": "Volver a casa para comprobar sus vuelos, o unirse a la comunidad para compartir experiencias de vuelo. Utilice contacto o informe cuando ve un post problemático o tiene comentarios."
+    },
+    "sections": [
+      {
+        "title": "1 Respeto y consideración",
+        "items": [
+          "No defame, insulte, moleste, amenaza, o utilice discurso de odio hacia otros.",
+          "No discrimine ni exclude a personas según raza, género, edad, región, discapacidad, condición física, capacidad o nivel de equipo.",
+          "No te diverte con la habilidad de conducir o los registros. Dale consejos específicos y respetados cuando sea bienvenido.",
+          "Priorizar la seguridad y la consideración en los recortes de grupo, eventos, publicaciones y comentarios."
+        ]
+      },
+      {
+        "title": "2.Ride Records y ubicación Privacidad",
+        "intro": "Porque Orider maneja las rutas de movimiento y los datos de actividad, la privacidad de la ubicación es más importante que en una comunidad general.",
+        "items": [
+          "No revelar la casa, el lugar de trabajo, el punto de inicio frecuente, la ubicación en vivo o los detalles de contacto de otra persona sin permiso.",
+          "Al compartir una ruta de viaje de grupo, ocultar los puntos de inicio y final exactos o lugares que puedan identificar a un participante.",
+          "No comparte datos sensibles como ritmo cardíaco, potencia, fatiga, lesiones o estado de salud sin el consentimiento del conductor.",
+          "Antes de publicar las capturas de pantalla, ver y ocultar nombres, perfiles, coordenadas de mapas, enlaces de invitación, claves de API y otros identificadores."
+        ]
+      },
+      {
+        "title": "Contenido seguro y cultura de caballo",
+        "items": [
+          "No publiques contenido violento, obsceno o ilegal.",
+          "No glorificar ni fomentar peligrosas conductas, violaciones de la ley de tráfico, persecución, amenaza conductas, o molestias.",
+          "Cuando se discute accidentes, lesiones o situaciones de rescate, protege la privacidad y la dignidad de las personas involucradas.",
+          "Formación de marco o comentarios de salud como experiencia personal, no como diagnóstico médico."
+        ]
+      },
+      {
+        "title": "Fotografía, Videos, Derechos de retrato y Copyright",
+        "items": [
+          "No postes o redistribuis fotos, videos, registros de viaje, archivos de curso, o escribas sin permiso.",
+          "Antes de publicar fotos de viaje de grupo, asegúrese de que las personas mostradas están cómodas con la compartición pública.",
+          "La promoción comercial, el coaching pagado, la promoción de eventos y el contenido externo copiado deben hacer claro la fuente y el permiso.",
+          "Las imágenes o los registros en conflicto pueden ser escondidos o eliminados mientras se revisan."
+        ]
+      },
+      {
+        "title": "Fidelidad y confianza de los record",
+        "items": [
+          "No manipule los datos GPS, falsifique los registros, cargue actividades asistidas por vehículos, o envíe datos anormales.",
+          "No utilice automatización, múltiples cuentas o actividades falsas para manipular rankings o bandios.",
+          "Si encuentras errores de sensor o de grabación, corregirlos cuando sea posible o evitar usarlos en competición pública.",
+          "Los registros sospechosos repetidos pueden estar ocultos, excluidos de los paneles de liderazgo, o conducir a restricciones de cuenta."
+        ]
+      },
+      {
+        "title": "Grupos, eventos y amigos",
+        "items": [
+          "Operar grupos y eventos de una manera que respete la seguridad, el tiempo y la privacidad de los participantes.",
+          "No invite a las personas a grupos, eventos, mensajes o solicitudes de amigos no deseados.",
+          "Para los eventos que incluyen encuentros offline, describe claramente la dificultad, la distancia, el tiempo esperado, el equipo y los riesgos donde sea posible.",
+          "No utilice los privilegios de los organizadores o moderadores para excluir o molestar de manera injusta a los usuarios."
+        ]
+      },
+      {
+        "title": "Creador, recetas y tarjetas de compartir",
+        "intro": "El contenido construido con Creator Hub o la API de Datos Personales debe ser especialmente claro sobre la exposición de datos.",
+        "items": [
+          "Las recetas, las automatizaciones y las tarjetas de compartir deben explicar claramente los espontáneos requeridos y qué datos se hacen visibles.",
+          "No envíe las claves de API, los tokens auth, las URL de webhook, los correos electrónicos personales o los datos de actividad privada en los posts o comentarios.",
+          "Preferir valores agregados y resumenas seguras en tarjetas de acciones. Esconde rutas precisas, ubicaciones de inicio y metrinas sensibles por defecto.",
+          "Las recetas que capturen o envíen los datos de otra persona sin permiso no son permitidas."
+        ]
+      },
+      {
+        "title": "8.Raportos, Revisión y Apelaciones",
+        "items": [
+          "Utilice contacto o informe para la exposición de privacidad, molestias, manipulación de registros, contenido ilegal o amenazas de seguridad.",
+          "Al informar, incluye el post relevante, comentarios, registros, usuarios y situación lo más específicamente posible.",
+          "Orider puede ocultar temporalmente el contenido o solicitar más información mientras revisan un informe.",
+          "Si crees que una acción de ejecución fue incorrecta, puedes apelar a través del canal de contacto."
+        ]
+      },
+      {
+        "title": "9 Política de Ejecución",
+        "intro": "Dependiendo de la gravedad, repetición y potencial daño, las violaciones pueden resultar en:",
+        "items": [
+          "Guía o aviso",
+          "El contenido oculto o eliminado",
+          "Exclusión de la placa de liderazgo o invalidación de los registros",
+          "Suspensión temporal o restricción de la función",
+          "Suspensión permanente por violaciones graves o repetidas"
+        ],
+        "footer": "Las violaciones graves que amenazan la seguridad o exponen información privada pueden ser limitadas de inmediato sin previo aviso."
+      }
+    ],
+    "section1": {
+      "title": "1 Respeto y consideración",
+      "item1": "No hay defamación, insultos o discursos de odio hacia los demás",
+      "item2": "No hay discriminación basada en raza, género, región, condición física, etc."
+    },
+    "section2": {
+      "title": "2 Contenido seguro",
+      "item1": "No publicar contenido violento o obsceno",
+      "item2": "No divulgar información personal de otros",
+      "item3": "No publicar archivos falsos o datos manipulados"
+    },
+    "section3": {
+      "title": "Derechos de autor y retrato",
+      "item1": "No publicar de forma no autorizada fotos, videos o registros de otros",
+      "item2": "No reproducción no autorizada para fines comerciales"
+    },
+    "section4": {
+      "title": "4o Los líderes justos",
+      "item1": "No manipula GPS, gravación de datos falsificados o descarga de datos anormales",
+      "item2": "No manipula el ranking utilizando herramientas automatizadas"
+    },
+    "section5": {
+      "title": "5 Política de Ejecución",
+      "intro": "Las violaciones pueden resultar en las siguientes acciones:",
+      "item1": "Eliminar contenido",
+      "item2": "Suspensión temporal",
+      "item3": "Suspensión permanente",
+      "footer": "Las cuentas pueden ser suspendidas inmediatamente por violaciones graves."
+    }
+  },
+  "privacy": {
+    "title": "Orider Política de privacidad",
+    "lastUpdated": "Última actualización: 18 de octubre de 2026",
+    "intro": "Orider (\"Compañía\") cumple con la Ley de Protección de Datos de Carácter Personal y otras leyes aplicables y establece y divulga esta Política de Privacidad de la siguiente manera para proteger la información personal de los Usuarios.",
+    "stravaPrivacyLink": "Strava Política de privacidad",
+    "sections": [
+      {
+        "title": "Artículo 1 (Información personal recogida)",
+        "paragraphs": [
+          "La empresa recopila la siguiente información personal:"
+        ],
+        "groups": [
+          {
+            "heading": "1 Significa y significa",
+            "list": [
+              "Información de la cuenta de Google: nombre, dirección de correo electrónico, imagen de perfil",
+              "Google Identificador Único",
+              "Cuando se selecciona Naver o Kakao: el ID de usuario específico del proveedor, nombre de apellido y imagen de perfil, si se ha consentido y se ha proporcionado",
+              "Mantenimiento y revocación de la conexión Naver/Kakao: información de acceso/refresión de OAuth y expiración (sólo el servidor)",
+              "Cuando Strava Se selecciona el nombre de perfil público/Imaje de un atleta"
+            ]
+          },
+          {
+            "heading": "2. Strava integración",
+            "list": [
+              "Strava Identificación única",
+              "Los registros de la conducción (distancia, velocidad, elevación, ruta, tiempo de actividad, etc.)",
+              "Descripciones de actividades, registros de segmentos y otros datos que el Usuario ha hecho público en Strava",
+              "OAuth acceso y refresca los tokens y expira la información para la conexión"
+            ]
+          },
+          {
+            "heading": "3.- Recogida automáticamente durante el uso",
+            "list": [
+              "Acceso a los logs, dirección IP",
+              "Información de dispositivos (tipo de dispositivo, versión de OS)",
+              "Cookies (web) y almacenamiento local (app)",
+              "Información de ubicación (GPS): rutas de viaje y marcha, compartiendo ubicación en tiempo real",
+              "Datos de sensor BLE: ritmo cardíaco, cadencia, potencia, estado de girar, radar",
+              "Datos de uso de SDK: vistas de pantalla, interacciones de aplicaciones, sesiones y rendimiento, informes de accidente y diagnósticos de error",
+              "Identificadores de aplicaciones y de instalación, identificadores de usuario asociados con la cuenta firmada, y pulsar los tokens de notificación",
+              "Ubicación aproximada, como país o ciudad, derivada de los direcciones IP. Google Analytics utiliza direcciones IP para la ubicación derivada pero no se registra ni almacena las direcciones IP en sí."
+            ]
+          },
+          {
+            "heading": "4.Collegación adicional en aplicaciones móviles",
+            "list": [
+              "Identificadores de dispositivos (modelo de dispositivo, versión de OS, versión de la aplicación)",
+              "Información del dispositivo Bluetooth (nombre de sensor conectado, ID del dispositivo)",
+              "Ubicación de fondo (durante la grabación de la ruta, con el consentimiento del usuario)",
+              "Cuando se utiliza la aplicación de reloj de Wear OS: datos de entrenamiento medidos por la reloj durante el ejercicio, incluyendo la velocidad del corazón, la ubicación GPS, la distancia, la velocidad, la cadencia y la altitud"
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Artículo 2 (Pueblos de recogida y uso)",
+        "paragraphs": [
+          "La empresa procesa la información personal para los siguientes fines:"
+        ],
+        "list": [
+          "Identificación de miembros y gestión de cuentas",
+          "Almacenamiento y análisis de registros de conducción y conducción",
+          "Proporcionando Strava Características de la integración",
+          "Los líderes operativos y las características sociales",
+          "Recopilación de datos de viaje y sensor en tiempo real",
+          "Compartir ubicación en tiempo real durante los viajes de grupo",
+          "BLE Sensor Integration y Gestión de Dispositivos",
+          "Mejora del servicio y análisis de errores",
+          "Respeto a las leyes y respuesta a los litigios"
+        ]
+      },
+      {
+        "title": "Artículo 3 (Periodo de retención y uso)",
+        "list": [
+          "Las solicitudes de eliminación de la cuenta se procesan por un trabajo del servidor en etapas, con las etapas fallidas retrasadas.",
+          "No obstante, los datos podrán ser conservados por un período determinado si lo requieren las leyes aplicables.",
+          "Solicita la eliminación de su cuenta y los datos de servicio activos en la página de eliminación de la cuenta. La verificación de archivos primos requiere al menos 24 horas. esa página describe el tratamiento y la retención de logs de error, copias de recuperación, backups existentes y el estado técnico mínimo. la eliminación de la cuenta activa no confirma la eliminación de cada proveedor o copia de seguridad."
+        ]
+      },
+      {
+        "title": "Artículo 4 (propuesta a terceros)",
+        "paragraphs": [
+          "El Servicio procesa los datos con los proveedores externos descritos en esta Política. O-Rider se diferencia del tratamiento determinado por un proveedor externo para sus propios fines. ver la sección Mapbox a continuación para información enviada con solicitudes de mapa y su alcance de tratamiento."
+        ],
+        "list": [
+          "Cuando el usuario haya aceptado previamente",
+          "Cuando lo exija la ley"
+        ],
+        "footer": "Strava La integración utiliza su elección y la autorización de OAuth. Las características que solicita, como las cargas de entrenamiento, transmiten los datos de entrenamiento relevantes a Strava bajo sus políticas separadas."
+      },
+      {
+        "title": "Artículo 4-2 (Tratamiento de datos para Strava La integración)",
+        "paragraphs": [
+          "Cuando un usuario integra una Strava cuenta, los datos se procesan de la siguiente manera:",
+          "Strava La inscripción solicita el acceso (leer) del perfil público solo. la inscripción no importa actividades o comienza la sincronización. una conexión de actividad existente no permite automáticamente Strava Inscribirse; inscreverse en su cuenta existente primero y añadir expresamente Strava Sign-in. Sign-in y actividad sincronización comparte el mismo Strava autorización de la aplicación, por lo que la sincronización de la actividad puede requerir la reautorización después de los cambios de permiso."
+        ],
+        "groups": [
+          {
+            "heading": "1 Datos recogidos",
+            "list": [
+              "Strava Información del perfil (nombre, imagen del perfil)",
+              "Resumen de la actividad de la conducción (distancia, velocidad, ritmo cardíaco, potencia, cadencia, elevación)",
+              "Datos de ruta GPS (lat/lng, perfil de elevación)",
+              "Los registros y logros de los segmentos (PR, KOM)",
+              "Fotografía de actividad (si seleccionada por el usuario)"
+            ]
+          },
+          {
+            "heading": "2 - Objetos de uso",
+            "list": [
+              "Gestión y análisis unificados de los registros de viaje del usuario",
+              "Características de visualización como los perfiles de elevación y los gráficos de rendimiento",
+              "Los líderes de segmentos y la comparación de los registros personales",
+              "Identificación de cuenta, registro y gestión de conexión explícita cuando elija Strava Signo en"
+            ]
+          },
+          {
+            "heading": "El alcance de acceso a datos (OAuth scopes)",
+            "list": [
+              "Leer - Leer información de perfil público",
+              "Actividad:read_all — Leer todos los datos de actividad",
+              "Actividad:Escribir — Cargar actividades desde aplicaciones móviles y publicar resumen de participación de actividades desde la web"
+            ]
+          },
+          {
+            "heading": "Retiro del consentimiento y eliminación de datos",
+            "list": [
+              "Los usuarios pueden desacopularse Strava Integración en cualquier momento desde la página de configuraciones.",
+              "Strava Los tokens de autenticación se desactivan inmediatamente después de la disconnección.",
+              "Los usuarios pueden solicitar la eliminación de todos los datos de actividad importados de Strava desde la página de configuración.",
+              "Strava La limpieza de datos se separa de O-Rider Para eliminar tu cuenta, ejercicios y fotos, use la página de eliminación de la cuenta y ver el estado de cumplimiento confirmado por el servidor.",
+              "Rejeitar el mismo Strava La autorización de la aplicación afecta tanto a la sincrónica de la actividad como a la sincrónica de la sesión. asegúrese de que otro método de sincrónica está disponible antes de desacone-lo; eliminar el último método de sincrónica está bloqueado."
+            ]
+          },
+          {
+            "heading": "5 - Seguridad de credencia",
+            "list": [
+              "Strava Los tokens de OAuth se procesan en el servidor para funciones de integración.La aplicación de la cuenta autenticada también puede descargar, almacenar y sincronizarlos en el dispositivo.Los tokens son credenciales y no se hacen públicos a otros usuarios.",
+              "El intercambio de token se gestiona a través de la comunicación encriptada por HTTPS."
+            ]
+          }
+        ],
+        "stravaLinkHeading": "6. Strava Política de privacidad",
+        "stravaLinkSentencePrefix": "El tratamiento de datos en el Strava La plataforma sigue el ",
+        "stravaLinkSentenceSuffix": "Si esta política y el Strava conflicto político, el Strava La política prevalecerá."
+      },
+      {
+        "title": "Artículo 4-3 (Integración de plataformas de salud y datos de salud)",
+        "paragraphs": [
+          "Cuando conectas a una plataforma de salud de dispositivos como Apple Health (HealthKit), Health Connect (Android) o Samsung Health en la aplicación móvil, procesamos los datos de la siguiente manera.",
+          "Los datos de salud son información sensible según el artículo 23 de la Ley de Protección de Datos de Carácter Personal, por lo que obtenemos consentimiento separado, distinto del consentimiento general de privacidad, antes de la recogida."
+        ],
+        "groups": [
+          {
+            "heading": "Datos recogidos (sólo los artículos que usted acepta)",
+            "list": [
+              "Los registros de entrenamiento: tipo de actividad, hora de inicio y final, distancia, calorías, muestras de ritmo cardíaco y estadísticas registradas durante el entrenamiento",
+              "Rutas de entrenamiento - ubicaciones GPS registradas durante el entrenamiento (latitud, longitud, altitud, timestamp, exactitud)",
+              "Datos de recuperación (con consentimiento adicional) - variabilidad de ritmo cardíaco (HRV), ritmo cardíaco descanso, duración del sueño"
+            ]
+          },
+          {
+            "heading": "2o) El propósito de uso",
+            "list": [
+              "Crear y analizar actividades de servicio, como mapas de ruta y esfuerzos de segmento, desde los ejercicios registrados en su reloj o dispositivo",
+              "Recuperación (reciencia) análisis y orientación de intensidad de entrenamiento",
+              "Si lo habilita, grabar los recortes completados en O-Rider a Apple Health como ejercicios (distancia, calorías, ritmo cardíaco)"
+            ]
+          },
+          {
+            "heading": "3.Retención y eliminación",
+            "list": [
+              "Las actividades importadas se mantienen hasta que las suprimas individualmente o suprimas tu cuenta.",
+              "Eliminar una actividad también supera los datos derivados de ella."
+            ]
+          },
+          {
+            "heading": "4.- Retiro del consentimiento",
+            "list": [
+              "Puedes desaconear en cualquier momento en la aplicación en la sección Settings > Health Sync; la colección se detiene de inmediato.",
+              "El acceso a la plataforma de salud también puede ser revogado por elemento en cada configuración de la plataforma (iOS Settings > Health, Android Health Connect, la aplicación Samsung Health)."
+            ]
+          },
+          {
+            "heading": "5 Principios de procesamiento",
+            "list": [
+              "Los datos de salud se utilizan para funciones de servicio y no para publicidad.Las integraciones y el tratamiento solicitados por el usuario por los proveedores de servicios descritos en el artículo 5 pueden aplicarse.",
+              "Los datos en tránsito y en descanso están protegidos por los controles de acceso y HTTPS."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Artículo 4-4 (Naver/Kakao enlaces de registro y cuenta)",
+        "paragraphs": [
+          "Cuando elija Naver o Kakao para registrarse, utilizamos el ID de usuario específico del proveedor para crear una cuenta o permitirle conectarla explícitamente a su cuenta registrada existente."
+        ],
+        "groups": [
+          {
+            "heading": "Objetivos y información de perfil opcional",
+            "list": [
+              "Identificaciones de usuario específicas de proveedor soportan la inscripción, la identificación de la cuenta y la gestión de la conexión.",
+              "Si se le concede y se le proporciona, los nicknames y las imágenes de perfil se utilizan en su perfil de servicio.Puede registrarse sin ellos y editar su perfil en Settings > Account."
+            ]
+          },
+          {
+            "heading": "2.Retención de credencia y desconectamiento",
+            "list": [
+              "Los tokens de acceso/refreso de OAuth y la información de expiración se mantienen en el servidor de acceso restringido, solo al almacenamiento para mantener y revocar las conexiones del proveedor.",
+              "Solicitar desactivación en Settings > Account > Sign-in conexiones. El mapa de conexión y los credenciales se eliminan después de que el proveedor se revoga. La revocación fallida no se muestra como completa y se puede retirar.",
+              "La última conexión de entrada restante no se puede eliminar.Conectar otro método de entrada primero o solicitar la eliminación de la cuenta.",
+              "Desconectar un proveedor de registro no eliminará su O-Rider cuenta. puede renovar su apellido y cambiar o eliminar su imagen de perfil en las configuraciones. para eliminar la cuenta completa y el perfil, solicitar la eliminación de la cuenta."
+            ]
+          },
+          {
+            "heading": "3 Eliminar la cuenta",
+            "list": [
+              "Solicita la eliminación completa de la cuenta en la página de eliminación de la cuenta.El servidor procesará la eliminación, incluida la revocación del proveedor de Naver/Kakao, en secuencia y retira fallos."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Artículo 5 (Furnizadores y procesamiento externos)",
+        "paragraphs": [
+          "Utilizamos los servicios de Google LLC, incluyendo Firebase y Google Cloud, para la autenticación, almacenamiento de datos, operaciones y notificaciones de servidor, y Google Analytics y Firebase Crashlytics para el uso, el error y el análisis de rendimiento.",
+          "Los datos de los clientes de Firebase se procesan en nuestro nombre bajo los términos de tratamiento aplicables. Google Analytics tiene términos separados, y los datos de servicio de Google para sus propias operaciones y seguridad pueden seguir políticas separadas."
+        ],
+        "groups": [
+          {
+            "heading": "1.Authentización, almacenamiento y operaciones de servicio",
+            "list": [
+              "Firebase Authentication: identificadores de cuenta, correo electrónico y perfil, información de autenticación y conexión — registro, gestión de cuenta y prevención de abusos",
+              "Cloud Firestore, Realtime Database, Cloud Storage, Cloud Functions y Hosting: datos de servicio que almacenas o transmitas, incluyendo cuenta, entrenamiento, ruta, datos de sensor y foto, y información de solicitud — sincronización, almacenamiento, características de análisis y operaciones web/server",
+              "Firebase Cloud Messaging and App Check: identificadores de aplicaciones/instalaciones, tokens de notificación y información de autenticación de aplicaciones/dispositores — entrega de notificaciones y protección de acceso"
+            ]
+          },
+          {
+            "heading": "2.- Análisis de uso y fiabilidad",
+            "list": [
+              "Google Analytics: vistas de pantalla, interacciones, sesiones, aplicaciones/dispositores/instalaciones y identificadores asociados a la cuenta, y ubicación aproximada derivada de IP — análisis de uso y mejora de características",
+              "Firebase Crashlytics: registros de accidente/error, información de aplicación/dispositivo y identificadores de instalación – solución de problemas y fiabilidad. los SDK pueden recoger y transmitir automáticamente algunas informaciones mientras se utiliza la aplicación."
+            ]
+          }
+        ],
+        "policyLinks": [
+          {
+            "label": "Procesamiento y retención de datos de Firebase",
+            "url": "https://firebase.google.com/support/privacy"
+          },
+          {
+            "label": "Google Analytics Recopilación de datos",
+            "url": "https://support.google.com/analytics/answer/11593727?hl=en"
+          },
+          {
+            "label": "Política de privacidad de Google",
+            "url": "https://policies.google.com/privacy?hl=en"
+          }
+        ]
+      },
+      {
+        "title": "Artículo 6 (Derechos de los Usuarios y Cómo ejercitarlos)",
+        "paragraphs": [
+          "Los usuarios podrán ejercer los siguientes derechos en cualquier momento:"
+        ],
+        "list": [
+          "Solicitud de ver información personal",
+          "Solicitud de información personal correcta",
+          "Solicitud de supresión de información personal",
+          "Solicitud de descarga de datos (ZIP)"
+        ],
+        "footer": "Los derechos pueden ser ejercidos por correo electrónico, y la Empresa actuará sin demora."
+      },
+      {
+        "title": "Artículo 7 (Cookies y Tecnologías Similares)",
+        "paragraphs": [
+          "El Servicio utiliza cookies y almacenamiento de dispositivos para mantener la inscripción y las preferencias.Las configuraciones del navegador pueden restringir el almacenamiento, lo que puede afectar a algunas características.El bloqueo del almacenamiento del navegador solo no detiene la aplicación de análisis SDK o recogida de diagnósticos.Contacta con el responsable de la privacidad enumerado en esta Política con solicitudes sobre el tratamiento o recogida de datos."
+        ]
+      },
+      {
+        "title": "Artículo 8 (Metras de seguridad)",
+        "paragraphs": [
+          "La empresa implementa las siguientes medidas de protección:"
+        ],
+        "list": [
+          "Autenticación basada en OAUT",
+          "HTTPS encriptado de comunicación",
+          "Minimizar las licencias de acceso",
+          "Gestión de logos de acceso interno"
+        ]
+      },
+      {
+        "title": "Artículo 9 (Proteción de la información infantil)",
+        "paragraphs": [
+          "Los niños menores de 14 años no podrán registrarse sin el consentimiento de un tutor legal."
+        ]
+      },
+      {
+        "title": "Artículo 10 (Oficina de Privacidad)",
+        "list": [
+          "El correo electrónico: orider.app@gmail.com"
+        ]
+      },
+      {
+        "title": "Artículo 11 (Cambios en la Política)",
+        "paragraphs": [
+          "Esta Política puede ser revisada debido a cambios en las leyes o en el Servicio, y los cambios serán anunciados."
+        ]
+      }
+    ],
+    "mapbox": {
+      "title": "Procesamiento de datos por los servicios de mapas de Mapbox",
+      "body": "Para mostrar los mapas, O-Rider Solicita los mapas de las placas y estilos de Mapbox a través de HTTPS. Estos pedidos pueden transmitir su dirección IP, la solicitud de dispositivos y aplicaciones información, y la área de la tarjeta solicitada. Cuando el mapa sigue su ubicación actual, las áreas de la placas pueden revelar el barrio de su ubicación real. Poner en otro lugar puede solicitar una zona diferente de su ubicación actual. Mapbox normalmente mantiene los direcciones IP durante 30 días para proporcionar servicios, factura de clientes y mantener la seguridad, con la retención más larga posible para las investigaciones. Mapbox independientemente determina algún tratamiento para sus propios fines, que sigue su propia política de privacidad.",
+      "link": "Ver Política de privacidad de Mapbox"
+    }
+  },
+  "accountDeletion": {
+    "title": "Eliminar tu O-Rider Cuentas y datos",
+    "intro": "Solicita la eliminación de tu O-Rider cuenta aquí sin reinstalar la aplicación. Esto se aplica a la misma cuenta utilizada en la aplicación de teléfono y el reloj de Wear OS.",
+    "scopeTitle": "¿Qué supresión cubre",
+    "scope": "Esta solicitud permanente elimina su activo O-Rider registro de cuenta, perfil, entrenamientos y rutas GPS, datos de ritmo cardíaco y sensor, fotos, análisis y historia de entrenamiento, tokens de conexión y datos de servicio vinculados. los datos de proveedor y copias de seguridad siguen la información de retención y eliminación separada a continuación. los registros de exportación que necesitas primero.",
+    "retention": "El servidor procesará la eliminación en etapas y retrasas etapas fallidas.El acceso al servicio puede ser restringido durante el procesamiento.La verificación de los archivos residuales requiere al menos 24 horas y puede tardar más tiempo con las retrasas.Se mantiene el estado técnico mínimo (identificador de cuenta, fase de procesamiento y timestamps) para la realización de los controles, recuperación y prevención de la reaparición de los datos.Se almacenará una recepción de solicitud en esta sesión de navegador para que el progreso permanezca disponible después de los terminales de registro.",
+    "thirdParty": "Los datos ya se envían a servicios como Strava debe ser eliminado por separado bajo sus políticas. O-Rider No se apaga su cuenta en estos servicios.",
+    "steps": "1 Sigue en el O-Rider cuenta que desea eliminar. 2. leer el alcance y escribir DELETE. 3. Seleccione el botón de solicitud de eliminación. Si se requiere una inscripción reciente, confirmar su identidad y enviar de nuevo.",
+    "requestTitle": "Solicitar el tratamiento de la cuenta",
+    "checking": "Verificar el estado de la eliminación...",
+    "signInHelp": "Si usted se registra con Google, Naver o Kakao, se registra de la misma manera que usted se registra. Para problemas de Apple de registro, cuenta de invitado o registro, solicite la eliminación por correo electrónico utilizando el contacto anteriormente. No crea ni enlaza una cuenta de Google diferente. Si se bloquea en el navegador de aplicación, abre este enderezo en Chrome o Safari.",
+    "signIn": "Sigue en",
+    "account": "Cuenta para eliminar: {{account}}",
+    "confirm": "Tipo DECERTA para solicitar la eliminación permanente.",
+    "submit": "Solicitar una cuenta permanente y el tratamiento de datos",
+    "statusFailed": "El estado de eliminación no se puede verificar. no se ha confirmado el cumplimiento. ver el estado de nuevo.",
+    "retryStatus": "Revisa el estado de nuevo",
+    "requestFailed": "La solicitud de eliminación no pudo ser confirmada. no ha sido marcada completa. comprobar el estado antes de presentarse de nuevo.",
+    "reauthRequired": "Se requiere una inscripción reciente para verificar su identidad. Verificar de nuevo, luego seleccione el botón de solicitud de eliminación.",
+    "reauthenticate": "Verificar de nuevo la identidad",
+    "signInFailed": "La verificación de la inscripción o la identidad no se ha completado. permita los popups del navegador y intenta de nuevo con la cuenta correcta.",
+    "completionNote": "Una solicitud de recepción, suscripción o página cerrada no significa que la limpieza de la cuenta activa sea completa. La cumplimiento requiere la confirmación del servidor de la limpieza de primera parte; el procesamiento del proveedor y la retención de la copia de seguridad permanecen separados.",
+    "state": {
+      "pending": "El pedido de eliminación ha recibido.El tratamiento no está completo.",
+      "processing": "Su cuenta y los datos se borran.Puedes ver el progreso en esta página.",
+      "retrying": "Algunos pasos de eliminación no han terminado. el servidor se retira; el eliminación no está completa.",
+      "manual_required": "El tratamiento de la cuenta necesita la asistencia del operador y no es completa. Las retrasas automáticas se han detido. Contacte con el equipo de privacidad en el correo electrónico anterior. No envíe contraseñas o tokens de autenticación.",
+      "complete": "Limpiar su actividad O-Rider El tratamiento del proveedor y la retención de log y de copia de seguridad descrita anteriormente permanecen separados."
+    },
+    "privacyLink": "Ver Política de Privacidad",
+    "support": "Apple se registra, cuenta de invitado o no puede registrarse: correo electrónico el contacto de privacidad para solicitar la eliminación de la cuenta. Incluye el método de registro original y correo electrónico de la cuenta, si está disponible. No envíe contraseñas o tokens de autenticación. Verificación de identidad es necesaria, incluido para las cuentas de invitado; el contacto explicará los pasos necesarios.",
+    "sessionUnavailable": "El almacenamiento del navegador no está disponible, por lo que el progreso sólo se puede verificar mientras esta tabla permanece abierta.El servidor continúa procesando su solicitud.Si el estado no está disponible después de recargar o cerrar la tabla, póngase en contacto con el correo electrónico anteriormente.",
+    "providerRetention": "Google Analytics continúa el procesamiento después de que Google acepte una solicitud de eliminación. Firebase Crashlytics mantiene registros de accidente y identificadores relacionados durante 90 días antes de comenzar la eliminación de los sistemas de backup y en vivo; esto no significa que cada copia se haya ido en el día 90.",
+    "backupRetention": "Las copias de recuperación de los objetos eliminados del almacenamiento primario se mantienen durante 7 días. Algunas copias de seguridad de actividad existentes actualmente no tienen expiración automática y requieren limpieza y verificación separadas. Completeción de la eliminación de la cuenta activa no significa que cada copia de seguridad ha sido fisicamente eliminada. Contacte con el responsable de la privacidad de arriba sobre la eliminación de las copias conservadas.",
+    "providerPolicy": "Política de retención y eliminación de proveedores de Firebase",
+    "providerProcessing": "Google Analytics ha aceptado la solicitud de eliminación. el tratamiento de la parte del proveedor continúa; la eliminación física no ha sido confirmada.",
+    "ownerLoginRequired": "Esta sesión de registro no puede solicitar la eliminación de la cuenta. Verificar con la cuenta original en lugar de una sesión delegada, enlaces de espectáculo o invitado. Para una cuenta de Google existente, verificar de nuevo y enviar. Para las cuentas de Apple o invitado, use el correo electrónico anteriormente para organizar la verificación de la identidad."
+  }
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { LanguageToggle } from './LanguageToggle';
 import { LocaleProvider } from '../../contexts/LocaleContext';
 
@@ -38,21 +38,34 @@ describe('LanguageToggle', () => {
     expect(screen.getByRole('button', { name: /EN/i })).toBeInTheDocument();
   });
 
-  it('clicking EN calls i18n.changeLanguage with "en"', async () => {
+  it.each([
+    ['English', 'en'],
+    ['日本語', 'ja'],
+    ['繁體中文（台灣）', 'zh-TW'],
+    ['Português (Brasil)', 'pt-BR'],
+    ['Español', 'es'],
+  ])('switches to %s and preserves the current URL', async (name, code) => {
+    function CurrentUrl() {
+      const { pathname, search, hash } = useLocation();
+      return <output>{pathname}{search}{hash}</output>;
+    }
+
     render(
-      <MemoryRouter initialEntries={['/ko/dashboard']}>
+      <MemoryRouter initialEntries={['/ko/dashboard?view=week#summary']}>
         <Routes>
           <Route path="/:lang/dashboard" element={
             <LocaleProvider userId={null}>
-              <LanguageToggle variant="header" />
+              <LanguageToggle />
+              <CurrentUrl />
             </LocaleProvider>
           } />
         </Routes>
       </MemoryRouter>
     );
-    const en = screen.getByRole('button', { name: /EN/i });
-    await act(async () => { en.click(); });
-    const i18n = (await import('../../i18n')).default as any;
-    expect(i18n.changeLanguage).toHaveBeenCalledWith('en');
+
+    await act(async () => { screen.getByRole('radio', { name }).click(); });
+    const i18n = (await import('../../i18n')).default;
+    expect(i18n.changeLanguage).toHaveBeenCalledWith(code);
+    expect(screen.getByText('/' + code + '/dashboard?view=week#summary')).toBeInTheDocument();
   });
 });

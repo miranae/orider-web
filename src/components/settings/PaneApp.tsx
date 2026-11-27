@@ -10,7 +10,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { useStrava } from "../../hooks/useStrava";
 import { useExport } from "../../hooks/useExport";
-import { SUPPORTED_LANGS, type Lang } from "../../i18n/detector";
+import { LANGUAGE_NAMES, SUPPORTED_LANGS } from "../../i18n/detector";
 
 import { TimezoneSetting } from "./TimezoneSetting";
 import { SettingsCard, Field, FieldGrid, InlineRow } from "./_primitives";
@@ -19,10 +19,7 @@ import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
 import { useOriderTheme } from "../../theme";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
-const LANG_LABELS: Record<Lang, string> = {
-  ko: "한국어",
-  en: "English",
-};
+const LANG_LABELS = LANGUAGE_NAMES;
 
 /** display: 언어·단위·테마 / data: 내보내기·캐시·전체 삭제 (/settings/display · /settings/data). */
 export function PaneApp({ part }: { part: "display" | "data" }) {

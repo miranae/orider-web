@@ -1,0 +1,780 @@
+{
+  "header": {
+    "greetingPrefix": "您好, ",
+    "greetingSuffix": ".",
+    "subtitleSuffix": " 在過去的7天裡",
+    "runSubtitleSuffix": " 走路、走路、走路,在過去的七天裡。",
+    "runCountUnit": " 活動",
+    "subtitleRecent": "您已登入 ",
+    "defaultName": "騎行",
+    "slogan": "騎你的時間",
+    "sloganTagline": "",
+    "anonSubtitle": "將分散的活動記錄安全地聚集在一起,然後將其轉化為訓練負載、課程、分割槽和人工智慧培訓。",
+    "anonCta": "開始吧",
+    "signingIn": "簽名在...",
+    "signInFailed": "登入失敗了,請再試一次。"
+  },
+  "kpi": {
+    "weekGroup": "最後7天",
+    "runWeekGroup": "我的跑步,步行和滑雪 · 過去 7 天",
+    "trainingGroup": "培訓狀態",
+    "weekDistance": "遠端旅行",
+    "activities": "活動數",
+    "rides": "騎行數",
+    "runs": "活動數",
+    "runUnavailable": "跑步、步行和登山統計不適用",
+    "movingTime": "活動時間",
+    "elevation": "升高收益",
+    "fitness": "健身",
+    "fitnessBuild": "準備增加訓練",
+    "fitnessMaintain": "保持",
+    "fitnessRecovery": "恢復先",
+    "subRecent7d": "最後7天",
+    "subAtl": "阿特爾 {{value}}",
+    "subInsufficient": "不足的資料",
+    "thresholdRunLabel": "和平邊界",
+    "thresholdRunSub": "走路限制速度",
+    "thresholdRunUnit": "千米",
+    "thresholdSwimLabel": "飾 CSS",
+    "thresholdSwimSub": "關鍵游泳速度",
+    "thresholdSwimUnit": "百米",
+    "thresholdBikeLabel": "FTP",
+    "thresholdBikeSub": "功能限制權力",
+    "thresholdBikeUnit": "W"
+  },
+  "feed": {
+    "subscriptionsUnavailable": "訂閱正在準備中,請使用另一個活動範圍。",
+    "title": "最近活動",
+    "countTooltip": "所有公共活動 + 自己的活動",
+    "feedScope": "· 全食",
+    "countSuffix": "{{value}}",
+    "filter": {
+      "label": "可見性",
+      "all": "所有",
+      "friends": "朋友們",
+      "self": "我的"
+    },
+    "search": {
+      "placeholder": "搜尋活動...",
+      "submit": "搜尋",
+      "reset": "清晰的搜尋",
+      "clearFilters": "清晰的過濾器",
+      "morePossibleTitle": "可能有更多的結果",
+      "morePossibleDescription": "載入更多活動繼續搜尋。",
+      "resultsCount": "{{count}} 結果",
+      "resultsCount_one": "{{count}} 結果",
+      "resultsCount_other": "{{count}} 結果",
+      "emptyTitle": "沒有結果找到",
+      "emptyDescription": "嘗試不同的關鍵字或日期範圍。",
+      "resetScopeDates": "重新設定範圍和日期"
+    },
+    "datePreset": {
+      "label": "日期範圍",
+      "all": "所有",
+      "7d": "7D",
+      "30d": "30D",
+      "90d": "90d",
+      "year": "年度"
+    },
+    "loadMore": "載入更多",
+    "loading": "充電活動...",
+    "empty": {
+      "title": "尚未活動",
+      "description": "連線 Strava 或者上傳一個活動開始。",
+      "ctaConnectStrava": "連線 Strava"
+    },
+    "noMatches": {
+      "title": "沒有匹配活動",
+      "description": "嘗試另一個過濾器或日期範圍。"
+    },
+    "error": {
+      "title": "不能負擔活動",
+      "description": "檢查您的連線並嘗試一次,這並不意味著沒有活動。",
+      "retry": "再試一次"
+    },
+    "partialError": {
+      "title": "不能再載入活動",
+      "description": "只有一部分活動列表上傳,重新上傳完整列表,再試一次。",
+      "retry": "重新列表"
+    }
+  },
+  "yearRecap": {
+    "eyebrow": "12月季",
+    "title": "檢視您的騎行年份",
+    "desc": "將距離、時間、高度、90天連續性和每月趨勢總結到股票卡中。",
+    "cta": "檢視回復"
+  },
+  "streak": {
+    "allEyebrow": "全體運動活動日常",
+    "allTitle": "{{count}}周活動日程",
+    "allMaintained": "{{count}} 活動日(s)本週 ·  ⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇",
+    "allNeedOne": "活躍一天,保持本週 · 一週末活動保持活力",
+    "eyebrow": "騎行路線",
+    "title": "{{count}}週日罷工",
+    "maintained": "{{count}} 此周 · 停車場 維持",
+    "needOne": "1 行走 保持本週 · 一週末行走 保持它活著",
+    "score": "90日連續性"
+  },
+  "sidebar": {
+    "runWeekly": {
+      "title": "每週跑步、散步和攀登",
+      "sub": "過去 8 個星期 · 我的距離旅行",
+      "value": "{{count}} 活動 · {{distance}}"
+    },
+    "runMonth": {
+      "title": "{{monthName}} 距離",
+      "sub": "我的跑步、步行和攀登",
+      "plan": "檢視執行計劃"
+    },
+    "weeklyTss": {
+      "title": "每週訓練負載",
+      "sub": "過去12個星期",
+      "barTooltip": "{{week}}: {{tss}} TSS",
+      "barTooltipUnknown": "{{week}}沒有資料",
+      "avgPerWeek": "周 / 周",
+      "peakWeek": "峰會周",
+      "trend": "趨勢",
+      "trendUp": "走上",
+      "trendDown": "落下",
+      "distanceTitle": "每週距離",
+      "partial": "部分記錄",
+      "thisWeek": "本週",
+      "scope": {
+        "allSupported": "所有體育",
+        "bike": "自行車",
+        "run": "跑步",
+        "swim": "游泳"
+      },
+      "distanceRow": "旅行距離(公里)",
+      "loadRow": "載入(TSS)",
+      "summary": "每週距離和訓練負載總結",
+      "metric": "米特里克",
+      "summaryHelpTitle": "⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇TSS)",
+      "summaryHelp": "訓練負載分數結合時間和強度。 {{count}} 已知周. ≈ 包括估計 · + 已知記錄的細節 · — 未知",
+      "distanceHelpTitle": "距離總結",
+      "distanceHelp": "平均值覆蓋了過去12周,是已知記錄的底數; - 是未知的,平均值和峰值隱藏在記錄不完整時。"
+    },
+    "monthlyGoal": {
+      "title": "{{month}} 目標",
+      "subPrefix": "目標 ",
+      "setupTitle": "設定月度目標",
+      "setupHint": "自動建立,一旦您建立培訓計劃",
+      "remainingPrefix": "",
+      "remainingSuffix": " 去的 · {{days}} 留下的日子"
+    },
+    "fitness": {
+      "title": "健身Snapshot",
+      "sub": "基於CTL",
+      "insufficient": "不足的資料",
+      "ctl": "健身(CTL)",
+      "atl": "疲勞(ATL)",
+      "tsb": "形式(TSB)",
+      "ctlHint": "42日 負載",
+      "atlHint": "7日疲勞",
+      "tsbHint": "新鮮",
+      "recommend": "推薦",
+      "recoMaintain": "保持耐力",
+      "recoRecovery": "恢復建議",
+      "recoModerate": "適度訓練"
+    },
+    "community": {
+      "title": "韓國腳踏車社群"
+    },
+    "app": {
+      "manualWebTitle": "網頁使用者指南",
+      "manualWebDesc": "分析 · 資料 · 團體和活動",
+      "storeIos": "App Store 商店",
+      "storeAos": "Google Play 播放",
+      "manualIos": "指南",
+      "manualAos": "Android 指南"
+    }
+  },
+  "home": {
+    "hero": {
+      "title": "韓國騎行者記錄保持安全",
+      "descLoggedIn": "連線 Strava 自動進口您的輪子。",
+      "descAnon": "儲存您的輪子 Orider 加入韓國腳踏車社群。",
+      "statsActivities": "活動",
+      "statsSegments": "分割槽",
+      "statsCourses": "賽道",
+      "statsKm": "千米",
+      "ctaStart": "開始吧",
+      "ctaStrava": "連線 Strava"
+    },
+    "feed": {
+      "titleMine": "活動營養",
+      "titlePublic": "最近的公共活動",
+      "countSuffix": "{{count}}",
+      "searchResults": "{{count}} 結果",
+      "searchPlaceholder": "搜尋活動(Enter)",
+      "searchSubmit": "搜尋",
+      "searchClearTitle": "清晰的搜尋",
+      "searchEmptyMessage": "沒有匹配活動。",
+      "searchReset": "清晰的搜尋",
+      "loadMoreRemaining": "更多( ){{remaining}} 留下)",
+      "loadMore": "載入更多",
+      "loadingMore": "載入更多活動",
+      "filterAll": "所有",
+      "filterFriends": "朋友們",
+      "filterMe": "我的",
+      "filterCaption": "過濾結果",
+      "emptyTitle": "尚未活動",
+      "emptyConnectStrava": "連線 Strava 進口活動",
+      "emptyPublic": "目前還沒有公共活動。"
+    },
+    "datePreset": {
+      "all": "所有",
+      "7d": "最後7天",
+      "30d": "最後30天",
+      "90d": "90天前",
+      "year": "今年"
+    },
+    "communities": {
+      "lara": "我比我大",
+      "jachulsa": "腳踏車社群",
+      "dossa": "路腳踏車展",
+      "clien": "客座腳踏車板",
+      "bikesell": "腳踏車市場",
+      "thebike": "腳踏車雜誌"
+    },
+    "sidebarMy": {
+      "stravaConnected": "Strava 連線",
+      "weekSummary": "本週",
+      "rides": "騎行",
+      "ridesUnit": "{{count}}",
+      "distance": "距離",
+      "time": "時間",
+      "elev": "高階獲利",
+      "weeklyDistance": "每週距離(過去12周)"
+    },
+    "sidebarAnon": {
+      "welcome": "歡迎來到 Orider",
+      "welcomeDesc": "登入和連線 Strava 管理你的騎行。",
+      "signInGoogle": "登入"
+    }
+  },
+  "mobileFeed": {
+    "inlineFilters": {
+      "scopeAll": "公民:所有",
+      "scopeFriends": "公民:朋友",
+      "scopeSelf": "公民:我",
+      "dateAll": "時間:所有",
+      "date7d": "時間: 7d",
+      "date30d": "時間: 30d",
+      "date90d": "時間:90d",
+      "sport": {
+        "all": "體育:所有",
+        "bike": "運動:腳踏車",
+        "run": "運動:跑步",
+        "swim": "運動:游泳"
+      }
+    },
+    "searchLabel": "搜尋",
+    "sportLabel": "體育",
+    "scopeSelf": "我",
+    "date7d": "7D",
+    "date30d": "30D",
+    "date90d": "90d",
+    "searchContext": "搜尋: {{query}}",
+    "occurred": {
+      "today": "今天在 {{time}}",
+      "yesterday": "昨天在 {{time}}",
+      "unknown": "活動時間不適用"
+    },
+    "homeTitle": "首頁",
+    "feedTitle": "活動營養",
+    "publicTitle": "公共活動",
+    "publicDescription": "探索騎行者的活動,登入,看看自己的記錄。",
+    "runSummary": {
+      "count": "活動數",
+      "distance": "遠端旅行",
+      "time": "活動時間",
+      "elevation": "升高收益"
+    },
+    "defaultRider": "騎行",
+    "defaultActivity": "騎乘",
+    "statDistance": "遠端旅行",
+    "statTime": "移動時間",
+    "statElev": "高階獲利",
+    "statSpeed": "速度 AVG",
+    "weekSummary": "本週",
+    "streakWeeks": "{{count}}週日罷工",
+    "routineScore": "90日分數 {{score}}",
+    "filterToggle": "過濾器",
+    "sportFilterLabel": "體育活動過濾器",
+    "viewAll": "檢視所有",
+    "loading": "載入中…",
+    "loadingMore": "載入中…",
+    "loadMore": "載入更多",
+    "emptyTitle": "尚未活動",
+    "emptyDesc": "連線 Strava 或者記錄一趟旅行,開始。",
+    "dataWarningBadge": "資料異常",
+    "dataWarningTooltip": "某些測量可能是由於GPS噪音或非常短的活動而不現實的。",
+    "viewProfile": "檢視我的個人資料",
+    "statElapsedTime": "浪費時間"
+  },
+  "weeklySummary": {
+    "title": "本週",
+    "load": "載入",
+    "activities": "活動",
+    "activitiesCount": "{{count}}",
+    "activitiesPrev": "上週 {{count}}",
+    "time": "時間",
+    "distance": "距離",
+    "vsLastWeek": "vs 上週 {{delta}}",
+    "newThisWeek": "新",
+    "viewAll": "檢視所有",
+    "weeklyDistanceKm": "每週距離(公里)",
+    "ridesUnit": "",
+    "durationHourMin": "{{h}}飾 H {{m}}m",
+    "durationMin": "{{m}}m",
+    "dateMonthDay": "{{month}}/{{day}}"
+  },
+  "fitnessSummary": {
+    "ctl": "健身(CTL)",
+    "atl": "疲勞(ATL)",
+    "tsb": "形式(TSB)",
+    "status": "狀態",
+    "vsWeekAgo": "vs 7 天前 {{delta}}",
+    "tsbOptimal": "TSB -10 ~ + 5 = 最佳",
+    "statusWellRested": "好休息",
+    "statusRecovered": "恢復",
+    "statusOptimal": "最佳形式",
+    "statusFatigued": "累積的疲勞",
+    "statusOverreaching": "過度風險"
+  },
+  "charts": {
+    "fitness": {
+      "noData": "尚未顯示的資料",
+      "today": "今天",
+      "goalDay": "目標日",
+      "forecast": "預測",
+      "legendFitness": "健身",
+      "legendFatigue": "疲勞",
+      "legendForm": "迴歸",
+      "projectionNote": "如果計劃遵循百分之百",
+      "activityMarkers": "{{count}} 活動標誌。",
+      "selectedActivityMarker": "選擇的活動: {{label}}."
+    },
+    "powerCurve": {
+      "noData": "目前還沒有電源資料",
+      "noDataProgression": "目前還沒有電源資料的活動",
+      "emptyTitle": "電源曲線尚未準備好",
+      "emptyDescription": "一旦活動包括電源計或虛擬電源資料,將顯示5秒至60分鐘的頂級平均電源。",
+      "datasetLabel": "峰值平均功率",
+      "peakPower": "峰會 {{power}}公元1S( )",
+      "unitSec": "{{n}}⁇  S",
+      "unitMin": "{{n}}m",
+      "unitHour": "{{n}}飾 H"
+    },
+    "weeklyChart": {
+      "recordsCount": "儲存記錄: {{count}}",
+      "tssValue": "TSS {{value}}",
+      "tssUnknown": "TSS 未知",
+      "tssPartial": "可用的部分負載金額; {{count}} 未知活動",
+      "tssEstimated": "包括估計",
+      "distance": "距離(公里)",
+      "time": "時間(H)",
+      "elevation": "升高(M)",
+      "title": "月度活動"
+    },
+    "dailyLoad": {
+      "datasetLabel": "每日負載",
+      "tooltipLabel": "載入 {{value}}"
+    },
+    "zoneDistribution": {
+      "dominant": "首頁:Z{{zone}} {{name}} ({{pct}}%)",
+      "emptyTitle": "區域分佈不足的資料",
+      "emptyDescription": "當心率、功率或節奏流量記錄為活動足夠時,每個強度區域的時間將出現。"
+    },
+    "criticalPace": {
+      "half": "半"
+    },
+    "speedCurve": {
+      "datasetLabel": "最佳平均速度",
+      "peakSpeed": "峰會 {{speed}}千米/小時(5秒)"
+    }
+  },
+  "leaderboard": {
+    "colRank": "排名",
+    "colRider": "騎行",
+    "colTime": "時間",
+    "colSpeed": "速度",
+    "colHr": "飾 HR",
+    "colPower": "功率",
+    "colDate": "日期"
+  },
+  "mobileFitness": {
+    "title": "健身",
+    "currentStatusTitle": "現狀",
+    "decision": {
+      "signedOut": "登入,檢視今天的計劃",
+      "unavailable": "今天的計劃不可用",
+      "healthStop": "首先,要注意停止訓練的原因。",
+      "viewDetails": "檢視今天的決定和行動",
+      "viewSafetyDetails": "檢視停止原因"
+    },
+    "analysisNeedsSport": "選擇騎腳踏車或跑步檢視分析",
+    "tabOverview": "概述",
+    "tabZones": "權力區",
+    "tabAnalysis": "分析",
+    "thresholdMissingRun": "您的執行邊界速度未設定,它將在設定時顯示。",
+    "thresholdMissingSwim": "您的關鍵游泳速度(CSS)未設定,在設定時將顯示。",
+    "hrZonesMissing": "目前還沒有儲存心率區分佈,當測量區資料可用時將顯示。",
+    "tabZonesBike": "權力區",
+    "tabZonesRun": "執行分析",
+    "tabZonesSwim": "游泳",
+    "metricCtl": "CTL(健身)",
+    "metricAtl": "⁇ ( ⁇ )  ⁇ ( ⁇ )  ⁇ ( ⁇ )  ⁇ ( ⁇",
+    "metricTsb": "格式(Form)",
+    "ftpBasis": "基於90天最佳功率",
+    "zoneDist": "電源區分配(過去4周)",
+    "zoneDefTitle": "區定義",
+    "kpiCtlLabel": "長期負載CTL",
+    "kpiAtlLabel": "短期充電ATL",
+    "kpiTsbLabel": "重量平衡TSB",
+    "tsbMeaning": {
+      "fatigueHigher": "疲勞超越健身",
+      "fitnessHigher": "健身超越疲勞",
+      "balanced": "健身和疲勞均衡",
+      "noData": "還沒有足夠的資料"
+    },
+    "vo2maxDesc": "估計",
+    "vo2maxNoFtp": "FTP 需要的重量",
+    "tsbOverRested": "過度留下",
+    "tsbOptimalForm": "最佳形式",
+    "tsbTrainingOk": "訓練負載OK",
+    "tsbFatigue": "累積累累積累累積累積累累累累累累累累",
+    "tsbOverload": "過量負擔",
+    "pmcTitle": "PMC 趨勢 {{n}} 日子",
+    "pmcSub": "健身 CTL 健身 ATL 疲勞 TSB 形狀",
+    "pmcByDiscipline": {
+      "tri": {
+        "title": "結合健身趨勢 {{n}} 日子",
+        "sub": "全體體育體育體育體育體育體育體育體育",
+        "ctlLabel": "全CTL"
+      },
+      "bike": {
+        "title": "腳踏車健身趨勢 {{n}} 日子",
+        "sub": "腳踏車活動負載僅計算",
+        "ctlLabel": "腳踏車 CTL"
+      },
+      "run": {
+        "title": "跑步健身趨勢 {{n}} 日子",
+        "sub": "僅從執行活動負載計算",
+        "ctlLabel": "執行CTL"
+      },
+      "swim": {
+        "title": "游泳健身趨勢 {{n}} 日子",
+        "sub": "僅從游泳活動負載計算",
+        "ctlLabel": "游泳 CTL"
+      }
+    },
+    "weeklyLoadTitle": "每週負載 · 過去 4 周",
+    "weeklyLoadSub": "本週 {{thisWeek}} ◎ 阿格 {{avg}} · {{restDays}} 休息日",
+    "zonePowerTitle": "電源區分佈 · 過去 4 周",
+    "zoneHrTitle": "區分割槽分割槽分割槽分割槽分割槽分割槽分割槽分割槽分",
+    "zoneSourcePower": "基於電流",
+    "zoneSourceHrBike": "人工智慧估計(HR Z1 - Z5 地圖為電區;Z6 - Z7 不能分開) 僅包含具有完整的區域證據的活動。",
+    "zoneSourceHrRun": "基於人力資源流 僅包含完整區域證據的活動。",
+    "zoneSourceNone": "沒有流資料 - 將在同步行程後填寫",
+    "powerCurveTitle": "電源曲線 · 過去 28 天",
+    "powerCurveSub": "峰會 {{maxW}} W · 5s - 60m",
+    "zoneDefsSectionTitle": "區定義",
+    "analysisInsufficient": "目前還沒有足夠的資料來分析。",
+    "trendTitle": "健身趨勢",
+    "trendLoading": "你的健身趨勢...",
+    "trendError": "不能載入你的健身趨勢 其他健身資訊仍然可用。",
+    "derivedLoading": "詳細分析...",
+    "derivedError": "不能進行詳細分析。",
+    "pmcNoData": "不足的資料 - 需要至少2天",
+    "pmcLabelToday": " · 今天",
+    "pmcLabelForecast": " · 預測",
+    "weeklyTssThisWeek": "本週",
+    "coreStatusTitle": "活躍 FTP ·腳踏車能力",
+    "integrated": {
+      "cardAria": "結合多運動培訓狀態和28天負載焦點",
+      "eyebrow": "組合培訓總結",
+      "title": "多元化多元化體育",
+      "coverageChip": "{{pct}}% c被激化 {{confidence}}",
+      "ctlLabel": "CTL · 合併健身",
+      "ctlHint": "長期訓練負載",
+      "atlLabel": "阿特爾:疲勞",
+      "atlHint": "短期訓練負載",
+      "tsbLabel": "格式:TSB",
+      "tsbHint": "健身 微不足道",
+      "conditionSource": "組合模型整合紀律負載",
+      "authoritativeSource": "伺服器計算機結合CTL · ATL · TSB在騎腳踏車,跑步和游泳",
+      "detailsToggle": "計算和解釋筆記",
+      "contributionTitle": "目前的健身貢獻",
+      "contributionBasis": "目前的CTL貢獻描述了體育運動積累的訓練負擔,未來的訓練不推薦比例。",
+      "discipline": {
+        "bike": "自行車",
+        "run": "跑步",
+        "swim": "游泳"
+      },
+      "barPart": "{{label}} {{value}}, {{pct}} 百分比",
+      "contributionBarAria": "體育運動的現有貢獻: {{values}}",
+      "noContributionData": "沒有體育貢獻資料",
+      "contributionValue": "公元 {{value}} · {{pct}}%",
+      "contributionAria": "{{sport}} 貢獻 {{pct}} 百分比的合併健身",
+      "focusTitle": "重定向 · last {{days}} 日子",
+      "dominant": "首要負載 {{label}}",
+      "noFocusData": "沒有分類負載",
+      "focusUnavailable": "載入焦點不可用,因為它不由頻道伺服器資料提供。",
+      "focusBarAria": "重定向為最後一 {{days}} 日子: {{values}}",
+      "focusBasis": "至少有50% zo每個活動負載按區域時間分配一次,重量為代表性強度平方;否則,它將不分類。",
+      "bucket": {
+        "baseAerobic": "空氣基地",
+        "highAerobic": "高空氣",
+        "highIntensity": "高強度",
+        "unclassified": "未分類"
+      },
+      "focusAria": "{{band}}標籤: 負載 {{load}}, {{pct}} 百分比",
+      "coverage": "分類覆蓋 {{pct}}% · {{confidence}} 信任",
+      "sources": "電力負載 {{power}} · 重量 {{hr}} · 未分類 {{unclassified}}",
+      "anaerobicBikeDetail": "測量腳踏車功率 Z6 - Z7 包括高強度,可支援無線腳踏車細節。",
+      "hrHighIntensityNote": "HR Z5 是高強度的證據,而不是對無線性貢獻的證據。",
+      "confidence": {
+        "high": "高",
+        "medium": "中間",
+        "low": "低",
+        "none": "無"
+      }
+    },
+    "sport": {
+      "cardAria": "體育特性測量效能證據",
+      "insufficient": "不足測量證據 · 未分數",
+      "noMeasuredEvidence": "未測量時間證據",
+      "axisScoreAria": "{{metric}} 點數",
+      "scoreGuide": "您在過去的90天內從您的個人PDC中獲得了100點能力得分。",
+      "bike": {
+        "title": "腳踏車能力證據",
+        "basis": "過去90天測量PDC的三個分別軸 {{count}} 活動 · 個人功率配置總結在100點規模",
+        "notGarmin": "計算不同於 Garmin. Garmin 使用屬性測量,如EPOC和培訓效果; O-Rider 透過釋出的 PDC 證據來解釋您的個人能力。",
+        "manualLink": "如何計算PDC和三軸",
+        "strongestAxis": "您目前最強的能力是 {{axis}}.",
+        "axis": {
+          "anaerobic": "短功率能力",
+          "aerobic": "空氣能力",
+          "endurance": "持久耐力"
+        }
+      },
+      "run": {
+        "cardAria": "執行設定和記錄來源",
+        "title": "跑步證據",
+        "basis": "記錄時間保持隱藏,直到其來源被驗證。",
+        "threshold": "定義邊界速度",
+        "noQualifiedEvidence": "沒有源準的距離記錄可用。",
+        "unverifiedTitle": "距離記錄: {{count}} · 可識別的活動: {{activityCount}}",
+        "unverifiedBasis": "檢視體育活動和記錄在源活動。",
+        "sourceMissing": "未提供的源活動"
+      },
+      "swim": {
+        "title": "游泳證據",
+        "basis": "設定 CSS 和從最後一個測量游泳效率 {{days}} 只有日子;沒有摩克曲線或發明的PR。",
+        "distancePerStroke": "⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇   ⁇"
+      }
+    },
+    "abilityScore": {
+      "raw": "能力分數 {{score}}/100",
+      "ariaValue": "能力分數 {{score}}/100, {{stage}} 水平",
+      "guide": "固定五級分數總結您的個人PDC分析,而不是使用者排名或百分比。",
+      "stage": {
+        "entry": "入口",
+        "foundation": "基金會",
+        "average": "平均",
+        "excellent": "優秀",
+        "top": "頂部"
+      }
+    },
+    "snapshot": {
+      "title": "目前的健身Snapshot",
+      "subtitle": "閱讀每個值與其評估和基礎",
+      "ftp": "參考權力",
+      "ftpStatus": "個人資料 FTP",
+      "ftpSource": "W/kg 根據當前的資料計算 FTP 和重量",
+      "ftpWeightMissing": "個人資料 FTP · W/kg 無體重無體重",
+      "riderType": "騎腳踏車能力",
+      "riderSource": "過去 90 天 PDC · Coggan 男性的電力預算(v1); 性別和年齡不調整",
+      "vo2PdcSource": "估計在過去90天的CP / 5分鐘的功率和重量; {{count}} 活動 · 不是實驗室測量",
+      "vo2FormulaSource": "簡單的估計 個人資料 FTP 重量,不是實驗室測量",
+      "estimateOnly": "估計 · 不是實驗室測量",
+      "load": "O-Rider 訓練負載",
+      "loadSource": "CTL 42 天 EMA · ATL 7 天 EMA · TSB=CTL-ATL. 此不適用 Garmin 急性負載",
+      "insufficient": "未經評估的資料不足",
+      "bandAria": "{{metric}} 位置: {{status}}"
+    },
+    "performance": {
+      "title": "腳踏車效能",
+      "ariaLabel": "腳踏車效能概述",
+      "canonical": "資料來源真相 · 應用於區域和培訓",
+      "ftpMissing": "配置個人資料 FTP 第一",
+      "ftpMissingEvidence": "沒有活躍的個人資料 FTP是的, W/kg 和The FTP 差異不算算。",
+      "weightMissing": "增加體重 看 W/kg",
+      "riderUnknown": "沒有足夠的騎行型別證據",
+      "abilityLabel": "全自転車能力",
+      "abilityUnknown": "不足的能力分數證據",
+      "abilityScoreAria": "全自転車能力分數",
+      "estimated": "估計",
+      "insufficient": "不足的證據",
+      "metrics": {
+        "eftp": "最新每月eFTP",
+        "cp": "關鍵功率CP",
+        "tte": "長度 TTE"
+      },
+      "evidenceOpen": "檢視計算證據",
+      "evidenceClose": "密切計算證據",
+      "evidence": {
+        "twentyMinute": "最新20分鐘最佳平均值",
+        "latestPeriod": "最新 EFTP 期",
+        "activityCount": "PDC分析中的活動",
+        "activityCountValue": "{{count}} 活動",
+        "activeDelta": "反對EfTP FTP",
+        "riderConfidence": "騎行信任"
+      },
+      "modelEvidence": "使用 95 個% o每月最佳20分鐘平均功率;CP和TTE來自90天PDC模型。 FTP 自動。"
+    },
+    "zoneSourcePowerHistorical": "Z1 - Z7 使用每個活動的組合 FTP ·未經現行分類 FTP僅包括完整區域證據的活動。",
+    "modelEvidence": "資料背後的測量"
+  },
+  "runEmpty": {
+    "title": "沒有最近的記錄",
+    "subtitle": "連線 Strava 或者輸入檔案將您的執行記錄聚集在一起。",
+    "waitingTitle": "沒有最近的記錄",
+    "waitingSubtitle": "你的 Strava 執行將在這裡出現,一旦合併,您也可以匯入檔案。",
+    "connectCta": "連線 Strava",
+    "previewTag": "預測",
+    "sampleSentence": "一旦連線,你會看到這樣的閱讀 - “登山的因素,你有效地跑步 {{gap}} 公里的公寓裡”",
+    "samplePace": "配速",
+    "sampleLoad": "載入",
+    "manualHint": "新到節奏,GAP和訓練負載?",
+    "manualCta": "閱讀英語指南",
+    "importCta": "進口流程記錄"
+  },
+  "runRecap": {
+    "eyebrow": "上週的跑步",
+    "headlineFaster": "{{count}} 跑步, {{km}} 公里 - 你的平均速度下降 {{sec}} 幾秒鐘前一週。",
+    "headlineSlower": "{{count}} 跑步, {{km}} 和平與地面和你感覺如何旋轉。",
+    "headlinePlain": "{{count}} 跑步, {{km}} 千米。",
+    "runs": "跑數",
+    "distance": "遠端旅行",
+    "avgPace": "速度 速度",
+    "unitTimes": "",
+    "unitSeconds": "⁇  S",
+    "prevWeek": "之前的一週: {{count}} 跑步 · {{km}} 千米",
+    "deltaFasterA11y": "{{sec}} 秒速快",
+    "deltaSlowerA11y": "{{sec}} 二秒慢"
+  },
+  "firstSync": {
+    "title": "你的第一輪已經降落了",
+    "body": "從這裡你的記錄變成閱讀,看看你的調整速度和訓練負載。",
+    "viewCta": "看閱讀",
+    "later": "後來"
+  },
+  "thresholdNudge": {
+    "body": "設定邊界速度會大大加劇你的目標步行和訓練負擔。",
+    "cta": "設定限度速度"
+  },
+  "shoeBadge": {
+    "title": "{{name}} 接近生命的終結",
+    "detail": "{{total}} 千里 約 約 約 約 {{remaining}} 左裡公里"
+  },
+  "canonical": {
+    "pending": "最新七天總結尚未公佈。",
+    "failed": "七天總結不能載入,請再試一次。",
+    "empty": "過去7天沒有任何活動要總結。",
+    "stale": "顯示最後確認的七天總結。",
+    "staleChip": "早期總結"
+  },
+  "weeklyEvidence": {
+    "loadUnknown": "未計算的負載",
+    "shortTitle": "{{week}} 每週負載",
+    "noKnownWeeks": "這個範圍內沒有一個已知的負載,所以平均或峰值沒有計算。",
+    "untitled": "未經標題活動",
+    "unknown": "未計算",
+    "timeInput": "反映的長度 {{minutes}} 千 千 千 千 千 千 千 千 千 千 {{factor}} (計算後轉)",
+    "averageHelp": "已知的總負載 {{total}} 越過 {{count}} 周分為 {{count}} 周圍的 {{value}}未知的日子被排除在 {{weeks}}周名稱;部分或估計總數的周仍然包括。",
+    "peakHelp": "最大顯示的總數 {{count}} 已知的幾周 {{value}} ({{weeks}}儲存/伺服器和估計負載可能包括;未知周被排除。",
+    "trendHelp": "比較前一週 {{previous}} 與本週 {{current}}趨勢僅在顯示的兩種總數都可用,並且不包含估計或未知活動時報告。",
+    "scope": {
+      "allSupported": "範圍:所有支援的騎腳踏車、跑步和游泳活動",
+      "bike": "自行車",
+      "run": "走路、走路、走路",
+      "swim": "游泳"
+    },
+    "input": {
+      "streamTrimpTss": "心率流替換輸入 {{value}}",
+      "relativeEffort": "相應努力替換輸入 {{value}}"
+    },
+    "totalLabel": "全周負載",
+    "showDetails": "視野 {{week}} 活動 TSS",
+    "hideDetails": "隱藏活動 TSS",
+    "detailsTitle": "{{week}} 活動 TSS 計算",
+    "noEvidence": "那一 TSS 計算基礎和輸入本週不適用。",
+    "activityInputs": "活動計算值",
+    "basis": {
+      "power": "基於權力",
+      "heartRate": "心率基於",
+      "time": "時間估計",
+      "unknown": "計算方法不明",
+      "excluded": "排除"
+    },
+    "tooltipTitle": "周的 {{week}} · {{value}} TSS",
+    "tooltipUnknownTitle": "周的 {{week}} · 未計算的負載",
+    "distance": "距離 {{value}} 千米",
+    "distanceTitle": "周的 {{week}} · {{value}} 千米",
+    "distanceFormattedTitle": "周的 {{week}} · {{distance}}{{partial}}",
+    "distanceUnknownTitle": "周的 {{week}} · 距離不可用",
+    "distancePartialTitle": "周 {{week}} · {{value}}+ 公里"
+  },
+  "todayStrip": {
+    "goalCountdownTitle": "到你的目標的日子",
+    "goalCountdownLabel": "目標日期解釋",
+    "goalCountdownHelp": "D−N 計算到目標的日子, D+N 計算到目標的日子, D-DAY 是目標日。",
+    "weekTitle": "我的最後7天 {{sport}}",
+    "findEvents": "尋找事件",
+    "goalLink": "看目標",
+    "analysisLink": "檢視分析",
+    "allSportsRecent7d": "所有 體育 · 過去 7 天",
+    "today": "今天的訓練",
+    "choose": "決定",
+    "loading": "載入中…",
+    "noToday": "今天的教練選擇",
+    "unavailable": "目前不可用",
+    "goal": "目標",
+    "createGoal": "建立一個目標",
+    "monthFlow": "本月的進展",
+    "monthFlowValue": "{{distance}} 千米 {{percent}}% o您的常見月度基線",
+    "events": "我的日程",
+    "noEvents": "未來的註冊活動",
+    "condition": "條件",
+    "conditionLink": "檢視條件",
+    "week": "月刊活動日誌",
+    "more": "更多時間表和培訓資訊",
+    "support": "應用和幫助",
+    "recap": "檢視年度回報",
+    "firstRecord": "記錄您的第一次活動 · 獲取應用程式",
+    "importHistory": "進口現有活動",
+    "goalCtl": "目標日 CTL {{value}}",
+    "monthFlowAllTitle": "本月 · 所有體育",
+    "monthFlowAllValue": "{{distance}} 千米 {{percent}}% o常見的月度"
+  },
+  "homeMetrics": {
+    "distance": "遠端旅行",
+    "movingTime": "移動時間",
+    "elapsedTime": "浪費時間",
+    "avgHeartRate": "心率平均",
+    "avgPower": "平均功率",
+    "activityTime": "活動時間"
+  },
+  "charts.weeklyChart.weekTitle": "每週活動",
+  "charts.weeklyChart.previousWeek": "上週",
+  "charts.weeklyChart.nextWeek": "下週",
+  "mobileFitness.periodScope": "分析視窗:本月的活動和最近28天的曲線使用不同的時期。",
+  "mobileFitness.conditionLink": "檢視現狀",
+  "mobileFitness.performance.missingMetrics": "不足的估計: {{metrics}}",
+  "mobileFitness.powerChanges": "功率變化 · 比較兩個時期",
+  "mobileFitness.analysisDestination": "效能和記錄分析中的比較",
+  "mobileFitness.weeklyUnknown": "每週比較需要更多的日負載證據。"
+}

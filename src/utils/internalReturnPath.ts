@@ -1,4 +1,4 @@
-const LOCALIZED_PREFIX = /^\/(?:ko|en)(?=\/|$)/;
+import { stripLangPrefix } from "../i18n/detector";
 const hasUnsafeCharacter = (value: string) => [...value].some((char) => char === "\\" || char.charCodeAt(0) < 32);
 
 /** Accept only safe same-origin app paths and reject onboarding handoff loops. */
@@ -12,7 +12,7 @@ export function sanitizeInternalReturnPath(value: string | null | undefined, fal
   let parsed: URL;
   try { parsed = new URL(value, "https://orider.invalid"); } catch { return fallback; }
   if (parsed.origin !== "https://orider.invalid" || parsed.pathname.startsWith("//")) return fallback;
-  const appPath = parsed.pathname.replace(LOCALIZED_PREFIX, "") || "/";
+  const appPath = stripLangPrefix(parsed.pathname);
   if (appPath.startsWith("//")) return fallback;
   if (appPath === "/onboarding" || appPath.startsWith("/onboarding/")) return fallback;
   if ((appPath === "/friends" || appPath === "/athlete/me/friends") && parsed.searchParams.get("source") === "onboarding") return fallback;
@@ -25,7 +25,7 @@ export function goalCreatedPath(params: URLSearchParams, sport: "bike" | "run" |
   const fallback = `/coach/plan?sport=${sport}`;
   const path = params.get("source") === "onboarding" ? fallback : sanitizeInternalReturnPath(params.get("returnTo"), fallback);
   const url = new URL(path, "https://orider.invalid");
-  if (["/coach/plan", "/plan"].includes(url.pathname.replace(LOCALIZED_PREFIX, ""))) url.searchParams.set("sport", sport);
+  if (["/coach/plan", "/plan"].includes(stripLangPrefix(url.pathname))) url.searchParams.set("sport", sport);
   url.searchParams.set("goalId", goalId);
   return `${url.pathname}${url.search}${url.hash}`;
 }

@@ -1,3 +1,4 @@
+import { standaloneText } from "../../i18n/standaloneText";
 import { useDialogViewport } from "../../hooks/useDialogViewport";
 import { useCoachConsentApi } from "../../hooks/useCoachApi";
 import { useCoachApi } from "../../hooks/useCoachApi";
@@ -112,17 +113,15 @@ function isConsentActive(policy: CoachConsentPolicy): boolean {
 }
 
 function clarificationQuestion(question: string, promptKey: string, optionId: string, locale: string): string {
-  const ko = locale.startsWith("ko");
-  if (promptKey === "coach.clarification.time_range" && ["this_week", "last_week"].includes(optionId)) {
-    const period = optionId === "this_week" ? (ko ? "이번 주" : "this week") : (ko ? "지난주" : "last week");
-    return ko ? `${question} 분석 기간은 ${period}로 해줘.` : `${question} Use ${period} as the analysis period.`;
+  if (promptKey === "coach.clarification.time_range" && (optionId === "this_week" || optionId === "last_week")) {
+    const period = standaloneText(locale, optionId === "this_week" ? "coach_period_this_week" : "coach_period_last_week");
+    return standaloneText(locale, "coach_clarification_period", { question, period });
   }
-  if (promptKey === "coach.clarify.discipline" && ["bike", "run", "swim"].includes(optionId)) {
-    const labels = ko ? { bike: "사이클", run: "러닝", swim: "수영" } : { bike: "cycling", run: "running", swim: "swimming" };
-    return ko ? `${question} 종목은 ${labels[optionId as keyof typeof labels]}로 해줘.` : `${question} Use ${labels[optionId as keyof typeof labels]} as the discipline.`;
+  if (promptKey === "coach.clarify.discipline" && (optionId === "bike" || optionId === "run" || optionId === "swim")) {
+    const discipline = standaloneText(locale, `coach_discipline_${optionId}`);
+    return standaloneText(locale, "coach_clarification_discipline", { question, discipline });
   }
-  const safeOption = optionId.replace(/_/g, " ");
-  return ko ? `${question} 추가 조건은 ${safeOption}(으)로 해줘.` : `${question} Use ${safeOption} as the additional condition.`;
+  return standaloneText(locale, "coach_clarification_option", { question, option: optionId.replace(/_/g, " ") });
 }
 
 export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false,

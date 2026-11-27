@@ -1,0 +1,668 @@
+{
+  "open": "問什麼教練",
+  "close": "接近教練",
+  "title": "主教練",
+  "subtitle": "基於您的培訓記錄的答案。",
+  "independentNote": "一個新的問題被儲存為一個新的對話。",
+  "latestActivityReviewLinked": "最新教練模式",
+  "latestActivityReviewClear": "最新教練模式",
+  "context": "{{discipline}} 記錄分析",
+  "pmc": {
+    "title": "訓練負載與形狀",
+    "subtitle": "可奈 {{discipline}} 資料",
+    "loading": "檢查訓練負載",
+    "unavailable": "目前,訓練負載卡尚未提供,您的現有健身檢視仍可用。",
+    "accessibleStatus": "資料狀態 {{status}}新鮮 {{freshness}}源質 {{quality}}",
+    "metrics": {
+      "ctl": "長期健身(CTL)",
+      "atl": "短期疲勞(ATL)",
+      "form": "回收平衡(TSB)"
+    },
+    "delta7d": "7日變革 {{value}}",
+    "asOf": "如同 {{value}}",
+    "sourceQuality": "新鮮 {{freshness}} · 來源 {{quality}}",
+    "questionsLabel": "關於您當前訓練負載的例子問題",
+    "questions": {
+      "pmc_recent_load_change": "我的訓練負載在過去7天中如何變化?",
+      "pmc_current_form_intensity": "我如何根據我目前的形式來定義本週的強度?"
+    },
+    "status": {
+      "ok": "驗證",
+      "partial": "部分資料",
+      "stale": "需要的新鮮",
+      "missing": "資料失蹤"
+    },
+    "freshness": {
+      "fresh": "目前",
+      "stale": "鋼鐵",
+      "missing": "不適用"
+    },
+    "quality": {
+      "complete": "完整",
+      "estimated": "部分估計",
+      "incomplete": "無效",
+      "unavailable": "不適用"
+    },
+    "interpretation": {
+      "normal_load": "您的當前負載在正常範圍內分類。",
+      "productive_load": "您的當前負載分為生產負載範圍。",
+      "high_load": "您的最近的負載分為高負載範圍。",
+      "recovery_review": "檢查你的恢復狀態,在選擇鍛鍊強度之前。",
+      "insufficient_history": "沒有足夠的歷史來得出結論。",
+      "incomplete_data": "有些資料是缺少的,因此沒有最終的解釋。",
+      "refresh_required": "重新更新資料,然後重新審查此狀態。",
+      "data_unavailable": "目前沒有可解釋的資料。"
+    },
+    "safe": {
+      "partial": "只有部分資料可用,因此沒有最終的解釋顯示。",
+      "stale": "這些資料是固定的,因此最終的解釋和相關問題被禁用。",
+      "missing": "需要的資料是缺少的,因此最終的解釋和相關問題是缺少的。",
+      "ok": ""
+    }
+  },
+  "rider": {
+    "title": "騎行者 Insight",
+    "subtitle": "Canonical O·RIDER 功率效應",
+    "loading": "檢視您的騎行員特性",
+    "unavailable": "Rider Insight 目前尚未提供,您的現有 Fitness PDC 結果仍可用。",
+    "accessibleStatus": "騎行分析狀態 {{status}}, {{count}} 加拿大活動",
+    "resultLabel": "你的騎行型別",
+    "confidence": "{{value}}% c信任",
+    "ability": "全能 · 百分比 {{value}}",
+    "axis": {
+      "endurance": "長度趨勢 · 爆炸性 − / 持久 +",
+      "weight": "原產能 · 原產能 − / W/kg +"
+    },
+    "durationTitle": "能力 持久",
+    "duration": {
+      "5s": "5秒",
+      "1m": "1分鐘",
+      "5m": "5分鐘",
+      "20m": "20分鐘"
+    },
+    "strength": "強度",
+    "improve": "改善",
+    "asOf": "如同 {{value}}",
+    "sourceNote": "使用可用 O·RIDER 測量功率 PDC. 活動 ID、日期和歷史不與 AI 請求一起傳送。",
+    "questionsLabel": "關於您當前的Rider Insight的例子問題",
+    "questions": {
+      "RIDER_TYPE_STRENGTHS": "解釋我的騎行器型別,強度和區域,以改善。",
+      "RIDER_DURATION_PRIORITY": "哪個時間應該先訓練?"
+    },
+    "status": {
+      "ok": "驗證",
+      "missing": "沒有PDC",
+      "missing_weight": "需要的重量",
+      "insufficient_activity": "不足的活動",
+      "low_confidence": "低信任",
+      "unsupported": "未支援"
+    },
+    "safe": {
+      "missing": "目前還沒有測量功率PDC可分類,沒有騎行型別已確認。",
+      "missing_weight": "重量需要 W/kg因此,沒有騎行者型別被聲稱。",
+      "insufficient_activity": "有 {{count}} 可行活動:未提供至少5個可行賽車型別。",
+      "low_confidence": "排序信心低於邊界,因此沒有騎行者型別、強度或改進要求被保證。",
+      "unsupported": "Rider Insight 目前僅供腳踏車使用。",
+      "ok": ""
+    }
+  },
+  "signInRequired": "登入,所以AI教練可以分析你的訓練記錄。",
+  "signIn": "登入",
+  "loadingStatus": "檢視今天可用的用途",
+  "loadError": "AI Coach 狀態無法載入,請在短時間內重新開啟。",
+  "reloadStatus": "再次檢查狀態",
+  "loadingAnswer": "檢查你的訓練記錄,並準備一個答案......",
+  "loadingHonest": "伺服器只返回完成的答案,因此詳細的處理步驟不顯示。",
+  "inputLabel": "關於我的訓練問題",
+  "responseFormat": {
+    "tableCaption": "訓練記錄表",
+    "category": "類別",
+    "distributionChartLabel": "培訓記錄分銷圖",
+    "showLess": "顯示 少",
+    "blockFallbackTitle": "這個結果顯示為表",
+    "blockFallbackBody": "對於圖表來說,沒有足夠的有效數值,所以使用了驗證資料表。",
+    "fallbackTitle": "顯示在預設格式",
+    "fallbackBody": "此答案不包含可編碼的趨勢或數字分佈資料,因此使用已驗證的預設格式。"
+  },
+  "placeholder": {
+    "bike": "例如:總結今天的腳踏車平均功率、心率和心率。",
+    "run": "例如:總結今天的心率,頻率,時間和距離。",
+    "swim": "例如:總結今天的游泳心率、時間和距離。"
+  },
+  "submit": "問問",
+  "another": "問另一個問題",
+  "readError": {
+    "verification": "瀏覽器安全驗證無法完成 檢查您的連線或是否瀏覽器擴充套件阻止請求,然後再試一次。",
+    "verificationWait": "瀏覽器安全驗證是暫時有限的,請等一會兒,然後再試一次。",
+    "transport": "無法驗證伺服器響應 檢查您的連線並嘗試一次。",
+    "auth": "您的登入會不會被驗證,再次登入,然後退出。",
+    "service": "伺服器無法處理請求,請再試一次。",
+    "unknown": "資訊無法驗證,請再試一次。"
+  },
+  "history": {
+    "open": "談話歷史",
+    "eyebrow": "教練",
+    "entryTitle": "問什麼教練",
+    "entryDescription": "透過您的活動歷史,檢視您的培訓狀態和下一步步驟。",
+    "signInTitle": "開始與您的活動資料進行教練",
+    "title": "談話歷史",
+    "description": "問題和答案將儲存在您的帳戶中,直到您刪除對話或帳戶。",
+    "signInRequired": "登入以檢視您的 AI 教練對話歷史。",
+    "listTitle": "拯救的談話",
+    "loading": "充電對話歷史",
+    "loadFailed": "談話歷史不能被載入。",
+    "retry": "再試一次",
+    "emptyTitle": "未儲存的談話",
+    "emptyBody": "請問 AI 教練,會談將在這裡儲存。",
+    "selectTitle": "選擇對話",
+    "selectBody": "檢視其問題和答案,然後從這個背景繼續。",
+    "turnCount": "{{count}} 問答",
+    "turnNumber": "轉 {{count}}",
+    "you": "你",
+    "coachName": "主教練",
+    "loadMore": "載入更多談話",
+    "loadEarlierTurns": "提前訊息載入",
+    "loadingThread": "接下來的選擇對話......",
+    "threadLoadFailed": "選擇的對話不能被載入。",
+    "back": "回到聊天列表",
+    "followUpLabel": "繼續這個對話",
+    "followUpPlaceholder": "問:與上週相比,有什麼變化?",
+    "contextNote": "對於跟蹤,最多可用於外部人工智慧處理的3個最近問題和答案(最多可用於5千基比)。",
+    "followUp": "請求跟蹤",
+    "loadingQuota": "檢視今天可用的用途",
+    "quotaLoadFailed": "AI教練可用性無法檢查",
+    "retryQuota": "再檢查可用性",
+    "followUpTerminalSaved": "請求結果已儲存到此對話中 檢視結果完成狀態。",
+    "followUpSaved": "答案被儲存,最後的談話被載入。",
+    "submitFailed": "問題不能傳送,您的草案保留。",
+    "sameRequestRetry": "再檢查同樣的請求",
+    "sameRequestRetryNote": "檢查結果與相同的請求 ID 和答案格式. 它不要求新的使用; 實際使用僅由伺服器答案確認。",
+    "delete": "刪除對話",
+    "deleteNamed": "刪除 {{title}} 談話",
+    "deleteTitle": "把這對話刪除嗎?",
+    "deleteConfirm": "所有問題和答案在“{{title}}”將永久刪除,不能恢復。",
+    "deleteAll": "全部刪除",
+    "deleteAllTitle": "刪除所有 AI 教練對話?",
+    "deleteAllConfirm": "所有儲存的對話、問題和答案將永久刪除,無法恢復。",
+    "readOnlyPrescription": "歷史上的處方僅是閱讀的,請檢查,應用或從當前計劃中轉動。"
+  },
+  "serviceUnavailable": {
+    "title": "教練正在準備",
+    "body": "人工智慧的答案暫時無法找到. 此請求未使用今天的問題之一. 請稍後再試一次。",
+    "close": "接近,然後再試"
+  },
+  "suggestions": {
+    "title": "試著問",
+    "labels": {
+      "bike": {
+        "1": "FTP 目標 Coaching",
+        "2": "今天的研討會評論",
+        "3": "月度準備"
+      },
+      "run": {
+        "1": "10K 目標教練",
+        "2": "今天的研討會評論",
+        "3": "月度準備"
+      },
+      "swim": {
+        "1": "首頁 〉外文書 〉1500m Goal Coaching",
+        "2": "今天的研討會評論",
+        "3": "月度準備"
+      }
+    },
+    "bike": {
+      "1": "我想到達一個 FTP 五五 W/kg經過上個月的訓練,評估到我的目標的差距,並在正確的訓練方向訓練我。",
+      "2": "檢視今天的訓練,教我什麼順利,什麼要改進,並建議我在下一個訓練中做什麼。",
+      "3": "經過過去一個月的訓練,我檢查我的健身、疲勞和恢復。"
+    },
+    "run": {
+      "1": "我想跑50分鐘10K,在過去一個月裡,我重新審視我的跑步,評估到我的目標的差距,並在正確的訓練方向上訓練我。",
+      "2": "審查今天的比賽,教我什麼順利,什麼要改進,並建議我在下一輪做什麼。",
+      "3": "檢視過去一個月的我的跑步,並分析我的健身,疲勞和恢復。"
+    },
+    "swim": {
+      "1": "我想在30分鐘內游泳1500米自由風格,在過去一個月內重新審視我的游泳,評估距離到我的目標,並在正確的訓練方向訓練我。",
+      "2": "檢視今天的游泳,教我什麼是好事和什麼是改善,並建議我在下一次游泳中做什麼。",
+      "3": "檢視我的游泳在過去的月份,並分析我的健身,疲勞,恢復。"
+    }
+  },
+  "discipline": {
+    "bike": "自行車",
+    "run": "跑步",
+    "swim": "游泳"
+  },
+  "period": {
+    "default": "問題解決的期限",
+    "current7d": "最後7天",
+    "current28d": "過去 28 天",
+    "previous28d": "28天前"
+  },
+  "goal": {
+    "included": "目標包括",
+    "notIncluded": "目標不包括"
+  },
+  "quota": {
+    "remaining": "{{count}} 使用今日留下",
+    "exhausted": "今天的使用已完成 · 可再使用後 {{resetAt}}",
+    "previousConsumed": "這個要求已經消耗了今天的使用之一。"
+  },
+  "retry": {
+    "same": "再檢查同樣的請求",
+    "poll": "檢視結果",
+    "replay": "再檢視儲存結果",
+    "newTurnTitle": "試試作為一個新的問題",
+    "newTurnConfirm": "再用一件今天的用途再問一遍。",
+    "newTurnAction": "使用一個,再問一次"
+  },
+  "states": {
+    "network": {
+      "title": "答案不能確認",
+      "body": "您可以用同一請求檢視結果,例如,額外使用僅由伺服器響應確定。"
+    },
+    "compatibility": {
+      "title": "這個答案不能安全地顯示",
+      "body": "應用程式和AI教練答案合同不匹配,沒有新問題被自動提交。"
+    },
+    "terminal": {
+      "title": "請求不能處理",
+      "body": "同一請求未被撤回,沒有新問題自動提交。"
+    },
+    "ok": {
+      "body": ""
+    },
+    "insufficient_data": {
+      "body": "對於此分析,沒有足夠的訓練記錄。"
+    },
+    "stale": {
+      "body": "一些最近的計算正在等待,還審查了當前的證據。"
+    },
+    "unsupported": {
+      "body": "目前,最近的總結和28天的比較問題正在支援。"
+    },
+    "quota_exceeded": {
+      "body": "您已使用了今天所有 AI 教練問題。"
+    },
+    "budget_blocked": {
+      "body": "現在無法建立AI解釋,請稍後再檢查一下。"
+    },
+    "fallback": {
+      "body": "只有在安全驗證範圍內顯示的指導。"
+    }
+  },
+  "p2Unavailable": {
+    "title": "最後的訓練還不能完成",
+    "graph_feature_disabled": "此教程目前已被禁用,沒有自動提交新的提問。",
+    "rollout_ineligible": "此教程不適用於此帳戶. 沒有新提問自動提交。",
+    "rollout_dependency_unavailable": "請在需要的元件準備後再次檢查相同的請求。",
+    "graph_execution_unavailable": "請求再次檢查相同的請求結果 請求沒有自動轉換到另一個教程。",
+    "latest_activity_missing": "沒有最近的訓練記錄可進行審查,請求沒有自動轉換到另一個訓練路徑。"
+  },
+  "actions": {
+    "FOLLOW_EXISTING_PLAN": "檢視現有計劃",
+    "REVIEW_RECOVERY_BEFORE_TRAINING": "回收測量評論",
+    "CHECK_MISSING_DATA": "檢視失蹤資料",
+    "OPEN_PLAN": "開放培訓計劃",
+    "NO_ACTIVE_GOAL": "設定訓練目標"
+  },
+  "evidence": {
+    "toggle": "視野 {{count}} 證據物品"
+  },
+  "freshness": "資料如 {{at}}",
+  "latestActivity": "最新活動 {{at}}",
+  "staleSources": "{{count}} 資料來源等待新鮮",
+  "feedback": {
+    "label": "等待這個答案",
+    "prompt": "這個答案有用嗎?",
+    "helpful": "幫助",
+    "notHelpful": "無助"
+  },
+  "answer": {
+    "block": {
+      "narrative": "結論",
+      "metric_grid": "現狀",
+      "comparison_table": "時間比較",
+      "time_series": "趨勢",
+      "distribution": "分佈",
+      "ranking": "排名",
+      "activity_list": "相關活動",
+      "goal_progress": "目標進展",
+      "plan_adherence": "加入計劃",
+      "data_gap": "資料檢查",
+      "action": "下一步"
+    },
+    "template": {
+      "metric_summary": "現狀總結",
+      "comparison_summary": "時間比較總結"
+    },
+    "metricLabel": "米特里克",
+    "metric": {
+      "activity_count": "活動數",
+      "duration": "活動時間",
+      "distance": "旅行距離",
+      "tss": "訓練(TSS)",
+      "ctl": "長期健身(CTL)",
+      "atl": "短期疲勞(ATL)",
+      "form": "回收平衡(TSB)",
+      "average_power": "平均功率",
+      "heart_rate": "心率",
+      "cadence": "踏頻",
+      "pace": "配速",
+      "elevation": "海拔",
+      "calories": "卡路里",
+      "zone_time": "區域時間",
+      "readiness": "準備",
+      "plan_completion": "計劃完成"
+    },
+    "unit": {
+      "count": "",
+      "seconds": "塞克",
+      "kilometers": "千米",
+      "tss": "TSS",
+      "watts": "W",
+      "bpm": "bpm",
+      "rpm": "rpm",
+      "seconds_per_km": "每秒/公里",
+      "meters": "m",
+      "kcal": "卡路里",
+      "percent": "%",
+      "score": "點點",
+      "dimensionless": ""
+    },
+    "column": {
+      "current": "目前",
+      "previous": "以前比較",
+      "delta": "改變"
+    },
+    "load": {
+      "title": "訓練負載分析",
+      "comparisonCaption": "目前的負載比較",
+      "trendTitle": "伺服器 - 頻道趨勢",
+      "sequenceLabel": "{{metric}} 趨勢價值",
+      "showChart": "檢視圖表和表格",
+      "hideChart": "隱藏圖表和桌子",
+      "chartRegion": "訓練負載圖表和資料表",
+      "goalTitle": "CTL 目標",
+      "previousCanonical": "天文臺 關閉 7 天前",
+      "weeklyTssTitle": "本週的 TSS",
+      "weeklyTssBasis": "週一到現在在你的時間區",
+      "weeklyTrendCaption": "每週可通CTL、ATL和形狀",
+      "canonicalPeriod": "可口可樂 UTC 時間",
+      "inProgress": "進展",
+      "driversTitle": "本週的頂級負載貢獻活動",
+      "goalResult": "目標結果",
+      "goalAchieved": "目標實現",
+      "goalNotAchieved": "未取得",
+      "goalAchievedAt": "第一 成就",
+      "bandTitle": "政策組成組",
+      "bandMeta": "政策目錄 {{catalog}}",
+      "currentBand": "目前的樂隊 {{band}}",
+      "none": "沒有分類",
+      "reasons": "決策理由程式碼",
+      "missingSignal": "要審查的資料: {{signal}}",
+      "confidence": {
+        "low": "低信任",
+        "lowBody": "資料不足,因此沒有強烈的結論或培訓處方。",
+        "medium": "中間信任分析",
+        "high": "高信任分析"
+      },
+      "band": {
+        "recovery_review": {
+          "label": "回覆評論",
+          "explanation": "表格非常低;首先檢查恢復狀態。"
+        },
+        "high_load": {
+          "label": "高負載",
+          "explanation": "表格表明最近的訓練負載高。"
+        },
+        "productive_load": {
+          "label": "生產負載",
+          "explanation": "訓練負載在這個範圍內積累。"
+        },
+        "normal": {
+          "label": "正常",
+          "explanation": "這是政策中的正常形式範圍。"
+        },
+        "unknown": "未知樂隊",
+        "unknownExplanation": "此政策帶不受此應用程式版本支援。"
+      }
+    },
+    "chart": {
+      "visualLabel": "來自伺服器提供的系列的趨勢圖",
+      "dataToggle": "檢視原料時間序列資料",
+      "tableCaption": "趨勢資料表",
+      "series": "米特里克",
+      "at": "到",
+      "value": "價值"
+    },
+    "goal": {
+      "current": "目前",
+      "target": "目標",
+      "progress": "進展"
+    },
+    "plan": {
+      "planned": "計劃",
+      "completed": "完成",
+      "missed": "{{count}} 缺失的計劃專案",
+      "replacements": "{{count}} 替代活動"
+    },
+    "gap": {
+      "title": "資料需要注意",
+      "body": "檢視缺少或仍在新鮮的物品。"
+    },
+    "state": {
+      "label": "資料狀態 資料狀態",
+      "partial": "部分資料",
+      "stale": "等待新鮮",
+      "omitted": "{{count}} 被伺服器忽略"
+    },
+    "more": "展示 {{count}} 更多物品",
+    "action": {
+      "OPEN_ACTIVITY": "開放活動",
+      "REVIEW_DATA_GAPS": "檢視失蹤資料",
+      "VIEW_TRAINING_LOAD": "檢視訓練負載"
+    },
+    "fallback": {
+      "title": "結果的一部分顯示",
+      "body": "請求未完成,因此只有由伺服器批准的定義區塊顯示。"
+    },
+    "unsupportedBlock": {
+      "title": "未支援的結果區塊",
+      "body": "原始區塊的付費不顯示,更新網頁應用程式並嘗試一次。"
+    },
+    "prescriptionDisabled": {
+      "title": "目前尚未支援的規則",
+      "body": "P1 不執行或顯示培訓規則。"
+    },
+    "freshness": "資料如 {{at}}",
+    "timezone": "時間表 {{timezone}}"
+  },
+  "prescription": {
+    "title": "接下來的7天調整",
+    "validUntil": "有效到 {{at}}",
+    "proposalNotice": "這是一個建議,並且在您確認之前,您不會在您的培訓計劃中儲存。",
+    "weekTitle": "推薦 TSS 下週",
+    "confidenceLabel": "信任",
+    "confidence": {
+      "low": "低",
+      "medium": "平均",
+      "high": "高"
+    },
+    "dataAsOf": "資料如",
+    "factsId": "事實 ID",
+    "planRevision": "計劃審查",
+    "rulesVersion": "規則版本",
+    "none": "無",
+    "duration": "{{minutes}} 我的",
+    "targetTss": "目標 TSS {{value}}",
+    "reassessTitle": "訓練前的回報",
+    "maxAge": "內心測量 {{hours}} 時間",
+    "evidence": "{{count}} 證據物品",
+    "action": {
+      "rest": "休息",
+      "recovery": "迴歸",
+      "follow_plan": "遵循計劃",
+      "modified_workout": "改造的訓練",
+      "reassess": "迴歸"
+    },
+    "workout": {
+      "rest": "休息",
+      "recovery": "迴歸",
+      "z2": "Z2",
+      "tempo": "速度",
+      "sweet_spot": "甜點",
+      "threshold": "邊界",
+      "vo2max": "二大大",
+      "planned": "計劃的訓練"
+    },
+    "metric": {
+      "form": "形式",
+      "rhr_delta_pct": "回覆 HR 變更",
+      "hrv_delta_pct": "轉型 HRV",
+      "sleep_hours": "睡眠時間",
+      "hours_since_high_intensity": "經過高強度的時刻"
+    },
+    "operator": {
+      "gte": "至少",
+      "gt": "比大",
+      "lte": "最多",
+      "lt": "少於"
+    },
+    "signal": {
+      "subjective_fatigue": "疲勞",
+      "soreness": "原生",
+      "pain_or_illness": "痛苦或疾病"
+    },
+    "option": {
+      "subjective_fatigue": {
+        "normal": "正常",
+        "tired": "疲勞"
+      },
+      "soreness": {
+        "none": "無",
+        "present": "現狀"
+      },
+      "pain_or_illness": {
+        "none": "無",
+        "present": "現狀"
+      }
+    },
+    "checkin": {
+      "title": "需要更多資訊來評估恢復",
+      "body": "選擇每個答案,然後確認 未回覆的專案仍然不明,並且永遠不會自動記錄正常。",
+      "assumedDefaults": "根據你的常見狀態計算。",
+      "assuming": "計算...",
+      "adjust": "今天是不同的",
+      "submit": "確認",
+      "cancel": "清晰的答案",
+      "loading": "查詢可用性...",
+      "loadRetry": "退出可用性檢查",
+      "unavailable": "目前,登入不可用。",
+      "submitting": "檢查...",
+      "networkError": "提交結果無法確認,您可以撤回同一請求。",
+      "retry": "退休",
+      "reanalyze": "資料或計劃改變,或者登入視窗已結束。",
+      "newAnalysis": "開始新的分析",
+      "error": "檢視不能使用,請在短時間內開始新的分析。",
+      "noCharge": "沒有額外使用 · 0 AI 通話"
+    },
+    "insufficient": {
+      "title": "需要更多的資料來獲得處方",
+      "body": "檢視丟失的資料或繼續使用現有計劃。"
+    },
+    "existingPlan": "檢視現有計劃",
+    "safety": {
+      "title": "沒有訓練處方顯示",
+      "body": "如果你有疼痛或疾病,停止鍛鍊,並在需要時尋求醫療幫助。"
+    }
+  },
+  "progress": {
+    "origin": {
+      "aiCoach": "教練的建議",
+      "separate": "此提案與自動每週調整不同,伺服器重新審查當前衝突計劃。"
+    },
+    "review": {
+      "title": "審查計劃變更",
+      "body": "選擇日期,然後檢查伺服器衍生,之前,之後,原因,和證據。",
+      "selectDates": "候選人日期",
+      "create": "預測變更",
+      "creating": "檢查變革...",
+      "before": "之前",
+      "after": "之後",
+      "reasons": "原因",
+      "refresh": "更新現狀",
+      "noCharge": "閱讀和預覽: 0 AI 通話 · 0 個提議 · 0 個計劃寫作"
+    },
+    "confirm": {
+      "review": "評論 實施行動",
+      "final": "確認並適用於計劃",
+      "title": "最終確認",
+      "body": "只有下一個按鈕會要求伺服器撤回同意和修訂,並改變計劃。"
+    },
+    "rollback": {
+      "action": "迴歸 應用的變化"
+    },
+    "states": {
+      "loading": "檢查計劃能力。",
+      "unavailable": "計劃能力狀態不可用",
+      "proposalDisabled": "目前,您已未完成的計劃已被取消,現有計劃仍未改變。",
+      "confirmDisabled": "目前,申請已被禁用,因此您的計劃不會改變。",
+      "confirmRecoveryUnavailable": "恢復的提案沒有確認證據,並且僅可讀。",
+      "applied": "按計劃準確一次",
+      "reverted": "重新審查國家前審查",
+      "receipt": "審計記錄 {{id}}",
+      "stale": "計劃、每週登入或同意已改變,因此此提案無法實施。",
+      "disabled": "目前,這種變革能力仍處於殘疾狀態。",
+      "conflict": "後來計劃改變了與此行動的衝突,所以沒有什麼改變。",
+      "error": "改變狀態無法驗證,您的現有計劃仍然沒有變化。",
+      "reanalyze": "雷克新分析",
+      "retryConfirm": "退出相同申請",
+      "retryRollback": "返回相同的 rollback 請求"
+    },
+    "questions": {
+      "label": "問這個結果",
+      "priority": "這個星期計劃中最重要的訓練是什麼?",
+      "changed": "解釋我最近完成的結果改變了什麼。",
+      "linked": "與此結果請求相關的提問"
+    },
+    "reason": {}
+  },
+  "clarification": {
+    "title": "請問一下更具體的",
+    "policy": "這個選擇: {{quota}} · {{provider}} 誰打電話",
+    "policyContinue": "沒有額外的轉 {{provider}} 誰打電話",
+    "policyNewTurn": "確認後,該使用一個新的問題,並可能多達一個AI呼叫。",
+    "noCharge": "沒有額外使用",
+    "newTurn": "一個新的問題",
+    "expired": "選擇已結束,請再次檢視作為新問題。",
+    "submit": "繼續選擇這個",
+    "newTurnConfirm": "提出這個選擇作為一個新的問題,使用今天的轉折點之一。",
+    "prompt": {
+      "time_range": "哪些時間應分析?",
+      "discipline": "哪些紀律要分析?",
+      "generic": "選擇額外的分析條件"
+    },
+    "option": {
+      "this_week": "本週",
+      "last_week": "上週",
+      "bike": "自行車",
+      "run": "跑步",
+      "swim": "游泳",
+      "generic": "{{value}}"
+    }
+  },
+  "unsupportedV2": {
+    "title": "這個問題尚未得到支援。",
+    "body": "試著問關於總結,比較,趨勢,活動排名,目標,或計劃的堅持。",
+    "suggestions": "如何重新審查你的問題"
+  },
+  "v2State": {
+    "quota_exceeded": "您已使用所有今天可用的問題。",
+    "budget_blocked": "由於目前的AI預算限制,無法產生回應。",
+    "failed": "答案無法完成 任何部分結果顯示的範圍僅限於安全驗證的範圍。"
+  },
+  "ridePlan": {
+    "questions": {
+      "linked": "與此相關的準確的Ride Plan輸入審查"
+    }
+  }
+}

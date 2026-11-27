@@ -1,0 +1,581 @@
+{
+  "surfaceStatus": {
+    "loadingAnalysis": "正在載入分析",
+    "loadingProfile": "正在載入個人資料",
+    "loadingScreen": "正在載入畫面",
+    "waitingAuthorization": "正在等待應用程式授權",
+    "creatorViews": "創作者中心檢視",
+    "share": "分享"
+  },
+  "button": {
+    "save": "儲存",
+    "cancel": "取消",
+    "confirm": "確認",
+    "delete": "刪除",
+    "edit": "編輯",
+    "back": "返回",
+    "loading": "載入中…",
+    "retry": "再試一次",
+    "close": "關閉",
+    "more": "更多",
+    "nextTabs": "更多TAB",
+    "previousTabs": "以前的TAB",
+    "less": "少",
+    "login": "登入",
+    "logout": "登出",
+    "loginGoogle": "登入",
+    "markAllRead": "馬克 所有 閱讀"
+  },
+  "error": {
+    "generic": "有些事情錯了。",
+    "network": "網路錯誤",
+    "permission": "你沒有許可。",
+    "notFound": "找不到。",
+    "title": "有些事情錯了",
+    "description": "請在一瞬間再試一次。",
+    "boundaryTitle": "有些事情錯了",
+    "unknownError": "未知錯誤",
+    "reload": "重新載入",
+    "reloadAriaLabel": "重新載入頁面",
+    "offlineBanner": "您是離線的,當連線回來時,某些螢幕會退出。",
+    "offlineTitle": "您已離線",
+    "offlineDescription": "未被隱藏的螢幕在您線上回來時會自動退出。",
+    "waitingOnline": "等待連線",
+    "appLoadFailed": "無法上傳應用程式",
+    "appLoadFailedReload": "重新載入"
+  },
+  "label": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "thisWeek": "本週",
+    "thisMonth": "這個月",
+    "all": "所有",
+    "language": "語言",
+    "profile": "個人檔案",
+    "settings": "設定",
+    "rider": "騎行",
+    "ride": "騎乘",
+    "notifications": "通知",
+    "noNotifications": "沒有通知",
+    "search": "搜尋",
+    "searchEmpty": "沒有結果“{{query}}\"",
+    "loadingHint": "充電"
+  },
+  "auth": {
+    "loginRequiredTitle": "簽名 需要",
+    "loginRequiredDescription": "登入使用此功能。",
+    "loginValue": "登入以儲存賽車",
+    "loginLoading": "簽名在...",
+    "loginFailed": "登入失敗了,請再試一次。"
+  },
+  "notFound": {
+    "description": "您所要求的頁面不存在或已移動。"
+  },
+  "footer": {
+    "feedback": "回覆",
+    "terms": "條款",
+    "privacy": "隱私",
+    "community": "社群指南",
+    "contact": "聯絡",
+    "more": "更多",
+    "collapse": "崩潰",
+    "appManual": "應用手冊",
+    "webManual": "網頁手冊",
+    "aiPolicy": "教練政策",
+    "stravaTerms": "Strava 條款",
+    "calculator": "公共計算機",
+    "partnershipInquiry": "參與我們",
+    "help": "說明",
+    "policies": "條款與政策",
+    "install": "下載應用程式",
+    "navigation": "網站資訊",
+    "email": "電子郵件"
+  },
+  "partnership": {
+    "eyebrow": "開車開車開車開車開車開車開車開車開車開車開車開車開車",
+    "title": "加入與 Orider",
+    "intro": "幫助你建立它,連線它或探索它如何持續下去 選擇你想開始的對話。",
+    "choicesLabel": "如何參與",
+    "back": "所有方式參與",
+    "aboutContext": "由騎行者建造,由使用它的人形狀。",
+    "aboutLink": "如何 Orider 開始",
+    "jumpToContact": "透過電子郵件開始對話",
+    "contactTitle": "透過電子郵件告訴我們你的故事",
+    "contactDescription": "您不需要正式提議,分享如下內容如您所喜愛的多或少。",
+    "emailLabel": "電子郵件",
+    "emailHint": "選擇地址複製它,或者使用按鈕開啟您的電子郵件應用程式。",
+    "supportText": "您是否有關於應用程式或改進的疑問?",
+    "supportLink": "一般問題與反饋",
+    "build": {
+      "title": "與我們一起建造",
+      "summary": "產品規劃、設計、加入團隊和開源貢獻",
+      "intro": "Orider 這是一個早期階段的產品,開始於真正的騎行上的失望,幫助形成一個平臺,騎行者和跑者可以改善並共同使用。",
+      "sections": [
+        {
+          "title": "產品規劃與設計是我們最大的需求",
+          "description": "幫助決定首先要建造什麼,並從準備活動到審查記錄的旅程,我們希望與想要將真實使用者反饋轉化為更好的產品的人合作。"
+        },
+        {
+          "title": "探索成為團隊的一部分",
+          "description": "告訴我們你在想起的角色和貢獻方式,我們對共同創立或加入團隊的談話開放,從彼此的方向的理解開始。"
+        },
+        {
+          "title": "用開源開始小",
+          "description": "探索公共網頁儲存庫中的程式碼和文件,建議改進或貢獻。 Orider 這是一個很好的開始的地方。"
+        }
+      ],
+      "repository": "在 GitHub 上檢視公共網站儲存庫",
+      "contactDetails": [
+        "簡短介紹和你感興趣的角色",
+        "您的經驗、投資組合或 GitHub 連結,如果可用",
+        "如何想一起工作,以及你想分享的想法"
+      ],
+      "emailAction": "關於加入我們的電子郵件"
+    },
+    "collaborate": {
+      "title": "合作與廣告",
+      "summary": "裝置整合、品牌合作、直接廣告、贊助和當地活動",
+      "intro": "我們正在尋找幫助人們保持活躍的聯絡,告訴我們關於合作伙伴關係、直接廣告或可以擴充套件合作伙伴關係的贊助 Orider 經驗。",
+      "sections": [
+        {
+          "title": "裝置與服務整合",
+          "description": "提出如何連線感測器、運動裝置和人們可以一起使用的培訓服務。"
+        },
+        {
+          "title": "品牌、直接廣告和贊助",
+          "description": "我們歡迎對聯合活動、使用者福利、直接廣告和品牌贊助的談話,我們可以根據您的建議探索合適的方法。"
+        },
+        {
+          "title": "俱樂部、活動和內容",
+          "description": "分享集體賽車和賽車、賽車和挑戰、教練內容或共同創意專案的想法。"
+        },
+        {
+          "title": "商店、旅行及地方專案",
+          "description": "提出連線腳踏車商店、修理、裝置租賃、活躍旅行和當地路線的方式,這些例外之外的想法也歡迎。"
+        }
+      ],
+      "contactDetails": [
+        "向您、您的組織或品牌介紹,以及聯絡資訊",
+        "您的合作、廣告或贊助想法",
+        "目的觀眾、試用時間和有用材料,如可用"
+      ],
+      "emailAction": "傳送合作理念"
+    },
+    "investment": {
+      "title": "投資調查",
+      "summary": "開放體育平臺和可持續業務的方向",
+      "intro": "我們希望建立信任而不是擁有,我們希望與投資者見面,他們分享一個開放的體育平臺的方向,並希望探索一個持久的業務。 Orider.",
+      "sections": [
+        {
+          "title": "開始我們今天在哪裡",
+          "description": "Orider 它處於早期階段,透過實際使用來精化產品,我們正在探索使用它的人們如何支援可持續業務的可持續價值。"
+        },
+        {
+          "title": "提出您的產品和業務問題",
+          "description": "告訴我們你有什麼興趣,你想理解什麼,我們希望開始投資對話,以當前的產品和我們對業務的思考為基礎。"
+        }
+      ],
+      "contactDetails": [
+        "您的姓名或組織和聯絡資訊",
+        "您感興趣的業務方向或投資視野",
+        "您首先想討論的問題或材料"
+      ],
+      "emailAction": "關於投資的電子郵件"
+    }
+  },
+  "nav": {
+    "planRecords": "計劃 / 記錄",
+    "todayTraining": "今天的訓練",
+    "analysis": "分析",
+    "fitness": "條件",
+    "plan": "計劃",
+    "log": "訓練日誌",
+    "courses": "路線",
+    "leaderboard": "領先板",
+    "events": "活動",
+    "social": "社交",
+    "my": "我的個人資料",
+    "home": "首頁",
+    "coach": "教練",
+    "explore": "探索",
+    "community": "討論區",
+    "settings": "設定",
+    "segments": "路段",
+    "discover": "挑戰",
+    "board": "討論區",
+    "creator": "騎乘工具",
+    "friends": "朋友們",
+    "friendRequests": "{{count}} 友人請求",
+    "aboutOrider": "關於 Orider",
+    "profile": "個人檔案",
+    "account": "賬戶",
+    "mainNavAria": "主要航行",
+    "clubs": "俱樂部",
+    "goals": "目標",
+    "chat": "聊天",
+    "equipment": "裝置",
+    "developerDocs": "開發者DOCS",
+    "challenges": "挑戰",
+    "records": "記錄",
+    "people": "車友"
+  },
+  "about": {
+    "title": "騎行記錄導致下一個選擇",
+    "subtitle": "Orider 連線活動歷史、課程發現、團體和活動,在一個騎行平臺上。",
+    "pointsAria": "關於 Orider",
+    "points": [
+      "使用您的活動資料閱讀訓練流和恢復訊號。",
+      "透過課程、分割槽和領導板找到下一個挑戰。",
+      "與騎行者會面,並透過團體、活動和董事會分享背景。"
+    ]
+  },
+  "search": {
+    "activities": "活動",
+    "courses": "課程"
+  },
+  "time": {
+    "justNow": "現在就",
+    "minsAgo": "{{count}}m 以前",
+    "hoursAgo": "{{count}}h 以前",
+    "daysAgo": "{{count}}以前的D",
+    "am": "我的",
+    "pm": "五月",
+    "hour": "時鐘",
+    "minute": "千里",
+    "yesterday": "昨天"
+  },
+  "field": {
+    "datePlaceholder": "選擇日期",
+    "timePlaceholder": "選擇時間",
+    "selectDateAria": "選擇日期",
+    "selectTimeAria": "選擇時間",
+    "prevMonth": "上個月",
+    "nextMonth": "接下來的月",
+    "now": "現在",
+    "clear": "清晰",
+    "presetWeek": "1 周",
+    "presetMonth": "1 個月",
+    "preset3Months": "+3個月",
+    "yearMonth": "{{month}} {{year}}",
+    "dateLabel": "{{weekday}}, {{month}}/{{day}}/{{year}}"
+  },
+  "discipline": {
+    "selectAria": "選擇紀律",
+    "tri": "多人",
+    "bike": "自行車",
+    "run": "跑步",
+    "swim": "游泳",
+    "other": "其他",
+    "comingSoon": "即將到來"
+  },
+  "unit": {
+    "km": "千米",
+    "mi": "我的",
+    "m": "m",
+    "ft": "五",
+    "h": "飾 H",
+    "min": "我的",
+    "sec": "塞克"
+  },
+  "difficulty": {
+    "easy": "易於",
+    "mid": "平均",
+    "hard": "硬",
+    "hc": "公元前"
+  },
+  "weekday": {
+    "mon": "我的",
+    "tue": "⁇",
+    "wed": "⁇   ⁇",
+    "thu": "⁇",
+    "fri": "自由",
+    "sat": "七月",
+    "sun": "太陽"
+  },
+  "topnav": {
+    "searchPlaceholder": "搜尋",
+    "notifications": "通知",
+    "activities": "活動",
+    "language": "語言",
+    "mobileNavigation": "移動導航",
+    "menuSearch": {
+      "label": "搜尋 ORider",
+      "category": "搜尋類別",
+      "keyword": "搜尋期限",
+      "placeholder": "搜尋",
+      "submit": "搜尋",
+      "activities": "活動",
+      "athletes": "人民",
+      "clubs": "俱樂部",
+      "courses": "課程",
+      "segments": "部分",
+      "posts": "郵件",
+      "athletesHint": "透過電子郵件、姓名或朋友程式碼找到人",
+      "clubsHint": "搜尋公共俱樂部在一個名字的開始。",
+      "filters": "搜尋條件: {{count}}",
+      "clear": "清晰的搜尋條件",
+      "scope": "活動範圍",
+      "following": "訂閱",
+      "date": "日期",
+      "sport": "體育",
+      "city": "公俱樂部城市(準確比賽)",
+      "surface": "表面",
+      "difficulty": "難度",
+      "owner": "課程範圍",
+      "segmentType": "型別 型別",
+      "board": "討論區",
+      "tag": "正確的比賽(正確的比賽)",
+      "all": "所有",
+      "friends": "朋友們",
+      "self": "我的活動",
+      "7d": "最後7天",
+      "30d": "最後30天",
+      "90d": "90天前",
+      "year": "今年",
+      "bike": "自行車",
+      "run": "跑步",
+      "swim": "游泳",
+      "tri": "三角形",
+      "paved": "帕維德",
+      "gravel": "墓地",
+      "mixed": "混合",
+      "myCourses": "我的課程",
+      "climb": "克里姆",
+      "flat": "平板",
+      "difficulty1": "級別1",
+      "difficulty2": "二級",
+      "difficulty3": "級別3",
+      "difficulty4": "水平4",
+      "difficulty5": "級別5"
+    }
+  },
+  "notif": {
+    "fromUser": "通知從 {{fromNickname}}"
+  },
+  "sportFilter": {
+    "bike": "⁇ 腳踏車",
+    "run": "⁇ 跑",
+    "swim": "⁇  游泳"
+  },
+  "social": {
+    "tabFriends": "朋友們",
+    "tabGroups": "團體",
+    "searchFriendsPlaceholder": "尋找朋友",
+    "friendCodeCopied": "友人程式碼複製",
+    "shareMyCode": "分享我的程式碼",
+    "addFriends": "新增朋友",
+    "followingCount": "隨後 {{count}}",
+    "following": "隨後",
+    "searchEmpty": "沒有結果找到",
+    "noFriends": "沒有朋友",
+    "noFriendsDesc": "使用朋友頁面輸入朋友程式碼並管理請求。",
+    "newGroup": "+ 建立新組",
+    "myGroupCount": "我的團體({{count}})",
+    "memberCount": "{{count}} 成員",
+    "noGroups": "沒有團體加入"
+  },
+  "sport": {
+    "ride": "騎乘",
+    "mtb": "馬特",
+    "gravel": "墓地",
+    "ebike": "電子腳踏車",
+    "velolift": "威利福特",
+    "virtualRide": "虛擬賽車",
+    "run": "跑步",
+    "trailRun": "路線跑步",
+    "virtualRun": "虛擬跑步",
+    "walk": "行走",
+    "hike": "滑雪",
+    "swim": "游泳",
+    "workout": "訓練",
+    "weightTraining": "重量訓練",
+    "yoga": "瑜伽",
+    "tennis": "網球",
+    "soccer": "足球",
+    "golf": "戈爾夫",
+    "ski": "滑雪",
+    "snowboard": "雪板",
+    "activity": "活動",
+    "indoor": "內心"
+  },
+  "map": {
+    "placeholder": "地圖",
+    "noRouteData": "沒有路線資料",
+    "routeImageAlt": "活動路線圖",
+    "routePreviewTitle": "路線預覽",
+    "routePreviewDescription": "地圖不適用,所以只有路線顯示。",
+    "unavailableTitle": "不能編寫地圖",
+    "unavailableDescription": "路線資料仍可用。"
+  },
+  "designTheme": {
+    "default": "假設",
+    "appParity": "應用平等"
+  },
+  "discover": {
+    "title": "發現",
+    "subtitle": "課程、分割槽和領先板在一個地方",
+    "searchPlaceholder": "搜尋課程和分割槽",
+    "searching": "尋找...",
+    "noResults": "沒有結果",
+    "viewAll": "檢視所有",
+    "entrySegmentsDesc": "在地圖上瀏覽附近的部分",
+    "entryLeaderboardDesc": "檢視 KOM 和 Ride 排名",
+    "entryCoursesDesc": "尋找騎行路線",
+    "challenge": {
+      "beatPr": "祝福我的時間",
+      "strength": "玩你的力量",
+      "newPlace": "新地點",
+      "popularCourses": "受歡迎的課程",
+      "notable": "值得注意的部分",
+      "monthlyTitle": "個人每月挑戰",
+      "monthlyHeading": "{{month}} 距離挑戰",
+      "monthlyDescription": "使用你的活動距離追求一個目標300、500或1000公里。",
+      "monthlyProgressLabel": "月度遠端挑戰進展",
+      "monthlyRemaining": "{{distance}} 千里留下",
+      "monthlyCompleted": "月度目標完成",
+      "joinTier": "加入 {{tier}} 千米",
+      "joined": "加入",
+      "joinSuccess": "加入了 {{tier}} 千米挑戰",
+      "joinFailed": "無法挽救你的挑戰參與。",
+      "loading": "以本月的進展為負擔",
+      "predicted": "東方 {{time}}",
+      "faster": "−{{sec}}S 更快"
+    }
+  },
+  "likers": {
+    "more": "+{{count}}",
+    "andOthers": "+{{count}} 更多",
+    "kudos": {
+      "title": "{{count}} 庫迪",
+      "aria": "{{count}} 庫迪: {{names}}"
+    },
+    "like": {
+      "title": "{{count}} 喜歡",
+      "aria": "{{count}} 喜歡: {{names}}"
+    }
+  },
+  "embeddedStatus": {
+    "hubLoading": "充電內容。",
+    "cached": "顯示以前儲存的資訊。",
+    "loading": "充電活動和培訓資料。",
+    "unavailable": "無法立即連線,請檢查您的連線並嘗試一次。",
+    "analysisMissing": "此活動沒有分析資料顯示。",
+    "profileNotFound": "未找到的檔案",
+    "signInInApp": "在應用程式中的“設定”帳戶中登入。"
+  },
+  "dialog": {
+    "alertTitle": "警告",
+    "confirmTitle": "確認",
+    "promptTitle": "入口",
+    "ok": "確定"
+  },
+  "nav.create": "+ 建立",
+  "nav.create.course": "建立路徑",
+  "nav.create.segment": "建立分割槽",
+  "nav.create.event": "建立活動",
+  "nav.create.club": "建立俱樂部",
+  "nav.create.post": "寫信",
+  "nav.create.import": "進口活動",
+  "nav.create.goal": "建立目標",
+  "discipline.compact.tri": "多人",
+  "discipline.compact.bike": "腳踏車",
+  "discipline.compact.run": "跑步",
+  "discipline.compact.swim": "游泳",
+  "discipline.compact.soon": "很快",
+  "profileSocial": {
+    "followers": "追隨者",
+    "following": "隨後",
+    "empty": "還沒有連線。",
+    "unavailable": "不能載入連線。",
+    "retry": "再試一次",
+    "more": "載入更多",
+    "activities": "活動",
+    "latest": "最新活動",
+    "noActivities": "目前還沒有活動。",
+    "streak": "你的街道",
+    "weeks": "{{count}} 周",
+    "weeksAtLeast": "至少 {{count}} 周",
+    "thisWeek": "本週",
+    "unknownDay": "未知",
+    "activeDay": "活躍",
+    "restDay": "沒有活動",
+    "streakWindow": "最後52周 · 星期一開始在韓國. 如果本週是空的,流程從上週開始。",
+    "futureDay": "即將到來",
+    "limited": "檢視近400個活動 此前連續性未經檢視",
+    "activityUnavailable": "不能載入活動歷史。"
+  },
+  "activitySubscriptions": {
+    "subscriptions": "訂閱",
+    "subscribers": "訂閱者",
+    "friends": "朋友們",
+    "subscribe": "訂閱",
+    "unsubscribe": "未訂閱",
+    "checking": "檢查",
+    "updating": "更新...",
+    "notDeployed": "訂閱即將到來",
+    "forbidden": "訂閱不可用",
+    "unavailable": "無法檢查訂閱狀態。",
+    "management": "友誼與關係",
+    "blocked": "封鎖",
+    "unblock": "解鎖",
+    "blockedDescription": "只有你阻止的人,解鎖不會恢復友誼或訂閱。",
+    "actionFailed": "沒辦法更新,請再試一次。",
+    "managementNotReady": "關係管理即將到來",
+    "signInRequired": "登入到應用程式,跟隨這個騎行者。"
+  },
+  "notif.loading": "檢查通知...",
+  "notif.failed": "無法驗證通知狀態,請退出。",
+  "notif.retry": "退休",
+  "notif.more": "載入舊通知",
+  "notif.unavailable": "此通知已被刪除或已不再可用。",
+  "notif.commentDestination": "評論 通知",
+  "notif.loginDestination": "登入閱讀此評論,您將在登入後返回此處。",
+  "notif.signIn": "登入",
+  "notif.targetUnavailable": "此評論已被刪除、隱藏或不再可訪問。",
+  "coachPages": {
+    "condition": "條件",
+    "today": "今天",
+    "analysis": "分析",
+    "plan": "計劃",
+    "goals": "目標"
+  },
+  "challengeGuest": {
+    "loginAction": "登入以啟動挑戰",
+    "title": "選擇你的距離目標本月",
+    "body": "跟蹤一個月的距離目標,並與您的俱樂部加入一個距離聯賽。",
+    "previewTitle": "月度距離目標",
+    "example": "例如:每月300、500或1000公里,登入以使用自己的活動。"
+  },
+  "creatorHubCopy": {
+    "consent_to_ai_ride_diary_generation": "同意 AI 駕駛日記 世代",
+    "external_ai_processor_country": "外部 AI 處理器 · 國家",
+    "data_sent": "資料傳送",
+    "data_excluded": "資料排除",
+    "retention": "保留",
+    "location_activity_names_and_raw_heart": "位置、活動名稱和原始心率/功率資料不傳送,您的日記是私人;在分享之前,請檢視單獨的標題。",
+    "ai_processor_privacy_policy": "AI 處理器隱私政策",
+    "cancel": "取消",
+    "agree_and_generate": "同意併產生",
+    "connections_and_data_access": "連線和資料訪問",
+    "more_ways_to_use_your_rides": "更多使用你的騎行方式",
+    "guides_for_your_tools": "您的工具指南",
+    "result": "結果",
+    "setup_and_steps": "設定和步驟",
+    "prepare": "準備",
+    "steps": "步驟",
+    "ai_prompt_and_copy": "快速複製和複製",
+    "prompt_for_your_ai_assistant": "為您的AI助理提供快點",
+    "data_permissions_and_connections": "資料許可和連線",
+    "preview_output": "預測出售",
+    "generation_limits_and_data": "世代限制與資料",
+    "could_not_save_the_image_please": "無法儲存圖片,請退出。",
+    "private_diary_only_you": "個人日記 · 只有你",
+    "how_to_connect_your_tools": "如何連線你的工具",
+    "workflow_and_data_protection": "工作流和資料保護"
+  },
+  "impersonation": {
+    "active": "代理工作階段 — 目前以 <account>{{name}}</account> 登入（發行者：{{issuedBy}}）",
+    "exit": "結束",
+    "exitFailed": "無法結束代理工作階段。你仍以代理帳號登入，請再試一次。"
+  }
+}

@@ -8,6 +8,7 @@ import koActivity from "../../i18n/resources/ko/activity.json";
 import koAthlete from "../../i18n/resources/ko/athlete.json";
 import koAuth from "../../i18n/resources/ko/auth.json";
 import koBoard from "../../i18n/resources/ko/board.json";
+import koClubMeeting from "../../i18n/resources/ko/clubMeeting.json";
 import koCommon from "../../i18n/resources/ko/common.json";
 import koCourse from "../../i18n/resources/ko/course.json";
 import koDashboard from "../../i18n/resources/ko/dashboard.json";
@@ -31,6 +32,7 @@ const ko = {
   athlete: koAthlete,
   auth: koAuth,
   board: koBoard,
+  clubMeeting: koClubMeeting,
   common: koCommon,
   course: koCourse,
   dashboard: koDashboard,

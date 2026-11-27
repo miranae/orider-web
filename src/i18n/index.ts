@@ -93,7 +93,8 @@ if (!i18n.isInitialized) {
     .use(initReactI18next)
     .init({
     supportedLngs: [...SUPPORTED_LANGS],
-    fallbackLng: false,
+    fallbackLng: (language) => language === "ko" || language === "en" ? [] : ["en"],
+    load: "currentOnly",
     // 인라인된 초기 ns 는 resources 로 즉시 사용. 그 외 ns 는 backend 가 보충 로드.
     resources,
     partialBundledLanguages: true,

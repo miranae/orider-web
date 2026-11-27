@@ -5,6 +5,7 @@
  * 데이터를 수정할 수 있다. 그래서 Layout 이 아니라 앱 최상위에서 렌더해 모든 페이지에
  * 일관되게 뜨도록 한다.
  */
+import { Trans, useTranslation } from "react-i18next";
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { signOut } from "firebase/auth";
 
@@ -41,6 +42,7 @@ function getServerSnapshot(): ImpersonationRead {
 }
 
 export default function ImpersonationBanner() {
+  const { t } = useTranslation("common");
   const { user, profile, loading } = useAuth();
   const { showToast } = useToast();
   const bannerRef = useRef<HTMLDivElement>(null);
@@ -99,7 +101,7 @@ export default function ImpersonationBanner() {
     } catch (e) {
       logClientError("ImpersonationBanner.exit", e, { targetUid: state?.targetUid });
       // 알림 문구를 누르면 종료를 다시 시도한다 — 아직 같은 위임 세션일 때만(다른 계정이면 그 계정을 로그아웃시키지 않는다).
-      showToast("위임 세션 종료에 실패했습니다. 아직 위임 계정으로 로그인된 상태이니 다시 시도해 주세요.", "error",
+      showToast(t("impersonation.exitFailed"), "error",
         { resolve: { onClick: () => { if (sameSession()) void onExit(); } } });
       return;
     }
@@ -115,7 +117,7 @@ export default function ImpersonationBanner() {
       style={{ color: "var(--primary-fg)", fontSize: "var(--fs-sm)" }}
     >
       <span className="min-w-0 flex-1 break-words">
-        위임 세션 — <strong>{name}</strong> 으로 로그인 중 (발급: {issuedBy})
+        <Trans ns="common" i18nKey="impersonation.active" values={{ name, issuedBy }} components={{ account: <strong /> }} />
       </span>
       <button
         type="button"
@@ -123,7 +125,7 @@ export default function ImpersonationBanner() {
         className="shrink-0 border px-2 py-1"
         style={{ borderColor: "var(--primary-fg)", fontSize: "var(--fs-sm)", borderRadius: "var(--r-md)" }}
       >
-        종료
+        {t("impersonation.exit")}
       </button>
     </div>
   );

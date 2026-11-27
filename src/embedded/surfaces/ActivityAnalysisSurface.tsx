@@ -127,7 +127,7 @@ export default function ActivityAnalysisSurface({
 
   if (model.loadingActivity || model.activityProcessing) {
     return (
-      <div className="orider-embedded-status" role="status" aria-label="Loading analysis">
+      <div className="orider-embedded-status" role="status" aria-label={tCommon("surfaceStatus.loadingAnalysis")}>
         <div className="orider-embedded-status__pulse" />
       </div>
     );
@@ -165,7 +165,7 @@ export default function ActivityAnalysisSurface({
         }} />
       {!showingSaved && (model.sport === "run" || model.sport === "ride") && <ActivityDetailedCharts key={activityId} model={model} highlightedPeak={selectedPeak} onClearHighlightedPeak={() => setPeakSelection({ activityId, peak: null })} />}
       {model.analysisTabProps && (model.sport === "run" || hasStoredAnalysis || (!model.loadingStreams && !model.showStreamSpinner)) ? <AnalysisTab {...model.analysisTabProps} />
-        : model.loadingStreams || model.showStreamSpinner ? <div className="orider-embedded-status" role="status">Loading analysis</div>
+        : model.loadingStreams || model.showStreamSpinner ? <div className="orider-embedded-status" role="status">{tCommon("surfaceStatus.loadingAnalysis")}</div>
           : model.overview.loading ? <div className="orider-embedded-status" role="status">{tCommon("embeddedStatus.loading")}</div>
             : model.overview.response?.status === "available" ? null
               : <div className="orider-embedded-status" role="alert">

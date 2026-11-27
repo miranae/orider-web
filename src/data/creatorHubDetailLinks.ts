@@ -1,3 +1,4 @@
+import { standaloneText } from "../i18n/standaloneText";
 import { BookOpen, FileText, KeyRound, ShieldCheck, type LucideIcon } from "lucide-react";
 
 export interface CreatorHubDetailLink {
@@ -8,32 +9,29 @@ export interface CreatorHubDetailLink {
 }
 
 export function buildCreatorHubDetailLinks(language: string): CreatorHubDetailLink[] {
-  const ko = language.startsWith("ko");
   return [
     {
       to: "/explore/recipes/recipes",
-      title: ko ? "레시피 목록" : "Recipe catalog",
-      body: ko ? "일기, 리포트, 사진 포스터 중 필요한 활용법을 고릅니다." : "Choose diaries, reports, or photo posters for your rides.",
+      title: standaloneText(language, "creator_detail_recipe_catalog"),
+      body: standaloneText(language, "creator_detail_choose_diaries_reports_or_photo_posters"),
       icon: BookOpen,
     },
     {
       to: "/explore/recipes/deploy",
-      title: ko ? "내 도구에 직접 연결하기" : "Connect your own tools",
-      body: ko
-        ? "내 기록을 노트나 알림으로 받아보고, 자주 하는 작업을 자동화합니다."
-        : "Turn your rides into notes and reminders, and automate routine tasks.",
+      title: standaloneText(language, "creator_detail_connect_your_own_tools"),
+      body: standaloneText(language, "creator_detail_turn_your_rides_into_notes_and"),
       icon: KeyRound,
     },
     {
       to: "/explore/recipes/examples",
-      title: ko ? "활용 예시" : "Examples",
-      body: ko ? "Notion, Slack, n8n, 개인 사이트에 바로 따라 붙일 수 있는 순서입니다." : "Follow practical Notion, Slack, n8n, and personal-site playbooks.",
+      title: standaloneText(language, "creator_detail_examples"),
+      body: standaloneText(language, "creator_detail_follow_practical_notion_slack_n8n_and"),
       icon: FileText,
     },
     {
       to: "/explore/recipes/share",
-      title: ko ? "자랑 카드" : "Share cards",
-      body: ko ? "공개 전 숨김 처리된 카드와 주간 차트를 미리 봅니다." : "Preview redacted cards and weekly charts before sharing.",
+      title: standaloneText(language, "creator_detail_share_cards"),
+      body: standaloneText(language, "creator_detail_preview_redacted_cards_and_weekly_charts"),
       icon: ShieldCheck,
     },
   ];

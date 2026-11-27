@@ -1,4 +1,12 @@
 {
+  "surfaceStatus": {
+    "loadingAnalysis": "분석 불러오는 중",
+    "loadingProfile": "프로필 불러오는 중",
+    "loadingScreen": "화면 불러오는 중",
+    "waitingAuthorization": "앱 인증 대기 중",
+    "creatorViews": "크리에이터 허브 보기",
+    "share": "공유"
+  },
   "button": {
     "save": "저장",
     "cancel": "취소",
@@ -537,5 +545,37 @@
     "body": "운동 기록으로 월간 목표를 확인하고 클럽 회원들과 함께 거리 리그에 참여할 수 있어요.",
     "previewTitle": "월간 거리 목표 예시",
     "example": "예: 한 달 300km · 500km · 1,000km 도전. 로그인 후 내 기록으로 시작하세요."
+  },
+  "creatorHubCopy": {
+    "consent_to_ai_ride_diary_generation": "AI 라이딩 일기 생성 동의",
+    "external_ai_processor_country": "외부 AI 처리자 · 처리 국가",
+    "data_sent": "전송하는 데이터",
+    "data_excluded": "전송하지 않는 데이터",
+    "retention": "보관 안내",
+    "location_activity_names_and_raw_heart": "위치·활동명·원시 심박/파워는 보내지 않습니다. 원문은 나만 보는 초안이며 외부 공유는 별도 하이라이트를 확인한 뒤 직접 진행합니다.",
+    "ai_processor_privacy_policy": "AI 처리자 개인정보 정책",
+    "cancel": "취소",
+    "agree_and_generate": "동의하고 생성",
+    "connections_and_data_access": "연결 방식과 데이터 권한",
+    "more_ways_to_use_your_rides": "다른 활용 방법",
+    "guides_for_your_tools": "목적에 맞는 연결 가이드",
+    "result": "결과",
+    "setup_and_steps": "준비와 따라하기",
+    "prepare": "준비",
+    "steps": "따라하기",
+    "ai_prompt_and_copy": "AI 작업 지시와 복사",
+    "prompt_for_your_ai_assistant": "AI에게 전달할 작업 지시",
+    "data_permissions_and_connections": "데이터 권한과 연결 방식",
+    "preview_output": "결과 미리보기",
+    "generation_limits_and_data": "생성 횟수와 데이터 안내",
+    "could_not_save_the_image_please": "이미지를 저장하지 못했습니다. 다시 시도해 주세요.",
+    "private_diary_only_you": "비공개 일기 · 나만 보기",
+    "how_to_connect_your_tools": "내 도구에 연결하는 방법",
+    "workflow_and_data_protection": "활용 흐름과 데이터 보호 원칙"
+  },
+  "impersonation": {
+    "active": "위임 세션 — <account>{{name}}</account> 으로 로그인 중 (발급: {{issuedBy}})",
+    "exit": "종료",
+    "exitFailed": "위임 세션 종료에 실패했습니다. 아직 위임 계정으로 로그인된 상태이니 다시 시도해 주세요."
   }
 }

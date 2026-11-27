@@ -39,3 +39,14 @@ firebase-stage-deploy.log
 
 /firebase.bundled-production.json
 firebase-deploy.log
+
+/public/manual/en/
+/public/manual/ja/
+/public/manual/zh-TW/
+/public/manual/pt-BR/
+/public/manual/es/
+/public/web-manual/en/
+/public/web-manual/ja/
+/public/web-manual/zh-TW/
+/public/web-manual/pt-BR/
+/public/web-manual/es/

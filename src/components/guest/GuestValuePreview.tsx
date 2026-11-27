@@ -1,3 +1,4 @@
+import { standaloneText } from "../../i18n/standaloneText";
 import { useState } from "react";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useAuth } from "../../contexts/AuthContext";
@@ -20,10 +21,10 @@ const FITNESS_POINTS = [
 ];
 
 const PLAN_DAYS = [
-  { label: "Mon", titleKo: "회복", titleEn: "Recovery", tss: 22 },
-  { label: "Tue", titleKo: "템포", titleEn: "Tempo", tss: 68 },
-  { label: "Thu", titleKo: "인터벌", titleEn: "Intervals", tss: 92 },
-  { label: "Sat", titleKo: "롱라이드", titleEn: "Long ride", tss: 118 },
+  { weekdayOffset: 0, titleKey: "guest_preview_recovery" as const, tss: 22 },
+  { weekdayOffset: 1, titleKey: "guest_preview_tempo" as const, tss: 68 },
+  { weekdayOffset: 3, titleKey: "guest_preview_intervals" as const, tss: 92 },
+  { weekdayOffset: 5, titleKey: "guest_preview_long_ride" as const, tss: 118 },
 ];
 
 const LOG_DAYS = [
@@ -36,41 +37,39 @@ const LOG_DAYS = [
 ];
 
 function copy(kind: PreviewKind, lang?: string) {
-  const ko = (lang ?? "ko").startsWith("ko");
   const shared = {
-    badge: ko ? "데모 데이터" : "Demo data",
-    cta: ko ? "로그인하면 내 데이터로 보기" : "Sign in to use my data",
-    tools: ko ? "비로그인 계산기 열기" : "Open public calculator",
-    note: ko
-      ? "로그인하면 같은 화면이 내 활동, 목표, 훈련 기록 기반으로 바뀝니다."
-      : "After sign-in, this same surface switches to your activities, goals, and training log.",
+    badge: standaloneText(lang ?? "ko", "guest_preview_demo_data"),
+    cta: standaloneText(lang ?? "ko", "guest_preview_sign_in_to_use_my_data"),
+    tools: standaloneText(lang ?? "ko", "guest_preview_open_public_calculator"),
+    note: standaloneText(lang ?? "ko", "guest_preview_after_sign_in_this_same_surface_switches"),
   };
   if (kind === "fitness") {
     return {
       ...shared,
-      title: ko ? "피트니스 곡선 미리보기" : "Fitness curve preview",
-      desc: ko ? "CTL, ATL, TSB 흐름으로 훈련 부하와 회복 타이밍을 먼저 확인합니다." : "Preview load, fatigue, and form with CTL, ATL, and TSB.",
-      metric: ko ? "오늘 컨디션" : "Today form",
+      title: standaloneText(lang ?? "ko", "guest_preview_fitness_curve_preview"),
+      desc: standaloneText(lang ?? "ko", "guest_preview_preview_load_fatigue_and_form_with_ctl"),
+      metric: standaloneText(lang ?? "ko", "guest_preview_today_form"),
     };
   }
   if (kind === "plan") {
     return {
       ...shared,
-      title: ko ? "주간 플랜 미리보기" : "Weekly plan preview",
-      desc: ko ? "목표일까지 남은 기간에 맞춰 강도와 회복일이 어떻게 배치되는지 보여줍니다." : "See how workload and recovery days are placed before a goal.",
-      metric: ko ? "이번 주 목표" : "Week target",
+      title: standaloneText(lang ?? "ko", "guest_preview_weekly_plan_preview"),
+      desc: standaloneText(lang ?? "ko", "guest_preview_see_how_workload_and_recovery_days_are"),
+      metric: standaloneText(lang ?? "ko", "guest_preview_week_target"),
     };
   }
   return {
     ...shared,
-    title: ko ? "훈련일지 미리보기" : "Training log preview",
-    desc: ko ? "월간 거리, TSS, 주요 운동을 한 화면에서 확인하는 방식을 보여줍니다." : "Preview monthly distance, TSS, and key sessions in one view.",
-    metric: ko ? "월간 기록" : "Monthly log",
+    title: standaloneText(lang ?? "ko", "guest_preview_training_log_preview"),
+    desc: standaloneText(lang ?? "ko", "guest_preview_preview_monthly_distance_tss_and_key_sessions"),
+    metric: standaloneText(lang ?? "ko", "guest_preview_monthly_log"),
   };
 }
 
 export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps) {
   const c = copy(kind, lang);
+  const weekday = new Intl.DateTimeFormat(lang ?? "ko", { weekday: "short", timeZone: "UTC" });
   const isFitness = kind === "fitness";
   const isPlan = kind === "plan";
   const { signIn } = useAuth();
@@ -84,7 +83,7 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
       // 팝업 로그인은 현재 페이지를 유지하고, 차단 시 Firebase redirect도 같은 URL로 돌아온다.
       await signIn();
     } catch (err) {
-      if (!isSignInCancelled(err)) showToast((lang ?? "ko").startsWith("ko") ? "로그인에 실패했습니다. 다시 시도해 주세요." : "Sign-in failed. Please try again.", "error");
+      if (!isSignInCancelled(err)) showToast(standaloneText(lang ?? "ko", "guest_preview_sign_in_failed_please_try_again"), "error");
     } finally {
       setSignInPending(false);
     }
@@ -123,9 +122,9 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
         ) : isPlan ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 120px), 1fr))", gap: "var(--space-3)" }}>
             {PLAN_DAYS.map((d) => (
-              <div key={d.label} style={{ border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: "var(--space-4)", background: "var(--bg-2)" }}>
-                <Text as="div" variant="eyebrow">{d.label}</Text>
-                <div style={{ marginTop: "var(--space-2)", fontWeight: 700, color: "var(--ink-0)" }}>{(lang ?? "ko").startsWith("ko") ? d.titleKo : d.titleEn}</div>
+              <div key={d.weekdayOffset} style={{ border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: "var(--space-4)", background: "var(--bg-2)" }}>
+                <Text as="div" variant="eyebrow">{weekday.format(Date.UTC(2024, 0, 1 + d.weekdayOffset))}</Text>
+                <div style={{ marginTop: "var(--space-2)", fontWeight: 700, color: "var(--ink-0)" }}>{standaloneText(lang ?? "ko", d.titleKey)}</div>
                 <Text variant="dataMedium" style={{ color: "var(--amber)" }}>{d.tss}</Text>
                 <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-1)" }}>TSS</span>
               </div>

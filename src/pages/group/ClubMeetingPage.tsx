@@ -52,7 +52,7 @@ export default function ClubMeetingPage({
   const { user, loading: authLoading, signIn } = useAuth();
   const { i18n } = useTranslation();
   const en = i18n.language.startsWith("en");
-  const text = (ko: string, english: string) => (en ? english : ko);
+  const { t: clubText } = useTranslation("clubMeeting");
   const navigate = useLocalizedNavigate();
   const {
     role,
@@ -88,34 +88,25 @@ export default function ClubMeetingPage({
   if (!user)
     return (
       <EmptyState
-        title={text(
-          "로그인하고 클럽 모임을 이용해주세요.",
-          "Sign in to use club meetings.",
-        )}
+        title={clubText("clubMeetingPageCopy.sign_in_to_use_club_meetings")}
         actions={[
-          { label: text("로그인", "Sign in"), onClick: () => void signIn() },
+          { label: clubText("clubMeetingPageCopy.sign_in"), onClick: () => void signIn() },
         ]}
       />
     );
   if (groupError || roleError)
     return (
       <ErrorState
-        title={text(
-          "클럽 회원 자격을 확인하지 못했어요.",
-          "Could not verify club membership.",
-        )}
+        title={clubText("clubMeetingPageCopy.could_not_verify_club_membership")}
         onRetry={roleError ? retryRole : retryGroup}
       />
     );
   if (!group || !role)
     return (
       <EmptyState
-        title={text(
-          "현재 활동 중인 클럽 회원만 이용할 수 있어요.",
-          "An active club membership is required.",
-        )}
+        title={clubText("clubMeetingPageCopy.an_active_club_membership_is_required")}
         actions={[
-          { label: text("클럽으로", "Back to club"), href: `/club/${groupId}` },
+          { label: clubText("clubMeetingPageCopy.back_to_club"), href: `/club/${groupId}` },
         ]}
       />
     );
@@ -132,16 +123,13 @@ export default function ClubMeetingPage({
   if (mode === "edit" && !data?.isHost)
     return (
       <EmptyState
-        title={text(
-          "이 모임의 주최자만 수정할 수 있어요.",
-          "Only this meeting’s host can edit it.",
-        )}
+        title={clubText("clubMeetingPageCopy.only_this_meeting_s_host_can")}
         resolve={{ to: `/club/${groupId}/meetings/${meetingId}` }}
       />
     );
   const kinds = [
-    { id: "flash", name: text("번개", "Spontaneous ride"), active: true },
-    { id: "tour", name: text("투어", "Tour"), active: true },
+    { id: "flash", name: clubText("clubMeetingPageCopy.spontaneous_ride"), active: true },
+    { id: "tour", name: clubText("clubMeetingPageCopy.tour"), active: true },
   ];
   if (data && !kinds.some((kind) => kind.id === data.meeting.kindId))
     kinds.push({
@@ -154,7 +142,7 @@ export default function ClubMeetingPage({
     now: Date.now(),
     kinds,
     members: data?.members ?? [
-      { id: user.uid, name: user.displayName ?? text("나", "Me") },
+      { id: user.uid, name: user.displayName ?? clubText("clubMeetingPageCopy.me") },
     ],
     meetings: mode === "edit" && data ? [data.meeting] : [],
   };
@@ -167,7 +155,7 @@ export default function ClubMeetingPage({
       />
       <div className="cp-product-header">
         <Link to={`/club/${group.id}`}>
-          ← {text("모임 목록", "Meetings")}
+          ← {clubText("clubMeetingPageCopy.meetings")}
         </Link>
         {mode === "detail" && (
           // 새로고침은 화면 상단 작은 아이콘으로 두고, 다시 읽는 동안 스피너를 보여준다.
@@ -175,8 +163,8 @@ export default function ClubMeetingPage({
             size="sm"
             variant="ghost"
             loading={refreshing}
-            aria-label={text("새로고침", "Refresh")}
-            title={text("새로고침", "Refresh")}
+            aria-label={clubText("clubMeetingPageCopy.refresh")}
+            title={clubText("clubMeetingPageCopy.refresh")}
             icon={<RefreshCw size={ICON_SIZE.sm} />}
             onClick={() => {
               setRefreshing(true);
@@ -285,7 +273,7 @@ function ServerMeetingDetail({
   onPrepareCourse: () => void;
 }) {
   const { setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting } = useClubMeetingsApi();
-  const text = (ko: string, english: string) => (en ? english : ko);
+  const { t: clubText } = useTranslation("clubMeeting");
   const meeting = data.meeting;
   const current = meeting.registrations.find((item) => item.memberId === uid);
   const [pending, setPending] = useState(false);
@@ -328,9 +316,9 @@ function ServerMeetingDetail({
         name:
           meeting.kindName ??
           (meeting.kindId === "tour"
-            ? text("투어", "Tour")
+            ? clubText("clubMeetingPageCopy.tour")
             : meeting.kindId === "flash"
-              ? text("번개", "Spontaneous ride")
+              ? clubText("clubMeetingPageCopy.spontaneous_ride")
               : meeting.kindId),
         active: true,
       },
@@ -366,7 +354,7 @@ function ServerMeetingDetail({
         <div className="cp-error" role="alert">
           {failure || meetingErrorMessage(error, en)}{" "}
           <Button size="sm" onClick={() => void run(reload)}>
-            {text("최신 상태 다시 확인", "Reload latest information")}
+            {clubText("clubMeetingPageCopy.reload_latest_information")}
           </Button>
         </div>
       )}
@@ -376,18 +364,18 @@ function ServerMeetingDetail({
           {meeting.venue && (
             <Chip>
               {meeting.venue === "indoor"
-                ? text("실내 모임", "Indoor meeting")
-                : text("실외 모임", "Outdoor meeting")}
+                ? clubText("clubMeetingPageCopy.indoor_meeting")
+                : clubText("clubMeetingPageCopy.outdoor_meeting")}
             </Chip>
           )}
           <Chip>
-            {completed ? text("모임 마무리 완료", "Meeting completed") : !live
-              ? text("모임 취소", "Cancelled")
+            {completed ? clubText("clubMeetingPageCopy.meeting_completed") : !live
+              ? clubText("clubMeetingPageCopy.cancelled")
               : meeting.recruitment === "closed"
-                ? text("신규 접수 마감", "Registration closed")
+                ? clubText("clubMeetingPageCopy.registration_closed")
                 : meeting.recruitment === "waitlist"
-                  ? text("대기 접수", "Waitlist open")
-                  : text("모집 중", "Registration open")}
+                  ? clubText("clubMeetingPageCopy.waitlist_open")
+                  : clubText("clubMeetingPageCopy.registration_open")}
           </Chip>
         </div>
         <div className="cp-hero-title">
@@ -398,8 +386,8 @@ function ServerMeetingDetail({
               size="sm"
               variant="ghost"
               disabled={busy || !live}
-              aria-label={text("모임 수정", "Edit meeting")}
-              title={text("모임 수정", "Edit meeting")}
+              aria-label={clubText("clubMeetingPageCopy.edit_meeting")}
+              title={clubText("clubMeetingPageCopy.edit_meeting")}
               icon={<Pencil size={ICON_SIZE.sm} />}
               onClick={onEdit}
             />
@@ -413,7 +401,7 @@ function ServerMeetingDetail({
             </p>}
             <details onToggle={(event) => setIntroductionExpanded(event.currentTarget.open)}>
               <summary>
-                {text("모집 소개 전체보기", "Read full introduction")}
+                {clubText("clubMeetingPageCopy.read_full_introduction")}
               </summary>
               <p>{meeting.description}</p>
             </details>
@@ -432,10 +420,7 @@ function ServerMeetingDetail({
           </span>
           <span>
             <Users size={ICON_SIZE.md} aria-hidden="true" />
-            {text(
-              `참석 ${joined.length} / ${meeting.capacity}명 · 대기 ${waiting.length}명`,
-              `${joined.length} / ${meeting.capacity} attending · ${waiting.length} waiting`,
-            )}
+            {clubText("clubMeetingPageCopy.attending_waiting", { value1: joined.length, value2: meeting.capacity, value3: waiting.length })}
           </span>
         </div>
         <MeetingInviteShare key={`${data.groupId}/${data.eventId}`} groupId={data.groupId} eventId={data.eventId} title={meeting.title} date={meeting.date} time={meeting.time} place={meeting.place} en={en} />
@@ -443,56 +428,47 @@ function ServerMeetingDetail({
         {live && meeting.venue !== "outdoor" && current?.status === "joined" && (meeting.courseTrack?.points.length ?? 0) >= 2 && (meeting.courseTrack?.segmentStarts?.length ?? 0) <= 1 && (
           <p>
             <InfoTip
-              title={text("실내에서 함께 타기", "Ride together indoors")}
-              label={text("실내에서 함께 타기", "Ride together indoors")}
-              content={text("앱의 주행 준비 화면에서 이 모임을 선택하세요. 실내 자전거와 트레이너를 연결하고 약속한 시간에 시작하면 모임 코스가 자동으로 적용됩니다. 모임 지도에서 서로의 진행을 확인할 수 있으며, 실내 참가자는 ‘실내’로 표시됩니다.", "Select this meeting on the app’s ride preparation screen. Connect your indoor bike and trainer, then start at the agreed time; the meeting course is applied automatically. Follow each other’s progress on the meeting map, where indoor riders are labelled ‘Indoor’.")}
+              title={clubText("clubMeetingPageCopy.ride_together_indoors")}
+              label={clubText("clubMeetingPageCopy.ride_together_indoors")}
+              content={clubText("clubMeetingPageCopy.select_this_meeting_on_the_app")}
             >
-              {text("실내에서 함께 타기", "Ride together indoors")}
+              {clubText("clubMeetingPageCopy.ride_together_indoors")}
             </InfoTip>
           </p>
         )}
-        {meeting.status !== "cancelled" && <div className="cp-actions"><Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : meeting.courseTrack ? "가상주행 관전" : "가상주행 관전 대기실", completed ? "Spectator & results" : meeting.courseTrack ? "Watch virtual ride" : "Virtual ride spectator lobby")}</Link></div>}
+        {meeting.status !== "cancelled" && <div className="cp-actions"><Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{clubText(completed ? "clubMeetingPageCopy.spectator_results" : meeting.courseTrack ? "clubMeetingPageCopy.spectator_watch" : "clubMeetingPageCopy.spectator_lobby")}</Link></div>}
         {data.isHost && (
           <nav
             className="cp-hero-tools"
-            aria-label={text("모임 운영", "Manage meeting")}
+            aria-label={clubText("clubMeetingPageCopy.manage_meeting")}
           >
             <a href="#meeting-people">
-              {text("명단 바로가기", "Jump to roster")}
+              {clubText("clubMeetingPageCopy.jump_to_roster")}
             </a>
             <a href="#meeting-notices">
-              {text("공지 바로가기", "Jump to notices")}
+              {clubText("clubMeetingPageCopy.jump_to_notices")}
             </a>
             <a href="#meeting-host-tools">
-              {text("모집 상태", "Registration")}
+              {clubText("clubMeetingPageCopy.registration")}
             </a>
-            <a href="#meeting-teams">{text("조편성", "Groups")}</a>
+            <a href="#meeting-teams">{clubText("clubMeetingPageCopy.groups")}</a>
           </nav>
         )}
       </section>
       <div className="cp-meeting-columns">
         <aside className="cp-meeting-sidebar">
           <Card className="cp-attendance-panel">
-            <h2>{text("내 참석", "My attendance")}</h2>
+            <h2>{clubText("clubMeetingPageCopy.my_attendance")}</h2>
             <p>
-              {completed ? text("마무리된 모임입니다. 아래에서 내 결과를 확인하세요.", "This meeting has ended. Check your result below.") : !live
-                ? text("취소된 모임입니다.", "This meeting was cancelled.")
+              {completed ? clubText("clubMeetingPageCopy.this_meeting_has_ended_check_your") : !live
+                ? clubText("clubMeetingPageCopy.this_meeting_was_cancelled")
                 : current?.status === "joined"
-                  ? text("참석 신청 완료", "Attending")
+                  ? clubText("clubMeetingPageCopy.attending")
                   : current?.status === "waiting"
-                    ? text(
-                        `대기 ${waiting.findIndex((item) => item.memberId === uid) + 1}번째`,
-                        `Waitlist position ${waiting.findIndex((item) => item.memberId === uid) + 1}`,
-                      )
+                    ? clubText("clubMeetingPageCopy.waitlist_position", { value1: waiting.findIndex((item) => item.memberId === uid) + 1 })
                     : current?.status === "offered"
-                      ? text(
-                          "빈자리 제안이 도착했어요.",
-                          "A place has been offered to you.",
-                        )
-                      : text(
-                          "함께 달릴 준비가 되셨나요?",
-                          "Ready to ride together?",
-                        )}
+                      ? clubText("clubMeetingPageCopy.a_place_has_been_offered_to")
+                      : clubText("clubMeetingPageCopy.ready_to_ride_together")}
             </p>
             {live && (
               <div className="cp-actions">
@@ -510,19 +486,19 @@ function ServerMeetingDetail({
                       {meeting.recruitment === "waitlist" ||
                       occupied >= meeting.capacity ||
                       waiting.length
-                        ? text("대기 신청", "Join waitlist")
-                        : text("참석 신청", "Join meeting")}
+                        ? clubText("clubMeetingPageCopy.join_waitlist")
+                        : clubText("clubMeetingPageCopy.join_meeting")}
                     </Button>
                   )}
                 {current?.status === "offered" && (
                   <>
                     <span>
-                      {text("수락 기한", "Accept by")}{" "}
+                      {clubText("clubMeetingPageCopy.accept_by")}{" "}
                       {current.offerUntil
                         ? new Date(current.offerUntil).toLocaleTimeString(
                             en ? "en-US" : "ko-KR",
                           )
-                        : text("확인 중", "Checking")}
+                        : clubText("clubMeetingPageCopy.checking")}
                     </span>
                     <Button
                       variant="primary"
@@ -533,7 +509,7 @@ function ServerMeetingDetail({
                         )
                       }
                     >
-                      {text("자리 수락", "Accept place")}
+                      {clubText("clubMeetingPageCopy.accept_place")}
                     </Button>
                   </>
                 )}
@@ -552,8 +528,8 @@ function ServerMeetingDetail({
                     }
                   >
                     {current.status === "joined"
-                      ? text("참석 취소", "Cancel attendance")
-                      : text("대기 취소", "Leave waitlist")}
+                      ? clubText("clubMeetingPageCopy.cancel_attendance")
+                      : clubText("clubMeetingPageCopy.leave_waitlist")}
                   </Button>
                 )}
               </div>
@@ -561,11 +537,11 @@ function ServerMeetingDetail({
             {current?.status === "joined" && live && (
               <details>
                 <summary>
-                  {text("합류·이동 계획", "Meeting point and travel")}
+                  {clubText("clubMeetingPageCopy.meeting_point_and_travel")}
                 </summary>
                 <div className="cp-stack">
                   <Field
-                    label={text("합류 지점", "Meeting point")}
+                    label={clubText("clubMeetingPageCopy.meeting_point")}
                     htmlFor="meeting-join"
                   >
                     <Select
@@ -577,7 +553,7 @@ function ServerMeetingDetail({
                       }
                     >
                       <option value="">
-                        {text("아직 미정", "Not decided")}
+                        {clubText("clubMeetingPageCopy.not_decided")}
                       </option>
                       {meeting.joins.map((join) => (
                         <option key={join.id} value={join.id}>
@@ -591,8 +567,8 @@ function ServerMeetingDetail({
                       key={key}
                       label={
                         key === "outbound"
-                          ? text("가는 편", "Outbound")
-                          : text("오는 편", "Return")
+                          ? clubText("clubMeetingPageCopy.outbound")
+                          : clubText("clubMeetingPageCopy.return")
                       }
                       htmlFor={`meeting-${key}`}
                     >
@@ -615,7 +591,7 @@ function ServerMeetingDetail({
                       )
                     }
                   >
-                    {text("이동 계획 저장", "Save travel plan")}
+                    {clubText("clubMeetingPageCopy.save_travel_plan")}
                   </Button></Stack>
                 </div>
               </details>
@@ -637,33 +613,28 @@ function ServerMeetingDetail({
         <Card id="meeting-results">
           {/* 결과 새로고침은 카드 하단 버튼 대신 제목 옆 아이콘으로 두고, 다시 읽는 동안 스피너를 보여준다. */}
           <div className="cp-heading-with-edit">
-            <h2>{text("모임 결과", "Meeting results")}</h2>
+            <h2>{clubText("clubMeetingPageCopy.meeting_results")}</h2>
             <IconButton
               size="sm"
               variant="ghost"
               loading={busy}
-              aria-label={text("결과 새로고침", "Refresh results")}
-              title={text("결과 새로고침", "Refresh results")}
+              aria-label={clubText("clubMeetingPageCopy.refresh_results")}
+              title={clubText("clubMeetingPageCopy.refresh_results")}
               icon={<RefreshCw size={ICON_SIZE.sm} />}
               onClick={() => void run(async () => {})}
             />
           </div>
           <div aria-live="polite">
-            {data.completion.summary ? <p>{text(
-              `완료 ${data.completion.summary.finishedCount}명 · 확인 대기 ${data.completion.summary.pendingCount}명 · 중도 종료 ${data.completion.summary.dnfCount}명 / 전체 ${data.completion.summary.totalParticipants}명`,
-              `Finished ${data.completion.summary.finishedCount} · Pending ${data.completion.summary.pendingCount} · DNF ${data.completion.summary.dnfCount} / Total ${data.completion.summary.totalParticipants}`,
-            )}</p> : <p>{text("모임 요약을 집계 중입니다. 개인 기록은 보존됩니다.", "The meeting summary is processing. Individual recordings are preserved.")}</p>}
-            {data.completion.own && <p>{text("내 기록", "My recording")} · {data.completion.own.verified
-              ? text("결과 확인 완료", "Result verified")
-              : ["REGISTERED", "CHECKED_IN", "PAID"].includes(data.completion.own.status) ? text("기록 없음", "No recording") : text("결과 확인 대기", "Result pending")}
+            {data.completion.summary ? <p>{clubText("clubMeetingPageCopy.finished_pending_dnf_total", { value1: data.completion.summary.finishedCount, value2: data.completion.summary.pendingCount, value3: data.completion.summary.dnfCount, value4: data.completion.summary.totalParticipants })}</p> : <p>{clubText("clubMeetingPageCopy.the_meeting_summary_is_processing_individual")}</p>}
+            {data.completion.own && <p>{clubText("clubMeetingPageCopy.my_recording")} · {data.completion.own.verified
+              ? clubText("clubMeetingPageCopy.result_verified")
+              : ["REGISTERED", "CHECKED_IN", "PAID"].includes(data.completion.own.status) ? clubText("clubMeetingPageCopy.no_recording") : clubText("clubMeetingPageCopy.result_pending")}
               {data.completion.own.verified && data.completion.own.durationMs != null && <> · {Math.floor(data.completion.own.durationMs / 60000)}:{String(Math.floor(data.completion.own.durationMs / 1000) % 60).padStart(2, "0")}</>}
             </p>}
           </div>
-          {data.completion.riders && <ul aria-label={text("이 모임의 참가자 기록", "This meeting's rider results")}>
+          {data.completion.riders && <ul aria-label={clubText("clubMeetingPageCopy.this_meeting_s_rider_results")}>
             {data.completion.riders.map(rider => <li key={rider.uid}>
-              <strong>{rider.displayName}</strong>{" · "}{text(
-                rider.status === "FINISHED" ? "결과 확인 완료" : rider.status === "DNF" ? "중도 종료" : rider.status === "NO_RECORDING" ? "기록 없음" : "기록 확인 대기",
-                rider.status === "FINISHED" ? "Verified" : rider.status === "DNF" ? "DNF" : rider.status === "NO_RECORDING" ? "No recording" : "Result pending")}
+              <strong>{rider.displayName}</strong>{" · "}{clubText(rider.status === "FINISHED" ? "clubMeetingPageCopy.verified" : rider.status === "DNF" ? "clubMeetingPageCopy.did_not_finish" : rider.status === "NO_RECORDING" ? "clubMeetingPageCopy.no_recording" : "clubMeetingPageCopy.rider_result_pending")}
               {rider.status === "FINISHED" && rider.durationMs != null && <> · {Math.floor(rider.durationMs / 60000)}:{String(Math.floor(rider.durationMs / 1000) % 60).padStart(2, "0")}</>}
             </li>)}
           </ul>}
@@ -674,27 +645,24 @@ function ServerMeetingDetail({
           id="meeting-host-tools"
           className="cp-host-bar cp-product-host-bar"
         >
-          <h2>{text("모임 운영", "Manage meeting")}</h2>
+          <h2>{clubText("clubMeetingPageCopy.manage_meeting")}</h2>
           <div className="cp-actions">
-            {live && <Button size="sm" disabled={busy} onClick={() => setConfirmingFinish(true)}>{text("모임 마무리", "Finish meeting")}</Button>}
+            {live && <Button size="sm" disabled={busy} onClick={() => setConfirmingFinish(true)}>{clubText("clubMeetingPageCopy.finish_meeting")}</Button>}
             {/* 모임 전체 취소는 공지 카드에서 떼어 운영 카드 끝의 작은 위험 동작으로 둔다(파괴적 동작이라 글자 버튼 유지, 확정 단계 그대로). */}
-            {live && <Button variant="danger" size="sm" disabled={busy} onClick={() => setCancelling(true)}>{text("모임 전체 취소", "Cancel the meeting")}</Button>}
+            {live && <Button variant="danger" size="sm" disabled={busy} onClick={() => setCancelling(true)}>{clubText("clubMeetingPageCopy.cancel_the_meeting")}</Button>}
           </div>
-          {live && confirmingFinish && <div role="group" aria-label={text("모임 마무리 확인", "Confirm meeting completion")}>
-            <p>{text("모임을 마무리하면 신규 참가와 위치·심박 공유가 끝납니다. 각자의 기록은 삭제되지 않으며 업로드가 남은 기록은 확인 대기로 표시됩니다.", "Finishing closes new participation and location/heart-rate sharing. Individual recordings are preserved; outstanding uploads remain pending.")}</p>
-            <Button loading={busy} onClick={() => void run(() => finishClubMeeting(data.eventId, data.revision))}>{text("마무리 확정", "Confirm finish")}</Button>
-            <Button disabled={busy} onClick={() => setConfirmingFinish(false)}>{text("돌아가기", "Go back")}</Button>
+          {live && confirmingFinish && <div role="group" aria-label={clubText("clubMeetingPageCopy.confirm_meeting_completion")}>
+            <p>{clubText("clubMeetingPageCopy.finishing_closes_new_participation_and_location")}</p>
+            <Button loading={busy} onClick={() => void run(() => finishClubMeeting(data.eventId, data.revision))}>{clubText("clubMeetingPageCopy.confirm_finish")}</Button>
+            <Button disabled={busy} onClick={() => setConfirmingFinish(false)}>{clubText("clubMeetingPageCopy.go_back")}</Button>
           </div>}
           {live && cancelling && (
             <div className="cp-notice">
               <p>
-                {text(
-                  "참석자와 대기자 모두에게 취소 안내가 남습니다.",
-                  "A cancellation notice will be recorded for participants and the waitlist.",
-                )}
+                {clubText("clubMeetingPageCopy.a_cancellation_notice_will_be_recorded")}
               </p>
               <Field
-                label={text("취소 사유", "Cancellation reason")}
+                label={clubText("clubMeetingPageCopy.cancellation_reason")}
                 htmlFor="cancel-reason"
               >
                 <Textarea
@@ -715,17 +683,17 @@ function ServerMeetingDetail({
                   })
                 }
               >
-                {text("전체 취소 확정", "Confirm cancellation")}
+                {clubText("clubMeetingPageCopy.confirm_cancellation")}
               </Button>
               <Button disabled={pending} onClick={() => setCancelling(false)}>
-                {text("돌아가기", "Go back")}
+                {clubText("clubMeetingPageCopy.go_back")}
               </Button>
               </Stack>
             </div>
           )}
           {live && (
             <Field
-              label={text("모집 상태", "Registration")}
+              label={clubText("clubMeetingPageCopy.registration")}
               htmlFor="meeting-recruitment"
             >
               <Select
@@ -742,13 +710,13 @@ function ServerMeetingDetail({
                 }
               >
                 <option value="open">
-                  {text("참석·대기 접수", "Attendance and waitlist")}
+                  {clubText("clubMeetingPageCopy.attendance_and_waitlist")}
                 </option>
                 <option value="waitlist">
-                  {text("대기만 접수", "Waitlist only")}
+                  {clubText("clubMeetingPageCopy.waitlist_only")}
                 </option>
                 <option value="closed">
-                  {text("신규 접수 마감", "Close new registrations")}
+                  {clubText("clubMeetingPageCopy.close_new_registrations")}
                 </option>
               </Select>
             </Field>
@@ -789,13 +757,13 @@ function ServerMeetingDetail({
         <Card id="meeting-travel">
           <details>
             <summary>
-              {text("합류·이동 현황", "Meeting points and travel plans")}
+              {clubText("clubMeetingPageCopy.meeting_points_and_travel_plans")}
             </summary>
             {[
               ...meeting.joins,
               {
                 id: "",
-                place: text("합류 미정", "Meeting point not selected"),
+                place: clubText("clubMeetingPageCopy.meeting_point_not_selected"),
                 time: "",
               },
             ].map((join) => (
@@ -818,12 +786,12 @@ function ServerMeetingDetail({
                       <strong>
                         {data.members.find(
                           (member) => member.id === person.memberId,
-                        )?.name ?? text("클럽 회원", "Club member")}
+                        )?.name ?? clubText("clubMeetingPageCopy.club_member")}
                       </strong>{" "}
-                      · {text("가는 편", "Outbound")}:{" "}
-                      {person.outbound || text("미정", "Not set")} ·{" "}
-                      {text("오는 편", "Return")}:{" "}
-                      {person.inbound || text("미정", "Not set")}
+                      · {clubText("clubMeetingPageCopy.outbound")}:{" "}
+                      {person.outbound || clubText("clubMeetingPageCopy.not_set")} ·{" "}
+                      {clubText("clubMeetingPageCopy.return")}:{" "}
+                      {person.inbound || clubText("clubMeetingPageCopy.not_set")}
                     </p>
                   ))}
               </section>
@@ -833,7 +801,7 @@ function ServerMeetingDetail({
       )}
       <MeetingDiscord key={`${uid}/${data.eventId}`} eventId={data.eventId} groupId={data.groupId} uid={uid} en={en} ended={!live} />
       {(meeting.joins.length > 0 || meeting.parking || meeting.weather || meeting.fee > 0) && <Card className="cp-preparation-panel">
-        <h2>{text("집결과 준비", "Meeting and preparation")}</h2>
+        <h2>{clubText("clubMeetingPageCopy.meeting_and_preparation")}</h2>
         {meeting.joins.map((join) => (
           <p key={join.id}>
             {join.time} · {join.place}
@@ -844,24 +812,24 @@ function ServerMeetingDetail({
         {meeting.fee > 0 && (
           <p>
             <InfoTip
-              title={text("예상 비용", "Estimated cost")}
-              label={text("예상 비용", "Estimated cost")}
-              content={text("참고용 안내이며 입금·결제 상태는 처리하지 않습니다.", "Information only; payment status is not managed here.")}
-            >{text("예상 비용", "Estimated cost")}</InfoTip>{" · "}
-            {meeting.fee.toLocaleString(en ? "en-US" : "ko-KR")} {text("원", "KRW")}
+              title={clubText("clubMeetingPageCopy.estimated_cost")}
+              label={clubText("clubMeetingPageCopy.estimated_cost")}
+              content={clubText("clubMeetingPageCopy.information_only_payment_status_is_not")}
+            >{clubText("clubMeetingPageCopy.estimated_cost")}</InfoTip>{" · "}
+            {meeting.fee.toLocaleString(en ? "en-US" : "ko-KR")} {clubText("clubMeetingPageCopy.krw")}
           </p>
         )}
       </Card>}
       <Card id="meeting-notices">
         {/* 이전·최신 공지 이동은 카드 제목 옆 작은 화살표 아이콘으로 둔다. */}
         <div className="cp-heading-with-edit">
-          <h2>{text("공지와 변경", "Notices and changes")}</h2>
+          <h2>{clubText("clubMeetingPageCopy.notices_and_changes")}</h2>
           {data.noticeNextCursor && (
             <IconButton
               size="sm"
               variant="ghost"
-              aria-label={text("이전 공지 보기", "Older notices")}
-              title={text("이전 공지 보기", "Older notices")}
+              aria-label={clubText("clubMeetingPageCopy.older_notices")}
+              title={clubText("clubMeetingPageCopy.older_notices")}
               icon={<ChevronLeft size={ICON_SIZE.sm} />}
               disabled={busy}
               onClick={() => void run(loadOlderNotices, false)}
@@ -871,8 +839,8 @@ function ServerMeetingDetail({
             <IconButton
               size="sm"
               variant="ghost"
-              aria-label={text("최신 공지 보기", "Latest notices")}
-              title={text("최신 공지 보기", "Latest notices")}
+              aria-label={clubText("clubMeetingPageCopy.latest_notices")}
+              title={clubText("clubMeetingPageCopy.latest_notices")}
               icon={<ChevronRight size={ICON_SIZE.sm} />}
               disabled={busy}
               onClick={() => void run(reload, false)}
@@ -880,10 +848,10 @@ function ServerMeetingDetail({
           )}
         </div>
         {(data.noticeNextCursor || data.noticePageCursor) && <p className="cp-muted">
-          {text("공지와 미확인 명단은 현재 표시된 공지 기준입니다.", "Notices and follow-ups reflect the notices on this page.")}
+          {clubText("clubMeetingPageCopy.notices_and_follow_ups_reflect_the")}
         </p>}
         {meeting.notices.length === 0 && (
-          <p>{text("아직 새 공지가 없어요.", "No notices yet.")}</p>
+          <p>{clubText("clubMeetingPageCopy.no_notices_yet")}</p>
         )}
         {meeting.notices.map((item) => (
           <article className="cp-announcement" key={item.id}>
@@ -892,14 +860,11 @@ function ServerMeetingDetail({
             {data.isHost ? (
               <>
                 <p>
-                  {text(
-                    `${item.confirmed.length}/${item.targets.length}명 확인`,
-                    `${item.confirmed.length}/${item.targets.length} confirmed`,
-                  )}
+                  {clubText("clubMeetingPageCopy.confirmed", { value1: item.confirmed.length, value2: item.targets.length })}
                 </p>
                 <details>
                   <summary>
-                    {text("미확인 회원", "Members who have not confirmed")}
+                    {clubText("clubMeetingPageCopy.members_who_have_not_confirmed")}
                   </summary>
                   <p>
                     {item.targets
@@ -907,10 +872,10 @@ function ServerMeetingDetail({
                       .map(
                         (id) =>
                           data.members.find((member) => member.id === id)
-                            ?.name ?? text("클럽 회원", "Club member"),
+                            ?.name ?? clubText("clubMeetingPageCopy.club_member"),
                       )
                       .join(", ") ||
-                      text("모두 확인했어요.", "Everyone confirmed.")}
+                      clubText("clubMeetingPageCopy.everyone_confirmed")}
                   </p>
                 </details>
               </>
@@ -923,13 +888,13 @@ function ServerMeetingDetail({
                   )
                 }
               >
-                {text("내용 확인했어요", "I have read this")}
+                {clubText("clubMeetingPageCopy.i_have_read_this")}
               </Button></Stack>
             ) : (
               <span>
                 {item.confirmed.includes(uid)
-                  ? text("확인한 공지", "Confirmed notice")
-                  : text("모임 공지", "Meeting notice")}
+                  ? clubText("clubMeetingPageCopy.confirmed_notice")
+                  : clubText("clubMeetingPageCopy.meeting_notice_2")}
               </span>
             )}
           </article>
@@ -938,9 +903,9 @@ function ServerMeetingDetail({
       {data.isHost && live && (
         <Card>
           <details>
-            <summary>{text("새 공지 등록", "Publish a notice")}</summary>
+            <summary>{clubText("clubMeetingPageCopy.publish_a_notice")}</summary>
             <Field
-              label={text("공지 제목", "Notice title")}
+              label={clubText("clubMeetingPageCopy.notice_title")}
               htmlFor="notice-title"
             >
               <Input
@@ -951,7 +916,7 @@ function ServerMeetingDetail({
               />
             </Field>
             <Field
-              label={text("공지 내용", "Notice body")}
+              label={clubText("clubMeetingPageCopy.notice_body")}
               htmlFor="notice-body"
             >
               <Textarea
@@ -967,7 +932,7 @@ function ServerMeetingDetail({
                 void run(async () => {
                   await publishClubMeetingNotice(
                     data.eventId,
-                    noticeTitle || text("모임 안내", "Meeting notice"),
+                    noticeTitle || clubText("clubMeetingPageCopy.meeting_notice"),
                     notice,
                   );
                   setNotice("");
@@ -975,7 +940,7 @@ function ServerMeetingDetail({
                 })
               }
             >
-              {text("공지 등록", "Publish notice")}
+              {clubText("clubMeetingPageCopy.publish_notice")}
             </Button>
           </details>
         </Card>

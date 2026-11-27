@@ -3,6 +3,7 @@ import { ChevronUp } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { localizedManualPath } from "../i18n/manualPath";
 import { Button, Card } from "../theme/components";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import AppInstallLinks from "./AppInstallLinks";
@@ -28,7 +29,7 @@ const policyLinks = [
 ];
 
 export default function FooterNavigation() {
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const location = useLocation();
   const [open, setOpen] = useState<Group | null>(null);
   const [position, setPosition] = useState({ left: 0, bottom: 0, width: 256 });
@@ -75,7 +76,7 @@ export default function FooterNavigation() {
       <Card padding="compact" style={{ boxShadow: "var(--shadow-lg)" }}>
         {open === "install" ? <AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" /> : <div className="flex flex-col gap-1">
           {(open === "partnershipInquiry" ? partnershipLinks : open === "help" ? helpLinks : policyLinks).map(([to, key]) => staticDocLinks.has(to!)
-            ? <a key={to} href={`${to}/`} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</a>
+            ? <a key={to} href={localizedManualPath(to!, i18n?.resolvedLanguage ?? i18n?.language)} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</a>
             : <Link key={to} to={to!} data-testid={to === "/about" ? "X2-1" : undefined} className={`${linkClass} flex items-center rounded-[var(--r-sm)] px-3 py-2`} style={{ minHeight: 44, fontSize: "var(--fs-sm)" }}>{t(key!)}</Link>)}
         </div>}
       </Card>

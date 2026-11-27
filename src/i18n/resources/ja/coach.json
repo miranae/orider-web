@@ -1,0 +1,668 @@
+{
+  "open": "コーチに聞いてみる",
+  "close": "トレーナーの近く",
+  "title": "トレーナー ライダー",
+  "subtitle": "あなたのトレーニング記録に基づく回答",
+  "independentNote": "新しい質問は、新しい会話として保存されます。",
+  "latestActivityReviewLinked": "トレーニングコーチングモード最新",
+  "latestActivityReviewClear": "トレーニングコーチングモード最新のトレーニングモード",
+  "context": "{{discipline}} レコード分析",
+  "pmc": {
+    "title": "トレーニング・トレーニング・フォーマット",
+    "subtitle": "カナダ {{discipline}} データ",
+    "loading": "トレーニング・トレーニング・トレーニング・トレーニング・トレー",
+    "unavailable": "トレーニングロードカードは現在利用できません. 既存のフィットネスビューは利用可能です。",
+    "accessibleStatus": "データステータス {{status}}フレッシュ {{freshness}}源質 {{quality}}",
+    "metrics": {
+      "ctl": "長期フィットネス(CTL)",
+      "atl": "短期疲労(ATL)",
+      "form": "回復バランス(TSB)"
+    },
+    "delta7d": "7日間の変化 {{value}}",
+    "asOf": "というか、 {{value}}",
+    "sourceQuality": "新鮮さ {{freshness}} ■源 {{quality}}",
+    "questionsLabel": "あなたの現在のトレーニングロードに関する質問の例",
+    "questions": {
+      "pmc_recent_load_change": "トレーニングの負担は過去7日間でどのように変わったのでしょうか。",
+      "pmc_current_form_intensity": "今週の強度は、現在の形に基づいてどのように設定すればよいですか?"
+    },
+    "status": {
+      "ok": "確認",
+      "partial": "パーティルデータ",
+      "stale": "リフレッシュが必要",
+      "missing": "データ欠け"
+    },
+    "freshness": {
+      "fresh": "現在",
+      "stale": "ステル",
+      "missing": "無用"
+    },
+    "quality": {
+      "complete": "完全",
+      "estimated": "部分的に推定",
+      "incomplete": "未完",
+      "unavailable": "無用"
+    },
+    "interpretation": {
+      "normal_load": "現在の負荷は通常の範囲に分類されます。",
+      "productive_load": "現在の負荷は生産負荷範囲に分類されています。",
+      "high_load": "最近の負荷は高負荷範囲に分類されています。",
+      "recovery_review": "トレーニングの強度を選択する前に回復状態を確認します。",
+      "insufficient_history": "結論を出すのに歴史が足りない。",
+      "incomplete_data": "データが欠けているので、最終的な解釈は見られません。",
+      "refresh_required": "この状態を再検討する前にデータを更新します。",
+      "data_unavailable": "現在、解釈するデータはありません。"
+    },
+    "safe": {
+      "partial": "部分的なデータのみが利用可能ですので、最終的な解釈は表示されません。",
+      "stale": "このデータは無効なので、最終的な解釈と関連する質問が無効です。",
+      "missing": "必要なデータが欠けているので、最終的な解釈と関連する質問が無効です。",
+      "ok": ""
+    }
+  },
+  "rider": {
+    "title": "ライダーインスティック",
+    "subtitle": "Canonical O·RIDER パワー・寿命",
+    "loading": "ライダーの特徴をチェックするには、",
+    "unavailable": "Rider Insight は現在利用できません. 既存の Fitness PDC 結果は利用可能です。",
+    "accessibleStatus": "ライダー分析の状態 {{status}}, {{count}} カノニック活動",
+    "resultLabel": "ライダータイプ",
+    "confidence": "{{value}}% c信頼不信",
+    "ability": "総合能力 · パーセント {{value}}",
+    "axis": {
+      "endurance": "長期傾向 · 爆発性 − / 持続可能 +",
+      "weight": "原子力発電(原子力発電) W/kg +"
+    },
+    "durationTitle": "持続能力",
+    "duration": {
+      "5s": "5秒",
+      "1m": "1分",
+      "5m": "5分",
+      "20m": "20分"
+    },
+    "strength": "強さ",
+    "improve": "改善",
+    "asOf": "というか、 {{value}}",
+    "sourceNote": "キャノニック O·RIDER 測定パワー PDC を使用します 活動 ID、日付、歴史はAI リクエストと共に送信されません。",
+    "questionsLabel": "あなたの現在のライダーインサイドについての質問の例",
+    "questions": {
+      "RIDER_TYPE_STRENGTHS": "ライダーのタイプ、強み、改善するための領域を説明します。",
+      "RIDER_DURATION_PRIORITY": "では、どのタイミングで最初にトレーニングするべきか。"
+    },
+    "status": {
+      "ok": "確認",
+      "missing": "無 PDC",
+      "missing_weight": "必要な重量",
+      "insufficient_activity": "活動不足",
+      "low_confidence": "低信頼",
+      "unsupported": "無支援"
+    },
+    "safe": {
+      "missing": "測定パワー PDC はまだ分類されていません ライダータイプは確認されていません。",
+      "missing_weight": "重さは必要 W/kgだから、ライダータイプは確認されていない。",
+      "insufficient_activity": "ある {{count}} ライダータイプは、少なくとも5人が利用可能になるまで確認されません。",
+      "low_confidence": "クラス化信頼は限界以下なので、ライダーのタイプ、強さ、または改善の要求は保証されていません。",
+      "unsupported": "Rider Insightは現在、自転車のみで利用可能です。",
+      "ok": ""
+    }
+  },
+  "signInRequired": "AIコーチがあなたのトレーニングレコードを分析できるようにサインインします。",
+  "signIn": "ログイン",
+  "loadingStatus": "今日の利用利用をチェックするには、",
+  "loadError": "AIコーチの状態は充電できませんので、すぐに再開してください。",
+  "reloadStatus": "再度状態チェック",
+  "loadingAnswer": "トレーニング記録をチェックし、答えを準備する...",
+  "loadingHonest": "サーバーは完了した回答のみを返しますので、詳細な処理ステージは表示されません。",
+  "inputLabel": "トレーニングについての質問",
+  "responseFormat": {
+    "tableCaption": "トレーニング記録表",
+    "category": "カテゴリ",
+    "distributionChartLabel": "レコード配布図",
+    "showLess": "少量表示",
+    "blockFallbackTitle": "この結果はテーブルとして表示されます。",
+    "blockFallbackBody": "図に有効な数値が足りないので、確認されたデータテーブルが使用されます。",
+    "fallbackTitle": "デフォルト形式で表示",
+    "fallbackBody": "この回答には、チャート可能なトレンドや数値分布データは含まれていませんので、確認されたデフォルト形式が使用されます。"
+  },
+  "placeholder": {
+    "bike": "例えば、今日のサイクリングの平均パワー、心拍数、およびカデンスをまとめます。",
+    "run": "例えば、現在の心率、回転率、長さ、距離をまとめてみてください。",
+    "swim": "例えば、今日の水泳の心拍数、長さ、距離をまとめます。"
+  },
+  "submit": "質問",
+  "another": "質問をもう一つ",
+  "readError": {
+    "verification": "ブラウザのセキュリティ検証は完了できません. 接続をチェックするか、ブラウザの拡張子がリクエストをブロックしているかどうか、再度試してみてください。",
+    "verificationWait": "ブラウザのセキュリティ検証は一時的に制限されています. 再度試してみる前にしばらく待ってください。",
+    "transport": "サーバーの反応を確認できず、接続をチェックして再度試してみてください。",
+    "auth": "サインインセッションは確認できません. 再びサインインして、リター。",
+    "service": "サーバーはリクエストを処理できませんでしたので、もう一度試してみてください。",
+    "unknown": "情報は確認できませんでしたが、もう一度試してみてください。"
+  },
+  "history": {
+    "open": "会話史",
+    "eyebrow": "コーチ",
+    "entryTitle": "コーチに聞いてみる",
+    "entryDescription": "あなたのトレーニングの状態と次のステップを、あなたの活動の歴史を使用して見直す。",
+    "signInTitle": "活動データでコーチングを開始",
+    "title": "会話史",
+    "description": "質問や回答は、会話またはアカウントを削除するまで、あなたのアカウントに保存されます。",
+    "signInRequired": "ログインして、AIコーチの会話の歴史を見る。",
+    "listTitle": "救済会話",
+    "loading": "話し合いの歴史を...",
+    "loadFailed": "会話の歴史は、充電することはできません。",
+    "retry": "再試行",
+    "emptyTitle": "まだ会話が保存されていない",
+    "emptyBody": "AIコーチに聞いて、会話はここで保存されます。",
+    "selectTitle": "会話を選択",
+    "selectBody": "質問や回答を検討し、その文脈から進みます。",
+    "turnCount": "{{count}} 質問",
+    "turnNumber": "トレンド {{count}}",
+    "you": "自分",
+    "coachName": "トレーナー ライダー",
+    "loadMore": "もっと会話を積み重ねる",
+    "loadEarlierTurns": "以前のメッセージをアップロード",
+    "loadingThread": "選ばれた会話の内容は、",
+    "threadLoadFailed": "選択した会話は充電できません。",
+    "back": "会話リストに戻る",
+    "followUpLabel": "この会話を続ける",
+    "followUpPlaceholder": "例えば、先週と比べて何が変わったのか。",
+    "contextNote": "フォローアップでは、この会話から最近の3つの質問と回答(5キバまで組み合わせ)が外部のAI処理に使用される可能性があります。",
+    "followUp": "フォローアップを求める",
+    "loadingQuota": "今日の利用利用をチェックするには、",
+    "quotaLoadFailed": "AIコーチの利用可能性は確認できませんでした。",
+    "retryQuota": "再度利用可能性を確認する",
+    "followUpTerminalSaved": "要望の結果はこの会話に保存されました. 完成状態の結果をチェックします。",
+    "followUpSaved": "答えは保存され、最新の会話が充電されました。",
+    "submitFailed": "質問は送られませんでしたが、そのプロジェクトは保存されています。",
+    "sameRequestRetry": "同じ要求を再度確認する",
+    "sameRequestRetryNote": "同じリクエストIDと回答形式で結果をチェックします. 新しい使用を要求するのではなく、実際の使用はサーバーの回答によってのみ確認されます。",
+    "delete": "会話削除",
+    "deleteNamed": "削除 {{title}} 会話",
+    "deleteTitle": "この会話を削除する?",
+    "deleteConfirm": "すべての質問と回答は「{{title}}「永久に削除され、回復することはできません。",
+    "deleteAll": "すべて削除",
+    "deleteAllTitle": "コーチの会話をすべて削除する?",
+    "deleteAllConfirm": "保存されたすべての会話、質問、回答は永久に削除され、回復することはできません。",
+    "readOnlyPrescription": "歴史における処方<unk>は読み取れのみです チェックイン、応用、または現在の計画から回転します。"
+  },
+  "serviceUnavailable": {
+    "title": "コーチが準備中",
+    "body": "AIの回答は一時的に利用できません. このリクエストは今日の質問のいずれかを使用していません. 後で再度試してみてください。",
+    "close": "接近して後で試してみる"
+  },
+  "suggestions": {
+    "title": "尋ねよう",
+    "labels": {
+      "bike": {
+        "1": "FTP 目標コーチング",
+        "2": "今日のトレーニングレビュー",
+        "3": "月間準備"
+      },
+      "run": {
+        "1": "10K ゴールコーチング",
+        "2": "今日のトレーニングレビュー",
+        "3": "月間準備"
+      },
+      "swim": {
+        "1": "ゴールコーチング 1500m",
+        "2": "今日のトレーニングレビュー",
+        "3": "月間準備"
+      }
+    },
+    "bike": {
+      "1": "達成したい一 FTP 3.5 から W/kg過去1ヶ月間のトレーニングを検討し、目標への距離を評価し、トレーニングの方向にトレーニングを進めました。",
+      "2": "今日のトレーニングを検討し、何がうまくいったか、何が改善されるかについて私をトレーニングし、次のトレーニングで何をすべきかを提案します。",
+      "3": "過去1ヶ月間のトレーニングを検討し、フィットネス、疲労、回復を分析します。"
+    },
+    "run": {
+      "1": "私は50分10Kを走りたい、過去1ヶ月の走行を検討し、目標への距離を評価し、正しいトレーニング方向でトレーニングします。",
+      "2": "今日のレースをレビューし、何がうまくいったか、何が改善されるかについて私をトレーニングし、次のレースで何をすべきかを提案します。",
+      "3": "過去1ヶ月間の私の走行を検討し、私のフィットネス、疲労、回復を分析します。"
+    },
+    "swim": {
+      "1": "私は30分で1500mフリースタイルで泳ぎたい。過去1ヶ月間の私の泳ぎを検討し、目標への距離を評価し、正しいトレーニング方向でトレーニングします。",
+      "2": "今日の水泳を検討し、何がうまくいったか、何が改善されるかについて私をトレーニングし、次の水泳で何をすべきかを提案します。",
+      "3": "過去1ヶ月間の私の水泳を検討し、私のフィットネス、疲労、回復を分析します。"
+    }
+  },
+  "discipline": {
+    "bike": "サイクリング",
+    "run": "ランニング",
+    "swim": "水泳"
+  },
+  "period": {
+    "default": "問題から解決した期間",
+    "current7d": "過去7日間",
+    "current28d": "過去28日間",
+    "previous28d": "28日前"
+  },
+  "goal": {
+    "included": "目標含む",
+    "notIncluded": "目標は含まれていない"
+  },
+  "quota": {
+    "remaining": "{{count}} 今日残された利用",
+    "exhausted": "今日の利用は完了 · 再利用後 {{resetAt}}",
+    "previousConsumed": "この要求はすでに現在の使用の1つを消費しています。"
+  },
+  "retry": {
+    "same": "同じ要求を再度確認する",
+    "poll": "結果をチェック",
+    "replay": "保存された結果を再度確認する",
+    "newTurnTitle": "新しい質問として試してみてください。",
+    "newTurnConfirm": "今日の利用のひとつをもう一度使って、質問する?",
+    "newTurnAction": "1つ使ってまた尋ねる"
+  },
+  "states": {
+    "network": {
+      "title": "答えは確認できなかった。",
+      "body": "同じリクエストで結果をチェックすることができます 追加の使用はサーバーの回答によってのみ決定されます。"
+    },
+    "compatibility": {
+      "title": "この答えは安全に表示されません。",
+      "body": "アプリとAIコーチの回答契約は一致しない 自動的に新しい質問が提出されていません。"
+    },
+    "terminal": {
+      "title": "この要求は処理できない。",
+      "body": "同じ要請は撤回されず、新しい質問は自動的に提出されていません。"
+    },
+    "ok": {
+      "body": ""
+    },
+    "insufficient_data": {
+      "body": "この分析には十分な訓練記録がありません。"
+    },
+    "stale": {
+      "body": "最近の計算も続いているので、現在の証拠も見直し。"
+    },
+    "unsupported": {
+      "body": "最近の概要と28日間の比較の質問は現在サポートされています。"
+    },
+    "quota_exceeded": {
+      "body": "今日利用可能なAIコーチの質問をすべて利用しました。"
+    },
+    "budget_blocked": {
+      "body": "AIの説明は今すぐ生成できないので、後で再度確認してください。"
+    },
+    "fallback": {
+      "body": "安全に確認された範囲内での指導のみが示されます。"
+    }
+  },
+  "p2Unavailable": {
+    "title": "トレーニングの最後のトレーニングはまだ完了できませんでした。",
+    "graph_feature_disabled": "このコーチングコースは現在無効です 新しい質問は自動的に提出されていません。",
+    "rollout_ineligible": "このコーチングパスはこのアカウントには利用できません. 新しい質問は自動的に提出されていません。",
+    "rollout_dependency_unavailable": "必要なコンポーネントが準備完了した後、同じ要求を再確認します。",
+    "graph_execution_unavailable": "結果を確認するために同じリクエストを再確認します. リクエストは自動的に別のコーチングパスに切り替えられませんでした。",
+    "latest_activity_missing": "更新は更新されていません 更新は更新されていません 更新は更新されていません 更新は更新されていません 更新は更新されていません 更新は更新されていません 更新は更新されていません 更新は更新"
+  },
+  "actions": {
+    "FOLLOW_EXISTING_PLAN": "既存の計画を見る",
+    "REVIEW_RECOVERY_BEFORE_TRAINING": "回復メトリックのレビュー",
+    "CHECK_MISSING_DATA": "欠けているデータの見直し",
+    "OPEN_PLAN": "オープントレーニングプラン",
+    "NO_ACTIVE_GOAL": "トレーニング目標設定"
+  },
+  "evidence": {
+    "toggle": "視点 {{count}} 証拠項目"
+  },
+  "freshness": "データは、 {{at}}",
+  "latestActivity": "最新活動 {{at}}",
+  "staleSources": "{{count}} データ情報源が新鮮を待っている",
+  "feedback": {
+    "label": "この答えを割り当て",
+    "prompt": "この答えは役に立つのか。",
+    "helpful": "役に立つ",
+    "notHelpful": "役に立たない"
+  },
+  "answer": {
+    "block": {
+      "narrative": "結論",
+      "metric_grid": "現在の状態",
+      "comparison_table": "期間比較",
+      "time_series": "トレンド",
+      "distribution": "配布",
+      "ranking": "ランキング",
+      "activity_list": "関連活動",
+      "goal_progress": "目標進歩",
+      "plan_adherence": "合意計画",
+      "data_gap": "データチェック",
+      "action": "次のステップ"
+    },
+    "template": {
+      "metric_summary": "現在の状況概要",
+      "comparison_summary": "期間比較概要"
+    },
+    "metricLabel": "メトリック",
+    "metric": {
+      "activity_count": "活動数",
+      "duration": "活動期間",
+      "distance": "旅行距離",
+      "tss": "トレーニング(TSS)",
+      "ctl": "長期フィットネス(CTL)",
+      "atl": "短期疲労(ATL)",
+      "form": "回復バランス(TSB)",
+      "average_power": "平均力",
+      "heart_rate": "心拍数",
+      "cadence": "ケイデンス",
+      "pace": "ペース",
+      "elevation": "標高",
+      "calories": "カロリー",
+      "zone_time": "ゾーンタイム",
+      "readiness": "準備",
+      "plan_completion": "プラン完成"
+    },
+    "unit": {
+      "count": "",
+      "seconds": "セック",
+      "kilometers": "キロメートル",
+      "tss": "TSS",
+      "watts": "W",
+      "bpm": "bpm",
+      "rpm": "rpm",
+      "seconds_per_km": "セク / キロメートル",
+      "meters": "M",
+      "kcal": "クロアチア",
+      "percent": "%",
+      "score": "ポイント",
+      "dimensionless": ""
+    },
+    "column": {
+      "current": "現在",
+      "previous": "前 比較",
+      "delta": "変更"
+    },
+    "load": {
+      "title": "トレーニング負荷分析",
+      "comparisonCaption": "現在の負荷比較",
+      "trendTitle": "サーバー・カノニック・トレンド",
+      "sequenceLabel": "{{metric}} トレンド価値",
+      "showChart": "図とテーブルを見る",
+      "hideChart": "図とテーブルを隠す",
+      "chartRegion": "トレーニング・ロード・グラフとデータテーブル",
+      "goalTitle": "CTL 目標",
+      "previousCanonical": "キャノン 毎日閉鎖 7日前",
+      "weeklyTssTitle": "今週の TSS",
+      "weeklyTssBasis": "月曜日～今日の時間帯",
+      "weeklyTrendCaption": "週刊カノニックCTL、ATL、および形状",
+      "canonicalPeriod": "チャンニカル UTC 期間",
+      "inProgress": "進歩",
+      "driversTitle": "今週のトップストレージ・貢献活動",
+      "goalResult": "目標結果",
+      "goalAchieved": "目標達成",
+      "goalNotAchieved": "まだ達成されていない",
+      "goalAchievedAt": "最初に達成",
+      "bandTitle": "政策バンドの形",
+      "bandMeta": "ポリシーカタログ {{catalog}}",
+      "currentBand": "現在のバンド {{band}}",
+      "none": "分類なし",
+      "reasons": "理由コードの決定",
+      "missingSignal": "レビューするデータ: {{signal}}",
+      "confidence": {
+        "low": "低信頼",
+        "lowBody": "データは不十分なので、強力な結論や訓練の処方<unk>は提供されません。",
+        "medium": "信頼の分析",
+        "high": "高信頼分析"
+      },
+      "band": {
+        "recovery_review": {
+          "label": "レビュー回復",
+          "explanation": "形状は非常に低い; 回復状態をまず見直す。"
+        },
+        "high_load": {
+          "label": "高い負荷",
+          "explanation": "表格は、最近のトレーニングの高い負荷を示しています。"
+        },
+        "productive_load": {
+          "label": "生産性負荷",
+          "explanation": "トレーニングの負担はこの範囲で蓄積しています。"
+        },
+        "normal": {
+          "label": "普通",
+          "explanation": "これは、政治における通常の形態の範囲です。"
+        },
+        "unknown": "未知のバンド",
+        "unknownExplanation": "このポリシーバンドは、このアプリのバージョンによってサポートされていません。"
+      }
+    },
+    "chart": {
+      "visualLabel": "サーバー提供シリーズからのトレンドグラフ",
+      "dataToggle": "原料タイムシリーズデータを表示する",
+      "tableCaption": "トレンドデータテーブル",
+      "series": "メトリック",
+      "at": "で、",
+      "value": "価値"
+    },
+    "goal": {
+      "current": "現在",
+      "target": "ターゲット",
+      "progress": "進歩"
+    },
+    "plan": {
+      "planned": "計画",
+      "completed": "完成",
+      "missed": "{{count}} 欠落した計画項目",
+      "replacements": "{{count}} 代替活動"
+    },
+    "gap": {
+      "title": "データは注意が必要",
+      "body": "欠けているか、まだ新鮮なものを見直す。"
+    },
+    "state": {
+      "label": "データの状態を回答",
+      "partial": "パーティルデータ",
+      "stale": "リフレッシュを待つ",
+      "omitted": "{{count}} サーバーに無視"
+    },
+    "more": "ショー {{count}} もっと項目",
+    "action": {
+      "OPEN_ACTIVITY": "オープン活動",
+      "REVIEW_DATA_GAPS": "欠けているデータの見直し",
+      "VIEW_TRAINING_LOAD": "トレーニングロードを見る"
+    },
+    "fallback": {
+      "title": "結果の一部だけが表示されます。",
+      "body": "要望は完了しなかったので、サーバーによって承認された決定的なブロックのみが表示されます。"
+    },
+    "unsupportedBlock": {
+      "title": "未サポートのブロック",
+      "body": "原料のブロックの負荷は表示されていません. ウェブアプリを更新して再度試してみてください。"
+    },
+    "prescriptionDisabled": {
+      "title": "処方<まだ応援されていない。",
+      "body": "P1は、トレーニングの要件を実行または表示しません。"
+    },
+    "freshness": "データは、 {{at}}",
+    "timezone": "タイムゾーン {{timezone}}"
+  },
+  "prescription": {
+    "title": "次の7日間の調整",
+    "validUntil": "適用まで {{at}}",
+    "proposalNotice": "これは提案であり、あなたがそれを確認するまであなたのトレーニングプランに保存されません。",
+    "weekTitle": "推奨 TSS 来週",
+    "confidenceLabel": "信頼",
+    "confidence": {
+      "low": "低い",
+      "medium": "メディア",
+      "high": "高い"
+    },
+    "dataAsOf": "データは、",
+    "factsId": "事実ID",
+    "planRevision": "計画改正",
+    "rulesVersion": "ルール版",
+    "none": "無",
+    "duration": "{{minutes}} ミン",
+    "targetTss": "ターゲット TSS {{value}}",
+    "reassessTitle": "トレーニング前の回収",
+    "maxAge": "内部で測定 {{hours}} 時間",
+    "evidence": "{{count}} 証拠項目",
+    "action": {
+      "rest": "リラックス",
+      "recovery": "復活",
+      "follow_plan": "計画を追いかける",
+      "modified_workout": "変更トレーニング",
+      "reassess": "レイアウト"
+    },
+    "workout": {
+      "rest": "リラックス",
+      "recovery": "復活",
+      "z2": "Z2",
+      "tempo": "タイム",
+      "sweet_spot": "甘い場所",
+      "threshold": "限界",
+      "vo2max": "マックス2",
+      "planned": "計画トレーニング"
+    },
+    "metric": {
+      "form": "形状",
+      "rhr_delta_pct": "リラックス HR 変更",
+      "hrv_delta_pct": "HRVの変化",
+      "sleep_hours": "睡眠時間",
+      "hours_since_high_intensity": "高強度から"
+    },
+    "operator": {
+      "gte": "少なくとも",
+      "gt": "より大きい",
+      "lte": "ほとんどの場合",
+      "lt": "より少ない"
+    },
+    "signal": {
+      "subjective_fatigue": "疲れ",
+      "soreness": "ソリューション",
+      "pain_or_illness": "痛みや病気"
+    },
+    "option": {
+      "subjective_fatigue": {
+        "normal": "普通",
+        "tired": "疲れた"
+      },
+      "soreness": {
+        "none": "無",
+        "present": "プレゼンテーション"
+      },
+      "pain_or_illness": {
+        "none": "無",
+        "present": "プレゼンテーション"
+      }
+    },
+    "checkin": {
+      "title": "回復を評価するために、より多くの情報が必要です。",
+      "body": "回答されていない項目は未知であり、通常のものとして自動的に記録されることはありません。",
+      "assumedDefaults": "通常の状態で計算する",
+      "assuming": "計算...",
+      "adjust": "今日は違う",
+      "submit": "確認",
+      "cancel": "明確な答え",
+      "loading": "チェックイン利用可能な...",
+      "loadRetry": "リリース利用可能性チェック",
+      "unavailable": "チェックインは現在利用できません。",
+      "submitting": "チェック...",
+      "networkError": "提出結果は確認できません. 同じ要請を撤回することができます。",
+      "retry": "退職",
+      "reanalyze": "データやプランが変更されたか、チェックインウィンドウが終了したか。",
+      "newAnalysis": "新しい分析を開始",
+      "error": "チェックインは適用されなかったので、すぐに新しい分析を開始してください。",
+      "noCharge": "追加使用なし · 0 AI 通話"
+    },
+    "insufficient": {
+      "title": "処方<処方<処方<処方<処方<処方<",
+      "body": "欠けているデータをチェックするか、既存のプランを継続するか。"
+    },
+    "existingPlan": "既存の計画を見る",
+    "safety": {
+      "title": "レシピは示されていない。",
+      "body": "痛みや病気がある場合は運動をやめ、必要に応じて医療を求める。"
+    }
+  },
+  "progress": {
+    "origin": {
+      "aiCoach": "コーチの提案",
+      "separate": "この提案は、自動的な週刊調整とは異なります. サーバーは現在の紛争計画を再確認します。"
+    },
+    "review": {
+      "title": "計画変更の見直し",
+      "body": "日付を選択し、サーバーから引き出されたものを、その前に、その後、理由、証拠に直面します。",
+      "selectDates": "候補日付",
+      "create": "予測変更",
+      "creating": "変更チェック...",
+      "before": "前の",
+      "after": "後",
+      "reasons": "理由",
+      "refresh": "現在の状態を更新",
+      "noCharge": "読み方&予測: 0 AI 通話 · 0 割引 · 0 計画 書く"
+    },
+    "confirm": {
+      "review": "レビュー アクション",
+      "final": "計画を確認し、適用する",
+      "title": "最終確認",
+      "body": "次のボタンプレッシャーのみがサーバーに同意とレビューをリクエストし、プランを変更するよう求めます。"
+    },
+    "rollback": {
+      "action": "変更を振り返る 変更を振り返る"
+    },
+    "states": {
+      "loading": "計画能力のチェック",
+      "unavailable": "計画能力の状態は不利用",
+      "proposalDisabled": "提案作成は現在無効です 既存の計画は変わらずです。",
+      "confirmDisabled": "アプリケーションは現在無効ですので、プランは変更されません。",
+      "confirmRecoveryUnavailable": "返還された提案には確認証明書がなく、読み取られています。",
+      "applied": "計画に適用したのは、正確に1回。",
+      "reverted": "国会の前で監査されたものを取り戻す",
+      "receipt": "監査記録 {{id}}",
+      "stale": "計画、週刊チェックイン、または同意が変更され、この提案は適用されません。",
+      "disabled": "この変化の能力は現在障害です。",
+      "conflict": "後期の計画は、この行動と対立を変えるので、何も変わりませんでした。",
+      "error": "変化の状態は確認できない あなたの既存の計画は変わらない。",
+      "reanalyze": "レイチェック新分析",
+      "retryConfirm": "同じ申請を返す",
+      "retryRollback": "同じローラーバックリクエストを返す"
+    },
+    "questions": {
+      "label": "この結果についてお尋ねします。",
+      "priority": "今週の計画の中で最も重要なトレーニングは何ですか?",
+      "changed": "最近の完成結果に変化したことを説明します。",
+      "linked": "この結果の要請に関連する質問"
+    },
+    "reason": {}
+  },
+  "clarification": {
+    "title": "質問を少し具体的に",
+    "policy": "この選択: {{quota}} · {{provider}} 呼びかけ",
+    "policyContinue": "追加回転なし {{provider}} 呼びかけ",
+    "policyNewTurn": "確認後、この質問は新しい質問を使用し、AI通話までできる。",
+    "noCharge": "追加利用なし",
+    "newTurn": "新しい質問",
+    "expired": "選定終了しましたので、再度質問としてチェックしてください。",
+    "submit": "この選択を続ける",
+    "newTurnConfirm": "この選択を新しい質問として提出するには、今日の回転の一つを使用します。",
+    "prompt": {
+      "time_range": "どの期間が分析されるのか。",
+      "discipline": "では、どのような規律を分析するべきか。",
+      "generic": "追加分析条件を選択する"
+    },
+    "option": {
+      "this_week": "今週は",
+      "last_week": "先週の",
+      "bike": "サイクリング",
+      "run": "ランニング",
+      "swim": "水泳",
+      "generic": "{{value}}"
+    }
+  },
+  "unsupportedV2": {
+    "title": "この質問はまだ支持されていない。",
+    "body": "概要、比較、トレンド、活動ランキング、目標、またはプランの遵守について尋ねようとします。",
+    "suggestions": "質問を再検討する方法"
+  },
+  "v2State": {
+    "quota_exceeded": "今日利用可能な質問をすべて利用しました。",
+    "budget_blocked": "現在のAI予算制限のため、反応は生成できない。",
+    "failed": "回答は完了できません. 表示された部分的な結果は、安全に確認された範囲に限定されます。"
+  },
+  "ridePlan": {
+    "questions": {
+      "linked": "この正確なRide Plan入力レビューにリンク"
+    }
+  }
+}

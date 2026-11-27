@@ -11,7 +11,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useFirebaseServices } from './FirebaseServicesContext';
 import { logClientError } from '../services/errorLogger';
 import i18n from '../i18n';
-import { AUTO_LOCALE_REDIRECT_KEY, SUPPORTED_LANGS, type Lang } from '../i18n/detector';
+import { AUTO_LOCALE_REDIRECT_KEY, detectLangFromPath, SUPPORTED_LANGS, type Lang } from '../i18n/detector';
 import type { Units } from '../utils/units';
 
 interface LocaleContextValue {
@@ -28,7 +28,8 @@ interface LocaleContextValue {
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 function initialLocale(): Lang {
-  const current = (i18n.language || 'ko').split('-')[0] ?? 'ko';
+  const pathLang = typeof window === 'undefined' ? null : detectLangFromPath(window.location.pathname);
+  const current = pathLang ?? i18n.language ?? 'ko';
   return (SUPPORTED_LANGS as readonly string[]).includes(current)
     ? (current as Lang)
     : 'ko';

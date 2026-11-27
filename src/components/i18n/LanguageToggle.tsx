@@ -1,9 +1,9 @@
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useLocale } from '../../contexts/LocaleContext';
-import { SUPPORTED_LANGS, type Lang } from '../../i18n/detector';
+import { LANGUAGE_NAMES, SUPPORTED_LANGS, type Lang } from '../../i18n/detector';
 import { Chip } from "../../theme/components";
 
-const LABELS: Record<Lang, string> = { ko: 'KO', en: 'EN' };
+const LABELS: Record<Lang, string> = { ko: 'KO', en: 'EN', ja: 'JA', 'zh-TW': '繁中', 'pt-BR': 'PT-BR', es: 'ES' };
 const languageFocusClass = "rounded-[var(--r-sm)] px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
 
 export function LanguageToggle({ variant = 'menu' }: { variant?: 'header' | 'menu' }) {
@@ -50,7 +50,7 @@ export function LanguageToggle({ variant = 'menu' }: { variant?: 'header' | 'men
             checked={locale === l}
             onChange={() => onPick(l)}
           />
-          <span>{l === 'ko' ? '한국어' : 'English'}</span>
+          <span>{LANGUAGE_NAMES[l]}</span>
         </label>
       ))}
     </div>

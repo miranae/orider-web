@@ -1,3 +1,4 @@
+import { standaloneText } from "../../i18n/standaloneText";
 import { uploadNativeActivityPhoto, type NativePhotoReference } from "../../services/nativeActivityPhoto";
 import { NativeActivityPhotoImage } from "../activity/NativeActivityPhotoImage";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -57,32 +58,29 @@ const MAX_PHOTOS_PER_ACTIVITY = 10;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 function copyFor(language: string) {
-  const ko = language.startsWith("ko");
   return {
-    title: ko ? "Ride Story 사진 선택" : "Choose a Ride Story photo",
-    body: ko
-      ? "포스터에 담을 활동과 사진을 고르세요. 사진이 없거나 사진을 쓰고 싶지 않으면 경로가 중심인 포스터로 보낼 수 있습니다."
-      : "Choose the activity and photo for the poster. If there is no photo, or you prefer not to use one, send a route-focused poster.",
-    loading: ko ? "최근 활동과 사진을 불러오는 중" : "Loading recent rides and photos",
-    noOptions: ko ? "최근 90일 안에 포스터로 만들 자전거 활동이 없습니다." : "No cycling activities from the last 90 days are available for a poster.",
-    noPhotos: ko ? "경로 포스터 선택" : "Use route poster",
-    noPhotoItems: ko ? "업로드된 활동 사진이 없습니다. 왼쪽 경로 포스터를 선택하세요." : "No uploaded activity photos. Choose the route poster on the left.",
-    routePreview: ko ? "경로 미리보기" : "Route preview",
-    noRoute: ko ? "경로 썸네일 없음" : "No route preview",
-    photos: ko ? "사진" : "Photos",
-    uploadPhoto: ko ? "사진 업로드" : "Upload photo",
-    uploadingPhoto: ko ? "업로드 중" : "Uploading",
-    uploadHelp: ko ? "포스터 배경으로 쓸 사진을 추가합니다. 촬영 위치 정보는 저장하지 않습니다." : "Add a poster background photo. Photo location metadata is not saved.",
-    imageOnly: ko ? "이미지 파일만 업로드할 수 있습니다." : "Only image files can be uploaded.",
-    tooManyPhotos: ko ? `활동당 사진은 최대 ${MAX_PHOTOS_PER_ACTIVITY}장까지 업로드할 수 있습니다.` : `You can upload up to ${MAX_PHOTOS_PER_ACTIVITY} photos per activity.`,
-    photoTooLarge: ko ? "사진 용량이 너무 큽니다. 다른 사진을 선택하세요." : "The photo is too large. Choose another photo.",
-    uploadFailed: ko ? "사진을 업로드하지 못했습니다." : "Could not upload the photo.",
-    uploaded: ko ? "사진을 업로드했습니다." : "Photo uploaded.",
-    send: ko ? "선택한 사진으로 받기" : "Send selected",
-    cancel: ko ? "취소" : "Cancel",
-    loadFailed: ko ? "사진 목록을 불러오지 못했습니다" : "Could not load photos",
-    sent: ko ? "발송 완료" : "Sent",
-    sendFailed: ko ? "이메일을 보내지 못했습니다" : "Could not send email",
+    title: standaloneText(language, "story_photo_choose_a_ride_story_photo"),
+    body: standaloneText(language, "story_photo_choose_the_activity_and_photo_for"),
+    loading: standaloneText(language, "story_photo_loading_recent_rides_and_photos"),
+    noOptions: standaloneText(language, "story_photo_no_cycling_activities_from_the_last"),
+    noPhotos: standaloneText(language, "story_photo_use_route_poster"),
+    noPhotoItems: standaloneText(language, "story_photo_no_uploaded_activity_photos_choose_the"),
+    routePreview: standaloneText(language, "story_photo_route_preview"),
+    noRoute: standaloneText(language, "story_photo_no_route_preview"),
+    photos: standaloneText(language, "story_photo_photos"),
+    uploadPhoto: standaloneText(language, "story_photo_upload_photo"),
+    uploadingPhoto: standaloneText(language, "story_photo_uploading"),
+    uploadHelp: standaloneText(language, "story_photo_add_a_poster_background_photo_photo"),
+    imageOnly: standaloneText(language, "story_photo_only_image_files_can_be_uploaded"),
+    tooManyPhotos: standaloneText(language, "story_photo_upload_limit", { count: String(MAX_PHOTOS_PER_ACTIVITY) }),
+    photoTooLarge: standaloneText(language, "story_photo_the_photo_is_too_large_choose"),
+    uploadFailed: standaloneText(language, "story_photo_could_not_upload_the_photo"),
+    uploaded: standaloneText(language, "story_photo_photo_uploaded"),
+    send: standaloneText(language, "story_photo_send_selected"),
+    cancel: standaloneText(language, "story_photo_cancel"),
+    loadFailed: standaloneText(language, "story_photo_could_not_load_photos"),
+    sent: standaloneText(language, "story_photo_sent"),
+    sendFailed: standaloneText(language, "story_photo_could_not_send_email"),
   };
 }
 
@@ -96,7 +94,7 @@ function safeNumber(value: unknown) {
 
 function activityDateLabel(startTime: number, language: string) {
   if (!startTime) return "";
-  return new Date(startTime).toLocaleDateString(language.startsWith("ko") ? "ko-KR" : "en-US", { year: "numeric", month: "short", day: "numeric" });
+  return new Date(startTime).toLocaleDateString(language, { year: "numeric", month: "short", day: "numeric" });
 }
 
 function activityDurationMin(data: Record<string, unknown>) {
@@ -106,12 +104,12 @@ function activityDurationMin(data: Record<string, unknown>) {
   return Math.round(sec / 60);
 }
 
-function formatDuration(minutes: number, ko: boolean) {
+function formatDuration(minutes: number, language: string) {
   if (minutes <= 0) return "-";
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h <= 0) return ko ? `${m}분` : `${m} min`;
-  return ko ? `${h}시간 ${m}분` : `${h} h ${m} min`;
+  if (h <= 0) return standaloneText(language, "story_photo_duration_minutes", { minutes: String(m) });
+  return standaloneText(language, "story_photo_duration_hours", { hours: String(h), minutes: String(m) });
 }
 
 async function loadOptions(firestore: Firestore, userId: string, language: string, sportLabel: (type: string) => string): Promise<RideStoryActivityOption[]> {
@@ -299,7 +297,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
                     uploadPhoto: copy.uploadPhoto,
                     uploadingPhoto: copy.uploadingPhoto,
                     uploadHelp: copy.uploadHelp,
-                    ko: i18n.language.startsWith("ko"),
+                    language: i18n.language,
                   }}
                   uploading={uploadingActivityId === activity.id}
                   onSelect={setSelection}
@@ -340,7 +338,7 @@ function RideStoryActivityRow({
 }: {
   activity: RideStoryActivityOption;
   selection: RideStorySelection | null;
-  copy: { ko: boolean; noPhotoLabel: string; noPhotoItems: string; noRoute: string; photos: string; routePreview: string; uploadPhoto: string; uploadingPhoto: string; uploadHelp: string };
+  copy: { language: string; noPhotoLabel: string; noPhotoItems: string; noRoute: string; photos: string; routePreview: string; uploadPhoto: string; uploadingPhoto: string; uploadHelp: string };
   uploading: boolean;
   onSelect: (selection: RideStorySelection) => void;
   onUpload: (file: File) => void;
@@ -360,12 +358,12 @@ function RideStoryActivityRow({
           <h3 className="break-words text-[length:var(--fs-base)] font-semibold leading-5" style={{ color: "var(--ink-0)" }}>{activity.name}</h3>
           <p className="mt-1 text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>
             {activity.name !== [activity.date, activity.type].filter(Boolean).join(" · ") && <>{activity.date} · {activity.type}<br /></>}
-            <span className="ride-story-metric">{copy.ko ? "이동거리" : "Distance"} <span>{activity.distanceKm.toFixed(1)} km</span></span>{" · "}
-            <span className="ride-story-metric">{copy.ko ? "활동시간" : "Activity time"} <span>{formatDuration(activity.durationMin, copy.ko)}</span></span>{" · "}
-            <span className="ride-story-metric">{copy.ko ? "상승고도" : "Elevation gain"} <span>{activity.elevationGainM} m</span></span>
+            <span className="ride-story-metric">{standaloneText(copy.language, "story_photo_distance")} <span>{activity.distanceKm.toFixed(1)} km</span></span>{" · "}
+            <span className="ride-story-metric">{standaloneText(copy.language, "story_photo_activity_time")} <span>{formatDuration(activity.durationMin, copy.language)}</span></span>{" · "}
+            <span className="ride-story-metric">{standaloneText(copy.language, "story_photo_elevation_gain")} <span>{activity.elevationGainM} m</span></span>
           </p>
         </div>
-        <Chip>{copy.ko ? `활동사진 ${activity.photos.length}장` : `${activity.photos.length} ${activity.photos.length === 1 ? "photo" : "photos"}`}</Chip>
+        <Chip>{standaloneText(copy.language, activity.photos.length === 1 ? "story_photo_count_single" : "story_photo_count_multiple", { count: String(activity.photos.length) })}</Chip>
       </div>
 
       <div data-testid="E6-1-5" className="mt-3 grid gap-3 md:grid-cols-[minmax(180px,240px)_1fr]">

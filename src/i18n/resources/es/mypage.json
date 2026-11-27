@@ -1,0 +1,22 @@
+{
+  "loginRequired": "Sigue en requerido.",
+  "defaultNickname": "Rider",
+  "stravaConnected": "Strava conectados",
+  "edit": "Editar",
+  "stats.followers": "Seguidores",
+  "stats.following": "Seguimiento",
+  "stats.activities": "Actividades",
+  "section.training": "entrenamiento",
+  "section.account": "Cuentas",
+  "menu.fitness.label": "El análisis de fitness",
+  "menu.fitness.sub": "CTL · ATL · TSB · Zonas de potencia",
+  "menu.plan.label": "Plan de entrenamiento",
+  "menu.plan.sub": "Objetivos Semanales · Plan Generador",
+  "menu.log.label": "Entrenamiento Log",
+  "menu.log.sub": "Resumen mensual · Log de actividades",
+  "menu.yearRecap": "Año en revisión",
+  "menu.settings": "Ajustes",
+  "menu.strava": "Strava integración",
+  "menu.manual": "Guía de App",
+  "menu.logout": "Cerrar sesión"
+}

@@ -1,10 +1,11 @@
+import { standaloneText } from "../../i18n/standaloneText";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
 
 export function preferredStoreText(language: string, userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent): string {
-  const ko = language.toLowerCase().startsWith("ko");
-  if (/android/i.test(userAgent)) return `${ko ? "O-Rider 앱에서 열기·설치" : "Open or install the O-Rider app"}: ${ORIDER_PLAY_STORE_URL}`;
-  if (/iphone|ipad|ipod/i.test(userAgent)) return `${ko ? "O-Rider 앱에서 열기·설치" : "Open or install the O-Rider app"}: ${ORIDER_APP_STORE_URL}`;
-  return `${ko ? "O-Rider 앱" : "O-Rider app"}: ${ORIDER_APP_STORE_URL} · ${ORIDER_PLAY_STORE_URL}`;
+  if (/android/i.test(userAgent)) return standaloneText(language, "share_open_app", { links: ORIDER_PLAY_STORE_URL });
+  if (/iphone|ipad|ipod/i.test(userAgent)) return standaloneText(language, "share_open_app", { links: ORIDER_APP_STORE_URL });
+  return standaloneText(language, "share_app_stores", { links: `${ORIDER_APP_STORE_URL} · ${ORIDER_PLAY_STORE_URL}` });
+
 }
 
 export function buildOriderShareText(input: { body?: string; language: string; userAgent?: string }): string {
@@ -16,8 +17,7 @@ export function buildOriderShareText(input: { body?: string; language: string; u
   const missingUrls = requiredUrls.filter((url) => !joined.includes(url));
   if (missingUrls.length === requiredUrls.length && missingUrls.length > 0) lines.push(guidance);
   else if (missingUrls.length > 0) {
-    const ko = input.language.toLowerCase().startsWith("ko");
-    lines.push(`${ko ? "O-Rider 앱" : "O-Rider app"}: ${missingUrls.join(" · ")}`);
+    lines.push(standaloneText(input.language, "share_app_stores", { links: missingUrls.join(" · ") }));
   }
   return lines.join("\n");
 }

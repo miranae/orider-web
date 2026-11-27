@@ -6,16 +6,24 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import FooterNavigation from "./FooterNavigation";
 import ko from "../i18n/resources/ko/common.json";
 import en from "../i18n/resources/en/common.json";
+import ja from "../i18n/resources/ja/common.json";
+import zhTW from "../i18n/resources/zh-TW/common.json";
+import ptBR from "../i18n/resources/pt-BR/common.json";
+import es from "../i18n/resources/es/common.json";
 
 describe("FooterNavigation manuals", () => {
   it.each([
     { language: "ko", copy: ko },
     { language: "en", copy: en },
+    { language: "ja", copy: ja },
+    { language: "zh-TW", copy: zhTW },
+    { language: "pt-BR", copy: ptBR },
+    { language: "es", copy: es },
   ])("opens the $language manuals as static Hosting pages instead of localized SPA routes", async ({ language, copy }) => {
     const i18n = createInstance();
     await i18n.init({
       lng: language,
-      resources: { ko: { common: ko }, en: { common: en } },
+      resources: { [language]: { common: copy } },
       defaultNS: "common",
       interpolation: { escapeValue: false },
     });
@@ -31,9 +39,9 @@ describe("FooterNavigation manuals", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: copy.footer.help }));
     const popup = screen.getByRole("region", { name: copy.footer.help });
-    // /ko/web-manual 은 SPA 라우트가 없어 404 화면이 된다. 정적 매뉴얼 경로를 그대로 연다.
-    expect(within(popup).getByRole("link", { name: copy.footer.webManual })).toHaveAttribute("href", "/web-manual/");
-    expect(within(popup).getByRole("link", { name: copy.footer.appManual })).toHaveAttribute("href", "/manual/");
+    const suffix = language === "ko" ? "" : `${language}/`;
+    expect(within(popup).getByRole("link", { name: copy.footer.webManual })).toHaveAttribute("href", `/web-manual/${suffix}`);
+    expect(within(popup).getByRole("link", { name: copy.footer.appManual })).toHaveAttribute("href", `/manual/${suffix}`);
     expect(within(popup).getByRole("link", { name: copy.footer.feedback })).toHaveAttribute("href", `/${language}/feedback`);
   });
 });

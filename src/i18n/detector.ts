@@ -1,7 +1,8 @@
 import type { CustomDetector } from 'i18next-browser-languagedetector';
 
-export const SUPPORTED_LANGS = ['ko', 'en'] as const;
+export const SUPPORTED_LANGS = ['ko', 'en', 'ja', 'zh-TW', 'pt-BR', 'es'] as const;
 export type Lang = typeof SUPPORTED_LANGS[number];
+export const LANGUAGE_NAMES: Record<Lang, string> = {"ko": "한국어", "en": "English", "ja": "日本語", "zh-TW": "繁體中文（台灣）", "pt-BR": "Português (Brasil)", "es": "Español"};
 export const AUTO_LOCALE_REDIRECT_KEY = 'orider:auto-locale-redirect';
 
 export function detectLangFromPath(pathname: string): Lang | null {
@@ -33,7 +34,10 @@ export function pickFallbackLang(): Lang {
     // localStorage unavailable
   }
   const navLang = typeof navigator !== 'undefined' ? navigator.language : 'ko';
-  const nav = (navLang ?? 'ko').split('-')[0] ?? 'ko';
+  const exact = SUPPORTED_LANGS.find((language) => language.toLowerCase() === navLang.toLowerCase());
+  if (exact) return exact;
+  if (/^zh-Hant(?:-|$)/i.test(navLang)) return 'zh-TW';
+  const nav = navLang.split('-')[0] ?? 'ko';
   if ((SUPPORTED_LANGS as readonly string[]).includes(nav)) return nav as Lang;
   return 'ko';
 }

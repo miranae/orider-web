@@ -1,0 +1,102 @@
+{
+  "sheet": {
+    "definitionLabel": "¿Qué significa esto",
+    "interpLabel": "En este curso",
+    "interpLabelGeneric": "tus números",
+    "learnMore": "Aprender más",
+    "close": "Cerrar",
+    "openHint": "Mostrar explicaciones metéricas"
+  },
+  "pace": {
+    "title": "Ritmo",
+    "definition": "¿Cuánto tiempo le tarda para cubrir un millón?",
+    "interp": {
+      "faster": "Su ritmo es {{diffSec}} segundos más rápido que su promedio de cuatro semanas anterior.",
+      "slower": "Su ritmo es {{diffSec}} segundos más lento que su promedio de cuatro semanas anterior; terreno y cómo te sientes ambos juegan una parte.",
+      "steady": "Su ritmo es similar a su promedio de cuatro semanas anteriores."
+    },
+    "comparison": {
+      "run": "Caminas corriendo",
+      "trailrun": "Trail de correr",
+      "virtualrun": "Virtual Run",
+      "basis": "Base de comparación: {{count}} Valida {{type}} Actividades en las últimas semanas, pesadas por distancia.",
+      "insufficient": "Se necesitan al menos tres actividades válidas para una comparación.",
+      "incomplete": "El límite de consulta impide la verificación de la ventana completa, por lo que la comparación de ritmo se omite.",
+      "observed": "{{count}} Valida {{type}} Las actividades se encontraron en la porción verificada de las cuatro semanas anteriores."
+    }
+  },
+  "gap": {
+    "title": "GAP (Grade Adjusted Peace) - Paz ajustada",
+    "definition": "Su ritmo se convirtió en lo que habría sido en el suelo plano. muestra el esfuerzo real detrás de un recorrido de montaña.",
+    "interp": {
+      "uphill": "El error es {{diffSec}} segundos por km más rápido que su ritmo promedio real.",
+      "downhill": "El error es {{diffSec}} segundos por km más lento que su ritmo promedio real.",
+      "flat": "Su ritmo promedio es similar antes y después de ajustar para la grados."
+    },
+    "summary": {
+      "uphill": "Su ritmo promedio ajustado es {{gapPace}}.",
+      "downhill": "Su ritmo promedio ajustado es {{gapPace}}.",
+      "flat": "Su ritmo promedio es similar antes y después de ajustar para la grados."
+    }
+  },
+  "cadence": {
+    "title": "Cadencia",
+    "definition": "Su total paso por minuto (spm). la cadencia varía con velocidad, terreno y estilo de correr.",
+    "interp": {
+      "low": "En el {{cadence}} SPM que está por debajo de {{target}} Es una guía de SPM. Trate de cortar su estrada y girar sus piernas un poco más rápido.",
+      "optimal": "En el {{cadence}} SPM que está dentro del rango recomendado.",
+      "high": "{{cadence}} SPM está en el lado rápido - normal durante intervalos o estrechos de descenso."
+    }
+  },
+  "rtss": {
+    "title": "Carga de entrenamiento (rTSS)",
+    "definition": "Cuánto este curso se pregunta de su cuerpo. más largo y esfuerzos más duros tanto empujarlo.",
+    "interp": {
+      "hard": "Carga {{rtss}} En una intensidad de {{if}} - sobre su ritmo límite. mantenga mañana fácil, o tome el día.",
+      "moderate": "Carga {{rtss}} En una intensidad de {{if}} Un día es normalmente suficiente para volver a la cabeza.",
+      "easy": "Carga {{rtss}} En una intensidad de {{if}} - un ejercicio fácil.Este es el tipo de esfuerzo que te ayuda a recuperar."
+    }
+  },
+  "thresholdPace": {
+    "title": "Fronteras de la Paz",
+    "definition": "El ritmo más rápido que puede mantener durante aproximadamente una hora.Todo desde sus zonas de entrenamiento hasta su carga se calcula de él.",
+    "interp": {
+      "set": "Sus pasos de meta y la carga de entrenamiento se calcularán a partir del ritmo límite que usted establece.",
+      "unset": "No has establecido uno todavía. agregándolo acarpa tanto tus paquetes de objetivo como tu carga de entrenamiento."
+    }
+  },
+  "ctl": {
+    "title": "El cuerpo (CTL)",
+    "definition": "El entrenamiento promedio que ha absorbido en las últimas seis semanas. se eleva lentamente y cae lentamente.",
+    "interp": {
+      "rising": "Fitness {{ctl}}, ascendencia {{ramp}} por semana.",
+      "falling": "Fitness {{ctl}}, aliviar {{ramp}} por semana - su volumen de entrenamiento ha disminuido.",
+      "plain": "Su fitness está sentado en {{ctl}}."
+    }
+  },
+  "atl": {
+    "title": "El cansancio ( ATL )",
+    "definition": "El entrenamiento que has hecho en la semana pasada o así. se eleva rápidamente y se limpia rápidamente.",
+    "interp": {
+      "high": "cansancias {{atl}} Corre antes de la fitness {{ctl}} -Estás habiendo envuelto las sesiones.",
+      "balanced": "cansancias {{atl}} y fitness {{ctl}} Son muy equilibrados.",
+      "low": "cansancias {{atl}} Sitio bajo fitness {{ctl}} —Estás descansando bien.",
+      "plain": "Su fatiga se sienta en {{atl}}."
+    }
+  },
+  "tsb": {
+    "title": "El TMB (TMB)",
+    "definition": "El ejercicio es un poco de fatiga, lo negativo significa que el entrenamiento está en la cabeza, lo positivo significa que te has recuperado.",
+    "interp": {
+      "overload": "TSB {{tsb}} - La fatiga se ha desmoronado. Trabajar un día de descanso en la semana.",
+      "needsRecovery": "TSB {{tsb}} - una cantidad justa de carga a bordo. un día fácil le serviría bien.",
+      "productive": "TSB {{tsb}} Su cuerpo está absorbiendo el entrenamiento de forma adecuada.",
+      "fresh": "TSB {{tsb}} —Estás bien recuperado. una sesión más dura aterrizaría bien.",
+      "overRecovered": "TSB {{tsb}} —Has descansado un tiempo. tiempo para empezar a construir de nuevo."
+    }
+  },
+  "criticalPace": {
+    "title": "La curva crítica de la paz",
+    "definition": "El ritmo más rápido que puedes mantener durante cada duración, grabado como una línea. esfuerzos cortos se sientan rápidos; los largos se ajustan más lentamente."
+  }
+}

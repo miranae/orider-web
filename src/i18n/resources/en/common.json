@@ -1,4 +1,12 @@
 {
+  "surfaceStatus": {
+    "loadingAnalysis": "Loading analysis",
+    "loadingProfile": "Loading profile",
+    "loadingScreen": "Loading screen",
+    "waitingAuthorization": "Waiting for app authorization",
+    "creatorViews": "Creator Hub views",
+    "share": "Share"
+  },
   "button": {
     "save": "Save",
     "cancel": "Cancel",
@@ -537,5 +545,37 @@
     "body": "Track a monthly distance goal and join a distance league with your club.",
     "previewTitle": "Example monthly distance goals",
     "example": "For example: 300, 500 or 1,000 km in a month. Sign in to use your own activities."
+  },
+  "creatorHubCopy": {
+    "consent_to_ai_ride_diary_generation": "Consent to AI ride diary generation",
+    "external_ai_processor_country": "External AI processor · country",
+    "data_sent": "Data sent",
+    "data_excluded": "Data excluded",
+    "retention": "Retention",
+    "location_activity_names_and_raw_heart": "Location, activity names, and raw heart-rate/power data are not sent. Your diary is private; review the separate highlight before sharing it yourself.",
+    "ai_processor_privacy_policy": "AI processor privacy policy",
+    "cancel": "Cancel",
+    "agree_and_generate": "Agree and generate",
+    "connections_and_data_access": "Connections and data access",
+    "more_ways_to_use_your_rides": "More ways to use your rides",
+    "guides_for_your_tools": "Guides for your tools",
+    "result": "Result",
+    "setup_and_steps": "Setup and steps",
+    "prepare": "Prepare",
+    "steps": "Steps",
+    "ai_prompt_and_copy": "AI prompt and copy",
+    "prompt_for_your_ai_assistant": "Prompt for your AI assistant",
+    "data_permissions_and_connections": "Data permissions and connections",
+    "preview_output": "Preview output",
+    "generation_limits_and_data": "Generation limits and data",
+    "could_not_save_the_image_please": "Could not save the image. Please retry.",
+    "private_diary_only_you": "Private diary · only you",
+    "how_to_connect_your_tools": "How to connect your tools",
+    "workflow_and_data_protection": "Workflow and data protection"
+  },
+  "impersonation": {
+    "active": "Delegated session — signed in as <account>{{name}}</account> (issued by {{issuedBy}})",
+    "exit": "Exit",
+    "exitFailed": "Could not end the delegated session. You are still signed in to the delegated account. Try again."
   }
 }

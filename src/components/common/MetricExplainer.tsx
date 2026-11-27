@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { localizedManualPath } from "../../i18n/manualPath";
 import { Info, X } from "lucide-react";
 import { Text } from "../../theme/components";
 import { track } from "../../services/analytics";
@@ -57,7 +58,7 @@ export interface MetricExplainerSheetProps {
 }
 
 export function MetricExplainerSheet({ metric, context, scope = "activity", onClose }: MetricExplainerSheetProps) {
-  const { t } = useTranslation(GLOSSARY_NS);
+  const { t, i18n } = useTranslation(GLOSSARY_NS);
   const reducedMotion = usePrefersReducedMotion();
   const sheetRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -170,7 +171,7 @@ export function MetricExplainerSheet({ metric, context, scope = "activity", onCl
 
         {manualHref && (
           <a
-            href={manualHref}
+            href={localizedManualPath(manualHref, i18n?.resolvedLanguage ?? i18n?.language)}
             style={{
               display: "inline-block",
               marginTop: "var(--space-4)",

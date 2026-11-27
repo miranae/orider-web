@@ -1,0 +1,22 @@
+{
+  "loginRequired": "必要なものにサイン",
+  "defaultNickname": "ライダー",
+  "stravaConnected": "Strava つながる",
+  "edit": "編集",
+  "stats.followers": "フォロワー",
+  "stats.following": "次へ",
+  "stats.activities": "アクティビティ",
+  "section.training": "トレーニング",
+  "section.account": "会計",
+  "menu.fitness.label": "フィットネス分析",
+  "menu.fitness.sub": "CTL 電力ゾーン TSB",
+  "menu.plan.label": "トレーニングプラン",
+  "menu.plan.sub": "週刊目標 · プランジェネレーター",
+  "menu.log.label": "トレーニングログ",
+  "menu.log.sub": "月間活動記録",
+  "menu.yearRecap": "レビューの年",
+  "menu.settings": "設定",
+  "menu.strava": "Strava 統合",
+  "menu.manual": "アプリガイド",
+  "menu.logout": "ログアウト"
+}

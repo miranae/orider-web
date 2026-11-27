@@ -1,0 +1,66 @@
+{
+  "title": "年度記錄",
+  "subtitle": "我的 {{year}} 活動",
+  "rider": "騎行",
+  "loginRequired": "請登入。",
+  "loading": "充電...",
+  "loadError": "無法上傳年度記錄,請再試一次。",
+  "selectYear": "選擇年份",
+  "activeDays": "{{count}} 活躍日",
+  "totalCalories": "{{kcal}} 加油燃燒",
+  "monthShort": "{{month}}",
+  "empty": {
+    "title": "沒有活動在 {{year}} 至今",
+    "desc": "記錄一個活動,您的審查年份將填補。"
+  },
+  "section": {
+    "totals": "年度總數",
+    "consistency": "90日連續性",
+    "byDiscipline": "透過體育",
+    "highlights": "最佳努力",
+    "monthly": "月度趨勢",
+    "share": "分享",
+    "runningRecords": "終身記錄和標誌",
+    "lifetimeRecords": "生命距離記錄"
+  },
+  "stat": {
+    "distance": "全距離",
+    "time": "全日制",
+    "elevation": "全高",
+    "activities": "活動"
+  },
+  "unit": {
+    "hour": "飾 H",
+    "count": "",
+    "day": "二 二 二 二 二 二 二 二 二",
+    "week": "飾 W"
+  },
+  "highlight": {
+    "longestDistance": "最長的距離",
+    "longestDuration": "最長時間",
+    "biggestClimb": "最大登山"
+  },
+  "consistency": {
+    "score": "一致性分數",
+    "activeDays": "活躍日",
+    "activeWeeks": "活躍周",
+    "streak": "最長的路線",
+    "note": "基於最後一 {{window}} 您目前的活躍流量是 {{current}} 日子。"
+  },
+  "share": {
+    "desc": "儲存您的年份作為社交媒體的卡影象。",
+    "square": "分享 廣場卡",
+    "story": "儲存故事卡"
+  },
+  "shareTitle": "{{year}} 年度評論",
+  "shareFooter": "首頁 〉外文書 〉文學 〉 Orider",
+  "scope": {
+    "all": "所有體育",
+    "bike": "自行車",
+    "run": "走路、走路、走路",
+    "swim": "游泳"
+  },
+  "activityCount": "{{count}} 活動",
+  "activityCount_one": "{{count}} 活動",
+  "activityCount_other": "{{count}} 活動"
+}

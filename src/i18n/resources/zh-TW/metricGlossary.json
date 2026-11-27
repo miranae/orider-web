@@ -1,0 +1,102 @@
+{
+  "sheet": {
+    "definitionLabel": "什麼意思",
+    "interpLabel": "在此跑步中",
+    "interpLabelGeneric": "你的數字",
+    "learnMore": "學習更多",
+    "close": "關閉",
+    "openHint": "顯示數學解釋"
+  },
+  "pace": {
+    "title": "配速",
+    "definition": "需要多長時間才能覆蓋一公里?下方速度更快。",
+    "interp": {
+      "faster": "你的速度是 {{diffSec}} 比前四周平均快的秒鐘。",
+      "slower": "你的速度是 {{diffSec}} 秒比前四周平均慢;地面和你感覺如何,兩者都發揮作用。",
+      "steady": "你的速度與你之前的四周平均相似。"
+    },
+    "comparison": {
+      "run": "路跑",
+      "trailrun": "路線跑步",
+      "virtualrun": "虛擬跑步",
+      "basis": "比較基礎: {{count}} 有效 {{type}} 過去四個星期的活動,重量為距離。",
+      "insufficient": "至少有三項有效活動需要進行比較。",
+      "incomplete": "查詢限制阻止檢查完整視窗,因此速度比較被忽略。",
+      "observed": "{{count}} 有效 {{type}} 活動在檢查的部分從前四周發現。"
+    }
+  },
+  "gap": {
+    "title": "GAP(Grade Adjusted Peace) 定位平和",
+    "definition": "你的速度轉向它會是平面上的,它表明背後的真正努力。",
+    "interp": {
+      "uphill": "缺點是 {{diffSec}} 每公里秒比你的實際平均速度快。",
+      "downhill": "缺點是 {{diffSec}} 每公里秒比你的實際平均速度慢。",
+      "flat": "你的平均速度在等級調整之前和之後相似。"
+    },
+    "summary": {
+      "uphill": "你的平均速度調整 {{gapPace}}.",
+      "downhill": "你的平均速度調整 {{gapPace}}.",
+      "flat": "你的平均速度在等級調整之前和之後相似。"
+    }
+  },
+  "cadence": {
+    "title": "踏頻",
+    "definition": "每分鐘的總步驟(spm) 卡德因因速度、地面和跑步風格而異。",
+    "interp": {
+      "low": "到 {{cadence}} SPM 你在下方 {{target}} SPM指南:試著縮短你的腳,轉過你的腳稍微快一點。",
+      "optimal": "到 {{cadence}} SPM 你在推薦範圍內。",
+      "high": "{{cadence}} spm 是快速側面 - 在間隔或下滑伸程中正常。"
+    }
+  },
+  "rtss": {
+    "title": "訓練負載(rTSS)",
+    "definition": "這個跑步是多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼多麼",
+    "interp": {
+      "hard": "載入 {{rtss}} 以某種強度 {{if}} 超越你的邊界速度,明天保持輕鬆,或者取出日。",
+      "moderate": "載入 {{rtss}} 以某種強度 {{if}} 一個日子通常足以迴歸。",
+      "easy": "載入 {{rtss}} 以某種強度 {{if}} 這是一個簡單的跑步,這就是幫助你恢復的努力。"
+    }
+  },
+  "thresholdPace": {
+    "title": "和平邊界",
+    "definition": "最快的速度你可以保持大約一個小時,從你的訓練區到你的負載,從它計算到一切。",
+    "interp": {
+      "set": "您的目標步行和訓練負載是根據您設定的邊界速度計算的。",
+      "unset": "您還沒有設定一個,新增它會使您的目標步驟和訓練負擔都變得更加緊張。"
+    }
+  },
+  "ctl": {
+    "title": "健身(CTL)",
+    "definition": "平均訓練你已經吸收了過去六週,它慢慢上升,慢慢下降。",
+    "interp": {
+      "rising": "健身 {{ctl}}登山 {{ramp}} 每週。",
+      "falling": "健身 {{ctl}}放鬆 {{ramp}} 每週 - 你的訓練量下降了。",
+      "plain": "你的健身座位在 {{ctl}}."
+    }
+  },
+  "atl": {
+    "title": "疲勞(ATL)",
+    "definition": "您在上週或那樣進行的訓練,它快速上升,快速清潔。",
+    "interp": {
+      "high": "疲勞 {{atl}} 跑在健身前 {{ctl}} 你已經把會議包裝在裡面。",
+      "balanced": "疲勞 {{atl}} 和健身 {{ctl}} 他們是平衡的。",
+      "low": "疲勞 {{atl}} 位於 Fitness 下方 {{ctl}} 你休息得很好。",
+      "plain": "你的疲勞在坐著 {{atl}}."
+    }
+  },
+  "tsb": {
+    "title": "形式(TSB)",
+    "definition": "健身不足疲勞 負面意味著訓練是沉重;積極意味著你已經恢復了。",
+    "interp": {
+      "overload": "TSB {{tsb}} 疲勞已經消失了,工作一週休息一天。",
+      "needsRecovery": "TSB {{tsb}} 船上負載的合理數量,一天會給你好服務。",
+      "productive": "TSB {{tsb}} 你的身體正在精心吸收訓練。",
+      "fresh": "TSB {{tsb}} 好回來,一個更艱難的會議會好起來的。",
+      "overRecovered": "TSB {{tsb}} 休息了好久,是時候再開始建造了。"
+    }
+  },
+  "criticalPace": {
+    "title": "關鍵和平曲線",
+    "definition": "最快的速度你可以保持每一個時間,拖作為一行,短的努力坐得快;長的安排更慢。"
+  }
+}

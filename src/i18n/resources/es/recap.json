@@ -1,0 +1,66 @@
+{
+  "title": "Los registros anuales",
+  "subtitle": "Mi {{year}} Actividades",
+  "rider": "Rider",
+  "loginRequired": "Por favor, signo en",
+  "loading": "Carga...",
+  "loadError": "No puede cargar los registros anuales. por favor, intente de nuevo.",
+  "selectYear": "Seleccionan el año",
+  "activeDays": "{{count}} días activos",
+  "totalCalories": "{{kcal}} Cálculo quemado",
+  "monthShort": "{{month}}",
+  "empty": {
+    "title": "No hay actividades en {{year}} Aún",
+    "desc": "Recordar una actividad y su año en revisión se llenará."
+  },
+  "section": {
+    "totals": "Total anual",
+    "consistency": "90 días de consistencia",
+    "byDiscipline": "por el deporte",
+    "highlights": "Mejores esfuerzos",
+    "monthly": "Tendencia mensual",
+    "share": "Compartir",
+    "runningRecords": "Vida de los registros y los marcadores",
+    "lifetimeRecords": "Recuerdos de distancia de vida"
+  },
+  "stat": {
+    "distance": "Distancia total",
+    "time": "tiempo total",
+    "elevation": "Total de ascensión",
+    "activities": "Actividades"
+  },
+  "unit": {
+    "hour": "h",
+    "count": "",
+    "day": "D",
+    "week": "en"
+  },
+  "highlight": {
+    "longestDistance": "La distancia más larga",
+    "longestDuration": "El tiempo más largo",
+    "biggestClimb": "El más grande ascensor"
+  },
+  "consistency": {
+    "score": "Punto de Consistencia",
+    "activeDays": "días activos",
+    "activeWeeks": "Semanas activas",
+    "streak": "El más largo",
+    "note": "Basado en el último {{window}} su actual estreno activo es {{current}} días de ."
+  },
+  "share": {
+    "desc": "Salva tu año como una imagen de tarjeta para las redes sociales.",
+    "square": "Compartir tarjetas cuadradas",
+    "story": "Salva tarjeta de historia"
+  },
+  "shareTitle": "{{year}} Año en revisión",
+  "shareFooter": "El C.C.R Orider",
+  "scope": {
+    "all": "Todos los deportes",
+    "bike": "Ciclismo",
+    "run": "Correr, caminar y caminar",
+    "swim": "La natación"
+  },
+  "activityCount": "{{count}} Actividades",
+  "activityCount_one": "{{count}} Actividad",
+  "activityCount_other": "{{count}} Actividades"
+}

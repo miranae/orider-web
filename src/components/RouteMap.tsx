@@ -886,7 +886,7 @@ export default function RouteMap({
               {/* 기본 mapbox 닫기 버튼은 흐려서 사진 위에서 안 보임 → 작고 깔끔한 커스텀 버튼으로 교체 */}
               <button
                 type="button"
-                aria-label="닫기"
+                aria-label={t("button.close")}
                 onClick={() => setSelectedPhotoId(null)}
                 style={{
                   position: "absolute",

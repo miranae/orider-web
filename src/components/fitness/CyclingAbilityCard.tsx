@@ -1,5 +1,6 @@
 import GlossaryText from "../common/GlossaryText";
 import { useTranslation } from "react-i18next";
+import { localizedManualPath } from "../../i18n/manualPath";
 import type { CyclingAbilityResult } from "../../features/fitness/multisportPerformance";
 import { Card, Text } from "../../theme/components";
 import AbilityScoreScale from "./AbilityScoreScale";
@@ -27,14 +28,14 @@ function uniqueStrongestAxis(cycling: CyclingAbilityResult | null): CyclingAbili
 }
 
 function CyclingAbilityContent({ cycling, compact }: Pick<CyclingAbilityCardProps, "cycling" | "compact">) {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation("dashboard");
   // 실측 파워 근거가 없다는 문구를 누르면 파워 기록을 들여오는 연결 화면으로 간다(웹에서만).
   const powerFix = useFirebaseServices().scope !== "embedded" ? { to: "/settings/connections" } : undefined;
   const strongestAxis = uniqueStrongestAxis(cycling);
   if (compact && !cycling?.axes.some(axis => axis.score != null || axis.evidence.some(item => item.watts != null || item.wPerKg != null))) return <>
     <Text variant="eyebrow"><GlossaryText>{t("mobileFitness.sport.bike.title")}</GlossaryText></Text>
     <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={powerFix}>{t("mobileFitness.sport.noMeasuredEvidence")}</Resolvable></Text>
-    <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--accent)" }}>{t("mobileFitness.sport.bike.manualLink")}</a>
+    <a href={localizedManualPath("/web-manual/ch06-advanced.html#s6-3", i18n?.resolvedLanguage ?? i18n?.language)} style={{ color: "var(--accent)" }}>{t("mobileFitness.sport.bike.manualLink")}</a>
   </>;
   return (
     <>
@@ -82,7 +83,7 @@ function CyclingAbilityContent({ cycling, compact }: Pick<CyclingAbilityCardProp
       }) ?? <div style={{ marginTop: "var(--space-3)", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("mobileFitness.sport.insufficient")}</div>}
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-2)" }}>
         {t("mobileFitness.sport.bike.notGarmin")}{" "}
-        <a data-testid="K5-1-2" href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
+        <a data-testid="K5-1-2" href={localizedManualPath("/web-manual/ch06-advanced.html#s6-3", i18n?.resolvedLanguage ?? i18n?.language)} style={{ color: "var(--aqua)", fontWeight: 600 }}>
           {t("mobileFitness.sport.bike.manualLink")}
         </a>
       </div>

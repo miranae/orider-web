@@ -1,0 +1,66 @@
+{
+  "title": "年間記録",
+  "subtitle": "わたしの {{year}} 活動",
+  "rider": "ライダー",
+  "loginRequired": "ぜひサインしてください。",
+  "loading": "充電...",
+  "loadError": "毎年記録をアップロードできないので、また試してみてください。",
+  "selectYear": "選び年",
+  "activeDays": "{{count}} アクティブな日々",
+  "totalCalories": "{{kcal}} 燃え尽きるKcal",
+  "monthShort": "{{month}}",
+  "empty": {
+    "title": "活動なし {{year}} まだ",
+    "desc": "活動を記録し、レビューの年が満たされます。"
+  },
+  "section": {
+    "totals": "年間総額",
+    "consistency": "90日連続",
+    "byDiscipline": "スポーツによって",
+    "highlights": "最善の努力",
+    "monthly": "月間トレンド",
+    "share": "共有",
+    "runningRecords": "ライフタイム レコードとバッグ",
+    "lifetimeRecords": "寿命距離記録"
+  },
+  "stat": {
+    "distance": "総距離",
+    "time": "総時間",
+    "elevation": "総高",
+    "activities": "アクティビティ"
+  },
+  "unit": {
+    "hour": "h",
+    "count": "",
+    "day": "☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆",
+    "week": "ウ"
+  },
+  "highlight": {
+    "longestDistance": "最長距離",
+    "longestDuration": "長時間",
+    "biggestClimb": "最大の登山"
+  },
+  "consistency": {
+    "score": "連続性スコア",
+    "activeDays": "アクティブな日々",
+    "activeWeeks": "アクティブ週間",
+    "streak": "最長ストレッチ",
+    "note": "最後に基づいて {{window}} あなたの現在のアクティブストレークは、 {{current}} 日々"
+  },
+  "share": {
+    "desc": "ソーシャルメディアのカードイメージとしてあなたの年を保存します。",
+    "square": "広場カードを共有",
+    "story": "ストーリーカード保存"
+  },
+  "shareTitle": "{{year}} レビューの年",
+  "shareFooter": "オリジナルタイトル: OIDER.CO.KR Orider",
+  "scope": {
+    "all": "すべてのスポーツ",
+    "bike": "サイクリング",
+    "run": "走り、歩き、歩き",
+    "swim": "水泳"
+  },
+  "activityCount": "{{count}} 活動",
+  "activityCount_one": "{{count}} 活動",
+  "activityCount_other": "{{count}} 活動"
+}

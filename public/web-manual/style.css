@@ -525,3 +525,6 @@ footer a {
   .chapter-nav { padding: 8px 12px; font-size: 0.82rem; }
   .toc-card { padding: 12px 14px; }
 }
+
+.doc-language-nav { padding: 1rem; text-align: center; line-height: 2; }
+.doc-language-nav a[aria-current="page"] { font-weight: bold; }

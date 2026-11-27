@@ -1,9 +1,9 @@
-import { SUPPORTED_LANGS } from "../i18n/detector";
+import { SUPPORTED_LANGS, type Lang } from "../i18n/detector";
 
 export type InviteShareResult = "shared" | "copied" | "cancelled" | "error";
 
 export function buildFriendInviteUrl(origin: string, language: string, friendCode: string): string {
-  const lang = SUPPORTED_LANGS.includes(language as "ko" | "en") ? language : "ko";
+  const lang = SUPPORTED_LANGS.includes(language as Lang) ? language : "ko";
   return `${origin.replace(/\/$/, "")}/${lang}/friend/${encodeURIComponent(friendCode)}`;
 }
 

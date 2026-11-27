@@ -1,0 +1,22 @@
+{
+  "loginRequired": "請在需要中籤名。",
+  "defaultNickname": "騎行",
+  "stravaConnected": "Strava 連線",
+  "edit": "編輯",
+  "stats.followers": "追隨者",
+  "stats.following": "隨後",
+  "stats.activities": "活動",
+  "section.training": "訓練",
+  "section.account": "賬戶",
+  "menu.fitness.label": "健身分析",
+  "menu.fitness.sub": "CTL · ATL · TSB · 電源區",
+  "menu.plan.label": "訓練計劃",
+  "menu.plan.sub": "每週目標 · 計劃發明器",
+  "menu.log.label": "訓練日誌",
+  "menu.log.sub": "月刊 · 活動日誌",
+  "menu.yearRecap": "年度評論",
+  "menu.settings": "設定",
+  "menu.strava": "Strava 整合",
+  "menu.manual": "應用指南",
+  "menu.logout": "登出"
+}

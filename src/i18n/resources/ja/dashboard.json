@@ -1,0 +1,780 @@
+{
+  "header": {
+    "greetingPrefix": "こんにちは ",
+    "greetingSuffix": ".",
+    "subtitleSuffix": " 過去7日間",
+    "runSubtitleSuffix": " 過去7日間で走り、歩き、歩き、",
+    "runCountUnit": " 活動",
+    "subtitleRecent": "あなたはログイン ",
+    "defaultName": "ライダー",
+    "slogan": "あなたの時間を走る。",
+    "sloganTagline": "",
+    "anonSubtitle": "散布した活動の記録を安全に組み合わせて、それらをトレーニングロード、コース、セグメント、AIコーチングに変換します。",
+    "anonCta": "スタートする",
+    "signingIn": "サインイン...",
+    "signInFailed": "入力が失敗しましたので、また試してみてください。"
+  },
+  "kpi": {
+    "weekGroup": "過去7日間",
+    "runWeekGroup": "わたしの走り、歩き、登り · 過去 7 日間",
+    "trainingGroup": "トレーニングステータス",
+    "weekDistance": "距離旅行",
+    "activities": "活動数",
+    "rides": "ライド・コン",
+    "runs": "活動数",
+    "runUnavailable": "走行、歩行、登山のステータスは利用できません。",
+    "movingTime": "活動時間",
+    "elevation": "昇進の利益",
+    "fitness": "フィットネス",
+    "fitnessBuild": "訓練を増やす準備",
+    "fitnessMaintain": "維持",
+    "fitnessRecovery": "回復先",
+    "subRecent7d": "過去7日間",
+    "subAtl": "エトロ {{value}}",
+    "subInsufficient": "データ不足",
+    "thresholdRunLabel": "平和の境界線",
+    "thresholdRunSub": "レベル レベル レベル",
+    "thresholdRunUnit": "キロメートル",
+    "thresholdSwimLabel": "CSS",
+    "thresholdSwimSub": "水泳スピード",
+    "thresholdSwimUnit": "☆100m",
+    "thresholdBikeLabel": "FTP",
+    "thresholdBikeSub": "機能限界力",
+    "thresholdBikeUnit": "W"
+  },
+  "feed": {
+    "subscriptionsUnavailable": "サブスクリプションが準備中ですので、もう一つの活動範囲をお使いください。",
+    "title": "最近の活動",
+    "countTooltip": "すべての公共活動 + 自分の活動",
+    "feedScope": "■フルフード",
+    "countSuffix": "{{value}}",
+    "filter": {
+      "label": "視力",
+      "all": "すべて",
+      "friends": "友人",
+      "self": "ミニ"
+    },
+    "search": {
+      "placeholder": "検索活動...",
+      "submit": "検索",
+      "reset": "明確な検索",
+      "clearFilters": "明るいフィルター",
+      "morePossibleTitle": "もっと結果が得られるかもしれない。",
+      "morePossibleDescription": "検索を続けるために、より多くの活動をアップロードします。",
+      "resultsCount": "{{count}} 結果",
+      "resultsCount_one": "{{count}} 結果",
+      "resultsCount_other": "{{count}} 結果",
+      "emptyTitle": "結果が見つかりません",
+      "emptyDescription": "別のキーワードまたは日付範囲を試してみてください。",
+      "resetScopeDates": "リセットスケールと日付"
+    },
+    "datePreset": {
+      "label": "タイムランク",
+      "all": "すべて",
+      "7d": "7D",
+      "30d": "30D",
+      "90d": "90D",
+      "year": "年間"
+    },
+    "loadMore": "もっと充電",
+    "loading": "充電活動...",
+    "empty": {
+      "title": "まだ活動なし",
+      "description": "つながり Strava あるいは、活動を開始するためにアップロードする。",
+      "ctaConnectStrava": "つながり Strava"
+    },
+    "noMatches": {
+      "title": "合致活動なし",
+      "description": "別のフィルターまたは日付範囲を試してみてください。"
+    },
+    "error": {
+      "title": "活動を積み重ねることができない",
+      "description": "接続をチェックして再度試してみてください. これは、活動がないことを意味しません。",
+      "retry": "再試行"
+    },
+    "partialError": {
+      "title": "もっと活動を積み重ねることができない。",
+      "description": "活動リストの一部のみがアップロードされます 再度試してみるには、完全リストを再ロードします。",
+      "retry": "リロードリスト"
+    }
+  },
+  "yearRecap": {
+    "eyebrow": "12月シーズン",
+    "title": "乗り物の年を振り返る",
+    "desc": "距離、時間、高さ、90日連続性、および月間トレンドを株式カードにまとめます。",
+    "cta": "見る 回復"
+  },
+  "streak": {
+    "allEyebrow": "スポーツ活動ルーチン",
+    "allTitle": "{{count}}週刊活動ストレーク",
+    "allMaintained": "{{count}} 活動日(日) 今週 · ストレーク 維持",
+    "allNeedOne": "1日活動を今週に続ける · 1週末の活動はそれを生きている",
+    "eyebrow": "ルーチン乗り",
+    "title": "{{count}}週ストライキ",
+    "maintained": "{{count}} レイアウト(s) 今週 · ストレック 維持",
+    "needOne": "1 週末のツアーが生き残る",
+    "score": "90日連続"
+  },
+  "sidebar": {
+    "runWeekly": {
+      "title": "週刊走行、歩行、登山",
+      "sub": "過去8週間 · 私の距離旅行",
+      "value": "{{count}} 活動 · {{distance}}"
+    },
+    "runMonth": {
+      "title": "{{monthName}} 距離",
+      "sub": "わたしの走り、歩き、登り",
+      "plan": "見る 実行計画"
+    },
+    "weeklyTss": {
+      "title": "週刊トレーニング トレーニング",
+      "sub": "過去12週間",
+      "barTooltip": "{{week}}: {{tss}} TSS",
+      "barTooltipUnknown": "{{week}}データなし",
+      "avgPerWeek": "週 / 週",
+      "peakWeek": "ピーク週間",
+      "trend": "トレンド",
+      "trendUp": "リスティング",
+      "trendDown": "落下",
+      "distanceTitle": "週距離",
+      "partial": "部分記録",
+      "thisWeek": "今週は",
+      "scope": {
+        "allSupported": "すべてのスポーツ",
+        "bike": "サイクリング",
+        "run": "ランニング",
+        "swim": "水泳"
+      },
+      "distanceRow": "距離旅行(km)",
+      "loadRow": "トップ(TSS)",
+      "summary": "週刊距離とトレーニング負荷概要",
+      "metric": "メトリック",
+      "summaryHelpTitle": "トレーニング・ストレス(TSS)",
+      "summaryHelp": "トレーニング負荷スコアは、時間と強度を組み合わせる。 {{count}} 知られている数週間. ≈ 計算を含む · 知られている記録のサブトータル · — 未知",
+      "distanceHelpTitle": "距離概要",
+      "distanceHelp": "平均値は過去12週間をカバーします. + は知られている記録のサブトゥトルです. - 未知です. 記録が不完全であるとき、平均値とピークが隠されています。"
+    },
+    "monthlyGoal": {
+      "title": "{{month}} 目標",
+      "subPrefix": "目標 ",
+      "setupTitle": "月間目標設定",
+      "setupHint": "トレーニングプランを作成した後に自動的に生成",
+      "remainingPrefix": "",
+      "remainingSuffix": " 行こう♪ {{days}} 残りの日々"
+    },
+    "fitness": {
+      "title": "フィットネス スナップショット",
+      "sub": "CTLに基づく",
+      "insufficient": "データ不足",
+      "ctl": "フィットネス(CTL)",
+      "atl": "疲労(ATL)",
+      "tsb": "形式(TSB)",
+      "ctlHint": "42日間の充電",
+      "atlHint": "7日目 疲労",
+      "tsbHint": "フレッシュ",
+      "recommend": "推奨",
+      "recoMaintain": "耐久性維持",
+      "recoRecovery": "回復提案",
+      "recoModerate": "適度なトレーニング"
+    },
+    "community": {
+      "title": "韓国サイクリングコミュニティ"
+    },
+    "app": {
+      "manualWebTitle": "ウェブユーザーガイド",
+      "manualWebDesc": "分析・データ・グループ・イベント",
+      "storeIos": "アプリストア",
+      "storeAos": "Google Play",
+      "manualIos": "ガイド",
+      "manualAos": "Android ガイド"
+    }
+  },
+  "home": {
+    "hero": {
+      "title": "韓国のライダーの記録を守る",
+      "descLoggedIn": "つながり Strava 自動的に運転を進めます。",
+      "descAnon": "あなたの乗り物を保存 Orider 韓国サイクリングコミュニティに加わる。",
+      "statsActivities": "活動",
+      "statsSegments": "セグメント",
+      "statsCourses": "コース",
+      "statsKm": "キロメートル",
+      "ctaStart": "スタートする",
+      "ctaStrava": "つながり Strava"
+    },
+    "feed": {
+      "titleMine": "活動 フード",
+      "titlePublic": "最近の公共活動",
+      "countSuffix": "{{count}}",
+      "searchResults": "{{count}} 結果",
+      "searchPlaceholder": "検索活動(Enter)",
+      "searchSubmit": "検索",
+      "searchClearTitle": "明確な検索",
+      "searchEmptyMessage": "合わない活動",
+      "searchReset": "明確な検索",
+      "loadMoreRemaining": "もっともっと({{remaining}} 残る)",
+      "loadMore": "もっと充電",
+      "loadingMore": "もっと活動を積み重ねる...",
+      "filterAll": "すべて",
+      "filterFriends": "友人",
+      "filterMe": "ミニ",
+      "filterCaption": "フィルター結果",
+      "emptyTitle": "まだ活動なし",
+      "emptyConnectStrava": "つながり Strava 輸入活動の対象",
+      "emptyPublic": "まだ公共活動はありません。"
+    },
+    "datePreset": {
+      "all": "すべて",
+      "7d": "過去7日間",
+      "30d": "過去30日間",
+      "90d": "90日間",
+      "year": "今年は"
+    },
+    "communities": {
+      "lara": "俺より大きい",
+      "jachulsa": "バイクコミュニティ",
+      "dossa": "サイクリングサロン",
+      "clien": "サイクリングボード",
+      "bikesell": "バイク市場",
+      "thebike": "サイクリング雑誌"
+    },
+    "sidebarMy": {
+      "stravaConnected": "Strava つながる",
+      "weekSummary": "今週は",
+      "rides": "レース",
+      "ridesUnit": "{{count}}",
+      "distance": "距離",
+      "time": "時間",
+      "elev": "高収益",
+      "weeklyDistance": "週距離(過去12週間)"
+    },
+    "sidebarAnon": {
+      "welcome": "ようこそ Orider",
+      "welcomeDesc": "入力・接続 Strava あなたの乗り物の管理",
+      "signInGoogle": "ログイン"
+    }
+  },
+  "mobileFeed": {
+    "inlineFilters": {
+      "scopeAll": "公:全員",
+      "scopeFriends": "公:友人",
+      "scopeSelf": "公:私",
+      "dateAll": "期間:すべて",
+      "date7d": "期間: 7d",
+      "date30d": "期間: 30d",
+      "date90d": "期間:90d",
+      "sport": {
+        "all": "スポーツ:すべて",
+        "bike": "スポーツ:サイクリング",
+        "run": "スポーツ:走る",
+        "swim": "スポーツ:水泳"
+      }
+    },
+    "searchLabel": "検索",
+    "sportLabel": "スポーツ",
+    "scopeSelf": "わたし",
+    "date7d": "7D",
+    "date30d": "30D",
+    "date90d": "90D",
+    "searchContext": "検索: {{query}}",
+    "occurred": {
+      "today": "今日、A {{time}}",
+      "yesterday": "昨日、 {{time}}",
+      "unknown": "活動時間未利用"
+    },
+    "homeTitle": "ホーム",
+    "feedTitle": "活動 フード",
+    "publicTitle": "公共活動",
+    "publicDescription": "ライダーの活動を調べる 登録して自分の記録も見る",
+    "runSummary": {
+      "count": "活動数",
+      "distance": "距離旅行",
+      "time": "活動時間",
+      "elevation": "昇進の利益"
+    },
+    "defaultRider": "ライダー",
+    "defaultActivity": "ライド",
+    "statDistance": "距離旅行",
+    "statTime": "移動時間",
+    "statElev": "高収益",
+    "statSpeed": "スピード AVG",
+    "weekSummary": "今週は",
+    "streakWeeks": "{{count}}週ストライキ",
+    "routineScore": "90日目 スコア {{score}}",
+    "filterToggle": "フィルター",
+    "sportFilterLabel": "スポーツフィルター",
+    "viewAll": "みんな見る",
+    "loading": "読み込み中…",
+    "loadingMore": "読み込み中…",
+    "loadMore": "もっと充電",
+    "emptyTitle": "まだ活動なし",
+    "emptyDesc": "つながり Strava あるいは、始めるために、レースを記録する。",
+    "dataWarningBadge": "データアノマリ",
+    "dataWarningTooltip": "いくつかのメトリックは、GPSの騒音または非常に短い活動のために不現実である可能性があります。",
+    "viewProfile": "プロフィールを見る",
+    "statElapsedTime": "時間の流れ"
+  },
+  "weeklySummary": {
+    "title": "今週は",
+    "load": "負荷",
+    "activities": "アクティビティ",
+    "activitiesCount": "{{count}}",
+    "activitiesPrev": "先週の {{count}}",
+    "time": "時間",
+    "distance": "距離",
+    "vsLastWeek": "VS 先週 {{delta}}",
+    "newThisWeek": "新しい",
+    "viewAll": "みんな見る",
+    "weeklyDistanceKm": "週距離(km)",
+    "ridesUnit": "",
+    "durationHourMin": "{{h}}h {{m}}M",
+    "durationMin": "{{m}}M",
+    "dateMonthDay": "{{month}}/{{day}}"
+  },
+  "fitnessSummary": {
+    "ctl": "フィットネス(CTL)",
+    "atl": "疲労(ATL)",
+    "tsb": "形式(TSB)",
+    "status": "ステータス",
+    "vsWeekAgo": "vs 7日前 {{delta}}",
+    "tsbOptimal": "TSB -10～+5 = 最適",
+    "statusWellRested": "うまくリラックス",
+    "statusRecovered": "復活",
+    "statusOptimal": "最適な形",
+    "statusFatigued": "累積疲労",
+    "statusOverreaching": "過剰リスク"
+  },
+  "charts": {
+    "fitness": {
+      "noData": "まだ表示されるデータはありません。",
+      "today": "今日",
+      "goalDay": "目標日",
+      "forecast": "予測",
+      "legendFitness": "フィットネス",
+      "legendFatigue": "疲れ",
+      "legendForm": "復活",
+      "projectionNote": "計画が100%続く場合",
+      "activityMarkers": "{{count}} 活動マーク",
+      "selectedActivityMarker": "選択した活動: {{label}}."
+    },
+    "powerCurve": {
+      "noData": "電源データはまだありません。",
+      "noDataProgression": "電源データの活動はまだありません。",
+      "emptyTitle": "電源曲線はまだ準備ができていない。",
+      "emptyDescription": "活動が電源測定器または仮想電源データを含む場合、5秒から60分のピーク平均電力がここに表示されます。",
+      "datasetLabel": "ピーク平均パワー",
+      "peakPower": "ピーク {{power}}☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",
+      "unitSec": "{{n}}S で",
+      "unitMin": "{{n}}M",
+      "unitHour": "{{n}}h"
+    },
+    "weeklyChart": {
+      "recordsCount": "保存記録: {{count}}",
+      "tssValue": "TSS {{value}}",
+      "tssUnknown": "TSS 未知",
+      "tssPartial": "利用可能な貨物の部分金額 {{count}} 未知の活動",
+      "tssEstimated": "推定を含む",
+      "distance": "距離(km)",
+      "time": "時間(H)",
+      "elevation": "昇格(m)",
+      "title": "月間活動"
+    },
+    "dailyLoad": {
+      "datasetLabel": "毎日の負担",
+      "tooltipLabel": "負荷 {{value}}"
+    },
+    "zoneDistribution": {
+      "dominant": "トップ:Z{{zone}} {{name}} ({{pct}}%)",
+      "emptyTitle": "ゾーン分布のためのデータ不足",
+      "emptyDescription": "心拍数、パワー、またはペースストリームが活動の十分なために記録された場合、それぞれの強度ゾーンでの時間はここに表示されます。"
+    },
+    "criticalPace": {
+      "half": "半分"
+    },
+    "speedCurve": {
+      "datasetLabel": "最高の平均速度",
+      "peakSpeed": "ピーク {{speed}}時間時間(5秒)"
+    }
+  },
+  "leaderboard": {
+    "colRank": "ランク",
+    "colRider": "ライダー",
+    "colTime": "時間",
+    "colSpeed": "速度",
+    "colHr": "☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆",
+    "colPower": "パワー",
+    "colDate": "デート"
+  },
+  "mobileFitness": {
+    "title": "フィットネス",
+    "currentStatusTitle": "現在の状態",
+    "decision": {
+      "signedOut": "今日のプランを見るためにサインイン",
+      "unavailable": "今日の計画は、利用できません。",
+      "healthStop": "トレーニングをやめる理由をまず確認する",
+      "viewDetails": "今日の決定と行動を見る",
+      "viewSafetyDetails": "停止理由の見直し"
+    },
+    "analysisNeedsSport": "サイクリングや走りを見るために",
+    "tabOverview": "概要",
+    "tabZones": "パワーゾーン",
+    "tabAnalysis": "分析",
+    "thresholdMissingRun": "あなたの走行限度のペースは設定されていません. 設定されたときに表示されます。",
+    "thresholdMissingSwim": "あなたの重要な水泳速度(CSS)は設定されていません。",
+    "hrZonesMissing": "保存された心率ゾーン配布はまだ利用できません. 測定されたゾーンデータが利用可能になると表示されます。",
+    "tabZonesBike": "パワーゾーン",
+    "tabZonesRun": "実行分析",
+    "tabZonesSwim": "水泳",
+    "metricCtl": "CTL(フィットネス)",
+    "metricAtl": "ATL(苦痛)",
+    "metricTsb": "フォーマット(Form)",
+    "ftpBasis": "90日間の最高のパワー",
+    "zoneDist": "電力分布(過去4週間)",
+    "zoneDefTitle": "ゾーン定義",
+    "kpiCtlLabel": "長期充電CTL",
+    "kpiAtlLabel": "短期充電 ATL",
+    "kpiTsbLabel": "バランス バランス TSB",
+    "tsbMeaning": {
+      "fatigueHigher": "疲労はフィットネスを超える",
+      "fitnessHigher": "フィットネスは疲労を超える",
+      "balanced": "フィットネスと疲労がバランスをとる",
+      "noData": "まだデータが足りない"
+    },
+    "vo2maxDesc": "評価",
+    "vo2maxNoFtp": "FTP 必要な重量",
+    "tsbOverRested": "過剰残留",
+    "tsbOptimalForm": "最適な形",
+    "tsbTrainingOk": "トレーニング OK",
+    "tsbFatigue": "累積の疲労",
+    "tsbOverload": "過剰負荷",
+    "pmcTitle": "PMCの傾向 {{n}} 日々",
+    "pmcSub": "CTL フィットネス · ATL 疲労 · TSB 形式",
+    "pmcByDiscipline": {
+      "tri": {
+        "title": "フィットネストレンドの組み合わせ {{n}} 日々",
+        "sub": "トレーニング・トラックは、すべてのスポーツで組み合わせた",
+        "ctlLabel": "総合CTL"
+      },
+      "bike": {
+        "title": "サイクリングフィットネストレンド {{n}} 日々",
+        "sub": "自転車の運転負担のみ",
+        "ctlLabel": "サイクリングCTL"
+      },
+      "run": {
+        "title": "トレンドのフィットネス {{n}} 日々",
+        "sub": "実行活動の負担のみから計算",
+        "ctlLabel": "走るCTL"
+      },
+      "swim": {
+        "title": "水泳のトレンド {{n}} 日々",
+        "sub": "水泳活動の負担のみを計算",
+        "ctlLabel": "水泳 CTL"
+      }
+    },
+    "weeklyLoadTitle": "週刊 負荷 · 過去 4 週間",
+    "weeklyLoadSub": "今週は {{thisWeek}} ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ {{avg}} · {{restDays}} 休日",
+    "zonePowerTitle": "電力エリア配布 · 過去 4 週間",
+    "zoneHrTitle": "エリア・エリア・ディストリビューション · 過去 4 週間",
+    "zoneSourcePower": "パワーストリームに基づく",
+    "zoneSourceHrBike": "HR 評価(HR Z1 - Z5 は電源ゾーンにマッピングされ、Z6 - Z7 は分離できない) は、完全なゾーン証明書を含む活動のみを含みます。",
+    "zoneSourceHrRun": "HRストリームに基づく活動は、完全なゾーン証拠を含む活動のみが含まれています。",
+    "zoneSourceNone": "流れデータなし - ツアーを同期した後に記入されます",
+    "powerCurveTitle": "電源 回転 28日間",
+    "powerCurveSub": "ピーク {{maxW}} ワイズ 5s～60m",
+    "zoneDefsSectionTitle": "ゾーン定義",
+    "analysisInsufficient": "まだ分析するデータが足りない。",
+    "trendTitle": "フィットネストレンド",
+    "trendLoading": "あなたのフィットネストレンドをアップロードする...",
+    "trendError": "あなたのフィットネストレンドを充電することはできません. 他のフィットネス情報はまだ利用可能です。",
+    "derivedLoading": "詳細な分析を...",
+    "derivedError": "詳細な分析はできません。",
+    "pmcNoData": "データ不足(少なくとも2日間)",
+    "pmcLabelToday": " ■今日",
+    "pmcLabelForecast": " ■予測",
+    "weeklyTssThisWeek": "今週は",
+    "coreStatusTitle": "アクティブ FTP ■自転車の能力",
+    "integrated": {
+      "cardAria": "複数のスポーツトレーニングの状態と28日間の負荷焦点",
+      "eyebrow": "組み合わせトレーニング概要",
+      "title": "多スポーツ統合",
+      "coverageChip": "{{pct}}% cラシフィー {{confidence}}",
+      "ctlLabel": "CTL 組み合わせフィットネス",
+      "ctlHint": "長期トレーニング トレーニング",
+      "atlLabel": "トップ > 疲労",
+      "atlHint": "短期訓練の負担",
+      "tsbLabel": "トップ > フォーム",
+      "tsbHint": "フィットネス 疲労",
+      "conditionSource": "規律負担を集める組み合わせモデル",
+      "authoritativeSource": "サーバーコンピュータ 組み合わせ CTL · ATL · TSB サイクリング、走行、泳ぎ",
+      "detailsToggle": "計算・解釈ノート",
+      "contributionTitle": "フィットネス貢献",
+      "contributionBasis": "現在のCTLの貢献は、スポーツによるトレーニングの積み重ねを説明します 将来のトレーニングのための割合は推奨されません。",
+      "discipline": {
+        "bike": "サイクリング",
+        "run": "ランニング",
+        "swim": "水泳"
+      },
+      "barPart": "{{label}} {{value}}, {{pct}} 百分点",
+      "contributionBarAria": "スポーツによる現在のフィットネス貢献: {{values}}",
+      "noContributionData": "スポーツによるフィットネス貢献データなし",
+      "contributionValue": "チトル {{value}} · {{pct}}%",
+      "contributionAria": "{{sport}} 貢献 {{pct}} 合成フィットネスの割合",
+      "focusTitle": "トップ > 焦点 {{days}} 日々",
+      "dominant": "初期負荷 {{label}}",
+      "noFocusData": "分類負荷なし",
+      "focusUnavailable": "ロードフォークは、カノニックサーバーデータによって提供されていないため、利用できません。",
+      "focusBarAria": "最後の焦点を重ねる {{days}} 日々: {{values}}",
+      "focusBasis": "少なくとも50% zo覆いは、各活動負荷は、代表的な強度の平方に重さのゾーン時間によって1回分配され、そうでなければ分類されない。",
+      "bucket": {
+        "baseAerobic": "ベースエアロビック",
+        "highAerobic": "エアロビック",
+        "highIntensity": "強度高",
+        "unclassified": "未分類"
+      },
+      "focusAria": "{{band}}タグ : ロード {{load}}, {{pct}} 百分点",
+      "coverage": "クラシックカバー {{pct}}% · {{confidence}} 信頼",
+      "sources": "電力負荷 {{power}} ■ HR トラック {{hr}} ■未分類 {{unclassified}}",
+      "anaerobicBikeDetail": "測定サイクリングパワー Z6 - Z7 は高強度で含まれ、アナエロビックサイクリングの詳細をサポートすることができます。",
+      "hrHighIntensityNote": "HR Z5は高強度の証拠であり、アナエロビックな貢献の証拠ではありません。",
+      "confidence": {
+        "high": "高い",
+        "medium": "メディア",
+        "low": "低い",
+        "none": "ノー"
+      }
+    },
+    "sport": {
+      "cardAria": "スポーツ特性測定実績証明書",
+      "insufficient": "十分に測定されていない証拠 · 未分類",
+      "noMeasuredEvidence": "測定期間の証拠がない",
+      "axisScoreAria": "{{metric}} スコア",
+      "scoreGuide": "過去90日間の個人PDCから簡素化された100ポイントの能力スコア。",
+      "bike": {
+        "title": "サイクリング能力の証拠",
+        "basis": "過去90日間の3つの別々の軸で測定されたPDC · {{count}} 活動 · 個人パワープロファイルは、100ポイントスケールでまとめられています。",
+        "notGarmin": "計算は異なります。 Garmin. Garmin EPOCやトレーニング効果などの特有メトリックを使用する。 O-Rider 公開されたPDC証拠を使用してあなたの個人的な能力を説明します。",
+        "manualLink": "PDCと3つの軸がどのように計算されるか",
+        "strongestAxis": "あなたの現在の能力は、 {{axis}}.",
+        "axis": {
+          "anaerobic": "短電力容量",
+          "aerobic": "エアロビック能力",
+          "endurance": "持続可能な耐久性"
+        }
+      },
+      "run": {
+        "cardAria": "実行設定と記録源",
+        "title": "実証実証",
+        "basis": "記録時間は、その源が確認されるまで隠されている。",
+        "threshold": "設定 限界速度",
+        "noQualifiedEvidence": "情報源資格の距離記録は提供されません。",
+        "unverifiedTitle": "距離記録: {{count}} ●識別可能な活動: {{activityCount}}",
+        "unverifiedBasis": "スポーツを検討し、ソース活動の記録を記録します。",
+        "sourceMissing": "情報源不利用"
+      },
+      "swim": {
+        "title": "水泳証明書",
+        "basis": "CSS 設定と最後の水泳効率を測定 {{days}} 単なる日々; モック曲線や発明されたPRなし。",
+        "distancePerStroke": "ストライキによる距離"
+      }
+    },
+    "abilityScore": {
+      "raw": "能力スコア {{score}}/100",
+      "ariaValue": "能力スコア {{score}}/100, {{stage}} レベル",
+      "guide": "固定5レベルのスコアは、ユーザーのランキングやパーセントリールではなく、あなたの個人的なPDC分析をまとめています。",
+      "stage": {
+        "entry": "入場",
+        "foundation": "財団",
+        "average": "平均",
+        "excellent": "優秀",
+        "top": "トップ"
+      }
+    },
+    "snapshot": {
+      "title": "フィットネス スナップショット",
+      "subtitle": "各値とその評価と基礎をまとめて読む",
+      "ftp": "参考パワー",
+      "ftpStatus": "プロフィール FTP",
+      "ftpSource": "W/kg 現在のプロフィールから計算 FTP 重さと",
+      "ftpWeightMissing": "プロフィール FTP · W/kg 体重なしで利用できない",
+      "riderType": "サイクリング能力",
+      "riderSource": "過去90日間のPDC · コグガン男性のパワープロファイル(v1); 性別と年齢は調整されていません",
+      "vo2PdcSource": "過去90日間のPDCのCP/5分のパワーと重さから推定 {{count}} 活動・実験室ではなく測定",
+      "vo2FormulaSource": "プロフィールからの単純な推定 FTP 体重・実験室・実験室・実験室・実験室・実験室",
+      "estimateOnly": "評価 · 実験室測定ではない",
+      "load": "O-Rider トレーニング トラック",
+      "loadSource": "CTL 42日間 EMA · ATL 7日間 EMA · TSB=CTL-ATL. これは、 Garmin 急性負荷",
+      "insufficient": "データ不足、評価されていない",
+      "bandAria": "{{metric}} ポジション: {{status}}"
+    },
+    "performance": {
+      "title": "サイクリングパフォーマンス",
+      "ariaLabel": "サイクリングパフォーマンス概要",
+      "canonical": "プロフィール 真実の源 · ゾーンとトレーニングに適用",
+      "ftpMissing": "プロフィールセット FTP 初めに",
+      "ftpMissingEvidence": "アクティブなプロフィールはありません。 FTPだから、 W/kg そして、The FTP 違いは計算されていない。",
+      "weightMissing": "体重を増やして見る W/kg",
+      "riderUnknown": "ライダータイプの証拠が足りない",
+      "abilityLabel": "全サイクリング能力",
+      "abilityUnknown": "能力評価の証拠が足りない",
+      "abilityScoreAria": "サイクリング能力の総合評価",
+      "estimated": "評価",
+      "insufficient": "十分な証拠がない",
+      "metrics": {
+        "eftp": "最新の月間eFTP",
+        "cp": "批判力 CP",
+        "tte": "長さT"
+      },
+      "evidenceOpen": "計算証明書を参照",
+      "evidenceClose": "計算の証拠",
+      "evidence": {
+        "twentyMinute": "最新20分 最高平均",
+        "latestPeriod": "最新のEFTP期間",
+        "activityCount": "PDC分析の活動",
+        "activityCountValue": "{{count}} 活動",
+        "activeDelta": "アクティブ vs アクティブ FTP",
+        "riderConfidence": "ライダータイプの信頼"
+      },
+      "modelEvidence": "エフタップ 95% o月間最高の20分間の平均パワー; CP と TTE は過去 90 日間の PDC モデルから来ています。 FTP 自動的に。"
+    },
+    "zoneSourcePowerHistorical": "Z1～Z7 各活動の組み合わせ FTP ●現在の分類に分類されない FTP完全なゾーン証拠を含む活動のみが含まれます。",
+    "modelEvidence": "メトリックの裏にあるデータ"
+  },
+  "runEmpty": {
+    "title": "最近のレコードなし",
+    "subtitle": "つながり Strava または、実行記録を組み合わせるためにファイルをインポートします。",
+    "waitingTitle": "最近のレコードなし",
+    "waitingSubtitle": "あなたの Strava 実行が同期された後、ここに表示されます. ファイルもインポートできます。",
+    "connectCta": "つながり Strava",
+    "previewTag": "予測",
+    "sampleSentence": "接続すると、このような読み方を見るでしょう - 「登山の要因とあなたは効果的に走る {{gap}} 住宅地の1キロ」",
+    "samplePace": "ペース",
+    "sampleLoad": "負荷",
+    "manualHint": "新しいペース、GAP、トレーニングロード?",
+    "manualCta": "英語のガイドを読む",
+    "importCta": "輸入記録"
+  },
+  "runRecap": {
+    "eyebrow": "先週の走行",
+    "headlineFaster": "{{count}} 走る、 {{km}} キロメートル - 平均速度が下がった {{sec}} 先週の2秒。",
+    "headlineSlower": "{{count}} 走る、 {{km}} 平和は地面とあなたがどのように感じているかと動きます。",
+    "headlinePlain": "{{count}} 走る、 {{km}} キロメートル",
+    "runs": "ランコア",
+    "distance": "距離旅行",
+    "avgPace": "ペース ペース",
+    "unitTimes": "",
+    "unitSeconds": "S で",
+    "prevWeek": "1週間前: {{count}} 走る {{km}} キロメートル",
+    "deltaFasterA11y": "{{sec}} 2秒速い",
+    "deltaSlowerA11y": "{{sec}} 2秒遅い"
+  },
+  "firstSync": {
+    "title": "初回のランダムが着陸",
+    "body": "ここからあなたのレコードは読み込みになります. あなたのレベル調整のペースとトレーニングの負荷を見てください。",
+    "viewCta": "読書を見る",
+    "later": "後日"
+  },
+  "thresholdNudge": {
+    "body": "限界ペースを設定すると、目標パイスとトレーニング負荷が大幅に激化します。",
+    "cta": "ペース設定 限界設定"
+  },
+  "shoeBadge": {
+    "title": "{{name}} 人生の終わりに近づいている。",
+    "detail": "{{total}} キロメートル 約 {{remaining}} 左キロ"
+  },
+  "canonical": {
+    "pending": "最新の7日間の概要はまだ公開されていません。",
+    "failed": "7日間の概要は充電できませんので、もう一度試してみてください。",
+    "empty": "過去7日間でまとめる活動はありません。",
+    "stale": "最後に確認された7日間の概要を表示します。",
+    "staleChip": "早期概要"
+  },
+  "weeklyEvidence": {
+    "loadUnknown": "計算されていない",
+    "shortTitle": "{{week}} 週刊 負荷",
+    "noKnownWeeks": "この範囲内の週は知られている負荷を持っているので、平均またはピークは計算されません。",
+    "untitled": "未名の活動",
+    "unknown": "計算されていない",
+    "timeInput": "反映期間 {{minutes}} 時間の60×の要素 {{factor}} (計算後回転)",
+    "averageHelp": "知られている総積 {{total}} 通り {{count}} 週は分割 {{count}} 丸めに {{value}}未知の日々は、 {{weeks}}週名数:部分または推定総数を含む週が含まれます。",
+    "peakHelp": "最大の総合表示 {{count}} 知られている数週間は {{value}} ({{weeks}}ストレージ/サーバーおよび推定料金が含まれます; 未知の週間は除外されます。",
+    "trendHelp": "先週の比較 {{previous}} 今週の今週 {{current}}トレンドは、表示された合計が両方利用可能であり、推定や未知の活動が含まれていない場合にのみ報告されます。",
+    "scope": {
+      "allSupported": "範囲:すべてのサイクリング、走行、泳ぎ活動がサポートされています。",
+      "bike": "サイクリング",
+      "run": "走り、歩き、歩き",
+      "swim": "水泳"
+    },
+    "input": {
+      "streamTrimpTss": "心率流入代替 {{value}}",
+      "relativeEffort": "相対的な努力 入力代替 {{value}}"
+    },
+    "totalLabel": "総週負荷",
+    "showDetails": "視点 {{week}} 活動 TSS",
+    "hideDetails": "隠し活動 TSS",
+    "detailsTitle": "{{week}} 活動 TSS 計算",
+    "noEvidence": "☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ ☆ TSS 計算基と入力は今週は利用できません。",
+    "activityInputs": "活動計算値",
+    "basis": {
+      "power": "パワーベース",
+      "heartRate": "心率ベース",
+      "time": "時間推定",
+      "unknown": "計算方法未知",
+      "excluded": "排除"
+    },
+    "tooltipTitle": "週の {{week}} · {{value}} TSS",
+    "tooltipUnknownTitle": "週の {{week}} ●計算されていない",
+    "distance": "距離 {{value}} キロメートル",
+    "distanceTitle": "週の {{week}} · {{value}} キロメートル",
+    "distanceFormattedTitle": "週の {{week}} · {{distance}}{{partial}}",
+    "distanceUnknownTitle": "週の {{week}} ●不利用距離",
+    "distancePartialTitle": "週 {{week}} · {{value}}キロメートル"
+  },
+  "todayStrip": {
+    "goalCountdownTitle": "目標への日々",
+    "goalCountdownLabel": "目標日付の説明",
+    "goalCountdownHelp": "D−Nは目標まで日数、D+Nは目標から日数、D-DAYは目標の日数です。",
+    "weekTitle": "過去7日間 {{sport}}",
+    "findEvents": "イベントを見つける",
+    "goalLink": "目標を見る",
+    "analysisLink": "分析を見る →",
+    "allSportsRecent7d": "スポーツ 過去7日間",
+    "today": "今日のトレーニング",
+    "choose": "決める →",
+    "loading": "読み込み中…",
+    "noToday": "今日のトレーニングはコーチで選べます。",
+    "unavailable": "現在利用できない",
+    "goal": "目標",
+    "createGoal": "目標を作る →",
+    "monthFlow": "今月の進歩",
+    "monthFlowValue": "{{distance}} キロメートル {{percent}}% o通常の月間ベースライン",
+    "events": "僕のスケジュール",
+    "noEvents": "未だに登録されたイベントはありません。",
+    "condition": "条件",
+    "conditionLink": "見る条件",
+    "week": "月間活動記録",
+    "more": "もっとスケジュールとトレーニング情報",
+    "support": "アプリと助け",
+    "recap": "毎年収益を見る",
+    "firstRecord": "最初の活動を記録 · アプリを取得する",
+    "importHistory": "既存の活動の輸入",
+    "goalCtl": "目標日 CTL {{value}}",
+    "monthFlowAllTitle": "今月のスポーツ",
+    "monthFlowAllValue": "{{distance}} キロメートル {{percent}}% o通常の月間距離"
+  },
+  "homeMetrics": {
+    "distance": "距離旅行",
+    "movingTime": "移動時間",
+    "elapsedTime": "時間の流れ",
+    "avgHeartRate": "心拍数平均",
+    "avgPower": "平均力",
+    "activityTime": "活動時間"
+  },
+  "charts.weeklyChart.weekTitle": "週刊活動",
+  "charts.weeklyChart.previousWeek": "先週",
+  "charts.weeklyChart.nextWeek": "来週",
+  "mobileFitness.periodScope": "この月の活動と最近の28日間の曲線は、別々の期間を使用しています。",
+  "mobileFitness.conditionLink": "現在の状況を見る",
+  "mobileFitness.performance.missingMetrics": "不足の推定証拠: {{metrics}}",
+  "mobileFitness.powerChanges": "電力の変化 · 2 期を比較する",
+  "mobileFitness.analysisDestination": "パフォーマンスとレコード比較分析",
+  "mobileFitness.weeklyUnknown": "週刊比較には、より多くの日々の負担の証拠が必要です。"
+}

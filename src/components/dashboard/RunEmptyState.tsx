@@ -11,6 +11,7 @@ import GlossaryText from "../common/GlossaryText";
  */
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { localizedManualPath } from "../../i18n/manualPath";
 import RunIcon from "../common/RunIcon";
 import { buttonClass, Card, Text } from "../../theme/components";
 import { useStrava } from "../../hooks/useStrava";
@@ -31,7 +32,7 @@ const SAMPLE = {
 };
 
 export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation("dashboard");
   const { connectStrava } = useStrava();
 
   useEffect(() => {
@@ -114,7 +115,7 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
 
       <Text as="div" variant="caption" tone="tertiary" style={{ textAlign: "center" }}>
         {t("runEmpty.manualHint")}{" "}
-        <a href="/web-manual/ch08-multisport.html" style={{ color: "var(--ink-1)", textDecoration: "underline", fontWeight: 600 }}>
+        <a href={localizedManualPath("/web-manual/ch08-multisport.html", i18n?.resolvedLanguage ?? i18n?.language)} style={{ color: "var(--ink-1)", textDecoration: "underline", fontWeight: 600 }}>
           {t("runEmpty.manualCta")}
         </a>
       </Text>

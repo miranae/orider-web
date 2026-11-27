@@ -1,0 +1,581 @@
+{
+  "surfaceStatus": {
+    "loadingAnalysis": "分析を読み込み中",
+    "loadingProfile": "プロフィールを読み込み中",
+    "loadingScreen": "画面を読み込み中",
+    "waitingAuthorization": "アプリの認証を待機中",
+    "creatorViews": "クリエイターハブの表示",
+    "share": "共有"
+  },
+  "button": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
+    "edit": "編集",
+    "back": "戻る",
+    "loading": "読み込み中…",
+    "retry": "再試行",
+    "close": "閉じる",
+    "more": "もっと見る",
+    "nextTabs": "もっとタブ",
+    "previousTabs": "前のタブ",
+    "less": "少々",
+    "login": "ログイン",
+    "logout": "ログアウト",
+    "loginGoogle": "ログイン",
+    "markAllRead": "マーク みんな読む"
+  },
+  "error": {
+    "generic": "何かが間違った。",
+    "network": "ネットワークエラー",
+    "permission": "許可は無い。",
+    "notFound": "見つからなかった。",
+    "title": "何かが間違った",
+    "description": "しばらくして再度試してみてください。",
+    "boundaryTitle": "何かが間違った",
+    "unknownError": "未知のエラー",
+    "reload": "リロード",
+    "reloadAriaLabel": "ページのリロード",
+    "offlineBanner": "あなたはオフラインです. 接続が戻るときに、いくつかの画面がリリースされます。",
+    "offlineTitle": "オフラインです。",
+    "offlineDescription": "まだカッシュされていない画面は、オンラインに戻るときに自動的にリリースされます。",
+    "waitingOnline": "つながりを待つ",
+    "appLoadFailed": "アプリをアップロードできない",
+    "appLoadFailedReload": "リロード"
+  },
+  "label": {
+    "today": "今日",
+    "yesterday": "昨日",
+    "thisWeek": "今週は",
+    "thisMonth": "今月",
+    "all": "すべて",
+    "language": "言語",
+    "profile": "プロフィール",
+    "settings": "設定",
+    "rider": "ライダー",
+    "ride": "ライド",
+    "notifications": "通知",
+    "noNotifications": "通知なし",
+    "search": "検索",
+    "searchEmpty": "結果は無い」{{query}}\"",
+    "loadingHint": "充電"
+  },
+  "auth": {
+    "loginRequiredTitle": "要請に署名",
+    "loginRequiredDescription": "この機能を使用するために登録してください。",
+    "loginValue": "乗り物の保存に登録する",
+    "loginLoading": "サインイン...",
+    "loginFailed": "入力が失敗しましたので、また試してみてください。"
+  },
+  "notFound": {
+    "description": "求められたページは存在しないし、移動したものではありません。"
+  },
+  "footer": {
+    "feedback": "フィードバック",
+    "terms": "条件",
+    "privacy": "プライバシー",
+    "community": "コミュニティガイドライン",
+    "contact": "連絡先",
+    "more": "もっと見る",
+    "collapse": "崩壊",
+    "appManual": "アプリマニュアル",
+    "webManual": "ウェブマニュアル",
+    "aiPolicy": "コーチ政策",
+    "stravaTerms": "Strava 条件",
+    "calculator": "公共計算機",
+    "partnershipInquiry": "参加する",
+    "help": "ヘルプ",
+    "policies": "利用規約・ポリシー",
+    "install": "アプリを入手",
+    "navigation": "サイト情報",
+    "email": "メール"
+  },
+  "partnership": {
+    "eyebrow": "オープンライダー オープンライダー",
+    "title": "関与する Orider",
+    "intro": "構築するのを助け、それに接続するか、それがどのように続くかを調べる。",
+    "choicesLabel": "関与する方法",
+    "back": "関与するすべての方法",
+    "aboutContext": "騎手によって建てられ、それを使用する人々によって形作られています。",
+    "aboutLink": "どのように Orider 始まる",
+    "jumpToContact": "メールで会話を始める",
+    "contactTitle": "メールであなたの物語を教えてください。",
+    "contactDescription": "正式な提案は必要ありません. あなたが望むほど多くのまたは少ない次のものを共有します。",
+    "emailLabel": "メール",
+    "emailHint": "アドレスを選択してコピーするか、メールアプリを開くボタンを使用します。",
+    "supportText": "アプリについて質問あるいは改善について考えていますか?",
+    "supportLink": "一般質問&フィードバック",
+    "build": {
+      "title": "わたしたちと共に建て",
+      "summary": "製品計画、デザイン、チームに加わり、オープンソースの貢献",
+      "intro": "Orider 実際の乗り物で失望を引き起こす初期段階の製品です ライダーとランナーが改善し、一緒に使用するプラットフォームを構築するのに役立ちます。",
+      "sections": [
+        {
+          "title": "製品設計と設計は、私たちの最大のニーズです。",
+          "description": "最初に何を構築するかを決定し、活動の準備から記録のレビューまで旅を改善するのを助けます。"
+        },
+        {
+          "title": "チームの一員になることを探し出し",
+          "description": "私たちは、共同設立またはチームに加わることについての会話に開かれ、お互いの方向を理解することから始まります。"
+        },
+        {
+          "title": "小さなオープンソースでスタート",
+          "description": "公開ウェブリポジトリのコードと文書を調べ、改善を提案したり貢献したりします。 Orider 始めるのに良い場所です。"
+        }
+      ],
+      "repository": "GitHub で公開されたウェブリポジトリを表示する",
+      "contactDetails": [
+        "短い紹介とあなたに興味のある役割",
+        "あなたの経験、ポートフォリオ、またはGitHubリンク、利用可能な場合",
+        "あなたがどのように一緒に働きたいか、そしてあなたが共有したいアイデア"
+      ],
+      "emailAction": "メール 参加について"
+    },
+    "collaborate": {
+      "title": "パートナーシップ&広告",
+      "summary": "デバイス統合、ブランド協力、直接広告、スポンサーシップ、地元イベント",
+      "intro": "活動を続ける人々を助けるつながりを探しています. パートナーシップ、直接広告、またはスポンサーシップについて教えてください。 Orider 経験",
+      "sections": [
+        {
+          "title": "デバイス&サービス統合",
+          "description": "センサー、スポーツ機器、人々が一緒に使用できるトレーニングサービスを接続する方法を提案します。"
+        },
+        {
+          "title": "ブランド、直接広告&スポンサーシップ",
+          "description": "共同キャンペーン、ユーザーの利益、直接広告、ブランドスポンサーシップに関する会話をお待ちしております。"
+        },
+        {
+          "title": "クラブ、イベント&コンテンツ",
+          "description": "グループレースやレース、レースや課題、コーチングコンテンツ、または共同創造プロジェクトのアイデアを共有します。"
+        },
+        {
+          "title": "店舗、旅行、地元プロジェクト",
+          "description": "自転車ショップ、修理、設備の賃貸、アクティブな旅行、地元のルートを接続する方法を提案します。"
+        }
+      ],
+      "contactDetails": [
+        "あなた、あなたの組織、またはブランドへの紹介、および連絡先の詳細",
+        "あなたのパートナーシップ、広告、またはスポンサーシップのアイデア",
+        "対象観客、試用タイミング、利用可能な材料"
+      ],
+      "emailAction": "パートナーシップアイデアをメール"
+    },
+    "investment": {
+      "title": "投資調査",
+      "summary": "オープンスポーツプラットフォームと持続可能なビジネスの方向性",
+      "intro": "私たちは、オープンスポーツプラットフォームの方向を共有し、持続可能なビジネスを探求したい投資家と出会いたい。 Orider.",
+      "sections": [
+        {
+          "title": "まずは、今日の私たちがどこにいるかから。",
+          "description": "Orider 製品をリアルな使用を通じて精製する初期段階にある私たちは、それを使用する人々の持続可能な価値が持続可能なビジネスをどのようにサポートできるかを調査しています。"
+        },
+        {
+          "title": "あなたの製品やビジネスに関する質問",
+          "description": "あなたが興味を持っていることを教えてください、そしてあなたが理解したいことを教えてください. 現在の製品とビジネスについての私たちの考えに基づく投資会話を始めることを望みます。"
+        }
+      ],
+      "contactDetails": [
+        "あなたの名前や組織と連絡先の詳細",
+        "あなたに興味のあるビジネス方向または投資の視点",
+        "まず、お話ししたい質問や資料"
+      ],
+      "emailAction": "投資に関するメール"
+    }
+  },
+  "nav": {
+    "planRecords": "レコード / レコード",
+    "todayTraining": "今日のトレーニング",
+    "analysis": "分析",
+    "fitness": "条件",
+    "plan": "計画",
+    "log": "トレーニングログ",
+    "courses": "コース",
+    "leaderboard": "リーダーボード",
+    "events": "イベント",
+    "social": "社会",
+    "my": "プロフィール",
+    "home": "ホーム",
+    "coach": "コーチ",
+    "explore": "探索",
+    "community": "掲示板",
+    "settings": "設定",
+    "segments": "セグメント",
+    "discover": "チャレンジ",
+    "board": "掲示板",
+    "creator": "ライドツール",
+    "friends": "友人",
+    "friendRequests": "{{count}} 友人からの要請",
+    "aboutOrider": "について Orider",
+    "profile": "プロフィール",
+    "account": "会計",
+    "mainNavAria": "主な航海",
+    "clubs": "クラブ",
+    "goals": "目標",
+    "chat": "チャット",
+    "equipment": "設備",
+    "developerDocs": "開発者DOCS",
+    "challenges": "チャレンジ",
+    "records": "レコード",
+    "people": "ライダー"
+  },
+  "about": {
+    "title": "次の選択に導くレコードを走る",
+    "subtitle": "Orider 活動史、コース発見、グループ、イベントを一つの乗り物プラットフォームで結びつける。",
+    "pointsAria": "について Orider",
+    "points": [
+      "活動データを使用してトレーニングストリームと回復信号を読む。",
+      "コース、セグメント、リーダーボードを通じて次の課題を見つける。",
+      "ライダーと会い、グループ、イベント、およびボードを通じてコンテキストを共有します。"
+    ]
+  },
+  "search": {
+    "activities": "アクティビティ",
+    "courses": "コース"
+  },
+  "time": {
+    "justNow": "まさに今",
+    "minsAgo": "{{count}}m 前の",
+    "hoursAgo": "{{count}}h 以前",
+    "daysAgo": "{{count}}D 以前",
+    "am": "☆ ☆ ☆",
+    "pm": "PM",
+    "hour": "時間",
+    "minute": "ミン",
+    "yesterday": "昨日"
+  },
+  "field": {
+    "datePlaceholder": "選び日付",
+    "timePlaceholder": "時間を選択",
+    "selectDateAria": "選び日付",
+    "selectTimeAria": "時間を選択",
+    "prevMonth": "前の月",
+    "nextMonth": "来月",
+    "now": "今は",
+    "clear": "明るい",
+    "presetWeek": "1週間 +1週間",
+    "presetMonth": "1ヶ月1ヶ月",
+    "preset3Months": "+3ヶ月",
+    "yearMonth": "{{month}} {{year}}",
+    "dateLabel": "{{weekday}}, {{month}}/{{day}}/{{year}}"
+  },
+  "discipline": {
+    "selectAria": "規律を選ぶ",
+    "tri": "多様性",
+    "bike": "サイクリング",
+    "run": "ランニング",
+    "swim": "水泳",
+    "other": "他の",
+    "comingSoon": "すぐ来る"
+  },
+  "unit": {
+    "km": "キロメートル",
+    "mi": "わたし",
+    "m": "M",
+    "ft": "フィット",
+    "h": "h",
+    "min": "ミン",
+    "sec": "セック"
+  },
+  "difficulty": {
+    "easy": "簡単",
+    "mid": "メディア",
+    "hard": "ハード",
+    "hc": "ハンガリー"
+  },
+  "weekday": {
+    "mon": "モン",
+    "tue": "タウ",
+    "wed": "⁇",
+    "thu": "トゥー",
+    "fri": "フリー",
+    "sat": "時間",
+    "sun": "太陽"
+  },
+  "topnav": {
+    "searchPlaceholder": "検索",
+    "notifications": "通知",
+    "activities": "アクティビティ",
+    "language": "言語",
+    "mobileNavigation": "モバイルナビゲーション",
+    "menuSearch": {
+      "label": "検索 ORider",
+      "category": "検索カテゴリ",
+      "keyword": "検索期限",
+      "placeholder": "検索",
+      "submit": "検索",
+      "activities": "アクティビティ",
+      "athletes": "人が",
+      "clubs": "クラブ",
+      "courses": "コース",
+      "segments": "セグメント",
+      "posts": "ポスト",
+      "athletesHint": "メール、ニックネーム、または友人コードで人を見つける",
+      "clubsHint": "名前の始まりから公共のクラブを検索するケース感性",
+      "filters": "検索条件: {{count}}",
+      "clear": "明確な検索条件",
+      "scope": "活動範囲",
+      "following": "サブスクリプション",
+      "date": "デート",
+      "sport": "スポーツ",
+      "city": "公立クラブ市(正確な試合)",
+      "surface": "表面",
+      "difficulty": "困難",
+      "owner": "コース範囲",
+      "segmentType": "セグメントタイプ",
+      "board": "掲示板",
+      "tag": "タグ(正確な試合)",
+      "all": "すべて",
+      "friends": "友人",
+      "self": "私の活動",
+      "7d": "過去7日間",
+      "30d": "過去30日間",
+      "90d": "90日間",
+      "year": "今年は",
+      "bike": "サイクリング",
+      "run": "ランニング",
+      "swim": "水泳",
+      "tri": "トリオトリオ",
+      "paved": "パブリック",
+      "gravel": "グラヴェル",
+      "mixed": "混合",
+      "myCourses": "コース",
+      "climb": "クリーム",
+      "flat": "フラット",
+      "difficulty1": "レベル1",
+      "difficulty2": "レベル2",
+      "difficulty3": "レベル3",
+      "difficulty4": "レベル4",
+      "difficulty5": "レベル5"
+    }
+  },
+  "notif": {
+    "fromUser": "からの通知 {{fromNickname}}"
+  },
+  "sportFilter": {
+    "bike": "サイクリング",
+    "run": "⁇  走る",
+    "swim": "水泳"
+  },
+  "social": {
+    "tabFriends": "友人",
+    "tabGroups": "グループ",
+    "searchFriendsPlaceholder": "友人探し",
+    "friendCodeCopied": "友人コードコピー",
+    "shareMyCode": "コードを共有する",
+    "addFriends": "友達を追加",
+    "followingCount": "次へ {{count}}",
+    "following": "次へ",
+    "searchEmpty": "結果が見つかりません",
+    "noFriends": "まだ友達なし",
+    "noFriendsDesc": "友人のページを使用して友人のコードを入力し、リクエストを管理します。",
+    "newGroup": "+新グループを作成する",
+    "myGroupCount": "グループ({{count}})",
+    "memberCount": "{{count}} メンバー",
+    "noGroups": "グループが参加しない"
+  },
+  "sport": {
+    "ride": "ライド",
+    "mtb": "MTB",
+    "gravel": "グラヴェル",
+    "ebike": "電子バイク",
+    "velolift": "ヴェロリフト",
+    "virtualRide": "仮想ライド",
+    "run": "ラン",
+    "trailRun": "トラック走り",
+    "virtualRun": "仮想走行",
+    "walk": "歩き方",
+    "hike": "ハイク",
+    "swim": "水泳",
+    "workout": "ワークアウト",
+    "weightTraining": "体重トレーニング",
+    "yoga": "ヨガ",
+    "tennis": "テニス",
+    "soccer": "サッカー",
+    "golf": "ゴルフ",
+    "ski": "スキー",
+    "snowboard": "スノーボード",
+    "activity": "活動",
+    "indoor": "内面"
+  },
+  "map": {
+    "placeholder": "地図",
+    "noRouteData": "路線データなし",
+    "routeImageAlt": "活動ルートマップ",
+    "routePreviewTitle": "ルート予報",
+    "routePreviewDescription": "地図は利用できませんので、ルートラインのみが表示されます。",
+    "unavailableTitle": "地図は作れない。",
+    "unavailableDescription": "路線データはまだ利用可能。"
+  },
+  "designTheme": {
+    "default": "デフォルト",
+    "appParity": "アプリパリティ"
+  },
+  "discover": {
+    "title": "発見",
+    "subtitle": "コース、セグメント、リーダーボードを一箇所に",
+    "searchPlaceholder": "検索コース&セグメント",
+    "searching": "検索...",
+    "noResults": "結果なし",
+    "viewAll": "みんな見る",
+    "entrySegmentsDesc": "地図上の近隣のセグメントを表示する",
+    "entryLeaderboardDesc": "見る KOM と 乗り ランキング",
+    "entryCoursesDesc": "走行コースを見つける",
+    "challenge": {
+      "beatPr": "時間の祝福",
+      "strength": "あなたの強さに遊ぶ",
+      "newPlace": "新しい場所",
+      "popularCourses": "人気コース",
+      "notable": "重要セグメント",
+      "monthlyTitle": "個人の月間課題",
+      "monthlyHeading": "{{month}} 距離課題",
+      "monthlyDescription": "活動距離を使用して、300、500、または1000kmの目標を追求します。",
+      "monthlyProgressLabel": "月間距離の進歩を挑戦",
+      "monthlyRemaining": "{{distance}} 残りキロ",
+      "monthlyCompleted": "月間目標完了",
+      "joinTier": "参加 {{tier}} キロメートル",
+      "joined": "加入",
+      "joinSuccess": "加入する {{tier}} キロの挑戦",
+      "joinFailed": "挑戦参加を節約することはできません。",
+      "loading": "今月の進歩を振り返る...",
+      "predicted": "エスト {{time}}",
+      "faster": "−{{sec}}速いS"
+    }
+  },
+  "likers": {
+    "more": "+{{count}}",
+    "andOthers": "+{{count}} もっと",
+    "kudos": {
+      "title": "{{count}} クッキー",
+      "aria": "{{count}} クッキー: {{names}}"
+    },
+    "like": {
+      "title": "{{count}} 好き",
+      "aria": "{{count}} 好き: {{names}}"
+    }
+  },
+  "embeddedStatus": {
+    "hubLoading": "コンテンツの充電",
+    "cached": "以前保存された情報を表示する",
+    "loading": "トレーニング・データ・トレーニング・データ",
+    "unavailable": "接続ができないので、今すぐ確認して再度試してみてください。",
+    "analysisMissing": "この活動には分析データが表示されていない。",
+    "profileNotFound": "プロフィールが見つかりません。",
+    "signInInApp": "アプリの「設定」からアカウントにサインインします。"
+  },
+  "dialog": {
+    "alertTitle": "通知",
+    "confirmTitle": "確認",
+    "promptTitle": "入力",
+    "ok": "OK"
+  },
+  "nav.create": "+ 創造",
+  "nav.create.course": "コースを作る",
+  "nav.create.segment": "セグメント作成",
+  "nav.create.event": "イベント作成",
+  "nav.create.club": "クラブを作る",
+  "nav.create.post": "投稿 投稿",
+  "nav.create.import": "輸入活動",
+  "nav.create.goal": "目標を作る",
+  "discipline.compact.tri": "多様性",
+  "discipline.compact.bike": "バイク",
+  "discipline.compact.run": "ラン",
+  "discipline.compact.swim": "水泳",
+  "discipline.compact.soon": "まもなく",
+  "profileSocial": {
+    "followers": "フォロワー",
+    "following": "次へ",
+    "empty": "まだ接続なし。",
+    "unavailable": "接続を充電することはできません。",
+    "retry": "再試行",
+    "more": "もっと充電",
+    "activities": "アクティビティ",
+    "latest": "最新活動",
+    "noActivities": "まだ活動なし。",
+    "streak": "ストレッチ",
+    "weeks": "{{count}} 週",
+    "weeksAtLeast": "少なくとも {{count}} 週",
+    "thisWeek": "今週は",
+    "unknownDay": "未知",
+    "activeDay": "アクティブ",
+    "restDay": "活動なし",
+    "streakWindow": "韓国で先週の52週間 · 月曜日は始まります. 今週が空いている場合は、ストリークは先週から始まります。",
+    "futureDay": "来る",
+    "limited": "過去の活動を400件までチェックしました 過去の継続性は未確認です。",
+    "activityUnavailable": "活動史を積み重ねることができません。"
+  },
+  "activitySubscriptions": {
+    "subscriptions": "サブスクリプション",
+    "subscribers": "サブスクリプション",
+    "friends": "友人",
+    "subscribe": "サブスクリプション",
+    "unsubscribe": "無署名",
+    "checking": "チェック",
+    "updating": "更新...",
+    "notDeployed": "サブスクリプションが近々来る",
+    "forbidden": "サブスクリプション未利用",
+    "unavailable": "サブスクリプションの状態を確認できません。",
+    "management": "友情と関係",
+    "blocked": "ブロック",
+    "unblock": "ブロック",
+    "blockedDescription": "ブロックするだけで友情やサブスクリプションを回復することはできません。",
+    "actionFailed": "更新できませんので、また試してみてください。",
+    "managementNotReady": "関係管理が近々来る",
+    "signInRequired": "アプリにサインインして、このライダーに従う。"
+  },
+  "notif.loading": "チェック通知...",
+  "notif.failed": "通知の状態を確認できませんので、お返事ください。",
+  "notif.retry": "退職",
+  "notif.more": "古い通知をアップロード",
+  "notif.unavailable": "この通知は削除されたか、またはもはやアクセスできない。",
+  "notif.commentDestination": "通知からのコメント",
+  "notif.loginDestination": "コメントを読むために登録します! 登録後、ここに戻ります。",
+  "notif.signIn": "ログイン",
+  "notif.targetUnavailable": "このコメントは削除され、隠され、またはもはやアクセスできない。",
+  "coachPages": {
+    "condition": "条件",
+    "today": "今日",
+    "analysis": "分析",
+    "plan": "計画",
+    "goals": "目標"
+  },
+  "challengeGuest": {
+    "loginAction": "挑戦を始めるために登録する",
+    "title": "今月の距離目標を選択",
+    "body": "月間距離目標を追跡し、クラブと距離リーグに参加してください。",
+    "previewTitle": "月間距離目標を示す",
+    "example": "例えば、1ヶ月で300、500、1000kmを記入して、自分の活動を利用する。"
+  },
+  "creatorHubCopy": {
+    "consent_to_ai_ride_diary_generation": "ライダー・デイリー・ジェネレーションのライダー",
+    "external_ai_processor_country": "外部 AI プロセッサ · 国",
+    "data_sent": "データ送信",
+    "data_excluded": "データは排除",
+    "retention": "保留",
+    "location_activity_names_and_raw_heart": "場所、活動名、および心率/パワーデータは送信されません. あなたの日記はプライベートです. 別々のハイライトをチェックする前に、それを自分で共有します。",
+    "ai_processor_privacy_policy": "AIプロセッサプライバシーポリシー",
+    "cancel": "キャンセル",
+    "agree_and_generate": "合意して生成",
+    "connections_and_data_access": "接続とデータアクセス",
+    "more_ways_to_use_your_rides": "あなたの乗り物を利用する方法をもっと",
+    "guides_for_your_tools": "あなたのツールのガイド",
+    "result": "結果",
+    "setup_and_steps": "設定とステップ",
+    "prepare": "準備",
+    "steps": "ステップ",
+    "ai_prompt_and_copy": "急いでコピー",
+    "prompt_for_your_ai_assistant": "あなたのAIアシスタントに",
+    "data_permissions_and_connections": "データ許可及び接続",
+    "preview_output": "出力予測",
+    "generation_limits_and_data": "世代制限とデータ",
+    "could_not_save_the_image_please": "画像は保存できませんので、リリースしてください。",
+    "private_diary_only_you": "プライベート・日記 · あなただけ",
+    "how_to_connect_your_tools": "ツールを接続する方法",
+    "workflow_and_data_protection": "作業流とデータ保護"
+  },
+  "impersonation": {
+    "active": "代理セッション — <account>{{name}}</account> としてログイン中（発行者：{{issuedBy}}）",
+    "exit": "終了",
+    "exitFailed": "代理セッションを終了できませんでした。代理アカウントでログインしたままです。もう一度お試しください。"
+  }
+}

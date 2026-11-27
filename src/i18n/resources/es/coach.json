@@ -1,0 +1,668 @@
+{
+  "open": "Pregúntale al entrenador",
+  "close": "Cerca de la Coach",
+  "title": "El entrenador de Rider",
+  "subtitle": "Respuestas basadas en sus registros de formación.",
+  "independentNote": "Una nueva pregunta se salva como una nueva conversación.",
+  "latestActivityReviewLinked": "Últimas formas de entrenamiento",
+  "latestActivityReviewClear": "Última modalidad de entrenamiento",
+  "context": "{{discipline}} Análisis de registros",
+  "pmc": {
+    "title": "Formación y carga de entrenamiento",
+    "subtitle": "Canónico {{discipline}} Datos",
+    "loading": "Control de la carga de entrenamiento...",
+    "unavailable": "La tarjeta de carga de entrenamiento no está disponible en este momento. su vista de fitness existente sigue disponible.",
+    "accessibleStatus": "Estatuto de datos {{status}}La frescura {{freshness}}La calidad de la fuente {{quality}}",
+    "metrics": {
+      "ctl": "El tiempo de fitness (CTL)",
+      "atl": "El cansancio a corto plazo (ATL)",
+      "form": "El equilibrio de recuperación (TSB)"
+    },
+    "delta7d": "7 días de cambio {{value}}",
+    "asOf": "Como de {{value}}",
+    "sourceQuality": "frescura {{freshness}} · Fuente {{quality}}",
+    "questionsLabel": "Preguntas de ejemplo sobre su carga de entrenamiento actual",
+    "questions": {
+      "pmc_recent_load_change": "¿Cómo ha cambiado mi carga de entrenamiento en los últimos 7 días?",
+      "pmc_current_form_intensity": "¿Cómo puedo definir la intensidad de esta semana basada en mi forma actual?"
+    },
+    "status": {
+      "ok": "Verificado",
+      "partial": "Datos Parciales",
+      "stale": "Refrigerados necesarios",
+      "missing": "Datos perdidos"
+    },
+    "freshness": {
+      "fresh": "Actual",
+      "stale": "Estadio",
+      "missing": "Inadecuado"
+    },
+    "quality": {
+      "complete": "Completo",
+      "estimated": "En parte estimado",
+      "incomplete": "Incompleto",
+      "unavailable": "Inadecuado"
+    },
+    "interpretation": {
+      "normal_load": "Su carga actual está clasificada en el rango normal.",
+      "productive_load": "Su carga actual se clasifica en el rango de carga productiva.",
+      "high_load": "Su carga reciente se clasifica en el rango de alta carga.",
+      "recovery_review": "Revise su estado de recuperación antes de elegir la intensidad del entrenamiento.",
+      "insufficient_history": "No hay suficiente historia para concluir.",
+      "incomplete_data": "Algunos datos están faltando, por lo que no se muestra ninguna interpretación definitiva.",
+      "refresh_required": "Revisa los datos antes de revisar este estado de nuevo.",
+      "data_unavailable": "No hay datos disponibles para interpretar en este momento."
+    },
+    "safe": {
+      "partial": "Sólo se disponen datos parciales, por lo que no se muestra ninguna interpretación definitiva.",
+      "stale": "Estos datos son estancados, por lo que la interpretación definitiva y las preguntas vinculadas están desactivadas.",
+      "missing": "Los datos requeridos están faltando, por lo que la interpretación definitiva y las preguntas vinculadas están disueltas.",
+      "ok": ""
+    }
+  },
+  "rider": {
+    "title": "El Rider Insight",
+    "subtitle": "Canonical O·RIDER: El resultado de la duración de la potencia",
+    "loading": "Verificar las características de su caballero...",
+    "unavailable": "Rider Insight no está disponible en este momento. su resultado de Fitness PDC existente sigue disponible.",
+    "accessibleStatus": "El estado de análisis de Rider {{status}}, {{count}} Actividades canónicas",
+    "resultLabel": "El tipo de caballero",
+    "confidence": "{{value}}% cLa incredulidad",
+    "ability": "Capacidad total · porcentaje {{value}}",
+    "axis": {
+      "endurance": "Tendencia de duración · explosivo − / sostenido +",
+      "weight": "Tendencias de producción · energía cruda − / W/kg +"
+    },
+    "durationTitle": "Capacidad por duración",
+    "duration": {
+      "5s": "5 sec",
+      "1m": "1 minuto",
+      "5m": "5 minutos",
+      "20m": "20 minutos"
+    },
+    "strength": "fuerza",
+    "improve": "Mejorar",
+    "asOf": "Como de {{value}}",
+    "sourceNote": "Utiliza el PDC de potencia medida canónica O·RIDER. IDs de actividad, fechas y historia no se envían con solicitudes de inteligencia artificial.",
+    "questionsLabel": "Preguntas de ejemplo sobre su actual Rider Insight",
+    "questions": {
+      "RIDER_TYPE_STRENGTHS": "Explica mi tipo de caballero, fortalezas y áreas para mejorar.",
+      "RIDER_DURATION_PRIORITY": "¿Qué duración de tiempo debería entrenar primero?"
+    },
+    "status": {
+      "ok": "Verificado",
+      "missing": "No hay PDC",
+      "missing_weight": "El peso necesario",
+      "insufficient_activity": "No hay suficientes actividades",
+      "low_confidence": "La baja confianza",
+      "unsupported": "Desaporte"
+    },
+    "safe": {
+      "missing": "No hay PDC de potencia medida para clasificar aún. No se asegura ningún tipo de caballero.",
+      "missing_weight": "El peso es necesario para W/kgNo se afirma ningún tipo de caballero.",
+      "insufficient_activity": "Hay hay {{count}} No se asegura ningún tipo de caballero hasta que se disponga de al menos cinco.",
+      "low_confidence": "La confianza de clasificación está por debajo del límite, por lo que no se afirma ningún tipo de caballero, fuerza o mejoramiento.",
+      "unsupported": "Rider Insight está disponible para ciclismo.",
+      "ok": ""
+    }
+  },
+  "signInRequired": "Sigue para que el Coach AI pueda analizar sus registros de entrenamiento.",
+  "signIn": "Iniciar sesión",
+  "loadingStatus": "Conocer los usos disponibles hoy...",
+  "loadError": "El estado de AI Coach no puede ser cargado. por favor, vuelva a abrirlo en breve.",
+  "reloadStatus": "Revisa el estado de nuevo",
+  "loadingAnswer": "Verificar sus registros de entrenamiento y preparar una respuesta...",
+  "loadingHonest": "El servidor devolve sólo una respuesta completa, por lo que no se muestran etapas detalladas de procesamiento.",
+  "inputLabel": "Pregunta sobre mi entrenamiento",
+  "responseFormat": {
+    "tableCaption": "Tabla de grabación de entrenamiento",
+    "category": "Categoría",
+    "distributionChartLabel": "Grabación de la distribución de los registros de formación",
+    "showLess": "Mostrar menos",
+    "blockFallbackTitle": "Este resultado se muestra como una tabla",
+    "blockFallbackBody": "No hay suficientes valores numéricos válidos para un gráfico, por lo que se utiliza la tabla de datos verificada.",
+    "fallbackTitle": "Publicado en formato default",
+    "fallbackBody": "Esta respuesta no contiene datos de tendencia gráfica o distribución numérica, por lo que se utiliza el formato de defecto verificado."
+  },
+  "placeholder": {
+    "bike": "Por ejemplo: Resumen el promedio de la potencia de ciclismo de hoy, la velocidad cardíaca y la cadencia.",
+    "run": "Por ejemplo: Resumen la frecuencia cardíaca corriente, la cadencia, la duración y la distancia.",
+    "swim": "Por ejemplo: Resumen la velocidad cardíaca de natación de hoy, la duración y la distancia."
+  },
+  "submit": "Pregúntate",
+  "another": "Pregúntan otra pregunta",
+  "readError": {
+    "verification": "Verificar su conexión o si una extensión de navegador está bloqueando solicitudes, entonces intente de nuevo.",
+    "verificationWait": "La verificación de seguridad del navegador es temporalmente limitada. por favor, espere un momento antes de intentarlo de nuevo.",
+    "transport": "No puede verificar la respuesta del servidor. comprobar su conexión y intentarlo de nuevo.",
+    "auth": "Su sesión de inscripción no puede ser verificada. inscripción de nuevo, luego retiro.",
+    "service": "El servidor no pudo procesar la solicitud. por favor, intente de nuevo en breve.",
+    "unknown": "No se puede comprobar la información, por favor, vuelva a probar brevemente."
+  },
+  "history": {
+    "open": "Historia de conversaciones",
+    "eyebrow": "El entrenador",
+    "entryTitle": "Pregúntale al entrenador",
+    "entryDescription": "Revise su estado de entrenamiento y los pasos siguientes utilizando su historia de actividad.",
+    "signInTitle": "Comienza el coaching con tus datos de actividad",
+    "title": "Historia de conversaciones",
+    "description": "Las preguntas y las respuestas se almacenan en su cuenta hasta que se apaga la conversación o su cuenta.",
+    "signInRequired": "Inscribe para ver tu historia de conversación de AI Coach.",
+    "listTitle": "Conversaciones salvas",
+    "loading": "Historia de conversaciones...",
+    "loadFailed": "La historia de conversación no se puede cargar.",
+    "retry": "Volver a intentar",
+    "emptyTitle": "No hay conversaciones salvadas",
+    "emptyBody": "Pregúntale al entrenador y la conversación se salvará aquí.",
+    "selectTitle": "Seleccione una conversación",
+    "selectBody": "Revisa sus preguntas y respuestas, y luego continúa de ese contexto.",
+    "turnCount": "{{count}} Preguntas",
+    "turnNumber": "Torne {{count}}",
+    "you": "Tú",
+    "coachName": "El entrenador de Rider",
+    "loadMore": "Cargar más conversaciones",
+    "loadEarlierTurns": "Cargar mensajes anteriores",
+    "loadingThread": "La conversación seleccionada...",
+    "threadLoadFailed": "La conversación seleccionada no se puede cargar.",
+    "back": "Volver a la lista de conversaciones",
+    "followUpLabel": "Continúa esta conversación",
+    "followUpPlaceholder": "Por ejemplo: ¿Qué cambió en comparación con la semana pasada?",
+    "contextNote": "Para un seguimiento, hasta 3 preguntas y respuestas recientes de esta conversación (hasta 5 KiB combinados) se pueden utilizar para el procesamiento de IA externo.",
+    "followUp": "Pregúntate a su seguimiento",
+    "loadingQuota": "Conocer los usos disponibles hoy...",
+    "quotaLoadFailed": "La disponibilidad del entrenador no se puede comprobar",
+    "retryQuota": "Revisa la disponibilidad de nuevo",
+    "followUpTerminalSaved": "El resultado de la solicitud se salvó para esta conversación. ver el resultado para su estado de finalización.",
+    "followUpSaved": "La respuesta fue salvada y la última conversación fue cargada.",
+    "submitFailed": "No se puede hacer la pregunta, su proyecto se conserva.",
+    "sameRequestRetry": "Revisa la misma solicitud de nuevo",
+    "sameRequestRetryNote": "Verifica el resultado con el mismo formato de ID de solicitud y respuesta. no solicita un nuevo uso; el uso real sólo se confirma por la respuesta del servidor.",
+    "delete": "Eliminar la conversación",
+    "deleteNamed": "Eliminar {{title}} conversaciones",
+    "deleteTitle": "¿Elimina esta conversación?",
+    "deleteConfirm": "Todas las preguntas y respuestas en \"{{title}}“Se eliminará permanentemente y no se puede recuperar.",
+    "deleteAll": "Eliminar todo",
+    "deleteAllTitle": "¿Elimina todas las conversaciones de entrenador?",
+    "deleteAllConfirm": "Todas las conversaciones, preguntas y respuestas salvas serán eliminadas permanentemente y no se pueden recuperar.",
+    "readOnlyPrescription": "Una receta en la historia es sólo leído. Check in, apply, o roll back from the current plan."
+  },
+  "serviceUnavailable": {
+    "title": "El entrenador está preparado",
+    "body": "Las respuestas de la AI no están temporalmente disponibles. esta solicitud no utilizó una de las preguntas de hoy. por favor, intente de nuevo más tarde.",
+    "close": "Cerca y intenta más tarde"
+  },
+  "suggestions": {
+    "title": "Intento pedir",
+    "labels": {
+      "bike": {
+        "1": "FTP Objetivo Coaching",
+        "2": "Revisión del entrenamiento de hoy",
+        "3": "Preparación mensual"
+      },
+      "run": {
+        "1": "10K Cuerpo de Objetivo",
+        "2": "Revisión del entrenamiento de hoy",
+        "3": "Preparación mensual"
+      },
+      "swim": {
+        "1": "1500 m de coaching",
+        "2": "Revisión del entrenamiento de hoy",
+        "3": "Preparación mensual"
+      }
+    },
+    "bike": {
+      "1": "Quiero llegar a una FTP de 3.5 W/kgRevisa mi entrenamiento en el mes pasado, evalúa la distancia con mi objetivo y me entrena en la dirección correcta de la formación.",
+      "2": "Revise el entrenamiento de hoy, entrenarme en lo que ha ido bien y lo que mejorar, y sugiera lo que debería hacer en mi siguiente entrenamiento.",
+      "3": "Revise mi entrenamiento en el mes pasado y analiza mi fitness, fatiga y recuperación."
+    },
+    "run": {
+      "1": "Quiero correr un 50 minutos 10K. Revisar mi carrera durante el mes pasado, evaluar la distancia a mi objetivo, y entrenarme en la dirección correcta de entrenamiento.",
+      "2": "Revisa el curso de hoy, me entreno sobre lo que ha ido bien y lo que mejorar, y sugiera lo que debería hacer en mi siguiente curso.",
+      "3": "Revise mi carrera durante el mes pasado y analiza mi fitness, fatiga y recuperación."
+    },
+    "swim": {
+      "1": "Quiero nadar 1.500 m en 30 minutos. Revisar mi natación en el mes pasado, evaluar la distancia a mi objetivo, y entrenarme en la dirección correcta de entrenamiento.",
+      "2": "Revisa la natación de hoy, me entreno sobre lo que ha ido bien y lo que mejor, y sugiera lo que debería hacer en mi próxima natación.",
+      "3": "Revise mi natación en los últimos meses y analiza mi fitness, fatiga y recuperación."
+    }
+  },
+  "discipline": {
+    "bike": "Ciclismo",
+    "run": "Carrera",
+    "swim": "La natación"
+  },
+  "period": {
+    "default": "El período de la cuestión resuelto",
+    "current7d": "Últimos 7 días",
+    "current28d": "Últimos 28 días",
+    "previous28d": "28 días anteriores"
+  },
+  "goal": {
+    "included": "Objetivo incluido",
+    "notIncluded": "Objetivo no incluido"
+  },
+  "quota": {
+    "remaining": "{{count}} Usos dejados hoy",
+    "exhausted": "Los usos de hoy son completos · Disponible de nuevo después {{resetAt}}",
+    "previousConsumed": "Esta solicitud ya ha consumido uno de los usos de hoy."
+  },
+  "retry": {
+    "same": "Revisa la misma solicitud de nuevo",
+    "poll": "Verificar el resultado",
+    "replay": "Revisa el resultado almacenado de nuevo",
+    "newTurnTitle": "Intento como una nueva pregunta",
+    "newTurnConfirm": "¿Utilizar otro uso de hoy para preguntar de nuevo?",
+    "newTurnAction": "Utilice uno y pregunta otra vez"
+  },
+  "states": {
+    "network": {
+      "title": "La respuesta no se pudo confirmar",
+      "body": "Puedes comprobar el resultado con la misma solicitudId. El uso adicional se determina únicamente por la respuesta del servidor."
+    },
+    "compatibility": {
+      "title": "Esta respuesta no puede ser exhibida de forma segura",
+      "body": "La aplicación y los contratos de respuesta del Coach de la AI no coinciden. no se envió ninguna nueva pregunta automáticamente."
+    },
+    "terminal": {
+      "title": "Esta solicitud no puede ser procesada",
+      "body": "La misma solicitud no fue retirada y no se envió una nueva pregunta automáticamente. por favor escriba otra pregunta."
+    },
+    "ok": {
+      "body": ""
+    },
+    "insufficient_data": {
+      "body": "No hay suficientes registros de formación para esta análisis."
+    },
+    "stale": {
+      "body": "Algunos cálculos recientes están pendentes. Revisar las pruebas actuales también."
+    },
+    "unsupported": {
+      "body": "Los resumos recientes y las preguntas de comparación de 28 días están actualmente apoyados."
+    },
+    "quota_exceeded": {
+      "body": "Usted ha utilizado todas las preguntas de AI Coach disponibles hoy."
+    },
+    "budget_blocked": {
+      "body": "No se puede generar una explicación de la AI en el momento. por favor, ver más tarde."
+    },
+    "fallback": {
+      "body": "Sólo se muestra la orientación dentro del alcance seguro verificado."
+    }
+  },
+  "p2Unavailable": {
+    "title": "El último entrenamiento no se pudo completar",
+    "graph_feature_disabled": "Este curso de entrenamiento está desactivado actualmente. no se ha presentado ninguna nueva pregunta automáticamente.",
+    "rollout_ineligible": "Este curso de coaching no está disponible para esta cuenta. no se envió una nueva pregunta automáticamente.",
+    "rollout_dependency_unavailable": "Revisa la misma solicitud una vez que el componente requerido esté listo.",
+    "graph_execution_unavailable": "Verificar la misma solicitud de nuevo para el resultado. la solicitud no se cambió a otro camino de entrenamiento automáticamente.",
+    "latest_activity_missing": "No hay registro de entrenamiento reciente disponible para revisar. la solicitud no se cambió a otro camino de entrenamiento automáticamente."
+  },
+  "actions": {
+    "FOLLOW_EXISTING_PLAN": "Ver el plan existente",
+    "REVIEW_RECOVERY_BEFORE_TRAINING": "Recuperación Métriques",
+    "CHECK_MISSING_DATA": "Revisión de datos perdidos",
+    "OPEN_PLAN": "Plan de entrenamiento abierto",
+    "NO_ACTIVE_GOAL": "Establecer un objetivo de entrenamiento"
+  },
+  "evidence": {
+    "toggle": "Vista {{count}} elementos de evidencia"
+  },
+  "freshness": "Los datos de {{at}}",
+  "latestActivity": "Última actividad {{at}}",
+  "staleSources": "{{count}} Fuentes de datos que esperan la refresca",
+  "feedback": {
+    "label": "Rate esta respuesta",
+    "prompt": "¿Esta respuesta fue útil?",
+    "helpful": "Ayuda",
+    "notHelpful": "No útil"
+  },
+  "answer": {
+    "block": {
+      "narrative": "Conclusión",
+      "metric_grid": "El estado actual",
+      "comparison_table": "Comparativa de periodo",
+      "time_series": "tendencia",
+      "distribution": "Distribución",
+      "ranking": "Ranking",
+      "activity_list": "Actividades relacionadas",
+      "goal_progress": "Objetivo Progreso",
+      "plan_adherence": "Plan de adhesión",
+      "data_gap": "Verificación de datos",
+      "action": "Siguiente paso"
+    },
+    "template": {
+      "metric_summary": "Resumen de estado actual",
+      "comparison_summary": "Periodo de comparación resumen"
+    },
+    "metricLabel": "Metrico",
+    "metric": {
+      "activity_count": "Actividad contada",
+      "duration": "Duración de la actividad",
+      "distance": "Viaje a distancia",
+      "tss": "La carga de la carga (TSS)",
+      "ctl": "El tiempo de fitness (CTL)",
+      "atl": "El cansancio a corto plazo (ATL)",
+      "form": "El equilibrio de recuperación (TSB)",
+      "average_power": "poder medio",
+      "heart_rate": "Frecuencia cardíaca",
+      "cadence": "Cadencia",
+      "pace": "Ritmo",
+      "elevation": "Elevación",
+      "calories": "Calorías",
+      "zone_time": "Zona de tiempo",
+      "readiness": "Preparación",
+      "plan_completion": "Plano de cumplimiento"
+    },
+    "unit": {
+      "count": "",
+      "seconds": "sec",
+      "kilometers": "km",
+      "tss": "TSS",
+      "watts": "W",
+      "bpm": "bpm",
+      "rpm": "rpm",
+      "seconds_per_km": "sec/km",
+      "meters": "m",
+      "kcal": "Kcal",
+      "percent": "%",
+      "score": "Puntos",
+      "dimensionless": ""
+    },
+    "column": {
+      "current": "Actual",
+      "previous": "Anterior Comparable",
+      "delta": "Cambio"
+    },
+    "load": {
+      "title": "Análisis de carga de entrenamiento",
+      "comparisonCaption": "Comparar las cargas actuales",
+      "trendTitle": "Tendencias canónicas de servidor",
+      "sequenceLabel": "{{metric}} Valores de tendencia",
+      "showChart": "Ver gráfico y mesa",
+      "hideChart": "Esconde el mapa y la mesa",
+      "chartRegion": "Graficos de carga de entrenamiento y tablas de datos",
+      "goalTitle": "Título CTL",
+      "previousCanonical": "Canónico diario cerrado hace 7 días",
+      "weeklyTssTitle": "Esta semana de TSS",
+      "weeklyTssBasis": "El lunes a partir de ahora en su zona horaria",
+      "weeklyTrendCaption": "CTL canónico, ATL y forma semanal",
+      "canonicalPeriod": "Periodo canónico UTC",
+      "inProgress": "En el progreso",
+      "driversTitle": "Actividades de carga contribuyentes esta semana",
+      "goalResult": "Objetivo resultado",
+      "goalAchieved": "Objetivo alcanzado",
+      "goalNotAchieved": "No se ha logrado todavía",
+      "goalAchievedAt": "Primero logrado",
+      "bandTitle": "Formación de bandas políticas",
+      "bandMeta": "Catálogo de políticas {{catalog}}",
+      "currentBand": "Bandera actual {{band}}",
+      "none": "No hay clasificación",
+      "reasons": "Código de razón de decisión",
+      "missingSignal": "Datos para revisar: {{signal}}",
+      "confidence": {
+        "low": "La baja confianza",
+        "lowBody": "Los datos son insuficientes, por lo que no se proporciona una conclusión o una receta de formación sólida.",
+        "medium": "Análisis de confianza media",
+        "high": "Análisis de confianza alta"
+      },
+      "band": {
+        "recovery_review": {
+          "label": "Revisión de recuperación",
+          "explanation": "La forma es muy baja; revisar el estado de recuperación primero."
+        },
+        "high_load": {
+          "label": "Alta carga",
+          "explanation": "El formulario indica una alta carga de entrenamiento reciente."
+        },
+        "productive_load": {
+          "label": "carga productiva",
+          "explanation": "La carga de entrenamiento se acumula en este rango."
+        },
+        "normal": {
+          "label": "Normal",
+          "explanation": "Esta es la forma normal de la política."
+        },
+        "unknown": "Bandas desconocidas",
+        "unknownExplanation": "Esta barra de políticas no está apoyada por esta versión de la app."
+      }
+    },
+    "chart": {
+      "visualLabel": "El gráfico de tendencias de la serie proporcionada por el servidor",
+      "dataToggle": "Ver los datos de la serie de tiempo crudo",
+      "tableCaption": "Título de datos Trend",
+      "series": "Metrico",
+      "at": "En el",
+      "value": "Valor"
+    },
+    "goal": {
+      "current": "Actual",
+      "target": "Objetivo",
+      "progress": "Progreso"
+    },
+    "plan": {
+      "planned": "Planificado",
+      "completed": "Completo",
+      "missed": "{{count}} El Plan de los Objetos Perdidos",
+      "replacements": "{{count}} Actividades de reemplazo"
+    },
+    "gap": {
+      "title": "Algunos datos necesitan atención",
+      "body": "Revisa los artículos que están ausentes o que todavía se refrescan."
+    },
+    "state": {
+      "label": "Responder el estado de datos",
+      "partial": "Datos Parciales",
+      "stale": "Esperando la refresca",
+      "omitted": "{{count}} Descuidado por el servidor"
+    },
+    "more": "Show {{count}} Más artículos",
+    "action": {
+      "OPEN_ACTIVITY": "Actividad abierta",
+      "REVIEW_DATA_GAPS": "Revisión de datos perdidos",
+      "VIEW_TRAINING_LOAD": "Ver la carga de entrenamiento"
+    },
+    "fallback": {
+      "title": "Sólo una parte del resultado se muestra",
+      "body": "La solicitud no se completó, por lo que sólo se muestran bloques deterministas aprobados por el servidor."
+    },
+    "unsupportedBlock": {
+      "title": "Bloqueo de resultados no apoyados",
+      "body": "La carga de bloqueo crudo no se mostró. actualiza la aplicación web y intenta de nuevo."
+    },
+    "prescriptionDisabled": {
+      "title": "Las prescripciones no están aprobadas",
+      "body": "P1 no ejecuta ni muestra las prescripciones de entrenamiento."
+    },
+    "freshness": "Los datos de {{at}}",
+    "timezone": "Tímicos {{timezone}}"
+  },
+  "prescription": {
+    "title": "Siguiente Entrada siguiente: 7 días de ajuste",
+    "validUntil": "Valida hasta {{at}}",
+    "proposalNotice": "Esta es una propuesta y no se salva en su plan de entrenamiento hasta que lo confirme.",
+    "weekTitle": "Recomendado TSS La próxima semana",
+    "confidenceLabel": "La confianza",
+    "confidence": {
+      "low": "bajo",
+      "medium": "Medios",
+      "high": "Alta"
+    },
+    "dataAsOf": "Los datos de",
+    "factsId": "Fatos de ID",
+    "planRevision": "Revisión del Plan",
+    "rulesVersion": "Versión de Reglas",
+    "none": "Ninguno",
+    "duration": "{{minutes}} Min",
+    "targetTss": "Objetivo TSS {{value}}",
+    "reassessTitle": "Reacciones antes de la formación",
+    "maxAge": "Medidas dentro {{hours}} Hores",
+    "evidence": "{{count}} elementos de evidencia",
+    "action": {
+      "rest": "descansar",
+      "recovery": "Recuperación",
+      "follow_plan": "Seguir el plan",
+      "modified_workout": "Modificación de entrenamiento",
+      "reassess": "Reacción"
+    },
+    "workout": {
+      "rest": "descansar",
+      "recovery": "Recuperación",
+      "z2": "Z2",
+      "tempo": "Tempo",
+      "sweet_spot": "El lugar dulce",
+      "threshold": "Fronteras",
+      "vo2max": "El 2o max",
+      "planned": "Entrenamiento Planificado"
+    },
+    "metric": {
+      "form": "Forma",
+      "rhr_delta_pct": "Cambios de HR",
+      "hrv_delta_pct": "Cambios en HRV",
+      "sleep_hours": "Horas de sueño",
+      "hours_since_high_intensity": "Hores desde la alta intensidad"
+    },
+    "operator": {
+      "gte": "Al menos",
+      "gt": "Más que",
+      "lte": "En la mayoría",
+      "lt": "menos que"
+    },
+    "signal": {
+      "subjective_fatigue": "cansancias",
+      "soreness": "Sorrento",
+      "pain_or_illness": "Dolor o enfermedad"
+    },
+    "option": {
+      "subjective_fatigue": {
+        "normal": "Normal",
+        "tired": "cansado"
+      },
+      "soreness": {
+        "none": "Ninguno",
+        "present": "Presente"
+      },
+      "pain_or_illness": {
+        "none": "Ninguno",
+        "present": "Presente"
+      }
+    },
+    "checkin": {
+      "title": "Se necesita más información para evaluar la recuperación",
+      "body": "Seleccione cada respuesta, luego confirme. los artículos no respondidos permanecen desconocidos y nunca se registran automáticamente como normal.",
+      "assumedDefaults": "Calculado con su estado habitual.",
+      "assuming": "Calcular...",
+      "adjust": "Hoy es diferente",
+      "submit": "Confirmar",
+      "cancel": "Respuestas claras",
+      "loading": "El check-in de disponibilidad...",
+      "loadRetry": "Revisión de la disponibilidad",
+      "unavailable": "El check-in no está disponible actualmente.",
+      "submitting": "El control...",
+      "networkError": "El resultado de la presentación no puede ser confirmado. se puede retirar la misma solicitud.",
+      "retry": "Retiro",
+      "reanalyze": "Los datos o el plan cambiaron o la ventana de check-in expiró.",
+      "newAnalysis": "Comienza una nueva análisis",
+      "error": "No se puede aplicar el check-in. por favor, comience una nueva análisis en breve.",
+      "noCharge": "No hay uso adicional · 0 llamadas AI"
+    },
+    "insufficient": {
+      "title": "Se necesitan más datos para una receta",
+      "body": "Revise los datos que faltan o siga con su plan existente."
+    },
+    "existingPlan": "Ver el plan existente",
+    "safety": {
+      "title": "No se muestra ninguna prescripción de entrenamiento",
+      "body": "Deje de hacer ejercicio si tienes dolor o enfermedad y busque ayuda médica cuando sea necesario."
+    }
+  },
+  "progress": {
+    "origin": {
+      "aiCoach": "Propuesta de entrenador",
+      "separate": "Esta propuesta se distingue de los ajustes semanales automáticos. el servidor rechaza el plan actual de conflictos."
+    },
+    "review": {
+      "title": "Revisión del plan de cambios",
+      "body": "Seleccione las fechas, luego revise el servidor derivado antes, después, las razones y las pruebas.",
+      "selectDates": "Datas de candidatos",
+      "create": "Previsiones de cambios",
+      "creating": "Verificar los cambios...",
+      "before": "Antes",
+      "after": "Después",
+      "reasons": "Razones",
+      "refresh": "Revisor de la actual situación",
+      "noCharge": "Leer y preview: 0 llamadas de AI · 0 cuota · 0 plan escritos"
+    },
+    "confirm": {
+      "review": "Revisión de la acción",
+      "final": "Confirmar y aplicar al plan",
+      "title": "confirmación final",
+      "body": "Sólo el siguiente botón presiona pide al servidor que rechace el consentimiento y las revisiones y cambie el plan."
+    },
+    "rollback": {
+      "action": "Retorno a los cambios aplicados"
+    },
+    "states": {
+      "loading": "Capacidad de control de plan.",
+      "unavailable": "El estado de capacidad de planificación no está disponible",
+      "proposalDisabled": "La creación propuesta está actualmente desactivada. su plan existente sigue sin cambios.",
+      "confirmDisabled": "La aplicación está desactivada, por lo que su plan no cambiará.",
+      "confirmRecoveryUnavailable": "La propuesta recuperada no tiene credenciales de confirmación y está leída.",
+      "applied": "Se aplicó al plan una vez",
+      "reverted": "Recuperar el auditor antes del Estado",
+      "receipt": "Revisión de registros {{id}}",
+      "stale": "El plan, check-in semanal o consentimiento cambiaron, por lo que esta propuesta no puede ser aplicada.",
+      "disabled": "Esta capacidad de cambio está actualmente disminuida.",
+      "conflict": "Un plan posterior cambia los conflictos con esta acción, por lo que nada se ha cambiado.",
+      "error": "El estado de cambio no puede ser verificado. su plan existente sigue sin cambios.",
+      "reanalyze": "Recueye con una nueva análisis",
+      "retryConfirm": "Retirar la misma solicitud de aplicación",
+      "retryRollback": "Retirar la misma solicitud de rollback"
+    },
+    "questions": {
+      "label": "Pregúntale sobre este resultado",
+      "priority": "¿Cuál es el entrenamiento más importante en el plan de esta semana?",
+      "changed": "Explica lo que cambió debido a mis resultados recientes de la finalización.",
+      "linked": "Pregunta relacionada con este resultado de la solicitud"
+    },
+    "reason": {}
+  },
+  "clarification": {
+    "title": "Por favor, haga la pregunta un poco más específica",
+    "policy": "Esta elección: {{quota}} · {{provider}} ¿Qué llamadas",
+    "policyContinue": "No hay turnos adicionales {{provider}} ¿Qué llamadas",
+    "policyNewTurn": "Después de la confirmación, esto utiliza una nueva pregunta y puede hacer hasta una llamada de AI",
+    "noCharge": "No hay uso adicional",
+    "newTurn": "Una nueva pregunta",
+    "expired": "La selección ha terminado. por favor, ver más una pregunta.",
+    "submit": "Sigue con esta elección",
+    "newTurnConfirm": "Submitir esta elección como una nueva pregunta utiliza una de las torres de hoy.",
+    "prompt": {
+      "time_range": "¿Qué periodo se debe analizar?",
+      "discipline": "¿Qué disciplina se debe analizar?",
+      "generic": "Elegir una condición de análisis adicional"
+    },
+    "option": {
+      "this_week": "Esta semana",
+      "last_week": "La semana pasada",
+      "bike": "Ciclismo",
+      "run": "Carrera",
+      "swim": "La natación",
+      "generic": "{{value}}"
+    }
+  },
+  "unsupportedV2": {
+    "title": "Esta pregunta aún no está respaldada",
+    "body": "Trate de preguntar sobre resumen, comparaciones, tendencias, clasificaciones de actividades, objetivos o adhesión al plan.",
+    "suggestions": "Cómo revisar tu pregunta"
+  },
+  "v2State": {
+    "quota_exceeded": "Has utilizado todas las preguntas disponibles hoy.",
+    "budget_blocked": "No se puede generar una respuesta debido al límite presupuestario actual de la IA.",
+    "failed": "La respuesta no podía ser completada.Cualquier resultado parcial mostrado se limita al alcance seguro verificado."
+  },
+  "ridePlan": {
+    "questions": {
+      "linked": "Enlace a esta revisión exacta de la entrada del Plan de Ride"
+    }
+  }
+}

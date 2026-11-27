@@ -47,6 +47,7 @@ function hubSurfaceMock(testId: string) {
         <a href="/ko/club/club-1">club detail</a>
         <a href="/ko/explore/events?type=race">events tab</a>
         <a href="https://example.com/rules">external</a>
+        <a href="/web-manual/ja/ch06-advanced.html#s6-3">localized manual</a>
       </div>;
     },
   };
@@ -539,5 +540,11 @@ describe("app tab hub embeds", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "external" }));
     expect(bridge.sent).toContainEqual({ type: "navigation.openExternal", payload: { url: "https://example.com/rules" }, requestId: undefined });
+    fireEvent.click(screen.getByRole("link", { name: "localized manual" }));
+    expect(bridge.sent).toContainEqual({
+      type: "navigation.openExternal",
+      payload: { url: window.location.origin + "/web-manual/ja/ch06-advanced.html#s6-3" },
+      requestId: undefined,
+    });
   });
 });
