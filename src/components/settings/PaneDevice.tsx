@@ -43,6 +43,7 @@ import {
 } from "./_primitives";
 import { Resolvable } from "../redesign/states/Resolvable";
 import { useSignInResolve } from "../../hooks/useSignInResolve";
+import { FtpDevicesCard } from "./FtpDevicesCard";
 import { LayoutEditorCard } from "./LayoutEditorCard";
 import { Button, Card, DropdownSelect, IconButton, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -584,11 +585,15 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
 }
 
 export function PaneDevice() {
-  const { t, i18n } = useTranslation("settings");
   const { user } = useAuth();
+  const uid = user?.uid ?? null;
+  return <AccountDeviceSettings key={uid} uid={uid} />;
+}
+
+function AccountDeviceSettings({ uid }: { uid: string | null }) {
+  const { t, i18n } = useTranslation("settings");
   const { showToast } = useToast();
   const dialog = useDialog();
-  const uid = user?.uid ?? null;
   const signInResolve = useSignInResolve();
   const { records, loading, error, reload, update, broadcastUserScoped } =
     useAllDeviceSettings(uid);
@@ -763,31 +768,32 @@ export function PaneDevice() {
       </SettingsCard>
     );
   }
+  const ftpDevices = <FtpDevicesCard key={uid} uid={uid} names={new Map(records.map((device) => [device.deviceId, device.deviceName]))} />;
   if (loading) {
     return (
-      <SettingsCard data-testid="S6.loading" title={t("device.mobileSync")}>
+      <><SettingsCard data-testid="S6.loading" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.loading")}
         </div>
-      </SettingsCard>
+      </SettingsCard>{ftpDevices}</>
     );
   }
   if (error) {
     return (
-      <SettingsCard data-testid="S6.error" title={t("device.mobileSync")} danger>
+      <><SettingsCard data-testid="S6.error" title={t("device.mobileSync")} danger>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--rose)" }}>
           <Resolvable resolve={{ onClick: () => void reload() }}>{t("device.loadFailed", { message: error.message })}</Resolvable>
         </div>
-      </SettingsCard>
+      </SettingsCard>{ftpDevices}</>
     );
   }
   if (!record) {
     return (
-      <SettingsCard data-testid="S6.noDevice" title={t("device.mobileSync")}>
+      <><SettingsCard data-testid="S6.noDevice" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.noDevice")}
         </div>
-      </SettingsCard>
+      </SettingsCard>{ftpDevices}</>
     );
   }
 
@@ -981,6 +987,7 @@ export function PaneDevice() {
         <ScopeBadge scope="device" />
       </div>
 
+      {ftpDevices}
       <LocalizedLink to="/coach/condition#thresholds" className="ds-tap-target">{t("device.thresholdSource")}</LocalizedLink>
       <div
         style={{

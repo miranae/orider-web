@@ -145,6 +145,15 @@ describe("PaneDevice 경고·알림 → 해결", () => {
     expect(mocks.reload).toHaveBeenCalled();
   });
 
+  it("계정 전환 시 같은 기기 ID가 있어도 이전 계정의 편집 상태를 버린다", () => {
+    const view = renderPane();
+    fireEvent.click(within(screen.getByTestId("S6-2-1")).getByRole("button", { name: "편집" }));
+    expect(within(screen.getByTestId("S6-2-1")).getByRole("button", { name: "저장" })).toBeTruthy();
+    mocks.user = { uid: "uid-b" };
+    view.rerender(<MemoryRouter><PaneDevice /></MemoryRouter>);
+    expect(within(screen.getByTestId("S6-2-1")).queryByRole("button", { name: "저장" })).toBeNull();
+  });
+
   it("설정 카드의 편집은 글자 없는 연필 아이콘 버튼이다", () => {
     renderPane();
     const edit = within(screen.getByTestId("S6-2-1")).getByRole("button", { name: "편집" });
