@@ -311,6 +311,30 @@ describe("group list hooks", () => {
     expect(result.current.error).toBe(err);
   });
 
+  it("계정이 바뀌면 첫 렌더부터 이전 계정의 클럽 목록을 내보내지 않는다 (#1842)", async () => {
+    activeMember("secret-club", "user-a");
+    const pending = new Promise<never>(() => {});
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: [{ id: "secret-club", data: () => ({ name: "비공개 클럽", creatorId: "user-a", isActive: true }) }] } as never)
+      // B 의 조회는 끝나지 않게 둔다 — 남은 것은 렌더가 무엇을 내보내는지뿐이다.
+      .mockReturnValueOnce(pending as never)
+      .mockReturnValueOnce(pending as never);
+    const renders: Array<{ uid: string; ids: string[]; loading: boolean }> = [];
+    const { result, rerender } = renderHook(({ uid }) => {
+      const value = useMyGroups(uid);
+      renders.push({ uid, ids: value.groups.map((group) => group.id), loading: value.loading });
+      return value;
+    }, { initialProps: { uid: "user-a" } });
+    await waitFor(() => expect(result.current.groups.map((group) => group.id)).toEqual(["secret-club"]));
+
+    rerender({ uid: "user-b" });
+    const asB = renders.filter((entry) => entry.uid === "user-b");
+    expect(asB.length).toBeGreaterThan(0);
+    expect(asB.every((entry) => entry.ids.length === 0 && entry.loading)).toBe(true);
+    expect(result.current.error).toBeNull();
+  });
+
   it("discovers a group creator when the user_groups lookup index is missing", async () => {
     activeMember("creator-group", "user-1");
     vi.mocked(getDocs)

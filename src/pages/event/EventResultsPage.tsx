@@ -167,7 +167,7 @@ export default function EventResultsPage() {
   useEffect(() => { setCsvNotice(null); }, [eventId]);
   const groupId = eventHead?.groupId;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
-  const { eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
+  const { eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true, user?.uid);
 
   const shareResults = async () => {
     if (!eventHead) return;
