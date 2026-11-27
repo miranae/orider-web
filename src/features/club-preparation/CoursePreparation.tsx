@@ -26,7 +26,7 @@ import "./coursePreparation.css";
 import {
   checkpointDistanceValue,
   checkpointTypeLabel,
-  oneDecimal,
+  twoDecimals,
 } from "./checkpointPresentation";
 type ImportPlan = CoursePlan & { courseHighlights?: string };
 type Mode = "saved-course" | "gpx" | "segments" | "builtin";
@@ -48,7 +48,7 @@ const MODE_LABELS: Record<Mode, string> = {
 const metric = (value: number | undefined, unit: string) =>
   value === undefined
     ? mt("미정")
-    : `${oneDecimal(value).toLocaleString()}${unit}`;
+    : `${twoDecimals(value).toLocaleString()}${unit}`;
 interface CoursePreparationProps {
   meeting: Meeting;
   onChange: (meeting: Meeting) => void;
@@ -659,7 +659,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
                                   distanceKm:
                                     event.target.value === ""
                                       ? undefined
-                                      : oneDecimal(Number(event.target.value)),
+                                      : twoDecimals(Number(event.target.value)),
                                 }
                               : item,
                           ),

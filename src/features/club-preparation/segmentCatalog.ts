@@ -3,7 +3,7 @@ import { z } from "zod";
 import { decodePolyline } from "../../utils/polyline";
 import { fetchStaticJson } from "../../utils/staticJson";
 import { segmentTileUrl } from "../../utils/segmentTiles";
-import { oneDecimal } from "./checkpointPresentation";
+import { twoDecimals } from "./checkpointPresentation";
 const geometrySchema = z
   .array(
     z.object({
@@ -250,4 +250,4 @@ export function selectSegment(
 export const segmentDistance = (s: SegmentChoice) =>
   s.distance === undefined
     ? "—"
-    : `${oneDecimal(s.distance / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })} km`;
+    : `${twoDecimals(s.distance / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 2 })} km`;

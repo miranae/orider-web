@@ -25,11 +25,11 @@ const TYPE_LABELS: Record<string, string> = {
 export function checkpointTypeLabel(type?: string): string {
   return type ? mt(TYPE_LABELS[type.trim().toUpperCase()] ?? type) : "";
 }
-// 화면에 보이는 숫자는 소수점 한 자리까지만 쓴다(끝자리 0 은 뺀다).
-const decimalFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1, useGrouping: false });
-export function oneDecimal(value: number): number {
+// 화면에 보이는 숫자는 소수 둘째 자리를 넘는 것만 줄인다(끝자리 0 은 뺀다).
+const decimalFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2, useGrouping: false });
+export function twoDecimals(value: number): number {
   return Number.isFinite(value) ? Number(decimalFormatter.format(value)) : value;
 }
 export function checkpointDistanceValue(distanceKm?: number): string {
-  return distanceKm === undefined ? "" : String(oneDecimal(distanceKm));
+  return distanceKm === undefined ? "" : String(twoDecimals(distanceKm));
 }
