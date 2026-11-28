@@ -66,7 +66,7 @@ function copyFor(language: string) {
       ? "포스터에 담을 활동과 사진을 고르세요. 사진이 없거나 사진을 쓰고 싶지 않으면 경로가 중심인 포스터로 보낼 수 있습니다."
       : "Choose the activity and photo for the poster. If there is no photo, or you prefer not to use one, send a route-focused poster.",
     loading: ko ? "최근 활동과 사진을 불러오는 중" : "Loading recent rides and photos",
-    preferredUnavailable: ko ? "이 기록은 포스터로 만들 수 없습니다. 최근 90일 자전거 기록만 가능합니다." : "This activity can't be used. Only cycling activities from the last 90 days work.",
+    preferredUnavailable: ko ? "이 기록은 포스터로 만들 수 없습니다. 최근 90일 자전거 기록만 가능합니다." : "This activity can't be made into a poster. Only cycling activities from the last 90 days are supported.",
     noOptions: ko ? "최근 90일 안에 포스터로 만들 자전거 활동이 없습니다." : "No cycling activities from the last 90 days are available for a poster.",
     noPhotos: ko ? "경로 포스터 선택" : "Use route poster",
     noPhotoItems: ko ? "업로드된 활동 사진이 없습니다. 왼쪽 경로 포스터를 선택하세요." : "No uploaded activity photos. Choose the route poster on the left.",
@@ -176,7 +176,9 @@ async function loadOptions(firestore: Firestore, userId: string, language: strin
   return activities
     .filter((activity): activity is RideStoryActivityOption => Boolean(activity))
     .sort((a, b) => b.startTime - a.startTime)
-    .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0));
+    .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0))
+    // 넘겨받은 활동은 맨 위 — 선택돼도 목록 아래에 묻혀 다른 활동이 골라진 것처럼 보이지 않게(#1920).
+    .sort((a, b) => Number(b.id === preferredActivityId) - Number(a.id === preferredActivityId));
 }
 
 export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, onPreview, preferredActivityId = null }: RideStoryPhotoPickerProps) {
