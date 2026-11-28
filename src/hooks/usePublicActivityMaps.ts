@@ -75,7 +75,7 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
     };
     startSource();
     let worldActive = false;
-    const worldEndpoint = activityMapWorldEndpoint(services.firestore.app.options.projectId, sdkUser);
+    const worldEndpoint = activityMapWorldEndpoint(services.firestore?.app?.options?.projectId, sdkUser);
     // 월드 신호가 붙어도 Firestore 신호는 계속 듣는다(g1-web#4214). Redis 전용 쓰기에서도 발행 실패 시 서버가 문서에 대신 쓴다.
     const stopWorld = worldEndpoint
       ? subscribeActivityMapSignals(services, sdkUser, worldEndpoint, ids, (ready, failed) => {
