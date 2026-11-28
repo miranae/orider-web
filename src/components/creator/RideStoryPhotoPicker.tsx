@@ -66,6 +66,7 @@ function copyFor(language: string) {
       ? "포스터에 담을 활동과 사진을 고르세요. 사진이 없거나 사진을 쓰고 싶지 않으면 경로가 중심인 포스터로 보낼 수 있습니다."
       : "Choose the activity and photo for the poster. If there is no photo, or you prefer not to use one, send a route-focused poster.",
     loading: ko ? "최근 활동과 사진을 불러오는 중" : "Loading recent rides and photos",
+    preferredUnavailable: ko ? "이 기록은 포스터로 만들 수 없습니다. 최근 90일 자전거 기록만 가능합니다." : "This activity can't be made into a poster. Only cycling activities from the last 90 days are supported.",
     noOptions: ko ? "최근 90일 안에 포스터로 만들 자전거 활동이 없습니다." : "No cycling activities from the last 90 days are available for a poster.",
     noPhotos: ko ? "경로 포스터 선택" : "Use route poster",
     noPhotoItems: ko ? "업로드된 활동 사진이 없습니다. 왼쪽 경로 포스터를 선택하세요." : "No uploaded activity photos. Choose the route poster on the left.",
@@ -116,7 +117,7 @@ function formatDuration(minutes: number, ko: boolean) {
   return ko ? `${h}시간 ${m}분` : `${h} h ${m} min`;
 }
 
-async function loadOptions(firestore: Firestore, userId: string, language: string, sportLabel: (type: string) => string): Promise<RideStoryActivityOption[]> {
+async function loadOptions(firestore: Firestore, userId: string, language: string, sportLabel: (type: string) => string, preferredActivityId: string | null = null): Promise<RideStoryActivityOption[]> {
   const activitiesRef = collection(firestore, "activities");
   const now = Date.now();
   const since = now - 90 * 24 * 60 * 60 * 1000;
@@ -129,12 +130,16 @@ async function loadOptions(firestore: Firestore, userId: string, language: strin
   ));
   // Same eligibility as the server recipe loader; filter before limiting so non-rides
   // cannot crowd valid cycling activities out of the selection list.
-  const eligible = activitySnap.docs.filter((activityDoc) => {
+  const eligibleAll = activitySnap.docs.filter((activityDoc) => {
     const data = activityDoc.data() as Record<string, unknown>;
     return !data.deletedAt && !data.isDeleted && matchesDiscipline(data.type, "bike")
       && typeof data.startTime === "number" && Number.isFinite(data.startTime)
       && data.startTime >= since && data.startTime <= now;
-  }).sort((left, right) => safeNumber(right.data().startTime) - safeNumber(left.data().startTime)).slice(0, 12);
+  }).sort((left, right) => safeNumber(right.data().startTime) - safeNumber(left.data().startTime));
+  // 상위 12개만 보이되, 앱에서 넘겨받은 활동은 대상이면 12개 밖이어도 넣는다 — 말없이 다른 활동을 고르지 않게(#1920).
+  const eligible = eligibleAll.slice(0, 12);
+  const preferredDoc = preferredActivityId ? eligibleAll.find((activityDoc) => activityDoc.id === preferredActivityId) : undefined;
+  if (preferredDoc && !eligible.includes(preferredDoc)) eligible.push(preferredDoc);
   const activities = await Promise.all(eligible.map(async (activityDoc) => {
     const data = activityDoc.data() as Record<string, unknown>;
     const summary = (data.summary ?? {}) as Record<string, unknown>;
@@ -171,7 +176,9 @@ async function loadOptions(firestore: Firestore, userId: string, language: strin
   return activities
     .filter((activity): activity is RideStoryActivityOption => Boolean(activity))
     .sort((a, b) => b.startTime - a.startTime)
-    .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0));
+    .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0))
+    // 넘겨받은 활동은 맨 위 — 선택돼도 목록 아래에 묻혀 다른 활동이 골라진 것처럼 보이지 않게(#1920).
+    .sort((a, b) => Number(b.id === preferredActivityId) - Number(a.id === preferredActivityId));
 }
 
 export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, onPreview, preferredActivityId = null }: RideStoryPhotoPickerProps) {
@@ -187,6 +194,8 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
   const [uploadingActivityId, setUploadingActivityId] = useState<string | null>(null);
   // 「사진 목록을 불러오지 못했습니다」를 누르면 다시 읽는다(읽는 동안은 문구가 내려가 거듭 누를 수 없다).
   const [loadAttempt, setLoadAttempt] = useState(0);
+  // 넘겨받은 활동이 대상이 아니라 목록에 없을 때 — 다른 활동을 미리 고르지 않고 알린다.
+  const [preferredMissing, setPreferredMissing] = useState(false);
 
   useEffect(() => {
     if (!open || !userId) return;
@@ -195,11 +204,18 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
     setError(null);
     setOptions([]);
     setSelection(null);
-    void loadOptions(photoServices.firestore, userId, i18n.language, type => t(getSportLabelKey(type)))
+    setPreferredMissing(false);
+    void loadOptions(photoServices.firestore, userId, i18n.language, type => t(getSportLabelKey(type)), preferredActivityId)
       .then((nextOptions) => {
         if (!active) return;
         setOptions(nextOptions);
-        const preferred = nextOptions.find((activity) => activity.id === preferredActivityId)
+        const requested = preferredActivityId ? nextOptions.find((activity) => activity.id === preferredActivityId) ?? null : null;
+        if (preferredActivityId && !requested) {
+          setPreferredMissing(true);
+          setSelection(null);
+          return;
+        }
+        const preferred = requested
           ?? nextOptions.find((activity) => activity.photos.length > 0) ?? nextOptions[0] ?? null;
         setSelection(preferred ? { activityId: preferred.id, photoId: preferred.photos[0]?.id ?? null } : null);
       })
@@ -288,6 +304,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
             <PickerMessage><Resolvable resolve={{ to: "/athlete/me/activities?import=1" }}>{copy.noOptions}</Resolvable></PickerMessage>
           ) : (
             <div className="space-y-4">
+              {preferredMissing && <p data-testid="ride-story-preferred-unavailable" className="text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.preferredUnavailable}</p>}
               {options.map((activity) => (
                 <RideStoryActivityRow
                   key={activity.id}

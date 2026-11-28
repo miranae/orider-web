@@ -200,6 +200,41 @@ it("only offers recent, completed, undeleted cycling activities accepted by the 
   expect(titles.map((title) => title.textContent)).toEqual(["최신 산악 라이딩", "가상 라이딩"]);
 });
 
+// #1920 — 앱이 넘겨준 활동은 상위 12개 밖이어도 넣고, 대상이 아니면 다른 활동을 말없이 고르지 않는다.
+it("keeps the app's activity even beyond the 12 most recent rides", async () => {
+  const now = Date.now();
+  setCollectionDocs("activities", Array.from({ length: 14 }, (_, index) => ({
+    id: `ride-${index}`, userId: "test-uid", name: `라이딩 ${index}`, type: "Ride",
+    startTime: now - (index + 1) * 86_400_000, summary: { distance: 20000 },
+  })));
+  renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" preferredActivityId="ride-13" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated: true });
+  expect(await screen.findByText("라이딩 13")).toBeInTheDocument();
+  expect(screen.queryByText("라이딩 12")).not.toBeInTheDocument();
+  const titles = screen.getAllByRole("heading", { level: 3 });
+  expect(titles).toHaveLength(13);
+  expect(titles[0]).toHaveTextContent("라이딩 13");
+  // 맨 위 행의 경로 포스터가 눌린 것 — 기본 선택(가장 최근 활동)이 아니라 넘겨받은 활동이다.
+  await waitFor(() => expect(screen.getAllByRole("button", { name: /경로 포스터 선택/ })
+    .map(button => button.getAttribute("aria-pressed"))).toEqual(["true", ...Array(12).fill("false")]));
+  expect(screen.queryByTestId("ride-story-preferred-unavailable")).not.toBeInTheDocument();
+});
+
+it("says so instead of silently choosing another ride when the app's activity is not eligible", async () => {
+  const now = Date.now();
+  setCollectionDocs("activities", [
+    { id: "run", userId: "test-uid", name: "달리기", type: "Run", startTime: now - 86_400_000, summary: { distance: 5000 } },
+    { id: "ride", userId: "test-uid", name: "최근 라이딩", type: "Ride", startTime: now - 2 * 86_400_000, summary: { distance: 20000 } },
+  ]);
+  renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" preferredActivityId="run" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} onPreview={vi.fn()} />, { authenticated: true });
+  expect(await screen.findByTestId("ride-story-preferred-unavailable")).toHaveTextContent("이 기록은 포스터로 만들 수 없습니다");
+  expect(screen.getByText("최근 라이딩")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /경로 포스터 선택/ })
+    .filter(button => button.getAttribute("aria-pressed") === "true")).toHaveLength(0);
+  expect(screen.getByRole("button", { name: "선택 결과 미리보기" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: /경로 포스터 선택/ }));
+  expect(screen.getByRole("button", { name: "선택 결과 미리보기" })).toBeEnabled();
+});
+
 it("shows an honest empty state when no server-eligible cycling activity exists", async () => {
   setCollectionDocs("activities", [{ id: "run-only", userId: "test-uid", type: "Run", name: "달리기", startTime: Date.now() - 86_400_000 }]);
   renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated: true });
