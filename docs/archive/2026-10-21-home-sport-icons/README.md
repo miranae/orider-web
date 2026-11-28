@@ -12,4 +12,4 @@
 복구 후 MTB·실내 자전거는 사이클, 트레킹은 러닝 기본 그림을 사용합니다. 세부 종목 이름과 접근성 설명은 유지합니다.
 
 다시 적용하려면 이 폴더의 `src/` 파일을 동일한 저장소 경로로 복사한 뒤 import와 호출부를 검토하세요.
-보관본은 런타임 import에 연결하지 않습니다. 디자인 실험 이력은 `docs/reviews/2026-10-19-home-mobile/sport-icons.md`를 참고하세요.
+보관본은 런타임 import에 연결하지 않습니다. 디자인 실험 이력은 `docs/archive/reviews/2026-10-19-home-mobile/sport-icons.md`를 참고하세요.
