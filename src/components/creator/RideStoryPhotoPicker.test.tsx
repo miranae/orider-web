@@ -139,8 +139,8 @@ it("uses the feed description and readable date/sport fallbacks instead of docum
   expect(row).toHaveTextContent("이동거리 12.3 km · 활동시간 2시간 32분 · 상승고도 149 m");
   expect(screen.getByText("12.3 km").parentElement).toHaveClass("ride-story-metric");
   const send = screen.getByRole("button", { name: "이메일로 받기" });
-  expect(send.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
-  expect(send.querySelector(".ds-btn__label svg")).toBeNull();
+  // #1925 — 두 칸 한 줄에서 줄바꿈되지 않게 아이콘 없이 글자만 둔다.
+  expect(send.querySelector("svg")).toBeNull();
 });
 
 it("returns focus to its trigger when closed and supports Escape", async () => {
