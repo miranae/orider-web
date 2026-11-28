@@ -472,3 +472,25 @@ it("월드 프레임이 없는 LIVE 운영 관전에서만 장애 폴백을 켜�
   rerender();
   expect(outage.active.at(-1)).toBe(false);
 });
+
+it("월드 프레임이 주행자를 모두 담는 동안 운영 관전 위치 신호로는 다시 읽지 않는다(#1931)", async () => {
+  world.production = true;
+  world.spectatorSignals = true;
+  control.request.mockImplementation(async () => ({data: data()}));
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  let frame = serverFrame(1);
+  world.subscribe.mockImplementation((_e, _u, _t, _v, signal) => signal ? null : frame);
+  rerender();
+  expect(openLocationSignals()).toHaveLength(0);
+  const socket = world.subscribe.mock.calls.findLast(call => call[4]?.topic === "spectator");
+  act(() => socket?.[4]?.changed("1790000000:000000000"));
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(control.request).toHaveBeenCalledTimes(1);
+  // 권한 끊김은 커버 중에도 화면을 비우고 다시 확인한다.
+  frame = serverFrame(2);
+  rerender();
+  act(() => socket?.[4]?.disconnected(4003));
+  expect(result.current.data).toBeNull();
+});

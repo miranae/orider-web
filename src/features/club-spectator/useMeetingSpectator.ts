@@ -54,7 +54,9 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
   useWorldEvent(spectatorRedis ? eventId : undefined, viewer, undefined, undefined, {
     topic: "spectator",
-    changed: () => spectatorSignal.current(),
+    // 월드 프레임이 주행자를 모두 담는 동안 위치 신호는 문서 리스너처럼 쉰다(#1931). 커버가 빠질 때·명단이 바뀔 때·권한 끊김은
+    // 아래 효과와 disconnected 가 따로 다시 읽는다.
+    changed: () => { if (!worldCoversRef.current) spectatorSignal.current(); },
     disconnected: code => spectatorSignal.current(code),
   }, undefined, false, true);
   useEffect(() => {
