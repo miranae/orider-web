@@ -106,3 +106,24 @@ describe('board navigation and independent controls', () => {
     expect(board.list).toHaveBeenLastCalledWith('all', 20, undefined, '', [], 1, true);
   });
 });
+
+describe('app explore community list (#1929)', () => {
+  function renderCommunity(route: string) {
+    return render(<MemoryRouter initialEntries={[route]}><BoardPage community /></MemoryRouter>);
+  }
+
+  it('drops its own title and search box but keeps every board chip and the write button', () => {
+    renderCommunity('/ko/embed/explore?hubPage=community');
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    // 문의·작업일지는 앱 문의 진입이 새 자리를 찾을 때까지 그대로 둔다.
+    for (const name of ['전체', '작업일지', '문의/신고', '이맘쯤 우리는']) expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '글쓰기' })).toBeInTheDocument();
+  });
+
+  it('keeps the inquiry query and searches posts by the community query', () => {
+    renderCommunity('/ko/embed/explore?hubPage=community&type=inquiry&q=bike');
+    expect(screen.getByRole('button', { name: '문의/신고' })).toHaveAttribute('aria-pressed', 'true');
+    expect(board.list).toHaveBeenLastCalledWith('inquiry', 20, undefined, 'bike', [], 1, false);
+  });
+});

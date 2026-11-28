@@ -209,7 +209,8 @@
     "developerDocs": "개발자 문서",
     "challenges": "챌린지",
     "records": "기록",
-    "people": "사람"
+    "people": "사람",
+    "communityHub": "커뮤니티"
   },
   "about": {
     "title": "라이더의 기록이 다음 선택으로 이어지도록",
@@ -220,6 +221,12 @@
       "코스, 세그먼트, 리더보드로 다음 도전을 찾습니다.",
       "그룹, 이벤트, 게시판에서 함께 달릴 사람과 정보를 만납니다."
     ]
+  },
+  "community": {
+    "searchPlaceholder": "라이더 · 글 검색",
+    "search": "검색",
+    "riders": "라이더",
+    "posts": "글"
   },
   "search": {
     "activities": "활동",

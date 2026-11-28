@@ -26,6 +26,7 @@ vi.mock("../../pages/CreatorHubPage", () => ({
   },
 }));
 vi.mock("../../pages/BoardPage", () => listPage("board"));
+vi.mock("../../pages/CommunityPage", () => listPage("community"));
 vi.mock("../../pages/group/GroupsPage", () => listPage("clubs"));
 vi.mock("../../components/redesign/MobileMenuSearch", async () => {
   const { useLocalizedNavigate } = await import("../../hooks/useLocalizedNavigate");
@@ -74,48 +75,63 @@ describe("explore embed", () => {
     // 앱 코치 상단 탭과 같은 밑줄 탭(TabNav) — 알약형 토글(aria-pressed)이 아니다.
     const nav = screen.getByRole("navigation", { name: "탐색" });
     expect(within(nav).getByRole("tablist")).toBeInTheDocument();
-    expect(within(nav).getAllByRole("tab").map(tab => tab.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "사람", "게시판"]);
+    expect(within(nav).getAllByRole("tab").map(tab => tab.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "커뮤니티"]);
     expect(within(nav).getByRole("tab", { name: "코스" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryAllByRole("button").filter(button => button.hasAttribute("aria-pressed"))).toEqual([]);
     expect(screen.getByTestId("embedded-explore")).toHaveClass("orider-embedded-explore");
     expect(props.onReady).toHaveBeenCalledTimes(1);
   });
 
-  it("opens the requested page, switches tabs without keeping the previous filters and keeps the board when it paginates", async () => {
-    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?page=athletes&q=kim");
-    expect(await screen.findByTestId("page-athletes")).toHaveAttribute("data-query", "q=kim&hubPage=athletes");
+  it("opens the requested page, switches tabs without keeping the previous filters and keeps the community when it paginates", async () => {
+    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?hubPage=events&type=race");
+    expect(await screen.findByTestId("page-events")).toHaveAttribute("data-query", "hubPage=events&type=race");
 
-    fireEvent.click(screen.getByRole("tab", { name: "게시판" }));
-    expect(await screen.findByTestId("page-board")).toBeInTheDocument();
-    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?hubPage=board");
+    fireEvent.click(screen.getByRole("tab", { name: "커뮤니티" }));
+    expect(await screen.findByTestId("page-community")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?hubPage=community");
 
-    // 게시판은 `page` 를 페이지 번호로 다시 쓴다 — 서브탭은 게시판에 머문다.
+    // 커뮤니티 글 목록은 `page` 를 페이지 번호로 다시 쓴다 — 서브탭은 커뮤니티에 머문다.
     fireEvent.click(screen.getByRole("button", { name: "next page" }));
-    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?hubPage=board&page=2");
-    expect(screen.getByTestId("page-board")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "게시판" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?hubPage=community&page=2");
+    expect(screen.getByTestId("page-community")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "커뮤니티" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("fresh mount and Back restore board pagination independently of the hub tab", async () => {
-    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?hubPage=board&page=2");
-    expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "hubPage=board&page=2");
-    fireEvent.click(screen.getByRole("tab", { name: "사람" }));
-    expect(await screen.findByTestId("page-athletes")).toBeInTheDocument();
+  it.each([
+    ["page=athletes&q=kim", "q=kim&hubPage=community"],
+    ["page=board&type=inquiry", "type=inquiry&hubPage=community"],
+    ["hubPage=athletes&q=kim", "hubPage=community&q=kim"],
+    ["hubPage=board&type=inquiry&view=my", "hubPage=community&type=inquiry&view=my"],
+    ["hubPage=board&page=2", "hubPage=community&page=2"],
+  ])("opens the removed people and board tabs as the community, keeping their queries (%s)", async (query, normalized) => {
+    renderSurface(<ExploreSurface {...props} />, `/ko/embed/explore?${query}`);
+    expect(await screen.findByTestId("page-community")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "커뮤니티" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "사람" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "게시판" })).toBeNull();
+    expect(screen.getByTestId("page-community")).toHaveAttribute("data-query", normalized);
+  });
+
+  it("fresh mount and Back restore community pagination independently of the hub tab", async () => {
+    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?hubPage=community&page=2");
+    expect(await screen.findByTestId("page-community")).toHaveAttribute("data-query", "hubPage=community&page=2");
+    fireEvent.click(screen.getByRole("tab", { name: "챌린지" }));
+    expect(await screen.findByTestId("page-challenges")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "history back" }));
-    expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "hubPage=board&page=2");
+    expect(await screen.findByTestId("page-community")).toHaveAttribute("data-query", "hubPage=community&page=2");
   });
 
   it("scrolls only the tab row so a later selected tab stays visible", async () => {
     const rect = (left: number, width: number) => ({ left, right: left + width, width, top: 0, bottom: 44, height: 44, x: left, y: 0, toJSON: () => ({}) }) as DOMRect;
     const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
       if (this.getAttribute("role") === "tablist") return rect(0, 300);
-      if (this.getAttribute("role") === "tab" && this.textContent === "게시판") return rect(420 - this.parentElement!.scrollLeft, 60);
+      if (this.getAttribute("role") === "tab" && this.textContent === "커뮤니티") return rect(420 - this.parentElement!.scrollLeft, 60);
       return rect(0, 0);
     });
     const windowScroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     try {
-      renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?hubPage=board");
-      expect(await screen.findByTestId("page-board")).toBeInTheDocument();
+      renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?hubPage=community");
+      expect(await screen.findByTestId("page-community")).toBeInTheDocument();
       expect(screen.getByRole("tablist").scrollLeft).toBe(180);
       expect(windowScroll).not.toHaveBeenCalled();
     } finally {

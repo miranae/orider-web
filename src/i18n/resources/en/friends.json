@@ -89,5 +89,10 @@
   "search.error.unauthenticated": "Sign in to search.",
   "search.error.invalid": "Enter 1 to 100 characters.",
   "search.error.rateLimited": "Too many searches. Please try again shortly.",
-  "search.error.failed": "Search failed. Please try again shortly."
+  "search.error.failed": "Search failed. Please try again shortly.",
+  "suggestions.title": "Find friends",
+  "suggestions.request": "Request",
+  "suggestions.sent": "Sent",
+  "suggestions.coRide": "Together {{count}}×",
+  "suggestions.sameClub": "Same club"
 }

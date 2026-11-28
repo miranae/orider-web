@@ -72,7 +72,15 @@ export function getEffectiveListTotal({
   return listTotal;
 }
 
-const BoardPage: React.FC = () => {
+interface BoardPageProps {
+  /**
+   * 앱 탐색 「커뮤니티」(#1929) 안의 글 목록. 커뮤니티가 상단 검색창 하나(`?q=`)로 라이더·글을 같이
+   * 찾으므로 게시판 자체 제목·설명·검색창은 그리지 않는다. 칩·`type`/`view` 쿼리·글쓰기는 그대로다.
+   */
+  community?: boolean;
+}
+
+const BoardPage: React.FC<BoardPageProps> = ({ community = false }) => {
   const { t, i18n } = useTranslation("board");
   const navigate = useNavigate();
   const location = useLocation();
@@ -98,6 +106,19 @@ const BoardPage: React.FC = () => {
   };
   const selectBoard = (type: BoardType | 'all') => updateFilters({ type: type === 'all' ? undefined : type, view: undefined, tag: undefined });
   const [tagsExpanded, setTagsExpanded] = useState(false);
+  // 커뮤니티는 칩 줄 오른쪽에 글쓰기가 붙어 칩이 가로로 넘친다 — 링크로 뒤쪽 칩(문의 등)이 선택돼도 보이게
+  // 칩 줄만 가로로 옮긴다(scrollIntoView 는 세로 스크롤까지 바꿀 수 있어 쓰지 않는다).
+  const chipRowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!community) return;
+    const row = chipRowRef.current;
+    const chip = row?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!row || !chip) return;
+    const box = row.getBoundingClientRect();
+    const item = chip.getBoundingClientRect();
+    if (item.left < box.left) row.scrollLeft += item.left - box.left;
+    else if (item.right > box.right) row.scrollLeft += item.right - box.right;
+  }, [community, selectedBoard, searchParams]);
   // 제외 태그는 모두 같은 기준(글의 tags)으로 걸러낸다 — 칩 이름과 실제 필터가 어긋나지 않게.
   const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
     uncheckedTags,
@@ -213,15 +234,15 @@ const BoardPage: React.FC = () => {
         <span>{t('block.listHint', { count: blockedUsers.length })}</span>
         {blockedUsers.map(item => <Button key={item.id} size="sm" disabled={unblockPending} onClick={() => { void unblock(item.targetUid).catch(() => { showToast(t('block.failed'), 'error'); }); }}>{t('block.unblock')} ({posts.find(post => post.userId === item.targetUid)?.nickname || item.targetUid})</Button>)}
       </Card>}
-      <div className="md:sticky md:top-0 z-20 bg-[var(--bg-0)] pb-2 md:pb-4 mb-1 md:mb-2 space-y-2 md:space-y-4 border-b border-[var(--line-soft)]">
+      <div className={community ? "board-list-top--community z-20 bg-[var(--bg-0)] pb-2 mb-1 border-b border-[var(--line-soft)]" : "md:sticky md:top-0 z-20 bg-[var(--bg-0)] pb-2 md:pb-4 mb-1 md:mb-2 space-y-2 md:space-y-4 border-b border-[var(--line-soft)]"}>
         {/* 제목과 주요 동작은 모든 화면에서 같은 순서로 표시한다. */}
-        <div className="board-list-header">
-          <div>
+        <div className={community ? "board-list-header board-list-header--community" : "board-list-header"}>
+          {!community && <div>
             <Text as="h1" variant="pageTitle" data-testid="M2-0" className="explore-page-title">{t("page.communityTitle")}</Text>
             <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mt-1">
               {t("page.communitySubtitle")}
             </p>
-          </div>
+          </div>}
           {selectedBoard !== 'devlog' && (
             <Button data-testid="M2-0-2"
               onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="primary"
@@ -233,7 +254,7 @@ const BoardPage: React.FC = () => {
 
         {/* Search + Tabs */}
         <div className="board-list-controls">
-          <div className="board-list-search">
+          {!community && <div className="board-list-search">
             <div data-testid="M2-1" className="relative flex-1">
               <Button
                 type="button"
@@ -271,8 +292,8 @@ const BoardPage: React.FC = () => {
               </button>
             )}
 
-          </div>
-          <div className="board-list-tabs">
+          </div>}
+          <div ref={chipRowRef} className="board-list-tabs">
             {user && <Chip data-testid="M2-1-2" selectable selected={isMyPosts} onClick={() => updateFilters({ view: isMyPosts ? undefined : "mine", type: undefined, q: undefined, tag: undefined }, new Set())}>{t("tab.mine")}</Chip>}
             {(isMyPosts ? [] : ['all', 'devlog', 'inquiry', 'archive'] as const).map((type) => (
               <Chip data-testid="M2-0-1"

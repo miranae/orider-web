@@ -39,3 +39,9 @@
 /* 검색 입력은 공용 36 채움 프레임(G3), 왼쪽 17 검색 아이콘 자리만 비운다. */
 .board-list-search .board-search-icon { position: absolute; inset-inline-start: 0; top: 50%; transform: translateY(-50%); color: var(--ink-3); z-index: 1; }
 .board-list-search .board-search-input { padding-inline-start: calc(var(--dim-button-height) + var(--space-1)); }
+
+/* 앱 탐색 커뮤니티(#1929): 제목·검색창 없이 종류 칩 줄 오른쪽에 글쓰기, 태그 패널은 아래 줄 */
+.board-list-top--community { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.board-list-top--community > .board-list-controls { order: 1; flex: 1 1 0; min-width: 0; }
+.board-list-top--community > .board-list-header { order: 2; flex: none; padding-block: 0; }
+.board-list-top--community > :not(.board-list-controls):not(.board-list-header) { order: 3; flex-basis: 100%; }

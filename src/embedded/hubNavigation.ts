@@ -1,32 +1,42 @@
 import { embeddedCoachDestination } from "./coachNavigation";
 
 /**
- * 앱 탐색 탭 임베드의 서브탭. 웹 탐색 허브(navHubs.ts) 순서 + 마지막에 게시판.
+ * 앱 탐색 탭 임베드의 서브탭. 웹 탐색 허브(navHubs.ts) 순서 + 마지막에 커뮤니티.
  * 「기록 활용」(recipes)은 탐색에서 빠져 `embed/records-studio` 로 옮겼다(#3956) — 옛 `page=recipes`·
  * `hubPage=recipes` 는 서브탭이 아니므로 기본(코스)으로 연다.
+ * 「사람」·「게시판」은 「커뮤니티」 한 화면으로 합쳤다(#1929) — 옛 `athletes`·`board` 는 커뮤니티로 연다.
  */
-export const EXPLORE_PAGES = ["courses", "segments", "events", "challenges", "athletes", "board"] as const;
+export const EXPLORE_PAGES = ["courses", "segments", "events", "challenges", "community"] as const;
 export type EmbeddedExplorePage = typeof EXPLORE_PAGES[number];
 export const DEFAULT_EXPLORE_PAGE: EmbeddedExplorePage = "courses";
+
+/** 배포된 앱이 아직 보내는 옛 서브탭 값 → 지금 서브탭. */
+const LEGACY_EXPLORE_PAGES: Readonly<Record<string, EmbeddedExplorePage>> = {
+  athletes: "community",
+  board: "community",
+};
 
 export const EXPLORE_PAGE_LABEL_KEYS: Record<EmbeddedExplorePage, string> = {
   courses: "nav.courses",
   segments: "nav.segments",
   events: "nav.events",
   challenges: "nav.challenges",
-  athletes: "nav.people",
-  board: "nav.board",
+  community: "nav.communityHub",
 };
 
+/** `page=`·`hubPage=` 값 → 서브탭. 옛 `athletes`·`board` 는 `community` 로 정규화한다. */
 export function embeddedExplorePage(value: string | null): EmbeddedExplorePage | null {
-  return EXPLORE_PAGES.find(page => page === value) ?? null;
+  if (value === null) return null;
+  return EXPLORE_PAGES.find(page => page === value)
+    ?? (Object.prototype.hasOwnProperty.call(LEGACY_EXPLORE_PAGES, value) ? LEGACY_EXPLORE_PAGES[value] ?? null : null);
 }
 
 /** 웹 경로(언어 접두 제외) → 탐색 임베드 서브탭. 목록 화면만 대응하고 상세는 앱으로 넘긴다. */
 export function explorePageForWebPath(path: string): { page: EmbeddedExplorePage } | null {
-  const explore = /^\/explore\/(courses|segments|events|challenges|athletes)\/?$/.exec(path);
+  const explore = /^\/explore\/(courses|segments|events|challenges)\/?$/.exec(path);
   if (explore) return { page: explore[1] as EmbeddedExplorePage };
-  if (/^\/community\/board\/?$/.test(path)) return { page: "board" };
+  // 사람 검색·게시판 목록은 커뮤니티 안에서 연다 — 검색어(q)·글 종류(type) 쿼리는 그대로 넘어간다.
+  if (/^\/explore\/athletes\/?$/.test(path) || /^\/community\/board\/?$/.test(path)) return { page: "community" };
   return null;
 }
 
@@ -227,8 +237,11 @@ export function embeddedInternalDestination(currentPath: string, destination: st
     ?? embeddedEventDetailDestination(currentPath, destination);
 }
 
-/** 검색 임베드가 폼 아래에 그리는 결과 목록. 활동(웹 홈 피드)은 없다 — 앱으로 넘긴다. */
-export type EmbeddedSearchResult = "clubs" | Exclude<EmbeddedExplorePage, "events" | "challenges">;
+/**
+ * 검색 임베드가 폼 아래에 그리는 결과 목록. 활동(웹 홈 피드)은 없다 — 앱으로 넘긴다.
+ * 사람·게시글 결과는 탐색 서브탭이 커뮤니티로 합쳐진 뒤에도 각 목록 화면을 그대로 쓴다.
+ */
+export type EmbeddedSearchResult = "clubs" | "courses" | "segments" | "athletes" | "board";
 
 /** MobileMenuSearch 가 이동하려는 웹 목록 경로 → 검색 임베드 결과 종류와 그 목록이 읽을 쿼리. */
 export function searchResultForDestination(destination: string): { result: EmbeddedSearchResult; params: URLSearchParams } | null {
