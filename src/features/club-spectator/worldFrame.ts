@@ -12,12 +12,12 @@ function serverProgress(marker: WorldEventMarker): ServerProgress | null {
     gapToSelectedM: marker.gapToSelectedM!, selectedGapExpiresAtMs: marker.selectedGapExpiresAtMs!};
 }
 
-/** 이 화면에 반영할 수 있는 마커인지 확인한다. 명단 밖 계정·다른 코스·잘못된 값·미래 시각은 버린다. */
+/** 이 화면에 반영할 수 있는 마커인지 확인한다. 명단 밖 계정·다른 코스·잘못된 값·미래 시각은 버린다. 코스 없는 야외 모임도 받는다(#4215). */
 function acceptable(snapshot: MeetingSpectatorSnapshot, names: Map<string, string>, rows: Map<string, SpectatorRider>, marker: WorldEventMarker, now: number) {
   const uid = marker.uid;
-  if (!uid || !snapshot.course) return false;
+  if (!uid) return false;
   const prior = rows.get(uid);
-  return (prior ? prior.courseId === snapshot.course.courseId : names.has(uid)) &&
+  return (prior ? prior.courseId === (snapshot.course?.courseId ?? null) : names.has(uid)) &&
     Number.isFinite(marker.lat) && Number.isFinite(marker.lon) && Number.isFinite(marker.capturedAt) && marker.capturedAt <= now + 2000;
 }
 
@@ -36,11 +36,12 @@ const sameProgress = (a: SpectatorRider, b: SpectatorRider) => progressKeys.ever
  * 월드(Redis) 위치·진행·격차를 받은 즉시 반영한다(P11 Redis 실시간 경로 예외).
  * 위치·속도·파워·상태는 더 최신 표본일 때만 옮긴다. 화면 위치보다 오래된 표본은 위치도 진행도 되돌리지 않는다.
  * 진행·격차는 P6(다시 계산하지 않음): 명단의 주행(RIDING) 참가자 마커에 서버 진행 필드가 있으면 그대로 쓴다.
+ * 코스 없는 야외 모임은 위치·속도·파워·상태만 옮기고 진행·격차는 없음(null)으로 둔다(#4215).
  * 월드가 정상일 때만 호출한다(장애·정지·미연결 시 호출하지 않음).
  */
 export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: WorldEventFrame, now: number): MeetingSpectatorSnapshot {
   const course = snapshot.course;
-  if (frame.eventId !== snapshot.eventId || !course) return snapshot;
+  if (frame.eventId !== snapshot.eventId) return snapshot;
   const names = new Map(snapshot.participants?.map(p => [p.uid, p.displayName]) ?? []);
   const rows = new Map(snapshot.locations.map(r => [r.uid, r]));
   const riding = ridingUids(snapshot);
@@ -54,11 +55,11 @@ export function applyWorldFrame(snapshot: MeetingSpectatorSnapshot, frame: World
     if (prior && prior.sampledAtMs > marker.capturedAt) continue;
     const powerLive = typeof marker.power === "number" && typeof marker.powerExpiresAtMs === "number" && marker.powerExpiresAtMs > now;
     const ended = prior?.status === "FINISHED" || prior?.status === "DNF";
-    const server = riding.has(uid) ? serverProgress(marker) : null;
+    const server = course && riding.has(uid) ? serverProgress(marker) : null;
     // 같은 표본이면 위치는 그대로 두고 서버 진행·격차만 갱신한다(선두 이동 재전송 포함).
     // 더 최신 표본이면 위치·속도·파워·상태를 옮기고 진행·격차는 직전 값을 남겼다가 서버 필드가 있으면 덮는다.
     let row: SpectatorRider = prior && prior.sampledAtMs === marker.capturedAt ? prior : {
-      uid, displayName: prior?.displayName ?? names.get(uid) ?? "회원", courseId: course.courseId,
+      uid, displayName: prior?.displayName ?? names.get(uid) ?? "회원", courseId: course?.courseId ?? null,
       lat: marker.lat, lng: marker.lon, sampledAtMs: marker.capturedAt, progressM: prior?.progressM ?? null,
       speedMps: typeof marker.speedMps === "number" && marker.speedMps >= 0 && marker.speedMps <= 100 ? marker.speedMps : null,
       powerWatts: powerLive ? marker.power! : null, powerExpiresAtMs: powerLive ? marker.powerExpiresAtMs! : null,
@@ -96,10 +97,11 @@ export function enterWorldMode(snapshot: MeetingSpectatorSnapshot): MeetingSpect
  *   화면 데이터의 선택도 현재 선택이어야 한다.
  * 프레임 신선도(5초)는 호출부의 정지 판정이 확인한다.
  * 마커가 없거나 서버 진행 필드가 없는 주행자는 미커버로 보지 않는다(진행·격차가 없는 상태로 표시).
+ * 코스 없는 야외 모임도 같은 기준으로 커버한다(#4215).
  */
 export function worldFrameCoversRiders(snapshot: MeetingSpectatorSnapshot | null, frame: WorldEventFrame | null, _now: number,
   selectedUid: string | null = snapshot?.selectedUid ?? null): boolean {
-  if (!snapshot || !frame || frame.eventId !== snapshot.eventId || !snapshot.course) return false;
+  if (!snapshot || !frame || frame.eventId !== snapshot.eventId) return false;
   if (selectedUid !== snapshot.selectedUid) return false;
   if (selectedUid !== null && (frame.trackUnknown || frame.track !== selectedUid)) return false;
   const riding = ridingUids(snapshot);

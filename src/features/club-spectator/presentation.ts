@@ -1,7 +1,7 @@
 import type { MeetingSpectatorSnapshot, SpectatorRider } from "./types";
 export const staleRider = (rider: SpectatorRider, now: number) => now - rider.sampledAtMs > 30000 || rider.sampledAtMs > now + 2000;
 export function liveRiders(snapshot: MeetingSpectatorSnapshot, now: number) {
-  return snapshot.locations.filter(r => r.courseId === snapshot.course?.courseId).map(r => {
+  return snapshot.locations.filter(r => (r.courseId ?? null) === (snapshot.course?.courseId ?? null)).map(r => {
     const stale = staleRider(r, now);
     const comparable = !stale && r.progressM !== null && Number.isFinite(r.progressM) && r.progressM >= 0 && r.status !== "DNF" && r.status !== "FINISHED";
     return {...r, progressM: comparable ? r.progressM : null,
