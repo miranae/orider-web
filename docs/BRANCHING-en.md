@@ -1,19 +1,20 @@
 # Branching Model
 
-Orider Web uses a simple open-source, trunk-based model. `main` is always protected, every change enters through a Pull Request, and production deploys are cut from version tags.
+Orider Web uses an integration branch, `dev`, and a protected production branch, `main`. Every change enters through a Pull Request to `dev`, `dev` is promoted to `main` through a promotion PR, and production deploys are cut from version tags. The Korean version is [BRANCHING.md](BRANCHING.md).
 
 ```text
 fork/topic branch ──┐
-                    ├─ pull request ── CI/review ── squash/merge ── main ── tag v* ── protected deploy
+                    ├─ pull request ── review/merge gate ── squash ── dev ── promotion PR ── main ── tag v* ── protected deploy
 maintainer/topic ───┘
 ```
 
 ## Rules
 
+- Feature and fix PRs target `dev` (`gh pr create --base dev`).
+- `main` only accepts promotion PRs from `dev` (or a fixed snapshot of it, `promote/snapshot-*`) and urgent `hotfix/*` PRs; `main-promote-guard.yml` rejects any other head.
 - `main` is protected; merging to `main` does not deploy production automatically.
 - Version tags matching `v*` deploy Firebase Hosting through a protected GitHub Environment and create GitHub Release notes.
-- Direct pushes, force pushes, and branch deletion are disabled on `main`.
-- Long-lived `develop`, release train, or personal integration branches are not used.
+- Maintainers do not push directly to `dev` or `main`.
 - Keep topic branches short-lived and scoped to one feature, bug, documentation update, or refactor.
 - External contributors should branch from a fork. Maintainers may branch in the main repository, but still open PRs.
 - Prefer squash merge for normal PRs so public history stays readable.
@@ -37,26 +38,31 @@ Use lowercase, hyphen-separated names:
 | `perf/` | Performance-only changes | `perf/lazy-route-chunks` |
 | `build/` | Build tooling and dependency plumbing | `build/vite-config` |
 
-Good branch names describe the user or maintenance goal, not the implementation detail only.
+These are the prefixes `pr-gate.yml` accepts; the part after the prefix uses lowercase letters, digits, and hyphens only (`<prefix>/[a-z0-9][a-z0-9-]*`). Good branch names describe the user or maintenance goal, not the implementation detail only. Fork PR branch names are not rejected.
 
 ## Contributor Flow
 
-1. Sync with `main`.
+1. Sync with `dev` (`hotfix/*` branches start from `main`).
 2. Create a topic branch, for example `docs/readme-structure`.
-3. Keep the PR focused and explain the review route, locale, viewport, or data state when relevant.
+3. Open the PR against `dev`, keep it focused, and explain the review route, locale, viewport, or data state when relevant.
 4. Sign commits with `git commit -s` for DCO.
 5. Run the smallest relevant checks before requesting review.
-6. Let CI and review finish before merge.
+6. Let checks and review finish before merge.
 
-## Required PR Gates
+A `hotfix/*` branch cut from `origin/main` may open a PR directly to `main` for a minimal change that production needs immediately. Hotfixes still pass the full merge gate, and after the merge `main` is merged back into `dev` so the change is not lost in the next promotion (the local merge gate does this automatically).
 
-Public PRs are expected to pass these required checks:
+## PR Gates
 
-| Check | What it enforces | Notes |
+Which GitHub checks run depends on the PR target:
+
+| Check | Runs on | What it enforces |
 |---|---|---|
-| `PR metadata` | Conventional Commit-style title, maintainer branch prefix, no committed env/secret/build-output files | Fork branch names are not rejected. |
-| `DCO` | Every commit has a `Signed-off-by:` line | Use `git commit -s`. |
-| `CI / check` | `lint:budget`, `quality:budget`, Vitest, and production build with placeholder public config | Docs-only PRs skip npm work but still report success. |
+| `DCO` | PRs to `dev` and `main` | Every commit has a `Signed-off-by:` line (use `git commit -s`). |
+| `PR metadata` | PRs to `main` | Conventional Commit-style title, branch prefix, no committed env/secret/build-output files. |
+| `CI / check` | PRs to `main` | `lint:budget`, `quality:budget`, `check:i18n`, `check:deploy-config`, `npm test`, and production build with placeholder public config. Docs-only PRs skip npm work but still report success. |
+| `Require dev or hotfix head` | PRs to `main` | The head is `dev`, `promote/snapshot-*`, or `hotfix/*`. |
+
+For PRs to `dev`, maintainers verify lint/quality/test/build in the merge gate (`scripts/merge-pr.sh`) instead of GitHub CI; CI over the accumulated changes runs on the promotion PR.
 
 These gates are intentionally fork-safe: they do not use repository secrets, deploy, or run privileged `pull_request_target` code.
 
@@ -78,26 +84,25 @@ scripts/merge-pr.sh <PR_NUMBER> --require-github-review
 For forks:
 
 ```bash
-git checkout main
-git pull upstream main
+git checkout dev
+git pull upstream dev
 git checkout -b fix/mobile-tab-overflow
 ```
 
 For maintainer branches in this repository:
 
 ```bash
-git checkout main
-git pull public main
-git checkout -b docs/readme-structure
+git fetch origin
+git checkout -b docs/readme-structure origin/dev
 ```
 
 ## Keeping Branches Current
 
-For small contributor PRs, prefer rebasing onto current `main` before review if the branch diverges:
+For small contributor PRs, prefer rebasing onto current `dev` before review if the branch diverges:
 
 ```bash
 git fetch upstream
-git rebase upstream/main
+git rebase upstream/dev
 ```
 
 Use a merge commit only when the branch is large enough that preserving an integration point is clearer than rewriting local commits. Never force-push another contributor's branch without agreement.
@@ -115,10 +120,10 @@ Use a merge commit only when the branch is large enough that preserving an integ
 Production deploys come from version tags on `main`; there are no separate release branches for routine web releases. Create tags with `scripts/release-tag.sh` — it prints the full release diff (every commit since the last tag) and requires confirmation before pushing, so unreviewed changes cannot ride along with an unrelated deploy. After a successful deploy, `prod-smoke.yml` runs a mobile-viewport smoke check against production. Urgent production fixes still use a PR and a follow-up tag:
 
 ```text
-fix/production-issue -> PR -> required checks -> main -> tag v* -> deploy
+hotfix/production-issue -> PR -> required checks -> main -> tag v* -> deploy
 ```
 
-If a rollback is needed, prefer a revert PR against `main` so the public history records the decision.
+If a rollback is needed, prefer a revert PR against `main` from a `hotfix/*` branch so the public history records the decision.
 
 ## Security Branches
 

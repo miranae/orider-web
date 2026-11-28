@@ -4,30 +4,43 @@
 
 ## 기본 원칙
 
-- `main`은 보호 브랜치입니다.
-- 기능/수정은 짧게 사는 topic branch에서 작업합니다.
+- `dev`는 통합 브랜치, `main`은 보호된 프로덕션 브랜치입니다.
+- 기능/수정은 짧게 사는 topic branch에서 작업하고 `dev`로 PR을 엽니다.
+- `dev`에 쌓인 변경은 승격 PR로 `main`에 올립니다.
 - 외부 기여자는 fork에서 PR을 엽니다.
-- maintainer도 `main`에 직접 push하지 않습니다.
+- maintainer도 `dev`와 `main`에 직접 push하지 않습니다.
 - 배포는 release workflow와 tag 정책을 따릅니다.
+
+```text
+fork/topic branch ──┐
+                    ├─ pull request ── review/merge gate ── squash ── dev ── promotion PR ── main ── tag v* ── protected deploy
+maintainer/topic ───┘
+```
 
 ## 브랜치 이름
 
-권장 패턴:
+`pr-gate.yml`이 허용하는 prefix:
 
-| 유형 | 예시 |
-|---|---|
-| 기능 | `feat/creator-hub-card` |
-| 버그 수정 | `fix/mobile-tab-overflow` |
-| 긴급 수정 | `hotfix/remove-app-install-banner` |
-| 문서 | `docs/personal-data-recipe` |
-| CI/빌드 | `ci/pr-gate-node-version` |
-| 리팩터 | `refactor/settings-pane-boundary` |
+| prefix | 용도 | 예시 |
+|---|---|---|
+| `feat/` | 기능 | `feat/creator-hub-card` |
+| `fix/` | 버그 수정 | `fix/mobile-tab-overflow` |
+| `hotfix/` | `main`에서 분기해 `main`으로 직접 보내는 긴급 최소 수정 | `hotfix/remove-app-install-banner` |
+| `docs/` | 문서 | `docs/personal-data-recipe` |
+| `test/` | 테스트만 변경 | `test/activity-detail-e2e` |
+| `refactor/` | 동작 변화 없는 정리 | `refactor/settings-pane-boundary` |
+| `ci/` | GitHub Actions와 릴리스 자동화 | `ci/pr-gate-node-version` |
+| `chore/` | 유지보수 | `chore/update-deps` |
+| `security/` | 보안 수정 | `security/harden-profile-reads` |
+| `style/` | 포맷, 문구 스타일, 비기능 UI 다듬기 | `style/readme-language` |
+| `perf/` | 성능 | `perf/lazy-route-chunks` |
+| `build/` | 빌드 도구와 의존성 | `build/vite-config` |
 
-브랜치 이름은 짧고 변경 의도를 드러내야 합니다.
+prefix 뒤는 소문자, 숫자, 하이픈만 사용합니다(`<prefix>/[a-z0-9][a-z0-9-]*`). 브랜치 이름은 짧고 변경 의도를 드러내야 합니다. fork PR의 브랜치 이름은 거부하지 않습니다.
 
 ## PR 대상
 
-일반 PR은 repository의 현재 contribution branch 정책을 따릅니다. `main` 승격이 별도 gate로 관리되는 경우 feature branch는 `dev`나 지정된 integration branch로 PR을 보내고, `main`은 승격 PR만 받습니다.
+일반 PR의 base는 `dev`입니다(`gh pr create --base dev`). `main`은 `dev` 또는 그 고정 스냅샷(`promote/snapshot-*`)의 승격 PR과 `hotfix/*` PR만 받으며, 그 외 head는 `main-promote-guard.yml`이 거부합니다.
 
 예외는 `hotfix/*` 브랜치입니다. 운영에서 즉시 고쳐야 하는 최소 변경은 `origin/main`에서 분기한 `hotfix/*` 브랜치로 `main`에 직접 PR을 열 수 있습니다. hotfix도 full merge gate를 통과해야 하며, 머지 후에는 `main`을 `dev`로 되병합해 다음 승격에서 변경이 유실되지 않게 합니다(로컬 머지 게이트가 자동 수행).
 
@@ -35,23 +48,26 @@ PR을 열기 전에 최신 base를 가져오세요.
 
 ```bash
 git fetch origin
-git rebase origin/main
-```
-
-또는 프로젝트가 `dev`를 사용하면:
-
-```bash
-git fetch origin
 git rebase origin/dev
 ```
 
+`hotfix/*` 브랜치는 `origin/main`을 기준으로 합니다.
+
 ## PR gate
 
-주요 gate:
+GitHub 체크는 PR 대상에 따라 다릅니다.
 
-- PR 제목/본문 metadata
-- DCO sign-off
-- lint/quality/test/build
+| 체크 | 실행 대상 | 확인 내용 |
+|---|---|---|
+| `DCO` | `dev`, `main` 대상 PR | 모든 커밋의 `Signed-off-by:` |
+| `PR metadata` | `main` 대상 PR | Conventional Commit 스타일 제목, 브랜치 prefix, env/secret/build 산출물 미포함 |
+| `CI / check` | `main` 대상 PR | `lint:budget`, `quality:budget`, `check:i18n`, `check:deploy-config`, `npm test`, placeholder 설정 build |
+| `Require dev or hotfix head` | `main` 대상 PR | head가 `dev`, `promote/snapshot-*`, `hotfix/*` 중 하나 |
+
+`dev` 대상 PR의 lint/quality/test/build는 GitHub CI 대신 maintainer가 머지 게이트(`scripts/merge-pr.sh`)에서 확인하고, 누적 변경 전체에 대한 CI는 승격 PR에서 실행됩니다.
+
+리뷰에서 함께 보는 것:
+
 - 문서 변경 시 링크와 언어 쌍 확인
 - 사용자-facing 변경 시 screenshot 또는 테스트
 
