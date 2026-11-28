@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Clipboard, Download, MessageSquareText, Pencil } from "lucide-react";
 import { LocalizedLink } from "../LocalizedLink";
+import { useEmbeddedNavigation } from "../../embedded/EmbeddedNavigationContext";
 import { Button, IconButton, Input, Textarea, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
@@ -43,6 +44,8 @@ export function RecipeShareCard({ card, language, ready, onError }: {
   card: RecipePublicCard; language: string; ready: boolean; onError: (action: "copy" | "export") => void;
 }) {
   const ko = language.startsWith("ko");
+  // 앱 안(임베드)에서는 앱이 열 수 없는 게시판 글쓰기로 보내지 않는다(#1922).
+  const inApp = useEmbeddedNavigation() !== null;
   const [draft, setDraft] = useState(card);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -145,7 +148,7 @@ export function RecipeShareCard({ card, language, ready, onError }: {
     <div className="recipe-share-actions flex flex-wrap gap-2">
       <Button wrap size="sm" variant="secondary" disabled={!valid} leadingIcon={<Clipboard size={ICON_SIZE.md} />} onClick={() => void copy()}>{copied ? (ko ? "복사 완료" : "Copied") : (ko ? "공유 문구 복사" : "Copy caption")}</Button>
       <Button wrap size="sm" variant="secondary" disabled={!valid} loading={saving} leadingIcon={<Download size={ICON_SIZE.md} />} onClick={() => void download()}>{ko ? "PNG 저장" : "Save PNG"}</Button>
-      {valid && <LocalizedLink data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: { title, body: text } }} className={buttonClass({ variant: "primary", size: "sm", wrap: true })}><MessageSquareText size={ICON_SIZE.sm} />{ko ? "게시글로 공유" : "Share as post"}</LocalizedLink>}
+      {valid && !inApp && <LocalizedLink data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: { title, body: text } }} className={buttonClass({ variant: "primary", size: "sm", wrap: true })}><MessageSquareText size={ICON_SIZE.sm} />{ko ? "게시글로 공유" : "Share as post"}</LocalizedLink>}
     </div>
   </div>;
 }

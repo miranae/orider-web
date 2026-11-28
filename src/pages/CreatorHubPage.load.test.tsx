@@ -92,6 +92,7 @@ it("drops the recipe request section inside the app", async () => {
   await screen.findByRole("link", { name: "이 기록으로 만들기" });
   expect(screen.queryByTestId("E6-1-7")).toBeNull();
   expect(screen.queryByRole("link", { name: /활용법 요청/ })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "만들고 싶은 활용법을 제안하세요" })).toBeNull();
 });
 
 it.each(["recipes", "share"])("hides developer content in the rider %s section", async section => {

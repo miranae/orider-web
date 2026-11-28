@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { RecipeShareCard } from "./RecipeShareCard";
+import { EmbeddedNavigationContext } from "../../embedded/EmbeddedNavigationContext";
 
 const card = { title: "꾸준함이 만든 한 주", body: "4번의 라이딩, 186km. 나만의 리듬을 찾았습니다.", footer: "위치·민감 지표 제외" };
 function Destination() { return <pre data-testid="post-state">{JSON.stringify(useLocation().state)}</pre>; }
@@ -95,4 +96,11 @@ it("keeps copy editing labeled and action icons separate from captions", () => {
   const copy = screen.getByRole("button", { name: "Copy caption" });
   expect(copy.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
   expect(copy.querySelector(".ds-btn__label svg")).toBeNull();
+});
+
+// #1922 — 앱 안(임베드)에서는 실제 결과여도 앱이 열 수 없는 게시판 글쓰기로 보내지 않는다. 복사·저장은 그대로.
+it("keeps copy and save but drops the board post link inside the app", () => {
+  renderWithProviders(<EmbeddedNavigationContext.Provider value={() => {}}><RecipeShareCard card={card} language="ko" ready onError={vi.fn()} /></EmbeddedNavigationContext.Provider>);
+  expect(screen.queryByTestId("E6-2-1")).toBeNull();
+  expect(screen.getByRole("button", { name: /PNG 저장/ })).toBeEnabled();
 });
