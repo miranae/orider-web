@@ -138,12 +138,12 @@ it("uses the feed description and readable date/sport fallbacks instead of docum
   const row = screen.getByRole("heading", { name: "출근길 라이딩" }).closest("section")!;
   expect(row).toHaveTextContent("이동거리 12.3 km · 활동시간 2시간 32분 · 상승고도 149 m");
   expect(screen.getByText("12.3 km").parentElement).toHaveClass("ride-story-metric");
-  const send = screen.getByRole("button", { name: "선택한 사진으로 받기" });
-  expect(send.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
-  expect(send.querySelector(".ds-btn__label svg")).toBeNull();
+  const send = screen.getByRole("button", { name: "이메일로 받기" });
+  // #1925 — 두 칸 한 줄에서 줄바꿈되지 않게 아이콘 없이 글자만 둔다.
+  expect(send.querySelector("svg")).toBeNull();
 });
 
-it("returns focus to its trigger when cancelled and supports Escape", async () => {
+it("returns focus to its trigger when closed and supports Escape", async () => {
   setCollectionDocs("activities", []);
   function Harness() {
     const [open, setOpen] = useState(false);
@@ -154,7 +154,7 @@ it("returns focus to its trigger when cancelled and supports Escape", async () =
   trigger.focus();
   fireEvent.click(trigger);
   expect(await screen.findByRole("dialog")).toContainElement(document.activeElement as HTMLElement);
-  fireEvent.click(screen.getByRole("button", { name: "취소" }));
+  fireEvent.click(screen.getByRole("button", { name: "닫기" }));
   expect(trigger).toHaveFocus();
   fireEvent.click(trigger);
   fireEvent.keyDown(document, { key: "Escape" });
@@ -175,7 +175,10 @@ it("keeps the portalled picker footer separate from its scrolling body and avoid
   expect(dialog.closest(".ride-story-picker")).toBeInTheDocument();
   expect(title.closest("section")?.querySelector("p")).not.toHaveTextContent(fallbackDate);
   const footer = dialog.querySelector(".ride-story-picker-footer");
-  expect(footer).toContainElement(screen.getByRole("button", { name: "선택한 사진으로 받기" }));
+  expect(footer).toContainElement(screen.getByRole("button", { name: "이메일로 받기" }));
+  // #1925 — 취소 없이 두 개만(닫기는 위 ✕).
+  expect(footer?.querySelectorAll("button")).toHaveLength(1);
+  expect(screen.queryByRole("button", { name: "취소" })).toBeNull();
   expect(dialog.querySelector(".ride-story-picker-scroll")).not.toContainElement(footer as HTMLElement);
 });
 
@@ -230,16 +233,16 @@ it("says so instead of silently choosing another ride when the app's activity is
   expect(screen.getByText("최근 라이딩")).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: /경로 포스터 선택/ })
     .filter(button => button.getAttribute("aria-pressed") === "true")).toHaveLength(0);
-  expect(screen.getByRole("button", { name: "선택 결과 미리보기" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "미리보기" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: /경로 포스터 선택/ }));
-  expect(screen.getByRole("button", { name: "선택 결과 미리보기" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "미리보기" })).toBeEnabled();
 });
 
 it("shows an honest empty state when no server-eligible cycling activity exists", async () => {
   setCollectionDocs("activities", [{ id: "run-only", userId: "test-uid", type: "Run", name: "달리기", startTime: Date.now() - 86_400_000 }]);
   renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated: true });
   expect(await screen.findByText("최근 90일 안에 포스터로 만들 자전거 활동이 없습니다.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "선택한 사진으로 받기" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "이메일로 받기" })).toBeDisabled();
 });
 
 it.each(["permission-denied", "account_changed"])("does not select a photo when server upload rejects %s", async failure => {
