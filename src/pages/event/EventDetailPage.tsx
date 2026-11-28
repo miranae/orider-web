@@ -147,7 +147,7 @@ export default function EventDetailPage() {
   const [followLoading, setFollowLoading] = useState(true);
   const groupId = event?.groupId || undefined;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
-  const { byGroup: nextEventLabels, eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
+  const { byGroup: nextEventLabels, eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true, user?.uid);
 
   // 누르면 해결로 가는 알림은 전역 알림으로 띄운다(이 화면의 자체 알림은 누를 수 없다).
   const { showToast: showActionToast } = useToast();

@@ -51,6 +51,8 @@ interface RideStoryPhotoPickerProps {
   onSent: () => void;
   onFailed: () => void;
   onPreview?: (selection: RideStorySelection) => void;
+  /** 앱이 특정 활동에서 「이 기록으로 만들기」를 열었을 때 그 활동을 먼저 고른다(목록에 없으면 기존 기본값). */
+  preferredActivityId?: string | null;
 }
 
 const MAX_PHOTOS_PER_ACTIVITY = 10;
@@ -172,7 +174,7 @@ async function loadOptions(firestore: Firestore, userId: string, language: strin
     .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0));
 }
 
-export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, onPreview }: RideStoryPhotoPickerProps) {
+export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, onPreview, preferredActivityId = null }: RideStoryPhotoPickerProps) {
   const { t, i18n } = useTranslation("common");
   const { showToast } = useToast();
   const photoServices = useFirebaseServices();
@@ -197,7 +199,8 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
       .then((nextOptions) => {
         if (!active) return;
         setOptions(nextOptions);
-        const preferred = nextOptions.find((activity) => activity.photos.length > 0) ?? nextOptions[0] ?? null;
+        const preferred = nextOptions.find((activity) => activity.id === preferredActivityId)
+          ?? nextOptions.find((activity) => activity.photos.length > 0) ?? nextOptions[0] ?? null;
         setSelection(preferred ? { activityId: preferred.id, photoId: preferred.photos[0]?.id ?? null } : null);
       })
       .catch((failure) => {
@@ -209,7 +212,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [copy.loadFailed, open, showToast, userId, i18n.language, t, photoServices.firestore, loadAttempt]);
+  }, [copy.loadFailed, open, showToast, userId, i18n.language, t, photoServices.firestore, loadAttempt, preferredActivityId]);
 
   if (!open) return null;
 

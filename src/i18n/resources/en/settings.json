@@ -528,7 +528,9 @@
       "copyFailed": "Failed to copy",
       "copied": "Copied",
       "docsTitle": "Developer documentation",
+      "deployLink": "Connection guide →",
       "examplesLink": "Examples →",
+      "githubLink": "Public repository (GitHub)",
       "apiDocsLink": "API documentation"
     }
   },
@@ -754,6 +756,13 @@
     "loading": "Loading…"
   },
   "device": {
+    "ftpRegistrations": "FTP sync devices",
+    "ftpList": "Show registered devices",
+    "ftpRetire": "Unregister",
+    "ftpRetireConfirm": "Unregister {{name}} from FTP sync? Opening the app on this device may register it again.",
+    "ftpLastSeen": "Last connected {{date}}",
+    "ftpNone": "No devices registered for FTP sync.",
+    "ftpRequestFailed": "The device request failed. Please try again.",
     "mobileSync": "Mobile sync",
     "loginRequired": "Sign in to view mobile device settings.",
     "loading": "Loading mobile device settings…",

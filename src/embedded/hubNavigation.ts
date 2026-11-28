@@ -1,7 +1,11 @@
 import { embeddedCoachDestination } from "./coachNavigation";
 
-/** 앱 탐색 탭 임베드의 서브탭. 웹 탐색 허브(navHubs.ts) 순서 + 마지막에 게시판. */
-export const EXPLORE_PAGES = ["courses", "segments", "events", "challenges", "athletes", "recipes", "board"] as const;
+/**
+ * 앱 탐색 탭 임베드의 서브탭. 웹 탐색 허브(navHubs.ts) 순서 + 마지막에 게시판.
+ * 「기록 활용」(recipes)은 탐색에서 빠져 `embed/records-studio` 로 옮겼다(#3956) — 옛 `page=recipes`·
+ * `hubPage=recipes` 는 서브탭이 아니므로 기본(코스)으로 연다.
+ */
+export const EXPLORE_PAGES = ["courses", "segments", "events", "challenges", "athletes", "board"] as const;
 export type EmbeddedExplorePage = typeof EXPLORE_PAGES[number];
 export const DEFAULT_EXPLORE_PAGE: EmbeddedExplorePage = "courses";
 
@@ -11,7 +15,6 @@ export const EXPLORE_PAGE_LABEL_KEYS: Record<EmbeddedExplorePage, string> = {
   events: "nav.events",
   challenges: "nav.challenges",
   athletes: "nav.people",
-  recipes: "nav.creator",
   board: "nav.board",
 };
 
@@ -20,9 +23,7 @@ export function embeddedExplorePage(value: string | null): EmbeddedExplorePage |
 }
 
 /** 웹 경로(언어 접두 제외) → 탐색 임베드 서브탭. 목록 화면만 대응하고 상세는 앱으로 넘긴다. */
-export function explorePageForWebPath(path: string): { page: EmbeddedExplorePage; section?: string } | null {
-  const recipes = /^\/explore\/recipes(?:\/([A-Za-z0-9_-]{1,64}))?\/?$/.exec(path);
-  if (recipes) return recipes[1] ? { page: "recipes", section: recipes[1] } : { page: "recipes" };
+export function explorePageForWebPath(path: string): { page: EmbeddedExplorePage } | null {
   const explore = /^\/explore\/(courses|segments|events|challenges|athletes)\/?$/.exec(path);
   if (explore) return { page: explore[1] as EmbeddedExplorePage };
   if (/^\/community\/board\/?$/.test(path)) return { page: "board" };
@@ -48,8 +49,6 @@ export function embeddedHubDestination(currentPath: string, destination: string)
   if (!explore) return null;
   // 서브탭은 목록 페이지 번호와 별도 저장한다.
   target.searchParams.set("hubPage", explore.page);
-  if (explore.section) target.searchParams.set("section", explore.section);
-  else target.searchParams.delete("section");
   return `${embedPath}?${target.searchParams}${target.hash}`;
 }
 
@@ -81,6 +80,48 @@ export const SEGMENT_DETAIL_EMBED_CAPABILITY = "segment-detail-embed-v1";
  * 앱은 이 값이 있을 때만 남의 작성자 아이콘·이름에서 `/athlete/{uid}` 를 프로필 임베드로 연다.
  */
 export const ATHLETE_PROFILE_EMBED_CAPABILITY = "athlete-profile-embed-v1";
+
+/**
+ * 이 웹이 「이 기록으로 만들기」 임베드(`embed/records-studio`, surfaceKind `records-studio`)를 제공한다는
+ * 표시(`bootstrap.ready.capabilities`). 앱은 이 값이 있을 때만 그 임베드를 연다.
+ */
+export const RECORDS_STUDIO_EMBED_CAPABILITY = "records-studio-embed-v1";
+
+/** 「이 기록으로 만들기」 임베드가 쿼리로 받는 섹션. 웹 `/records/studio/:section` 과 같은 이름이다. */
+export const RECORDS_STUDIO_EMBED_SECTIONS = ["overview", "recipes", "share"] as const;
+export type RecordsStudioEmbedSection = typeof RECORDS_STUDIO_EMBED_SECTIONS[number];
+
+export function recordsStudioEmbedSection(value: string | null): RecordsStudioEmbedSection {
+  return RECORDS_STUDIO_EMBED_SECTIONS.find(section => section === value) ?? "overview";
+}
+
+/** 임베드 `?activity=` 로 받는 활동 ID. 경로 문자·과도한 길이는 버린다. */
+export function recordsStudioEmbedActivityId(value: string | null): string | null {
+  return value && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : null;
+}
+
+/**
+ * 「이 기록으로 만들기」 임베드(`/{lang}/embed/records-studio`) 안에서 웹 `/records/studio[/section]` 링크는
+ * 임베드 안 섹션 전환(`?section=`)으로 바꾼다. 앱이 넘긴 `activity` 쿼리는 섹션을 바꿔도 유지한다.
+ * 개발자 안내(`/settings/developer/...`)·다른 화면은 null — `navigation.openNative` 로 앱에 넘긴다.
+ */
+export function embeddedRecordsStudioDestination(currentPath: string, destination: string, currentSearch = ""): string | null {
+  const current = /^\/(ko|en)\/embed\/records-studio\/?$/.exec(currentPath);
+  if (!current) return null;
+  const target = new URL(destination, "https://embedded.invalid");
+  if (target.origin !== "https://embedded.invalid") return null;
+  const path = target.pathname.replace(/^\/(ko|en)(?=\/)/, "");
+  const studio = /^\/(?:records\/studio|embed\/records-studio)(?:\/([A-Za-z0-9_-]{1,64}))?\/?$/.exec(path);
+  if (!studio) return null;
+  const params = new URLSearchParams(target.search);
+  const section = recordsStudioEmbedSection(studio[1] ?? params.get("section"));
+  if (section === "overview") params.delete("section");
+  else params.set("section", section);
+  const activity = recordsStudioEmbedActivityId(new URLSearchParams(currentSearch).get("activity"));
+  if (activity && !params.has("activity")) params.set("activity", activity);
+  const query = params.toString();
+  return `/${current[1]}/embed/records-studio${query ? `?${query}` : ""}${target.hash}`;
+}
 
 /** 선수 프로필 임베드가 받는 사용자 ID — `me` 같은 예약 이름·경로 문자·과도한 길이는 받지 않는다. */
 export function isEmbeddableAthleteId(userId: string | undefined): userId is string {
@@ -175,8 +216,9 @@ export function embeddedEventDetailDestination(currentPath: string, destination:
 }
 
 /** 코치·허브 임베드가 자기 WebView 안에서 처리하는 목적지. 없으면 null(앱으로 넘김). */
-export function embeddedInternalDestination(currentPath: string, destination: string): string | null {
+export function embeddedInternalDestination(currentPath: string, destination: string, currentSearch = ""): string | null {
   return embeddedCoachDestination(currentPath, destination)
+    ?? embeddedRecordsStudioDestination(currentPath, destination, currentSearch)
     ?? embeddedHubDestination(currentPath, destination)
     ?? embeddedClubDetailDestination(currentPath, destination)
     ?? embeddedCourseDetailDestination(currentPath, destination)
@@ -186,7 +228,7 @@ export function embeddedInternalDestination(currentPath: string, destination: st
 }
 
 /** 검색 임베드가 폼 아래에 그리는 결과 목록. 활동(웹 홈 피드)은 없다 — 앱으로 넘긴다. */
-export type EmbeddedSearchResult = "clubs" | Exclude<EmbeddedExplorePage, "events" | "challenges" | "recipes">;
+export type EmbeddedSearchResult = "clubs" | Exclude<EmbeddedExplorePage, "events" | "challenges">;
 
 /** MobileMenuSearch 가 이동하려는 웹 목록 경로 → 검색 임베드 결과 종류와 그 목록이 읽을 쿼리. */
 export function searchResultForDestination(destination: string): { result: EmbeddedSearchResult; params: URLSearchParams } | null {

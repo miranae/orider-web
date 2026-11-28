@@ -11,20 +11,15 @@ export const EXPLORE_PAGE_COMPONENTS = {
   events: lazy(() => import("../../pages/EventsPage")),
   challenges: lazy(() => import("../../pages/ChallengesPage")),
   athletes: lazy(() => import("../../pages/ExploreAthletesPage")),
-  recipes: lazy(() => import("../../pages/CreatorHubPage")),
   board: lazy(() => import("../../pages/BoardPage")),
 } as const;
 
 /** 탐색 허브의 한 서브탭 내용을 그린다(검색 결과에서도 재사용). */
-export function ExplorePageContent({ page, section }: { page: EmbeddedExplorePage; section?: string | null }) {
+export function ExplorePageContent({ page }: { page: EmbeddedExplorePage }) {
   if (page === "courses" || page === "segments") {
     // 웹 Layout 은 지도 화면을 경로로 보였다 숨긴다 — 임베드에서는 항상 보인다.
     const MapPage = EXPLORE_PAGE_COMPONENTS[page];
     return <MapPage embedded />;
-  }
-  if (page === "recipes") {
-    const Recipes = EXPLORE_PAGE_COMPONENTS.recipes;
-    return <Recipes section={section} />;
   }
   const Page = EXPLORE_PAGE_COMPONENTS[page];
   return <Page />;
@@ -52,7 +47,7 @@ export default function ExploreSurface(props: HubSurfaceProps) {
   return (
     <HubSurfaceFrame {...props} title={t("nav.explore")} testId="embedded-explore" className="orider-embedded-explore"
       header={<EmbeddedExploreNavigation selected={selected} onSelect={select} />}>
-      <ExplorePageContent key={selected} page={selected} section={selected === "recipes" ? params.get("section") : null} />
+      <ExplorePageContent key={selected} page={selected} />
     </HubSurfaceFrame>
   );
 }

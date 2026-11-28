@@ -152,7 +152,7 @@ export default function GroupsPage() {
   const [pendingFocus, setPendingFocus] = useState<PendingRequestFocus | null>(null);
   const showPendingRequest = (groupId: string) => { setRequestsOpen(true); setPendingFocus({ groupId, nonce: Date.now() }); };
   const myGroupIdList = useMemo(() => uid ? myGroups.map((g) => g.id) : [], [myGroups, uid]);
-  const { byGroup: nextEventLabels, eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList);
+  const { byGroup: nextEventLabels, eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList, undefined, false, uid);
   // 휴대폰에서 클럽이 있으면 모임 먼저: 다가오는 모임 → 내 클럽(행) → 초대 코드·가입 신청 행 → (찾기를 누르면) 클럽 찾기.
   const compactList = mobile && Boolean(user) && myGroups.length > 0;
 
