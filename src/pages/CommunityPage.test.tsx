@@ -118,7 +118,7 @@ it.each([
 ])("leaves the %s view when searching so posts are filtered by the query", async (_label, route, expected) => {
   renderPage(route);
   await userEvent.type(screen.getByPlaceholderText("라이더 · 글 검색"), "kim{Enter}");
-  expect(screen.getByTestId("location")).toHaveTextContent(new RegExp(`^${expected.replace(/[?&]/g, "\\$&")}$`));
+  expect(screen.getByTestId("location").textContent).toBe(expected);
   expect(screen.getByTestId("board")).toHaveAttribute("data-query", "kim");
   expect(screen.getByTestId("board")).toHaveAttribute("data-view", "");
 });
