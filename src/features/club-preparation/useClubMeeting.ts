@@ -29,7 +29,7 @@ export function useClubMeeting(
     changed: version => worldChange.current(version),
     disconnected: code => worldDisconnect.current(code),
     phaseChanged: phase => worldPhase.current(phase),
-  });
+  }, undefined, false, true);
   const controller = useRef<((cursor?: string) => Promise<void>) | null>(null);
   const [state, setState] = useState<{
     scope: string;
@@ -177,7 +177,6 @@ export function useClubMeeting(
       worldActive = true;
       if (reconnected) consumedSignalVersion = undefined;
       signalVersion = version;
-      stopSignal();
       if (signalFailed) { signalFailed = false; changed(); }
       else if (reconnected && (data || inFlight)) changed();
       else if (data && hasNewerSignal()) changed();
@@ -236,14 +235,18 @@ export function useClubMeeting(
         if (delay !== undefined) retrySignalTimer = setTimeout(subscribe, delay);
       };
       try {
+        // 신호 문서는 월드가 붙어 있어도 계속 듣는다(g1-web#4214). 서버는 Redis 발행이 성공하면 문서를 쓰지 않고,
+        // 발행이 실패했을 때만 문서에 대신 쓰므로 월드가 받지 못한 신호를 여기서 받는다.
         attachFallback = () => {
-          if (worldActive || stopLocationSignal || !subscribed() || document.hidden || denied) return;
+          if (stopLocationSignal || !subscribed() || document.hidden || denied) return;
           try {
             stopLocationSignal = onSnapshot(doc(services.firestore, `events/${eventId}/meeting_snapshot_signals/latest`), { includeMetadataChanges: true }, snapshot => {
-          if (!subscribed() || worldActive || snapshot.metadata.fromCache) return;
+          if (!subscribed() || snapshot.metadata.fromCache) return;
           signalFailures = 0;
           const stamp = snapshot.data()?.updatedAt;
-          signalVersion = stamp ? `${stamp.seconds}:${stamp.nanoseconds}` : null;
+          const version = stamp ? `${stamp.seconds}:${stamp.nanoseconds}` : null;
+          // 월드 신호와 같은 버전 축을 쓰므로 더 새 값만 반영한다.
+          if (signalVersion === undefined || newerSignal(version, signalVersion)) signalVersion = version;
           if (signalFailed) { signalFailed = false; changed(); }
           else if (data && !inFlight && hasNewerSignal()) changed();
             }, failed);

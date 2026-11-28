@@ -11,7 +11,7 @@ import { DiscordLogo } from "../../components/auth/DiscordLogo";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import { logClientError } from "../../services/errorLogger";
 import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
-import { useWorldEvent } from "../ride-world/useWorldEvent";
+import { isProductionWorldSignalEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
 
 /** Independent from attendance: spectators can use/share the same public Discord invite. */
 export default function MeetingDiscord({ eventId, groupId, uid, ended = false, en }: {
@@ -43,22 +43,20 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       logClientError("MeetingDiscord.load", reason, undefined, services, viewer);
     }
   }, [eventId, scope, getClubMeetingDiscord, services, viewer]);
-  const [worldScope, setWorldScope] = useState<{ scope: string; viewer: typeof viewer; services: typeof services } | null>(null);
-  const activeWorldScope = useRef<typeof worldScope>(null);
+  const activeWorldScope = useRef<{ scope: string; viewer: typeof viewer; services: typeof services } | null>(null);
   useEffect(() => {
     activeWorldScope.current = null;
-    setWorldScope(null);
   }, [scope, viewer, services, ended]);
-  const worldOwnsSignals = worldScope?.scope === scope && worldScope.viewer === viewer && worldScope.services === services;
-  const redisSignals = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+  // 로컬 실험실 또는 운영 월드(g1-web#4214)의 디스코드 신호. 신호 문서 리스너는 월드와 함께 계속 유지한다 —
+  // Redis 전용 쓰기로 바뀌어도 발행 실패 시 서버가 문서에 대신 쓰는 신호를 받기 위해서다.
+  const redisSignals = viewer?.uid === uid && (isProductionWorldSignalEnabled("discord") ||
+    import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
     import.meta.env.VITE_ORIDER_LOCAL_DISCORD_REDIS === "1" && isEmulatorRuntime() &&
-    getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true && viewer?.uid === uid;
+    getRuntimeConfig().firebaseProjectId?.startsWith("demo-") === true);
   useWorldEvent(redisSignals && !ended ? eventId : undefined, viewer, undefined, undefined, {
     topic: "discord",
     changed: () => {
-      const binding = { scope, viewer, services };
-      activeWorldScope.current = binding;
-      setWorldScope(binding);
+      activeWorldScope.current = { scope, viewer, services };
       if (!document.hidden) void reload();
     },
     disconnected: code => {
@@ -67,12 +65,11 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       const binding = activeWorldScope.current;
       if ((binding?.scope !== scope || binding.viewer !== viewer || binding.services !== services) && !denied) return;
       activeWorldScope.current = null;
-      setWorldScope(null);
       generation.current++; busy.current = false; queued.current = false;
       setPending(false); setResult(null); setConfirmClose(false);
       if (denied) setError(true);
     },
-  });
+  }, undefined, false, true);
   useEffect(() => {
     mounted.current = true; queued.current = false; busy.current = false; setPending(false); setResult(null); setError(false); setConfirmClose(false);
     void reload();
@@ -94,15 +91,14 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
     };
     void services.ensureAppCheckReady().then(() => {
       if (disposed) return;
-      const paths = [`events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`];
-      if (!worldOwnsSignals) paths.unshift(`events/${eventId}/discord_signals/latest`);
+      const paths = [`events/${eventId}/discord_signals/latest`, `events/${eventId}`, `groups/${groupId}`, `groups/${groupId}/members/${uid}`];
       for (const path of paths) {
         stops.push(onSnapshot(doc(services.firestore, path), changed, failed));
       }
     }).catch(failed);
     document.addEventListener("visibilitychange", changed);
     return () => { disposed = true; stops.forEach(stop => stop()); document.removeEventListener("visibilitychange", changed); };
-  }, [services, eventId, groupId, uid, reload, signalRetry, worldOwnsSignals, scope, viewer]);
+  }, [services, eventId, groupId, uid, reload, signalRetry, viewer]);
   const mutate = async (close: boolean) => {
     if (busy.current) return;
     busy.current = true; setPending(true); setError(false); const operation = ++generation.current;

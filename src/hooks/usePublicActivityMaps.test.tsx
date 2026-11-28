@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { usePublicActivityMaps } from "./usePublicActivityMaps";
+import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 type Listener = { path: string; next: (snapshot: { data: () => { seq?: number } | undefined }) => void; error: (error: Error) => void; unsubscribe: ReturnType<typeof vi.fn> };
 const m = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string; isAnonymous?: boolean }, services: { auth: { currentUser: {} as unknown }, firestore: { app: { options: { projectId: "fixture" } } } }, load: vi.fn(), listeners: [] as Listener[] }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: m.user }) }));
@@ -37,7 +38,8 @@ it("drops an in-flight map after a Redis revocation and clears any displayed map
   expect(socket.send).toHaveBeenCalledWith(expect.stringContaining("emulator-token"));
   expect(m.listeners).toHaveLength(2);
   act(() => socket.onmessage(frame));
-  expect(m.listeners.every(listener => listener.unsubscribe.mock.calls.length === 1)).toBe(true);
+  // 월드가 붙어도 Firestore 신호는 유지한다(g1-web#4214).
+  expect(m.listeners.every(listener => listener.unsubscribe.mock.calls.length === 0)).toBe(true);
   act(() => socket.onmessage(frame));
   await act(async () => settle(map));
   await waitFor(() => expect(view.result.current.maps).toEqual({ a: null }));
@@ -48,6 +50,38 @@ it("drops an in-flight map after a Redis revocation and clears any displayed map
   expect(view.result.current).toMatchObject({ maps: {}, failed: true });
   expect(m.listeners.filter(listener => !listener.unsubscribe.mock.calls.length)).toHaveLength(2);
   view.unmount();
+});
+it("signed-in production viewers use the hosted World with App Check and keep Firestore signals (g1-web#4214)", async () => {
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldActivityMapSignalsEnabled: true });
+  m.services.firestore.app.options.projectId = "miranae-orider-g1";
+  m.user = { uid: "owner", isAnonymous: false };
+  const current = { uid: "owner", isAnonymous: false, getIdToken: async () => "id-token" };
+  m.services.auth.currentUser = current;
+  Object.assign(m.services, { getAppCheckToken: vi.fn(async () => "app-check") });
+  const socket = { send: vi.fn(), close: vi.fn(), onopen: vi.fn(), onmessage: (_: { data: string }) => {}, onclose: vi.fn() };
+  const urls: string[] = [];
+  vi.stubGlobal("WebSocket", class { constructor(url: string) { urls.push(url); return socket; } });
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));
+  const view = renderHook(() => usePublicActivityMaps(["a"]));
+  try {
+    await waitFor(() => expect(urls).toEqual(["wss://world.orider.co.kr/activity-map-signals"]));
+    act(() => socket.onopen());
+    expect(JSON.parse(socket.send.mock.calls[0][0])).toMatchObject({ activityIds: ["a"], token: "id-token", appCheck: "app-check" });
+    act(() => socket.onmessage({ data: JSON.stringify({ v: 1, type: "activity_map_signal" }) }));
+    await waitFor(() => expect(view.result.current.maps.a).toEqual(map));
+    expect(m.listeners.map(l => l.path)).toEqual(["activity_map_signals/a", "activity_map_viewer_signals/owner"]);
+    expect(m.listeners.every(l => !l.unsubscribe.mock.calls.length)).toBe(true);
+  } finally { view.unmount(); resetRuntimeConfigForTests(); }
+});
+it("anonymous production viewers stay on Firestore signals (g1-web#4214)", async () => {
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldActivityMapSignalsEnabled: true });
+  m.services.firestore.app.options.projectId = "miranae-orider-g1";
+  const open = vi.fn();
+  vi.stubGlobal("WebSocket", class { constructor() { open(); } });
+  const view = renderHook(() => usePublicActivityMaps(["a"]));
+  await act(async () => {});
+  expect(open).not.toHaveBeenCalled();
+  view.unmount(); resetRuntimeConfigForTests();
 });
 it("shares one connection across visible cards and refreshes only the changed activity", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 204 })));

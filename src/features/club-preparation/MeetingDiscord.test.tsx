@@ -7,7 +7,7 @@ import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import type { useWorldEvent } from "../ride-world/useWorldEvent";
 const api = vi.hoisted(() => ({signals:[] as (()=>void)[],getClubMeetingDiscord:vi.fn(),openClubMeetingDiscord:vi.fn(),closeClubMeetingDiscord:vi.fn()}));
 const transport = vi.hoisted(() => ({ paths: [] as string[], subscribe: vi.fn<typeof useWorldEvent>() }));
-vi.mock("../ride-world/useWorldEvent",()=>({useWorldEvent:transport.subscribe}));
+vi.mock("../ride-world/useWorldEvent",async original=>({...await original<typeof import("../ride-world/useWorldEvent")>(),useWorldEvent:transport.subscribe}));
 vi.mock("./useClubMeetingsApi",()=>({useClubMeetingsApi:()=>api}));
 vi.mock("../../services/errorLogger",()=>({logClientError:vi.fn()}));
 vi.mock("../../components/LocalizedLink",()=>({LocalizedLink:({to,children,...props}:any)=><a href={to} {...props}>{children}</a>}));
@@ -98,6 +98,17 @@ describe("meeting public Discord voice",()=>{
   act(()=>signal()?.disconnected?.(4003));
   expect(screen.queryByRole("link",{name:"디스코드에서 함께하기"})).toBeNull();
   expect(screen.getByRole("alert")).toBeInTheDocument();
+ });
+ it("subscribes to production World Discord signals and keeps the signal document listener (g1-web#4214)",async()=>{
+  resetRuntimeConfigForTests({firebaseProjectId:"miranae-orider-g1",worldEventViewsEnabled:true,worldAccountSignalsEnabled:true});
+  show();
+  await screen.findByRole("button",{name:"음성 채널 열기"});
+  expect(transport.subscribe.mock.lastCall?.[0]).toBe("meeting");
+  expect(transport.subscribe.mock.lastCall?.[7]).toBe(true);
+  api.getClubMeetingDiscord.mockResolvedValue(ready);
+  await act(async()=>transport.subscribe.mock.lastCall?.[4]?.changed("1"));
+  await screen.findByRole("link",{name:"디스코드에서 함께하기"});
+  expect(transport.paths.filter(path=>path.endsWith("discord_signals/latest"))).toHaveLength(1);
  });
  it("discards an old account's response after the scope changes",async()=>{
   let release!:(value:MeetingDiscordView)=>void;api.getClubMeetingDiscord.mockImplementationOnce(()=>new Promise(resolve=>{release=resolve;}));
