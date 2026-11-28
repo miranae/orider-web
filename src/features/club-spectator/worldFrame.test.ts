@@ -96,8 +96,16 @@ describe("월드 서버 진행·격차 (g1-web#4005)", () => {
     expect(worldFrameCoversRiders(null, frame([{uid: "rider-one"}]), now)).toBe(false);
     // 이벤트 ID가 다르면 미커버.
     expect(worldFrameCoversRiders(base, {...frame([{uid: "rider-one"}]), eventId: "other"}, now)).toBe(false);
-    // 코스가 없으면 미커버.
-    expect(worldFrameCoversRiders({...base, course: null}, frame([{uid: "rider-one"}]), now)).toBe(false);
+    // 코스 없는 야외 모임도 주행자 마커가 있으면 커버한다(#4215).
+    expect(worldFrameCoversRiders({...base, course: null, locations: []}, frame([{uid: "rider-one"}]), now)).toBe(true);
+  });
+  it("코스 없는 야외 모임은 위치를 표시하고 진행·격차는 비워 둔다 (#4215)", () => {
+    const base = {...spectatorFixture(now), course: null, locations: []};
+    const next = applyWorldFrame(base, frame([{uid: "rider-one", lat: 37.6, lon: 127.1, speedMps: 7, progressM: 100, gapToLeaderM: 0,
+      leaderGapExpiresAtMs: now + 30000, gapToSelectedM: null, selectedGapExpiresAtMs: null}]), now);
+    expect(next.locations).toEqual([expect.objectContaining({uid: "rider-one", courseId: null, lat: 37.6, lng: 127.1, speedMps: 7,
+      progressM: null, gapToLeaderM: null, status: "RIDING"})]);
+    expect(liveRiders(next, now).map(r => r.uid)).toEqual(["rider-one"]);
   });
   it("선택 대상이 있으면 선택 기준이 확인된 현재 선택 프레임일 때만 커버한다", () => {
     const base = {...spectatorFixture(now), selectedUid: "rider-one"};

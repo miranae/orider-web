@@ -42,11 +42,12 @@ export default function MeetingSpectatorView({snapshot, now, receivedAt, en, pre
     <p className="club-live-muted">{text("마지막 응답", "Last response")} · {new Date(receivedAt).toLocaleTimeString(en ? "en-US" : "ko-KR")} · {text("위치 수신", "Positions")} {riders.length} {snapshot.participants && <> · {text("참석 명단", "Attendees")} {people.length}</>}</p>
     {snapshot.status === "CANCELLED" ? <Card><h2>{text("모임이 취소됐어요", "This meeting was cancelled")}</h2><Link to={`/club/${snapshot.groupId}/meetings/${snapshot.eventId}`}>{text("모임 상세 확인", "View meeting details")}</Link></Card> : finished ? <Card><h2>{text("모임이 마무리됐어요", "This meeting has ended")}</h2><p>{text("개인 기록 업로드와 결과 확인에는 시간이 걸릴 수 있어요.", "Record uploads and results may take a moment.")}</p>
       <Link to={`/club/${snapshot.groupId}/meetings/${snapshot.eventId}#meeting-results`}>{text("모임 결과 확인", "View meeting results")}</Link>{" · "}<Link to={`/club/${snapshot.groupId}/rides`}>{text("그룹 주행 기록", "Group ride recordings")}</Link></Card> : <div className="club-live-workspace">
-      <div className="club-live-stage">{snapshot.course && <Card><div className="club-live-heading"><div><div className="club-live-title-action"><h2>{snapshot.course.name}</h2>
+      {/* 코스 없는 야외 모임도 위치가 오면 지도를 보여 준다(#4215). */}
+      <div className="club-live-stage">{(snapshot.course || riders.length > 0) && <Card><div className="club-live-heading">{snapshot.course ? <div><div className="club-live-title-action"><h2>{snapshot.course.name}</h2>
           {/* 코스 전체 보기는 글자 버튼 대신 코스 이름 옆 작은 맞춤 아이콘으로 둔다(코스맵의 전체 경로 보기와 같은 모양). */}
           <IconButton size="sm" variant="ghost" aria-label={text("코스 전체 보기", "Show entire course")} title={text("코스 전체 보기", "Show entire course")} icon={<LocateFixed size={ICON_SIZE.sm} />} onClick={() => { update({mapMode: "course"}); setMapRevision(v => v + 1); }} /></div>
-          <p>{(snapshot.course.distanceM / 1000).toFixed(1)} km</p></div></div>
-        <div className="club-live-map"><EventMap key={`${snapshot.course.courseId}/${mapRevision}`} locations={locations} selectedUid={prefs.mapMode === "rider" && reference && !staleRider(reference, now) ? selected : null} onSelectParticipant={uid => { if (uid) setSelected(uid); }} courseLatlngs={courseLatlngs} preserveSelectionOnPopupClose followSelected onLogError={(source, error, context) => logClientError(source, error, context, services, user)} /></div>
+          <p>{(snapshot.course.distanceM / 1000).toFixed(1)} km</p></div> : <h2>{text("함께 달리는 위치", "Rider positions on map")}</h2>}</div>
+        <div className="club-live-map"><EventMap key={`${snapshot.course?.courseId ?? "free-ride"}/${mapRevision}`} locations={locations} selectedUid={prefs.mapMode === "rider" && reference && !staleRider(reference, now) ? selected : null} onSelectParticipant={uid => { if (uid) setSelected(uid); }} courseLatlngs={courseLatlngs} preserveSelectionOnPopupClose followSelected onLogError={(source, error, context) => logClientError(source, error, context, services, user)} /></div>
       </Card>}
       <Card aria-label={text("보고 있는 선수", "Selected rider")}>
         <div className="club-live-heading"><h2>{selectedPerson?.displayName ?? text("함께 볼 친구를 선택하세요", "Choose a friend to watch")}</h2>
@@ -54,7 +55,7 @@ export default function MeetingSpectatorView({snapshot, now, receivedAt, en, pre
         <p>{selectedPerson ? spectatorStatus(selectedPerson.state, en) : text("명단에서 친구를 찾고 선택하면 위치를 따라갑니다.", "Find a friend in the list to follow their position.")}</p>
         {reference && <p>{reference.speedMps === null ? "—" : `${(reference.speedMps * 3.6).toFixed(1)} km/h`} · {reference.powerWatts === null ? "—" : `${reference.powerWatts} W`} · {text("선두 격차", "Gap to front")} {gap(reference.gapToLeaderM)}</p>}
         {selected && !selectedPerson && <p role="status">{text("선택한 친구의 참석 정보를 기다리고 있어요.", "Waiting for your selected friend's attendance.")}</p>}
-        {!snapshot.course && <p>{text("모임 코스를 준비하고 있어요. 친구를 미리 선택할 수 있어요.", "The course is being prepared. You can select a friend now.")}</p>}
+        {!snapshot.course && riders.length === 0 && <p>{text("모임 코스를 준비하고 있어요. 친구를 미리 선택할 수 있어요.", "The course is being prepared. You can select a friend now.")}</p>}
       </Card></div>
       <Card><div className="club-live-heading"><h2>{text("참가자 현황", "Rider positions")}</h2><Button size="sm" variant="secondary" onClick={() => update({followingOnly: !followingOnly})} aria-pressed={followingOnly}>{text("팔로우만 보기", "Following only")} ({followed.filter(uid => people.some(r => r.uid === uid)).length})</Button></div>
         <Input aria-label={text("이름 또는 참가자 ID 검색", "Search name or rider ID")} placeholder={text("이름 또는 참가자 ID", "Name or rider ID")} value={search} maxLength={200} onChange={e => update({search: e.target.value})} />
