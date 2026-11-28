@@ -95,7 +95,7 @@ export function useFriendRequestActions(): FriendRequestActions {
       showToast(t("search.toast.sent", { nickname: target.nickname || t("defaultNickname") }));
     } catch (error) {
       setLocal(target.id, null);
-      logClientError("ExploreAthletesPage.sendFriendRequest", error, { targetUserId: target.id });
+      logClientError("friendRequestActions.send", error, { targetUserId: target.id });
       showToast(t("search.toast.sendFailed"), "error");
     }
   });
@@ -105,7 +105,7 @@ export function useFriendRequestActions(): FriendRequestActions {
       setLocal(target.id, "friend");
       showToast(t("toast.acceptSuccess"));
     } catch (error) {
-      logClientError("ExploreAthletesPage.acceptRequest", error, { requesterId: target.id });
+      logClientError("friendRequestActions.accept", error, { requesterId: target.id });
       showToast(t("toast.acceptFailed"), "error");
     }
   });

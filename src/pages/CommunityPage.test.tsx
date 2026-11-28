@@ -21,7 +21,7 @@ vi.mock("../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: async
 vi.mock("./BoardPage", () => ({
   default: function MockBoard({ community }: { community?: boolean }) {
     const [params] = useSearchParams();
-    return <div data-testid="board" data-community={String(!!community)} data-query={params.get("q") ?? ""} data-type={params.get("type") ?? ""} />;
+    return <div data-testid="board" data-community={String(!!community)} data-query={params.get("q") ?? ""} data-type={params.get("type") ?? ""} data-view={params.get("view") ?? ""} />;
   },
 }));
 
@@ -110,4 +110,15 @@ it("shows only the post group to guests searching", async () => {
   expect(await screen.findByRole("heading", { name: "글" })).toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "라이더" })).toBeNull();
   expect(search).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["my posts", "/ko/embed/explore?hubPage=community&view=mine", "?hubPage=community&q=kim"],
+  ["my inquiries", "/ko/embed/explore?hubPage=community&type=inquiry&view=my", "?hubPage=community&type=inquiry&q=kim"],
+])("leaves the %s view when searching so posts are filtered by the query", async (_label, route, expected) => {
+  renderPage(route);
+  await userEvent.type(screen.getByPlaceholderText("라이더 · 글 검색"), "kim{Enter}");
+  expect(screen.getByTestId("location")).toHaveTextContent(new RegExp(`^${expected.replace(/[?&]/g, "\\$&")}$`));
+  expect(screen.getByTestId("board")).toHaveAttribute("data-query", "kim");
+  expect(screen.getByTestId("board")).toHaveAttribute("data-view", "");
 });

@@ -36,6 +36,9 @@ export default function CommunityPage() {
     setParams(previous => {
       const updated = new URLSearchParams(previous);
       if (next) updated.set("q", next); else updated.delete("q");
+      // 「내 글」·「내 문의」(view=)는 검색 경로를 타지 않아 검색어가 무시된다 — 웹 게시판이 그 상태에서
+      // 검색창을 막는 것과 같은 결과가 되도록, 검색하면 내 글 보기를 풀고 전체 글에서 찾는다.
+      if (next) updated.delete("view");
       // 게시판 페이지 번호는 검색어가 바뀌면 처음부터
       updated.delete("page");
       return updated;

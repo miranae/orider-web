@@ -19,18 +19,19 @@ export function FriendSuggestionsRow({ actions }: { actions: FriendRequestAction
   const { user } = useAuth();
   const services = useFirebaseServices();
   const { t } = useTranslation("friends");
-  const [items, setItems] = useState<FriendSuggestion[]>([]);
+  // 받은 목록은 요청한 계정과 함께 둔다 — 계정이 바뀌면 새 응답 전까지 옛 계정 추천을 보이지 않는다.
+  const [loaded, setLoaded] = useState<{ viewerId: string; items: FriendSuggestion[] } | null>(null);
   const viewerId = user && !user.isAnonymous ? user.uid : null;
 
   useEffect(() => {
-    setItems([]);
     if (!viewerId) return;
     let cancelled = false;
-    void listFriendSuggestions(services, SUGGESTION_LIMIT).then(next => { if (!cancelled) setItems(next); });
+    void listFriendSuggestions(services, SUGGESTION_LIMIT).then(items => { if (!cancelled) setLoaded({ viewerId, items }); });
     return () => { cancelled = true; };
   }, [viewerId, services]);
 
-  const visible = viewerId ? items.filter(item => item.uid !== viewerId && actions.friendState(item.uid) !== "friend") : [];
+  const items = viewerId && loaded?.viewerId === viewerId ? loaded.items : [];
+  const visible = items.filter(item => item.uid !== viewerId && actions.friendState(item.uid) !== "friend");
   if (visible.length === 0) return null;
 
   return <section data-testid="community-suggestions" aria-labelledby="community-suggestions-title" className="community-suggestions">
