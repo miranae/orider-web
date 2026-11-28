@@ -1,0 +1,19 @@
+/* 커뮤니티 「친구 찾기」 추천 줄 — 폰 폭에서 가로 스크롤, 카드 폭 고정 */
+.community-suggestions { display: grid; gap: var(--space-2); min-width: 0; }
+.community-suggestions-row {
+  display: flex; gap: var(--space-2); margin: 0; padding: 0 0 var(--space-1); list-style: none;
+  overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none;
+}
+.community-suggestions-row::-webkit-scrollbar { display: none; }
+.community-suggestions-row > li { flex: 0 0 auto; scroll-snap-align: start; }
+.community-suggestion-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: calc(var(--space-8) * 2.5); text-align: center; }
+.community-suggestion-profile { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; min-width: 0; color: var(--ink-0); text-decoration: none; }
+.community-suggestion-name { max-width: 100%; }
+/* 「함께 N회」 숫자가 바뀌어도 줄 폭이 흔들리지 않게 고정폭 숫자 */
+.community-suggestion-reason { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* 커뮤니티 상단 검색 */
+.community-page { display: grid; gap: var(--space-4); min-width: 0; }
+.community-search { display: flex; gap: var(--space-2); align-items: center; }
+.community-search-input { flex: 1; min-width: 0; }
+.community-group { display: grid; gap: var(--space-2); min-width: 0; }

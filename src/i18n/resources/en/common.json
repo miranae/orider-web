@@ -209,7 +209,8 @@
     "developerDocs": "Developer Docs",
     "challenges": "Challenges",
     "records": "Records",
-    "people": "People"
+    "people": "People",
+    "communityHub": "Community"
   },
   "about": {
     "title": "Ride records that lead to the next choice",
@@ -220,6 +221,12 @@
       "Find the next challenge through courses, segments, and leaderboards.",
       "Meet riders and share context through groups, events, and the board."
     ]
+  },
+  "community": {
+    "searchPlaceholder": "Search riders · posts",
+    "search": "Search",
+    "riders": "Riders",
+    "posts": "Posts"
   },
   "search": {
     "activities": "Activities",

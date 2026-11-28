@@ -89,5 +89,10 @@
   "search.error.unauthenticated": "로그인한 뒤 검색할 수 있어요.",
   "search.error.invalid": "검색어를 1~100자로 입력해 주세요.",
   "search.error.rateLimited": "검색을 너무 자주 했어요. 잠시 후 다시 시도해 주세요.",
-  "search.error.failed": "검색하지 못했어요. 잠시 후 다시 시도해 주세요."
+  "search.error.failed": "검색하지 못했어요. 잠시 후 다시 시도해 주세요.",
+  "suggestions.title": "친구 찾기",
+  "suggestions.request": "요청",
+  "suggestions.sent": "보냄",
+  "suggestions.coRide": "함께 {{count}}회",
+  "suggestions.sameClub": "같은 클럽"
 }
