@@ -19,3 +19,5 @@
 - `screenshots/reorg-20261014/`, `screenshots/activity-analysis-growth*` — 2026-10 메뉴·코치 재편과 활동 분석·성장 화면 증빙.
 - `testing/club-invite-flow-local.md`, `testing/club-schedule-cache-20261027/` — 2026-10 클럽 초대·일정 로컬 검증 기록.
 - `evidence/native-observed-route-groups/`, `evidence/social-account-connect/` — 2026-10 로컬 UI 증빙.
+- `HOME_TODAY_PLAN_INFORMATION_ARCHITECTURE.md` — 2026-08 홈 `오늘의 계획`·Training Decision Core 개선안. 공용 훈련 결정 화면(`src/features/trainingDecision/`, 홈 오늘 스트립)으로 구현됐고 코치 `오늘 훈련` 탭은 이후 제거됨.
+- `recipes/commute-diary-research.md` — 자전거 출퇴근 일기 레시피 설계 전 참고 조사. 레시피는 2026-07 출시, 이 문서를 참조하는 곳 없음.
