@@ -6,6 +6,7 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { retainNewerSamples } from "./presentation";
 import { applyWorldFrame, enterWorldMode, retainWorldPositions, worldFrameCoversRiders } from "./worldFrame";
+import { useMeetingOutage } from "./useMeetingOutage";
 import type { MeetingSpectatorSnapshot } from "./types";
 
 /** 월드 프레임이 이 시간 동안 새로 오지 않으면 연결·준비 상태와 무관하게 위치 변경 신호·콜러블로 따라잡는다. */
@@ -215,11 +216,15 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
       return data === old.data ? old : {...old, data: {...data, serverNowMs}, receivedAt: now};
     });
   }, [world, worldViews, worldCovers, scope]);
+  // 월드 전체 장애(#4203) 동안에는 서버가 확정한 장애 회차의 좌표로 위치만 덮는다(#4215). 월드 프레임이 돌아오면 바로 빠진다.
+  const outage = useMeetingOutage(worldViews && world === null && activeState.data?.status === "LIVE", groupId, eventId, viewer, selectedUid);
   useEffect(() => {
     if (previousSelection.current !== selectedUid) {
       previousSelection.current = selectedUid;
       refreshSelection.current();
     }
   }, [selectedUid]);
-  return { ...activeState, reload: () => setRetry(v => v + 1) };
+  const shown = outage && activeState.data ? {...activeState, receivedAt: outage.receivedAt,
+    data: {...activeState.data, serverNowMs: outage.data.serverNowMs, locations: outage.data.locations}} : activeState;
+  return { ...shown, reload: () => setRetry(v => v + 1) };
 }

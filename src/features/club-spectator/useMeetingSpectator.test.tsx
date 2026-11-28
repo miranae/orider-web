@@ -17,7 +17,9 @@ vi.mock("firebase/firestore", () => ({doc: (_db: unknown, path: string) => path,
 vi.mock("firebase/functions", () => ({httpsCallable: vi.fn(() => control.request)}));
 vi.mock("../../contexts/FirebaseServicesContext", () => ({useFirebaseServices: () => control.services}));
 vi.mock("../../services/errorLogger", () => ({logClientError: vi.fn()}));
-beforeEach(() => { vi.clearAllMocks(); world.production = false; world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
+const outage = vi.hoisted(() => ({value: null as unknown, active: [] as boolean[]}));
+vi.mock("./useMeetingOutage", () => ({useMeetingOutage: (active: boolean) => { outage.active.push(active); return outage.value; }}));
+beforeEach(() => { vi.clearAllMocks(); outage.value = null; outage.active = []; world.production = false; world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 const data = () => ({...spectatorFixture(Date.now()), groupId: "club", eventId: "meeting"});
 describe("회원 관전 조회 경계", () => {
@@ -438,4 +440,22 @@ it("커버 중 콜러블 응답이 오면 월드 위치·진행이 유지된다(
   expect(control.request).toHaveBeenCalledTimes(2);
   expect(openLocationSignals()).toHaveLength(0);
   expect(result.current.data?.locations.find(r => r.uid === "rider-two")).toMatchObject({lng: 126.98, progressM: 2500, gapToLeaderM: 100});
+});
+
+it("월드 프레임이 없는 LIVE 운영 관전에서만 장애 폴백을 켜고, 장애 회차 좌표로 위치만 덮는다 (#4215)", async () => {
+  world.production = true;
+  control.request.mockResolvedValue({data: {...data(), locations: []}});
+  const {result, rerender} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data?.status).toBe("LIVE"));
+  expect(outage.active.at(-1)).toBe(true);
+  const fallback = {...data(), serverNowMs: 123, title: "장애 응답 제목"};
+  outage.value = {scope: "member/club/meeting", episode: "ep-1", data: fallback, receivedAt: 456};
+  rerender();
+  expect(result.current.data?.locations.map(r => r.uid)).toEqual(fallback.locations.map(r => r.uid));
+  expect(result.current.data?.title).toBe("저녁 한강 가상라이딩");
+  expect(result.current.data?.serverNowMs).toBe(123);
+  expect(result.current.receivedAt).toBe(456);
+  world.production = false;
+  rerender();
+  expect(outage.active.at(-1)).toBe(false);
 });
