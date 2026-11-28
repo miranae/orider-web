@@ -6,7 +6,7 @@ import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from "r
 import { useTranslation } from "react-i18next";
 import { collection, getDocs, limit as firestoreLimit, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { CloudUpload, Loader2, MapPinned, Send } from "lucide-react";
+import { CloudUpload, Loader2, MapPinned } from "lucide-react";
 import { matchesDiscipline } from "@shared/sport/discipline";
 import { useToast } from "../../contexts/ToastContext";
 import type { Firestore } from "firebase/firestore";
@@ -81,8 +81,8 @@ function copyFor(language: string) {
     photoTooLarge: ko ? "사진 용량이 너무 큽니다. 다른 사진을 선택하세요." : "The photo is too large. Choose another photo.",
     uploadFailed: ko ? "사진을 업로드하지 못했습니다." : "Could not upload the photo.",
     uploaded: ko ? "사진을 업로드했습니다." : "Photo uploaded.",
-    send: ko ? "선택한 사진으로 받기" : "Send selected",
-    cancel: ko ? "취소" : "Cancel",
+    send: ko ? "이메일로 받기" : "Email it to me",
+    preview: ko ? "미리보기" : "Preview",
     loadFailed: ko ? "사진 목록을 불러오지 못했습니다" : "Could not load photos",
     sent: ko ? "발송 완료" : "Sent",
     sendFailed: ko ? "이메일을 보내지 못했습니다" : "Could not send email",
@@ -330,12 +330,12 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
           )}
         </div>
 
-        <div className="ride-story-picker-footer flex flex-wrap justify-end gap-2 border-t pt-4" style={{ borderColor: "var(--line-soft)" }}>
-          <Button wrap size="md" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
-          {onPreview && <Button wrap size="md" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{i18n.language.startsWith("ko") ? "선택 결과 미리보기" : "Preview selected output"}</Button>}
-          <Button wrap size="md" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} leadingIcon={<Send size={ICON_SIZE.md} />} onClick={() => void send()}>
+        <div className={`ride-story-picker-footer grid ${onPreview ? "grid-cols-2" : "grid-cols-1"} gap-2 border-t pt-4`} style={{ borderColor: "var(--line-soft)" }}>
+          {/* 닫기는 위 ✕. 아래는 받기(보조)·미리보기(주) 두 개를 같은 폭 한 줄로 둔다(#1925). */}
+          <Button block size="md" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} onClick={() => void send()}>
             {copy.send}
           </Button>
+          {onPreview && <Button block size="md" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{copy.preview}</Button>}
         </div>
       </div>
     </Modal>
