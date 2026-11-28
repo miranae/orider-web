@@ -7,17 +7,18 @@ import { useMeetingSpectator } from "./useMeetingSpectator";
 import { spectatorFixture } from "./fixtures";
 const control = vi.hoisted(() => ({request: vi.fn(), signals: [] as {path: string; next: () => void; error: (error: unknown) => void; stop: ReturnType<typeof vi.fn>}[], services: {auth: {currentUser: {uid: "member"} as {uid: string} | null}, functions: {}, firestore: {}, ensureAppCheckReady: vi.fn(async () => {})}}));
 import type { useWorldEvent, WorldEventFrame } from "../ride-world/useWorldEvent";
-const world = vi.hoisted(() => ({ subscribe: vi.fn<typeof useWorldEvent>(), production: false }));
+const world = vi.hoisted(() => ({ subscribe: vi.fn<typeof useWorldEvent>(), production: false, spectatorSignals: false }));
 vi.mock("../ride-world/useWorldEvent", () => ({
   isLocalWorldEventEnabled: () => true,
   isProductionWorldEventEnabled: () => world.production,
+  isProductionWorldSignalEnabled: (topic?: string) => topic === "spectator" && world.spectatorSignals,
   useWorldEvent: world.subscribe,
 }));
 vi.mock("firebase/firestore", () => ({doc: (_db: unknown, path: string) => path, onSnapshot: vi.fn((path: string, next: () => void, error: (error: unknown) => void) => {const stop = vi.fn(); control.signals.push({path, next, error, stop}); return stop;})}));
 vi.mock("firebase/functions", () => ({httpsCallable: vi.fn(() => control.request)}));
 vi.mock("../../contexts/FirebaseServicesContext", () => ({useFirebaseServices: () => control.services}));
 vi.mock("../../services/errorLogger", () => ({logClientError: vi.fn()}));
-beforeEach(() => { vi.clearAllMocks(); world.production = false; world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
+beforeEach(() => { vi.clearAllMocks(); world.production = false; world.spectatorSignals = false; world.subscribe.mockReturnValue(null); control.signals = []; control.services.auth.currentUser = {uid: "member"}; Object.defineProperty(document, "hidden", {configurable: true, value: false}); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 const data = () => ({...spectatorFixture(Date.now()), groupId: "club", eventId: "meeting"});
 describe("회원 관전 조회 경계", () => {
@@ -157,7 +158,17 @@ it("API만 성공하고 변경 구독이 계속 실패해도 자동 복구가 �
   expect(control.request).toHaveBeenCalledTimes(4);
 });
 
-it("관전 신호가 준비되면 기본 구독을 중지하고 권한 철회에 화면을 비운다", async () => {
+it("운영 관전 신호 플래그가 켜지면 운영 월드 spectator 토픽을 구독한다(g1-web#4214)", async () => {
+  world.spectatorSignals = true;
+  control.request.mockResolvedValue({data: data()});
+  const {result} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  const socket = world.subscribe.mock.calls.findLast(call => call[4]?.topic === "spectator");
+  expect(socket?.[0]).toBe("meeting");
+  expect(socket?.[7]).toBe(true);
+});
+
+it("관전 신호가 준비돼도 신호 문서를 계속 듣고 권한 철회에 화면을 비운다", async () => {
   vi.stubEnv("VITE_ORIDER_LOCAL_SPECTATOR_REDIS", "1");
   control.request.mockResolvedValue({data: data()});
   const {result} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
@@ -168,7 +179,8 @@ it("관전 신호가 준비되면 기본 구독을 중지하고 권한 철회에
   vi.useFakeTimers();
   control.request.mockResolvedValue({data: {...data(), title: "새 관전 상태"}});
   act(() => socket?.[4]?.changed("1790000000:000000000"));
-  expect(control.signals.at(-1)?.stop).toHaveBeenCalledOnce();
+  // 발행 실패 시 서버가 문서에 대신 쓰므로 문서 리스너를 유지한다(g1-web#4214).
+  expect(control.signals.at(-1)?.stop).not.toHaveBeenCalled();
   await act(async () => vi.advanceTimersByTimeAsync(5001));
   expect(result.current.data?.title).toBe("새 관전 상태");
   control.request.mockResolvedValue({data: {...data(), status: "FINISHED"}});

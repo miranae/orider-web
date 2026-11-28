@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadPublicActivityMap, type PublicActivityMap } from "../services/publicActivityMaps";
 import { logClientError } from "../services/errorLogger";
-import { subscribeLocalActivityMapSignals } from "../features/ride-world/activityMapSignalPool";
+import { activityMapWorldEndpoint, subscribeActivityMapSignals } from "../features/ride-world/activityMapSignalPool";
 const RETRY_DELAYS_MS = [5_000, 20_000, 60_000];
 const EMPTY = { maps: {} as Record<string, PublicActivityMap | null>, failed: false };
 /**
@@ -75,21 +75,21 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
     };
     startSource();
     let worldActive = false;
-    const stopWorld = import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
-      import.meta.env.VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS === "1" &&
-      services.firestore.app.options.projectId === "demo-orider-lab"
-      ? subscribeLocalActivityMapSignals(services, sdkUser, ids, (ready, failed) => {
-          if (worldActive || ready) {
+    const worldEndpoint = activityMapWorldEndpoint(services.firestore.app.options.projectId, sdkUser);
+    // 월드 신호가 붙어도 Firestore 신호는 계속 듣는다(g1-web#4214). Redis 전용 쓰기에서도 발행 실패 시 서버가 문서에 대신 쓴다.
+    const stopWorld = worldEndpoint
+      ? subscribeActivityMapSignals(services, sdkUser, worldEndpoint, ids, (ready, failed) => {
+          // 처음 붙을 때는 Firestore 로 받은 지도를 유지한 채 다시 조회한다. 붙은 뒤의 변경·끊김은 지도를 비우고 다시 조회한다
+          // (끊긴 동안은 계속 듣는 Firestore 신호가 이어 받는다).
+          const wasActive = worldActive;
+          if (wasActive) {
             signalEpoch++;
             clearTimeout(retryTimer);
             again = false;
             setState({ context, maps: {}, failed });
           }
           worldActive = ready;
-          if (ready) {
-            unsubscribeSource?.(); unsubscribeSource = undefined;
-            refresh();
-          } else startSource();
+          if (wasActive || ready) refresh();
         })
       : undefined;
     return () => {

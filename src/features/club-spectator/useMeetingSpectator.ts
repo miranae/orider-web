@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
+import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, isProductionWorldSignalEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -46,21 +46,16 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const worldCoversRef = useRef(worldCovers);
   worldCoversRef.current = worldCovers;
   const syncLocationSignal = useRef<() => void>(() => {});
-  const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
+  // 관전 위치 변경 신호: 로컬 실험실 또는 운영 월드(g1-web#4214). 서버가 Redis 발행 성공 시 신호 문서를 쓰지 않기 때문이다.
+  const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled() ||
+    isProductionWorldSignalEnabled("spectator");
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
-  const spectatorActiveScope = useRef<string | null>(null);
   const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
-  const previousBinding = useRef({ scope, viewer, services });
-  if (previousBinding.current.scope !== scope || previousBinding.current.viewer !== viewer ||
-      previousBinding.current.services !== services) {
-    previousBinding.current = { scope, viewer, services };
-    spectatorActiveScope.current = null;
-  }
   useWorldEvent(spectatorRedis ? eventId : undefined, viewer, undefined, undefined, {
     topic: "spectator",
-    changed: () => { spectatorActiveScope.current = scope; syncLocationSignal.current(); spectatorSignal.current(); },
-    disconnected: code => { spectatorActiveScope.current = null; syncLocationSignal.current(); spectatorSignal.current(code); },
-  });
+    changed: () => spectatorSignal.current(),
+    disconnected: code => spectatorSignal.current(code),
+  }, undefined, false, true);
   useEffect(() => {
     let disposed = false, inFlight = false, queued = false, blocked = false, generation = 0;
     let lastReadAt = 0, recoveryAttempts = 0;
@@ -130,9 +125,10 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
       }, Math.max(100, 5000 - (Date.now() - lastReadAt)));
     };
     spectatorSignal.current = code => signal(code === 4003 || code === 4004);
-    // 관전 Redis 신호가 준비됐거나 월드 프레임이 보이는 주행자를 모두 담으면 위치 변경 신호 구독을 쉰다.
+    // 월드 프레임이 보이는 주행자를 모두 담으면 위치 변경 신호 구독을 쉰다. 관전 Redis 신호가 붙어 있어도 신호 문서는
+    // 계속 듣는다 — 발행 실패 시 서버가 문서에 대신 쓴다(g1-web#4214). 두 신호가 겹쳐도 5초 창에서 한 번만 읽는다.
     // 명단·권한 신호(event·group·member)는 계속 구독해 콜러블로 다시 확인한다.
-    const locationSignalOff = () => spectatorActiveScope.current === scope || worldCoversRef.current;
+    const locationSignalOff = () => worldCoversRef.current;
     const syncSignal = () => {
       const path = `events/${eventId}/spectator_signals/latest`;
       if (locationSignalOff()) {
