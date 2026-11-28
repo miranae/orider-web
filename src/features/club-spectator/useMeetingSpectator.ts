@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
+import { isLocalWorldEventEnabled, isProductionWorldEventEnabled, isProductionWorldSignalEnabled, useWorldEvent } from "../ride-world/useWorldEvent";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { retainNewerSamples } from "./presentation";
 import { applyWorldFrame, enterWorldMode, retainWorldPositions, worldFrameCoversRiders } from "./worldFrame";
+import { useMeetingOutage } from "./useMeetingOutage";
 import type { MeetingSpectatorSnapshot } from "./types";
 
 /** 월드 프레임이 이 시간 동안 새로 오지 않으면 연결·준비 상태와 무관하게 위치 변경 신호·콜러블로 따라잡는다. */
@@ -46,21 +47,18 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const worldCoversRef = useRef(worldCovers);
   worldCoversRef.current = worldCovers;
   const syncLocationSignal = useRef<() => void>(() => {});
-  const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled();
+  // 관전 위치 변경 신호: 로컬 실험실 또는 운영 월드(g1-web#4214). 서버가 Redis 발행 성공 시 신호 문서를 쓰지 않기 때문이다.
+  const spectatorRedis = import.meta.env.VITE_ORIDER_LOCAL_SPECTATOR_REDIS === "1" && isLocalWorldEventEnabled() ||
+    isProductionWorldSignalEnabled("spectator");
   const spectatorSignal = useRef<(code?: number) => void>(() => {});
-  const spectatorActiveScope = useRef<string | null>(null);
   const viewer = uid === services.auth.currentUser?.uid ? services.auth.currentUser : null;
-  const previousBinding = useRef({ scope, viewer, services });
-  if (previousBinding.current.scope !== scope || previousBinding.current.viewer !== viewer ||
-      previousBinding.current.services !== services) {
-    previousBinding.current = { scope, viewer, services };
-    spectatorActiveScope.current = null;
-  }
   useWorldEvent(spectatorRedis ? eventId : undefined, viewer, undefined, undefined, {
     topic: "spectator",
-    changed: () => { spectatorActiveScope.current = scope; syncLocationSignal.current(); spectatorSignal.current(); },
-    disconnected: code => { spectatorActiveScope.current = null; syncLocationSignal.current(); spectatorSignal.current(code); },
-  });
+    // 월드 프레임이 주행자를 모두 담는 동안 위치 신호는 문서 리스너처럼 쉰다(#1931). 커버가 빠질 때·명단이 바뀔 때·권한 끊김은
+    // 아래 효과와 disconnected 가 따로 다시 읽는다.
+    changed: () => { if (!worldCoversRef.current) spectatorSignal.current(); },
+    disconnected: code => spectatorSignal.current(code),
+  }, undefined, false, true);
   useEffect(() => {
     let disposed = false, inFlight = false, queued = false, blocked = false, generation = 0;
     let lastReadAt = 0, recoveryAttempts = 0;
@@ -130,9 +128,10 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
       }, Math.max(100, 5000 - (Date.now() - lastReadAt)));
     };
     spectatorSignal.current = code => signal(code === 4003 || code === 4004);
-    // 관전 Redis 신호가 준비됐거나 월드 프레임이 보이는 주행자를 모두 담으면 위치 변경 신호 구독을 쉰다.
+    // 월드 프레임이 보이는 주행자를 모두 담으면 위치 변경 신호 구독을 쉰다. 관전 Redis 신호가 붙어 있어도 신호 문서는
+    // 계속 듣는다 — 발행 실패 시 서버가 문서에 대신 쓴다(g1-web#4214). 두 신호가 겹쳐도 5초 창에서 한 번만 읽는다.
     // 명단·권한 신호(event·group·member)는 계속 구독해 콜러블로 다시 확인한다.
-    const locationSignalOff = () => spectatorActiveScope.current === scope || worldCoversRef.current;
+    const locationSignalOff = () => worldCoversRef.current;
     const syncSignal = () => {
       const path = `events/${eventId}/spectator_signals/latest`;
       if (locationSignalOff()) {
@@ -215,11 +214,15 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
       return data === old.data ? old : {...old, data: {...data, serverNowMs}, receivedAt: now};
     });
   }, [world, worldViews, worldCovers, scope]);
+  // 월드 전체 장애(#4203) 동안에는 서버가 확정한 장애 회차의 좌표로 위치만 덮는다(#4215). 월드 프레임이 돌아오면 바로 빠진다.
+  const outage = useMeetingOutage(worldViews && world === null && activeState.data?.status === "LIVE", groupId, eventId, viewer, selectedUid);
   useEffect(() => {
     if (previousSelection.current !== selectedUid) {
       previousSelection.current = selectedUid;
       refreshSelection.current();
     }
   }, [selectedUid]);
-  return { ...activeState, reload: () => setRetry(v => v + 1) };
+  const shown = outage && activeState.data ? {...activeState, receivedAt: outage.receivedAt,
+    data: {...activeState.data, serverNowMs: outage.data.serverNowMs, locations: outage.data.locations}} : activeState;
+  return { ...shown, reload: () => setRetry(v => v + 1) };
 }

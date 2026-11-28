@@ -64,3 +64,13 @@ it("지도 오류를 주입된 서비스 객체와 함께 logClientError로 기�
   fireEvent.click(screen.getByRole("button", {name: "지도 오류 로그"}));
   expect(logClientError).toHaveBeenCalledWith("EventMap.render", expect.any(Error), {sourceId: "mapbox://test"}, mockServices, mockServices.auth.currentUser);
 });
+
+it("코스 없는 야외 모임도 위치가 오면 지도를 보여 주고 코스 준비 안내를 띄우지 않는다 (#4215)", () => {
+  const fixture = spectatorFixture(100000);
+  const free = {...fixture, course: null, locations: fixture.locations.map(r => ({...r, courseId: null, progressM: null, gapToLeaderM: null}))};
+  renderWithProviders(<MeetingSpectatorView snapshot={free} now={100000} receivedAt={100000} en={false} />);
+  expect(screen.getByRole("heading", {name: "함께 달리는 위치"})).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: /지도 선택/})).toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "코스 전체 보기"})).not.toBeInTheDocument();
+  expect(screen.queryByText(/모임 코스를 준비하고 있어요/)).not.toBeInTheDocument();
+});

@@ -6,7 +6,7 @@ import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from "r
 import { useTranslation } from "react-i18next";
 import { collection, getDocs, limit as firestoreLimit, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { CloudUpload, Loader2, MapPinned, Send } from "lucide-react";
+import { CloudUpload, Loader2, MapPinned } from "lucide-react";
 import { matchesDiscipline } from "@shared/sport/discipline";
 import { useToast } from "../../contexts/ToastContext";
 import type { Firestore } from "firebase/firestore";
@@ -66,6 +66,7 @@ function copyFor(language: string) {
       ? "포스터에 담을 활동과 사진을 고르세요. 사진이 없거나 사진을 쓰고 싶지 않으면 경로가 중심인 포스터로 보낼 수 있습니다."
       : "Choose the activity and photo for the poster. If there is no photo, or you prefer not to use one, send a route-focused poster.",
     loading: ko ? "최근 활동과 사진을 불러오는 중" : "Loading recent rides and photos",
+    preferredUnavailable: ko ? "이 기록은 포스터로 만들 수 없습니다. 최근 90일 자전거 기록만 가능합니다." : "This activity can't be made into a poster. Only cycling activities from the last 90 days are supported.",
     noOptions: ko ? "최근 90일 안에 포스터로 만들 자전거 활동이 없습니다." : "No cycling activities from the last 90 days are available for a poster.",
     noPhotos: ko ? "경로 포스터 선택" : "Use route poster",
     noPhotoItems: ko ? "업로드된 활동 사진이 없습니다. 왼쪽 경로 포스터를 선택하세요." : "No uploaded activity photos. Choose the route poster on the left.",
@@ -80,8 +81,8 @@ function copyFor(language: string) {
     photoTooLarge: ko ? "사진 용량이 너무 큽니다. 다른 사진을 선택하세요." : "The photo is too large. Choose another photo.",
     uploadFailed: ko ? "사진을 업로드하지 못했습니다." : "Could not upload the photo.",
     uploaded: ko ? "사진을 업로드했습니다." : "Photo uploaded.",
-    send: ko ? "선택한 사진으로 받기" : "Send selected",
-    cancel: ko ? "취소" : "Cancel",
+    send: ko ? "이메일로 받기" : "Email it to me",
+    preview: ko ? "미리보기" : "Preview",
     loadFailed: ko ? "사진 목록을 불러오지 못했습니다" : "Could not load photos",
     sent: ko ? "발송 완료" : "Sent",
     sendFailed: ko ? "이메일을 보내지 못했습니다" : "Could not send email",
@@ -116,7 +117,7 @@ function formatDuration(minutes: number, ko: boolean) {
   return ko ? `${h}시간 ${m}분` : `${h} h ${m} min`;
 }
 
-async function loadOptions(firestore: Firestore, userId: string, language: string, sportLabel: (type: string) => string): Promise<RideStoryActivityOption[]> {
+async function loadOptions(firestore: Firestore, userId: string, language: string, sportLabel: (type: string) => string, preferredActivityId: string | null = null): Promise<RideStoryActivityOption[]> {
   const activitiesRef = collection(firestore, "activities");
   const now = Date.now();
   const since = now - 90 * 24 * 60 * 60 * 1000;
@@ -129,12 +130,16 @@ async function loadOptions(firestore: Firestore, userId: string, language: strin
   ));
   // Same eligibility as the server recipe loader; filter before limiting so non-rides
   // cannot crowd valid cycling activities out of the selection list.
-  const eligible = activitySnap.docs.filter((activityDoc) => {
+  const eligibleAll = activitySnap.docs.filter((activityDoc) => {
     const data = activityDoc.data() as Record<string, unknown>;
     return !data.deletedAt && !data.isDeleted && matchesDiscipline(data.type, "bike")
       && typeof data.startTime === "number" && Number.isFinite(data.startTime)
       && data.startTime >= since && data.startTime <= now;
-  }).sort((left, right) => safeNumber(right.data().startTime) - safeNumber(left.data().startTime)).slice(0, 12);
+  }).sort((left, right) => safeNumber(right.data().startTime) - safeNumber(left.data().startTime));
+  // 상위 12개만 보이되, 앱에서 넘겨받은 활동은 대상이면 12개 밖이어도 넣는다 — 말없이 다른 활동을 고르지 않게(#1920).
+  const eligible = eligibleAll.slice(0, 12);
+  const preferredDoc = preferredActivityId ? eligibleAll.find((activityDoc) => activityDoc.id === preferredActivityId) : undefined;
+  if (preferredDoc && !eligible.includes(preferredDoc)) eligible.push(preferredDoc);
   const activities = await Promise.all(eligible.map(async (activityDoc) => {
     const data = activityDoc.data() as Record<string, unknown>;
     const summary = (data.summary ?? {}) as Record<string, unknown>;
@@ -171,7 +176,9 @@ async function loadOptions(firestore: Firestore, userId: string, language: strin
   return activities
     .filter((activity): activity is RideStoryActivityOption => Boolean(activity))
     .sort((a, b) => b.startTime - a.startTime)
-    .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0));
+    .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0))
+    // 넘겨받은 활동은 맨 위 — 선택돼도 목록 아래에 묻혀 다른 활동이 골라진 것처럼 보이지 않게(#1920).
+    .sort((a, b) => Number(b.id === preferredActivityId) - Number(a.id === preferredActivityId));
 }
 
 export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, onPreview, preferredActivityId = null }: RideStoryPhotoPickerProps) {
@@ -187,6 +194,8 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
   const [uploadingActivityId, setUploadingActivityId] = useState<string | null>(null);
   // 「사진 목록을 불러오지 못했습니다」를 누르면 다시 읽는다(읽는 동안은 문구가 내려가 거듭 누를 수 없다).
   const [loadAttempt, setLoadAttempt] = useState(0);
+  // 넘겨받은 활동이 대상이 아니라 목록에 없을 때 — 다른 활동을 미리 고르지 않고 알린다.
+  const [preferredMissing, setPreferredMissing] = useState(false);
 
   useEffect(() => {
     if (!open || !userId) return;
@@ -195,11 +204,18 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
     setError(null);
     setOptions([]);
     setSelection(null);
-    void loadOptions(photoServices.firestore, userId, i18n.language, type => t(getSportLabelKey(type)))
+    setPreferredMissing(false);
+    void loadOptions(photoServices.firestore, userId, i18n.language, type => t(getSportLabelKey(type)), preferredActivityId)
       .then((nextOptions) => {
         if (!active) return;
         setOptions(nextOptions);
-        const preferred = nextOptions.find((activity) => activity.id === preferredActivityId)
+        const requested = preferredActivityId ? nextOptions.find((activity) => activity.id === preferredActivityId) ?? null : null;
+        if (preferredActivityId && !requested) {
+          setPreferredMissing(true);
+          setSelection(null);
+          return;
+        }
+        const preferred = requested
           ?? nextOptions.find((activity) => activity.photos.length > 0) ?? nextOptions[0] ?? null;
         setSelection(preferred ? { activityId: preferred.id, photoId: preferred.photos[0]?.id ?? null } : null);
       })
@@ -288,6 +304,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
             <PickerMessage><Resolvable resolve={{ to: "/athlete/me/activities?import=1" }}>{copy.noOptions}</Resolvable></PickerMessage>
           ) : (
             <div className="space-y-4">
+              {preferredMissing && <p data-testid="ride-story-preferred-unavailable" className="text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.preferredUnavailable}</p>}
               {options.map((activity) => (
                 <RideStoryActivityRow
                   key={activity.id}
@@ -313,12 +330,12 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
           )}
         </div>
 
-        <div className="ride-story-picker-footer flex flex-wrap justify-end gap-2 border-t pt-4" style={{ borderColor: "var(--line-soft)" }}>
-          <Button wrap size="md" variant="secondary" onClick={onClose}>{copy.cancel}</Button>
-          {onPreview && <Button wrap size="md" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{i18n.language.startsWith("ko") ? "선택 결과 미리보기" : "Preview selected output"}</Button>}
-          <Button wrap size="md" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} leadingIcon={<Send size={ICON_SIZE.md} />} onClick={() => void send()}>
+        <div className={`ride-story-picker-footer grid ${onPreview ? "grid-cols-2" : "grid-cols-1"} gap-2 border-t pt-4`} style={{ borderColor: "var(--line-soft)" }}>
+          {/* 닫기는 위 ✕. 아래는 받기(보조)·미리보기(주) 두 개를 같은 폭 한 줄로 둔다(#1925). */}
+          <Button block size="md" variant="secondary" disabled={!selection || loading || Boolean(uploadingActivityId)} loading={sending} onClick={() => void send()}>
             {copy.send}
           </Button>
+          {onPreview && <Button block size="md" variant="primary" disabled={!selection || loading || Boolean(uploadingActivityId)} onClick={() => { if (selection) onPreview(selection); }}>{copy.preview}</Button>}
         </div>
       </div>
     </Modal>

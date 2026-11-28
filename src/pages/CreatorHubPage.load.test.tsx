@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { Route, Routes } from "react-router-dom";
 import CreatorHubPage from "./CreatorHubPage";
+import { EmbeddedNavigationContext } from "../embedded/EmbeddedNavigationContext";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import type { WeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 import i18n from "i18next";
@@ -59,6 +60,39 @@ it("shows rider tasks under the new title with only rider detail links", async (
   expect(screen.getByRole("link", { name: /^자랑 카드/ })).toHaveAttribute("href", "/ko/records/studio/share");
   expect(screen.queryByRole("link", { name: /내 도구에 직접 연결하기|활용 예시/ })).toBeNull();
   expect(document.body.textContent).not.toMatch(developerOnly);
+});
+
+// #1920 — 앱이 활동을 넘겨주면 개요 첫 버튼으로 그 활동의 포스터 선택 창을 바로 연다. 넘겨받지 않으면 두지 않는다.
+it("offers a poster from the activity the app opened the studio with", async () => {
+  renderWithProviders(<CreatorHubPage activityId="ride-1" />, { authenticated: true, route: "/ko/records/studio" });
+  const poster = await screen.findByTestId("records-studio-activity-poster");
+  expect(poster).toHaveTextContent("이 기록으로 포스터 만들기");
+  fireEvent.click(poster);
+  expect(await screen.findByRole("dialog")).toBeInTheDocument();
+});
+
+it("does not offer an activity poster without an activity", async () => {
+  renderWithProviders(<CreatorHubPage />, { authenticated: true, route: "/ko/records/studio" });
+  expect(await screen.findByRole("heading", { name: "이 기록으로 만들기" })).toBeInTheDocument();
+  expect(screen.queryByTestId("records-studio-activity-poster")).toBeNull();
+});
+
+// #1922 — 앱 안(임베드)에서는 앱이 열 수 없는 게시판 글쓰기 버튼(게시글로 공유·활용법 요청)을 두지 않는다.
+it("hides board write buttons inside the app but keeps them on the website", async () => {
+  const inApp = renderWithProviders(<EmbeddedNavigationContext.Provider value={() => {}}><CreatorHubPage /></EmbeddedNavigationContext.Provider>, { authenticated: true, route: "/ko/records/studio" });
+  expect(await screen.findByRole("heading", { name: "이 기록으로 만들기" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "게시글로 공유" })).toBeNull();
+  inApp.unmount();
+  renderWithProviders(<CreatorHubPage />, { authenticated: true, route: "/ko/records/studio" });
+  expect(await screen.findByRole("link", { name: "게시글로 공유" })).toBeInTheDocument();
+});
+
+it("drops the recipe request section inside the app", async () => {
+  renderWithProviders(<EmbeddedNavigationContext.Provider value={() => {}}><CreatorHubPage section="recipes" /></EmbeddedNavigationContext.Provider>, { authenticated: true, route: "/ko/records/studio/recipes" });
+  await screen.findByRole("link", { name: "이 기록으로 만들기" });
+  expect(screen.queryByTestId("E6-1-7")).toBeNull();
+  expect(screen.queryByRole("link", { name: /활용법 요청/ })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "만들고 싶은 활용법을 제안하세요" })).toBeNull();
 });
 
 it.each(["recipes", "share"])("hides developer content in the rider %s section", async section => {

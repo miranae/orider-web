@@ -2,23 +2,44 @@ import type { User } from "firebase/auth";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { watchWorldReadiness } from "./worldReadiness";
 import { logClientError } from "../../services/errorLogger";
+import { getRuntimeConfig, isEmulatorRuntime } from "../../services/runtimeConfig";
+
+const productionEndpoint = "wss://world.orider.co.kr/activity-map-signals";
+
+/**
+ * 공개 활동 지도 신호의 월드 엔드포인트. 로컬 실험실은 데모 에뮬레이터, 운영은 런타임 설정
+ * `worldActivityMapSignalsEnabled`(g1-web#4214)로만 켠다. 운영 월드는 로그인 회원만 받으므로 익명·비로그인은 Firestore 신호만 쓴다.
+ */
+export function activityMapWorldEndpoint(projectId: string | undefined, user: User | null): string | undefined {
+  if (import.meta.env.DEV && import.meta.env.VITE_ORIDER_LOCAL_WORLD === "1" &&
+      import.meta.env.VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS === "1" && projectId === "demo-orider-lab") {
+    return "ws://127.0.0.1:19487/activity-map-signals";
+  }
+  const config = getRuntimeConfig();
+  // 운영 Firebase 프로젝트를 공유하는 스테이지는 운영 설정을 물려받아도 운영 월드에 붙지 않는다(#1931, useWorldEvent 와 같은 기준).
+  const stage = config.appEnvironment === "stage" || config.deploymentProfile === "production-parity-stage" ||
+    config.deploymentProfile === "bundled-development";
+  if (projectId === "miranae-orider-g1" && !isEmulatorRuntime() && !stage && user && !user.isAnonymous &&
+      config.worldActivityMapSignalsEnabled === true) {
+    return productionEndpoint;
+  }
+}
 
 type Listener = (ready: boolean, failed: boolean) => void;
 type Pool = ReturnType<typeof createPool>;
 const pools = new WeakMap<FirebaseServices, Map<User | null, Pool>>();
 
-export function subscribeLocalActivityMapSignals(
-  services: FirebaseServices, user: User | null, ids: string[], listener: Listener,
+export function subscribeActivityMapSignals(
+  services: FirebaseServices, user: User | null, endpoint: string, ids: string[], listener: Listener,
 ): () => void {
   const accounts = pools.get(services) ?? new Map<User | null, Pool>();
   pools.set(services, accounts);
-  const pool = accounts.get(user) ?? createPool(services, user, () => accounts.delete(user));
+  const pool = accounts.get(user) ?? createPool(services, user, endpoint, () => accounts.delete(user));
   accounts.set(user, pool);
   return pool.subscribe(ids, listener);
 }
 
-function createPool(services: FirebaseServices, user: User | null, onEmpty: () => void) {
-  const endpoint = "ws://127.0.0.1:19487/activity-map-signals";
+function createPool(services: FirebaseServices, user: User | null, endpoint: string, onEmpty: () => void) {
   const listeners = new Map<Listener, Set<string>>();
   let subscribed: string[] = [];
   let sockets: WebSocket[] = [];
@@ -54,8 +75,11 @@ function createPool(services: FirebaseServices, user: User | null, onEmpty: () =
     const sequence = ++generation;
     try {
       const token = await user?.getIdToken();
+      // 운영 월드는 ID 토큰과 App Check 토큰을 함께 확인한다.
+      const appCheck = endpoint === productionEndpoint ? await services.getAppCheckToken() : undefined;
+      if (endpoint === productionEndpoint && !appCheck) throw new Error("Activity map App Check token unavailable");
       if (generation !== sequence || services.auth.currentUser !== user) return;
-      const request = (activityIds: string[]) => JSON.stringify({ v: 1, type: "activity_map_subscribe", activityIds, token });
+      const request = (activityIds: string[]) => JSON.stringify({ v: 1, type: "activity_map_subscribe", activityIds, token, ...(appCheck ? { appCheck } : {}) });
       const encoder = new TextEncoder();
       const batches: string[][] = [[]];
       for (const id of subscribed) {

@@ -128,18 +128,27 @@ describe("변경 신호 기반 스냅샷 비용", () => {
     await tick();
   };
 
-  it("월드 신호로 준비 화면을 갱신하고 연결이 끊기면 기존 신호를 다시 구독한다", async () => {
+  it("월드 신호로 준비 화면을 갱신하고 신호 문서도 계속 들어 발행 실패로 대신 쓴 신호를 받는다(g1-web#4214)", async () => {
     const { result } = setup({ ...snapshot(1), snapshotSignalVersion: "1:0" });
     await tick();
     const fallback = signals.listeners.find(({ path }) => path.endsWith("meeting_snapshot_signals/latest"))!;
+    signal(1);
     vi.mocked(getClubMeetingSnapshot).mockResolvedValue({ ...snapshot(2), snapshotSignalVersion: "2:0" });
     act(() => worldSignals.current?.changed("2:0"));
     await tick();
-    expect(fallback.stop).toHaveBeenCalledOnce();
+    expect(fallback.stop).not.toHaveBeenCalled();
     expect(result.current.data?.revision).toBe(2);
     expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    // 월드보다 오래된 문서 값은 무시하고, 발행 실패로 문서에만 쓴 더 새 신호는 다시 읽는다.
+    signal(1);
+    await tick();
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValue({ ...snapshot(3), snapshotSignalVersion: "3:0" });
+    signal(3);
+    await tick();
+    expect(result.current.data?.revision).toBe(3);
     act(() => worldSignals.current?.disconnected(1013));
-    expect(signals.listeners.filter(({ path }) => path.endsWith("meeting_snapshot_signals/latest"))).toHaveLength(2);
+    expect(signals.listeners.filter(({ path }) => path.endsWith("meeting_snapshot_signals/latest"))).toHaveLength(1);
   });
 
   it("로컬 Redis 신호가 끊기면 Firestore를 구독하고 복구 뒤 원본 스냅샷을 다시 읽는다", async () => {
@@ -157,8 +166,8 @@ describe("변경 신호 기반 스냅샷 비용", () => {
     expect(result.current.data?.revision).toBe(3);
     expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
     const fallbackListeners = signals.listeners.filter(({ path }) => path.endsWith("meeting_snapshot_signals/latest"));
-    expect(fallbackListeners).toHaveLength(2);
-    expect(fallbackListeners[1]?.stop).toHaveBeenCalledOnce();
+    expect(fallbackListeners).toHaveLength(1);
+    expect(fallbackListeners[0]?.stop).not.toHaveBeenCalled();
 
     vi.mocked(getClubMeetingSnapshot).mockRejectedValue({ code: "functions/permission-denied" });
     act(() => worldSignals.current?.disconnected(4003));

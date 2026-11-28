@@ -16,14 +16,23 @@ import {
 } from "./hubNavigation";
 
 describe("app explore tab sub-pages", () => {
-  it("follows the web explore hub order and appends the board", () => {
-    expect(EXPLORE_PAGES).toEqual(["courses", "segments", "events", "challenges", "athletes", "board"]);
-    expect(embeddedExplorePage("board")).toBe("board");
+  it("follows the web explore hub order and appends the community", () => {
+    expect(EXPLORE_PAGES).toEqual(["courses", "segments", "events", "challenges", "community"]);
+    expect(embeddedExplorePage("community")).toBe("community");
     // 기록 활용은 탐색에서 빠졌다(#3956) — 옛 page=recipes 는 서브탭이 아니라 기본 화면으로 연다.
     expect(embeddedExplorePage("recipes")).toBeNull();
     // 게시판 페이지 번호 같은 값은 서브탭이 아니다.
     expect(embeddedExplorePage("2")).toBeNull();
     expect(embeddedExplorePage(null)).toBeNull();
+  });
+
+  it("opens the removed people and board tabs as the community (#1929)", () => {
+    // 배포된 앱은 아직 page=·hubPage= 로 옛 값을 보낸다.
+    expect(embeddedExplorePage("athletes")).toBe("community");
+    expect(embeddedExplorePage("board")).toBe("community");
+    // 객체 기본 속성 이름은 서브탭이 아니다.
+    expect(embeddedExplorePage("toString")).toBeNull();
+    expect(embeddedExplorePage("constructor")).toBeNull();
   });
 });
 
@@ -32,7 +41,7 @@ describe("hub embed destinations", () => {
     expect(embeddedHubDestination(`/${lang}/embed/explore`, `/${lang}/explore/events?type=race#list`))
       .toBe(`/${lang}/embed/explore?type=race&hubPage=events#list`);
     expect(embeddedHubDestination(`/${lang}/embed/explore`, "/community/board?type=inquiry&page=3"))
-      .toBe(`/${lang}/embed/explore?type=inquiry&page=3&hubPage=board`);
+      .toBe(`/${lang}/embed/explore?type=inquiry&page=3&hubPage=community`);
   });
 
   it("keeps club list links in the clubs embed", () => {
@@ -53,7 +62,7 @@ describe("hub embed destinations", () => {
 
   it("combines coach and hub destinations", () => {
     expect(embeddedInternalDestination("/ko/embed/plan", "/coach/analysis")).toBe("/ko/embed/plan?page=analysis");
-    expect(embeddedInternalDestination("/ko/embed/explore", "/explore/athletes?q=kim")).toBe("/ko/embed/explore?q=kim&hubPage=athletes");
+    expect(embeddedInternalDestination("/ko/embed/explore", "/explore/athletes?q=kim")).toBe("/ko/embed/explore?q=kim&hubPage=community");
     expect(embeddedInternalDestination("/ko/embed/explore", "/coach/analysis")).toBeNull();
   });
 });

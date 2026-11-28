@@ -10,7 +10,8 @@ export interface SpectatorRider {
   lat: number;
   lng: number;
   sampledAtMs: number;
-  courseId: string;
+  /** 코스 없는 야외 모임은 null(서버 spectatorLocation 과 같다). */
+  courseId: string | null;
   progressM: number | null;
   speedMps: number | null;
   powerWatts: number | null;

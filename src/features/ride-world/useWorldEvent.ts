@@ -76,6 +76,16 @@ export function isProductionWorldEventEnabled(): boolean {
     config.appEnvironment !== "stage" && config.deploymentProfile !== "production-parity-stage" && config.deploymentProfile !== "bundled-development";
 }
 
+/**
+ * 운영 월드 `/events` 신호 전용 구독(g1-web#4214). 모임(meeting)·디스코드는 월드 운영 신호 수신
+ * (WORLD_HOSTED_ACCOUNT_SIGNALS ↔ worldAccountSignalsEnabled), 관전 위치(spectator)는 별도 플래그로 연다.
+ */
+export function isProductionWorldSignalEnabled(topic?: "discord" | "spectator"): boolean {
+  const config = getRuntimeConfig();
+  return isProductionWorldEventEnabled() &&
+    (topic === "spectator" ? config.worldSpectatorSignalsEnabled : config.worldAccountSignalsEnabled) === true;
+}
+
 /** 선택 기준을 모르는 동안 현재 선택으로 다시 구독하는 간격과 연속 재전송 상한. */
 export const TRACK_RETRY_MS = 3000;
 export const TRACK_RETRY_LIMIT = 5;
@@ -118,7 +128,8 @@ export function useWorldEvent(
   const subscribeCurrent = useRef<(() => void) | null>(null);
   const [state, setState] = useState<EventState | null>(null);
   useEffect(() => {
-    const url = production && !signalOnly && user && isProductionWorldEventEnabled() ? productionEndpoint
+    const url = production && user && (signalOnly ? isProductionWorldSignalEnabled(signalTopic) : isProductionWorldEventEnabled())
+      ? productionEndpoint
       : isLocalWorldEventEnabled() ? endpoint : null;
     if (!url || !eventId || (!user && !allowGuest)) return;
     const event = eventId;
