@@ -112,13 +112,33 @@ describe('app explore community list (#1929)', () => {
     return render(<MemoryRouter initialEntries={[route]}><BoardPage community /></MemoryRouter>);
   }
 
-  it('drops its own title and search box but keeps every board chip and the write button', () => {
+  it('drops its own title and search box, keeps every board chip and floats the write button', () => {
     renderCommunity('/ko/embed/explore?hubPage=community');
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
     expect(screen.queryByRole('searchbox')).toBeNull();
     // 문의·작업일지는 앱 문의 진입이 새 자리를 찾을 때까지 그대로 둔다.
     for (const name of ['전체', '작업일지', '문의/신고', '이맘쯤 우리는']) expect(screen.getByRole('button', { name })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '글쓰기' })).toBeInTheDocument();
+    // 글쓰기는 칩 줄이 아니라 오른쪽 아래 떠 있는 + 버튼 — 접근성 이름은 문구 그대로.
+    const write = screen.getByRole('button', { name: '글쓰기' });
+    expect(write.closest('.board-write-fab')).not.toBeNull();
+    expect(write.closest('.board-list-controls')).toBeNull();
+    expect(write).toHaveTextContent('');
+    expect(screen.getAllByRole('button', { name: '글쓰기' })).toHaveLength(1);
+  });
+
+  it('labels the floating button for inquiries and hides it on the devlog chip', () => {
+    const { unmount } = renderCommunity('/ko/embed/explore?hubPage=community&type=inquiry');
+    expect(screen.getByRole('button', { name: '문의하기' }).closest('.board-write-fab')).not.toBeNull();
+    unmount();
+    renderCommunity('/ko/embed/explore?hubPage=community&type=devlog');
+    expect(document.querySelector('.board-write-fab')).toBeNull();
+    expect(screen.queryByRole('button', { name: '글쓰기' })).toBeNull();
+  });
+
+  it('keeps the web board write button in the header without a floating button', () => {
+    renderBoard();
+    expect(screen.getByRole('button', { name: '글쓰기' }).closest('.board-list-header')).not.toBeNull();
+    expect(document.querySelector('.board-write-fab')).toBeNull();
   });
 
   it('keeps the inquiry query and searches posts by the community query', () => {

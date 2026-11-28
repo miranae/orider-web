@@ -11,7 +11,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from '../components/redesign'
 import type { BoardType } from '@shared/types';
 import { BoardFeedbackIcon } from "../features/board/BoardFeedbackIcon";
 import { Button, Card, Chip, Input, Text, type ChipVariant } from "../theme/components";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Plus, Search } from "lucide-react";
 import { useMobile } from "../hooks/useMobile";
 import SafeImage from "../components/SafeImage";
 import { useBoardBlocks } from "../features/board/useBoardBlocks";
@@ -106,7 +106,7 @@ const BoardPage: React.FC<BoardPageProps> = ({ community = false }) => {
   };
   const selectBoard = (type: BoardType | 'all') => updateFilters({ type: type === 'all' ? undefined : type, view: undefined, tag: undefined });
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  // 커뮤니티는 칩 줄 오른쪽에 글쓰기가 붙어 칩이 가로로 넘친다 — 링크로 뒤쪽 칩(문의 등)이 선택돼도 보이게
+  // 커뮤니티 칩 줄은 폰 폭에서 가로로 넘친다 — 링크로 뒤쪽 칩(문의 등)이 선택돼도 보이게
   // 칩 줄만 가로로 옮긴다(scrollIntoView 는 세로 스크롤까지 바꿀 수 있어 쓰지 않는다).
   const chipRowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -116,8 +116,10 @@ const BoardPage: React.FC<BoardPageProps> = ({ community = false }) => {
     if (!row || !chip) return;
     const box = row.getBoundingClientRect();
     const item = chip.getBoundingClientRect();
+    // 오른쪽 끝 흐림(padding-inline-end) 구간은 가려진 것으로 본다.
+    const right = box.right - (parseFloat(getComputedStyle(row).paddingRight) || 0);
     if (item.left < box.left) row.scrollLeft += item.left - box.left;
-    else if (item.right > box.right) row.scrollLeft += item.right - box.right;
+    else if (item.right > right) row.scrollLeft += item.right - right;
   }, [community, selectedBoard, searchParams]);
   // 제외 태그는 모두 같은 기준(글의 tags)으로 걸러낸다 — 칩 이름과 실제 필터가 어긋나지 않게.
   const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
@@ -199,6 +201,10 @@ const BoardPage: React.FC<BoardPageProps> = ({ community = false }) => {
   const { showToast } = useToast();
   const { deletePost, deleting } = useDeletePost();
   const isMobile = useMobile();
+  // 작업일지는 운영자만 쓴다 — 글쓰기를 두지 않는다. 문의 칩에서는 문의 양식으로 간다.
+  const canWrite = selectedBoard !== 'devlog';
+  const writeLabel = selectedBoard === 'inquiry' ? t("label.writingForm") : t("label.writingPost");
+  const openWrite = () => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write');
 
   // 카드 ⋯ 메뉴 (#401): 위험 동작(삭제)을 카드에 상시 노출하는 대신 overflow 메뉴로 이동
   const [cardMenuOpenId, setCardMenuOpenId] = useState<string | null>(null);
@@ -229,28 +235,26 @@ const BoardPage: React.FC<BoardPageProps> = ({ community = false }) => {
   };
 
   return (
-    <div className="board-list space-y-6">
+    <div className={community ? "board-list board-list--community space-y-6" : "board-list space-y-6"}>
       {blockedUsers.length > 0 && <Card className="p-3 flex flex-wrap gap-2 items-center">
         <span>{t('block.listHint', { count: blockedUsers.length })}</span>
         {blockedUsers.map(item => <Button key={item.id} size="sm" disabled={unblockPending} onClick={() => { void unblock(item.targetUid).catch(() => { showToast(t('block.failed'), 'error'); }); }}>{t('block.unblock')} ({posts.find(post => post.userId === item.targetUid)?.nickname || item.targetUid})</Button>)}
       </Card>}
       <div className={community ? "board-list-top--community z-20 bg-[var(--bg-0)] pb-2 mb-1 border-b border-[var(--line-soft)]" : "md:sticky md:top-0 z-20 bg-[var(--bg-0)] pb-2 md:pb-4 mb-1 md:mb-2 space-y-2 md:space-y-4 border-b border-[var(--line-soft)]"}>
         {/* 제목과 주요 동작은 모든 화면에서 같은 순서로 표시한다. */}
-        <div className={community ? "board-list-header board-list-header--community" : "board-list-header"}>
-          {!community && <div>
+        {!community && <div className="board-list-header">
+          <div>
             <Text as="h1" variant="pageTitle" data-testid="M2-0" className="explore-page-title">{t("page.communityTitle")}</Text>
             <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mt-1">
               {t("page.communitySubtitle")}
             </p>
-          </div>}
-          {selectedBoard !== 'devlog' && (
-            <Button data-testid="M2-0-2"
-              onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="primary"
-            >
-              {selectedBoard === 'inquiry' ? t("label.writingForm") : t("label.writingPost")}
+          </div>
+          {canWrite && (
+            <Button data-testid="M2-0-2" onClick={openWrite} variant="primary">
+              {writeLabel}
             </Button>
           )}
-        </div>
+        </div>}
 
         {/* Search + Tabs */}
         <div className="board-list-controls">
@@ -696,6 +700,14 @@ const BoardPage: React.FC<BoardPageProps> = ({ community = false }) => {
       )}
       </div>
 
+      {/* 커뮤니티(#1929): 칩 줄이 버튼에 잘리지 않게 글쓰기는 오른쪽 아래 떠 있는 둥근 버튼으로 둔다. */}
+      {community && canWrite && (
+        <div className="board-write-fab">
+          <Button data-testid="M2-0-2" variant="primary" size="lg" iconOnly aria-label={writeLabel} onClick={openWrite}>
+            <Plus size={ICON_SIZE.lg} aria-hidden="true" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

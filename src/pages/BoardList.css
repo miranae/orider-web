@@ -40,8 +40,21 @@
 .board-list-search .board-search-icon { position: absolute; inset-inline-start: 0; top: 50%; transform: translateY(-50%); color: var(--ink-3); z-index: 1; }
 .board-list-search .board-search-input { padding-inline-start: calc(var(--dim-button-height) + var(--space-1)); }
 
-/* 앱 탐색 커뮤니티(#1929): 제목·검색창 없이 종류 칩 줄 오른쪽에 글쓰기, 태그 패널은 아래 줄 */
-.board-list-top--community { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.board-list-top--community > .board-list-controls { order: 1; flex: 1 1 0; min-width: 0; }
-.board-list-top--community > .board-list-header { order: 2; flex: none; padding-block: 0; }
-.board-list-top--community > :not(.board-list-controls):not(.board-list-header) { order: 3; flex-basis: 100%; }
+/* 앱 탐색 커뮤니티(#1929): 제목·검색창 없이 칩 줄이 전체 폭을 쓰고, 글쓰기는 오른쪽 아래 떠 있는 둥근 버튼 */
+.board-list-top--community { display: grid; gap: var(--space-2); }
+/* 오른쪽 끝을 흐려 칩이 더 있다는 표시 — 칩을 눌러도 줄 폭은 그대로다 */
+.board-list-top--community .board-list-tabs {
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - var(--space-7)), transparent);
+  mask-image: linear-gradient(to right, black calc(100% - var(--space-7)), transparent);
+  padding-inline-end: var(--space-7);
+}
+/* 하단 안전 영역·앱 하단 탭바 위(앱이 --orider-host-safe-bottom 으로 넘긴다)에 띄운다 */
+.board-write-fab {
+  --board-fab-bottom: calc(var(--space-4) + max(var(--orider-host-safe-bottom, 0px), env(safe-area-inset-bottom, 0px)));
+  position: fixed; z-index: 30;
+  right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
+  bottom: var(--board-fab-bottom);
+}
+.board-write-fab > button { border-radius: 50%; box-shadow: var(--shadow-lg); }
+/* 목록 마지막 글이 버튼에 가리지 않게 버튼 높이만큼 아래 여백 */
+.board-list--community { padding-bottom: calc(var(--space-8) + var(--space-4) + max(var(--orider-host-safe-bottom, 0px), env(safe-area-inset-bottom, 0px))); }
