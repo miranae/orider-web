@@ -15,8 +15,12 @@ export function activityMapWorldEndpoint(projectId: string | undefined, user: Us
       import.meta.env.VITE_ORIDER_LOCAL_ACTIVITY_MAP_REDIS === "1" && projectId === "demo-orider-lab") {
     return "ws://127.0.0.1:19487/activity-map-signals";
   }
-  if (projectId === "miranae-orider-g1" && !isEmulatorRuntime() && user && !user.isAnonymous &&
-      getRuntimeConfig().worldActivityMapSignalsEnabled === true) {
+  const config = getRuntimeConfig();
+  // 운영 Firebase 프로젝트를 공유하는 스테이지는 운영 설정을 물려받아도 운영 월드에 붙지 않는다(#1931, useWorldEvent 와 같은 기준).
+  const stage = config.appEnvironment === "stage" || config.deploymentProfile === "production-parity-stage" ||
+    config.deploymentProfile === "bundled-development";
+  if (projectId === "miranae-orider-g1" && !isEmulatorRuntime() && !stage && user && !user.isAnonymous &&
+      config.worldActivityMapSignalsEnabled === true) {
     return productionEndpoint;
   }
 }
