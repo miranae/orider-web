@@ -1,4 +1,5 @@
 import "./EventControls.css";
+import { useEmbeddedNavigation } from "../embedded/EmbeddedNavigationContext";
 import "./CreatorReview.css";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import InfoTip from "../components/InfoTip";
@@ -527,6 +528,9 @@ export interface CreatorHubPageProps {
 
 export default function CreatorHubPage({ section: sectionOverride, mode = "rider", activityId = null }: CreatorHubPageProps = {}) {
   const rider = mode === "rider";
+  // 앱 안(임베드)에서는 앱이 앱 안 화면으로 열 수 없는 게시판 글쓰기 버튼을 두지 않는다 —
+  // iOS 는 열지 못하고 Android 는 외부 브라우저로 나간다(앱 버튼 외부 이탈 금지, #1922).
+  const inApp = useEmbeddedNavigation() !== null;
   const { i18n } = useTranslation();
   const { t: loadT } = useTranslation("dashboard");
   const { user, signIn } = useAuth();
@@ -863,10 +867,10 @@ export default function CreatorHubPage({ section: sectionOverride, mode = "rider
               <Bot size={ICON_SIZE.sm} />
               {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
             </Button>
-            <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm", className: recipeActionClass })}>
+            {!inApp && <Link to="/community/board/write" className={buttonClass({ variant: "primary", size: "sm", className: recipeActionClass })}>
                 <MessageSquareText size={ICON_SIZE.sm} aria-hidden />
                 {copy.actions.post}
-            </Link>
+            </Link>}
             <Link to={`${RECORDS_STUDIO_PATH}/recipes`} className={buttonClass({ variant: "secondary", size: "sm", className: recipeActionClass })}>
                 <BookOpen size={ICON_SIZE.sm} />
                 {copy.actions.recipe}
@@ -1430,7 +1434,8 @@ export default function CreatorHubPage({ section: sectionOverride, mode = "rider
       </details>
       )}
 
-      {section !== "overview" && (
+      {/* 앱 안 라이더 화면은 요청 버튼이 없어 이 칸이 비므로 통째로 두지 않는다(#1922). */}
+      {section !== "overview" && !(rider && inApp) && (
       <section className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}><GlossaryText>{copy.builderTitle}</GlossaryText></h2>
         <p className="mt-1 max-w-4xl text-[length:var(--ft-body-size)] leading-5" style={{ color: "var(--ink-3)" }}><GlossaryText>{rider ? copy.riderBuilderBody : copy.builderBody}</GlossaryText></p>
@@ -1445,10 +1450,10 @@ export default function CreatorHubPage({ section: sectionOverride, mode = "rider
             {copy.actions.submitRecipe}
           </a>
           </>}
-          <Link data-testid="E6-1-7" to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
+          {!inApp && <Link data-testid="E6-1-7" to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
             <MessageSquareText size={ICON_SIZE.sm} aria-hidden />
             {copy.actions.requestRecipe}
-          </Link>
+          </Link>}
         </div>
       </section>
       )}
