@@ -180,6 +180,7 @@ function buildCopy(language: string) {
       generate: ko ? "AI 일기 생성" : "Generate diary",
       generating: ko ? "AI 일기 생성 중" : "Generating diary",
       post: ko ? "게시글로 공유" : "Share as post",
+      posterFromActivity: ko ? "이 기록으로 포스터 만들기" : "Make a poster from this ride",
       copy: ko ? "카드 문구 복사" : "Copy card text",
       copied: ko ? "복사됨" : "Copied",
       copyPrompt: ko ? "작업 지시 복사" : "Copy prompt",
@@ -851,6 +852,13 @@ export default function CreatorHubPage({ section: sectionOverride, mode = "rider
             {copy.eyebrow}
           </div>
           <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
+            {/* 앱 「이 기록으로 만들기」로 들어오면 그 활동으로 바로 포스터 선택 창을 연다(#1920). */}
+            {activityId && user && (
+              <Button className={recipeActionClass} size="sm" variant="primary" data-testid="records-studio-activity-poster" onClick={() => setRideStoryPickerOpen(true)}>
+                <Sparkles size={ICON_SIZE.sm} />
+                {copy.actions.posterFromActivity}
+              </Button>
+            )}
             <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
               <Bot size={ICON_SIZE.sm} />
               {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}

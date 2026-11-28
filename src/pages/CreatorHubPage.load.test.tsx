@@ -61,6 +61,21 @@ it("shows rider tasks under the new title with only rider detail links", async (
   expect(document.body.textContent).not.toMatch(developerOnly);
 });
 
+// #1920 — 앱이 활동을 넘겨주면 개요 첫 버튼으로 그 활동의 포스터 선택 창을 바로 연다. 넘겨받지 않으면 두지 않는다.
+it("offers a poster from the activity the app opened the studio with", async () => {
+  renderWithProviders(<CreatorHubPage activityId="ride-1" />, { authenticated: true, route: "/ko/records/studio" });
+  const poster = await screen.findByTestId("records-studio-activity-poster");
+  expect(poster).toHaveTextContent("이 기록으로 포스터 만들기");
+  fireEvent.click(poster);
+  expect(await screen.findByRole("dialog")).toBeInTheDocument();
+});
+
+it("does not offer an activity poster without an activity", async () => {
+  renderWithProviders(<CreatorHubPage />, { authenticated: true, route: "/ko/records/studio" });
+  expect(await screen.findByRole("heading", { name: "이 기록으로 만들기" })).toBeInTheDocument();
+  expect(screen.queryByTestId("records-studio-activity-poster")).toBeNull();
+});
+
 it.each(["recipes", "share"])("hides developer content in the rider %s section", async section => {
   renderWithProviders(<Routes><Route path="/ko/records/studio/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: `/ko/records/studio/${section}` });
   await screen.findByRole("link", { name: "이 기록으로 만들기" });
