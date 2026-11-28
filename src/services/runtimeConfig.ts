@@ -43,6 +43,10 @@ export interface RuntimeConfig {
   worldEventViewsEnabled?: boolean;
   /** 운영자 대시보드의 운영 월드 정본 스냅샷 구독(#4049). 기본 꺼짐 — worldEventViewsEnabled 와 함께 켜야 동작한다. */
   operatorWorldSnapshotsEnabled?: boolean;
+  /** 웹 관전의 운영 월드 위치 변경 신호(`/events` spectator 토픽, g1-web#4214). 기본 꺼짐 — 월드 WORLD_HOSTED_SPECTATOR_SIGNALS=1 뒤에 켠다. */
+  worldSpectatorSignalsEnabled?: boolean;
+  /** 공개 활동 지도의 운영 월드 `/activity-map-signals` 구독(g1-web#4214). 기본 꺼짐 — 월드 WORLD_HOSTED_ACTIVITY_MAP_SIGNALS=1 뒤에 켠다. */
+  worldActivityMapSignalsEnabled?: boolean;
   coachRidePlanTokenEnabled?: boolean;
   coachRidePlanSnapshotEnabled?: boolean;
   coachRidePlanAiEnabled?: boolean;
@@ -120,6 +124,8 @@ function readBuildFallbackConfig(): RuntimeConfig {
     worldCourseSignalsEnabled: import.meta.env.VITE_WORLD_COURSE_SIGNALS_ENABLED === "true",
     worldEventViewsEnabled: import.meta.env.VITE_WORLD_EVENT_VIEWS_ENABLED === "true",
     operatorWorldSnapshotsEnabled: import.meta.env.VITE_OPERATOR_WORLD_SNAPSHOTS_ENABLED === "true",
+    worldSpectatorSignalsEnabled: import.meta.env.VITE_WORLD_SPECTATOR_SIGNALS_ENABLED === "true",
+    worldActivityMapSignalsEnabled: import.meta.env.VITE_WORLD_ACTIVITY_MAP_SIGNALS_ENABLED === "true",
     coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",

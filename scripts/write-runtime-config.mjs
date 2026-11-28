@@ -97,6 +97,8 @@ const config = {
   worldCourseSignalsEnabled: readBoolEnv("VITE_WORLD_COURSE_SIGNALS_ENABLED") ?? false,
   worldEventViewsEnabled: readBoolEnv("VITE_WORLD_EVENT_VIEWS_ENABLED") ?? false,
   operatorWorldSnapshotsEnabled: readBoolEnv("VITE_OPERATOR_WORLD_SNAPSHOTS_ENABLED") ?? false,
+  worldSpectatorSignalsEnabled: readBoolEnv("VITE_WORLD_SPECTATOR_SIGNALS_ENABLED") ?? false,
+  worldActivityMapSignalsEnabled: readBoolEnv("VITE_WORLD_ACTIVITY_MAP_SIGNALS_ENABLED") ?? false,
   coachRidePlanTokenEnabled: readBoolEnv("VITE_COACH_RIDE_PLAN_TOKEN_ENABLED") ?? false,
   coachRidePlanSnapshotEnabled: readBoolEnv("VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED") ?? false,
   coachRidePlanAiEnabled: readBoolEnv("VITE_COACH_RIDE_PLAN_AI_ENABLED") ?? false,

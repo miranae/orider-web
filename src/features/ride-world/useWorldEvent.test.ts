@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { User } from "firebase/auth";
-import { isProductionWorldEventEnabled, TRACK_RETRY_LIMIT, TRACK_RETRY_MS, useWorldEvent } from "./useWorldEvent";
+import { isProductionWorldEventEnabled, isProductionWorldSignalEnabled, TRACK_RETRY_LIMIT, TRACK_RETRY_MS, useWorldEvent } from "./useWorldEvent";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 
@@ -75,6 +75,30 @@ it("운영 구독에 App Check 토큰을 보내고 4001 만료 뒤 새 토큰으
   act(() => second.open());
   expect(second.sent[0]).toMatchObject({ token: "fresh-id", appCheck: "app-check" });
   expect(control.services.getAppCheckToken).toHaveBeenLastCalledWith(true);
+});
+
+it("운영 신호 전용 구독은 토픽별 플래그가 켜졌을 때만 운영 월드에 연결한다(g1-web#4214)", async () => {
+  const signal = (topic?: "discord" | "spectator") => ({ topic, changed: vi.fn(), disconnected: vi.fn() });
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true });
+  expect(isProductionWorldSignalEnabled()).toBe(false);
+  renderHook(() => useWorldEvent("meeting", user, undefined, undefined, signal(), undefined, false, true));
+  await act(async () => {});
+  expect(FakeSocket.instances).toHaveLength(0);
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true, worldAccountSignalsEnabled: true });
+  expect(isProductionWorldSignalEnabled("discord")).toBe(true);
+  expect(isProductionWorldSignalEnabled("spectator")).toBe(false);
+  const meeting = signal();
+  renderHook(() => useWorldEvent("meeting", user, undefined, undefined, meeting, undefined, false, true));
+  renderHook(() => useWorldEvent("meeting", user, undefined, undefined, signal("spectator"), undefined, false, true));
+  await waitFor(() => expect(FakeSocket.instances).toHaveLength(1));
+  const socket = FakeSocket.instances[0]!;
+  expect(socket.url).toBe("wss://world.orider.co.kr/events");
+  act(() => socket.open());
+  expect(socket.sent[0]).toMatchObject({ type: "event_subscribe", eventId: "meeting", signalOnly: true, appCheck: "app-check" });
+  act(() => socket.receive({ v: 1, type: "event_signal", eventId: "meeting", meetingVersion: "1700000000:000000001" }));
+  expect(meeting.changed).toHaveBeenCalledWith("1700000000:000000001");
+  resetRuntimeConfigForTests({ firebaseProjectId: "miranae-orider-g1", worldEventViewsEnabled: true, worldSpectatorSignalsEnabled: true });
+  expect(isProductionWorldSignalEnabled("spectator")).toBe(true);
 });
 
 it("App Check 토큰이 없으면 운영 월드에 연결하지 않는다", async () => {
